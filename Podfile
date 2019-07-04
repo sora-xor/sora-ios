@@ -1,6 +1,5 @@
 platform :ios, '9.0'
 
-source 'https://github.com/soramitsu/podspec-ios.git'
 source 'https://github.com/CocoaPods/Specs.git'
 
 abstract_target 'SoraPassportAll' do
@@ -17,7 +16,7 @@ abstract_target 'SoraPassportAll' do
   pod 'SoraUI'
   pod 'RobinHood'
   pod 'Kingfisher', :inhibit_warnings => true
-  pod 'CommonWallet', :git => 'https://github.com/soramitsu/common-wallet-ios.git', :commit => 'c945b7250729129a75ff207bd439421754f72909'
+  pod 'CommonWallet'
   pod 'Firebase/Core', :inhibit_warnings => true
   pod 'Firebase/Messaging', :inhibit_warnings => true
   pod 'Fabric'

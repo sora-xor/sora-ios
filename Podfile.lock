@@ -9,68 +9,71 @@ PODS:
     - IrohaCommunication
     - RobinHood
     - SoraUI
-  - Crashlytics (3.12.0):
-    - Fabric (~> 1.9.0)
-  - Cuckoo (1.0.4)
-  - Fabric (1.9.0)
-  - Firebase/Core (5.14.0):
+  - Crashlytics (3.13.2):
+    - Fabric (~> 1.10.2)
+  - Cuckoo (1.0.6)
+  - Fabric (1.10.2)
+  - Firebase/Core (6.3.0):
     - Firebase/CoreOnly
-    - FirebaseAnalytics (= 5.4.0)
-  - Firebase/CoreOnly (5.14.0):
-    - FirebaseCore (= 5.1.9)
-  - Firebase/Messaging (5.14.0):
+    - FirebaseAnalytics (= 6.0.2)
+  - Firebase/CoreOnly (6.3.0):
+    - FirebaseCore (= 6.0.3)
+  - Firebase/Messaging (6.3.0):
     - Firebase/CoreOnly
-    - FirebaseMessaging (= 3.2.2)
-  - FirebaseAnalytics (5.4.0):
-    - FirebaseCore (~> 5.1)
-    - FirebaseInstanceID (~> 3.3)
-    - GoogleAppMeasurement (= 5.4.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 5.2)
-    - GoogleUtilities/MethodSwizzler (~> 5.2)
-    - GoogleUtilities/Network (~> 5.2)
-    - "GoogleUtilities/NSData+zlib (~> 5.2)"
+    - FirebaseMessaging (~> 4.1.0)
+  - FirebaseAnalytics (6.0.2):
+    - FirebaseCore (~> 6.0)
+    - FirebaseInstanceID (~> 4.2)
+    - GoogleAppMeasurement (= 6.0.2)
+    - GoogleUtilities/AppDelegateSwizzler (~> 6.0)
+    - GoogleUtilities/MethodSwizzler (~> 6.0)
+    - GoogleUtilities/Network (~> 6.0)
+    - "GoogleUtilities/NSData+zlib (~> 6.0)"
     - nanopb (~> 0.3)
-  - FirebaseAnalyticsInterop (1.1.0)
-  - FirebaseCore (5.1.9):
-    - GoogleUtilities/Logger (~> 5.2)
-  - FirebaseInstanceID (3.3.0):
-    - FirebaseCore (~> 5.1)
-    - GoogleUtilities/Environment (~> 5.3)
-    - GoogleUtilities/UserDefaults (~> 5.3)
-  - FirebaseMessaging (3.2.2):
+  - FirebaseAnalyticsInterop (1.2.0)
+  - FirebaseCore (6.0.3):
+    - GoogleUtilities/Environment (~> 6.0)
+    - GoogleUtilities/Logger (~> 6.0)
+  - FirebaseInstanceID (4.2.0):
+    - FirebaseCore (~> 6.0)
+    - GoogleUtilities/Environment (~> 6.0)
+    - GoogleUtilities/UserDefaults (~> 6.0)
+  - FirebaseMessaging (4.1.0):
     - FirebaseAnalyticsInterop (~> 1.1)
-    - FirebaseCore (~> 5.1)
-    - FirebaseInstanceID (~> 3.0)
-    - GoogleUtilities/Environment (~> 5.2)
-    - GoogleUtilities/Reachability (~> 5.2)
+    - FirebaseCore (~> 6.0)
+    - FirebaseInstanceID (~> 4.1)
+    - GoogleUtilities/AppDelegateSwizzler (~> 6.2)
+    - GoogleUtilities/Environment (~> 6.2)
+    - GoogleUtilities/Reachability (~> 6.2)
+    - GoogleUtilities/UserDefaults (~> 6.2)
     - Protobuf (~> 3.1)
   - FireMock (3.1)
-  - GCDWebServer (3.4.2):
-    - GCDWebServer/Core (= 3.4.2)
-  - GCDWebServer/Core (3.4.2)
-  - GoogleAppMeasurement (5.4.0):
-    - GoogleUtilities/AppDelegateSwizzler (~> 5.2)
-    - GoogleUtilities/MethodSwizzler (~> 5.2)
-    - GoogleUtilities/Network (~> 5.2)
-    - "GoogleUtilities/NSData+zlib (~> 5.2)"
+  - GCDWebServer (3.5.2):
+    - GCDWebServer/Core (= 3.5.2)
+  - GCDWebServer/Core (3.5.2)
+  - GoogleAppMeasurement (6.0.2):
+    - GoogleUtilities/AppDelegateSwizzler (~> 6.0)
+    - GoogleUtilities/MethodSwizzler (~> 6.0)
+    - GoogleUtilities/Network (~> 6.0)
+    - "GoogleUtilities/NSData+zlib (~> 6.0)"
     - nanopb (~> 0.3)
-  - GoogleUtilities/AppDelegateSwizzler (5.3.6):
+  - GoogleUtilities/AppDelegateSwizzler (6.2.1):
     - GoogleUtilities/Environment
     - GoogleUtilities/Logger
     - GoogleUtilities/Network
-  - GoogleUtilities/Environment (5.3.6)
-  - GoogleUtilities/Logger (5.3.6):
+  - GoogleUtilities/Environment (6.2.1)
+  - GoogleUtilities/Logger (6.2.1):
     - GoogleUtilities/Environment
-  - GoogleUtilities/MethodSwizzler (5.3.6):
+  - GoogleUtilities/MethodSwizzler (6.2.1):
     - GoogleUtilities/Logger
-  - GoogleUtilities/Network (5.3.6):
+  - GoogleUtilities/Network (6.2.1):
     - GoogleUtilities/Logger
     - "GoogleUtilities/NSData+zlib"
     - GoogleUtilities/Reachability
-  - "GoogleUtilities/NSData+zlib (5.3.6)"
-  - GoogleUtilities/Reachability (5.3.6):
+  - "GoogleUtilities/NSData+zlib (6.2.1)"
+  - GoogleUtilities/Reachability (6.2.1):
     - GoogleUtilities/Logger
-  - GoogleUtilities/UserDefaults (5.3.6):
+  - GoogleUtilities/UserDefaults (6.2.1):
     - GoogleUtilities/Logger
   - gRPC (1.11.0):
     - gRPC-RxLibrary (= 1.11.0)
@@ -105,48 +108,50 @@ PODS:
   - nanopb/decode (0.3.8)
   - nanopb/encode (0.3.8)
   - Protobuf (3.5.0)
-  - R.swift (5.0.0):
+  - R.swift (5.0.3):
     - R.swift.Library (~> 5.0.0)
-  - R.swift.Library (5.0.0)
+  - R.swift.Library (5.0.1)
   - ReachabilitySwift (4.3.1)
-  - RobinHood (1.0.0)
+  - RobinHood (1.0.2)
   - SKPhotoBrowser (6.1.0)
   - SoraCrypto (0.1.1):
     - IrohaCrypto
     - SoraDocuments
   - SoraDocuments (0.1.2)
-  - SoraKeystore (0.1.1)
-  - SoraUI (1.7.3):
-    - SoraUI/AdaptiveDesign (= 1.7.3)
-    - SoraUI/Animator (= 1.7.3)
-    - SoraUI/Camera (= 1.7.3)
-    - SoraUI/Controls (= 1.7.3)
-    - SoraUI/DetailsView (= 1.7.3)
-    - SoraUI/EmptyState (= 1.7.3)
-    - SoraUI/LoadingView (= 1.7.3)
-    - SoraUI/ModalInputPresentation (= 1.7.3)
-    - SoraUI/PageLoader (= 1.7.3)
-    - SoraUI/PinView (= 1.7.3)
-  - SoraUI/AdaptiveDesign (1.7.3)
-  - SoraUI/Animator (1.7.3)
-  - SoraUI/Camera (1.7.3)
-  - SoraUI/Controls (1.7.3)
-  - SoraUI/DetailsView (1.7.3):
+  - SoraKeystore (0.1.2)
+  - SoraUI (1.8.3):
+    - SoraUI/AdaptiveDesign (= 1.8.3)
+    - SoraUI/Animator (= 1.8.3)
+    - SoraUI/Camera (= 1.8.3)
+    - SoraUI/Controls (= 1.8.3)
+    - SoraUI/DetailsView (= 1.8.3)
+    - SoraUI/EmptyState (= 1.8.3)
+    - SoraUI/LoadingView (= 1.8.3)
+    - SoraUI/ModalInputPresentation (= 1.8.3)
+    - SoraUI/PageLoader (= 1.8.3)
+    - SoraUI/PinView (= 1.8.3)
+    - SoraUI/Skrull (= 1.8.3)
+  - SoraUI/AdaptiveDesign (1.8.3)
+  - SoraUI/Animator (1.8.3)
+  - SoraUI/Camera (1.8.3)
+  - SoraUI/Controls (1.8.3)
+  - SoraUI/DetailsView (1.8.3):
     - SoraUI/Controls
-  - SoraUI/EmptyState (1.7.3):
+  - SoraUI/EmptyState (1.8.3):
     - SoraUI/Animator
-  - SoraUI/LoadingView (1.7.3):
+  - SoraUI/LoadingView (1.8.3):
     - SoraUI/Controls
-  - SoraUI/ModalInputPresentation (1.7.3):
+  - SoraUI/ModalInputPresentation (1.8.3):
     - SoraUI/Animator
-  - SoraUI/PageLoader (1.7.3)
-  - SoraUI/PinView (1.7.3):
+  - SoraUI/PageLoader (1.8.3)
+  - SoraUI/PinView (1.8.3):
     - SoraUI/Controls
-  - SwiftLint (0.29.1)
+  - SoraUI/Skrull (1.8.3)
+  - SwiftLint (0.33.0)
   - SwiftyBeaver (1.7.0)
 
 DEPENDENCIES:
-  - CommonWallet (from `https://github.com/soramitsu/common-wallet-ios.git`, commit `c945b7250729129a75ff207bd439421754f72909`)
+  - CommonWallet
   - Crashlytics
   - Cuckoo
   - Fabric
@@ -170,6 +175,7 @@ DEPENDENCIES:
 SPEC REPOS:
   https://github.com/cocoapods/specs.git:
     - BoringSSL
+    - CommonWallet
     - Crashlytics
     - Cuckoo
     - Fabric
@@ -195,42 +201,31 @@ SPEC REPOS:
     - R.swift
     - R.swift.Library
     - ReachabilitySwift
-    - SKPhotoBrowser
-    - SwiftLint
-    - SwiftyBeaver
-  https://github.com/soramitsu/podspec-ios.git:
     - RobinHood
+    - SKPhotoBrowser
     - SoraCrypto
     - SoraDocuments
     - SoraKeystore
     - SoraUI
-
-EXTERNAL SOURCES:
-  CommonWallet:
-    :commit: c945b7250729129a75ff207bd439421754f72909
-    :git: https://github.com/soramitsu/common-wallet-ios.git
-
-CHECKOUT OPTIONS:
-  CommonWallet:
-    :commit: c945b7250729129a75ff207bd439421754f72909
-    :git: https://github.com/soramitsu/common-wallet-ios.git
+    - SwiftLint
+    - SwiftyBeaver
 
 SPEC CHECKSUMS:
   BoringSSL: c46efb47593135382bc0934196f16d2f726f5f36
-  CommonWallet: 304f8e98431e82a8e54054664f7fd2fd70a56380
-  Crashlytics: 07fb167b1694128c1c9a5a5cc319b0e9c3ca0933
-  Cuckoo: 58e8219aa80f956350b6d3b396e9f1d6871544e7
-  Fabric: f988e33c97f08930a413e08123064d2e5f68d655
-  Firebase: 963d5685fae888a56d6d4d9cfce6b9c976958798
-  FirebaseAnalytics: c06f9d70577d79074214700a71fd5d39de5550fb
-  FirebaseAnalyticsInterop: e5f21be9af6548372e2f0815834ff909bff395a2
-  FirebaseCore: 8f49b70f57ab5cbb032ef41d64992ded21606459
-  FirebaseInstanceID: e2fa4cb35ef5558c200f7f0ad8a53e212215f93e
-  FirebaseMessaging: b412996f6a09337d232bb3a6676ce4d1f353d024
+  CommonWallet: e54953580ed6fe970492296d520eac737c216297
+  Crashlytics: 611738c7847f8291a1a51084e35987b86ba6b3ee
+  Cuckoo: 8074fc309159c4862665b83798f5ad03e061e8bd
+  Fabric: 706c8b8098fff96c33c0db69cbf81f9c551d0d74
+  Firebase: 8432d732974498afd5987e9001a05f90f1a3d625
+  FirebaseAnalytics: 470ddab7253b21ad5a40bebd4a9903d7ae19386a
+  FirebaseAnalyticsInterop: efbe45c8385ec626e29f9525e5ebd38520dfb6c1
+  FirebaseCore: 68f8a7f50cdae542715d4e86afa37c4067217dcb
+  FirebaseInstanceID: f20243a1d828e0e9a3798b995174dedc16f1b32a
+  FirebaseMessaging: 0ac5310133e6ada4cdd44d42e92038855214a5e9
   FireMock: 3eed872059c12f94855413347da83b9d6d1a6fac
-  GCDWebServer: 8d67ee9f634b4bb91eb4b8aee440318a5fc6debd
-  GoogleAppMeasurement: 98b71f5e04142793729a5ef23e5b96651ff4b70f
-  GoogleUtilities: 95996bea7c7d9b8fb811b7507669a4a8762f80c7
+  GCDWebServer: ead88cd14596dd4eae4f5830b8877c87c8728990
+  GoogleAppMeasurement: a35a645835bae31b6bdc0576396bc23908f12a22
+  GoogleUtilities: c7a0b08bda3bf808be823ed151f0e28ac6866e71
   gRPC: 70703dc9ba31c72341fc7f37745cc1c379edee96
   gRPC-Core: 164639cd8ae18ca8b65477fafb2efbaecf4f181a
   gRPC-ProtoRPC: bb5fddf3424aa4fad74d76736578a79fe40e244e
@@ -240,18 +235,18 @@ SPEC CHECKSUMS:
   Kingfisher: c148cd7b47ebde9989f6bc7c27dcaa79d81279a0
   nanopb: 5601e6bca2dbf1ed831b519092ec110f66982ca3
   Protobuf: 8a9838fba8dae3389230e1b7f8c104aa32389c03
-  R.swift: f88c7d7d48a2be4dffa132dde1b3d389620310eb
-  R.swift.Library: 0bf390e729bc10bb2c9e4fb78bd043164a7be4ff
+  R.swift: f5a87643b91ea569d23d6afb3eee9c743edde239
+  R.swift.Library: cfe85d569d9bae6cb262922db130e7c3a7a5fad1
   ReachabilitySwift: 4032e2f59586e11e3b0ebe15b167abdd587a388b
-  RobinHood: d65cb091bdfeb2dcaa12c602a95feef892f6671e
+  RobinHood: 97475c85d8c715fdc5ed4f6df4743028c9e133ca
   SKPhotoBrowser: 343de95d89dc7913763c5dda243cc6e606e4a168
-  SoraCrypto: 749aba48cddc17687d91ad66be285d7b91fde40a
-  SoraDocuments: 15c40b30e0e90d08eeb8c79c83977465bc3cf3a2
-  SoraKeystore: fd89e5b2196bb92c083448b8fb3ef130b045e2d9
-  SoraUI: 24ecc1e3fd78c69c43d054b40864715ad4fc979b
-  SwiftLint: 6772320e40b52049053a518c17db9b0634a0b45a
+  SoraCrypto: 7b8e74cc1572a7e7f4049264370adc388585566d
+  SoraDocuments: 86060c40478b05fbd62fc02a25df17a6f01ab6dc
+  SoraKeystore: 688cdd66b6ce68859944c232da7b36ed2c2e213a
+  SoraUI: 176a884d7cc3474453621d237823123932230698
+  SwiftLint: fed9c66336e41fc74dc48a73678380718f0c8b0e
   SwiftyBeaver: 4cc0080d2e23f980652e28978db11a5c9da39165
 
-PODFILE CHECKSUM: 12470b85315e4f80d55a775b86e7c923d293ed7d
+PODFILE CHECKSUM: 14d67c07049ff6693772cdc3db87fe16b4ac8b7f
 
-COCOAPODS: 1.6.1
+COCOAPODS: 1.7.3
