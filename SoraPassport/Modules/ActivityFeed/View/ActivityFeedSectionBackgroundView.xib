@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="14460.31" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait">
+        <adaptation id="fullscreen"/>
+    </device>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14460.20"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <collectionReusableView opaque="NO" multipleTouchEnabled="YES" contentMode="center" reuseIdentifier="" id="T6T-Zn-Yob" customClass="ActivityFeedSectionBackgroundView" customModule="SoraPassport" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="375" height="375"/>
+            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="8cZ-Do-tA3" customClass="RoundedView" customModule="SoraUI">
+                    <rect key="frame" x="0.0" y="0.0" width="375" height="375"/>
+                    <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
+                            <real key="value" value="10"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="fillColor">
+                            <color key="value" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="highlightedFillColor">
+                            <color key="value" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                            <real key="value" value="0.0"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="shadowOpacity">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="shadowColor">
+                            <color key="value" red="0.45098039215686275" green="0.6588235294117647" blue="0.65098039215686276" alpha="0.41999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="shadowRadius">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="size" keyPath="shadowOffset">
+                            <size key="value" width="0.0" height="1"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="EAN-rt-OuZ" customClass="ActivityFeedItemSeparatorsView" customModule="SoraPassport" customModuleProvider="target">
+                    <rect key="frame" x="0.0" y="0.0" width="375" height="375"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="color" keyPath="separatorColor">
+                            <color key="value" red="0.45098039220000002" green="0.6588235294" blue="0.65098039220000004" alpha="0.28000000000000003" colorSpace="custom" customColorSpace="sRGB"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="separatorWidth">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                </view>
+            </subviews>
+            <constraints>
+                <constraint firstItem="EAN-rt-OuZ" firstAttribute="top" secondItem="wyf-Hc-GgC" secondAttribute="top" id="8Wn-mL-NEM"/>
+                <constraint firstItem="wyf-Hc-GgC" firstAttribute="bottom" secondItem="8cZ-Do-tA3" secondAttribute="bottom" id="OiR-no-Ydz"/>
+                <constraint firstItem="wyf-Hc-GgC" firstAttribute="bottom" secondItem="EAN-rt-OuZ" secondAttribute="bottom" id="RCa-v7-XaB"/>
+                <constraint firstItem="8cZ-Do-tA3" firstAttribute="top" secondItem="wyf-Hc-GgC" secondAttribute="top" id="UYT-wG-KLJ"/>
+                <constraint firstItem="wyf-Hc-GgC" firstAttribute="trailing" secondItem="EAN-rt-OuZ" secondAttribute="trailing" id="Wta-ob-Iai"/>
+                <constraint firstItem="wyf-Hc-GgC" firstAttribute="trailing" secondItem="8cZ-Do-tA3" secondAttribute="trailing" id="lIg-JC-ciT"/>
+                <constraint firstItem="8cZ-Do-tA3" firstAttribute="leading" secondItem="wyf-Hc-GgC" secondAttribute="leading" id="ngx-EZ-J1t"/>
+                <constraint firstItem="EAN-rt-OuZ" firstAttribute="leading" secondItem="wyf-Hc-GgC" secondAttribute="leading" id="uc9-3h-Sd6"/>
+            </constraints>
+            <viewLayoutGuide key="safeArea" id="wyf-Hc-GgC"/>
+            <connections>
+                <outlet property="itemSeparatorsView" destination="EAN-rt-OuZ" id="TVO-Wi-J8n"/>
+            </connections>
+        </collectionReusableView>
+    </objects>
+</document>

@@ -1,0 +1,269 @@
+// Common
+
+"yes" = "Yes";
+"no" = "No";
+"save" = "Save";
+"close" = "Close";
+"go.settings" = "Open Settings";
+"not.now" = "Not Now";
+"error.title" = "Error";
+"error.unexpected.message" = "We are working hard to fix the error. Please, try again later.";
+"copied.title" = "Copied!";
+"today" = "Today";
+"yesterday" = "Yesterday";
+"this.year.format" = "dd MMMM";
+"any.year.format" = "dd MMMM yyyy";
+
+// Error
+
+"authorization.error.title" = "Authorization Failed";
+"invalid.parameters.error.title" = "Invalid Parameters";
+"resource.unavailable.error.title" = "Resource Unavailable";
+"internal.server.error.title" = "Internal Error";
+"unexpected.status.error.title" = "Unexpected Response Status";
+"server.error.message" = "Please, check internet connection and try again later.";
+
+"operation.error.title" = "Operation Failed";
+"operation.error.message" = "Please, try again later.";
+
+"result.status.missing.error.title" = "Missing Result Status";
+"result.ambiguous.error.title" = "Ambiguous Result";
+
+"connection.error.title" = "Connection Failed";
+"connection.error.message" = "Please, check internet connection and try again later.";
+
+"did.resolver.id.too.long.error.title" = "Identifier too long";
+"did.resolver.id.duplicated.error.title" = "Identifier duplicated";
+"did.resolver.invalid.proof.format.error.title" = "Invalid proof format";
+"did.resolver.proof.verification.error.title" = "Proof verification failed";
+"did.resolver.public.key.not.found.error.title" = "Missing public key";
+"did.resolver.error.message" = "Decentralized system unexpectedly failed. We are working hard to fix the problem.";
+
+// QR Code
+
+"qr.input.restricted.error.message" = "Unfortunatelly, you are not allowed to access camera.";
+"qr.input.denied.error.title" = "Camera Access";
+"qr.input.denied.error.message" = "Unfortunatelly, you denied access to camera previously. Would you like to allow access now?";
+
+// TabBar
+
+"tabbar.activity.title" = "Activity";
+"tabbar.projects.title" = "Projects";
+"tabbar.wallet.title" = "Wallet";
+"tabbar.profile.title" = "Profile";
+"tabbar.friends.title" = "Friends";
+
+// Project
+
+"project.funded.of" = "%@%% votes of %@";
+"project.finished.votes" = "%@ votes";
+"project.finished.at" = "Ended %@";
+"project.days.left" = "%@ days left";
+"project.hours.left" = "%@ hours left";
+"project.minutes.left" = "%@ minutes left";
+"project.seconds.left" = "%@ seconds left";
+"project.not.voted.title" = "Vote";
+"project.friends.voted.title" = "%@ friends voted";
+"project.reward.title" = "%@ reward in XOR if completed";
+"project.finished.successfull.title" = "Succesfull voting";
+"project.finished.unsuccessfull.title" = "Unsuccessful voting";
+"project.finished.spent.votes" = "You've spent %@ votes";
+"project.finished.reward" = "Rewarded with %@ in XOR";
+"project.all.title" = "All";
+"project.voted.title" = "Voted";
+"project.favorite.title" = "Favourites";
+"project.completed.title" = "Complete";
+"project.all.small.title" = "All";
+"project.voted.small.title" = "Voted";
+"project.favorite.small.title" = "Favourites";
+"project.completed.small.title" = "Done";
+"project.empty.opened.title" = "We are waiting for new\n projects to arrive";
+"project.empty.voted.title" = "Vote for the projets and they\n will be appear here";
+"project.empty.favorite.title" = "Add projects to favourites and\n they will appear here";
+"project.empty.completed.title" = "When project's funding target or deadline is reached\n you will find it here";
+
+// Details
+
+"project.details.favorite.count" = "%@ favourites";
+"project.details.voted.count" = "%@ friends voted";
+"project.details.favorite.voted.count" = "%@ friends voted   %@ favourites";
+"project.details.favorite.marked.title" = "Favourite";
+"project.details.favorite.not.marked.title" = "Favourite";
+"project.details.email.subject" = "Sora project details";
+"project.details.collapsed.title" = "Show more...";
+"project.details.expanded.title" = "Collapse";
+
+// Vote
+
+"vote.success.message" = "Thank you for supporting the project!";
+"vote.description.message" = "";
+"vote.too.small.error.message" = "You can vote with at least 1 point 😜";
+"vote.too.big.error.message" = "You don't have enough votes 😔";
+
+// Votes History
+
+"votes.history.empty.title" = "Whenever your votes will\n change, you will see the\n history of that here";
+
+// Personal info
+
+"personal.info.first.name" = "First Name";
+"personal.info.last.name" = "Last Name";
+"personal.info.phone" = "Mobile Phone";
+"personal.info.email" = "Email";
+
+"registration.unauthorized.title" = "Service Busy";
+"registration.unauthorized.message" = "Registration is in progress. Please, try to send the form later.";
+"invitation.code.not.found.error.message" = "Invitation code invalid. Please, try another one.";
+"registration.application.not.found.error.message" = "Application form is not found. Please, try another invitation code.";
+
+// Pincode
+
+"pinsetup.title.create" = "Enter pin code";
+"pinsetup.title.repeat" = "Confirm pin code";
+"pinsetup.title.enter" = "Enter pin code";
+
+"ask.touchid.title" = "Touch ID";
+"ask.touchid.message" = "Would you like to user Touch ID for authentification?";
+"ask.faceid.title" = "Face ID";
+"ask.faceid.message" = "Would you like to user Face ID for authentification?";
+"ask.biometry.reason" = "Authentificate to access the account";
+
+// Invitation
+
+"invite.friends.title" = "Invite friends";
+"invite.template" = "Use invitation code %@ to get access to Sora application.";
+"invite.parent.title" = "You were invited by %@";
+"invite.invitation.left" = "%@ left";
+
+"invitations.values.not.found.error.message" = "Can't determine available invitations. Please, try again later.";
+"invitations.not.enough.error.message" = "Sorry, but you don't have any invitations to share.";
+
+"invitations.empty.title" = "Status of your invitations\n will be displayed here";
+
+"invitations.sharing.subject" = "Invitation to Sora";
+"promo.sharing.subject" = "Sora promo link";
+
+// Web View
+
+"web.how.it.works.title" = "How it works?";
+
+// Account Backup
+
+"access.backup.load.error.title" = "Creadentials Loading Failed";
+"access.backup.completion.error.title" = "Creadentials Finalization Failed";
+"access.backup.copy.error.message" = "Copy Failed";
+"access.backup.error.message" = "Please, try repeat registration from scratch.";
+
+"access.backup.sharing.subject" = "Sora access backup";
+
+// Account Restore
+
+"access.restore.phrase.error.message" = "Invalid passphrase. Please, try another one.";
+
+// Voting
+
+"votes.not.enough.error.message" = "Sorry, but you don't have enough points to vote.";
+"votes.project.not.found.error.message" = "Sorry, but the project is not found.";
+"votes.not.allowed.error.message" = "Sorry, but the project can't receive votes anymore.";
+"votes.invalid.format.error.message" = "Sorry, but your amount of votes can't be interpreted. Please, try to vote again.";
+"votes.zero.error.message" = "Sorry, but you must have at least 1 point to vote.";
+"votes.project.parameters.error.message" = "Sorry, but some parameters of the project is not properly configured. Please, try another project";
+
+// Favorite
+
+"favorite.project.not.found.error.message" = "Sorry, but the project is not found.";
+"favorite.user.not.found.error.message" = "Sorry, but you are not authorize to make project favourite.";
+
+// Startup
+
+"startup.verification.title" = "Verifying authorization...";
+"startup.verification.subtitle" = "Please wait";
+"startup.waiting.network.title" = "Waiting network...";
+"startup.waiting.network.subtitle" = "Please check connection";
+
+// Tutorial
+
+"tutorial1.title" = "Projects";
+"tutorial1.details" = "Projects added to Sora by producers and added to voting after selection process";
+"tutorial2.title" = "Voting";
+"tutorial2.details" = "Users vote for the projects deciding which project should be funded";
+"tutorial3.title" = "Success";
+"tutorial3.details" = "If project succeeds in voting everybody get their share";
+
+// Profile
+
+"profile.option.reputation.title" = "My Reputation";
+"profile.option.rank.format" = "%@ of %@";
+"profile.option.votes.title" = "Votes";
+"profile.option.personal.details.title" = "Change personal details";
+"profile.option.passphrase.title" = "View passphrase";
+"profile.option.conversion.title" = "Conversion display";
+"profile.option.terms.title" = "Terms and conditions";
+
+// Reputation
+
+"reputation.details.format" = "%@ of %@";
+"reputation.details.no.user" = "Calculating...";
+"reputation.votes.details" = "%@ votes received last time";
+
+// Personal Update Info
+
+"personal.update.info.user.not.found.error" = "Can't continue update because user is not found";
+"personal.update.info.user.values.not.found.error" = "Can't continue update because user values data is not found";
+
+// Activity
+
+"activity.event.friend.registered.type" = "Friend Registered";
+"activity.event.friend.registered.details" = "Congratulations! Your reputation will be increased!";
+"activity.event.xor.transfered.type" = "XOR Received";
+"activity.event.xor.transfered.default.title" = "Anonymous";
+"activity.event.votes.credited.type" = "Votes distribution";
+"activity.event.votes.credited.title" = "Daily votes";
+"activity.event.rank.change.type" = "Rank changed";
+"activity.event.rank.change.title" = "Your rank now is %@ out of %@";
+"activity.event.invitations.credited.type" = "Invitations distribution";
+"activity.event.invitations.credited.title" = "You have received %@ invitations";
+"activity.event.project.funded.type" = "Project has been completed!";
+"activity.event.project.funded.details" = "You will receive information about XOR reward soon";
+"activity.event.project.funded.default" = "You will receive information about XOR reward soon";
+"activity.event.project.created.type" = "New project!";
+"activity.event.project.closed.type" = "Project reached deadline!";
+"activity.event.project.closed.default" = "Details will be available soon";
+"activity.event.xor.project.credited.type" = "XOR Reward for voting";
+"activity.event.xor.project.credited.details" = "Unknown project";
+"activity.event.user.has.voted.type" = "Friend voted for project!";
+"activity.event.user.has.voted.details" = "%@ has spent %@ votes for %@ project";
+"activity.event.user.has.voted.default" = "Information will be available soon";
+"activity.empty.title" = "Updates and notifications like\n received reward and accepted invitations\n will appear here";
+
+// Phone Verification
+
+"phone.verification.user.not.found.message" = "Sorry, but your personal information is not found. Please, retry registration later.";
+"phone.verification.too.frequent.message" = "Too frequent verification code requests. Please, try again later.";
+"phone.verification.code.expired.message" = "Verification code expired. Please, try again later.";
+"phone.verification.code.incorrect.message" = "Verification code is incorrect.";
+"phone.verification.code.not.found.message" = "Verification code is not found. Please, request another one.";
+"phone.verification.code.resend.format" = "You can request another code in %@";
+
+// Currency
+"currency.title" = "Currency display";
+"currency.item.title" = "%@, %@";
+
+// Asset
+"asset.details" = "Sora account";
+
+// Wallet
+
+"wallet.history.empty.state.title" = "Incoming and outgoing\ntransactions will appear here";
+"wallet.search.placeholder" = "Phone number or account id";
+"wallet.search.empty.state.title" = "No search results";
+"wallet.contacts.empty.state.title" = "Most important contacts will appear here";
+
+// Help
+
+"help.support.title" = "SORA support";
+"help.support.details" = "If you have feedback or need help contact us at %@";
+
+// Terms And Conditions
+
+"terms.title" = "Terms and Conditions";

@@ -1,0 +1,3 @@
+# Ignore Firebase settings files files wherever they are
+**/GoogleService-Info-Dev.plist
+**/GoogleService-Info-Release.plist

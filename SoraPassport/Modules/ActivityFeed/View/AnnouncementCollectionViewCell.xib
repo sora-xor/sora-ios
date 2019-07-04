@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="14490.70" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait">
+        <adaptation id="fullscreen"/>
+    </device>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14490.49"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <customFonts key="customFonts">
+        <array key="sora-Regular.otf">
+            <string>sora-rc004-0417-Regular</string>
+        </array>
+        <array key="sora-SemiBold.otf">
+            <string>sora-rc004-0417-SemiBold</string>
+        </array>
+    </customFonts>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <collectionViewCell opaque="NO" multipleTouchEnabled="YES" contentMode="center" reuseIdentifier="announcementCellId" id="vnh-fD-mga" customClass="AnnouncementCollectionViewCell" customModule="SoraPassport" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="334" height="107"/>
+            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+            <view key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" insetsLayoutMarginsFromSafeArea="NO">
+                <rect key="frame" x="0.0" y="0.0" width="334" height="107"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
+                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="QS4-5N-uyl" customClass="RoundedView" customModule="SoraUI">
+                        <rect key="frame" x="0.0" y="0.0" width="334" height="41"/>
+                        <subviews>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="SORA announcement" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.80000001192092896" translatesAutoresizingMaskIntoConstraints="NO" id="h6L-CN-zFO">
+                                <rect key="frame" x="20" y="12.5" width="294" height="16.5"/>
+                                <fontDescription key="fontDescription" name="sora-rc004-0417-SemiBold" family="sora-rc004-0417" pointSize="13"/>
+                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <constraints>
+                            <constraint firstAttribute="trailing" secondItem="h6L-CN-zFO" secondAttribute="trailing" constant="20" id="HLg-up-Crl"/>
+                            <constraint firstAttribute="height" constant="41" id="bTc-ZY-4b5"/>
+                            <constraint firstItem="h6L-CN-zFO" firstAttribute="centerY" secondItem="QS4-5N-uyl" secondAttribute="centerY" id="iYE-Dk-wrJ"/>
+                            <constraint firstItem="h6L-CN-zFO" firstAttribute="leading" secondItem="QS4-5N-uyl" secondAttribute="leading" constant="20" id="qEQ-Pz-6fS"/>
+                        </constraints>
+                        <userDefinedRuntimeAttributes>
+                            <userDefinedRuntimeAttribute type="number" keyPath="shadowOpacity">
+                                <real key="value" value="0.0"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
+                                <real key="value" value="10"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_topLeftRounded" value="YES"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_topRightRounded" value="YES"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomRightRounded" value="NO"/>
+                            <userDefinedRuntimeAttribute type="color" keyPath="fillColor">
+                                <color key="value" red="0.89411764709999997" green="0.13725490200000001" blue="0.1764705882" alpha="1" colorSpace="calibratedRGB"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomLeftRounded" value="NO"/>
+                        </userDefinedRuntimeAttributes>
+                    </view>
+                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="mdM-WZ-YJe" customClass="RoundedView" customModule="SoraUI">
+                        <rect key="frame" x="0.0" y="41" width="334" height="66"/>
+                        <subviews>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Starting today backer will have more tools to suppport their favourite projects." textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="CeQ-xQ-85x">
+                                <rect key="frame" x="17" y="12" width="297" height="35.5"/>
+                                <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="14"/>
+                                <color key="textColor" red="0.18039215689999999" green="0.18039215689999999" blue="0.18039215689999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <constraints>
+                            <constraint firstAttribute="trailing" secondItem="CeQ-xQ-85x" secondAttribute="trailing" constant="20" id="8k5-Vo-nb1"/>
+                            <constraint firstItem="CeQ-xQ-85x" firstAttribute="top" secondItem="mdM-WZ-YJe" secondAttribute="top" constant="12" id="cYO-Ra-35f"/>
+                            <constraint firstItem="CeQ-xQ-85x" firstAttribute="leading" secondItem="mdM-WZ-YJe" secondAttribute="leading" constant="17" id="fWj-dl-HyA"/>
+                        </constraints>
+                        <userDefinedRuntimeAttributes>
+                            <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
+                                <real key="value" value="10"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_topLeftRounded" value="NO"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_topRightRounded" value="NO"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomRightRounded" value="YES"/>
+                            <userDefinedRuntimeAttribute type="number" keyPath="shadowOpacity">
+                                <real key="value" value="1"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="color" keyPath="shadowColor">
+                                <color key="value" red="0.48627450979999998" green="0.6588235294" blue="0.61960784310000006" alpha="0.25" colorSpace="calibratedRGB"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="number" keyPath="shadowRadius">
+                                <real key="value" value="2.5"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="size" keyPath="shadowOffset">
+                                <size key="value" width="0.0" height="3"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomLeftRounded" value="YES"/>
+                        </userDefinedRuntimeAttributes>
+                    </view>
+                </subviews>
+            </view>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <constraints>
+                <constraint firstItem="Zwq-Ts-ogJ" firstAttribute="bottom" secondItem="mdM-WZ-YJe" secondAttribute="bottom" id="1Rd-Tv-q20"/>
+                <constraint firstItem="mdM-WZ-YJe" firstAttribute="leading" secondItem="Zwq-Ts-ogJ" secondAttribute="leading" id="9wp-Au-Yv5"/>
+                <constraint firstItem="Zwq-Ts-ogJ" firstAttribute="leading" secondItem="QS4-5N-uyl" secondAttribute="leading" id="MsI-sX-iMi"/>
+                <constraint firstItem="mdM-WZ-YJe" firstAttribute="top" secondItem="QS4-5N-uyl" secondAttribute="bottom" id="Ol0-Ny-KaQ"/>
+                <constraint firstItem="Zwq-Ts-ogJ" firstAttribute="trailing" secondItem="QS4-5N-uyl" secondAttribute="trailing" id="QRy-1I-A8r"/>
+                <constraint firstItem="mdM-WZ-YJe" firstAttribute="trailing" secondItem="Zwq-Ts-ogJ" secondAttribute="trailing" id="ZAF-Ng-tep"/>
+                <constraint firstItem="Zwq-Ts-ogJ" firstAttribute="top" secondItem="QS4-5N-uyl" secondAttribute="top" id="h5d-78-SSZ"/>
+            </constraints>
+            <viewLayoutGuide key="safeArea" id="Zwq-Ts-ogJ"/>
+            <connections>
+                <outlet property="detailsLabel" destination="CeQ-xQ-85x" id="gk7-6I-9hD"/>
+            </connections>
+        </collectionViewCell>
+    </objects>
+</document>
