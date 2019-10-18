@@ -1,3 +1,8 @@
+/**
+* Copyright Soramitsu Co., Ltd. All Rights Reserved.
+* SPDX-License-Identifier: Apache 2.0
+*/
+
 protocol PhoneRegistrationViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
     func didReceive(viewModel: PersonalInfoViewModelProtocol)
 }
