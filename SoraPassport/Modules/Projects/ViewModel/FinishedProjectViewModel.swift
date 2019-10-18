@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -43,7 +43,7 @@ protocol FinishedProjectViewModelProtocol: class {
     var content: FinishedProjectContent { get }
     var layout: FinishedProjectLayout { get }
 
-    var imageViewModel: ProjectImageViewModelProtocol? { get }
+    var imageViewModel: ImageViewModelProtocol? { get }
     var delegate: FinishedProjectViewModelDelegate? { get }
 }
 
@@ -51,14 +51,14 @@ final class FinishedProjectViewModel: FinishedProjectViewModelProtocol {
     var identifier: String
     var content: FinishedProjectContent
     var layout: FinishedProjectLayout
-    var imageViewModel: ProjectImageViewModelProtocol?
+    var imageViewModel: ImageViewModelProtocol?
 
     weak var delegate: FinishedProjectViewModelDelegate?
 
     init(identifier: String,
          content: FinishedProjectContent,
          layout: FinishedProjectLayout,
-         imageViewModel: ProjectImageViewModelProtocol?) {
+         imageViewModel: ImageViewModelProtocol?) {
         self.identifier = identifier
         self.content = content
         self.layout = layout

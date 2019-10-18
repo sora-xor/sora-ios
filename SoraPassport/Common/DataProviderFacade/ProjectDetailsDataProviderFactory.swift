@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -52,6 +52,6 @@ extension ProjectDetailsDataProviderFactory: ProjectDetailsDataProviderFactoryPr
         return SingleValueProvider(targetIdentifier: projectId,
                                    source: source,
                                    cache: cache,
-                                   updateTrigger: DataProviderEventTrigger.onAll)
+                                   updateTrigger: DataProviderEventTrigger.onAddObserver)
     }
 }

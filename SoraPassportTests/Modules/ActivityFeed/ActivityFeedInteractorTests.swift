@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -11,12 +11,8 @@ import RobinHood
 class ActivityFeedInteractorTests: NetworkBaseTests {
 
     func testSuccessfullSetupAndFirstPageLoading() {
-        // given
         ActivityFeedMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-        ProjectsFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-        AnnouncementFetchMock.register(mock: .successNotEmpty,
-                                       projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-        CurrencyFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        AnnouncementFetchMock.register(mock: .successNotEmpty, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
         let interactor = createInteractor()
         let presenter = createPresenter()
@@ -27,6 +23,53 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
         presenter.wireframe = MockActivityFeedWireframeProtocol()
         presenter.interactor = interactor
 
+        performSetup(for: viewMock, presenter: presenter)
+    }
+
+    func testSectionDateFormatterChanges() {
+        // given
+
+        ActivityFeedMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        AnnouncementFetchMock.register(mock: .successNotEmpty, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        let interactor = createInteractor()
+        let presenter = createPresenter()
+        let view = MockActivityFeedViewProtocol()
+
+        interactor.presenter = presenter
+        presenter.view = view
+        presenter.wireframe = MockActivityFeedWireframeProtocol()
+        presenter.interactor = interactor
+
+        performSetup(for: view, presenter: presenter)
+
+        // when
+
+        let expectation = XCTestExpectation()
+
+        stub(view) { stub in
+            when(stub).didReceive(using: any((() -> [ActivityFeedViewModelChange]).self)).then { _ in
+                XCTAssert(Thread.isMainThread)
+                expectation.fulfill()
+            }
+        }
+
+        // day changed notification usually dispatched in background
+
+        DispatchQueue.global(qos: .default).async {
+            NotificationCenter.default.post(name: .NSCalendarDayChanged, object: self)
+        }
+
+        // then
+
+        wait(for: [expectation], timeout: Constants.expectationDuration)
+    }
+
+    // MARK: Private
+
+    private func performSetup(for view: MockActivityFeedViewProtocol, presenter: ActivityFeedPresenter) {
+        // given
+
         let itemsExpectation = XCTestExpectation()
         itemsExpectation.expectedFulfillmentCount = 2
         itemsExpectation.assertForOverFulfill = false
@@ -35,7 +78,7 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
         announcementExpectation.expectedFulfillmentCount = 2
         announcementExpectation.assertForOverFulfill = false
 
-        stub(viewMock) { (stub) in
+        stub(view) { (stub) in
             when(stub).didReceive(using: any((() -> [ActivityFeedViewModelChange]).self)).then { _ in
                 itemsExpectation.fulfill()
             }
@@ -72,11 +115,9 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
             return
         }
 
-        verify(viewMock, times(2)).didReceive(using: any((() -> [ActivityFeedViewModelChange]).self))
-        verify(viewMock, atLeast(2)).didReload(announcement: any(AnnouncementItemViewModelProtocol?.self))
+        verify(view, times(2)).didReceive(using: any((() -> [ActivityFeedViewModelChange]).self))
+        verify(view, atLeast(2)).didReload(announcement: any(AnnouncementItemViewModelProtocol?.self))
     }
-
-    // MARK: Private
 
     private func createInteractor() -> ActivityFeedInteractor {
         let requestSigner = createDummyRequestSigner()
@@ -105,7 +146,15 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
     }
 
     private func createPresenter() -> ActivityFeedPresenter {
-        let activityFeedViewModelFactory = ActivityFeedViewFactory.createActivityFeedItemViewModelFactory()
+        let dateFormatterProvider = DateFormatterProvider(dateFormatterFactory: EventListDateFormatterFactory.self,
+                                                          dayChangeHandler: DayChangeHandler())
+
+        let activityFeedViewModelFactory = ActivityFeedViewModelFactory(sectionFormatterProvider: dateFormatterProvider,
+                                                                        timestampDateFormatter: DateFormatter.timeOnly,
+                                                                        votesNumberFormatter: NumberFormatter.vote,
+                                                                        amountFormatter: NumberFormatter.amount,
+                                                                        integerFormatter: NumberFormatter.anyInteger)
+
         let announcementViewModelFactory = AnnouncementViewModelFactory()
 
         return ActivityFeedPresenter(itemViewModelFactory: activityFeedViewModelFactory,

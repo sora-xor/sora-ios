@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -15,6 +15,7 @@ protocol StartupPresenterProtocol: class {
 
 enum StartupInteratorState {
     case initial
+    case unsupported
     case verifying
     case waitingRetry
     case completed
@@ -30,10 +31,11 @@ protocol StartupInteractorOutputProtocol: class {
     func didDecideOnboarding()
     func didDecidePincodeSetup()
     func didDecideMain()
+    func didDecideUnsupportedVersion(data: SupportedVersionData)
     func didChangeState()
 }
 
-protocol StartupWireframeProtocol: class {
+protocol StartupWireframeProtocol: UnsupportedVersionPresentable {
     func showOnboarding(from view: StartupViewProtocol?)
     func showMain(from view: StartupViewProtocol?)
     func showPincodeSetup(from view: StartupViewProtocol?)

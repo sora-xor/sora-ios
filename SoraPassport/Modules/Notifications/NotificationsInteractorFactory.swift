@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -19,6 +19,7 @@ class NotificationsInteractorFactory: NotificationsInteractorFactoryProtocol {
                                                           requestSigner: requestSigner)
 
         let interactor = NotificationsInteractor(presenter: presenter,
+                                                 eventCenter: EventCenter.shared,
                                                  config: ApplicationConfig.shared,
                                                  notificationUnitService: notificationService,
                                                  notificationsRegistrator: NotificationsRegistration(),

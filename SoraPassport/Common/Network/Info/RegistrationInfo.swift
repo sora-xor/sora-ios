@@ -1,16 +1,23 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 
-struct RegistrationInfo: Codable {
+struct RegistrationUserInfo: Codable {
     enum CodingKeys: String, CodingKey {
-        case applicationForm = "applicationFormDTO"
-        case invitationCode
+        case firstName
+        case lastName
+        case country
     }
 
-    var applicationForm: ApplicationFormInfo
-    var invitationCode: String
+    var firstName: String
+    var lastName: String
+    var country: String
+}
+
+struct RegistrationInfo: Codable {
+    var userData: RegistrationUserInfo
+    var invitationCode: String?
 }

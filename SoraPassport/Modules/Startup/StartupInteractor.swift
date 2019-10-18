@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -9,6 +9,7 @@ import SoraCrypto
 import RobinHood
 
 private enum StartupInteractorError: Error {
+    case unsupportedVersion(data: SupportedVersionData)
     case verificationFailed
 }
 
@@ -36,6 +37,7 @@ final class StartupInteractor {
     private(set) var identityNetworkOperationFactory: DecentralizedResolverOperationFactoryProtocol
     private(set) var identityLocalOperationFactory: IdentityOperationFactoryProtocol.Type
     private(set) var accountOperationFactory: ProjectAccountOperationFactoryProtocol
+    private(set) var informationOperationFactory: ProjectInformationOperationFactoryProtocol
     private(set) var operationManager: OperationManagerProtocol
     private(set) var reachabilityManager: ReachabilityManagerProtocol?
 
@@ -49,6 +51,7 @@ final class StartupInteractor {
          identityNetworkOperationFactory: DecentralizedResolverOperationFactoryProtocol,
          identityLocalOperationFactory: IdentityOperationFactoryProtocol.Type,
          accountOperationFactory: ProjectAccountOperationFactoryProtocol,
+         informationOperationFactory: ProjectInformationOperationFactoryProtocol,
          operationManager: OperationManagerProtocol,
          reachabilityManager: ReachabilityManagerProtocol?) {
 
@@ -59,46 +62,113 @@ final class StartupInteractor {
         self.identityNetworkOperationFactory = identityNetworkOperationFactory
         self.identityLocalOperationFactory = identityLocalOperationFactory
         self.accountOperationFactory = accountOperationFactory
+        self.informationOperationFactory = informationOperationFactory
         self.operationManager = operationManager
 
         try? reachabilityManager?.add(listener: self)
     }
 
-    private func performIdentityUpdateOperation(for decentralizedId: String) -> BaseOperation<Bool> {
-        logger?.debug("Fetching current identity for \(decentralizedId)")
+    private func performVersionCheckOperation(for urlTemplate: String) -> BaseOperation<SupportedVersionData> {
+        let version = config.version
 
-        let identityFetchOperation = identityNetworkOperationFactory
-            .createDecentralizedDocumentFetchOperation(decentralizedId: decentralizedId)
+        logger?.debug("Checking if \(version) version supported")
 
-        let identityVerifyOperation = identityLocalOperationFactory.createVerificationOperation()
-        identityVerifyOperation.configurationBlock = {
-            guard let fetchResult = identityFetchOperation.result else {
-                self.logger?.warning("Something caused identity fetch to cancel")
+        let checkVersionOperation = informationOperationFactory
+            .checkSupportedVersionOperation(urlTemplate, version: version)
 
-                identityVerifyOperation.cancel()
-                return
+        operationManager.enqueue(operations: [checkVersionOperation], in: .normal)
+
+        return checkVersionOperation
+    }
+
+    private func performIdentityUpdateOperation(for decentralizedId: String,
+                                                dependingOn versionOperation: BaseOperation<SupportedVersionData>)
+        -> BaseOperation<Bool> {
+
+        let identityFetchOperation = performIdentityFetch(for: decentralizedId, dependingOn: versionOperation)
+        let identityVerifyOperation = performIdentityVerify(for: decentralizedId, dependingOn: identityFetchOperation)
+        let identityUpdateOperation = performIdentityUpdateOperation(for: decentralizedId,
+                                                                     dependingOn: identityVerifyOperation)
+
+        return identityUpdateOperation
+    }
+
+    private func performIdentityFetch(for decentralizedId: String,
+                                      dependingOn versionOperation: BaseOperation<SupportedVersionData>)
+        -> BaseOperation<DecentralizedDocumentObject> {
+            logger?.debug("Fetching current identity for \(decentralizedId)")
+
+            let identityFetchOperation = identityNetworkOperationFactory
+                .createDecentralizedDocumentFetchOperation(decentralizedId: decentralizedId)
+
+            identityFetchOperation.configurationBlock = {
+                guard let versionResult = versionOperation.result else {
+                    self.logger?.warning("Something cause version operation to cancel")
+
+                    identityFetchOperation.cancel()
+                    return
+                }
+
+                switch versionResult {
+                case .success(let data):
+                    self.logger?.debug("Current version is supported = \(data.supported)")
+                    if !data.supported {
+                        identityFetchOperation.result = .error(StartupInteractorError.unsupportedVersion(data: data))
+                    }
+                case .error(let error):
+                    identityFetchOperation.result = .error(error)
+                }
             }
 
-            switch fetchResult {
-            case .success(let documentObject):
-                self.logger?.debug("Successfully fetched identity for \(decentralizedId)")
+            identityFetchOperation.addDependency(versionOperation)
 
-                identityVerifyOperation.decentralizedDocument = documentObject
-            case .error(let error):
-                self.logger?.warning("Identity fetching error received \(error)")
+            operationManager.enqueue(operations: [identityFetchOperation], in: .normal)
 
-                identityVerifyOperation.result = .error(error)
+            return identityFetchOperation
+    }
+
+    private func performIdentityVerify(for decentralizedId: String,
+                                       dependingOn fetchOperation: BaseOperation<DecentralizedDocumentObject>)
+        -> IdentityVerifyOperation {
+
+            let identityVerifyOperation = identityLocalOperationFactory.createVerificationOperation()
+            identityVerifyOperation.configurationBlock = {
+                guard let fetchResult = fetchOperation.result else {
+                    self.logger?.warning("Something caused identity fetch to cancel")
+
+                    identityVerifyOperation.cancel()
+                    return
+                }
+
+                switch fetchResult {
+                case .success(let documentObject):
+                    self.logger?.debug("Successfully fetched identity for \(decentralizedId)")
+
+                    identityVerifyOperation.decentralizedDocument = documentObject
+                case .error(let error):
+                    self.logger?.warning("Identity fetching error received \(error)")
+
+                    identityVerifyOperation.result = .error(error)
+                }
             }
-        }
 
-        identityVerifyOperation.addDependency(identityFetchOperation)
+            identityVerifyOperation.addDependency(fetchOperation)
+
+            operationManager.enqueue(operations: [identityVerifyOperation], in: .normal)
+
+            return identityVerifyOperation
+    }
+
+    private func performIdentityUpdateOperation(for decentralizedId: String,
+                                                dependingOn verifyOperation: IdentityVerifyOperation)
+        -> BaseOperation<Bool> {
 
         let identityUpdateOperation = BaseOperation<Bool>()
         identityUpdateOperation.configurationBlock = {
 
             self.logger?.debug("Updating identity for \(decentralizedId)")
 
-            guard let verificationResult = identityVerifyOperation.result else {
+            guard let verificationResult = verifyOperation.result else {
                 self.logger?.warning("Something caused identity update to cancel")
 
                 identityUpdateOperation.cancel()
@@ -119,10 +189,9 @@ final class StartupInteractor {
             }
         }
 
-        identityUpdateOperation.addDependency(identityVerifyOperation)
+        identityUpdateOperation.addDependency(verifyOperation)
 
-        let operations = [identityFetchOperation, identityVerifyOperation, identityUpdateOperation]
-        operationManager.enqueue(operations: operations, in: .normal)
+        operationManager.enqueue(operations: [identityUpdateOperation], in: .normal)
 
         return identityUpdateOperation
     }
@@ -174,6 +243,17 @@ final class StartupInteractor {
         operationManager.enqueue(operations: [userOperation], in: .normal)
     }
 
+    private func handleInteractor(error: StartupInteractorError) {
+        switch error {
+        case .unsupportedVersion(let data):
+            state = .unsupported
+
+            presenter?.didDecideUnsupportedVersion(data: data)
+        case .verificationFailed:
+            removeIdentityAndFailVerification()
+        }
+    }
+
     private func removeIdentityAndFailVerification() {
         let removalOperation = identityLocalOperationFactory.createLocalRemoveOperation()
 
@@ -217,8 +297,8 @@ final class StartupInteractor {
         case .error(let error):
             self.logger?.warning("Identity verification completed with \(error)")
 
-            if let interatorError = error as? StartupInteractorError, interatorError == .verificationFailed {
-                removeIdentityAndFailVerification()
+            if let interactorError = error as? StartupInteractorError {
+                handleInteractor(error: interactorError)
             } else {
                 scheduleVerificationRetry()
             }
@@ -281,14 +361,20 @@ extension StartupInteractor: StartupInteractorInputProtocol {
             return
         }
 
-        guard let service = config.defaultProjectUnit.service(for: ProjectServiceType.customer.rawValue) else {
+        guard
+            let customerService = config.defaultProjectUnit.service(for: ProjectServiceType.customer.rawValue),
+            let versionCheckService = config.defaultProjectUnit
+                .service(for: ProjectServiceType.supportedVersion.rawValue) else {
             scheduleVerificationRetry()
             return
         }
 
-        let identityUpdateOperation = performIdentityUpdateOperation(for: decentralizedId)
+        let versionCheckOperation = performVersionCheckOperation(for: versionCheckService.serviceEndpoint)
 
-        performRegistrationCheckOperation(for: service.serviceEndpoint,
+        let identityUpdateOperation = performIdentityUpdateOperation(for: decentralizedId,
+                                                                     dependingOn: versionCheckOperation)
+
+        performRegistrationCheckOperation(for: customerService.serviceEndpoint,
                                           dependingOn: identityUpdateOperation) { [weak self] (optionalResult) in
                                             self?.processVerification(result: optionalResult)
         }

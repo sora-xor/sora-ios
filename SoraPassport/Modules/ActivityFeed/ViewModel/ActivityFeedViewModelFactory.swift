@@ -1,12 +1,18 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 import RobinHood
 
+protocol ActivityFeedViewModelFactoryDelegate: class {
+    func activityFeedViewModelFactoryDidChange(_ factory: ActivityFeedViewModelFactoryProtocol)
+}
+
 protocol ActivityFeedViewModelFactoryProtocol {
+    var delegate: ActivityFeedViewModelFactoryDelegate? { get set }
+
     func merge(activity: ActivityData,
                into existingViewModels: inout [ActivityFeedSectionViewModel],
                using metadataContainer: ActivityFeedLayoutMetadataContainer) throws
@@ -17,22 +23,27 @@ typealias SectionedActivityFeedItemViewModel =
     (sectionTitle: String, itemViewModel: ActivityFeedOneOfItemViewModel)
 
 final class ActivityFeedViewModelFactory {
-    private(set) var sectionDateFormatter: DateFormatter
     private(set) var timestampDateFormatter: DateFormatter
     private(set) var votesNumberFormatter: NumberFormatter
     private(set) var amountFormatter: NumberFormatter
     private(set) var integerFormatter: NumberFormatter
 
-    init(sectionDateFormatter: DateFormatter,
+    weak var delegate: ActivityFeedViewModelFactoryDelegate?
+
+    let sectionFormatterProvider: DateFormatterProviderProtocol
+
+    init(sectionFormatterProvider: DateFormatterProviderProtocol,
          timestampDateFormatter: DateFormatter,
          votesNumberFormatter: NumberFormatter,
          amountFormatter: NumberFormatter,
          integerFormatter: NumberFormatter) {
-        self.sectionDateFormatter = sectionDateFormatter
+        self.sectionFormatterProvider = sectionFormatterProvider
         self.timestampDateFormatter = timestampDateFormatter
         self.votesNumberFormatter = votesNumberFormatter
         self.amountFormatter = amountFormatter
         self.integerFormatter = integerFormatter
+
+        sectionFormatterProvider.delegate = self
     }
 }
 
@@ -54,7 +65,7 @@ extension ActivityFeedViewModelFactory: ActivityFeedViewModelFactoryProtocol {
         activity.events.forEach { oneOfEvent in
             let optionalSectionedViewModel = transform(event: oneOfEvent,
                                                        from: activity,
-                                                       and: metadataContainer)
+                                                       metadataContainer: metadataContainer)
 
             guard let newSectionedViewModel = optionalSectionedViewModel else {
                 return
@@ -90,5 +101,11 @@ extension ActivityFeedViewModelFactory: ActivityFeedViewModelFactoryProtocol {
         }
 
         return changes
+    }
+}
+
+extension ActivityFeedViewModelFactory: DateFormatterProviderDelegate {
+    func providerDidChangeDateFormatter(_ provider: DateFormatterProviderProtocol) {
+        delegate?.activityFeedViewModelFactoryDidChange(self)
     }
 }

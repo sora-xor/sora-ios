@@ -16,7 +16,7 @@ abstract_target 'SoraPassportAll' do
   pod 'SoraUI'
   pod 'RobinHood'
   pod 'Kingfisher', :inhibit_warnings => true
-  pod 'CommonWallet'
+  pod 'CommonWallet', :git => 'https://github.com/soramitsu/Capital-iOS.git', :commit => '1df65a808cb9401ec23182d21be9a9e2a428d5ca'
   pod 'Firebase/Core', :inhibit_warnings => true
   pod 'Firebase/Messaging', :inhibit_warnings => true
   pod 'Fabric'
@@ -35,6 +35,8 @@ abstract_target 'SoraPassportAll' do
       pod 'SoraCrypto'
       pod 'SoraKeystore'
       pod 'RobinHood'
+      pod 'IrohaCommunication'
+      pod 'CommonWallet', :git => 'https://github.com/soramitsu/Capital-iOS.git', :commit => '1df65a808cb9401ec23182d21be9a9e2a428d5ca'
   end
   
   target 'SoraPassportUITests' do

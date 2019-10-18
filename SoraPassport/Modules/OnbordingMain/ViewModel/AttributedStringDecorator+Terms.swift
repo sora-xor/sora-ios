@@ -1,12 +1,12 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
 
 extension CompoundAttributedStringDecorator {
-    static var terms: AttributedStringDecoratorProtocol {
+    static var legal: AttributedStringDecoratorProtocol {
         let textColor = UIColor(red: 155.0 / 255.0, green: 155.0 / 255.0, blue: 155.0 / 255.0, alpha: 1.0)
         let attributes: [NSAttributedString.Key: Any] = [
             .foregroundColor: textColor,
@@ -19,9 +19,11 @@ extension CompoundAttributedStringDecorator {
             .underlineStyle: NSNumber(value: NSUnderlineStyle.single.rawValue)
         ]
 
-        let highlightDecorator = HighlightingAttributedStringDecorator(pattern: R.string.localizable.termsTitle(),
-                                                                       attributes: highlightAttributes)
+        let termDecorator = HighlightingAttributedStringDecorator(pattern: R.string.localizable.termsTitle(),
+                                                                           attributes: highlightAttributes)
+        let privacyDecorator = HighlightingAttributedStringDecorator(pattern: R.string.localizable.privacyTitle(),
+                                                                     attributes: highlightAttributes)
 
-        return CompoundAttributedStringDecorator(decorators: [rangeDecorator, highlightDecorator])
+        return CompoundAttributedStringDecorator(decorators: [rangeDecorator, termDecorator, privacyDecorator])
     }
 }

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -9,10 +9,16 @@ import RobinHood
 final class ReputationInteractor {
 	weak var presenter: ReputationInteractorOutputProtocol?
 
-    private(set) var customerDataProviderFacade: CustomerDataProviderFacadeProtocol
+    let reputationProvider: SingleValueProvider<ReputationData, CDSingleValue>
+    let reputationDetailsProvider: SingleValueProvider<ReputationDetailsData, CDSingleValue>
+    let votesProvider: SingleValueProvider<VotesData, CDSingleValue>
 
-    init(customerDataProviderFacade: CustomerDataProviderFacadeProtocol) {
-        self.customerDataProviderFacade = customerDataProviderFacade
+    init(reputationProvider: SingleValueProvider<ReputationData, CDSingleValue>,
+         reputationDetailsProvider: SingleValueProvider<ReputationDetailsData, CDSingleValue>,
+         votesProvider: SingleValueProvider<VotesData, CDSingleValue>) {
+        self.reputationProvider = reputationProvider
+        self.reputationDetailsProvider = reputationDetailsProvider
+        self.votesProvider = votesProvider
     }
 
     private func setupReputationDataProvider() {
@@ -34,11 +40,37 @@ final class ReputationInteractor {
         }
 
         let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true)
-        customerDataProviderFacade.reputationDataProvider.addCacheObserver(self,
-                                                                           deliverOn: .main,
-                                                                           executing: changesBlock,
-                                                                           failing: failBlock,
-                                                                           options: options)
+        reputationProvider.addCacheObserver(self,
+                                            deliverOn: .main,
+                                            executing: changesBlock,
+                                            failing: failBlock,
+                                            options: options)
+    }
+
+    private func setupReputationDetailsProvider() {
+        let changesBlock = { [weak self] (changes: [DataProviderChange<ReputationDetailsData>]) in
+            if let change = changes.first {
+                switch change {
+                case .insert(let details):
+                    self?.presenter?.didReceive(reputationDetails: details)
+                case .update(let details):
+                    self?.presenter?.didReceive(reputationDetails: details)
+                case .delete:
+                    break
+                }
+            }
+        }
+
+        let failBlock = { [weak self] (error: Error) -> Void in
+            self?.presenter?.didReceiveReputationDetailsDataProvider(error: error)
+        }
+
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true)
+        reputationDetailsProvider.addCacheObserver(self,
+                                                   deliverOn: .main,
+                                                   executing: changesBlock,
+                                                   failing: failBlock,
+                                                   options: options)
     }
 
     private func setupVotesDataProvider() {
@@ -60,11 +92,11 @@ final class ReputationInteractor {
         }
 
         let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false)
-        customerDataProviderFacade.votesProvider.addCacheObserver(self,
-                                                                  deliverOn: .main,
-                                                                  executing: changesBlock,
-                                                                  failing: failBlock,
-                                                                  options: options)
+        votesProvider.addCacheObserver(self,
+                                       deliverOn: .main,
+                                       executing: changesBlock,
+                                       failing: failBlock,
+                                       options: options)
     }
 }
 
@@ -72,10 +104,12 @@ extension ReputationInteractor: ReputationInteractorInputProtocol {
     func setup() {
         setupReputationDataProvider()
         setupVotesDataProvider()
+        setupReputationDetailsProvider()
     }
 
-    func refreshReputation() {
-        customerDataProviderFacade.reputationDataProvider.refreshCache()
-        customerDataProviderFacade.votesProvider.refreshCache()
+    func refresh() {
+        reputationProvider.refreshCache()
+        reputationDetailsProvider.refreshCache()
+        votesProvider.refreshCache()
     }
 }

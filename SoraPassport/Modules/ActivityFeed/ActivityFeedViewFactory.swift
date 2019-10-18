@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -26,12 +26,21 @@ final class ActivityFeedViewFactory: ActivityFeedViewFactoryProtocol {
         let projectService = ProjectUnitService(unit: projectUnit)
         projectService.requestSigner = requestSigner
 
-        let activityFeedViewModelFactory = createActivityFeedItemViewModelFactory()
+        let dateFormatterProvider = DateFormatterProvider(dateFormatterFactory: EventListDateFormatterFactory.self,
+                                                          dayChangeHandler: DayChangeHandler())
+
+        let activityFeedViewModelFactory = ActivityFeedViewModelFactory(sectionFormatterProvider: dateFormatterProvider,
+                                                                        timestampDateFormatter: DateFormatter.timeOnly,
+                                                                        votesNumberFormatter: NumberFormatter.vote,
+                                                                        amountFormatter: NumberFormatter.amount,
+                                                                        integerFormatter: NumberFormatter.anyInteger)
+
         let announcementViewModelFactory = AnnouncementViewModelFactory()
 
         let view = ActivityFeedViewController(nib: R.nib.activityFeedViewController)
         let presenter = ActivityFeedPresenter(itemViewModelFactory: activityFeedViewModelFactory,
                                               announcementViewModelFactory: announcementViewModelFactory)
+
         let interactor = ActivityFeedInteractor(activityFeedDataProvider: activityFeedDataProvider,
                                                 announcementDataProvider: announcementDataProvider,
                                                 projectService: projectService)
@@ -64,21 +73,5 @@ final class ActivityFeedViewFactory: ActivityFeedViewFactoryProtocol {
         }
 
         return activityFeedDataProvider
-    }
-
-    static func createActivityFeedItemViewModelFactory() -> ActivityFeedViewModelFactoryProtocol {
-        let dateFormatterBuilder = CompoundDateFormatterBuilder()
-        let activityFeedDateFormatter = dateFormatterBuilder
-            .withToday(title: R.string.localizable.today())
-            .withYesterday(title: R.string.localizable.yesterday())
-            .withThisYear(dateFormatter: DateFormatter.sectionThisYear)
-            .build(defaultFormat: R.string.localizable.anyYearFormat())
-
-        let activityFeedViewModelFactory = ActivityFeedViewModelFactory(sectionDateFormatter: activityFeedDateFormatter,
-                                                                        timestampDateFormatter: DateFormatter.timeOnly,
-                                                                        votesNumberFormatter: NumberFormatter.vote,
-                                                                        amountFormatter: NumberFormatter.amount,
-                                                                        integerFormatter: NumberFormatter.anyInteger)
-        return activityFeedViewModelFactory
     }
 }

@@ -27,6 +27,21 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "NO">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "02623EB42178C0910011250E"
+            BuildableName = "SoraPassport.app"
+            BlueprintName = "SoraPassport"
+            ReferencedContainer = "container:SoraPassport.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <CommandLineArguments>
+         <CommandLineArgument
+            argument = "-UNITTEST"
+            isEnabled = "YES">
+         </CommandLineArgument>
+      </CommandLineArguments>
       <Testables>
          <TestableReference
             skipped = "NO">
@@ -49,23 +64,6 @@
             </BuildableReference>
          </TestableReference>
       </Testables>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "02623EB42178C0910011250E"
-            BuildableName = "SoraPassport.app"
-            BlueprintName = "SoraPassport"
-            ReferencedContainer = "container:SoraPassport.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
-      <CommandLineArguments>
-         <CommandLineArgument
-            argument = "-UNITTEST"
-            isEnabled = "YES">
-         </CommandLineArgument>
-      </CommandLineArguments>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -87,8 +85,6 @@
             ReferencedContainer = "container:SoraPassport.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

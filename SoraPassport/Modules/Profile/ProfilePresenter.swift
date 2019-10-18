@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -17,11 +17,9 @@ final class ProfilePresenter {
     private(set) var userData: UserData?
     private(set) var votesData: VotesData?
     private(set) var reputationData: ReputationData?
-    private(set) var termsData: WebData
 
-    init(viewModelFactory: ProfileViewModelFactoryProtocol, termsData: WebData) {
+    init(viewModelFactory: ProfileViewModelFactoryProtocol) {
         self.viewModelFactory = viewModelFactory
-        self.termsData = termsData
     }
 
     private func refreshData() {
@@ -72,12 +70,8 @@ extension ProfilePresenter: ProfilePresenterProtocol {
             wireframe.showPersonalDetailsView(from: view)
         case .passphrase:
             wireframe.showPassphraseView(from: view)
-        case .terms:
-            if let view = view {
-                wireframe.showWeb(url: termsData.url,
-                                  from: view,
-                                  secondaryTitle: termsData.title)
-            }
+        case .about:
+            wireframe.showAbout(from: view)
         }
     }
 

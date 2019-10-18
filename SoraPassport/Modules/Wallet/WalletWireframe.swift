@@ -1,21 +1,29 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
+import CommonWallet
 
 protocol WalletWireframeProtocol {
-    func presentHelp(in navigationController: UINavigationController)
+    func presentHelp(in context: CommonWalletContextProtocol)
 }
 
 final class WalletWireframe: WalletWireframeProtocol {
-    func presentHelp(in navigationController: UINavigationController) {
-        guard let helpView = HelpViewFactory.createView() else {
-            return
-        }
+    let applicationConfig: ApplicationConfigProtocol
 
-        helpView.controller.hidesBottomBarWhenPushed = true
-        navigationController.pushViewController(helpView.controller, animated: true)
+    init(applicationConfig: ApplicationConfigProtocol) {
+        self.applicationConfig = applicationConfig
+    }
+
+    func presentHelp(in context: CommonWalletContextProtocol) {
+        let url = applicationConfig.faqURL
+        let webViewController = WebViewFactory.createWebViewController(for: url,
+                                                                       style: .automatic)
+
+        let command = context.preparePresentationCommand(for: webViewController)
+        command.presentationStyle = .modal(inNavigation: false)
+        try? command.execute()
     }
 }

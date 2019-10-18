@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -33,8 +33,8 @@ protocol ProjectDetailsViewModelProtocol: class {
     var statisticsDetails: String? { get }
     var website: String { get }
     var email: String { get }
-    var mainImageViewModel: ProjectImageViewModelProtocol? { get }
-    var galleryImageViewModels: [ProjectImageViewModelProtocol] { get }
+    var mainImageViewModel: ImageViewModelProtocol? { get }
+    var galleryImageViewModels: [GalleryViewModel] { get }
 
     var delegate: ProjectDetailsViewModelDelegate? { get }
 }
@@ -60,8 +60,8 @@ final class ProjectDetailsViewModel: ProjectDetailsViewModelProtocol {
     var statisticsDetails: String?
     var website: String = ""
     var email: String = ""
-    var mainImageViewModel: ProjectImageViewModelProtocol?
-    var galleryImageViewModels: [ProjectImageViewModelProtocol] = []
+    var mainImageViewModel: ImageViewModelProtocol?
+    var galleryImageViewModels: [GalleryViewModel] = []
 
     weak var delegate: ProjectDetailsViewModelDelegate?
 }

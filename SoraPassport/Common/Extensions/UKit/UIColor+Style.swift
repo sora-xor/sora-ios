@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -11,7 +11,7 @@ extension UIColor {
     }
 
     static var navigationBarTitleColor: UIColor {
-        return UIColor(red: 36.0 / 255.0, green: 73.0 / 255.0, blue: 78.0 / 255.0, alpha: 1.0)
+        return UIColor(red: 0.0 / 255.0, green: 0.0 / 255.0, blue: 0.0 / 255.0, alpha: 1.0)
     }
 
     static var navigationBarBackTintColor: UIColor {
@@ -23,7 +23,7 @@ extension UIColor {
     }
 
     static var darkNavigationShadowColor: UIColor {
-        return UIColor(red: 131.0 / 255.0, green: 145.0 / 255.0, blue: 146.0 / 255.0, alpha: 0.39)
+        return UIColor(red: 153.0 / 255.0, green: 153.0 / 255.0, blue: 153.0 / 255.0, alpha: 0.25)
     }
 
     static var navigationBarColor: UIColor {
@@ -36,6 +36,14 @@ extension UIColor {
 
     static var scrollableNavigationBarShadow: UIColor {
         return UIColor(red: 131.0 / 255.0, green: 145.0 / 255.0, blue: 146.0 / 255.0, alpha: 0.389)
+    }
+
+    static var networkUnavailableBackground: UIColor {
+        return UIColor(red: 208.0 / 255.0, green: 2.0 / 255.0, blue: 27.0 / 255.0, alpha: 1.0)
+    }
+
+    static var networkAvailableBackground: UIColor {
+        return UIColor(red: 50.0 / 255.0, green: 205.0 / 255.0, blue: 50.0 / 255.0, alpha: 1.0)
     }
 
     static var notificationBackground: UIColor {
@@ -196,5 +204,37 @@ extension UIColor {
 
     static var voteMaximumTrack: UIColor {
         return UIColor(red: 240.0 / 255.0, green: 247.0 / 255.0, blue: 247.0 / 255.0, alpha: 1.0)
+    }
+
+    static var searchBarField: UIColor {
+        return UIColor(red: 142.0 / 255.0, green: 142.0 / 255.0, blue: 147.0 / 255.0, alpha: 0.12)
+    }
+
+    static var accessoryTitle: UIColor {
+        return .black
+    }
+
+    static var accessoryTitleAction: UIColor {
+        return UIColor(red: 208.0 / 255.0, green: 2.0 / 255.0, blue: 27.0 / 255.0, alpha: 1.0)
+    }
+
+    static var onboardingSeparator: UIColor {
+        return UIColor(white: 153.0 / 255.0, alpha: 0.25)
+    }
+
+    static var verifyIdentityEnabledStepTitle: UIColor {
+        return UIColor.black
+    }
+
+    static var verifyIdentityDisabledStepTitle: UIColor {
+        return UIColor(white: 97.0 / 255.0, alpha: 1.0)
+    }
+
+    static var verificationEnabledSeparator: UIColor {
+        return UIColor(red: 208.0 / 255.0, green: 2.0 / 255.0, blue: 27.0 / 255.0, alpha: 1.0)
+    }
+
+    static var verificationDisabledSeparator: UIColor {
+        return UIColor(white: 153.0 / 255.0, alpha: 0.25)
     }
 }

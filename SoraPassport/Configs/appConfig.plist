@@ -2,22 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Staging</key>
+	<key>Release</key>
 	<dict>
-		<key>promoUrl</key>
-		<string>https://sora.org</string>
-		<key>directInviteUrl</key>
-		<string>sora://invite/77777</string>
-		<key>invitationAboutUrl</key>
-		<string>https://sora.org</string>
 		<key>notificationOptions</key>
 		<integer>7</integer>
-		<key>howItWorksUrl</key>
-		<string>https://sora.org</string>
 		<key>decentralizedDomain</key>
 		<string>sora</string>
-		<key>assetName</key>
-		<string>xor</string>
 		<key>projectDID</key>
 		<string>did:sora:passport</string>
 		<key>notificationDID</key>
@@ -25,13 +15,15 @@
 		<key>walletDID</key>
 		<string>did:sora:wallet</string>
 		<key>didResolverUrl</key>
-		<string>https://s4.stg1.sora.soramitsu.co.jp/didresolver/v1/did</string>
+		<string>https://s1.sora.soramitsu.co.jp/didresolver/v1/did</string>
 		<key>projectUnit</key>
 		<dict>
 			<key>typeMapping</key>
 			<dict>
 				<key>reputation</key>
 				<string>ReputationFetchService</string>
+				<key>reputationDetails</key>
+				<string>ReputationDetailsFetchService</string>
 				<key>fetch</key>
 				<string>ProjectsFetchService</string>
 				<key>favorites</key>
@@ -54,10 +46,10 @@
 				<string>CustomerFetchService</string>
 				<key>customerUpdate</key>
 				<string>CustomerUpdateService</string>
-				<key>checkInvitation</key>
-				<string>InvitationCheckService</string>
 				<key>register</key>
 				<string>RegistrationService</string>
+				<key>createUser</key>
+				<string>UserCreateService</string>
 				<key>fetchInvitation</key>
 				<string>InvitationFetchService</string>
 				<key>markInvitation</key>
@@ -76,6 +68,10 @@
 				<string>HelpFetchService</string>
 				<key>currency</key>
 				<string>CurrencyFetchService</string>
+				<key>supportedVersion</key>
+				<string>SupportedVersionService</string>
+				<key>country</key>
+				<string>CountryService</string>
 			</dict>
 			<key>ddo</key>
 			<dict>
@@ -111,7 +107,7 @@
 						<key>id</key>
 						<string>did:sora:passport#project-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/project/v1/project/opened?offset={offset}&amp;count={count}</string>
+						<string>https://s1.sora.soramitsu.co.jp/project/v1/project/opened?offset={offset}&amp;count={count}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -119,7 +115,7 @@
 						<key>id</key>
 						<string>did:sora:passport#project-favorites-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/project/v1/project/favorite?offset={offset}&amp;count={count}</string>
+						<string>https://s1.sora.soramitsu.co.jp/project/v1/project/favorite?offset={offset}&amp;count={count}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -127,7 +123,7 @@
 						<key>id</key>
 						<string>did:sora:passport#project-voted-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/project/v1/project/voted?offset={offset}&amp;count={count}</string>
+						<string>https://s1.sora.soramitsu.co.jp/project/v1/project/voted?offset={offset}&amp;count={count}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -135,7 +131,7 @@
 						<key>id</key>
 						<string>did:sora:passport#project-finished-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/project/v1/project/finished?offset={offset}&amp;count={count}</string>
+						<string>https://s1.sora.soramitsu.co.jp/project/v1/project/finished?offset={offset}&amp;count={count}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -143,7 +139,7 @@
 						<key>id</key>
 						<string>did:sora:passport#project-favorite-toggle</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/project/v1/project/{projectId}/favorite</string>
+						<string>https://s1.sora.soramitsu.co.jp/project/v1/project/{projectId}/favorite</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -151,7 +147,7 @@
 						<key>id</key>
 						<string>did:sora:passport#project-details</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/project/v1/project/{projectId}/details</string>
+						<string>https://s1.sora.soramitsu.co.jp/project/v1/project/{projectId}/details</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -159,7 +155,7 @@
 						<key>id</key>
 						<string>did:sora:passport#project-vote</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/project/v1/project/{projectId}/vote?votes={votes}</string>
+						<string>https://s1.sora.soramitsu.co.jp/project/v1/project/{projectId}/vote?votes={votes}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -167,7 +163,7 @@
 						<key>id</key>
 						<string>did:sora:passport#project-votes-history</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/project/v1/project/user/votes/history?offset={offset}&amp;count={count}</string>
+						<string>https://s1.sora.soramitsu.co.jp/project/v1/project/user/votes/history?offset={offset}&amp;count={count}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -175,7 +171,7 @@
 						<key>id</key>
 						<string>did:sora:passport#project-votes-count</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/project/v1/project/user/votes</string>
+						<string>https://s1.sora.soramitsu.co.jp/project/v1/project/user/votes</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -183,7 +179,7 @@
 						<key>id</key>
 						<string>did:sora:passport#customer-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/user</string>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/user</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -191,15 +187,7 @@
 						<key>id</key>
 						<string>did:sora:passport#customer-update</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/user</string>
-					</dict>
-					<dict>
-						<key>type</key>
-						<string>InvitationCheckService</string>
-						<key>id</key>
-						<string>did:sora:passport#invitation-check</string>
-						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/invitations/{invitationCode}</string>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/user</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -207,7 +195,7 @@
 						<key>id</key>
 						<string>did:sora:passport#register</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/user/register</string>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/user/register</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -215,7 +203,15 @@
 						<key>id</key>
 						<string>did:sora:passport#invitation-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/invitation</string>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/invitation</string>
+					</dict>
+					<dict>
+						<key>type</key>
+						<string>UserCreateService</string>
+						<key>id</key>
+						<string>did:sora:passport#create</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/user/create</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -223,7 +219,7 @@
 						<key>id</key>
 						<string>did:sora:passport#invitation-mark</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/invitation/is_sent/{invitationCode}</string>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/invitation/is_sent/{invitationCode}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -231,7 +227,7 @@
 						<key>id</key>
 						<string>did:sora:passport#invited-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/user/invited</string>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/user/invited</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -239,7 +235,7 @@
 						<key>id</key>
 						<string>did:sora:passport#reputation-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/user/reputation</string>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/user/reputation</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -247,7 +243,7 @@
 						<key>id</key>
 						<string>did:sora:passport#activity-feed-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/activityfeed/v1/feed/by_offset?offset={offset}&amp;size={count}</string>
+						<string>https://s1.sora.soramitsu.co.jp/activityfeed/v1/feed/by_offset?offset={offset}&amp;size={count}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -255,7 +251,7 @@
 						<key>id</key>
 						<string>did:sora:passport#sms-code-send</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/smscode/send</string>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/smscode/send</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -263,7 +259,7 @@
 						<key>id</key>
 						<string>did:sora:passport#sms-code-verify</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/smscode/verify</string>
+						<string>https://s1.sora.soramitsu.co.jp/account/v1/smscode/verify</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -271,7 +267,7 @@
 						<key>id</key>
 						<string>did:sora:passport#announcement-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/information/v1/announcements?offset=0&amp;count=1</string>
+						<string>https://s1.sora.soramitsu.co.jp/information/v1/announcements?offset=0&amp;count=1</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -279,7 +275,7 @@
 						<key>id</key>
 						<string>did:sora:passport#help-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/information/v1/information/help</string>
+						<string>https://s1.sora.soramitsu.co.jp/information/v1/information/help</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -287,7 +283,31 @@
 						<key>id</key>
 						<string>did:sora:passport#currency-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/information/v1/information/currency</string>
+						<string>https://s1.sora.soramitsu.co.jp/information/v1/information/currency</string>
+					</dict>
+					<dict>
+						<key>type</key>
+						<string>SupportedVersionService</string>
+						<key>id</key>
+						<string>did:sora:passport#supported-version-fetch</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.sora.soramitsu.co.jp/information/v1/supported/ios?version={version}</string>
+					</dict>
+					<dict>
+						<key>type</key>
+						<string>CountryService</string>
+						<key>id</key>
+						<string>did:sora:passport#country-fetch</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.sora.soramitsu.co.jp/information/v1/information/country</string>
+					</dict>
+					<dict>
+						<key>type</key>
+						<string>ReputationDetailsFetchService</string>
+						<key>id</key>
+						<string>did:sora:passport#reputation-details</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.sora.soramitsu.co.jp/information/v1/information/reputation</string>
 					</dict>
 				</array>
 				<key>proof</key>
@@ -348,7 +368,7 @@
 						<key>id</key>
 						<string>did:sora:notification#service-register</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/notification/v1/register</string>
+						<string>https://s1.sora.soramitsu.co.jp/notification/v1/register</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -356,7 +376,7 @@
 						<key>id</key>
 						<string>did:sora:notification#service-change</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/notification/v1/tokens/change</string>
+						<string>https://s1.sora.soramitsu.co.jp/notification/v1/tokens/change</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -364,7 +384,7 @@
 						<key>id</key>
 						<string>did:sora:notification#service-enable-permission</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/notification/v1/permissions</string>
+						<string>https://s1.sora.soramitsu.co.jp/notification/v1/permissions</string>
 					</dict>
 				</array>
 				<key>created</key>
@@ -396,8 +416,14 @@
 				<string>SearchService</string>
 				<key>transfer</key>
 				<string>TransferService</string>
+				<key>transferMetadata</key>
+				<string>TransferMetadataService</string>
 				<key>contacts</key>
 				<string>ContactsService</string>
+				<key>withdraw</key>
+				<string>WithdrawService</string>
+				<key>withdrawalMetadata</key>
+				<string>WithdrawalMetadataService</string>
 			</dict>
 			<key>ddo</key>
 			<dict>
@@ -431,7 +457,7 @@
 						<key>id</key>
 						<string>did:sora:wallet#balance-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/wallet/v1/balance</string>
+						<string>https://s1.sora.soramitsu.co.jp/wallet/v1/balance</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -439,7 +465,7 @@
 						<key>id</key>
 						<string>did:sora:wallet#history-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/wallet/v1/transaction?offset={offset}&amp;count={count}</string>
+						<string>https://s1.sora.soramitsu.co.jp/wallet/v3/transaction?offset={offset}&amp;count={count}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -447,7 +473,7 @@
 						<key>id</key>
 						<string>did:sora:wallet#search-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/wallet/v1/user/find?search={search}</string>
+						<string>https://s1.sora.soramitsu.co.jp/wallet/v1/user/find?search={search}</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -455,7 +481,7 @@
 						<key>id</key>
 						<string>did:sora:wallet#contacts-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/wallet/v1/user/contacts</string>
+						<string>https://s1.sora.soramitsu.co.jp/wallet/v1/user/contacts</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -463,7 +489,31 @@
 						<key>id</key>
 						<string>did:sora:wallet#transfer</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/wallet/v1/transaction</string>
+						<string>https://s1.sora.soramitsu.co.jp/wallet/v1/transaction</string>
+					</dict>
+					<dict>
+						<key>type</key>
+						<string>TransferMetadataService</string>
+						<key>id</key>
+						<string>did:sora:wallet#transfer-metadata</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.sora.soramitsu.co.jp/wallet/v1/transfer/metadata?assetId={assetId}</string>
+					</dict>
+					<dict>
+						<key>type</key>
+						<string>WithdrawService</string>
+						<key>id</key>
+						<string>did:sora:wallet#withdraw</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.sora.soramitsu.co.jp/wallet/v1/withdraw</string>
+					</dict>
+					<dict>
+						<key>type</key>
+						<string>WithdrawalMetadataService</string>
+						<key>id</key>
+						<string>did:sora:wallet#withdrawal-metadata</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.sora.soramitsu.co.jp/wallet/v1/withdraw/metadata?assetId={assetId}&amp;option={option}</string>
 					</dict>
 				</array>
 				<key>created</key>

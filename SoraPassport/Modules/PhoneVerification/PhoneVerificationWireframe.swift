@@ -1,21 +1,24 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 
 final class PhoneVerificationWireframe: PhoneVerificationWireframeProtocol {
-    lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
+    let form: PersonalForm
 
-    func showAccessBackup(from view: PhoneVerificationViewProtocol?) {
-        guard let controller = AccessBackupViewFactory.createView()?.controller else {
+    init(form: PersonalForm) {
+        self.form = form
+    }
+
+    func showNext(from view: PhoneVerificationViewProtocol?) {
+        guard let registrationView = PersonalInfoViewFactory.createView(with: form) else {
             return
         }
 
-        let navigationController = SoraNavigationController()
-        navigationController.viewControllers = [controller]
-
-        rootAnimator.animateTransition(to: navigationController)
+        if let navigationCountroller = view?.controller.navigationController {
+            navigationCountroller.pushViewController(registrationView.controller, animated: true)
+        }
     }
 }

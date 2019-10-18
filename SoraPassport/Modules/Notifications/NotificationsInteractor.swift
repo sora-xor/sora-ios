@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -13,12 +13,14 @@ class NotificationsInteractor: NotificationsInteractorInputProtocol {
     private(set) var notificationUnitService: NotificationUnitServiceProtocol
     private(set) var notificationsRegistrator: NotificationsRegistrationProtocol
     private(set) var notificationsLocalScheduler: NotificationsLocalSchedulerProtocol
+    private(set) var eventCenter: EventCenterProtocol
 
     private var tokenExchangeOperation: Operation?
     private var registrationOperation: Operation?
     private var permissionOperation: Operation?
 
     init(presenter: NotificationsInteractorOutputProtocol,
+         eventCenter: EventCenterProtocol,
          config: ApplicationConfigProtocol,
          notificationUnitService: NotificationUnitServiceProtocol,
          notificationsRegistrator: NotificationsRegistrationProtocol,
@@ -29,6 +31,7 @@ class NotificationsInteractor: NotificationsInteractorInputProtocol {
         self.notificationUnitService = notificationUnitService
         self.notificationsRegistrator = notificationsRegistrator
         self.notificationsLocalScheduler = notificationsLocalScheduler
+        self.eventCenter = eventCenter
     }
 
     private func sendPushNotitificationInfoOrRegister(with token: String) {
@@ -128,7 +131,8 @@ extension NotificationsInteractor: NotificationsServiceOutputProtocol {
         sendPushNotitificationInfoOrRegister(with: remoteToken)
     }
 
-    func didReceive(_ notification: SoraNotificationProtocol) {
-        presenter.didReceive(notification)
+    func didReceive(_ notification: SoraNotificationProtocol) -> Bool {
+        eventCenter.notify(with: PushNotificationEvent(notification: notification))
+        return presenter.didReceive(notification)
     }
 }

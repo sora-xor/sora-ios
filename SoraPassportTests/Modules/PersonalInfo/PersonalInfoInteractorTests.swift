@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -9,97 +9,176 @@ import Cuckoo
 import SoraKeystore
 
 class PersonalInfoInteractorTests: NetworkBaseTests {
-    var interactor: PersonalInfoInteractor!
-
-    override func setUp() {
-        super.setUp()
-
-        let identityUrl = URL(string: ApplicationConfig.shared.didResolverUrl)!
-        let identityNetworkOperationFactory = DecentralizedResolverOperationFactory(url: identityUrl)
-        interactor = PersonalInfoInteractor(projectOperationFactory: ProjectOperationFactory(),
-                                            identityNetworkOperationFactory: identityNetworkOperationFactory,
-                                            identityLocalOperationFactory: IdentityOperationFactory.self,
-                                            settings: SettingsManager.shared,
-                                            keystore: Keychain(),
-                                            applicationConfig: ApplicationConfig.shared,
-                                            operationManager: OperationManager.shared)
-        clearStorage()
-    }
-
-    override func tearDown() {
-        clearStorage()
-
-        super.tearDown()
-    }
 
     func testSuccessfullRegistration() {
-        // given
-        let applicationInfo = ApplicationFormInfo(applicationId: Constants.dummyApplicationFormId,
-                                                  firstName: Constants.dummyFirstName,
-                                                  lastName: Constants.dummyLastName,
-                                                  phone: Constants.dummyPhone,
-                                                  email: Constants.dummyEmail)
+        do {
+            let keystore = InMemoryKeychain()
+            var settings = InMemorySettingsManager()
 
-        ProjectsRegisterMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-        DecentralizedDocumentCreateMock.register(mock: .success)
+            try keystore.saveKey(Data(), with: KeystoreKey.privateKey.rawValue)
+            try keystore.saveKey(Data(), with: KeystoreKey.seedEntropy.rawValue)
+            settings.verificationState = VerificationState()
+            settings.decentralizedId = Constants.dummyDid
+            settings.invitationCode = Constants.dummyInvitationCode
 
-        let finishExpectation = XCTestExpectation()
+            performTestSuccessfullRegistration(for: createRandomCountry(with: true), settings: settings, keystore: keystore)
 
-        let presenterMock = MockPersonalInfoInteractorOutputProtocol()
+            XCTAssertNotNil(settings.decentralizedId)
+            XCTAssertNil(settings.verificationState)
+            XCTAssertNil(settings.invitationCode)
 
-        stub(presenterMock) { stub in
-            when(stub.didStartRegistration(with: any(RegistrationInfo.self))).thenDoNothing()
-            when(stub.didReceiveRegistration(error: any(Error.self))).thenDoNothing()
-            when(stub.didCompleteRegistration(with: any(RegistrationInfo.self))).then { _ in
-                finishExpectation.fulfill()
+            guard let keyExists = try? keystore.checkKey(for: KeystoreKey.privateKey.rawValue), keyExists else {
+                XCTFail("Private key must be preserved")
+                return
             }
+
+            guard let entropyExists = try? keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue), entropyExists else {
+                XCTFail("Entropy must be preservedr")
+                return
+            }
+
+            guard let pincodeExists = try? keystore.checkKey(for: KeystoreKey.pincode.rawValue), !pincodeExists else {
+                XCTFail("Pincode must be unset")
+                return
+            }
+
+        } catch {
+            XCTFail("Unexpected error \(error)")
         }
+    }
 
-        // when
-        XCTAssertTrue(!interactor.isBusy)
+    func testInvitationLinkDelivered() {
+        do {
+            // given
 
-        interactor.presenter = presenterMock
-        interactor.register(with: applicationInfo, invitationCode: Constants.dummyInvitationCode)
+            let keystore = InMemoryKeychain()
+            var settings = InMemorySettingsManager()
 
-        // then
-        XCTAssertTrue(interactor.isBusy)
+            try keystore.saveKey(Data(), with: KeystoreKey.privateKey.rawValue)
+            try keystore.saveKey(Data(), with: KeystoreKey.seedEntropy.rawValue)
+            settings.verificationState = VerificationState()
+            settings.decentralizedId = Constants.dummyDid
 
-        wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
+            let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+            ProjectsRegisterMock.register(mock: .success, projectUnit: projectUnit)
 
-        XCTAssertTrue(!interactor.isBusy)
+            let view = MockPersonalInfoViewProtocol()
+            let wireframe = MockPersonalInfoWireframeProtocol()
 
-        verify(presenterMock, times(1)).didStartRegistration(with: any(RegistrationInfo.self))
-        verify(presenterMock, times(1)).didCompleteRegistration(with: any(RegistrationInfo.self))
-        verify(presenterMock, times(0)).didReceiveRegistration(error: any(Error.self))
+            let form = PersonalForm.create(from: createRandomCountry())
+            let presenter = PersonalInfoPresenter(viewModelFactory: PersonalInfoViewModelFactory(), personalForm: form)
+            let interactor = createInteractor(for: settings, keystore: keystore)
 
-        XCTAssertNotNil(interactor.settingsManager.decentralizedId)
-        XCTAssertNotNil(interactor.settingsManager.publicKeyId)
-        XCTAssertNotNil(interactor.settingsManager.verificationState)
+            presenter.view = view
+            presenter.wireframe = wireframe
+            presenter.interactor = interactor
 
-        guard let keyExists = try? interactor.keystore.checkKey(for: KeystoreKey.privateKey.rawValue), keyExists else {
-            XCTFail()
-            return
-        }
+            interactor.presenter = presenter
 
-        guard let entropyExists = try? interactor.keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue), entropyExists else {
-            XCTFail()
-            return
-        }
+            let setupExpectation = XCTestExpectation()
 
-        guard let pincodeExists = try? interactor.keystore.checkKey(for: KeystoreKey.pincode.rawValue), !pincodeExists else {
-            XCTFail()
-            return
+            stub(view) { stub in
+                when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).then { viewModels in
+                    _ = viewModels[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue]
+                        .didReceiveReplacement(Constants.dummyFirstName, for: NSRange(location: 0, length: 0))
+                    _ = viewModels[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue]
+                        .didReceiveReplacement(Constants.dummyLastName, for: NSRange(location: 0, length: 0))
+
+                    setupExpectation.fulfill()
+                }
+            }
+
+            // when
+
+            presenter.load()
+
+            // then
+
+            wait(for: [setupExpectation], timeout: Constants.networkRequestTimeout)
+
+            // when
+
+            let invitationDeliveredExpectation = XCTestExpectation()
+
+            stub(view) { stub in
+                when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).then { viewModels in
+                    XCTAssertEqual(viewModels[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].value, Constants.dummyFirstName)
+                    XCTAssertEqual(viewModels[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue].value, Constants.dummyLastName)
+                    XCTAssertEqual(viewModels[PersonalInfoPresenter.ViewModelIndex.invitationCode.rawValue].value, Constants.dummyInvitationCode)
+
+                    invitationDeliveredExpectation.fulfill()
+                }
+            }
+
+            XCTAssertTrue(interactor.invitationLinkService.handle(url: Constants.dummyInvitationLink))
+
+            wait(for: [invitationDeliveredExpectation], timeout: Constants.networkRequestTimeout)
+
+        } catch {
+            XCTFail("Unexpected error \(error)")
         }
     }
 
     // MARK: Private
 
-    private func clearStorage() {
-        do {
-            try interactor.keystore.deleteAll()
-            interactor.settingsManager.removeAll()
-        } catch {
-            XCTFail("\(error)")
+    func performTestSuccessfullRegistration(for country: Country, settings: SettingsManagerProtocol, keystore: KeystoreProtocol) {
+        // given
+
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ProjectsRegisterMock.register(mock: .success, projectUnit: projectUnit)
+
+        let view = MockPersonalInfoViewProtocol()
+        let wireframe = MockPersonalInfoWireframeProtocol()
+
+        let form = PersonalForm.create(from: country)
+        let presenter = PersonalInfoPresenter(viewModelFactory: PersonalInfoViewModelFactory(), personalForm: form)
+        let interactor = createInteractor(for: settings, keystore: keystore)
+
+        presenter.view = view
+        presenter.wireframe = wireframe
+        presenter.interactor = interactor
+
+        interactor.presenter = presenter
+
+        let finishExpectation = XCTestExpectation()
+
+        stub(wireframe) { stub in
+            when(stub).showPassphraseBackup(from: any()).then { _ in
+                finishExpectation.fulfill()
+            }
         }
+
+        stub(view) { stub in
+            when(stub).didStartLoading().thenDoNothing()
+            when(stub).didStopLoading().thenDoNothing()
+            when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).then { viewModels in
+                _ = viewModels[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue]
+                    .didReceiveReplacement(Constants.dummyFirstName, for: NSRange(location: 0, length: 0))
+                _ = viewModels[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue]
+                    .didReceiveReplacement(Constants.dummyLastName, for: NSRange(location: 0, length: 0))
+                _ = viewModels[PersonalInfoPresenter.ViewModelIndex.invitationCode.rawValue]
+                    .didReceiveReplacement(Constants.dummyInvitationCode, for: NSRange(location: 0, length: 0))
+            }
+        }
+
+        // when
+
+        presenter.load()
+
+        presenter.register()
+
+        // then
+
+        wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
+    }
+
+    private func createInteractor(for settings: SettingsManagerProtocol, keystore: KeystoreProtocol) -> PersonalInfoInteractor {
+        let projectService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
+        projectService.requestSigner = createDummyRequestSigner()
+
+        return PersonalInfoInteractor(registrationService: projectService,
+                                      settings: settings,
+                                      keystore: keystore,
+                                      invitationLinkService: InvitationLinkService(settings: settings))
     }
 }

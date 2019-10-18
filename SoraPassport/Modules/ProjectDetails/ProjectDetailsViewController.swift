@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -164,7 +164,8 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
     }
 
     private func configureGalleryCollectionView() {
-        galleryCollectionView.register(R.nib.mediaGalleryCollectionViewCell)
+        galleryCollectionView.register(R.nib.mediaGalleryImageCollectionViewCell)
+        galleryCollectionView.register(R.nib.mediaGalleryVideoCollectionViewCell)
         galleryCollectionView.decelerationRate = .fast
     }
 
@@ -173,6 +174,7 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
     }
 
     private func setupTopBar() {
+        setupCloseButton()
         setupVotesButton()
     }
 
@@ -186,6 +188,14 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
 
         let voteBarItem = UIBarButtonItem(customView: votesButton)
         navigationItem.rightBarButtonItem = voteBarItem
+    }
+
+    private func setupCloseButton() {
+        let closeBarItem = UIBarButtonItem(image: R.image.iconClose(),
+                                           style: .plain,
+                                           target: self,
+                                           action: #selector(actionClose))
+        navigationItem.leftBarButtonItem = closeBarItem
     }
 
     private func updateVotesButtonConstraints() {
@@ -208,6 +218,10 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
     }
 
     // MARK: Action
+
+    @objc private func actionClose() {
+        presenter.activateClose()
+    }
 
     @objc private func actionOpenVotes(sender: AnyObject) {
         presenter.activateVotes()
@@ -257,13 +271,26 @@ extension ProjectDetailsViewController: UICollectionViewDataSource {
 
     func collectionView(_ collectionView: UICollectionView,
                         cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let mediaCell = collectionView.dequeueReusableCell(
-            withReuseIdentifier: R.reuseIdentifier.mediaGalleryCellId,
-            for: indexPath)!
+        let galleryViewModel = viewModel!.galleryImageViewModels[indexPath.row]
 
-        mediaCell.bind(model: viewModel!.galleryImageViewModels[indexPath.row])
+        switch galleryViewModel {
+        case .image(let viewModel):
+            let mediaCell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: R.reuseIdentifier.mediaImageCellId,
+                for: indexPath)!
 
-        return mediaCell
+            mediaCell.bind(model: viewModel)
+
+            return mediaCell
+        case .video(let viewModel):
+            let mediaCell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: R.reuseIdentifier.mediaVideoCellId,
+                for: indexPath)!
+
+            mediaCell.bind(model: viewModel)
+
+            return mediaCell
+        }
     }
 }
 
@@ -290,9 +317,16 @@ extension ProjectDetailsViewController: ProjectDetailsViewProtocol {
             mainImageViewModel.targetSize = mainImageSize
         }
 
-        projectDetails.galleryImageViewModels.forEach { model in
-            model.cornerRadius = 0.0
-            model.targetSize = self.galleryCellSize
+        projectDetails.galleryImageViewModels.forEach { galleryModel in
+            switch galleryModel {
+            case .image(let model):
+                model.cornerRadius = 0.0
+                model.targetSize = self.galleryCellSize
+            case .video(let model):
+                model.preview?.cornerRadius = 0.0
+                model.preview?.targetSize = self.galleryCellSize
+            }
+
         }
     }
 

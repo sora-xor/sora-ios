@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -44,10 +44,10 @@ final class Logger {
     private init() {
         let destination = ConsoleDestination()
 
-        #if F_DEBUG
+        #if F_DEV
             destination.minLevel = .verbose
         #elseif F_TEST
-            destination.minLevel = .info
+            destination.minLevel = .verbose
         #else
             destination.minLevel = .info
         #endif

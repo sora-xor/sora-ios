@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -20,10 +20,9 @@ protocol PhoneVerificationPresenterProtocol: class {
 protocol PhoneVerificationInteractorInputProtocol: class {
     func fetchVerificationState()
     func save(verificationState: VerificationState)
-    func removeVerificationState()
 
     func requestPhoneVerificationCode()
-    func verifyPhone(code: String)
+    func verifyPhone(codeInfo: VerificationCodeInfo)
 }
 
 protocol PhoneVerificationInteractorOutputProtocol: class {
@@ -35,9 +34,9 @@ protocol PhoneVerificationInteractorOutputProtocol: class {
 }
 
 protocol PhoneVerificationWireframeProtocol: AlertPresentable, ErrorPresentable {
-    func showAccessBackup(from view: PhoneVerificationViewProtocol?)
+    func showNext(from view: PhoneVerificationViewProtocol?)
 }
 
 protocol PhoneVerificationViewFactoryProtocol: class {
-	static func createView() -> PhoneVerificationViewProtocol?
+    static func createView(with form: PersonalForm) -> PhoneVerificationViewProtocol?
 }

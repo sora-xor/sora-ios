@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -29,5 +29,5 @@ protocol RootInteractorOutputProtocol: class {
 }
 
 protocol RootPresenterFactoryProtocol: class {
-    static func createPresenter(with view: UIWindow) -> RootPresenterProtocol
+    static func createPresenter(with view: SoraWindow) -> RootPresenterProtocol
 }

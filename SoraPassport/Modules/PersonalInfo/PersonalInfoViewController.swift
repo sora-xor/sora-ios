@@ -1,26 +1,16 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
 
-final class PersonalInfoViewController: UIViewController {
-    private struct Constants {
-        static let nextBottomMargin: CGFloat = 20.0
-        static let tableMinimumBottomMargin: CGFloat = 8.0
-    }
-
+final class PersonalInfoViewController: AccessoryViewController {
     var presenter: PersonalInfoPresenterProtocol!
 
     private(set) var models: [PersonalInfoViewModelProtocol] = []
 
-    private var keyboardHandler: KeyboardHandler?
-
     @IBOutlet private var tableView: UITableView!
-
-    @IBOutlet private var nextBottomMargin: NSLayoutConstraint!
-    @IBOutlet private var nextHeight: NSLayoutConstraint!
 
     // MARK: Initialization
 
@@ -32,90 +22,33 @@ final class PersonalInfoViewController: UIViewController {
         presenter.load()
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-
-        setupKeyboardHandler()
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-
-        clearKeyboardHandler()
-    }
-
     private func configureTableView() {
         tableView.register(UINib(resource: R.nib.personalInfoCell),
                            forCellReuseIdentifier: R.reuseIdentifier.personalInfoCellId.identifier)
     }
 
-    // MARK: Keyboard
-
-    func setupKeyboardHandler() {
-        keyboardHandler = KeyboardHandler()
-        keyboardHandler?.animateOnFrameChange = animateKeyboardChange
-    }
-
-    private func animateKeyboardChange(keyboardFrame: CGRect) {
-        let localKeyboardFrame = view.convert(keyboardFrame, from: nil)
-
-        updateTableViewInset(with: localKeyboardFrame)
-
-        if updateNextButtonPosition(with: localKeyboardFrame) {
-            view.layoutIfNeeded()
-        }
-    }
-
-    private func updateTableViewInset(with localKeyboardFrame: CGRect) {
-        let margin = tableView.frame.maxY - localKeyboardFrame.minY
-
+    override func updateBottom(inset: CGFloat) {
         var contentInset = tableView.contentInset
-
-        if margin > 0.0 {
-            tableView.isScrollEnabled = true
-            contentInset.bottom = margin
-        } else {
-            tableView.isScrollEnabled = false
-            contentInset.bottom = 0.0
-        }
-
+        contentInset.bottom = inset
         tableView.contentInset = contentInset
     }
 
-    private func updateNextButtonPosition(with localKeyboardFrame: CGRect) -> Bool {
-        var safeMaxY = view.bounds.maxY
-
-        if #available(iOS 11.0, *) {
-            safeMaxY = view.safeAreaLayoutGuide.layoutFrame.maxY
+    private func startEditing(at index: Int, section: Int) {
+        let nextIndexPath = IndexPath(row: index, section: section)
+        guard let nextCell = tableView.cellForRow(at: nextIndexPath) as? PersonalInfoCell else {
+            return
         }
 
-        let newNextOriginY = localKeyboardFrame.origin.y - Constants.nextBottomMargin - nextHeight.constant
+        nextCell.textField.becomeFirstResponder()
 
-        let originLimitY = tableView.frame.maxY + Constants.tableMinimumBottomMargin
-        if newNextOriginY >= originLimitY {
-            nextBottomMargin.constant = max(0.0, safeMaxY - localKeyboardFrame.origin.y
-                + Constants.nextBottomMargin)
-
-            return true
-        }
-
-        let compactBottom = originLimitY + nextHeight.constant
-        if compactBottom <= localKeyboardFrame.origin.y - Constants.tableMinimumBottomMargin {
-            let bottom = max(0.0, safeMaxY - localKeyboardFrame.origin.y + Constants.tableMinimumBottomMargin)
-            nextBottomMargin.constant = bottom
-            return true
-        }
-
-        return false
-    }
-
-    func clearKeyboardHandler() {
-        keyboardHandler = nil
+        tableView.scrollToRow(at: nextIndexPath,
+                              at: .bottom,
+                              animated: true)
     }
 
     // MARK: Actions
 
-    @IBAction private func didSelectNextButton(sender: AnyObject) {
+    override func actionAccessory() {
         validateAndRegister()
     }
 
@@ -177,16 +110,7 @@ extension PersonalInfoViewController: PersonalInfoCellDelegate {
         let optionalNextIndex = ((indexPath.row + 1)..<models.count).first { models[$0].enabled }
 
         if let nextIndex = optionalNextIndex {
-            let nextIndexPath = IndexPath(row: nextIndex, section: indexPath.section)
-            guard let nextCell = tableView.cellForRow(at: nextIndexPath) as? PersonalInfoCell else {
-                return
-            }
-
-            nextCell.textField.becomeFirstResponder()
-
-            tableView.scrollToRow(at: nextIndexPath,
-                                  at: .bottom,
-                                  animated: true)
+            startEditing(at: nextIndex, section: indexPath.section)
         } else {
             cell.textField.resignFirstResponder()
         }
@@ -199,5 +123,9 @@ extension PersonalInfoViewController: PersonalInfoViewProtocol {
     func didReceive(viewModels: [PersonalInfoViewModelProtocol]) {
         models = viewModels
         tableView.reloadData()
+    }
+
+    func didStartEditing(at index: Int) {
+        startEditing(at: index, section: 0)
     }
 }

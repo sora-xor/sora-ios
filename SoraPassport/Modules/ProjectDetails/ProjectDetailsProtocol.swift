@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -14,6 +14,7 @@ protocol ProjectDetailsPresenterProtocol: class {
 	func viewIsReady()
     func activateVotes()
     func activateGalleryItem(at index: Int, animatedFrom animatingView: UIView?)
+    func activateClose()
 }
 
 protocol ProjectDetailsInteractorInputProtocol: class {
@@ -22,6 +23,7 @@ protocol ProjectDetailsInteractorInputProtocol: class {
     func refreshProjectDetails()
     func vote(for project: ProjectVote)
     func toggleFavorite(for projectId: String)
+    func markAsViewed(for projectId: String)
 }
 
 protocol ProjectDetailsInteractorOutputProtocol: class {

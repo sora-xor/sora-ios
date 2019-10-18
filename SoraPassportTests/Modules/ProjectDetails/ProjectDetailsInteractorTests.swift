@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -16,7 +16,13 @@ class ProjectDetailsInteractorTests: NetworkBaseTests {
         ProjectDetailsFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         CurrencyFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
-        let interactor = createInteractor()
+        let eventCenter = MockEventCenterProtocol()
+
+        stub(eventCenter) { stub in
+            when(stub).add(observer: any(), dispatchIn: any()).thenDoNothing()
+        }
+
+        let interactor = createInteractor(with: eventCenter)
         let presenter = MockProjectDetailsInteractorOutputProtocol()
         interactor.presenter = presenter
 
@@ -49,7 +55,7 @@ class ProjectDetailsInteractorTests: NetworkBaseTests {
 
     // MARK: Private
 
-    private func createInteractor() -> ProjectDetailsInteractor {
+    private func createInteractor(with eventCenter: EventCenterProtocol) -> ProjectDetailsInteractor {
         let requestSigner = createDummyRequestSigner()
 
         let cacheFacade = CoreDataCacheTestFacade()
@@ -69,6 +75,7 @@ class ProjectDetailsInteractorTests: NetworkBaseTests {
 
         return ProjectDetailsInteractor(customerDataProviderFacade: customerDataProviderFacade,
                                         projectDetailsDataProvider: detailsDataProvider,
-                                        projectService: ProjectUnitService(unit: projectUnit))
+                                        projectService: ProjectUnitService(unit: projectUnit),
+                                        eventCenter: eventCenter)
     }
 }

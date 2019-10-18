@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -73,6 +73,35 @@ class ProjectUnitInformationServiceTests: NetworkBaseTests {
         wait(for: [expectation], timeout: Constants.networkRequestTimeout)
     }
 
+    func testReputationDetailsSuccess() {
+        // given
+
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ReputationDetailsFetchMock.register(mock: .success, projectUnit: projectUnit)
+
+        let expectation = XCTestExpectation()
+
+        // when
+        let operation = try? service.fetchReputationDetails(runCompletionIn: .main) { (optionalResult) in
+            defer {
+                expectation.fulfill()
+            }
+
+            guard let result = optionalResult, case .success = result else {
+                XCTFail()
+                return
+            }
+        }
+
+        guard operation != nil else {
+            XCTFail()
+            return
+        }
+
+        // then
+        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
+    }
+
     func testCurrencySuccess() {
         // given
         CurrencyFetchMock.register(mock: .success,
@@ -101,4 +130,76 @@ class ProjectUnitInformationServiceTests: NetworkBaseTests {
         wait(for: [expectation], timeout: Constants.networkRequestTimeout)
     }
 
+    func testSupportedVersionSuccess() {
+        // given
+        SupportedVersionCheckMock.register(mock: .supported,
+                                           projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        performSupportedVersionSuccessTest(createRandomApplicationVersion(), expectsSupported: true)
+    }
+
+    func testUnsupportedVersionSuccess() {
+        // given
+        SupportedVersionCheckMock.register(mock: .unsupported,
+                                           projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        performSupportedVersionSuccessTest(createRandomApplicationVersion(), expectsSupported: false)
+    }
+
+    func testCountryFetchSuccess() {
+        // given
+
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        CountryFetchMock.register(mock: .success, projectUnit: projectUnit)
+
+        // when
+
+        let expectation = XCTestExpectation()
+
+        let operation = try? service.fetchCountry(runCompletionIn: .main) { optionalResult in
+            defer {
+                expectation.fulfill()
+            }
+
+            guard let result = optionalResult, case .success = result else {
+                XCTFail()
+                return
+            }
+        }
+
+        guard operation != nil else {
+            XCTFail()
+            return
+        }
+
+        // then
+
+        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
+    }
+
+    // MARK: Private
+
+    func performSupportedVersionSuccessTest(_ version: String, expectsSupported: Bool) {
+        let expectation = XCTestExpectation()
+
+        // when
+        let operation = try? service.checkSupported(version: version, runCompletionIn: .main) { (optionalResult) in
+            defer {
+                expectation.fulfill()
+            }
+
+            guard let result = optionalResult, case .success(let data) = result, expectsSupported == data.supported else {
+                XCTFail()
+                return
+            }
+        }
+
+        guard operation != nil else {
+            XCTFail()
+            return
+        }
+
+        // then
+        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
+    }
 }

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -15,20 +15,16 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
     override func setUp() {
         super.setUp()
 
-        interactor = AccessRestoreInteractor(accountOperationFactory: ProjectOperationFactory(),
-                                             identityLocalOperationFactory: IdentityOperationFactory.self,
-                                             keystore: Keychain(),
-                                             operationManager: OperationManager.shared,
+        let settings = InMemorySettingsManager()
+
+        interactor = AccessRestoreInteractor(identityLocalOperationFactory: IdentityOperationFactory.self,
+                                             accountOperationFactory: ProjectOperationFactory(),
+                                             keystore: InMemoryKeychain(),
+                                             settings: settings,
                                              applicationConfig: ApplicationConfig.shared,
-                                             settings: SettingsManager.shared,
-                                             mnemonicCreator: IRBIP39MnemonicCreator(language: .english))
-        clearStorage()
-    }
-
-    override func tearDown() {
-        clearStorage()
-
-        super.tearDown()
+                                             mnemonicCreator: IRBIP39MnemonicCreator(language: .english),
+                                             invitationLinkService: InvitationLinkService(settings: settings),
+                                             operationManager: OperationManager.shared)
     }
 
     func testSuccessfullRestorationImmediately() {
@@ -41,14 +37,73 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
         settings.publicKeyId = Constants.dummyPubKeyId
         settings.verificationState = VerificationState()
 
+        XCTAssertTrue(interactor.invitationLinkService.handle(url: Constants.dummyInvitationLink))
+
         performTestSuccessfullRestoration()
     }
 
+    func testRestorationWithInvalidMnemonic() {
+        // given
+
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
+
+        let finishExpectation = XCTestExpectation()
+
+        let presenterMock = MockAccessRestoreInteractorOutputProtocol()
+
+        stub(presenterMock) { stub in
+            when(stub.didReceiveRestoreAccess(error: any(Error.self))).then { _ in
+                finishExpectation.fulfill()
+            }
+        }
+
+        interactor.presenter = presenterMock
+
+        // when
+
+        interactor.restoreAccess(phrase: Constants.dummyInvalidMnemonic.components(separatedBy: CharacterSet.wordsSeparator))
+
+        // then
+
+        wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
+    }
+
+    func testRestorationWithNotExistingMnemonic() {
+        // given
+
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ProjectsCustomerMock.register(mock: .resourceNotFound, projectUnit: projectUnit)
+
+        let finishExpectation = XCTestExpectation()
+
+        let presenterMock = MockAccessRestoreInteractorOutputProtocol()
+
+        stub(presenterMock) { stub in
+            when(stub.didReceiveRestoreAccess(error: any(Error.self))).then { _ in
+                finishExpectation.fulfill()
+            }
+        }
+
+        interactor.presenter = presenterMock
+
+        // when
+
+        interactor.restoreAccess(phrase: Constants.dummyValidMnemonic.components(separatedBy: CharacterSet.wordsSeparator))
+
+        // then
+
+        wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
+    }
+
+    // MARK: Private
+
     private func performTestSuccessfullRestoration() {
         // given
-        ProjectsCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
-        try? interactor.keystore.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreKey.pincode.rawValue)
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+
+        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
 
         let finishExpectation = XCTestExpectation()
 
@@ -73,6 +128,7 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
         XCTAssertNotNil(interactor.settings.decentralizedId)
         XCTAssertNotNil(interactor.settings.publicKeyId)
         XCTAssertNil(interactor.settings.verificationState)
+        XCTAssertNil(interactor.invitationLinkService.link)
 
         guard let keyExists = try? interactor.keystore.checkKey(for: KeystoreKey.privateKey.rawValue), keyExists else {
             XCTFail()
@@ -82,22 +138,6 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
         guard let seedEntropyExists = try? interactor.keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue), seedEntropyExists else {
             XCTFail()
             return
-        }
-
-        guard let pincodeExists = try? interactor.keystore.checkKey(for: KeystoreKey.pincode.rawValue), !pincodeExists else {
-            XCTFail()
-            return
-        }
-    }
-
-    // MARK: Private
-
-    func clearStorage() {
-        do {
-            try interactor.keystore.deleteAll()
-            interactor.settings.removeAll()
-        } catch {
-            XCTFail("\(error)")
         }
     }
 }

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -63,9 +63,8 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
         // when
         let personalUpdateInfo = createRandomPersonalUpdateInfo()
 
-        presenter.models?[PersonalInfoViewModelIndex.firstName.rawValue].value = personalUpdateInfo.firstName ?? ""
-        presenter.models?[PersonalInfoViewModelIndex.lastName.rawValue].value = personalUpdateInfo.lastName ?? ""
-        presenter.models?[PersonalInfoViewModelIndex.email.rawValue].value = personalUpdateInfo.email ?? ""
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.firstName.rawValue].value = personalUpdateInfo.firstName ?? ""
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.lastName.rawValue].value = personalUpdateInfo.lastName ?? ""
 
         presenter.save()
 
@@ -163,9 +162,8 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
         XCTAssertNotNil(presenter.userData)
 
-        presenter.models?[PersonalInfoViewModelIndex.firstName.rawValue].value = personalUpdateInfo.firstName ?? ""
-        presenter.models?[PersonalInfoViewModelIndex.lastName.rawValue].value = personalUpdateInfo.lastName ?? ""
-        presenter.models?[PersonalInfoViewModelIndex.email.rawValue].value = personalUpdateInfo.email ?? ""
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.firstName.rawValue].value = personalUpdateInfo.firstName ?? ""
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.lastName.rawValue].value = personalUpdateInfo.lastName ?? ""
 
         presenter.save()
 

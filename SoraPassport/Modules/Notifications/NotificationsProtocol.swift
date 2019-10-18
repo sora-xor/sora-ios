@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -14,7 +14,7 @@ protocol NotificationsInteractorInputProtocol: class {}
 protocol NotificationsInteractorOutputProtocol: class {
     func didCompleteNotificationsSetup()
     func didReceiveNotificationsSetup(error: Error)
-    func didReceive(_ notification: SoraNotificationProtocol)
+    func didReceive(_ notification: SoraNotificationProtocol) -> Bool
 }
 
 protocol NotificationsInteractorFactoryProtocol: class {
@@ -33,5 +33,5 @@ protocol NotificationsLocalSchedulerProtocol: class {
 
 protocol NotificationsServiceOutputProtocol: class {
     func didReceive(remoteToken: String)
-    func didReceive(_ notification: SoraNotificationProtocol)
+    func didReceive(_ notification: SoraNotificationProtocol) -> Bool
 }

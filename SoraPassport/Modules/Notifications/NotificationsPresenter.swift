@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -13,15 +13,8 @@ class NotificationsPresenter: NotificationsPresenterProtocol {
 }
 
 extension NotificationsPresenter: NotificationsInteractorOutputProtocol {
-    func didReceive(_ notification: SoraNotificationProtocol) {
-        DispatchQueue.main.async { [weak self] in
-            let message = SoraMessageBuilder()
-                .with(title: notification.title)
-                .with(subtitle: notification.body)
-                .with(image: nil)
-                .build()
-            self?.wireframe.show(message: message, on: self?.view)
-        }
+    func didReceive(_ notification: SoraNotificationProtocol) -> Bool {
+        return false
     }
 
     func didCompleteNotificationsSetup() {

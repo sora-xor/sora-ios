@@ -1,22 +1,44 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
+import UIKit
+import SafariServices
+
+enum WebPresentableStyle {
+    case automatic
+    case modal
+}
 
 protocol WebPresentable: class {
-    func showWeb(url: URL, from view: ControllerBackedProtocol, secondaryTitle: String)
+    func showWeb(url: URL, from view: ControllerBackedProtocol, style: WebPresentableStyle)
 }
 
 extension WebPresentable {
-    func showWeb(url: URL, from view: ControllerBackedProtocol, secondaryTitle: String) {
-        let webViewController = WebViewController(url: url, secondaryTitle: secondaryTitle)
-        webViewController.logger = Logger.shared
+    func showWeb(url: URL, from view: ControllerBackedProtocol, style: WebPresentableStyle) {
+        let webController = WebViewFactory.createWebViewController(for: url, style: style)
+        view.controller.present(webController, animated: true, completion: nil)
+    }
+}
 
-        let navigationController = SoraNavigationController()
-        navigationController.viewControllers = [webViewController]
+final class WebViewFactory {
+    static func createWebViewController(for url: URL, style: WebPresentableStyle) -> UIViewController {
+        let webController = SFSafariViewController(url: url, entersReaderIfAvailable: false)
 
-        view.controller.present(navigationController, animated: true, completion: nil)
+        if #available(iOS 10.0, *) {
+            webController.preferredControlTintColor = UIColor.navigationBarBackTintColor
+            webController.preferredBarTintColor = UIColor.navigationBarColor
+        }
+
+        switch style {
+        case .modal:
+            webController.modalPresentationStyle = .overFullScreen
+        default:
+            break
+        }
+
+        return webController
     }
 }

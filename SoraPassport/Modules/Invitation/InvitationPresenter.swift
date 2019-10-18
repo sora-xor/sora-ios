@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -10,18 +10,20 @@ final class InvitationPresenter {
     var interactor: InvitationInteractorInputProtocol!
     var wireframe: InvitationWireframeProtocol!
 
-    private(set) var integerNumberFormatter: NumberFormatter
+    let integerNumberFormatter: NumberFormatter
+    let invitationFactory: InvitationFactoryProtocol
 
     var logger: LoggerProtocol?
 
     private var isSharingInvitation: Bool = false
 
-    init(integerNumberFormatter: NumberFormatter) {
+    init(integerNumberFormatter: NumberFormatter, invitationFactory: InvitationFactoryProtocol) {
         self.integerNumberFormatter = integerNumberFormatter
+        self.invitationFactory = invitationFactory
     }
 
     private func invite(with code: String) {
-        let invitationMessage = R.string.localizable.inviteTemplate(code)
+        let invitationMessage = invitationFactory.createInvitation(from: code)
         let source = TextSharingSource(message: invitationMessage,
                                        subject: R.string.localizable.invitationsSharingSubject())
 

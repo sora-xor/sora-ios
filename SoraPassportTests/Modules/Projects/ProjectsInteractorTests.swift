@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -16,7 +16,13 @@ class ProjectsInteractorTests: NetworkBaseTests {
         ProjectsVotesCountMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         CurrencyFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
-        let interactor = createProjectsInteractor()
+        let eventCenter = MockEventCenterProtocol()
+
+        stub(eventCenter) { stub in
+            when(stub).add(observer: any(), dispatchIn: any()).thenDoNothing()
+        }
+
+        let interactor = createProjectsInteractor(with: eventCenter)
         let presenter = MockProjectsInteractorOutputProtocol()
         interactor.presenter = presenter
 
@@ -39,15 +45,66 @@ class ProjectsInteractorTests: NetworkBaseTests {
     }
 
     func testListSuccessfullSetupTest() {
-        // given
         ProjectsFinishedFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
-        let interactor = createListInteractor()
+        let eventCenter = MockEventCenterProtocol()
+
+        stub(eventCenter) { stub in
+            when(stub).add(observer: any(), dispatchIn: any()).thenDoNothing()
+        }
+
+        let interactor = createListInteractor(with: eventCenter)
         let presenter = createListPresenter()
         let view = MockProjectsListViewProtocol()
         interactor.presenter = presenter
         presenter.interactor = interactor
         presenter.view = view
+
+        performSetup(for: view, presenter: presenter)
+    }
+
+    func testDayChangeAfterListSetup() {
+        // given
+
+        ProjectsFinishedFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        let eventCenter = MockEventCenterProtocol()
+
+        stub(eventCenter) { stub in
+            when(stub).add(observer: any(), dispatchIn: any()).thenDoNothing()
+        }
+
+        let interactor = createListInteractor(with: eventCenter)
+        let presenter = createListPresenter()
+        let view = MockProjectsListViewProtocol()
+        interactor.presenter = presenter
+        presenter.interactor = interactor
+        presenter.view = view
+
+        // when
+
+        performSetup(for: view, presenter: presenter)
+
+        let expectation = XCTestExpectation()
+
+        stub(view) { stub in
+            when(stub).didReloadProjects(using: any()).then { _ in
+                XCTAssert(Thread.isMainThread)
+                expectation.fulfill()
+            }
+        }
+
+        NotificationCenter.default.post(name: .NSCalendarDayChanged, object: self)
+
+        // then
+
+        wait(for: [expectation], timeout: Constants.expectationDuration)
+    }
+
+    // MARK: Private
+
+    func performSetup(for view: MockProjectsListViewProtocol, presenter: ProjectsListPresenter) {
+        // given
 
         let expectation = XCTestExpectation()
         expectation.expectedFulfillmentCount = 2
@@ -69,9 +126,7 @@ class ProjectsInteractorTests: NetworkBaseTests {
         XCTAssertEqual(presenter.loadingState, .loaded)
     }
 
-    // MARK: Private
-
-    func createProjectsInteractor() -> ProjectsInteractor {
+    func createProjectsInteractor(with eventCenter: EventCenterProtocol) -> ProjectsInteractor {
         let mockedRequestSigner = createDummyRequestSigner()
 
         let coreDataCacheFacade = CoreDataCacheTestFacade()
@@ -92,17 +147,19 @@ class ProjectsInteractorTests: NetworkBaseTests {
         projectUnitService.requestSigner = mockedRequestSigner
 
         return ProjectsInteractor(customerDataProviderFacade: customerDataProviderFacade,
-                                  projectService: projectUnitService)
+                                  projectService: projectUnitService,
+                                  eventCenter: eventCenter)
     }
 
-    func createListInteractor() -> ProjectsListInteractor {
+    func createListInteractor(with eventCenter: EventCenterProtocol) -> ProjectsListInteractor {
         let mockedRequestSigner = createDummyRequestSigner()
 
         let projectDataProviderFacade = ProjectDataProviderFacade()
         projectDataProviderFacade.coreDataCacheFacade = CoreDataCacheTestFacade()
         projectDataProviderFacade.requestSigner = mockedRequestSigner
 
-        return ProjectsListInteractor(projectsDataProvider: projectDataProviderFacade.finishedProjectsProvider)
+        return ProjectsListInteractor(projectsDataProvider: projectDataProviderFacade.finishedProjectsProvider,
+                                      eventCenter: eventCenter)
     }
 
     func createListPresenter() -> ProjectsListPresenter {

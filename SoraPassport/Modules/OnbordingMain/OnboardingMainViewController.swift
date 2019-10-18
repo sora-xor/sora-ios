@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -9,8 +9,10 @@ import SoraUI
 final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, HiddableBarWhenPushed {
     private struct Constants {
         static let tutorialItemSizeWidth: CGFloat = 375.0
-        static let restoreBottomFriction: CGFloat = 0.75
-        static let signupBottomFriction: CGFloat = 0.75
+        static let restoreBottomFriction: CGFloat = 0.9
+        static let signupBottomFriction: CGFloat = 0.9
+        static let tutorialDecreasingFriction: CGFloat = 0.95
+        static let tutorialIncreasingFriction: CGFloat = 0.95
     }
 
     var presenter: OnboardingMainPresenterProtocol!
@@ -68,14 +70,18 @@ final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, 
     private func adjustLayout() {
         collectionViewTopConstraint.constant = UIApplication.shared.statusBarFrame.size.height
 
-        collectionViewHeightConstraint.constant *= designScaleRatio.height
-
         if isAdaptiveHeightDecreased {
-            restoreBottomConstraint.constant *= designScaleRatio.height * Constants.restoreBottomFriction
-            signupBottomConstraint.constant *= designScaleRatio.height * Constants.signupBottomFriction
-        } else {
+            collectionViewHeightConstraint.constant *= designScaleRatio.height *
+                Constants.tutorialDecreasingFriction
             restoreBottomConstraint.constant *= designScaleRatio.height
             signupBottomConstraint.constant *= designScaleRatio.height
+        }
+
+        if isAdaptiveHeightIncreased {
+            collectionViewHeightConstraint.constant *= designScaleRatio.height *
+                Constants.tutorialIncreasingFriction
+            restoreBottomConstraint.constant *= designScaleRatio.height * Constants.restoreBottomFriction
+            signupBottomConstraint.constant *= designScaleRatio.height * Constants.signupBottomFriction
         }
 
         termsBottomConstraint.constant *= designScaleRatio.height
@@ -99,7 +105,14 @@ final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, 
 
     @IBAction private func actionTerms(gestureRecognizer: UITapGestureRecognizer) {
         if gestureRecognizer.state == .ended {
-            presenter.activateTerms()
+            let location = gestureRecognizer.location(in: termsLabel.superview)
+
+            if location.x < termsLabel.center.x {
+                presenter.activateTerms()
+            } else {
+                presenter.activatePrivacy()
+            }
+
         }
     }
 }

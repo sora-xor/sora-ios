@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Cuckoo
@@ -115,20 +115,6 @@ import os
     
     
     
-     var assetName: String {
-        get {
-            return cuckoo_manager.getter("assetName",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.assetName)
-        }
-        
-    }
-    
-    
-    
      var defaultProjectUnit: ServiceUnit {
         get {
             return cuckoo_manager.getter("defaultProjectUnit",
@@ -171,62 +157,6 @@ import os
     
     
     
-     var howItWorksUrl: String {
-        get {
-            return cuckoo_manager.getter("howItWorksUrl",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.howItWorksUrl)
-        }
-        
-    }
-    
-    
-    
-     var invitationAboutUrl: String {
-        get {
-            return cuckoo_manager.getter("invitationAboutUrl",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.invitationAboutUrl)
-        }
-        
-    }
-    
-    
-    
-     var directInviteUrl: String {
-        get {
-            return cuckoo_manager.getter("directInviteUrl",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.directInviteUrl)
-        }
-        
-    }
-    
-    
-    
-     var promoUrl: String {
-        get {
-            return cuckoo_manager.getter("promoUrl",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.promoUrl)
-        }
-        
-    }
-    
-    
-    
      var defaultCurrency: CurrencyItemData {
         get {
             return cuckoo_manager.getter("defaultCurrency",
@@ -263,6 +193,76 @@ import os
                     Cuckoo.MockManager.crashOnProtocolSuperclassCall()
                     ,
                 defaultCall: __defaultImplStub!.termsURL)
+        }
+        
+    }
+    
+    
+    
+     var privacyPolicyURL: URL {
+        get {
+            return cuckoo_manager.getter("privacyPolicyURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.privacyPolicyURL)
+        }
+        
+    }
+    
+    
+    
+     var version: String {
+        get {
+            return cuckoo_manager.getter("version",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.version)
+        }
+        
+    }
+    
+    
+    
+     var invitationHostURL: URL {
+        get {
+            return cuckoo_manager.getter("invitationHostURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.invitationHostURL)
+        }
+        
+    }
+    
+    
+    
+     var opensourceURL: URL {
+        get {
+            return cuckoo_manager.getter("opensourceURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.opensourceURL)
+        }
+        
+    }
+    
+    
+    
+     var faqURL: URL {
+        get {
+            return cuckoo_manager.getter("faqURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.faqURL)
         }
         
     }
@@ -310,11 +310,6 @@ import os
 	    }
 	    
 	    
-	    var assetName: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "assetName")
-	    }
-	    
-	    
 	    var defaultProjectUnit: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, ServiceUnit> {
 	        return .init(manager: cuckoo_manager, name: "defaultProjectUnit")
 	    }
@@ -330,26 +325,6 @@ import os
 	    }
 	    
 	    
-	    var howItWorksUrl: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "howItWorksUrl")
-	    }
-	    
-	    
-	    var invitationAboutUrl: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "invitationAboutUrl")
-	    }
-	    
-	    
-	    var directInviteUrl: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "directInviteUrl")
-	    }
-	    
-	    
-	    var promoUrl: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "promoUrl")
-	    }
-	    
-	    
 	    var defaultCurrency: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, CurrencyItemData> {
 	        return .init(manager: cuckoo_manager, name: "defaultCurrency")
 	    }
@@ -362,6 +337,31 @@ import os
 	    
 	    var termsURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
 	        return .init(manager: cuckoo_manager, name: "termsURL")
+	    }
+	    
+	    
+	    var privacyPolicyURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+	        return .init(manager: cuckoo_manager, name: "privacyPolicyURL")
+	    }
+	    
+	    
+	    var version: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+	        return .init(manager: cuckoo_manager, name: "version")
+	    }
+	    
+	    
+	    var invitationHostURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+	        return .init(manager: cuckoo_manager, name: "invitationHostURL")
+	    }
+	    
+	    
+	    var opensourceURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+	        return .init(manager: cuckoo_manager, name: "opensourceURL")
+	    }
+	    
+	    
+	    var faqURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+	        return .init(manager: cuckoo_manager, name: "faqURL")
 	    }
 	    
 	    
@@ -410,11 +410,6 @@ import os
 	    }
 	    
 	    
-	    var assetName: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "assetName", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
 	    var defaultProjectUnit: Cuckoo.VerifyReadOnlyProperty<ServiceUnit> {
 	        return .init(manager: cuckoo_manager, name: "defaultProjectUnit", callMatcher: callMatcher, sourceLocation: sourceLocation)
 	    }
@@ -430,26 +425,6 @@ import os
 	    }
 	    
 	    
-	    var howItWorksUrl: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "howItWorksUrl", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var invitationAboutUrl: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "invitationAboutUrl", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var directInviteUrl: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "directInviteUrl", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var promoUrl: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "promoUrl", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
 	    var defaultCurrency: Cuckoo.VerifyReadOnlyProperty<CurrencyItemData> {
 	        return .init(manager: cuckoo_manager, name: "defaultCurrency", callMatcher: callMatcher, sourceLocation: sourceLocation)
 	    }
@@ -462,6 +437,31 @@ import os
 	    
 	    var termsURL: Cuckoo.VerifyReadOnlyProperty<URL> {
 	        return .init(manager: cuckoo_manager, name: "termsURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
+	    var privacyPolicyURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+	        return .init(manager: cuckoo_manager, name: "privacyPolicyURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
+	    var version: Cuckoo.VerifyReadOnlyProperty<String> {
+	        return .init(manager: cuckoo_manager, name: "version", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
+	    var invitationHostURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+	        return .init(manager: cuckoo_manager, name: "invitationHostURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
+	    var opensourceURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+	        return .init(manager: cuckoo_manager, name: "opensourceURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
+	    var faqURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+	        return .init(manager: cuckoo_manager, name: "faqURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
 	    }
 	    
 	
@@ -520,14 +520,6 @@ import os
     }
     
     
-     var assetName: String {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (String).self)
-        }
-        
-    }
-    
-    
      var defaultProjectUnit: ServiceUnit {
         get {
             return DefaultValueRegistry.defaultValue(for: (ServiceUnit).self)
@@ -552,38 +544,6 @@ import os
     }
     
     
-     var howItWorksUrl: String {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (String).self)
-        }
-        
-    }
-    
-    
-     var invitationAboutUrl: String {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (String).self)
-        }
-        
-    }
-    
-    
-     var directInviteUrl: String {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (String).self)
-        }
-        
-    }
-    
-    
-     var promoUrl: String {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (String).self)
-        }
-        
-    }
-    
-    
      var defaultCurrency: CurrencyItemData {
         get {
             return DefaultValueRegistry.defaultValue(for: (CurrencyItemData).self)
@@ -601,6 +561,46 @@ import os
     
     
      var termsURL: URL {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL).self)
+        }
+        
+    }
+    
+    
+     var privacyPolicyURL: URL {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL).self)
+        }
+        
+    }
+    
+    
+     var version: String {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (String).self)
+        }
+        
+    }
+    
+    
+     var invitationHostURL: URL {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL).self)
+        }
+        
+    }
+    
+    
+     var opensourceURL: URL {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL).self)
+        }
+        
+    }
+    
+    
+     var faqURL: URL {
         get {
             return DefaultValueRegistry.defaultValue(for: (URL).self)
         }
@@ -1178,6 +1178,207 @@ import Foundation
      func didStop(with remainedInterval: TimeInterval)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
+    
+}
+
+
+import Cuckoo
+@testable import SoraPassport
+
+import Foundation
+
+
+ class MockDayChangeHandlerDelegate: DayChangeHandlerDelegate, Cuckoo.ProtocolMock {
+    
+     typealias MocksType = DayChangeHandlerDelegate
+    
+     typealias Stubbing = __StubbingProxy_DayChangeHandlerDelegate
+     typealias Verification = __VerificationProxy_DayChangeHandlerDelegate
+
+     let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
+
+    
+    private var __defaultImplStub: DayChangeHandlerDelegate?
+
+     func enableDefaultImplementation(_ stub: DayChangeHandlerDelegate) {
+        __defaultImplStub = stub
+        cuckoo_manager.enableDefaultStubImplementation()
+    }
+    
+
+    
+
+    
+
+    
+    
+    
+     func handlerDidReceiveChange(_ handler: DayChangeHandlerProtocol)  {
+        
+    return cuckoo_manager.call("handlerDidReceiveChange(_: DayChangeHandlerProtocol)",
+            parameters: (handler),
+            escapingParameters: (handler),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.handlerDidReceiveChange(handler))
+        
+    }
+    
+
+	 struct __StubbingProxy_DayChangeHandlerDelegate: Cuckoo.StubbingProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	
+	     init(manager: Cuckoo.MockManager) {
+	        self.cuckoo_manager = manager
+	    }
+	    
+	    
+	    func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(DayChangeHandlerProtocol)> where M1.MatchedType == DayChangeHandlerProtocol {
+	        let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockDayChangeHandlerDelegate.self, method: "handlerDidReceiveChange(_: DayChangeHandlerProtocol)", parameterMatchers: matchers))
+	    }
+	    
+	}
+
+	 struct __VerificationProxy_DayChangeHandlerDelegate: Cuckoo.VerificationProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	    private let callMatcher: Cuckoo.CallMatcher
+	    private let sourceLocation: Cuckoo.SourceLocation
+	
+	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+	        self.cuckoo_manager = manager
+	        self.callMatcher = callMatcher
+	        self.sourceLocation = sourceLocation
+	    }
+	
+	    
+	
+	    
+	    @discardableResult
+	    func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.__DoNotUse<(DayChangeHandlerProtocol), Void> where M1.MatchedType == DayChangeHandlerProtocol {
+	        let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
+	        return cuckoo_manager.verify("handlerDidReceiveChange(_: DayChangeHandlerProtocol)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	}
+}
+
+ class DayChangeHandlerDelegateStub: DayChangeHandlerDelegate {
+    
+
+    
+
+    
+     func handlerDidReceiveChange(_ handler: DayChangeHandlerProtocol)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+}
+
+
+
+ class MockDayChangeHandlerProtocol: DayChangeHandlerProtocol, Cuckoo.ProtocolMock {
+    
+     typealias MocksType = DayChangeHandlerProtocol
+    
+     typealias Stubbing = __StubbingProxy_DayChangeHandlerProtocol
+     typealias Verification = __VerificationProxy_DayChangeHandlerProtocol
+
+     let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
+
+    
+    private var __defaultImplStub: DayChangeHandlerProtocol?
+
+     func enableDefaultImplementation(_ stub: DayChangeHandlerProtocol) {
+        __defaultImplStub = stub
+        cuckoo_manager.enableDefaultStubImplementation()
+    }
+    
+
+    
+    
+    
+     var delegate: DayChangeHandlerDelegate? {
+        get {
+            return cuckoo_manager.getter("delegate",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.delegate)
+        }
+        
+        set {
+            cuckoo_manager.setter("delegate",
+                value: newValue,
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.delegate = newValue)
+        }
+        
+    }
+    
+
+    
+
+    
+
+	 struct __StubbingProxy_DayChangeHandlerProtocol: Cuckoo.StubbingProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	
+	     init(manager: Cuckoo.MockManager) {
+	        self.cuckoo_manager = manager
+	    }
+	    
+	    
+	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockDayChangeHandlerProtocol, DayChangeHandlerDelegate> {
+	        return .init(manager: cuckoo_manager, name: "delegate")
+	    }
+	    
+	    
+	}
+
+	 struct __VerificationProxy_DayChangeHandlerProtocol: Cuckoo.VerificationProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	    private let callMatcher: Cuckoo.CallMatcher
+	    private let sourceLocation: Cuckoo.SourceLocation
+	
+	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+	        self.cuckoo_manager = manager
+	        self.callMatcher = callMatcher
+	        self.sourceLocation = sourceLocation
+	    }
+	
+	    
+	    
+	    var delegate: Cuckoo.VerifyOptionalProperty<DayChangeHandlerDelegate> {
+	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	
+	    
+	}
+}
+
+ class DayChangeHandlerProtocolStub: DayChangeHandlerProtocol {
+    
+    
+     var delegate: DayChangeHandlerDelegate? {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (DayChangeHandlerDelegate?).self)
+        }
+        
+        set { }
+        
+    }
+    
+
+    
+
     
 }
 
@@ -1920,6 +2121,21 @@ import RobinHood
     
     
     
+     func createUserOperation(_ urlTemplate: String, with info: UserCreationInfo) -> NetworkOperation<VerificationCodeData> {
+        
+    return cuckoo_manager.call("createUserOperation(_: String, with: UserCreationInfo) -> NetworkOperation<VerificationCodeData>",
+            parameters: (urlTemplate, info),
+            escapingParameters: (urlTemplate, info),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.createUserOperation(urlTemplate, with: info))
+        
+    }
+    
+    
+    
      func fetchCustomerOperation(_ urlTemplate: String) -> NetworkOperation<UserData> {
         
     return cuckoo_manager.call("fetchCustomerOperation(_: String) -> NetworkOperation<UserData>",
@@ -1945,21 +2161,6 @@ import RobinHood
                 Cuckoo.MockManager.crashOnProtocolSuperclassCall()
                 ,
             defaultCall: __defaultImplStub!.updateCustomerOperation(urlTemplate, info: info))
-        
-    }
-    
-    
-    
-     func checkInvitationOperation(_ urlTemplate: String, code: String) -> NetworkOperation<ApplicationFormData?> {
-        
-    return cuckoo_manager.call("checkInvitationOperation(_: String, code: String) -> NetworkOperation<ApplicationFormData?>",
-            parameters: (urlTemplate, code),
-            escapingParameters: (urlTemplate, code),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.checkInvitationOperation(urlTemplate, code: code))
         
     }
     
@@ -2055,16 +2256,16 @@ import RobinHood
     
     
     
-     func verifySmsCodeOperation(_ urlTemplate: String, code: String) -> NetworkOperation<Bool> {
+     func verifySmsCodeOperation(_ urlTemplate: String, info: VerificationCodeInfo) -> NetworkOperation<Bool> {
         
-    return cuckoo_manager.call("verifySmsCodeOperation(_: String, code: String) -> NetworkOperation<Bool>",
-            parameters: (urlTemplate, code),
-            escapingParameters: (urlTemplate, code),
+    return cuckoo_manager.call("verifySmsCodeOperation(_: String, info: VerificationCodeInfo) -> NetworkOperation<Bool>",
+            parameters: (urlTemplate, info),
+            escapingParameters: (urlTemplate, info),
             superclassCall:
                 
                 Cuckoo.MockManager.crashOnProtocolSuperclassCall()
                 ,
-            defaultCall: __defaultImplStub!.verifySmsCodeOperation(urlTemplate, code: code))
+            defaultCall: __defaultImplStub!.verifySmsCodeOperation(urlTemplate, info: info))
         
     }
     
@@ -2082,6 +2283,11 @@ import RobinHood
 	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "registrationOperation(_: String, with: RegistrationInfo) -> NetworkOperation<Bool>", parameterMatchers: matchers))
 	    }
 	    
+	    func createUserOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, with info: M2) -> Cuckoo.ProtocolStubFunction<(String, UserCreationInfo), NetworkOperation<VerificationCodeData>> where M1.MatchedType == String, M2.MatchedType == UserCreationInfo {
+	        let matchers: [Cuckoo.ParameterMatcher<(String, UserCreationInfo)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: info) { $0.1 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "createUserOperation(_: String, with: UserCreationInfo) -> NetworkOperation<VerificationCodeData>", parameterMatchers: matchers))
+	    }
+	    
 	    func fetchCustomerOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<UserData>> where M1.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
 	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "fetchCustomerOperation(_: String) -> NetworkOperation<UserData>", parameterMatchers: matchers))
@@ -2090,11 +2296,6 @@ import RobinHood
 	    func updateCustomerOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, info: M2) -> Cuckoo.ProtocolStubFunction<(String, PersonalInfo), NetworkOperation<Bool>> where M1.MatchedType == String, M2.MatchedType == PersonalInfo {
 	        let matchers: [Cuckoo.ParameterMatcher<(String, PersonalInfo)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: info) { $0.1 }]
 	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "updateCustomerOperation(_: String, info: PersonalInfo) -> NetworkOperation<Bool>", parameterMatchers: matchers))
-	    }
-	    
-	    func checkInvitationOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, code: M2) -> Cuckoo.ProtocolStubFunction<(String, String), NetworkOperation<ApplicationFormData?>> where M1.MatchedType == String, M2.MatchedType == String {
-	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: code) { $0.1 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "checkInvitationOperation(_: String, code: String) -> NetworkOperation<ApplicationFormData?>", parameterMatchers: matchers))
 	    }
 	    
 	    func fetchInvitationCodeOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<InvitationCodeData>> where M1.MatchedType == String {
@@ -2127,9 +2328,9 @@ import RobinHood
 	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "sendSmsCodeOperation(_: String) -> NetworkOperation<VerificationCodeData>", parameterMatchers: matchers))
 	    }
 	    
-	    func verifySmsCodeOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, code: M2) -> Cuckoo.ProtocolStubFunction<(String, String), NetworkOperation<Bool>> where M1.MatchedType == String, M2.MatchedType == String {
-	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: code) { $0.1 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "verifySmsCodeOperation(_: String, code: String) -> NetworkOperation<Bool>", parameterMatchers: matchers))
+	    func verifySmsCodeOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, info: M2) -> Cuckoo.ProtocolStubFunction<(String, VerificationCodeInfo), NetworkOperation<Bool>> where M1.MatchedType == String, M2.MatchedType == VerificationCodeInfo {
+	        let matchers: [Cuckoo.ParameterMatcher<(String, VerificationCodeInfo)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: info) { $0.1 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "verifySmsCodeOperation(_: String, info: VerificationCodeInfo) -> NetworkOperation<Bool>", parameterMatchers: matchers))
 	    }
 	    
 	}
@@ -2155,6 +2356,12 @@ import RobinHood
 	    }
 	    
 	    @discardableResult
+	    func createUserOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, with info: M2) -> Cuckoo.__DoNotUse<(String, UserCreationInfo), NetworkOperation<VerificationCodeData>> where M1.MatchedType == String, M2.MatchedType == UserCreationInfo {
+	        let matchers: [Cuckoo.ParameterMatcher<(String, UserCreationInfo)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: info) { $0.1 }]
+	        return cuckoo_manager.verify("createUserOperation(_: String, with: UserCreationInfo) -> NetworkOperation<VerificationCodeData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
 	    func fetchCustomerOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<UserData>> where M1.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
 	        return cuckoo_manager.verify("fetchCustomerOperation(_: String) -> NetworkOperation<UserData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
@@ -2164,12 +2371,6 @@ import RobinHood
 	    func updateCustomerOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, info: M2) -> Cuckoo.__DoNotUse<(String, PersonalInfo), NetworkOperation<Bool>> where M1.MatchedType == String, M2.MatchedType == PersonalInfo {
 	        let matchers: [Cuckoo.ParameterMatcher<(String, PersonalInfo)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: info) { $0.1 }]
 	        return cuckoo_manager.verify("updateCustomerOperation(_: String, info: PersonalInfo) -> NetworkOperation<Bool>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func checkInvitationOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, code: M2) -> Cuckoo.__DoNotUse<(String, String), NetworkOperation<ApplicationFormData?>> where M1.MatchedType == String, M2.MatchedType == String {
-	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: code) { $0.1 }]
-	        return cuckoo_manager.verify("checkInvitationOperation(_: String, code: String) -> NetworkOperation<ApplicationFormData?>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
 	    }
 	    
 	    @discardableResult
@@ -2209,9 +2410,9 @@ import RobinHood
 	    }
 	    
 	    @discardableResult
-	    func verifySmsCodeOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, code: M2) -> Cuckoo.__DoNotUse<(String, String), NetworkOperation<Bool>> where M1.MatchedType == String, M2.MatchedType == String {
-	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: code) { $0.1 }]
-	        return cuckoo_manager.verify("verifySmsCodeOperation(_: String, code: String) -> NetworkOperation<Bool>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    func verifySmsCodeOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, info: M2) -> Cuckoo.__DoNotUse<(String, VerificationCodeInfo), NetworkOperation<Bool>> where M1.MatchedType == String, M2.MatchedType == VerificationCodeInfo {
+	        let matchers: [Cuckoo.ParameterMatcher<(String, VerificationCodeInfo)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: info) { $0.1 }]
+	        return cuckoo_manager.verify("verifySmsCodeOperation(_: String, info: VerificationCodeInfo) -> NetworkOperation<Bool>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
 	    }
 	    
 	}
@@ -2227,16 +2428,16 @@ import RobinHood
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<Bool>).self)
     }
     
+     func createUserOperation(_ urlTemplate: String, with info: UserCreationInfo) -> NetworkOperation<VerificationCodeData>  {
+        return DefaultValueRegistry.defaultValue(for: (NetworkOperation<VerificationCodeData>).self)
+    }
+    
      func fetchCustomerOperation(_ urlTemplate: String) -> NetworkOperation<UserData>  {
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<UserData>).self)
     }
     
      func updateCustomerOperation(_ urlTemplate: String, info: PersonalInfo) -> NetworkOperation<Bool>  {
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<Bool>).self)
-    }
-    
-     func checkInvitationOperation(_ urlTemplate: String, code: String) -> NetworkOperation<ApplicationFormData?>  {
-        return DefaultValueRegistry.defaultValue(for: (NetworkOperation<ApplicationFormData?>).self)
     }
     
      func fetchInvitationCodeOperation(_ urlTemplate: String) -> NetworkOperation<InvitationCodeData>  {
@@ -2263,7 +2464,7 @@ import RobinHood
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<VerificationCodeData>).self)
     }
     
-     func verifySmsCodeOperation(_ urlTemplate: String, code: String) -> NetworkOperation<Bool>  {
+     func verifySmsCodeOperation(_ urlTemplate: String, info: VerificationCodeInfo) -> NetworkOperation<Bool>  {
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<Bool>).self)
     }
     
@@ -2296,46 +2497,91 @@ import RobinHood
     
     
     
-     func fetchAnnouncement(_ urlTemplate: String) -> NetworkOperation<AnnouncementData?> {
+     func fetchAnnouncementOperation(_ urlTemplate: String) -> NetworkOperation<AnnouncementData?> {
         
-    return cuckoo_manager.call("fetchAnnouncement(_: String) -> NetworkOperation<AnnouncementData?>",
+    return cuckoo_manager.call("fetchAnnouncementOperation(_: String) -> NetworkOperation<AnnouncementData?>",
             parameters: (urlTemplate),
             escapingParameters: (urlTemplate),
             superclassCall:
                 
                 Cuckoo.MockManager.crashOnProtocolSuperclassCall()
                 ,
-            defaultCall: __defaultImplStub!.fetchAnnouncement(urlTemplate))
+            defaultCall: __defaultImplStub!.fetchAnnouncementOperation(urlTemplate))
         
     }
     
     
     
-     func fetchHelp(_ urlTemplate: String) -> NetworkOperation<HelpData> {
+     func fetchHelpOperation(_ urlTemplate: String) -> NetworkOperation<HelpData> {
         
-    return cuckoo_manager.call("fetchHelp(_: String) -> NetworkOperation<HelpData>",
+    return cuckoo_manager.call("fetchHelpOperation(_: String) -> NetworkOperation<HelpData>",
             parameters: (urlTemplate),
             escapingParameters: (urlTemplate),
             superclassCall:
                 
                 Cuckoo.MockManager.crashOnProtocolSuperclassCall()
                 ,
-            defaultCall: __defaultImplStub!.fetchHelp(urlTemplate))
+            defaultCall: __defaultImplStub!.fetchHelpOperation(urlTemplate))
         
     }
     
     
     
-     func fetchCurrency(_ urlTemplate: String) -> NetworkOperation<CurrencyData> {
+     func fetchReputationDetailsOperation(_ urlTemplate: String) -> NetworkOperation<ReputationDetailsData> {
         
-    return cuckoo_manager.call("fetchCurrency(_: String) -> NetworkOperation<CurrencyData>",
+    return cuckoo_manager.call("fetchReputationDetailsOperation(_: String) -> NetworkOperation<ReputationDetailsData>",
             parameters: (urlTemplate),
             escapingParameters: (urlTemplate),
             superclassCall:
                 
                 Cuckoo.MockManager.crashOnProtocolSuperclassCall()
                 ,
-            defaultCall: __defaultImplStub!.fetchCurrency(urlTemplate))
+            defaultCall: __defaultImplStub!.fetchReputationDetailsOperation(urlTemplate))
+        
+    }
+    
+    
+    
+     func fetchCurrencyOperation(_ urlTemplate: String) -> NetworkOperation<CurrencyData> {
+        
+    return cuckoo_manager.call("fetchCurrencyOperation(_: String) -> NetworkOperation<CurrencyData>",
+            parameters: (urlTemplate),
+            escapingParameters: (urlTemplate),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.fetchCurrencyOperation(urlTemplate))
+        
+    }
+    
+    
+    
+     func checkSupportedVersionOperation(_ urlTemplate: String, version: String) -> NetworkOperation<SupportedVersionData> {
+        
+    return cuckoo_manager.call("checkSupportedVersionOperation(_: String, version: String) -> NetworkOperation<SupportedVersionData>",
+            parameters: (urlTemplate, version),
+            escapingParameters: (urlTemplate, version),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.checkSupportedVersionOperation(urlTemplate, version: version))
+        
+    }
+    
+    
+    
+     func fetchCountryOperation(_ urlTemplate: String) -> NetworkOperation<CountryData> {
+        
+    return cuckoo_manager.call("fetchCountryOperation(_: String) -> NetworkOperation<CountryData>",
+            parameters: (urlTemplate),
+            escapingParameters: (urlTemplate),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.fetchCountryOperation(urlTemplate))
         
     }
     
@@ -2348,19 +2594,34 @@ import RobinHood
 	    }
 	    
 	    
-	    func fetchAnnouncement<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<AnnouncementData?>> where M1.MatchedType == String {
+	    func fetchAnnouncementOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<AnnouncementData?>> where M1.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchAnnouncement(_: String) -> NetworkOperation<AnnouncementData?>", parameterMatchers: matchers))
+	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchAnnouncementOperation(_: String) -> NetworkOperation<AnnouncementData?>", parameterMatchers: matchers))
 	    }
 	    
-	    func fetchHelp<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<HelpData>> where M1.MatchedType == String {
+	    func fetchHelpOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<HelpData>> where M1.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchHelp(_: String) -> NetworkOperation<HelpData>", parameterMatchers: matchers))
+	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchHelpOperation(_: String) -> NetworkOperation<HelpData>", parameterMatchers: matchers))
 	    }
 	    
-	    func fetchCurrency<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<CurrencyData>> where M1.MatchedType == String {
+	    func fetchReputationDetailsOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<ReputationDetailsData>> where M1.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchCurrency(_: String) -> NetworkOperation<CurrencyData>", parameterMatchers: matchers))
+	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchReputationDetailsOperation(_: String) -> NetworkOperation<ReputationDetailsData>", parameterMatchers: matchers))
+	    }
+	    
+	    func fetchCurrencyOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<CurrencyData>> where M1.MatchedType == String {
+	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchCurrencyOperation(_: String) -> NetworkOperation<CurrencyData>", parameterMatchers: matchers))
+	    }
+	    
+	    func checkSupportedVersionOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, version: M2) -> Cuckoo.ProtocolStubFunction<(String, String), NetworkOperation<SupportedVersionData>> where M1.MatchedType == String, M2.MatchedType == String {
+	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: version) { $0.1 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "checkSupportedVersionOperation(_: String, version: String) -> NetworkOperation<SupportedVersionData>", parameterMatchers: matchers))
+	    }
+	    
+	    func fetchCountryOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<CountryData>> where M1.MatchedType == String {
+	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchCountryOperation(_: String) -> NetworkOperation<CountryData>", parameterMatchers: matchers))
 	    }
 	    
 	}
@@ -2380,21 +2641,39 @@ import RobinHood
 	
 	    
 	    @discardableResult
-	    func fetchAnnouncement<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<AnnouncementData?>> where M1.MatchedType == String {
+	    func fetchAnnouncementOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<AnnouncementData?>> where M1.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
-	        return cuckoo_manager.verify("fetchAnnouncement(_: String) -> NetworkOperation<AnnouncementData?>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	        return cuckoo_manager.verify("fetchAnnouncementOperation(_: String) -> NetworkOperation<AnnouncementData?>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
 	    }
 	    
 	    @discardableResult
-	    func fetchHelp<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<HelpData>> where M1.MatchedType == String {
+	    func fetchHelpOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<HelpData>> where M1.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
-	        return cuckoo_manager.verify("fetchHelp(_: String) -> NetworkOperation<HelpData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	        return cuckoo_manager.verify("fetchHelpOperation(_: String) -> NetworkOperation<HelpData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
 	    }
 	    
 	    @discardableResult
-	    func fetchCurrency<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<CurrencyData>> where M1.MatchedType == String {
+	    func fetchReputationDetailsOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<ReputationDetailsData>> where M1.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
-	        return cuckoo_manager.verify("fetchCurrency(_: String) -> NetworkOperation<CurrencyData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	        return cuckoo_manager.verify("fetchReputationDetailsOperation(_: String) -> NetworkOperation<ReputationDetailsData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
+	    func fetchCurrencyOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<CurrencyData>> where M1.MatchedType == String {
+	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
+	        return cuckoo_manager.verify("fetchCurrencyOperation(_: String) -> NetworkOperation<CurrencyData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
+	    func checkSupportedVersionOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, version: M2) -> Cuckoo.__DoNotUse<(String, String), NetworkOperation<SupportedVersionData>> where M1.MatchedType == String, M2.MatchedType == String {
+	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: version) { $0.1 }]
+	        return cuckoo_manager.verify("checkSupportedVersionOperation(_: String, version: String) -> NetworkOperation<SupportedVersionData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
+	    func fetchCountryOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<CountryData>> where M1.MatchedType == String {
+	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
+	        return cuckoo_manager.verify("fetchCountryOperation(_: String) -> NetworkOperation<CountryData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
 	    }
 	    
 	}
@@ -2406,16 +2685,28 @@ import RobinHood
     
 
     
-     func fetchAnnouncement(_ urlTemplate: String) -> NetworkOperation<AnnouncementData?>  {
+     func fetchAnnouncementOperation(_ urlTemplate: String) -> NetworkOperation<AnnouncementData?>  {
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<AnnouncementData?>).self)
     }
     
-     func fetchHelp(_ urlTemplate: String) -> NetworkOperation<HelpData>  {
+     func fetchHelpOperation(_ urlTemplate: String) -> NetworkOperation<HelpData>  {
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<HelpData>).self)
     }
     
-     func fetchCurrency(_ urlTemplate: String) -> NetworkOperation<CurrencyData>  {
+     func fetchReputationDetailsOperation(_ urlTemplate: String) -> NetworkOperation<ReputationDetailsData>  {
+        return DefaultValueRegistry.defaultValue(for: (NetworkOperation<ReputationDetailsData>).self)
+    }
+    
+     func fetchCurrencyOperation(_ urlTemplate: String) -> NetworkOperation<CurrencyData>  {
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<CurrencyData>).self)
+    }
+    
+     func checkSupportedVersionOperation(_ urlTemplate: String, version: String) -> NetworkOperation<SupportedVersionData>  {
+        return DefaultValueRegistry.defaultValue(for: (NetworkOperation<SupportedVersionData>).self)
+    }
+    
+     func fetchCountryOperation(_ urlTemplate: String) -> NetworkOperation<CountryData>  {
+        return DefaultValueRegistry.defaultValue(for: (NetworkOperation<CountryData>).self)
     }
     
 }

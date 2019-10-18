@@ -1,13 +1,13 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 
 private typealias FinishedVoting = (isSuccessfull: Bool, title: String)
 
-protocol FinishedProjectViewModelFactoryProtocol {
+protocol FinishedProjectViewModelFactoryProtocol: DynamicProjectViewModelFactoryProtocol {
     func create(from project: ProjectData,
                 layoutMetadata: FinishedProjectLayoutMetadata,
                 delegate: FinishedProjectViewModelDelegate?) -> FinishedProjectViewModel
@@ -19,12 +19,18 @@ protocol FinishedProjectViewModelFactoryProtocol {
 final class FinishedProjectViewModelFactory {
     private(set) var votesFormatter: NumberFormatter
     private(set) var integerFormatter: NumberFormatter
-    private(set) var dateFormatter: DateFormatter
+    private(set) var dateFormatterProvider: DateFormatterProviderProtocol
 
-    init(votesFormatter: NumberFormatter, integerFormatter: NumberFormatter, dateFormatter: DateFormatter) {
+    weak var delegate: ProjectViewModelFactoryDelegate?
+
+    init(votesFormatter: NumberFormatter,
+         integerFormatter: NumberFormatter,
+         dateFormatterProvider: DateFormatterProviderProtocol) {
         self.votesFormatter = votesFormatter
         self.integerFormatter = integerFormatter
-        self.dateFormatter = dateFormatter
+        self.dateFormatterProvider = dateFormatterProvider
+
+        dateFormatterProvider.delegate = self
     }
 
     private func createFundingProgress(from fundingTarget: String) -> String {
@@ -42,7 +48,7 @@ final class FinishedProjectViewModelFactory {
 
         if fundingDeadline.compare(Date()) != .orderedDescending {
             return R.string.localizable
-                .projectFinishedAt(dateFormatter.string(from: fundingDeadline))
+                .projectFinishedAt(dateFormatterProvider.dateFormatter.string(from: fundingDeadline))
         } else {
             return ""
         }
@@ -114,7 +120,7 @@ extension FinishedProjectViewModelFactory: FinishedProjectViewModelFactoryProtoc
                                                  imageViewModel: nil)
 
         if let imageLink = project.imageLink {
-            viewModel.imageViewModel = ProjectImageViewModel(url: imageLink)
+            viewModel.imageViewModel = ImageViewModel(url: imageLink)
             viewModel.imageViewModel?.cornerRadius = layoutMetadata.cornerRadius
             viewModel.imageViewModel?.targetSize = layout.imageSize
         }
@@ -147,20 +153,16 @@ extension FinishedProjectViewModelFactory: FinishedProjectViewModelFactoryProtoc
         viewModel.rewardDetails = createRewardDetails(from: projectDetails.votes,
                                                       status: projectDetails.status)
 
-        if projectDetails.votedFriendsCount > 0,
-            let votedFriendsString = integerFormatter.string(from: NSNumber(value: projectDetails.votedFriendsCount)),
-            projectDetails.favoriteCount > 0,
-            let favoriteCountString = integerFormatter.string(from: NSNumber(value: projectDetails.favoriteCount)) {
+        let votedFriendsString = R.string.localizable.votedFriends(voted: Int(projectDetails.votedFriendsCount))
+        let favoritesString = R.string.localizable.favoriteUsers(favorite: Int(projectDetails.favoriteCount))
+
+        if !votedFriendsString.isEmpty, !favoritesString.isEmpty {
             viewModel.statisticsDetails = R.string.localizable
-                .projectDetailsFavoriteVotedCount(votedFriendsString, favoriteCountString)
-        } else if projectDetails.votedFriendsCount > 0,
-            let votedFriendsString = integerFormatter.string(from: NSNumber(value: projectDetails.votedFriendsCount)) {
-            viewModel.statisticsDetails = R.string.localizable
-                .projectDetailsVotedCount(votedFriendsString)
-        } else if projectDetails.favoriteCount > 0,
-            let favoriteCountString = integerFormatter.string(from: NSNumber(value: projectDetails.favoriteCount)) {
-            viewModel.statisticsDetails = R.string.localizable
-                .projectDetailsFavoriteCount(favoriteCountString)
+                .projectDetailsFavoriteVotedCount(votedFriendsString, favoritesString)
+        } else if !votedFriendsString.isEmpty {
+            viewModel.statisticsDetails = votedFriendsString
+        } else if !favoritesString.isEmpty {
+            viewModel.statisticsDetails = favoritesString
         }
 
         viewModel.details = projectDetails.details ?? projectDetails.annotation
@@ -169,15 +171,21 @@ extension FinishedProjectViewModelFactory: FinishedProjectViewModelFactoryProtoc
         viewModel.email = projectDetails.email ?? ""
 
         if let mainImageLink = projectDetails.imageLink {
-            viewModel.mainImageViewModel = ProjectImageViewModel(url: mainImageLink)
+            viewModel.mainImageViewModel = ImageViewModel(url: mainImageLink)
         }
 
         if let gallery = projectDetails.gallery {
-            viewModel.galleryImageViewModels = gallery.map { ProjectImageViewModel(url: $0) }
+            viewModel.galleryImageViewModels = gallery.map { GalleryViewModel.from(media: $0) }
         }
 
         viewModel.delegate = delegate
 
         return viewModel
+    }
+}
+
+extension FinishedProjectViewModelFactory: DateFormatterProviderDelegate {
+    func providerDidChangeDateFormatter(_ provider: DateFormatterProviderProtocol) {
+        delegate?.projectFactoryDidChange(self)
     }
 }

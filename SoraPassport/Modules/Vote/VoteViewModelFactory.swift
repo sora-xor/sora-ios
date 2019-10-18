@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -29,46 +29,71 @@ final class VoteViewModelFactory {
     private func createViewModel(for projectId: String,
                                  votes: VotesData,
                                  fundingCurrent: String,
-                                 fundingTarget: String) throws
-        -> VoteViewModelProtocol {
-        let minimumVotes: Float = 1.0
-        var availableVotes: Float = 0.0
+                                 fundingTarget: String) throws -> VoteViewModelProtocol {
+        let minimumVotes: Decimal = 1.0
+        var availableVotes: Decimal = 0.0
 
-        if let votes = Double(votes.value) {
-            availableVotes = Float(floor(votes))
+        if let votes = Decimal(string: votes.value) {
+            availableVotes = votes.rounded(mode: .down)
         }
 
         guard availableVotes >= minimumVotes else {
             throw VoteViewModelFactoryError.notEnoughVotes
         }
 
-        guard let fundingCurrent = Decimal(string: fundingCurrent),
+        guard
+            let fundingCurrent = Decimal(string: fundingCurrent),
             let fundingTarget = Decimal(string: fundingTarget) else {
                 throw VoteViewModelFactoryError.currentOrTargetValueMissing
         }
 
-        let neededVotes = Float(ceil(((fundingTarget - fundingCurrent) as NSDecimalNumber).doubleValue))
+        let neededVotes = fundingTarget - fundingCurrent
 
         guard neededVotes >= minimumVotes else {
             throw VoteViewModelFactoryError.noVotesNeeded
         }
 
-        let maximumValue = min(availableVotes, neededVotes)
+        let maximumVotes: Decimal
+        let maximumBoundPolicy: VoteViewModel.BoundBreakPolicy
 
-        let errorMapping: [VoteViewModelError: String] = [
-            .emptyAmount: R.string.localizable.voteTooSmallErrorMessage(),
-            .tooSmallAmount: R.string.localizable.voteTooSmallErrorMessage(),
-            .tooBigAmount: R.string.localizable.voteTooBigErrorMessage()
-        ]
+        if availableVotes < neededVotes {
+            maximumVotes = availableVotes
+            maximumBoundPolicy = .notify
+        } else {
+            maximumVotes = neededVotes
+            maximumBoundPolicy = .adjust
+        }
 
         let viewModel = VoteViewModel(projectId: projectId,
                                       amount: minimumVotes,
                                       minimumVoteAmount: minimumVotes,
-                                      maximumVoteAmount: maximumValue)
+                                      maximumVoteAmount: maximumVotes)
+
+        viewModel.rightBoundBreakPolicy = maximumBoundPolicy
         viewModel.amountFormatter = amountFormatter
-        viewModel.errorDisplayMapping = errorMapping
+        viewModel.errorDisplayMapping = createErrorDisplayMapping(for: maximumVotes)
 
         return viewModel
+    }
+
+    private func createErrorDisplayMapping(for maximumVotes: Decimal) -> (VoteViewModelError) -> String {
+        let formattedVotes = amountFormatter.string(from: maximumVotes as NSNumber)
+        return { error in
+            switch error {
+            case .emptyAmount:
+                return R.string.localizable.voteTooSmallErrorMessage()
+            case .tooSmallAmount:
+                return R.string.localizable.voteTooSmallErrorMessage()
+            case .tooBigAmount:
+                return R.string.localizable.voteNotEnoughErrorMessage()
+            case .adjustedMax:
+                if let votes = formattedVotes {
+                    return R.string.localizable.voteProjectMaxMessage(votes)
+                } else {
+                    return ""
+                }
+            }
+        }
     }
 }
 

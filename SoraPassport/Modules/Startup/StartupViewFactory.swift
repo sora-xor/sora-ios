@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -21,12 +21,16 @@ final class StartupViewFactory: StartupViewFactoryProtocol {
         }
 
         let identityNetworkOperationFactory = DecentralizedResolverOperationFactory(url: decentralizedResolverUrl)
+
+        let projectOperationFactory = ProjectOperationFactory()
+
         let interactor = StartupInteractor(settings: SettingsManager.shared,
                                            keystore: Keychain(),
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityNetworkOperationFactory,
                                            identityLocalOperationFactory: IdentityOperationFactory.self,
-                                           accountOperationFactory: ProjectOperationFactory(),
+                                           accountOperationFactory: projectOperationFactory,
+                                           informationOperationFactory: projectOperationFactory,
                                            operationManager: OperationManager.shared,
                                            reachabilityManager: ReachabilityManager.shared)
 

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -9,6 +9,7 @@ import FireMock
 enum ProjectsCustomerMock: FireMockProtocol {
     case success
     case resourceNotFound
+    case unsupportedCountry
 
     var afterTime: TimeInterval {
         return 1.0
@@ -16,7 +17,7 @@ enum ProjectsCustomerMock: FireMockProtocol {
 
     var statusCode: Int {
         switch self {
-        case .success:
+        case .success, .unsupportedCountry:
             return 200
         case .resourceNotFound:
             return 404
@@ -27,6 +28,8 @@ enum ProjectsCustomerMock: FireMockProtocol {
         switch self {
         case .success:
             return R.file.customerFetchResponseJson.fullName
+        case .unsupportedCountry:
+            return R.file.customerUnsupportedCountryResponseJson.fullName
         case .resourceNotFound:
             return R.file.emptyResponseJson.fullName
         }

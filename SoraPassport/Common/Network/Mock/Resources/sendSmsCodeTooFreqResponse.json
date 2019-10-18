@@ -1,1 +1,1 @@
-{"status":{"code":"TOO_FREQUENT_REQUEST","message":"too frequent requests"}, "delay":30}
+{"status":{"code":"TOO_FREQUENT_REQUEST","message":"too frequent requests"}, "blockingTime":30}

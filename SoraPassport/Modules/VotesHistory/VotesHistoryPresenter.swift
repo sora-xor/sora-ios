@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -32,7 +32,8 @@ final class VotesHistoryPresenter {
 
     private func reloadView(with events: [VotesHistoryEventData], andSwitch newDataLoadingState: DataState) throws {
         var viewModels = [VotesHistorySectionViewModel]()
-        _ = try viewModelFactory.merge(newItems: events, into: &viewModels)
+        _ = try viewModelFactory.merge(newItems: events,
+                                       into: &viewModels)
 
         self.dataLoadingState = newDataLoadingState
         self.pages = [events]
@@ -43,7 +44,8 @@ final class VotesHistoryPresenter {
 
     private func appendPage(with events: [VotesHistoryEventData], andSwitch newDataLoadingState: DataState) throws {
         var viewModels = self.viewModels
-        let viewChanges = try viewModelFactory.merge(newItems: events, into: &viewModels)
+        let viewChanges = try viewModelFactory.merge(newItems: events,
+                                                     into: &viewModels)
 
         self.dataLoadingState = newDataLoadingState
         self.pages.append(events)
@@ -52,6 +54,19 @@ final class VotesHistoryPresenter {
         if viewChanges.count > 0 {
             view?.didReceive(changes: viewChanges)
         }
+    }
+
+    private func reloadView() throws {
+        var viewModels = [VotesHistorySectionViewModel]()
+
+        for page in pages {
+            _ = try viewModelFactory.merge(newItems: page,
+                                           into: &viewModels)
+        }
+
+        self.viewModels = viewModels
+
+        view?.didReload()
     }
 }
 
@@ -68,6 +83,8 @@ extension VotesHistoryPresenter: VotesHistoryPresenterProtocol {
     }
 
     func viewIsReady() {
+        viewModelFactory.delegate = self
+
         interactor.setup()
     }
 
@@ -209,6 +226,16 @@ extension VotesHistoryPresenter: VotesHistoryInteractorOutputProtocol {
             }
         case .loaded:
             logger?.debug("Loading page offset \(page.offset) failed \(error) but not waited")
+        }
+    }
+}
+
+extension VotesHistoryPresenter: VotesHistoryViewModelFactoryDelegate {
+    func votesHistoryViewModelFactoryDidChange(_ factory: VotesHistoryViewModelFactory) {
+        do {
+            try reloadView()
+        } catch {
+            logger?.error("Can't reload view models due to error \(error)")
         }
     }
 }

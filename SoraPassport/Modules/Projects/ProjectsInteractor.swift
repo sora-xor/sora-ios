@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -9,14 +9,17 @@ import RobinHood
 final class ProjectsInteractor {
 	weak var presenter: ProjectsInteractorOutputProtocol?
 
-    private(set) var customerDataProviderFacade: CustomerDataProviderFacadeProtocol
-    private(set) var projectService: ProjectUnitServiceProtocol
+    let customerDataProviderFacade: CustomerDataProviderFacadeProtocol
+    let projectService: ProjectUnitServiceProtocol
+    let eventCenter: EventCenterProtocol
 
     init(customerDataProviderFacade: CustomerDataProviderFacadeProtocol,
-         projectService: ProjectUnitServiceProtocol) {
+         projectService: ProjectUnitServiceProtocol,
+         eventCenter: EventCenterProtocol) {
 
         self.customerDataProviderFacade = customerDataProviderFacade
         self.projectService = projectService
+        self.eventCenter = eventCenter
     }
 
     private func setupVotesDataProvider() {
@@ -41,10 +44,15 @@ final class ProjectsInteractor {
                                                                   executing: changesBlock,
                                                                   failing: failBlock)
     }
+
+    private func setupEventCenter() {
+        eventCenter.add(observer: self, dispatchIn: .main)
+    }
 }
 
 extension ProjectsInteractor: ProjectsInteractorInputProtocol {
     func setup() {
+        setupEventCenter()
         setupVotesDataProvider()
     }
 
@@ -58,7 +66,7 @@ extension ProjectsInteractor: ProjectsInteractorInputProtocol {
                 if let result = optionalResult {
                     switch result {
                     case .success:
-                        self.presenter?.didVote(for: project)
+                        self.eventCenter.notify(with: ProjectVoteEvent(details: project))
                     case .error(let error):
                         self.presenter?.didReceiveVote(error: error, for: project)
                     }
@@ -75,7 +83,7 @@ extension ProjectsInteractor: ProjectsInteractorInputProtocol {
                 if let result = optionalResult {
                     switch result {
                     case .success:
-                        self.presenter?.didToggleFavorite(for: projectId)
+                        self.eventCenter.notify(with: ProjectFavoriteToggleEvent(projectId: projectId))
                     case .error(let error):
                         self.presenter?.didReceiveTogglingFavorite(error: error, for: projectId)
                     }
@@ -84,5 +92,15 @@ extension ProjectsInteractor: ProjectsInteractorInputProtocol {
         } catch {
             presenter?.didReceiveTogglingFavorite(error: error, for: projectId)
         }
+    }
+}
+
+extension ProjectsInteractor: EventVisitorProtocol {
+    func processProjectVote(event: ProjectVoteEvent) {
+        presenter?.didVote(for: event.details)
+    }
+
+    func processProjectFavoriteToggle(event: ProjectFavoriteToggleEvent) {
+        presenter?.didToggleFavorite(for: event.projectId)
     }
 }

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -8,37 +8,37 @@ import Foundation
 extension ActivityFeedViewModelFactory {
     func transform(event: ActivityOneOfEventData,
                    from activity: ActivityData,
-                   and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                   metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel? {
 
             switch event {
             case .friendRegistered(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             case .votingRightsCredited(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             case .userRankChanged(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             case .invitationsCredited(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             case .projectFunded(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             case .projectClosed(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             case .projectCreated(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             case .xorTransfered(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             case .xorRewardCreditedFromProject(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             case .userHasVoted(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, and: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
             default:
                 return nil
             }
     }
 
     private func transformSection(timestamp: Int64) -> String {
-        return sectionDateFormatter.string(from: Date(timeIntervalSince1970: TimeInterval(timestamp)))
+        return sectionFormatterProvider.dateFormatter.string(from: Date(timeIntervalSince1970: TimeInterval(timestamp)))
     }
 
     private func transformActivity(timestamp: Int64) -> String {
@@ -47,7 +47,7 @@ extension ActivityFeedViewModelFactory {
 
     private func transform(event: FriendRegisteredEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityUser()
@@ -66,13 +66,14 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: VotingRightsCreditedEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedAmountItemContent {
                 $0.icon = R.image.iconActivityVote()
@@ -92,13 +93,14 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedAmountItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .amount(concreteViewModel: viewModel))
     }
 
     private func transform(event: UserRankChangedEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityRank()
@@ -115,35 +117,35 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: InvitationsCreditedEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityUser()
                 $0.type = R.string.localizable.activityEventInvitationsCreditedType()
                 $0.timestamp = transformActivity(timestamp: event.issuedAt)
 
-                if let invitationsCountString = integerFormatter.string(from: NSNumber(value: event.invitations)) {
-                    $0.details = R.string.localizable.activityEventInvitationsCreditedTitle(invitationsCountString)
-                }
+                $0.details = R.string.localizable.receivedInvitations(invitation: event.invitations)
             }
 
             let layout = createLayout(for: content, metadata: metadataContainer.basicLayoutMetadata)
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: ProjectFundedEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityProject()
@@ -162,13 +164,14 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: ProjectClosedEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityProject()
@@ -186,13 +189,14 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: ProjectCreatedEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityProject()
@@ -206,16 +210,17 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: XORTransferedEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedAmountItemContent {
-                $0.icon = R.image.iconActivityProject()
+                $0.icon = R.image.iconXor()
                 $0.type = R.string.localizable.activityEventXorTransferedType()
                 $0.timestamp = transformActivity(timestamp: event.issuedAt)
 
@@ -236,16 +241,17 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedAmountItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .amount(concreteViewModel: viewModel))
     }
 
     private func transform(event: XORRewardCreditedFromProjectEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedAmountItemContent {
-                $0.icon = R.image.iconActivityProject()
+                $0.icon = R.image.iconXor()
                 $0.type = R.string.localizable.activityEventXorProjectCreditedType()
                 $0.timestamp = transformActivity(timestamp: event.issuedAt)
 
@@ -266,13 +272,14 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedAmountItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .amount(concreteViewModel: viewModel))
     }
 
     private func transform(event: UserHasVotedEventData,
                            from activity: ActivityData,
-                           and metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer)
         -> SectionedActivityFeedItemViewModel {
 
             let content = ActivityFeedItemContent {
@@ -297,7 +304,8 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            return SectionedActivityFeedItemViewModel(sectionTitle: transformSection(timestamp: event.issuedAt),
+            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 }

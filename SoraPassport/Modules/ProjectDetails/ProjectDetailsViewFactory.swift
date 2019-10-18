@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -38,7 +38,8 @@ final class ProjectDetailsViewFactory: ProjectDetailsViewFactoryProtocol {
 
         let interactor = ProjectDetailsInteractor(customerDataProviderFacade: CustomerDataProviderFacade.shared,
                                                   projectDetailsDataProvider: detailsDataProvider,
-                                                  projectService: projectUnitService)
+                                                  projectService: projectUnitService,
+                                                  eventCenter: EventCenter.shared)
 
         let wireframe = ProjectDetailsWireframe()
 

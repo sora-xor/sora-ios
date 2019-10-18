@@ -1,12 +1,14 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 import FireMock
 
 enum WalletBalanceFetchMock: FireMockProtocol {
+    case invalidParameters
+    case zero
     case success
 
     var afterTime: TimeInterval {
@@ -14,11 +16,23 @@ enum WalletBalanceFetchMock: FireMockProtocol {
     }
 
     var statusCode: Int {
-        return 200
+        switch self {
+        case .invalidParameters:
+            return 400
+        default:
+            return 200
+        }
     }
 
     func mockFile() -> String {
-        return R.file.walletBalanceResponseJson.fullName
+        switch self {
+        case .invalidParameters:
+            return R.file.emptyResponseJson.fullName
+        case .zero:
+            return R.file.walletBalanceZeroResponseJson.fullName
+        case .success:
+            return R.file.walletBalanceResponseJson.fullName
+        }
     }
 }
 

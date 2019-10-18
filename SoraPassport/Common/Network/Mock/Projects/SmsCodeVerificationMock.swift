@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -8,6 +8,7 @@ import FireMock
 
 enum SmsCodeVerificationMock: FireMockProtocol {
     case success
+    case incorrect
 
     var afterTime: TimeInterval {
         return 1.0
@@ -18,7 +19,13 @@ enum SmsCodeVerificationMock: FireMockProtocol {
     }
 
     func mockFile() -> String {
-        return R.file.successResultJson.fullName
+        switch self {
+        case .success:
+            return R.file.successResultJson.fullName
+        case .incorrect:
+            return R.file.smsCodeInvalidJson.fullName
+        }
+
     }
 }
 

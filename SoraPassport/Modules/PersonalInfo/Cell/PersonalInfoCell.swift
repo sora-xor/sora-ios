@@ -1,9 +1,10 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
+import SoraUI
 
 protocol PersonalInfoCellDelegate: class {
     func didSelectNext(on cell: PersonalInfoCell)
@@ -14,6 +15,7 @@ protocol PersonalInfoCellDelegate: class {
 final class PersonalInfoCell: UITableViewCell {
     @IBOutlet private(set) var titleLabel: UILabel!
     @IBOutlet private(set) var textField: UITextField!
+    @IBOutlet private(set) var borderView: BorderedContainerView!
 
     @IBInspectable
     var normalColor: UIColor = .black {
@@ -51,6 +53,8 @@ final class PersonalInfoCell: UITableViewCell {
 
         titleLabel.text = model.title
         textField.text = model.value
+
+        textField.autocapitalizationType = model.autocapitalizationType
 
         updateEnabledState()
     }

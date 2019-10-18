@@ -9,13 +9,27 @@ xcodeproj_path: SoraPassport.xcodeproj
 # The main project target name
 project_target: SoraPassport
 
+# The file path for new modules
+project_file_path: SoraPassport/Modules/
+
+# The Xcode group path to new modules
+project_group_path: SoraPassport/Modules/
+
 ### Tests generation settings section
 # The tests target name
 test_target: SoraPassportTests
+
+# The file path for new tests
+test_file_path: SoraPassportTests/Modules/
+
+# The Xcode group path to new tests
+test_group_path: SoraPassportTests/Modules/
 
 ### Dependencies settings section
 podfile_path: Podfile
 
 ### Templates
+catalogs:
+- 'https://github.com/ERussel/GenerambaTemplates'
 templates:
-- {name: 'SoraViper'}
+- {name: sora-viper}

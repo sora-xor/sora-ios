@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -11,7 +11,7 @@ private struct ImageGalleryConstants {
     static var contentModeKey: String = "co.jp.sora.galery.mode"
 }
 
-extension ProjectImageViewModel: SKPhotoProtocol {
+extension ImageViewModel: SKPhotoProtocol {
     var index: Int {
         get {
             let optionalIndex = objc_getAssociatedObject(self, &ImageGalleryConstants.indexKey) as? Int

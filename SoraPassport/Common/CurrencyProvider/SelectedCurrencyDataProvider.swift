@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -212,7 +212,7 @@ final class SelectedCurrencyDataProvider {
         cacheObservers.forEach { (cacheObserver) in
             if cacheObserver.observer != nil,
                 (update != nil || cacheObserver.options.alwaysNotifyOnRefresh) {
-                cacheObserver.queue.async {
+                dispatchInQueueWhenPossible(cacheObserver.queue) {
                     if let update = update {
                         cacheObserver.updateBlock([update])
                     } else {
@@ -226,7 +226,7 @@ final class SelectedCurrencyDataProvider {
     private func notifyObservers(with error: Error) {
         cacheObservers.forEach { (cacheObserver) in
             if cacheObserver.observer != nil, cacheObserver.options.alwaysNotifyOnRefresh {
-                cacheObserver.queue.async {
+                dispatchInQueueWhenPossible(cacheObserver.queue) {
                     cacheObserver.failureBlock(error)
                 }
             }
@@ -249,7 +249,7 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
         return currenciesDataProvider.executionQueue
     }
 
-    func addCacheObserver(_ observer: AnyObject, deliverOn queue: DispatchQueue,
+    func addCacheObserver(_ observer: AnyObject, deliverOn queue: DispatchQueue?,
                           executing updateBlock: @escaping ([CurrencyItemChange]) -> Void,
                           failing failureBlock: @escaping (Error) -> Void,
                           options: DataProviderObserverOptions) {
@@ -262,9 +262,10 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
 
             cacheOperation.completionBlock = {
                 guard let result = cacheOperation.result else {
-                    queue.async {
+                    dispatchInQueueWhenPossible(queue) {
                         failureBlock(DataProviderError.dependencyCancelled)
                     }
+
                     return
                 }
 
@@ -281,13 +282,13 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
                         self.updateTrigger.receive(event: .addObserver(observer))
 
                         if let currencyItem = optionalCurrencyItem {
-                            queue.async {
+                            dispatchInQueueWhenPossible(queue) {
                                 updateBlock([DataProviderChange.insert(newItem: currencyItem)])
                             }
                         }
                     }
                 case .error(let error):
-                    queue.async {
+                    dispatchInQueueWhenPossible(queue) {
                         failureBlock(error)
                     }
                 }

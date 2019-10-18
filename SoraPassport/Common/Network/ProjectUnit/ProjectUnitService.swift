@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -18,18 +18,21 @@ enum ProjectServiceType: String {
     case projectDetails
     case customer
     case customerUpdate
-    case checkInvitation
     case register
+    case createUser
     case fetchInvitation
     case markInvitation
     case fetchInvited
     case reputation
+    case reputationDetails
     case activityFeed
     case smsSend
     case smsVerify
     case announcement
     case help
     case currency
+    case supportedVersion
+    case country
 }
 
 final class ProjectUnitService: BaseService, ProjectUnitServiceProtocol {

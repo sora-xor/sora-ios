@@ -23,6 +23,22 @@
                 <rect key="frame" x="0.0" y="0.0" width="375" height="58.5"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
+                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="37e-E0-9Oi" customClass="BorderedContainerView" customModule="SoraUI">
+                        <rect key="frame" x="20" y="0.0" width="335" height="58.5"/>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <userDefinedRuntimeAttributes>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                            <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                                <real key="value" value="1"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                                <color key="value" red="0.59999999999999998" green="0.59999999999999998" blue="0.59999999999999998" alpha="0.25" colorSpace="calibratedRGB"/>
+                            </userDefinedRuntimeAttribute>
+                        </userDefinedRuntimeAttributes>
+                    </view>
                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="First Name" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="ych-cv-RMs">
                         <rect key="frame" x="20" y="21" width="71.5" height="16.5"/>
                         <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="13"/>
@@ -45,7 +61,11 @@
                     <constraint firstItem="ET5-rw-Fee" firstAttribute="leading" secondItem="ych-cv-RMs" secondAttribute="trailing" constant="8" id="H72-45-EoO"/>
                     <constraint firstItem="ET5-rw-Fee" firstAttribute="centerY" secondItem="jhc-Wf-JXQ" secondAttribute="centerY" id="IKk-CS-CKT"/>
                     <constraint firstAttribute="trailing" secondItem="ET5-rw-Fee" secondAttribute="trailing" constant="20" id="IvM-ST-bJL"/>
+                    <constraint firstAttribute="bottom" secondItem="37e-E0-9Oi" secondAttribute="bottom" id="dH6-VX-Tp5"/>
                     <constraint firstItem="ych-cv-RMs" firstAttribute="centerY" secondItem="jhc-Wf-JXQ" secondAttribute="centerY" id="dnJ-co-864"/>
+                    <constraint firstItem="37e-E0-9Oi" firstAttribute="leading" secondItem="jhc-Wf-JXQ" secondAttribute="leading" constant="20" id="gV6-iz-TOp"/>
+                    <constraint firstAttribute="trailing" secondItem="37e-E0-9Oi" secondAttribute="trailing" constant="20" id="hbd-St-un9"/>
+                    <constraint firstItem="37e-E0-9Oi" firstAttribute="top" secondItem="jhc-Wf-JXQ" secondAttribute="top" id="igw-Np-Jh1"/>
                     <constraint firstItem="ych-cv-RMs" firstAttribute="leading" secondItem="jhc-Wf-JXQ" secondAttribute="leading" constant="20" id="yXm-yb-m0T"/>
                 </constraints>
             </tableViewCellContentView>
@@ -61,6 +81,7 @@
                 </userDefinedRuntimeAttribute>
             </userDefinedRuntimeAttributes>
             <connections>
+                <outlet property="borderView" destination="37e-E0-9Oi" id="DMw-X1-1RA"/>
                 <outlet property="textField" destination="ET5-rw-Fee" id="XNM-lV-gA7"/>
                 <outlet property="titleLabel" destination="ych-cv-RMs" id="yqU-p9-j41"/>
             </connections>

@@ -1,19 +1,19 @@
 {
   "images" : [
     {
-      "scale" : "1x",
-      "filename" : "group119.png",
-      "idiom" : "universal"
+      "idiom" : "universal",
+      "filename" : "tutorial1.png",
+      "scale" : "1x"
     },
     {
-      "scale" : "2x",
-      "filename" : "group119@2x.png",
-      "idiom" : "universal"
+      "idiom" : "universal",
+      "filename" : "tutorial1@2x.png",
+      "scale" : "2x"
     },
     {
-      "scale" : "3x",
-      "filename" : "group119@3x.png",
-      "idiom" : "universal"
+      "idiom" : "universal",
+      "filename" : "tutorial1@3x.png",
+      "scale" : "3x"
     }
   ],
   "info" : {

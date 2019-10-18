@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -47,7 +47,7 @@ protocol OpenProjectViewModelProtocol: class {
     var content: OpenProjectContent { get }
     var layout: OpenProjectLayout { get }
 
-    var imageViewModel: ProjectImageViewModelProtocol? { get }
+    var imageViewModel: ImageViewModelProtocol? { get }
 
     var delegate: OpenProjectViewModelDelegate? { get }
 }
@@ -58,14 +58,14 @@ final class OpenProjectViewModel: OpenProjectViewModelProtocol {
     var content: OpenProjectContent
     var layout: OpenProjectLayout
 
-    var imageViewModel: ProjectImageViewModelProtocol?
+    var imageViewModel: ImageViewModelProtocol?
 
     weak var delegate: OpenProjectViewModelDelegate?
 
     init(identifier: String,
          content: OpenProjectContent,
          layout: OpenProjectLayout,
-         imageViewModel: ProjectImageViewModelProtocol?) {
+         imageViewModel: ImageViewModelProtocol?) {
         self.identifier = identifier
         self.content = content
         self.layout = layout

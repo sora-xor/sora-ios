@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -69,7 +69,8 @@ extension PhoneVerificationPresenter: PhoneVerificationPresenterProtocol {
     func process(viewModel: CodeInputViewModelProtocol) {
         view?.didStartLoading()
 
-        interactor.verifyPhone(code: viewModel.code)
+        let codeInfo = VerificationCodeInfo(code: viewModel.code)
+        interactor.verifyPhone(codeInfo: codeInfo)
     }
 
     func resendCode() {
@@ -150,14 +151,11 @@ extension PhoneVerificationPresenter: PhoneVerificationInteractorOutputProtocol 
     func didVerifyPhoneCode() {
         view?.didStopLoading()
 
-        interactor.removeVerificationState()
-        wireframe.showAccessBackup(from: view)
+        wireframe.showNext(from: view)
     }
 
     func didReceivePhoneVerification(error: Error) {
         view?.didStopLoading()
-
-        updateResendCodeDisplayState()
 
         if wireframe.present(error: error, from: view) {
             return

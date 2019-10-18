@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -74,27 +74,26 @@ class ProjectUnitAccountServiceTests: NetworkBaseTests {
         wait(for: [expectation], timeout: Constants.networkRequestTimeout)
     }
 
-    func testCheckInvitationSuccessWithForm() {
+    func testUserCreationSuccess() {
         // given
-        ProjectsCheckInvitationMock.register(mock: .successWithForm, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        UserCreationMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        let userCreationInfo = UserCreationInfo(phone: Constants.dummyPhone)
 
         let expectation = XCTestExpectation()
 
         // when
-        let operation = try? service.checkInvitation(code: Constants.dummyInvitationCode, runCompletionIn: .main) { (optionalResult) in
+        let operation = try? service.createCustomer(with: userCreationInfo, runCompletionIn: .main) { optionalResult in
             defer {
                 expectation.fulfill()
             }
 
-            guard let result = optionalResult, case .success(let applicationForm) = result else {
+            guard let result = optionalResult, case .success(let verificationData) = result else {
                 XCTFail()
                 return
             }
 
-            guard applicationForm != nil else {
-                XCTFail()
-                return
-            }
+            XCTAssertTrue(verificationData.status.isSuccess)
         }
 
         guard operation != nil else {
@@ -103,84 +102,28 @@ class ProjectUnitAccountServiceTests: NetworkBaseTests {
         }
 
         // then
+
         wait(for: [expectation], timeout: Constants.networkRequestTimeout)
     }
 
-    func testCheckInvitationSuccessEmptyForm() {
-        // given
-        ProjectsCheckInvitationMock.register(mock: .successEmpty, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-
-        let expectation = XCTestExpectation()
-
-        // when
-        let operation = try? service.checkInvitation(code: Constants.dummyInvitationCode, runCompletionIn: .main) { (optionalResult) in
-            defer {
-                expectation.fulfill()
-            }
-
-            guard let result = optionalResult, case .success(let applicationForm) = result else {
-                XCTFail()
-                return
-            }
-
-            guard applicationForm == nil else {
-                XCTFail()
-                return
-            }
-        }
-
-        guard operation != nil else {
-            XCTFail()
-            return
-        }
-
-        // then
-        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
+    func testUserCreationAlreadyExists() {
+        performUserCreationErrorTest(with: .alreadyRegistered, expectedError: UserCreationError.alreadyExists)
     }
 
-    func testCheckInvitationSuccessNilForm() {
-        // given
-        ProjectsCheckInvitationMock.register(mock: .successNil, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-
-        let expectation = XCTestExpectation()
-
-        // when
-        let operation = try? service.checkInvitation(code: Constants.dummyInvitationCode, runCompletionIn: .main) { (optionalResult) in
-            defer {
-                expectation.fulfill()
-            }
-
-            guard let result = optionalResult, case .success(let applicationForm) = result else {
-                XCTFail()
-                return
-            }
-
-            guard applicationForm == nil else {
-                XCTFail()
-                return
-            }
-        }
-
-        guard operation != nil else {
-            XCTFail()
-            return
-        }
-
-        // then
-        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
+    func testUserCreationVerify() {
+        performUserCreationErrorTest(with: .alreadyVerified, expectedError: UserCreationError.verified)
     }
 
     func testRegistrationSuccess() {
         // given
         ProjectsRegisterMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
-        let applicationInfo = ApplicationFormInfo(applicationId: Constants.dummyApplicationFormId,
-                                                  firstName: Constants.dummyFirstName,
-                                                  lastName: Constants.dummyLastName,
-                                                  phone: Constants.dummyPhone,
-                                                  email: Constants.dummyEmail)
-        let registrationInfo = RegistrationInfo(applicationForm: applicationInfo,
-                                                invitationCode: Constants.dummyInvitationCode)
+        var form = PersonalForm.create(from: createRandomCountry())
+        form.firstName = Constants.dummyFirstName
+        form.lastName = Constants.dummyLastName
+        form.invitationCode = Constants.dummyInvitationCode
+
+        let registrationInfo = RegistrationInfo.create(with: form)
 
         let expectation = XCTestExpectation()
 
@@ -372,7 +315,8 @@ class ProjectUnitAccountServiceTests: NetworkBaseTests {
         let expectation = XCTestExpectation()
 
         // when
-        let operation = try? service.verifySms(code: Constants.dummySmsCode, runCompletionIn: .main) { (optionalResult) in
+        let codeInfo = VerificationCodeInfo(code: Constants.dummySmsCode)
+        let operation = try? service.verifySms(codeInfo: codeInfo, runCompletionIn: .main) { (optionalResult) in
             defer {
                 expectation.fulfill()
             }
@@ -446,6 +390,42 @@ class ProjectUnitAccountServiceTests: NetworkBaseTests {
         }
 
         // then
+        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
+    }
+
+    // MARK: Private
+
+    private func performUserCreationErrorTest(with mock: UserCreationMock, expectedError: UserCreationError) {
+        // given
+        UserCreationMock.register(mock: mock, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        let userCreationInfo = UserCreationInfo(phone: Constants.dummyPhone)
+
+        let expectation = XCTestExpectation()
+
+        // when
+        let operation = try? service.createCustomer(with: userCreationInfo, runCompletionIn: .main) { optionalResult in
+            defer {
+                expectation.fulfill()
+            }
+
+            guard
+                let result = optionalResult,
+                case .error(let error) = result,
+                let userCreationError = error as? UserCreationError,
+                expectedError == userCreationError else {
+                XCTFail()
+                return
+            }
+        }
+
+        guard operation != nil else {
+            XCTFail()
+            return
+        }
+
+        // then
+
         wait(for: [expectation], timeout: Constants.networkRequestTimeout)
     }
 }

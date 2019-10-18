@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -28,6 +28,10 @@ extension StartupPresenter: StartupInteractorOutputProtocol {
 
     func didDecidePincodeSetup() {
         wireframe.showPincodeSetup(from: view)
+    }
+
+    func didDecideUnsupportedVersion(data: SupportedVersionData) {
+        wireframe.presentUnsupportedVersion(for: data, on: view?.controller.view.window, animated: true)
     }
 
     func didChangeState() {

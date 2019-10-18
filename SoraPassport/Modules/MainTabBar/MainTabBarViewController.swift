@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -23,12 +23,39 @@ final class MainTabBarViewController: UITabBarController {
             viewAppeared = true
             presenter.viewIsReady()
         }
+
+        presenter.viewDidAppear()
     }
 
     private func configureTabBar() {
-        tabBar.backgroundImage = UIImage.background(from: UIColor.tabBarBackground)
-        tabBar.shadowImage = UIImage.background(from: UIColor.tabBarShadow)
+        if #available(iOS 13.0, *) {
+            let appearance = UITabBarAppearance()
+
+            appearance.backgroundImage = UIImage.background(from: UIColor.tabBarBackground)
+            appearance.shadowImage = UIImage.background(from: UIColor.tabBarShadow)
+
+            let normalAttributes = [NSAttributedString.Key.foregroundColor: UIColor.tabBarItemNormal]
+            let selectedAttributes = [NSAttributedString.Key.foregroundColor: UIColor.tabBarItemSelected]
+
+            appearance.stackedLayoutAppearance.normal.titleTextAttributes = normalAttributes
+            appearance.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttributes
+
+            tabBar.standardAppearance = appearance
+        } else {
+            tabBar.backgroundImage = UIImage.background(from: UIColor.tabBarBackground)
+            tabBar.shadowImage = UIImage.background(from: UIColor.tabBarShadow)
+        }
     }
 }
 
-extension MainTabBarViewController: MainTabBarViewProtocol {}
+extension MainTabBarViewController: MainTabBarViewProtocol {
+    func didReplaceView(for newView: UIViewController, for index: Int) {
+        guard var newViewControllers = viewControllers else {
+            return
+        }
+
+        newViewControllers[index] = newView
+
+        self.setViewControllers(newViewControllers, animated: false)
+    }
+}
