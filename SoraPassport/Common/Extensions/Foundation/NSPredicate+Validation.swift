@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -16,7 +16,15 @@ extension NSPredicate {
         return NSPredicate(format: "SELF MATCHES %@", phoneFormat)
     }
 
+    static var empty: NSPredicate {
+        return NSPredicate(format: "SELF = ''")
+    }
+
     static var notEmpty: NSPredicate {
         return NSPredicate(format: "SELF != ''")
+    }
+
+    static var invitationCode: NSPredicate {
+        return NSPredicate(format: "SELF MATCHES %@", String.invitationCodePattern)
     }
 }

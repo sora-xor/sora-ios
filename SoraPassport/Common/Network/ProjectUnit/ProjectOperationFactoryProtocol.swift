@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -17,9 +17,10 @@ protocol ProjectFundingOperationFactoryProtocol {
 
 protocol ProjectAccountOperationFactoryProtocol {
     func registrationOperation(_ urlTemplate: String, with info: RegistrationInfo) -> NetworkOperation<Bool>
+    func createUserOperation(_ urlTemplate: String,
+                             with info: UserCreationInfo) -> NetworkOperation<VerificationCodeData>
     func fetchCustomerOperation(_ urlTemplate: String) -> NetworkOperation<UserData>
     func updateCustomerOperation(_ urlTemplate: String, info: PersonalInfo) -> NetworkOperation<Bool>
-    func checkInvitationOperation(_ urlTemplate: String, code: String) -> NetworkOperation<ApplicationFormData?>
     func fetchInvitationCodeOperation(_ urlTemplate: String) -> NetworkOperation<InvitationCodeData>
     func markAsUsedOperation(_ urlTemplate: String, invitationCode: String) -> NetworkOperation<Bool>
     func fetchActivatedInvitationsOperation(_ urlTemplate: String) -> NetworkOperation<ActivatedInvitationsData>
@@ -27,13 +28,17 @@ protocol ProjectAccountOperationFactoryProtocol {
     func fetchActivityFeedOperation(_ urlTemplate: String,
                                     with page: Pagination) -> NetworkOperation<ActivityData>
     func sendSmsCodeOperation(_ urlTemplate: String) -> NetworkOperation<VerificationCodeData>
-    func verifySmsCodeOperation(_ urlTemplate: String, code: String) -> NetworkOperation<Bool>
+    func verifySmsCodeOperation(_ urlTemplate: String, info: VerificationCodeInfo) -> NetworkOperation<Bool>
 }
 
 protocol ProjectInformationOperationFactoryProtocol {
-    func fetchAnnouncement(_ urlTemplate: String) -> NetworkOperation<AnnouncementData?>
-    func fetchHelp(_ urlTemplate: String) -> NetworkOperation<HelpData>
-    func fetchCurrency(_ urlTemplate: String) -> NetworkOperation<CurrencyData>
+    func fetchAnnouncementOperation(_ urlTemplate: String) -> NetworkOperation<AnnouncementData?>
+    func fetchHelpOperation(_ urlTemplate: String) -> NetworkOperation<HelpData>
+    func fetchReputationDetailsOperation(_ urlTemplate: String) -> NetworkOperation<ReputationDetailsData>
+    func fetchCurrencyOperation(_ urlTemplate: String) -> NetworkOperation<CurrencyData>
+    func checkSupportedVersionOperation(_ urlTemplate: String,
+                                        version: String) -> NetworkOperation<SupportedVersionData>
+    func fetchCountryOperation(_ urlTemplate: String) -> NetworkOperation<CountryData>
 }
 
 final class ProjectOperationFactory {}

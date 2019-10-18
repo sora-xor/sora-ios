@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -47,7 +47,7 @@ enum ProjectOneOfViewModel {
         }
     }
 
-    var imageViewModel: ProjectImageViewModelProtocol? {
+    var imageViewModel: ImageViewModelProtocol? {
         switch self {
         case .open(let viewModel):
             return viewModel.imageViewModel
@@ -59,7 +59,15 @@ enum ProjectOneOfViewModel {
 
 protocol ProjectViewModelDelegate: OpenProjectViewModelDelegate & FinishedProjectViewModelDelegate {}
 
-protocol ProjectViewModelFactoryProtocol {
+protocol DynamicProjectViewModelFactoryProtocol: class {
+    var delegate: ProjectViewModelFactoryDelegate? { get set }
+}
+
+protocol ProjectViewModelFactoryDelegate: class {
+    func projectFactoryDidChange(_ factory: DynamicProjectViewModelFactoryProtocol)
+}
+
+protocol ProjectViewModelFactoryProtocol: DynamicProjectViewModelFactoryProtocol {
     func create(from project: ProjectData,
                 layoutMetadata: ProjectLayoutMetadata,
                 delegate: ProjectViewModelDelegate?) -> ProjectOneOfViewModel
@@ -72,10 +80,14 @@ final class ProjectViewModelFactory: ProjectViewModelFactoryProtocol {
     private(set) var openProjectViewModelFactory: OpenProjectViewModelFactoryProtocol
     private(set) var finishedProjectViewModelFactory: FinishedProjectViewModelFactoryProtocol
 
+    weak var delegate: ProjectViewModelFactoryDelegate?
+
     init(openProjectViewModelFactory: OpenProjectViewModelFactoryProtocol,
          finishedProjectViewModelFactory: FinishedProjectViewModelFactoryProtocol) {
         self.openProjectViewModelFactory = openProjectViewModelFactory
         self.finishedProjectViewModelFactory = finishedProjectViewModelFactory
+
+        finishedProjectViewModelFactory.delegate = self
     }
 
     func create(from project: ProjectData,
@@ -110,17 +122,26 @@ final class ProjectViewModelFactory: ProjectViewModelFactoryProtocol {
     }
 }
 
+extension ProjectViewModelFactory: ProjectViewModelFactoryDelegate {
+    func projectFactoryDidChange(_ factory: DynamicProjectViewModelFactoryProtocol) {
+        delegate?.projectFactoryDidChange(self)
+    }
+}
+
 extension ProjectViewModelFactory {
     static func createDefault() -> ProjectViewModelFactoryProtocol {
         let votesFormatter = NumberFormatter.vote
         let integerFormatter = NumberFormatter.anyInteger
-        let dateFormatter = DateFormatter.finishedProject
+
+        let dateFormatterFactory = FinishedProjectDateFormatterFactory.self
+        let dateFormatterProvider = DateFormatterProvider(dateFormatterFactory: dateFormatterFactory,
+                                                          dayChangeHandler: DayChangeHandler())
 
         let open = OpenProjectViewModelFactory(votesFormatter: votesFormatter,
                                                integerFormatter: integerFormatter)
         let finished = FinishedProjectViewModelFactory(votesFormatter: votesFormatter,
                                                        integerFormatter: integerFormatter,
-                                                       dateFormatter: dateFormatter)
+                                                       dateFormatterProvider: dateFormatterProvider)
 
         return ProjectViewModelFactory(openProjectViewModelFactory: open,
                                        finishedProjectViewModelFactory: finished)

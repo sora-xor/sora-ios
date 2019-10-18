@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -19,20 +19,16 @@ final class HighlightingAttributedStringDecorator: AttributedStringDecoratorProt
     }
 
     func decorate(attributedString: NSAttributedString) -> NSAttributedString {
-        let string = attributedString.string
+        let string = attributedString.string as NSString
+        let range = string.range(of: pattern)
 
         guard
-            let range = attributedString.string.range(of: pattern),
+            range.location != NSNotFound,
             let resultAttributedString = attributedString.mutableCopy() as? NSMutableAttributedString else {
                 return attributedString
         }
 
-        let from = string.distance(from: string.startIndex, to: range.lowerBound)
-        let length = string.distance(from: range.lowerBound, to: range.upperBound)
-
-        let nsRange = NSRange(location: from, length: length)
-
-        resultAttributedString.addAttributes(attributes, range: nsRange)
+        resultAttributedString.addAttributes(attributes, range: range)
 
         return resultAttributedString
     }

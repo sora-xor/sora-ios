@@ -1,12 +1,17 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
+import SoraCrypto
+import SoraKeystore
+import CommonWallet
 
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 	static func createView() -> MainTabBarViewProtocol? {
+        let presenter = MainTabBarPresenter()
+
         guard let activityController = createActivityController() else {
             return nil
         }
@@ -15,7 +20,9 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return nil
         }
 
-        guard let walletController = createWalletController() else {
+        guard
+            let walletContext = WalletContextFactory.createContext(),
+            let walletController = createWalletController(from: walletContext) else {
             return nil
         }
 
@@ -27,15 +34,22 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return nil
         }
 
+        guard let invitationLinkService: InvitationLinkServiceProtocol = DeepLinkService.shared.findService() else {
+            return nil
+        }
+
         let view = MainTabBarViewController()
         view.viewControllers = [activityController, projectsController, walletController,
                                 profileController, friendsController]
 
-        let presenter = MainTabBarPresenter()
-
         let notificationRegistrator = NotificationsService.sharedNotificationsInteractor.notificationsRegistrator
-        let interactor = MainTabBarInteractor(applicationConfig: ApplicationConfig.shared,
-                                              notificationRegistrator: notificationRegistrator)
+        let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
+                                              settings: SettingsManager.shared,
+                                              applicationConfig: ApplicationConfig.shared,
+                                              applicationHandler: ApplicationHandler(),
+                                              notificationRegistrator: notificationRegistrator,
+                                              invitationLinkService: invitationLinkService,
+                                              walletContext: walletContext)
 
         let wireframe = MainTabBarWireframe()
 
@@ -48,7 +62,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return view
 	}
 
-    private static func createActivityController() -> UIViewController? {
+    static func createActivityController() -> UIViewController? {
         guard let activityView = ActivityFeedViewFactory.createView() else {
             return nil
         }
@@ -64,7 +78,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return navigationController
     }
 
-    private static func createProjectsController() -> UIViewController? {
+    static func createProjectsController() -> UIViewController? {
         guard let projectsView = ProjectsViewFactory.createView() else {
             return nil
         }
@@ -80,8 +94,8 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return navigationController
     }
 
-    private static func createWalletController() -> UIViewController? {
-        guard let walletController = WalletViewFactory.createView() else {
+    static func createWalletController(from context: CommonWalletContextProtocol) -> UIViewController? {
+        guard let walletController = try? context.createRootController() else {
             return nil
         }
 
@@ -92,7 +106,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return walletController
     }
 
-    private static func createProfileController() -> UIViewController? {
+    static func createProfileController() -> UIViewController? {
         guard let profileView = ProfileViewFactory.createView() else {
             return nil
         }
@@ -108,7 +122,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return navigationController
     }
 
-    private static func createFriendsController() -> UIViewController? {
+    static func createFriendsController() -> UIViewController? {
         guard let friendsView = InvitationViewFactory.createView() else {
             return nil
         }
@@ -123,15 +137,24 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return navigationController
     }
 
-    private static func createTabBarItem(title: String,
-                                         normalImage: UIImage?,
-                                         selectedImage: UIImage?) -> UITabBarItem {
+    static func createTabBarItem(title: String,
+                                 normalImage: UIImage?,
+                                 selectedImage: UIImage?) -> UITabBarItem {
 
         let tabBarItem = UITabBarItem(title: title,
                                       image: normalImage,
                                       selectedImage: selectedImage)
+
+        // Style is set here for compatibility reasons for iOS 12.x and less.
+        // For iOS 13 styling see MainTabBarViewController's 'configure' method.
+
+        if #available(iOS 13.0, *) {
+            return tabBarItem
+        }
+
         let normalAttributes = [NSAttributedString.Key.foregroundColor: UIColor.tabBarItemNormal]
         let selectedAttributes = [NSAttributedString.Key.foregroundColor: UIColor.tabBarItemSelected]
+
         tabBarItem.setTitleTextAttributes(normalAttributes, for: .normal)
         tabBarItem.setTitleTextAttributes(selectedAttributes, for: .selected)
 

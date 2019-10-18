@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -9,15 +9,21 @@ import IrohaCrypto
 
 final class AccessRestoreViewFactory: AccessRestoreViewFactoryProtocol {
     static func createView() -> AccessRestoreViewProtocol? {
+        guard let invitationLinkService: InvitationLinkServiceProtocol = DeepLinkService.shared.findService() else {
+            return nil
+        }
+
         let view = AccessRestoreViewController(nib: R.nib.accessRestoreViewController)
         let presenter = AccessRestorePresenter()
-        let interactor = AccessRestoreInteractor(accountOperationFactory: ProjectOperationFactory(),
-                                                 identityLocalOperationFactory: IdentityOperationFactory.self,
+
+        let interactor = AccessRestoreInteractor(identityLocalOperationFactory: IdentityOperationFactory.self,
+                                                 accountOperationFactory: ProjectOperationFactory(),
                                                  keystore: Keychain(),
-                                                 operationManager: OperationManager.shared,
-                                                 applicationConfig: ApplicationConfig.shared,
                                                  settings: SettingsManager.shared,
-                                                 mnemonicCreator: IRBIP39MnemonicCreator(language: .english))
+                                                 applicationConfig: ApplicationConfig.shared,
+                                                 mnemonicCreator: IRBIP39MnemonicCreator(language: .english),
+                                                 invitationLinkService: invitationLinkService,
+                                                 operationManager: OperationManager.shared)
         interactor.logger = Logger.shared
 
         let wireframe = AccessRestoreWireframe()

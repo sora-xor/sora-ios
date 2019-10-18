@@ -1,17 +1,13 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 import CommonWallet
 
-final class WalletHeaderViewModel: WalletViewModelProtocol {
-    var cellReuseIdentifier: String = R.reuseIdentifier.walletAccountHeaderId.identifier
-
-    var itemHeight: CGFloat = 73.0
-
-    var walletController: UINavigationController?
+final class WalletHeaderViewModel {
+    weak var walletContext: CommonWalletContextProtocol?
     private(set) var walletWireframe: WalletWireframeProtocol
 
     init(walletWireframe: WalletWireframeProtocol) {
@@ -19,10 +15,20 @@ final class WalletHeaderViewModel: WalletViewModelProtocol {
     }
 
     public func presentHelp() {
-        if let navigationController = walletController {
-            walletWireframe.presentHelp(in: navigationController)
+        if let context = walletContext {
+            walletWireframe.presentHelp(in: context)
         }
     }
+}
 
-    func didSelect() {}
+extension WalletHeaderViewModel: WalletViewModelProtocol {
+    var cellReuseIdentifier: String {
+        return R.reuseIdentifier.walletAccountHeaderId.identifier
+    }
+
+    var itemHeight: CGFloat {
+        return 73.0
+    }
+
+    var command: WalletCommandProtocol? { return nil }
 }

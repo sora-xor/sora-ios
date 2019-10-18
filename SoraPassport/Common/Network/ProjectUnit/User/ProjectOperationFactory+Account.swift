@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -34,6 +34,37 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
 
         return NetworkOperation<Bool>(requestFactory: requestFactory,
                                       resultFactory: resultFactory)
+    }
+
+    func createUserOperation(_ urlTemplate: String,
+                             with info: UserCreationInfo) -> NetworkOperation<VerificationCodeData> {
+        let requestFactory = BlockNetworkRequestFactory {
+            guard let serviceUrl = URL(string: urlTemplate) else {
+                throw NetworkBaseError.invalidUrl
+            }
+
+            var request = URLRequest(url: serviceUrl)
+            request.httpMethod = HttpMethod.post.rawValue
+            request.httpBody = try JSONEncoder().encode(info)
+            request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
+            return request
+        }
+
+        let resultFactory = AnyNetworkResultFactory<VerificationCodeData> { data in
+            let resultData = try JSONDecoder().decode(MultifieldResultData<VerificationCodeData>.self, from: data)
+
+            guard resultData.status.isSuccess else {
+                if let resultError = UserCreationError.error(from: resultData.status) {
+                    throw resultError
+                } else {
+                    throw ResultStatusError(statusData: resultData.status)
+                }
+            }
+
+            return resultData.result
+        }
+
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
     func fetchCustomerOperation(_ urlTemplate: String) -> NetworkOperation<UserData> {
@@ -88,7 +119,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             let resultData = try JSONDecoder().decode(ResultData<Bool>.self, from: data)
 
             guard resultData.status.isSuccess else {
-                if let resultError = PersonalUpdateDataError.error(from: resultData.status) {
+                if let resultError = UserDataError.error(from: resultData.status) {
                     throw resultError
                 } else {
                     throw ResultStatusError(statusData: resultData.status)
@@ -100,36 +131,6 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
 
         return NetworkOperation<Bool>(requestFactory: requestFactory,
                                       resultFactory: resultFactory)
-    }
-
-    func checkInvitationOperation(_ urlTemplate: String, code: String) -> NetworkOperation<ApplicationFormData?> {
-        let requestFactory = BlockNetworkRequestFactory {
-            let serviceUrl = try EndpointBuilder(urlTemplate: urlTemplate).buildParameterURL(code)
-            var request = URLRequest(url: serviceUrl)
-            request.httpMethod = HttpMethod.get.rawValue
-            return request
-        }
-
-        let resultFactory = AnyNetworkResultFactory<ApplicationFormData?> { (data) in
-            let resultData = try JSONDecoder().decode(ResultData<ApplicationFormData?>.self, from: data)
-
-            guard resultData.status.isSuccess else {
-                if let resultError = InvitationCheckDataError.error(from: resultData.status) {
-                    throw resultError
-                } else {
-                    throw ResultStatusError(statusData: resultData.status)
-                }
-            }
-
-            guard let applicationForm = resultData.result else {
-                return nil
-            }
-
-            return applicationForm
-        }
-
-        return NetworkOperation<ApplicationFormData?>(requestFactory: requestFactory,
-                                                     resultFactory: resultFactory)
     }
 
     func fetchInvitationCodeOperation(_ urlTemplate: String) -> NetworkOperation<InvitationCodeData> {
@@ -228,7 +229,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             let resultData = try JSONDecoder().decode(ResultData<ReputationData>.self, from: data)
 
             guard resultData.status.isSuccess else {
-                if let resultError = ReputationDataError.error(from: resultData.status) {
+                if let resultError = UserDataError.error(from: resultData.status) {
                     throw resultError
                 } else {
                     throw ResultStatusError(statusData: resultData.status)
@@ -285,7 +286,6 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
 
         let resultFactory = AnyNetworkResultFactory<VerificationCodeData> { (data) in
             let verificationData = try JSONDecoder().decode(VerificationCodeData.self, from: data)
-
             return verificationData
         }
 
@@ -293,19 +293,15 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
                                                       resultFactory: resultFactory)
     }
 
-    func verifySmsCodeOperation(_ urlTemplate: String, code: String) -> NetworkOperation<Bool> {
+    func verifySmsCodeOperation(_ urlTemplate: String, info: VerificationCodeInfo) -> NetworkOperation<Bool> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
             }
 
-            guard let codeData = code.data(using: .utf8) else {
-                throw NetworkBaseError.badSerialization
-            }
-
             var request = URLRequest(url: serviceUrl)
             request.httpMethod = HttpMethod.post.rawValue
-            request.httpBody = codeData
+            request.httpBody = try JSONEncoder().encode(info)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
             return request
         }

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -39,7 +39,7 @@ struct ProjectDetailsData: Equatable, Codable {
     var imageLink: URL?
     var link: URL?
     var email: String?
-    var gallery: [URL]?
+    var gallery: [MediaItemData]?
     var status: ProjectDataStatus
     var statusUpdateTime: Int64?
     var votes: String

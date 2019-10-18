@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -41,7 +41,10 @@ class StartupInteractorTests: NetworkBaseTests {
     func testFailedIdentityVerificationWhenKeypairInvalid() {
         // given
 
-        ProjectsCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+
+        SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
+        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
 
         let document = createIdentity()
 
@@ -50,12 +53,15 @@ class StartupInteractorTests: NetworkBaseTests {
         var settings = SettingsManager.shared
         let keychain = Keychain()
 
+        let projectOperationFactory = ProjectOperationFactory()
+
         let interactor = StartupInteractor(settings: settings,
                                            keystore: keychain,
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityNetworkOperationFactory,
                                            identityLocalOperationFactory: IdentityOperationFactory.self,
-                                           accountOperationFactory: ProjectOperationFactory(),
+                                           accountOperationFactory: projectOperationFactory,
+                                           informationOperationFactory: projectOperationFactory,
                                            operationManager: OperationManager.shared,
                                            reachabilityManager: DummyReachabilityFactory.createMock())
 
@@ -115,10 +121,79 @@ class StartupInteractorTests: NetworkBaseTests {
         }
     }
 
+    func testUnsupportedVersion() {
+        // given
+
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        SupportedVersionCheckMock.register(mock: .unsupported, projectUnit: projectUnit)
+
+        let identityRequestFactory = DecentralizedResolverOperationFactory(url: URL(string: ApplicationConfig.shared.didResolverUrl)!)
+
+        let document = createIdentity()
+
+        var settings = SettingsManager.shared
+        settings.decentralizedId = document.decentralizedId
+        settings.publicKeyId = document.publicKey.first!.pubKeyId
+
+        let keychain = Keychain()
+
+        guard let newPrivateKey = IREd25519KeyFactory().createRandomKeypair() else {
+            XCTFail()
+            return
+        }
+
+        XCTAssertNoThrow(try keychain.saveKey(newPrivateKey.privateKey().rawData(), with: KeystoreKey.privateKey.rawValue))
+
+        let projectOperationFactory = ProjectOperationFactory()
+
+        let interactor = StartupInteractor(settings: settings,
+                                           keystore: keychain,
+                                           config: ApplicationConfig.shared,
+                                           identityNetworkOperationFactory: identityRequestFactory,
+                                           identityLocalOperationFactory: IdentityOperationFactory.self,
+                                           accountOperationFactory: projectOperationFactory,
+                                           informationOperationFactory: projectOperationFactory,
+                                           operationManager: OperationManager.shared,
+                                           reachabilityManager: DummyReachabilityFactory.createMock())
+
+        let wireframe = MockStartupWireframeProtocol()
+
+        let presenter = StartupPresenter()
+        presenter.interactor = interactor
+        presenter.wireframe = wireframe
+
+        interactor.presenter = presenter
+
+        let expectation = XCTestExpectation()
+
+        stub(wireframe) { stub in
+            when(stub).presentUnsupportedVersion(for: any(), on: any(), animated: any()).then { _ in
+                expectation.fulfill()
+            }
+        }
+
+        // when
+        presenter.viewIsReady()
+
+        wait(for: [expectation], timeout: Constants.expectationDuration)
+
+        // then
+        XCTAssertTrue(interactor.state == .unsupported)
+        XCTAssertNotNil(interactor.settings.decentralizedId)
+        XCTAssertNotNil(interactor.settings.publicKeyId)
+
+        if (try? keychain.checkKey(for: KeystoreKey.privateKey.rawValue)) == false {
+            XCTFail()
+        }
+    }
+
     func testFailedIdentityVerificationWhenDIDNotFound() {
         // given
 
-        ProjectsCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+
+        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
+        SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         DecentralizedDocumentFetchMock.register(mock: .notFound)
 
         let document = createIdentity()
@@ -128,12 +203,15 @@ class StartupInteractorTests: NetworkBaseTests {
         var settings = SettingsManager.shared
         let keychain = Keychain()
 
+        let projectOperationFactory = ProjectOperationFactory()
+
         let interactor = StartupInteractor(settings: settings,
                                            keystore: keychain,
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityRequestFactory,
                                            identityLocalOperationFactory: IdentityOperationFactory.self,
-                                           accountOperationFactory: ProjectOperationFactory(),
+                                           accountOperationFactory: projectOperationFactory,
+                                           informationOperationFactory: projectOperationFactory,
                                            operationManager: OperationManager.shared,
                                            reachabilityManager: DummyReachabilityFactory.createMock())
 
@@ -171,6 +249,9 @@ class StartupInteractorTests: NetworkBaseTests {
     func testRetryIdentityVerification() {
         // given
 
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+
+        SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         ProjectsCustomerMock.register(mock: .resourceNotFound, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
         let document = createIdentity()
@@ -187,6 +268,7 @@ class StartupInteractorTests: NetworkBaseTests {
                                            identityNetworkOperationFactory: identityNetworkOperationFactory,
                                            identityLocalOperationFactory: IdentityOperationFactory.self,
                                            accountOperationFactory: projectOperationFactory,
+                                           informationOperationFactory: projectOperationFactory,
                                            operationManager: OperationManager.shared,
                                            reachabilityManager: DummyReachabilityFactory.createMock(returnIsReachable: false))
 
@@ -247,18 +329,24 @@ class StartupInteractorTests: NetworkBaseTests {
     func performTestSuccessfullIdentityVerification(with keystore: KeystoreProtocol, settings: SettingsManagerProtocol) {
         // given
 
-        ProjectsCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+
+        SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
+        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
 
         let document = createIdentity()
 
         let identityNetworkOperationFactory = MockDecentralizedResolverOperationFactoryProtocol()
+
+        let projectOperationFactory = ProjectOperationFactory()
 
         let interactor = StartupInteractor(settings: settings,
                                            keystore: keystore,
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityNetworkOperationFactory,
                                            identityLocalOperationFactory: IdentityOperationFactory.self,
-                                           accountOperationFactory: ProjectOperationFactory(),
+                                           accountOperationFactory: projectOperationFactory,
+                                           informationOperationFactory: projectOperationFactory,
                                            operationManager: OperationManager.shared,
                                            reachabilityManager: DummyReachabilityFactory.createMock())
 

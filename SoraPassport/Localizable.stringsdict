@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>remained.days</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@value@</string>
+		<key>value</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>one</key>
+			<string>%d day left</string>
+			<key>other</key>
+			<string>%d days left</string>
+		</dict>
+	</dict>
+	<key>remained.hours</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@value@</string>
+		<key>value</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>one</key>
+			<string>%d hour left</string>
+			<key>other</key>
+			<string>%d hours left</string>
+		</dict>
+	</dict>
+	<key>remained.minutes</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@value@</string>
+		<key>value</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>one</key>
+			<string>%d minute left</string>
+			<key>other</key>
+			<string>%d minutes left</string>
+		</dict>
+	</dict>
+	<key>remained.seconds</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@value@</string>
+		<key>value</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>one</key>
+			<string>%d second left</string>
+			<key>other</key>
+			<string>%d seconds left</string>
+		</dict>
+	</dict>
+	<key>received.invitations</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>You have received %#@invitation@</string>
+		<key>invitation</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>one</key>
+			<string>%d invitation</string>
+			<key>other</key>
+			<string>%d invitations</string>
+		</dict>
+	</dict>
+	<key>favorite.users</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@favorite@</string>
+		<key>favorite</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>zero</key>
+			<string></string>
+			<key>one</key>
+			<string>%d favourite</string>
+			<key>other</key>
+			<string>%d favourites</string>
+		</dict>
+	</dict>
+	<key>voted.friends</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@voted@</string>
+		<key>voted</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>zero</key>
+			<string></string>
+			<key>one</key>
+			<string>%d friend voted</string>
+			<key>other</key>
+			<string>%d friends voted</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

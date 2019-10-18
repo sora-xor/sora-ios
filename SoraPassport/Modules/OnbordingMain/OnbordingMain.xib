@@ -29,10 +29,10 @@
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
                 <collectionView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" pagingEnabled="YES" showsHorizontalScrollIndicator="NO" showsVerticalScrollIndicator="NO" dataMode="none" translatesAutoresizingMaskIntoConstraints="NO" id="h5g-Eb-pDw">
-                    <rect key="frame" x="0.0" y="0.0" width="375" height="400"/>
+                    <rect key="frame" x="0.0" y="0.0" width="375" height="460"/>
                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <constraints>
-                        <constraint firstAttribute="height" constant="400" id="zC6-Qu-egS"/>
+                        <constraint firstAttribute="height" constant="460" id="zC6-Qu-egS"/>
                     </constraints>
                     <collectionViewFlowLayout key="collectionViewLayout" scrollDirection="horizontal" minimumLineSpacing="0.0" minimumInteritemSpacing="0.0" id="avg-C1-qPK">
                         <size key="itemSize" width="50" height="50"/>
@@ -46,7 +46,7 @@
                     </connections>
                 </collectionView>
                 <pageControl opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" hidesForSinglePage="YES" numberOfPages="3" translatesAutoresizingMaskIntoConstraints="NO" id="Vzb-aC-SRL">
-                    <rect key="frame" x="0.0" y="409" width="375" height="37"/>
+                    <rect key="frame" x="0.0" y="460" width="375" height="37"/>
                     <color key="pageIndicatorTintColor" red="0.80784313725490198" green="0.80784313725490198" blue="0.80784313725490198" alpha="1" colorSpace="calibratedRGB"/>
                     <color key="currentPageIndicatorTintColor" red="0.81568627449999997" green="0.031372549020000001" blue="0.1058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                     <connections>
@@ -54,7 +54,7 @@
                     </connections>
                 </pageControl>
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="JKh-WT-j8k" customClass="RoundedButton" customModule="SoraUI">
-                    <rect key="frame" x="95.5" y="523" width="184" height="40"/>
+                    <rect key="frame" x="95.5" y="526" width="184" height="40"/>
                     <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="184" id="8De-N6-KGr"/>
@@ -113,7 +113,7 @@
                     </connections>
                 </view>
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="bcI-vv-wu7" customClass="RoundedButton" customModule="SoraUI">
-                    <rect key="frame" x="70.5" y="587" width="234" height="35"/>
+                    <rect key="frame" x="78" y="579" width="219.5" height="34"/>
                     <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <userDefinedRuntimeAttributes>
                         <userDefinedRuntimeAttribute type="string" keyPath="_title" value="Restore your account access"/>
@@ -140,7 +140,7 @@
                         </userDefinedRuntimeAttribute>
                         <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Regular"/>
                         <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
-                            <real key="value" value="15"/>
+                            <real key="value" value="14"/>
                         </userDefinedRuntimeAttribute>
                         <userDefinedRuntimeAttribute type="boolean" keyPath="_highlighted" value="NO"/>
                         <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="NO"/>
@@ -149,11 +149,11 @@
                         <action selector="actionRestoreAccessWithSender:" destination="-1" eventType="touchUpInside" id="Tqc-wf-yUA"/>
                     </connections>
                 </view>
-                <label opaque="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" usesAttributedText="YES" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.90000000000000002" translatesAutoresizingMaskIntoConstraints="NO" id="eVe-aO-QFR">
-                    <rect key="frame" x="20" y="631.5" width="335" height="15.5"/>
+                <label opaque="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" usesAttributedText="YES" lineBreakMode="tailTruncation" numberOfLines="2" baselineAdjustment="alignBaselines" minimumScaleFactor="0.90000000000000002" translatesAutoresizingMaskIntoConstraints="NO" id="eVe-aO-QFR">
+                    <rect key="frame" x="20" y="622.5" width="335" height="30.5"/>
                     <gestureRecognizers/>
                     <attributedString key="attributedText">
-                        <fragment content="I have read and agreed to Terms and Conditions">
+                        <fragment content="I have read and agreed to  Terms and Conditions and Privacy Policy">
                             <attributes>
                                 <color key="NSColor" red="0.33300000000000002" green="0.30199999999999999" blue="0.33700000000000002" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <font key="NSFont" size="13" name="HelveticaNeue"/>
@@ -174,14 +174,14 @@
                 <constraint firstItem="h5g-Eb-pDw" firstAttribute="leading" secondItem="X9x-Jk-vyU" secondAttribute="leading" id="IHH-KS-0hf"/>
                 <constraint firstItem="X9x-Jk-vyU" firstAttribute="trailing" secondItem="eVe-aO-QFR" secondAttribute="trailing" constant="20" id="M2i-Nf-3Bk"/>
                 <constraint firstItem="Vzb-aC-SRL" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" id="ZUu-vl-Wpf"/>
-                <constraint firstAttribute="bottom" secondItem="bcI-vv-wu7" secondAttribute="bottom" constant="70" id="cyj-cq-JHW"/>
+                <constraint firstItem="X9x-Jk-vyU" firstAttribute="bottom" secondItem="bcI-vv-wu7" secondAttribute="bottom" constant="54" id="cyj-cq-JHW"/>
                 <constraint firstItem="eVe-aO-QFR" firstAttribute="leading" secondItem="X9x-Jk-vyU" secondAttribute="leading" constant="20" id="d0N-bD-8tF"/>
                 <constraint firstItem="bcI-vv-wu7" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" id="fFb-NZ-LvD"/>
-                <constraint firstItem="X9x-Jk-vyU" firstAttribute="bottom" secondItem="eVe-aO-QFR" secondAttribute="bottom" constant="20" id="fwl-WI-8T8"/>
-                <constraint firstItem="Vzb-aC-SRL" firstAttribute="top" secondItem="h5g-Eb-pDw" secondAttribute="bottom" constant="9" id="jP7-mi-zkb"/>
+                <constraint firstItem="X9x-Jk-vyU" firstAttribute="bottom" secondItem="eVe-aO-QFR" secondAttribute="bottom" constant="14" id="fwl-WI-8T8"/>
+                <constraint firstItem="Vzb-aC-SRL" firstAttribute="top" secondItem="h5g-Eb-pDw" secondAttribute="bottom" id="jP7-mi-zkb"/>
                 <constraint firstAttribute="trailing" secondItem="Vzb-aC-SRL" secondAttribute="trailing" id="kF0-dw-gz6"/>
                 <constraint firstItem="JKh-WT-j8k" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" id="mRJ-51-cbY"/>
-                <constraint firstItem="bcI-vv-wu7" firstAttribute="top" secondItem="JKh-WT-j8k" secondAttribute="bottom" constant="16" id="tLW-Tl-ooc"/>
+                <constraint firstItem="X9x-Jk-vyU" firstAttribute="bottom" secondItem="JKh-WT-j8k" secondAttribute="bottom" constant="101" id="tLW-Tl-ooc"/>
                 <constraint firstItem="Vzb-aC-SRL" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="zyC-dU-yNP"/>
             </constraints>
             <viewLayoutGuide key="safeArea" id="X9x-Jk-vyU"/>

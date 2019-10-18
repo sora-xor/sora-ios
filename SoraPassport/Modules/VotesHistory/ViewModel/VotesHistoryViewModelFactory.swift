@@ -1,12 +1,18 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 import RobinHood
 
+protocol VotesHistoryViewModelFactoryDelegate: class {
+    func votesHistoryViewModelFactoryDidChange(_ factory: VotesHistoryViewModelFactory)
+}
+
 protocol VotesHistoryViewModelFactoryProtocol {
+    var delegate: VotesHistoryViewModelFactoryDelegate? { get set }
+
     func merge(newItems: [VotesHistoryEventData],
                into existingViewModels: inout [VotesHistorySectionViewModel]) throws
         -> [SectionedListDifference<VotesHistorySectionViewModel, VotesHistoryItemViewModel>]
@@ -19,12 +25,17 @@ enum VotesHistoryViewModelFactoryError: Error {
 }
 
 final class VotesHistoryViewModelFactory {
-    private(set) var dateFormatter: DateFormatter
     private(set) var amountFormatter: NumberFormatter
+    private(set) var dateFormatterProvider: DateFormatterProviderProtocol
 
-    init(dateFormatter: DateFormatter, amountFormatter: NumberFormatter) {
-        self.dateFormatter = dateFormatter
+    weak var delegate: VotesHistoryViewModelFactoryDelegate?
+
+    init(amountFormatter: NumberFormatter,
+         dateFormatterProvider: DateFormatterProviderProtocol) {
         self.amountFormatter = amountFormatter
+        self.dateFormatterProvider = dateFormatterProvider
+
+        dateFormatterProvider.delegate = self
     }
 
     private func createViewModel(from event: VotesHistoryEventData) throws -> VotesHistoryItemViewModel {
@@ -62,7 +73,7 @@ extension VotesHistoryViewModelFactory: VotesHistoryViewModelFactoryProtocol {
             let viewModel = try self.createViewModel(from: event)
 
             let eventDate = Date(timeIntervalSince1970: TimeInterval(event.timestamp))
-            let sectionTitle = dateFormatter.string(from: eventDate)
+            let sectionTitle = dateFormatterProvider.dateFormatter.string(from: eventDate)
 
             if let searchableSection = searchableSections[sectionTitle] {
                 let itemChange = ListDifference.insert(index: searchableSection.section.items.count, new: viewModel)
@@ -89,5 +100,11 @@ extension VotesHistoryViewModelFactory: VotesHistoryViewModelFactoryProtocol {
         }
 
         return changes
+    }
+}
+
+extension VotesHistoryViewModelFactory: DateFormatterProviderDelegate {
+    func providerDidChangeDateFormatter(_ provider: DateFormatterProviderProtocol) {
+        delegate?.votesHistoryViewModelFactoryDidChange(self)
     }
 }

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -12,15 +12,18 @@ struct WalletEndpointMapping {
     var history: String
     var search: String
     var transfer: String
+    var transferMetadata: String
     var contacts: String
+    var withdraw: String
+    var withdrawalMetadata: String
 }
 
 final class WalletNetworkResolver {
-    let enpointMapping: WalletEndpointMapping
+    let endpointMapping: WalletEndpointMapping
     let requestSigner: NetworkRequestModifierProtocol
 
-    init(enpointMapping: WalletEndpointMapping, requestSigner: NetworkRequestModifierProtocol) {
-        self.enpointMapping = enpointMapping
+    init(endpointMapping: WalletEndpointMapping, requestSigner: NetworkRequestModifierProtocol) {
+        self.endpointMapping = endpointMapping
         self.requestSigner = requestSigner
     }
 }
@@ -29,15 +32,21 @@ extension WalletNetworkResolver: WalletNetworkResolverProtocol {
     func urlTemplate(for type: WalletRequestType) -> String {
         switch type {
         case .balance:
-            return enpointMapping.balance
+            return endpointMapping.balance
         case .history:
-            return enpointMapping.history
+            return endpointMapping.history
         case .search:
-            return enpointMapping.search
+            return endpointMapping.search
         case .transfer:
-            return enpointMapping.transfer
+            return endpointMapping.transfer
+        case .transferMetadata:
+            return endpointMapping.transferMetadata
         case .contacts:
-            return enpointMapping.contacts
+            return endpointMapping.contacts
+        case .withdraw:
+            return endpointMapping.withdraw
+        case .withdrawalMetadata:
+            return endpointMapping.withdrawalMetadata
         }
     }
 

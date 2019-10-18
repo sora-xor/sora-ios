@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -27,10 +27,6 @@ extension PhoneVerificationInteractor: PhoneVerificationInteractorInputProtocol 
         settings.verificationState = verificationState
     }
 
-    func removeVerificationState() {
-        settings.verificationState = nil
-    }
-
     func requestPhoneVerificationCode() {
         do {
             _ = try projectService.sendSmsCode(runCompletionIn: .main) { [weak self] (optionalResult) in
@@ -48,9 +44,10 @@ extension PhoneVerificationInteractor: PhoneVerificationInteractorInputProtocol 
         }
     }
 
-    func verifyPhone(code: String) {
+    func verifyPhone(codeInfo: VerificationCodeInfo) {
         do {
-            _ = try projectService.verifySms(code: code, runCompletionIn: .main) { [weak self] (optionalResult) in
+            _ = try projectService.verifySms(codeInfo: codeInfo,
+                                             runCompletionIn: .main) { [weak self] (optionalResult) in
                 if let result = optionalResult {
                     switch result {
                     case .success:

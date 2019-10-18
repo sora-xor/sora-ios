@@ -1,13 +1,13 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
 import SoraUI
 
 protocol VoteViewDelegate: class {
-    func didVote(on view: VoteView, amount: Float)
+    func didVote(on view: VoteView, amount: Decimal)
     func didCancel(on view: VoteView)
 }
 
@@ -65,6 +65,17 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
         }
     }
 
+    var value: Decimal? {
+        guard let model = model else {
+            return nil
+        }
+
+        let fraction = Decimal(Double(sliderView.value))
+        let min = model.minimumVoteAmount
+        let max = model.maximumVoteAmount
+        return min + (max - min) * fraction
+    }
+
     weak var delegate: VoteViewDelegate?
 
     var presenter: ModalInputViewPresenterProtocol?
@@ -98,12 +109,8 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
     }
 
     private func setupFromModel() {
-        guard let model = model else {
-            return
-        }
-
-        sliderView.minimumValue = model.minimumVoteAmount
-        sliderView.maximumValue = model.maximumVoteAmount
+        sliderView.minimumValue = 0.0
+        sliderView.maximumValue = 1.0
 
         updateDisplay(animated: false)
     }
@@ -119,28 +126,38 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
             descriptionLabel.text = model.description
             voteTextField.text = model.formattedAmount
 
+            let fraction: Decimal
+
+            let divider = model.maximumVoteAmount - model.minimumVoteAmount
+
+            if divider > 0 {
+               fraction = (model.amount - model.minimumVoteAmount) / divider
+            } else {
+                fraction = 0.0
+            }
+
+            let sliderValue = (fraction as NSDecimalNumber).floatValue
+
             if animated {
                 UIView.animate(withDuration: sliderAnimationDuration) {
-                    self.sliderView.setValue(model.amount, animated: animated)
+                    self.sliderView.setValue(sliderValue, animated: animated)
                 }
             } else {
-                sliderView.setValue(model.amount, animated: animated)
+                sliderView.setValue(sliderValue, animated: animated)
             }
 
             updateDescriptionStyle()
 
-            if model.canVote {
-                voteButton.enable()
-            } else {
-                voteButton.disable()
-            }
+            voteButton.isEnabled = model.canVote
         }
     }
 
     // MARK: Action
 
     @IBAction private func actionVote(sender: AnyObject) {
-        delegate?.didVote(on: self, amount: sliderView.value)
+        if let amount = value {
+            delegate?.didVote(on: self, amount: amount)
+        }
     }
 
     @IBAction private func actionClose(sender: AnyObject) {
@@ -148,8 +165,8 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
     }
 
     @IBAction private func sliderDidChange(sender: AnyObject) {
-        if let model = model {
-            _ = model.updateAmount(with: Float(round(sliderView.value)))
+        if let model = model, let amount = value {
+            _ = model.updateAmount(with: amount)
             updateDisplay(animated: false)
         }
     }
@@ -163,8 +180,8 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
         let sliderWidth = sliderView.bounds.width
 
         if let model = model, sliderWidth > 0.0 {
-            let percentage = Float(min(location.x / sliderWidth, 1.0))
-            let amount = percentage * model.maximumVoteAmount
+            let percentage = Decimal(Double(max(min(location.x / sliderWidth, 1.0), 0.0)))
+            let amount = model.minimumVoteAmount + percentage * (model.maximumVoteAmount - model.minimumVoteAmount)
             model.updateAmount(with: amount)
             updateDisplay(animated: true)
         }

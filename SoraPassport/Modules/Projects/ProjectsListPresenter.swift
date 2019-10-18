@@ -1,13 +1,13 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 import RobinHood
 
 final class ProjectsListPresenter {
-    var view: ProjectsListViewProtocol?
+    weak var view: ProjectsListViewProtocol?
     var interactor: ProjectsListInteractorInputProtocol!
     weak var delegate: ProjectsListPresenterDelegate?
 
@@ -96,6 +96,8 @@ final class ProjectsListPresenter {
 
 extension ProjectsListPresenter: ProjectsListPresenterProtocol {
     func setup(layoutMetadata: ProjectLayoutMetadata) {
+        viewModelFactory.delegate = self
+
         self.layoutMetadata = layoutMetadata
 
         interactor.setup()
@@ -212,5 +214,21 @@ extension ProjectsListPresenter: ProjectsListInteractorOutputProtocol {
         case .loaded:
             logger?.debug("Did receive project data provider error: \(error)")
         }
+    }
+
+    func didViewProject(with projectId: String) {
+        guard let project = projectsDiffCalculator.allItems.first(where: { $0.identifier == projectId }) else {
+            return
+        }
+
+        if project.unwatched {
+            interactor.refresh()
+        }
+    }
+}
+
+extension ProjectsListPresenter: ProjectViewModelFactoryDelegate {
+    func projectFactoryDidChange(_ factory: DynamicProjectViewModelFactoryProtocol) {
+        reloadModel()
     }
 }

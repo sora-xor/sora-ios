@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -35,5 +35,45 @@ final class InMemoryKeychain: KeystoreProtocol {
         } else {
             throw KeystoreError.noKeyFound
         }
+    }
+}
+
+extension InMemoryKeychain: SecretStoreManagerProtocol {
+    func loadSecret(for identifier: String,
+                    completionQueue: DispatchQueue,
+                    completionBlock: @escaping (SecretDataRepresentable?) -> Void) {
+        completionQueue.async {
+            completionBlock(self.keystore[identifier])
+        }
+    }
+
+    func saveSecret(_ secret: SecretDataRepresentable,
+                    for identifier: String,
+                    completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+        keystore[identifier] = secret.asSecretData()
+
+        completionQueue.async {
+            completionBlock(true)
+        }
+    }
+
+    func removeSecret(for identifier: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+        keystore[identifier] = nil
+
+        completionQueue.async {
+            completionBlock(true)
+        }
+    }
+
+    func checkSecret(for identifier: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+        let exists = keystore[identifier] != nil
+
+        completionQueue.async {
+            completionBlock(exists)
+        }
+    }
+
+    func checkSecret(for identifier: String) -> Bool {
+        return keystore[identifier] != nil
     }
 }

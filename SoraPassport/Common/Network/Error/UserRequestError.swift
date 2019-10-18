@@ -1,18 +1,43 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 
+enum UserCreationError: Error {
+    case alreadyExists
+    case verified
+    case invalid
+    case unexpectedUser
+
+    static func error(from status: StatusData) -> UserCreationError? {
+        switch status.code {
+        case "PHONE_ALREADY_REGISTERED":
+            return .alreadyExists
+        case "PHONE_ALREADY_VERIFIED":
+            return .verified
+        case "INCORRECT_QUERY_PARAMS":
+            return .invalid
+        case "WRONG_USER_STATUS":
+            return .unexpectedUser
+        default:
+            return nil
+        }
+    }
+}
+
 enum RegistrationDataError: Error {
-    case applicationFormNotFound
+    case userNotFound
+    case wrongUserStatus
     case invitationCodeNotFound
 
     static func error(from status: StatusData) -> RegistrationDataError? {
         switch status.code {
-        case "APPLICATION_FORM_NOT_FOUND":
-            return .applicationFormNotFound
+        case "USER_NOT_FOUND":
+            return .userNotFound
+        case "WRONG_USER_STATUS":
+            return .wrongUserStatus
         case "INVITATION_CODE_NOT_FOUND":
             return .invitationCodeNotFound
         default:
@@ -27,36 +52,10 @@ enum UserDataError: Error {
 
     static func error(from status: StatusData) -> UserDataError? {
         switch status.code {
-        case "USER_NOT_FOUND":
+        case "USER_NOT_FOUND", "USER_NOT_REGISTERED":
             return .userNotFound
         case "USER_VALUES_NOT_FOUND":
             return .userValuesNotFound
-        default:
-            return nil
-        }
-    }
-}
-
-enum PersonalUpdateDataError: Error {
-    case userNotFound
-
-    static func error(from status: StatusData) -> PersonalUpdateDataError? {
-        switch status.code {
-        case "USER_NOT_FOUND":
-            return .userNotFound
-        default:
-            return nil
-        }
-    }
-}
-
-enum VotesCountDataError: Error {
-    case userNotFound
-
-    static func error(from status: StatusData) -> VotesCountDataError? {
-        switch status.code {
-        case "USER_NOT_FOUND":
-            return .userNotFound
         default:
             return nil
         }

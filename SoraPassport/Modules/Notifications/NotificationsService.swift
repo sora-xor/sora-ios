@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -14,7 +14,7 @@ class NotificationsService {
     static let sharedNotificationsInteractor: NotificationsInteractor = {
         let interactor = NotificationsInteractorFactory().createNotificationsInteractor()
         startFirebaseAndBind(interactor: interactor, messageHandler: messageHandler)
-        configureNativeNotificationsHandler()
+        configureNativeNotificationsHandler(for: interactor)
         return interactor
     }()
 
@@ -25,9 +25,10 @@ class NotificationsService {
         Messaging.messaging().delegate = messageHandler
     }
 
-    private static func configureNativeNotificationsHandler() {
+    private static func configureNativeNotificationsHandler(for delegate: NotificationsServiceOutputProtocol) {
         if #available(iOS 10.0, *) {
             UNUserNotificationCenter.current().delegate = nativeNotificationsHandler
+            nativeNotificationsHandler.delegate = delegate
         }
     }
 }
@@ -41,12 +42,25 @@ class FirebaseNotificationsHandler: NSObject, MessagingDelegate {
 }
 
 class NativeNotificationsHandler: NSObject, UNUserNotificationCenterDelegate {
+    weak var delegate: NotificationsServiceOutputProtocol?
+
     @available(iOS 10.0, *)
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler
         completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
 
-        completionHandler([.alert, .sound])
+        guard
+            let delegate = delegate,
+            let soraNotification = ApnNotificationFactory.createNotification(from: notification) else {
+                completionHandler([.alert, .sound])
+                return
+        }
+
+        if delegate.didReceive(soraNotification) {
+            completionHandler([])
+        } else {
+            completionHandler([.alert, .sound])
+        }
     }
 }

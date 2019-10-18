@@ -1,13 +1,15 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 
 protocol ReputationViewProtocol: ControllerBackedProtocol {
-    func didReceiveRank(details: String)
-    func didReceiveVotes(details: String)
+    func set(emptyRankDetails: String)
+    func set(existingRankDetails: String)
+    func set(votesDetails: String)
+    func set(reputationDetailsViewModel: ReputationDetailsViewModel)
 }
 
 protocol ReputationPresenterProtocol: class {
@@ -17,12 +19,14 @@ protocol ReputationPresenterProtocol: class {
 
 protocol ReputationInteractorInputProtocol: class {
     func setup()
-    func refreshReputation()
+    func refresh()
 }
 
 protocol ReputationInteractorOutputProtocol: class {
     func didReceive(reputationData: ReputationData)
     func didReceiveReputationDataProvider(error: Error)
+    func didReceive(reputationDetails: ReputationDetailsData)
+    func didReceiveReputationDetailsDataProvider(error: Error)
     func didReceive(votesData: VotesData)
     func didReceiveVotesDataProvider(error: Error)
 }

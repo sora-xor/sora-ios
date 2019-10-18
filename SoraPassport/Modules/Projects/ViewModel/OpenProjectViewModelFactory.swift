@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -25,18 +25,18 @@ final class OpenProjectViewModelFactory {
 
     private func convertRemained(timestamp: Int64) -> String {
         if timestamp < 60 {
-            return R.string.localizable.projectSecondsLeft(String(timestamp))
+            return R.string.localizable.remainedSeconds(value: Int(timestamp))
         }
 
         if timestamp < 3600 {
-            return R.string.localizable.projectMinutesLeft(String(timestamp / 60))
+            return R.string.localizable.remainedMinutes(value: Int(timestamp / 60))
         }
 
         if timestamp < 24 * 3600 {
-            return R.string.localizable.projectHoursLeft(String(timestamp / 3600))
+            return R.string.localizable.remainedHours(value: Int(timestamp / 3600))
         }
 
-        return R.string.localizable.projectDaysLeft(String(timestamp / (24 * 3600)))
+        return R.string.localizable.remainedDays(value: Int(timestamp / (24 * 3600)))
     }
 
     private func createFundingProgress(from fundingCurrent: String, fundingTarget: String) -> Float {
@@ -99,10 +99,9 @@ final class OpenProjectViewModelFactory {
 
             $0.isVoted = project.isVoted
 
-            if project.votedFriendsCount > 0,
-                let votedFriendsString = integerFormatter.string(from: NSNumber(value: project.votedFriendsCount)) {
+            if project.votedFriendsCount > 0 {
                 $0.votedFriendsDetails = R.string.localizable
-                    .projectFriendsVotedTitle(votedFriendsString)
+                    .votedFriends(voted: Int(project.votedFriendsCount))
             }
 
             if project.favoriteCount > 0,
@@ -129,7 +128,7 @@ extension OpenProjectViewModelFactory: OpenProjectViewModelFactoryProtocol {
                                              imageViewModel: nil)
 
         if let imageLink = project.imageLink {
-            viewModel.imageViewModel = ProjectImageViewModel(url: imageLink)
+            viewModel.imageViewModel = ImageViewModel(url: imageLink)
             viewModel.imageViewModel?.cornerRadius = layoutMetadata.cornerRadius
             viewModel.imageViewModel?.targetSize = layout.imageSize
         }
@@ -158,20 +157,16 @@ extension OpenProjectViewModelFactory: OpenProjectViewModelFactoryProtocol {
 
         viewModel.votingTitle = createVoteTitle(from: projectDetails.votes)
 
-        if projectDetails.votedFriendsCount > 0,
-            let votedFriendsString = integerFormatter.string(from: NSNumber(value: projectDetails.votedFriendsCount)),
-            projectDetails.favoriteCount > 0,
-            let favoritesString = integerFormatter.string(from: NSNumber(value: projectDetails.favoriteCount)) {
+        let votedFriendsString = R.string.localizable.votedFriends(voted: Int(projectDetails.votedFriendsCount))
+        let favoritesString = R.string.localizable.favoriteUsers(favorite: Int(projectDetails.favoriteCount))
+
+        if !votedFriendsString.isEmpty, !favoritesString.isEmpty {
             viewModel.statisticsDetails = R.string.localizable
                 .projectDetailsFavoriteVotedCount(votedFriendsString, favoritesString)
-        } else if projectDetails.votedFriendsCount > 0,
-            let votedFriendsString = integerFormatter.string(from: NSNumber(value: projectDetails.votedFriendsCount)) {
-            viewModel.statisticsDetails = R.string.localizable
-                .projectDetailsVotedCount(votedFriendsString)
-        } else if projectDetails.favoriteCount > 0,
-            let favoritesString = integerFormatter.string(from: NSNumber(value: projectDetails.favoriteCount)) {
-            viewModel.statisticsDetails = R.string.localizable
-                .projectDetailsFavoriteCount(favoritesString)
+        } else if !votedFriendsString.isEmpty {
+            viewModel.statisticsDetails = votedFriendsString
+        } else if !favoritesString.isEmpty {
+            viewModel.statisticsDetails = favoritesString
         }
 
         viewModel.details = projectDetails.details ?? projectDetails.annotation
@@ -180,11 +175,11 @@ extension OpenProjectViewModelFactory: OpenProjectViewModelFactoryProtocol {
         viewModel.email = projectDetails.email ?? ""
 
         if let mainImageLink = projectDetails.imageLink {
-            viewModel.mainImageViewModel = ProjectImageViewModel(url: mainImageLink)
+            viewModel.mainImageViewModel = ImageViewModel(url: mainImageLink)
         }
 
         if let gallery = projectDetails.gallery {
-            viewModel.galleryImageViewModels = gallery.map { ProjectImageViewModel(url: $0) }
+            viewModel.galleryImageViewModels = gallery.map { GalleryViewModel.from(media: $0) }
         }
 
         viewModel.delegate = delegate

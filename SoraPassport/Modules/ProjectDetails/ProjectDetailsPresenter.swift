@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -122,6 +122,10 @@ extension ProjectDetailsPresenter: ProjectDetailsPresenterProtocol {
                               with: index,
                               animateFrom: animatingView)
     }
+
+    func activateClose() {
+        wireframe.close(view: view)
+    }
 }
 
 extension ProjectDetailsPresenter: ProjectDetailsInteractorOutputProtocol {
@@ -135,7 +139,7 @@ extension ProjectDetailsPresenter: ProjectDetailsInteractorOutputProtocol {
     }
 
     func didReceive(projectDetails: ProjectDetailsData?) {
-        guard projectDetails != nil else {
+        guard let projectDetails = projectDetails else {
             wireframe.close(view: view)
             return
         }
@@ -143,6 +147,8 @@ extension ProjectDetailsPresenter: ProjectDetailsInteractorOutputProtocol {
         self.projectDetails = projectDetails
 
         applyProjectDetails()
+
+        interactor.markAsViewed(for: projectDetails.identifier)
     }
 
     func didReceiveProjectDetailsDataProvider(error: Error) {
@@ -287,7 +293,7 @@ extension ProjectDetailsPresenter: ProjectDetailsViewModelDelegate {
 
         wireframe.showWeb(url: projectUrl,
                           from: view,
-            secondaryTitle: projectDetails?.title ?? "")
+                          style: .modal)
     }
 
     func writeEmail(for model: ProjectDetailsViewModelProtocol) {
@@ -311,14 +317,14 @@ extension ProjectDetailsPresenter: ProjectDetailsViewModelDelegate {
 }
 
 extension ProjectDetailsPresenter: VoteViewDelegate {
-    func didVote(on view: VoteView, amount: Float) {
+    func didVote(on view: VoteView, amount: Decimal) {
         view.presenter?.hide(view: view, animated: true)
 
         guard let projectId = view.model?.projectId else {
             return
         }
 
-        let votes = String(Int(roundf(amount)))
+        let votes = amount.rounded(mode: .plain).stringWithPointSeparator
         let projectVote = ProjectVote(projectId: projectId, votes: votes)
 
         interactor.vote(for: projectVote)

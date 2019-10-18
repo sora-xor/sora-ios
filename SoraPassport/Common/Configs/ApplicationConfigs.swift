@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -13,18 +13,18 @@ protocol ApplicationConfigProtocol {
     var walletDecentralizedId: String { get }
     var didResolverUrl: String { get }
     var decentralizedDomain: String { get }
-    var assetName: String { get }
     var defaultProjectUnit: ServiceUnit { get }
     var defaultNotificationUnit: ServiceUnit { get }
     var defaultWalletUnit: ServiceUnit { get }
-    var howItWorksUrl: String { get }
-    var invitationAboutUrl: String { get }
-    var directInviteUrl: String { get }
-    var promoUrl: String { get }
     var defaultCurrency: CurrencyItemData { get }
 
     var supportEmail: String { get }
     var termsURL: URL { get }
+    var privacyPolicyURL: URL { get }
+    var version: String { get }
+    var invitationHostURL: URL { get }
+    var opensourceURL: URL { get }
+    var faqURL: URL { get }
 }
 
 private struct InternalConfig: Codable {
@@ -38,11 +38,6 @@ private struct InternalConfig: Codable {
         case defaultNotificationUnit = "notificationUnit"
         case defaultWalletUnit = "walletUnit"
         case decentralizedDomain = "decentralizedDomain"
-        case assetName = "assetName"
-        case howItWorksUrl = "howItWorksUrl"
-        case invitationAboutUrl = "invitationAboutUrl"
-        case directInviteLink = "directInviteUrl"
-        case promoLink = "promoUrl"
         case defaultCurrency = "currency"
     }
 
@@ -52,14 +47,9 @@ private struct InternalConfig: Codable {
     var walletDecentralizedId: String
     var didResolverUrl: String
     var decentralizedDomain: String
-    var assetName: String
     var defaultProjectUnit: ServiceUnit
     var defaultNotificationUnit: ServiceUnit
     var defaultWalletUnit: ServiceUnit
-    var howItWorksUrl: String
-    var invitationAboutUrl: String
-    var directInviteLink: String
-    var promoLink: String
     var defaultCurrency: CurrencyItemData
 }
 
@@ -153,26 +143,6 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         return config.decentralizedDomain
     }
 
-    var assetName: String {
-        return config.assetName
-    }
-
-    var howItWorksUrl: String {
-        return config.howItWorksUrl
-    }
-
-    var invitationAboutUrl: String {
-        return config.invitationAboutUrl
-    }
-
-    var directInviteUrl: String {
-        return config.directInviteLink
-    }
-
-    var promoUrl: String {
-        return config.promoLink
-    }
-
     var defaultCurrency: CurrencyItemData {
         return config.defaultCurrency
     }
@@ -183,5 +153,32 @@ extension ApplicationConfig: ApplicationConfigProtocol {
 
     var termsURL: URL {
         return URL(string: "https://sora.org/terms")!
+    }
+
+    var privacyPolicyURL: URL {
+        return URL(string: "https://sora.org/privacy")!
+    }
+
+    //swiftlint:disable force_cast
+    var version: String {
+        let bundle = Bundle(for: ApplicationConfig.self)
+
+        let mainVersion = bundle.infoDictionary?["CFBundleShortVersionString"] as! String
+        let buildNumber = bundle.infoDictionary?["CFBundleVersion"] as! String
+
+        return "\(mainVersion).\(buildNumber)"
+    }
+    //swiftlint:enable force_cast
+
+    var invitationHostURL: URL {
+        return URL(string: "https://ref.sora.org")!
+    }
+
+    var opensourceURL: URL {
+        return URL(string: "https://github.com/sora-xor")!
+    }
+
+    var faqURL: URL {
+        return URL(string: "https://sora.org/faq")!
     }
 }

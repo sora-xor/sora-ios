@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -21,7 +21,9 @@ final class ProjectsViewFactory: ProjectsViewFactoryProtocol {
 
         let view = ProjectsViewController(nib: R.nib.projectsViewController)
 
-        let childPresenters = createChildPresenters()
+        let eventCenter = EventCenter.shared
+
+        let childPresenters = createChildPresenters(with: eventCenter)
         let presenter = ProjectsPresenter(children: childPresenters,
                                           voteViewModelFactory: voteViewModelFactory,
                                           votesDisplayFormatter: NumberFormatter.vote)
@@ -33,7 +35,8 @@ final class ProjectsViewFactory: ProjectsViewFactoryProtocol {
         let wireframe = ProjectsWireframe()
 
         let interactor = ProjectsInteractor(customerDataProviderFacade: CustomerDataProviderFacade.shared,
-                                            projectService: projectService)
+                                            projectService: projectService,
+                                            eventCenter: eventCenter)
 
         view.presenter = presenter
         presenter.view = view
@@ -46,30 +49,35 @@ final class ProjectsViewFactory: ProjectsViewFactoryProtocol {
         return view
 	}
 
-    private static func createChildPresenters() -> [ProjectDisplayType: ProjectsListPresenter] {
-        let viewModelFactory = ProjectViewModelFactory.createDefault()
-
+    private static func createChildPresenters(with eventCenter: EventCenterProtocol)
+        -> [ProjectDisplayType: ProjectsListPresenter] {
         let dataProviderFacade = ProjectDataProviderFacade.shared
 
         var children = [ProjectDisplayType: ProjectsListPresenter]()
-        children[.all] = createProjectListPresenter(viewModelFactory: viewModelFactory,
-                                                    dataProvider: dataProviderFacade.allProjectsProvider)
-        children[.voted] = createProjectListPresenter(viewModelFactory: viewModelFactory,
-                                                      dataProvider: dataProviderFacade.votedProjectsProvider)
-        children[.favorite] = createProjectListPresenter(viewModelFactory: viewModelFactory,
-                                                         dataProvider: dataProviderFacade.favoriteProjectsProvider)
-        children[.completed] = createProjectListPresenter(viewModelFactory: viewModelFactory,
-                                                          dataProvider: dataProviderFacade.finishedProjectsProvider)
+        children[.all] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
+                                                    dataProvider: dataProviderFacade.allProjectsProvider,
+                                                    eventCenter: eventCenter)
+        children[.voted] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
+                                                      dataProvider: dataProviderFacade.votedProjectsProvider,
+                                                      eventCenter: eventCenter)
+        children[.favorite] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
+                                                         dataProvider: dataProviderFacade.favoriteProjectsProvider,
+                                                         eventCenter: eventCenter)
+        children[.completed] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
+                                                          dataProvider: dataProviderFacade.finishedProjectsProvider,
+                                                          eventCenter: eventCenter)
 
         return children
     }
 
     private static func createProjectListPresenter(viewModelFactory: ProjectViewModelFactoryProtocol,
-                                                   dataProvider: DataProvider<ProjectData, CDProject>)
+                                                   dataProvider: DataProvider<ProjectData, CDProject>,
+                                                   eventCenter: EventCenterProtocol)
         -> ProjectsListPresenter {
 
         let presenter = ProjectsListPresenter(viewModelFactory: viewModelFactory)
-        let interactor = ProjectsListInteractor(projectsDataProvider: dataProvider)
+        let interactor = ProjectsListInteractor(projectsDataProvider: dataProvider,
+                                                eventCenter: eventCenter)
 
         presenter.interactor = interactor
         interactor.presenter = presenter

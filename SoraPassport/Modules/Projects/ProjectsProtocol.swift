@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -88,6 +88,8 @@ protocol ProjectsListInteractorInputProtocol: class {
 protocol ProjectsListInteractorOutputProtocol: class {
     func didReceiveProjects(changes: [DataProviderChange<ProjectData>], at page: UInt)
     func didReceiveProjectsDataProvider(error: Error)
+
+    func didViewProject(with projectId: String)
 }
 
 protocol ProjectsWireframeProtocol: AlertPresentable, ErrorPresentable, HelpPresentable {

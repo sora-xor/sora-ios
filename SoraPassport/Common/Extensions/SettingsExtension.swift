@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -13,9 +13,14 @@ enum SettingsKey: String {
     case biometryEnabled
     case verificationState
     case selectedCurrency
+    case invitationCode
 }
 
 extension SettingsManagerProtocol {
+    var isRegistered: Bool {
+        return decentralizedId != nil && verificationState == nil
+    }
+
     var decentralizedId: String? {
         set {
             if let exisingValue = newValue {
@@ -74,5 +79,19 @@ extension SettingsManagerProtocol {
 
     var hasVerificationState: Bool {
         return data(for: SettingsKey.verificationState.rawValue) != nil
+    }
+
+    var invitationCode: String? {
+        set {
+            if let existingValue = newValue {
+                set(value: existingValue, for: SettingsKey.invitationCode.rawValue)
+            } else {
+                removeValue(for: SettingsKey.invitationCode.rawValue)
+            }
+        }
+
+        get {
+            return string(for: SettingsKey.invitationCode.rawValue)
+        }
     }
 }

@@ -1,0 +1,7 @@
+#include "../../Pods/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"
+
+OTHER_SWIFT_FLAGS = $(inherited) "-DF_RELEASE"
+
+SORA_APPLICATION_CONFIG = Release
+FIREBASE_CONFIG = GoogleService-Info-Release.plist
+SORA_NAME = Sora

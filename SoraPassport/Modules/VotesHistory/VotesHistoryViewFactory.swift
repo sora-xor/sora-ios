@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -30,15 +30,11 @@ final class VotesHistoryViewFactory: VotesHistoryViewFactoryProtocol {
         let projectService = ProjectUnitService(unit: projectUnit)
         projectService.requestSigner = requestSigner
 
-        let dateFormatterBuilder = CompoundDateFormatterBuilder()
-        let votesHistoryDateFormatter = dateFormatterBuilder
-            .withToday(title: R.string.localizable.today())
-            .withYesterday(title: R.string.localizable.yesterday())
-            .withThisYear(dateFormatter: DateFormatter.sectionThisYear)
-            .build(defaultFormat: R.string.localizable.anyYearFormat())
+        let dateFormatterProvider = DateFormatterProvider(dateFormatterFactory: EventListDateFormatterFactory.self,
+                                                          dayChangeHandler: DayChangeHandler())
 
-        let votesHistoryViewModelFactory = VotesHistoryViewModelFactory(dateFormatter: votesHistoryDateFormatter,
-                                                                        amountFormatter: NumberFormatter.vote)
+        let votesHistoryViewModelFactory = VotesHistoryViewModelFactory(amountFormatter: NumberFormatter.vote,
+                                                                        dateFormatterProvider: dateFormatterProvider)
 
         let view = VotesHistoryViewController(nib: R.nib.votesHistoryViewController)
         let presenter = VotesHistoryPresenter(viewModelFactory: votesHistoryViewModelFactory)

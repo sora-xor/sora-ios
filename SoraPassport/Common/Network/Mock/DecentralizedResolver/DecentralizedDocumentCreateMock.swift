@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -8,17 +8,29 @@ import FireMock
 
 enum DecentralizedDocumentCreateMock: FireMockProtocol {
     case success
+    case notFound
 
     var afterTime: TimeInterval {
         return 1.0
     }
 
     var statusCode: Int {
-        return 200
+        switch self {
+        case .success:
+            return 200
+        case .notFound:
+            return 404
+        }
     }
 
     func mockFile() -> String {
-        return R.file.successResultJson.fullName
+        switch self {
+        case .success:
+            return R.file.successResultJson.fullName
+        case .notFound:
+            return R.file.emptyResponseJson.fullName
+        }
+
     }
 }
 

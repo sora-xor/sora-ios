@@ -1,23 +1,35 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 
 protocol PersonalInfoViewModelFactoryProtocol {
-    func createEmpty() -> [PersonalInfoViewModel]
-    func createViewModels(from applicationForm: ApplicationFormData) -> [PersonalInfoViewModel]
-    func createViewModels(from user: UserData) -> [PersonalInfoViewModel]
+    func createRegistrationForm(from form: PersonalForm) -> [PersonalInfoViewModel]
+    func createViewModels(from user: UserData?) -> [PersonalInfoViewModel]
 }
 
 final class PersonalInfoViewModelFactory {
+    private func applyNameFilter(for value: String) -> String {
+        if value.count > PersonalInfoSharedConstants.personNameLimit {
+            return ""
+        }
+
+        if value.rangeOfCharacter(from: CharacterSet.personName.inverted) != nil {
+            return ""
+        }
+
+        return value
+    }
+
     private func createFirstNameViewModel(with value: String) -> PersonalInfoViewModel {
         return PersonalInfoViewModel(title: R.string.localizable.personalInfoFirstName(),
                                      value: value,
                                      maxLength: PersonalInfoSharedConstants.personNameLimit,
                                      validCharacterSet: CharacterSet.personName,
-                                     predicate: NSPredicate.notEmpty)
+                                     predicate: NSPredicate.notEmpty,
+                                     autocapitalizationType: .words)
     }
 
     private func createLastNameViewModel(with value: String) -> PersonalInfoViewModel {
@@ -25,7 +37,8 @@ final class PersonalInfoViewModelFactory {
                                      value: value,
                                      maxLength: PersonalInfoSharedConstants.personNameLimit,
                                      validCharacterSet: CharacterSet.personName,
-                                     predicate: NSPredicate.notEmpty)
+                                     predicate: NSPredicate.notEmpty,
+                                     autocapitalizationType: .words)
     }
 
     private func createPhoneViewModel(with value: String) -> PersonalInfoViewModel {
@@ -33,43 +46,36 @@ final class PersonalInfoViewModelFactory {
                                      value: value,
                                      maxLength: PersonalInfoSharedConstants.phoneLimit,
                                      validCharacterSet: CharacterSet.phone,
-                                     predicate: NSPredicate.phone)
+                                     predicate: NSPredicate.phone,
+                                     autocapitalizationType: .none)
     }
 
-    private func createEmailViewModel(with value: String) -> PersonalInfoViewModel {
-        return PersonalInfoViewModel(title: R.string.localizable.personalInfoEmail(),
+    private func createInvitationCodeViewModel(with value: String) -> PersonalInfoViewModel {
+        let predicates = [NSPredicate.invitationCode, NSPredicate.empty]
+        let compoundPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
+        return PersonalInfoViewModel(title: R.string.localizable.personalInfoInvitationCode(),
                                      value: value,
-                                     maxLength: PersonalInfoSharedConstants.emailLimit,
-                                     validCharacterSet: CharacterSet.email,
-                                     predicate: NSPredicate.email)
+                                     maxLength: PersonalInfoSharedConstants.invitationCodeLimit,
+                                     validCharacterSet: CharacterSet.alphanumerics,
+                                     predicate: compoundPredicate,
+                                     autocapitalizationType: .none)
     }
 }
 
 extension PersonalInfoViewModelFactory: PersonalInfoViewModelFactoryProtocol {
-    func createEmpty() -> [PersonalInfoViewModel] {
-        let firstNameModel = createFirstNameViewModel(with: "")
-        let lastNameModel = createLastNameViewModel(with: "")
-        let phoneModel = createPhoneViewModel(with: "")
-        let emailModel = createEmailViewModel(with: "")
+    func createRegistrationForm(from form: PersonalForm) -> [PersonalInfoViewModel] {
+        let firstNameModel = createFirstNameViewModel(with: applyNameFilter(for: form.firstName))
+        let lastNameModel = createLastNameViewModel(with: applyNameFilter(for: form.lastName))
+        let invitationCode = createInvitationCodeViewModel(with: form.invitationCode ?? "")
 
-        return [firstNameModel, lastNameModel, phoneModel, emailModel]
+        return [firstNameModel, lastNameModel, invitationCode]
     }
 
-    func createViewModels(from user: UserData) -> [PersonalInfoViewModel] {
-        let firstNameModel = createFirstNameViewModel(with: user.firstName)
-        let lastNameModel = createLastNameViewModel(with: user.lastName)
-        let phoneModel = createPhoneViewModel(with: user.phone ?? "")
-        let emailModel = createEmailViewModel(with: user.email)
+    func createViewModels(from user: UserData?) -> [PersonalInfoViewModel] {
+        let firstNameModel = createFirstNameViewModel(with: user?.firstName ?? "")
+        let lastNameModel = createLastNameViewModel(with: user?.lastName ?? "")
+        let phoneModel = createPhoneViewModel(with: user?.phone ?? "")
 
-        return [firstNameModel, lastNameModel, phoneModel, emailModel]
-    }
-
-    func createViewModels(from applicationForm: ApplicationFormData) -> [PersonalInfoViewModel] {
-        let firstNameModel = createFirstNameViewModel(with: applicationForm.firstName ?? "")
-        let lastNameModel = createLastNameViewModel(with: applicationForm.lastName ?? "")
-        let phoneModel = createPhoneViewModel(with: applicationForm.phone ?? "")
-        let emailModel = createEmailViewModel(with: applicationForm.email ?? "")
-
-        return [firstNameModel, lastNameModel, phoneModel, emailModel]
+        return [firstNameModel, lastNameModel, phoneModel]
     }
 }

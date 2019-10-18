@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -41,6 +41,7 @@ protocol ProfileWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPrese
     func showVotesHistoryView(from view: ProfileViewProtocol?)
     func showPersonalDetailsView(from view: ProfileViewProtocol?)
     func showPassphraseView(from view: ProfileViewProtocol?)
+    func showAbout(from view: ProfileViewProtocol?)
 }
 
 protocol ProfileViewFactoryProtocol: class {

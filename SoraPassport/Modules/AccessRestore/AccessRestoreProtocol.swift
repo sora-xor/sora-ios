@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -18,13 +18,14 @@ protocol AccessRestoreInteractorInputProtocol: class {
     func restoreAccess(phrase: [String])
 }
 
-enum AccessRestoreInteractorError: Error {
-    case documentMissing
-}
-
 protocol AccessRestoreInteractorOutputProtocol: class {
     func didRestoreAccess(from phrase: [String])
     func didReceiveRestoreAccess(error: Error)
+}
+
+enum AccessRestoreInteractorError: Error {
+    case documentMissing
+    case invalidPassphrase
 }
 
 protocol AccessRestoreWireframeProtocol: AlertPresentable, ErrorPresentable {

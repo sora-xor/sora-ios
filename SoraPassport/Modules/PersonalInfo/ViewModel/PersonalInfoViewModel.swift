@@ -1,22 +1,16 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
-import Foundation
-
-enum PersonalInfoViewModelIndex: Int {
-    case firstName
-    case lastName
-    case phone
-    case email
-}
+import UIKit
 
 protocol PersonalInfoViewModelProtocol {
     var isComplete: Bool { get }
     var title: String { get }
     var value: String { get }
     var enabled: Bool { get }
+    var autocapitalizationType: UITextAutocapitalizationType { get }
 
     func didReceiveReplacement(_ string: String, for range: NSRange) -> Bool
 }
@@ -28,16 +22,39 @@ class PersonalInfoViewModel {
 
     var invalidCharacterSet: CharacterSet?
     var maxLength: Int
+    var minLength: Int
     var predicate: NSPredicate?
 
-    init(title: String, value: String, enabled: Bool = true, maxLength: Int = 0,
-         validCharacterSet: CharacterSet? = nil, predicate: NSPredicate? = nil) {
+    var autocapitalizationType: UITextAutocapitalizationType
+
+    init(title: String,
+         value: String,
+         enabled: Bool = true,
+         minLength: Int = 0,
+         maxLength: Int = Int.max,
+         validCharacterSet: CharacterSet? = nil,
+         predicate: NSPredicate? = nil,
+         autocapitalizationType: UITextAutocapitalizationType = .sentences) {
         self.title = title
         self.value = value
         self.enabled = enabled
-        self.maxLength = maxLength
+
+        self.minLength = min(minLength, maxLength)
+
+        if value.count < self.minLength {
+            self.minLength = value.count
+        }
+
+        self.maxLength = max(self.minLength, maxLength)
+
+        if value.count > self.maxLength {
+            self.maxLength = value.count
+        }
+
         self.invalidCharacterSet = validCharacterSet?.inverted
         self.predicate = predicate
+
+        self.autocapitalizationType = autocapitalizationType
     }
 }
 
@@ -51,8 +68,13 @@ extension PersonalInfoViewModel: PersonalInfoViewModelProtocol {
     }
 
     func didReceiveReplacement(_ string: String, for range: NSRange) -> Bool {
-        let newLength = value.count - range.length + string.count
-        guard maxLength == 0 || newLength <= maxLength else {
+        guard enabled else {
+            return false
+        }
+
+        let newValue = (value as NSString).replacingCharacters(in: range, with: string)
+
+        guard newValue.count >= minLength, newValue.count <= maxLength else {
             return false
         }
 
@@ -61,9 +83,7 @@ extension PersonalInfoViewModel: PersonalInfoViewModelProtocol {
             return false
         }
 
-        let startIndex = value.index(value.startIndex, offsetBy: range.location)
-        let endIndex = value.index(startIndex, offsetBy: range.length)
-        value.replaceSubrange(startIndex..<endIndex, with: string)
+        value = newValue
 
         return true
     }

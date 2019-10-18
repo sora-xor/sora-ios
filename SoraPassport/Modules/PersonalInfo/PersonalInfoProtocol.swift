@@ -1,12 +1,13 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 
 protocol PersonalInfoViewProtocol: LoadableViewProtocol, ControllerBackedProtocol {
     func didReceive(viewModels: [PersonalInfoViewModelProtocol])
+    func didStartEditing(at index: Int)
 }
 
 protocol PersonalInfoPresenterProtocol: class {
@@ -15,21 +16,21 @@ protocol PersonalInfoPresenterProtocol: class {
 }
 
 protocol PersonalInfoInteractorInputProtocol: class {
-    var isBusy: Bool { get }
-    func register(with applicationForm: ApplicationFormInfo, invitationCode: String)
+    func load()
+    func register(with form: PersonalForm)
 }
 
 protocol PersonalInfoInteractorOutputProtocol: class {
-    func didStartRegistration(with info: RegistrationInfo)
-    func didCompleteRegistration(with info: RegistrationInfo)
+    func didReceive(invitationCode: String)
+    func didStartRegistration(with form: PersonalForm)
+    func didCompleteRegistration(with form: PersonalForm)
     func didReceiveRegistration(error: Error)
 }
 
 protocol PersonalInfoWireframeProtocol: AlertPresentable, ErrorPresentable {
-    func showPhoneVerification(from view: PersonalInfoViewProtocol?)
+    func showPassphraseBackup(from view: PersonalInfoViewProtocol?)
 }
 
 protocol PersonalInfoViewFactoryProtocol {
-    static func createView(with applicationForm: ApplicationFormData?,
-                           invitationCode: String) -> PersonalInfoViewProtocol?
+    static func createView(with form: PersonalForm) -> PersonalInfoViewProtocol?
 }

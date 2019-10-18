@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -101,6 +101,8 @@ extension ProjectsPresenter: ProjectsPresenterProtocol {
 
     func viewDidAppear() {
         refreshProjects()
+
+        interactor.refreshVotes()
     }
 
     func activateProjectDisplay(type: ProjectDisplayType) {
@@ -286,14 +288,14 @@ extension ProjectsPresenter: ProjectsListPresenterDelegate {
 }
 
 extension ProjectsPresenter: VoteViewDelegate {
-    func didVote(on view: VoteView, amount: Float) {
+    func didVote(on view: VoteView, amount: Decimal) {
         view.presenter?.hide(view: view, animated: true)
 
         guard let projectId = view.model?.projectId else {
             return
         }
 
-        let votes = String(Int(roundf(amount)))
+        let votes = amount.rounded(mode: .plain).stringWithPointSeparator
         let projectVote = ProjectVote(projectId: projectId, votes: votes)
 
         interactor.vote(for: projectVote)

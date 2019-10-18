@@ -1,11 +1,17 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
 
 final class PersonalUpdatePresenter {
+    enum ViewModelIndex: Int {
+        case firstName
+        case lastName
+        case phone
+    }
+
     enum DataLoadingState {
         case waitingCached
         case waitingRefresh
@@ -30,17 +36,9 @@ final class PersonalUpdatePresenter {
     }
 
     private func updateViewModel() {
-        if let userData = userData {
-            models = viewModelFactory.createViewModels(from: userData)
-        } else {
-            models = viewModelFactory.createEmpty()
-        }
-
-        guard let models = models else {
-            return
-        }
-
-        models[PersonalInfoViewModelIndex.phone.rawValue].enabled = false
+        let models = viewModelFactory.createViewModels(from: userData)
+        models[ViewModelIndex.phone.rawValue].enabled = false
+        self.models = models
 
         view?.didReceive(viewModels: models)
     }
@@ -57,21 +55,15 @@ final class PersonalUpdatePresenter {
         var info = PersonalInfo()
         var hasChanges: Bool = false
 
-        let newFirstName = models[PersonalInfoViewModelIndex.firstName.rawValue].value
+        let newFirstName = models[ViewModelIndex.firstName.rawValue].value
         if newFirstName != userData.firstName {
             info.firstName = newFirstName
             hasChanges = true
         }
 
-        let newLastName = models[PersonalInfoViewModelIndex.lastName.rawValue].value
+        let newLastName = models[ViewModelIndex.lastName.rawValue].value
         if newLastName != userData.lastName {
             info.lastName = newLastName
-            hasChanges = true
-        }
-
-        let newEmail = models[PersonalInfoViewModelIndex.email.rawValue].value
-        if newEmail != userData.email {
-            info.email = newEmail
             hasChanges = true
         }
 
@@ -81,21 +73,6 @@ final class PersonalUpdatePresenter {
     private func handleDataProvider(error: Error) {
         if wireframe.present(error: error, from: view) {
             return
-        }
-
-        if let userError = error as? UserDataError {
-            switch userError {
-            case .userNotFound:
-                wireframe.present(message: R.string.localizable.errorTitle(),
-                                  title: R.string.localizable.personalUpdateInfoUserNotFoundError(),
-                                  closeAction: R.string.localizable.close(),
-                                  from: view)
-            case .userValuesNotFound:
-                wireframe.present(message: R.string.localizable.errorTitle(),
-                                  title: R.string.localizable.personalUpdateInfoUserValuesNotFoundError(),
-                                  closeAction: R.string.localizable.close(),
-                                  from: view)
-            }
         }
     }
 }
@@ -171,16 +148,6 @@ extension PersonalUpdatePresenter: PersonalUpdateInteractorOutputProtocol {
 
         if wireframe.present(error: error, from: view) {
             return
-        }
-
-        if let updateError = error as? PersonalUpdateDataError {
-            switch updateError {
-            case .userNotFound:
-                wireframe.present(message: R.string.localizable.errorTitle(),
-                                  title: R.string.localizable.personalUpdateInfoUserNotFoundError(),
-                                  closeAction: R.string.localizable.close(),
-                                  from: view)
-            }
         }
     }
 }

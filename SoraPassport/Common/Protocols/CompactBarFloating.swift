@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -154,6 +154,8 @@ extension CompactBarFloating where Self: UIViewController {
             case .fullScreen:
                 handleFullScreenScrollingMode(at: targetContentOffset, animated: animated)
             }
+        } else {
+            hideCompactTopBar(animated: animated)
         }
     }
 
@@ -252,14 +254,12 @@ extension CompactBarFloating where Self: UIViewController {
             let remainedContentHeight = compactBarSupportScrollView.contentSize.height
                 - compactBar.bounds.size.height
             let remainedBoundsHeight = view.bounds.height - contentInsets.bottom
-            if compactBarScrollingDirection == .bottom, remainedContentHeight > remainedBoundsHeight {
+
+            if compactBarScrollingDirection == .bottom, targetContentOffset.y > -contentInsets.top,
+                remainedContentHeight > remainedBoundsHeight {
                 finalContentOffset.y = compactBar.bounds.size.height
             } else {
-                if #available(iOS 11.0, *) {
-                    finalContentOffset.y = -compactBarSupportScrollView.adjustedContentInset.top
-                } else {
-                    finalContentOffset.y = -compactBarSupportScrollView.contentInset.top
-                }
+                finalContentOffset.y = -contentInsets.top
             }
         }
 

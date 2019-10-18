@@ -54,8 +54,8 @@
                     <color key="textColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                     <nil key="highlightedColor"/>
                 </label>
-                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Please wait" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="xkA-dJ-BH6">
-                    <rect key="frame" x="151" y="383.5" width="73.5" height="16.5"/>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Please wait" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="xkA-dJ-BH6">
+                    <rect key="frame" x="20" y="383.5" width="335" height="16.5"/>
                     <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="13"/>
                     <color key="textColor" red="0.47450980392156861" green="0.47450980392156861" blue="0.47450980392156861" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                     <nil key="highlightedColor"/>
@@ -63,13 +63,14 @@
             </subviews>
             <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
             <constraints>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="xkA-dJ-BH6" secondAttribute="trailing" constant="20" id="3gQ-gq-aav"/>
                 <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="gSw-ku-qMZ" secondAttribute="trailing" id="Bat-MX-waI"/>
-                <constraint firstItem="xkA-dJ-BH6" firstAttribute="centerX" secondItem="vUN-kp-3ea" secondAttribute="centerX" id="GBH-WX-rUx"/>
                 <constraint firstItem="gSw-ku-qMZ" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" id="Lqa-Ls-lBi"/>
                 <constraint firstItem="uo8-ak-N11" firstAttribute="centerX" secondItem="vUN-kp-3ea" secondAttribute="centerX" id="OGc-WX-ff9"/>
                 <constraint firstItem="gSw-ku-qMZ" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" constant="260" id="StV-at-ZFt"/>
                 <constraint firstItem="uo8-ak-N11" firstAttribute="top" secondItem="gSw-ku-qMZ" secondAttribute="bottom" constant="36" id="oFB-Zh-zqz"/>
                 <constraint firstItem="xkA-dJ-BH6" firstAttribute="top" secondItem="uo8-ak-N11" secondAttribute="bottom" constant="10" id="tOO-A3-TJJ"/>
+                <constraint firstItem="xkA-dJ-BH6" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" constant="20" id="tRl-CF-o0v"/>
             </constraints>
             <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
         </view>

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -29,11 +29,11 @@ extension WalletHistoryFetchMock {
             return
         }
 
-        guard let url = URL(string: service.serviceEndpoint) else {
+        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
             Logger.shared.warning("Can't create history fetch url")
             return
         }
 
-        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
+        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
     }
 }

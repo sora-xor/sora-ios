@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -62,6 +62,17 @@ final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable
         if let navigationController = view?.controller.navigationController {
             currencyView.controller.hidesBottomBarWhenPushed = true
             navigationController.pushViewController(currencyView.controller, animated: true)
+        }
+    }
+
+    func showAbout(from view: ProfileViewProtocol?) {
+        guard let aboutView = AboutViewFactory.createView() else {
+            return
+        }
+
+        if let navigationController = view?.controller.navigationController {
+            aboutView.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(aboutView.controller, animated: true)
         }
     }
 }

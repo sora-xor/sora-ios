@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -14,23 +14,36 @@ final class RootInteractor {
 
     var settings: SettingsManagerProtocol
     var keystore: KeystoreProtocol
-    var securityLayerService: SecurityLayerInteractorInputProtocol
+    var securityLayerInteractor: SecurityLayerInteractorInputProtocol
+    var networkAvailabilityLayerInteractor: NetworkAvailabilityLayerInteractorInputProtocol?
 
-    init(settings: SettingsManagerProtocol, keystore: KeystoreProtocol,
-         securityLayerService: SecurityLayerInteractorInputProtocol) {
+    init(settings: SettingsManagerProtocol,
+         keystore: KeystoreProtocol,
+         securityLayerInteractor: SecurityLayerInteractorInputProtocol,
+         networkAvailabilityLayerInteractor: NetworkAvailabilityLayerInteractorInputProtocol?) {
         self.settings = settings
         self.keystore = keystore
-        self.securityLayerService = securityLayerService
+        self.securityLayerInteractor = securityLayerInteractor
+        self.networkAvailabilityLayerInteractor = networkAvailabilityLayerInteractor
     }
 
     private func configureSecurityService() {
-        securityLayerService.setup()
+        securityLayerInteractor.setup()
+    }
+
+    private func configureDeepLinkService() {
+        let invitationLinkService = InvitationLinkService(settings: settings)
+        DeepLinkService.shared.setup(children: [invitationLinkService])
+    }
+
+    private func configureNetworkAvailabilityService() {
+        networkAvailabilityLayerInteractor?.setup()
     }
 }
 
 extension RootInteractor: RootInteractorInputProtocol {
     func decideModuleSynchroniously() {
-        if settings.decentralizedId == nil || settings.hasVerificationState {
+        if !settings.isRegistered {
             presenter?.didDecideOnboarding()
             return
         }
@@ -51,5 +64,7 @@ extension RootInteractor: RootInteractorInputProtocol {
 
     func setup() {
         configureSecurityService()
+        configureNetworkAvailabilityService()
+        configureDeepLinkService()
     }
 }

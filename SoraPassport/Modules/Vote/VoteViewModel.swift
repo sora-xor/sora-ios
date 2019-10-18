@@ -1,85 +1,118 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
 
 protocol VoteViewModelProtocol: class {
     var projectId: String { get }
-    var amount: Float { get}
+    var amount: Decimal { get}
     var description: String { get }
     var formattedAmount: String { get }
-    var minimumVoteAmount: Float { get }
-    var maximumVoteAmount: Float { get }
+    var minimumVoteAmount: Decimal { get }
+    var maximumVoteAmount: Decimal { get }
     var canVote: Bool { get }
 
-    func updateAmount(with newAmount: Float)
+    func updateAmount(with newAmount: Decimal)
     func updateAmount(with inputString: String)
 }
 
 enum VoteViewModelError: Error {
     case emptyAmount
-    case tooSmallAmount
-    case tooBigAmount
+    case tooSmallAmount(amount: Decimal)
+    case tooBigAmount(amount: Decimal)
+    case adjustedMax(amount: Decimal)
 }
 
 final class VoteViewModel {
-    private(set) var minimumVoteAmount: Float
-    private(set) var maximumVoteAmount: Float
+    enum BoundBreakPolicy {
+        case notify
+        case adjust
+    }
+
+    private(set) var minimumVoteAmount: Decimal
+    private(set) var maximumVoteAmount: Decimal
     private(set) var projectId: String
 
     var amountFormatter: NumberFormatter = NumberFormatter()
-    var errorDisplayMapping: [VoteViewModelError: String] = [:]
+    var errorDisplayMapping: ((VoteViewModelError) -> String)?
+
+    var rightBoundBreakPolicy: BoundBreakPolicy = .notify
 
     private(set) var error: VoteViewModelError?
 
-    private(set) var amount: Float
+    private(set) var amount: Decimal
     private(set) var formattedAmount: String
 
-    init(projectId: String, amount: Float, minimumVoteAmount: Float, maximumVoteAmount: Float) {
+    init(projectId: String, amount: Decimal, minimumVoteAmount: Decimal, maximumVoteAmount: Decimal) {
         self.projectId = projectId
         self.amount = amount
         self.minimumVoteAmount = minimumVoteAmount
         self.maximumVoteAmount = maximumVoteAmount
 
-        formattedAmount = amountFormatter.string(from: NSNumber(value: amount)) ?? ""
+        formattedAmount = amountFormatter.string(from: amount as NSNumber) ?? ""
     }
 }
 
 extension VoteViewModel: VoteViewModelProtocol {
     var canVote: Bool {
-        return error == nil
+        if let error = error {
+            switch error {
+            case .emptyAmount, .tooBigAmount, .tooSmallAmount:
+                return false
+            case .adjustedMax:
+                return true
+            }
+        } else {
+            return true
+        }
     }
 
     var description: String {
         if let error = error {
-            return errorDisplayMapping[error] ?? ""
+            return errorDisplayMapping?(error) ?? ""
         } else {
             return R.string.localizable.voteDescriptionMessage()
         }
     }
 
-    func updateAmount(with newAmount: Float) {
-        if newAmount < minimumVoteAmount {
+    func updateAmount(with newAmount: Decimal) {
+        let roundedAmount = newAmount.rounded(mode: .plain)
+
+        if roundedAmount < minimumVoteAmount {
             amount = minimumVoteAmount
 
-            if error != .tooSmallAmount {
-                error = .tooSmallAmount
-                formattedAmount = amountFormatter
-                    .string(from: NSNumber(value: newAmount)) ?? formattedAmount
+            if let currentError = error, case .tooSmallAmount = currentError {
+                return
             }
+
+            error = .tooSmallAmount(amount: roundedAmount)
+            formattedAmount = amountFormatter
+                .string(from: roundedAmount as NSNumber) ?? formattedAmount
 
             return
         }
 
-        if newAmount > maximumVoteAmount {
+        if roundedAmount > maximumVoteAmount {
             amount = maximumVoteAmount
 
-            if error != .tooBigAmount {
-                error = .tooBigAmount
-                formattedAmount = amountFormatter
-                    .string(from: NSNumber(value: newAmount)) ?? formattedAmount
+            if let currentError = error {
+                switch currentError {
+                case .tooBigAmount, .adjustedMax:
+                    return
+                default:
+                    break
+                }
+            }
+
+            switch rightBoundBreakPolicy {
+            case .notify:
+                error = .tooBigAmount(amount: roundedAmount)
+                formattedAmount = amountFormatter.string(from: roundedAmount as NSNumber) ?? formattedAmount
+            case .adjust:
+                error = .adjustedMax(amount: roundedAmount)
+                formattedAmount = amountFormatter.string(from: amount as NSNumber) ?? formattedAmount
             }
 
             return
@@ -87,9 +120,10 @@ extension VoteViewModel: VoteViewModelProtocol {
 
         error = nil
 
-        amount = newAmount
+        amount = roundedAmount
+
         formattedAmount = amountFormatter
-            .string(from: NSNumber(value: newAmount)) ?? formattedAmount
+            .string(from: roundedAmount as NSNumber) ?? formattedAmount
     }
 
     func updateAmount(with inputString: String) {
@@ -106,7 +140,7 @@ extension VoteViewModel: VoteViewModelProtocol {
 
         let number = amountFormatter.number(from: numberString)
 
-        guard let value = number?.floatValue else {
+        guard let value = number?.decimalValue else {
             return
         }
 

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -9,10 +9,13 @@ import RobinHood
 final class ProjectsListInteractor {
     weak var presenter: ProjectsListInteractorOutputProtocol?
 
-    private(set) var projectsDataProvider: DataProvider<ProjectData, CDProject>
+    let projectsDataProvider: DataProvider<ProjectData, CDProject>
+    let eventCenter: EventCenterProtocol
 
-    init(projectsDataProvider: DataProvider<ProjectData, CDProject>) {
+    init(projectsDataProvider: DataProvider<ProjectData, CDProject>,
+         eventCenter: EventCenterProtocol) {
         self.projectsDataProvider = projectsDataProvider
+        self.eventCenter = eventCenter
     }
 
     private func setupProjectsDataProvider() {
@@ -31,14 +34,25 @@ final class ProjectsListInteractor {
                                               failing: failBlock,
                                               options: options)
     }
+
+    private func setupEventCenter() {
+        eventCenter.add(observer: self, dispatchIn: .main)
+    }
 }
 
 extension ProjectsListInteractor: ProjectsListInteractorInputProtocol {
     func setup() {
+        setupEventCenter()
         setupProjectsDataProvider()
     }
 
     func refresh() {
         projectsDataProvider.refreshCache()
+    }
+}
+
+extension ProjectsListInteractor: EventVisitorProtocol {
+    func processProjectView(event: ProjectViewEvent) {
+        presenter?.didViewProject(with: event.projectId)
     }
 }

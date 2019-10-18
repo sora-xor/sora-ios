@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -16,6 +16,28 @@ extension ProjectUnitService: ProjectUnitAccountProtocol {
         }
 
         let operation = operationFactory.registrationOperation(service.serviceEndpoint, with: info)
+        operation.requestModifier = requestSigner
+
+        operation.completionBlock = {
+            queue.async {
+                completionBlock(operation.result)
+            }
+        }
+
+        execute(operations: [operation])
+
+        return operation
+    }
+
+    func createCustomer(with info: UserCreationInfo,
+                        runCompletionIn queue: DispatchQueue,
+                        completionBlock: @escaping NetworkVerificationCodeCompletionBlock) throws -> Operation {
+
+        guard let service = unit.service(for: ProjectServiceType.createUser.rawValue) else {
+            throw NetworkUnitError.serviceUnavailable
+        }
+
+        let operation = operationFactory.createUserOperation(service.serviceEndpoint, with: info)
         operation.requestModifier = requestSigner
 
         operation.completionBlock = {
@@ -60,27 +82,6 @@ extension ProjectUnitService: ProjectUnitAccountProtocol {
         let operation = operationFactory.updateCustomerOperation(service.serviceEndpoint,
                                                                  info: info)
         operation.requestModifier = requestSigner
-
-        operation.completionBlock = {
-            queue.async {
-                completionBlock(operation.result)
-            }
-        }
-
-        execute(operations: [operation])
-
-        return operation
-    }
-
-    func checkInvitation(code: String,
-                         runCompletionIn queue: DispatchQueue,
-                         completionBlock: @escaping NetworkCheckInvitationCompletionBlock) throws -> Operation {
-
-        guard let service = unit.service(for: ProjectServiceType.checkInvitation.rawValue) else {
-            throw NetworkUnitError.serviceUnavailable
-        }
-
-        let operation = operationFactory.checkInvitationOperation(service.serviceEndpoint, code: code)
 
         operation.completionBlock = {
             queue.async {
@@ -195,13 +196,13 @@ extension ProjectUnitService: ProjectUnitAccountProtocol {
         return operation
     }
 
-    func verifySms(code: String, runCompletionIn queue: DispatchQueue,
+    func verifySms(codeInfo: VerificationCodeInfo, runCompletionIn queue: DispatchQueue,
                    completionBlock: @escaping NetworkBoolResultCompletionBlock) throws -> Operation {
         guard let service = unit.service(for: ProjectServiceType.smsVerify.rawValue) else {
             throw NetworkUnitError.serviceUnavailable
         }
 
-        let operation = operationFactory.verifySmsCodeOperation(service.serviceEndpoint, code: code)
+        let operation = operationFactory.verifySmsCodeOperation(service.serviceEndpoint, info: codeInfo)
         operation.requestModifier = requestSigner
 
         operation.completionBlock = {

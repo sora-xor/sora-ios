@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -54,11 +54,12 @@ extension AuthorizationPresentable {
 
 extension AuthorizationPresentable {
     func authorize(animated: Bool, with completionBlock: @escaping AuthorizationCompletionBlock) {
-        guard let rootController = UIApplication.shared.keyWindow?.rootViewController else {
+        guard !isAuthorizing else {
             return
         }
 
-        guard !isAuthorizing else {
+        guard let presentingController = UIApplication.shared.keyWindow?
+            .rootViewController?.topModalViewController else {
             return
         }
 
@@ -71,7 +72,8 @@ extension AuthorizationPresentable {
         self.authorizationView = authorizationView
 
         authorizationView.controller.modalTransitionStyle = .crossDissolve
-        rootController.present(authorizationView.controller, animated: animated, completion: nil)
+        authorizationView.controller.modalPresentationStyle = .fullScreen
+        presentingController.present(authorizationView.controller, animated: animated, completion: nil)
     }
 }
 

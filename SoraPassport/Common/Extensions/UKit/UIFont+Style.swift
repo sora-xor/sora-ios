@@ -1,13 +1,17 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
 
 extension UIFont {
     static var navigationTitleFont: UIFont {
-        return R.font.soraRc0040417Bold(size: 17)!
+        return R.font.soraRc0040417Bold(size: 15)!
+    }
+
+    static var statusTitle: UIFont {
+        return R.font.soraRc0040417Bold(size: 12)!
     }
 
     static var notificationTitle: UIFont {
@@ -124,5 +128,9 @@ extension UIFont {
 
     static var finishedProjectVotingTitle: UIFont {
         return R.font.soraRc0040417Regular(size: 13)!
+    }
+
+    static var accessoryTitle: UIFont {
+        return R.font.soraRc0040417Regular(size: 14.0)!
     }
 }

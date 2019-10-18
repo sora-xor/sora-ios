@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -12,6 +12,8 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
     static let announcementIdentifier = "co.jp.sora.information.announcement"
     static let helpIdentifier = "co.jp.sora.information.help"
     static let currencyIdentifier = "co.jp.sora.information.currency"
+    static let countryIdentifier = "co.jp.sora.information.country"
+    static let reputationDetailsIdentifier = "co.jp.sora.information.reputation.details"
 
     static let shared = InformationDataProviderFacade()
 
@@ -60,6 +62,31 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
                                    executionQueue: self.executionQueue)
     }()
 
+    lazy private(set) var countryDataProvider: SingleValueProvider<CountryData, CDSingleValue> = {
+        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+            .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
+
+        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchCountry)
+
+        return SingleValueProvider(targetIdentifier: InformationDataProviderFacade.countryIdentifier,
+                                   source: source,
+                                   cache: cache,
+                                   updateTrigger: DataProviderEventTrigger.onAddObserver,
+                                   executionQueue: self.executionQueue)
+    }()
+
+    lazy private(set) var reputationDetailsProvider: SingleValueProvider<ReputationDetailsData, CDSingleValue> = {
+        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+        .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
+
+        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchReputationDetails)
+
+        return SingleValueProvider(targetIdentifier: InformationDataProviderFacade.reputationDetailsIdentifier,
+                                   source: source,
+                                   cache: cache)
+
+    }()
+
     let executionQueue: OperationQueue
 
     init() {
@@ -73,7 +100,7 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
             return operation
         }
 
-        let operation = projectOperationFactory.fetchAnnouncement(service.serviceEndpoint)
+        let operation = projectOperationFactory.fetchAnnouncementOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
         return operation
@@ -86,7 +113,7 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
             return operation
         }
 
-        let operation = projectOperationFactory.fetchHelp(service.serviceEndpoint)
+        let operation = projectOperationFactory.fetchHelpOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
         return operation
@@ -99,7 +126,34 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
             return operation
         }
 
-        let operation = projectOperationFactory.fetchCurrency(service.serviceEndpoint)
+        let operation = projectOperationFactory.fetchCurrencyOperation(service.serviceEndpoint)
+        operation.requestModifier = requestSigner
+
+        return operation
+    }
+
+    private func fetchCountry() -> BaseOperation<CountryData> {
+        guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.country.rawValue) else {
+            let operation = BaseOperation<CountryData>()
+            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            return operation
+        }
+
+        let operation = projectOperationFactory.fetchCountryOperation(service.serviceEndpoint)
+        operation.requestModifier = requestSigner
+
+        return operation
+    }
+
+    private func fetchReputationDetails() -> BaseOperation<ReputationDetailsData> {
+        guard let service = self.config.defaultProjectUnit
+            .service(for: ProjectServiceType.reputationDetails.rawValue) else {
+            let operation = BaseOperation<ReputationDetailsData>()
+            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            return operation
+        }
+
+        let operation = projectOperationFactory.fetchReputationDetailsOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
         return operation

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -16,7 +16,7 @@ enum ProfileOption: UInt, CaseIterable {
     case votes
     case personalDetails
     case passphrase
-    case terms
+    case about
 }
 
 final class ProfileViewModelFactory: ProfileViewModelFactoryProtocol {
@@ -31,7 +31,7 @@ final class ProfileViewModelFactory: ProfileViewModelFactoryProtocol {
     func createUserViewModel(from userData: UserData?) -> ProfileUserViewModelProtocol {
         if let userData = userData {
             let name = "\(userData.firstName.capitalized) \(userData.lastName.capitalized)"
-            let details = userData.email
+            let details = userData.phone ?? ""
 
             return ProfileUserViewModel(name: name, details: details)
         } else {
@@ -48,11 +48,9 @@ final class ProfileViewModelFactory: ProfileViewModelFactoryProtocol {
                                                        icon: R.image.iconProfileReputation()!)
 
                 if let rank = reputationData?.rank,
-                    let rankString = integerFormatter.string(from: NSNumber(value: rank)),
-                    let totalRank = reputationData?.ranksCount,
-                    let totalRankString = integerFormatter.string(from: NSNumber(value: totalRank)) {
+                    let rankString = integerFormatter.string(from: NSNumber(value: rank)) {
 
-                    viewModel.accessoryTitle = R.string.localizable.profileOptionRankFormat(rankString, totalRankString)
+                    viewModel.accessoryTitle = rankString
                     viewModel.accessoryIcon = R.image.reputationIcon()
                 }
 
@@ -79,8 +77,8 @@ final class ProfileViewModelFactory: ProfileViewModelFactoryProtocol {
             case .passphrase:
                 return ProfileOptionViewModel(title: R.string.localizable.profileOptionPassphraseTitle(),
                                               icon: R.image.iconProfilePassphrase()!)
-            case .terms:
-                let viewModel = ProfileOptionViewModel(title: R.string.localizable.profileOptionTermsTitle(),
+            case .about:
+                let viewModel = ProfileOptionViewModel(title: R.string.localizable.profileOptionAboutTitle(),
                                                        icon: R.image.iconTermsProfile()!)
                 return viewModel
             }

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -46,9 +46,10 @@ final class ActivityFeedPresenter {
         }
 
         uncommitedViewModels = [ActivityFeedSectionViewModel]()
-        let newChanges = try itemViewModelFactory.merge(activity: activity,
-                                                        into: &uncommitedViewModels,
-                                                        using: layoutMetadataContainer)
+        let newChanges = try itemViewModelFactory
+            .merge(activity: activity,
+                   into: &uncommitedViewModels,
+                   using: layoutMetadataContainer)
 
         let commitedViewModels = uncommitedViewModels
 
@@ -78,9 +79,10 @@ final class ActivityFeedPresenter {
             throw ActivityFeedPresenterError.unexpectedEmptyItemMetadata
         }
 
-        let newChanges = try itemViewModelFactory.merge(activity: activity,
-                                                        into: &uncommitedViewModels,
-                                                        using: layoutMetadataContainer)
+        let newChanges = try itemViewModelFactory
+            .merge(activity: activity,
+                   into: &uncommitedViewModels,
+                   using: layoutMetadataContainer)
 
         let commitedViewModels = uncommitedViewModels
 
@@ -122,9 +124,11 @@ final class ActivityFeedPresenter {
         var newChanges = [ActivityFeedViewModelChange]()
 
         for activity in pages {
-            let changes = try itemViewModelFactory.merge(activity: activity,
-                                                         into: &uncommitedViewModels,
-                                                         using: layoutMetadataContainer)
+            let changes = try itemViewModelFactory
+                .merge(activity: activity,
+                       into: &uncommitedViewModels,
+                       using: layoutMetadataContainer)
+
             newChanges.append(contentsOf: changes)
         }
 
@@ -160,6 +164,8 @@ extension ActivityFeedPresenter: ActivityFeedPresenterProtocol {
     }
 
     func viewIsReady() {
+        itemViewModelFactory.delegate = self
+
         interactor.setup()
     }
 
@@ -339,5 +345,15 @@ extension ActivityFeedPresenter: ActivityFeedInteractorOutputProtocol {
 
     func didReceiveAnnouncementDataProvider(error: Error) {
         logger?.warning("Did receive announcement data provider error \(error)")
+    }
+}
+
+extension ActivityFeedPresenter: ActivityFeedViewModelFactoryDelegate {
+    func activityFeedViewModelFactoryDidChange(_ factory: ActivityFeedViewModelFactoryProtocol) {
+        do {
+            try reloadActivityViewModels()
+        } catch {
+            logger?.error("Can't reload view models due to error \(error)")
+        }
     }
 }

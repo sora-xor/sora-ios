@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -141,8 +141,12 @@ final class ActivityFeedViewController: UIViewController, AdaptiveDesignable, Hi
                                                               spacing: spacing,
                                                               displayInsets: displayInsets)
         } else {
-            emptyItemsListViewModel = nil
+            clearEmptyStateViewModel()
         }
+    }
+
+    private func clearEmptyStateViewModel() {
+        emptyItemsListViewModel = nil
     }
 
     // MARK: Actions
@@ -357,6 +361,11 @@ extension ActivityFeedViewController: ActivityFeedViewProtocol {
         let updateBlock = {
             let changes = viewModelChangeBlock()
 
+            if self.emptyItemsListViewModel != nil {
+                self.clearEmptyStateViewModel()
+                self.collectionView.deleteSections([Constants.emptyStateSection])
+            }
+
             self.updateCollectionViewDecoration()
 
             changes.forEach { self.applySection(change: $0) }
@@ -365,19 +374,10 @@ extension ActivityFeedViewController: ActivityFeedViewProtocol {
         collectionView.performBatchUpdates(updateBlock, completion: nil)
 
         let emptyStateUpdateBlock = {
-            let oldEmptyStateViewModel = self.emptyItemsListViewModel
             self.updateEmptyStateViewModel()
             self.updateCollectionViewDecoration()
 
-            if oldEmptyStateViewModel != nil, self.emptyItemsListViewModel == nil {
-                self.collectionView.deleteSections([Constants.emptyStateSection])
-            }
-
-            if oldEmptyStateViewModel != nil, self.emptyItemsListViewModel != nil {
-                self.collectionView.reloadItems(at: [Constants.emptyStateIndexPath])
-            }
-
-            if oldEmptyStateViewModel == nil, self.emptyItemsListViewModel != nil {
+            if self.emptyItemsListViewModel != nil {
                 self.collectionView.insertSections([Constants.emptyStateSection])
                 self.collectionView.insertItems(at: [Constants.emptyStateIndexPath])
             }

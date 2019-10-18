@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -324,7 +324,7 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
                                                               settingsManager: InMemorySettingsManager(),
                                                               updateTrigger: updateTrigger)
 
-        performTestInitialValueGuaranteeWithDataProvider(dataProvider)
+        performTestInitialValueGuaranteeWithDataProvider(dataProvider, allowsFail: true)
     }
 
     func performTestInitialValueGuaranteeWhenSourceReachableWithUpdateTrigger(_ updateTrigger: DataProviderTriggerProtocol) {
@@ -337,7 +337,7 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
         performTestInitialValueGuaranteeWithDataProvider(dataProvider)
     }
 
-    func performTestInitialValueGuaranteeWithDataProvider(_ dataProvider: SelectedCurrencyDataProvider) {
+    func performTestInitialValueGuaranteeWithDataProvider(_ dataProvider: SelectedCurrencyDataProvider, allowsFail: Bool = false) {
         // given
 
         let expectation = XCTestExpectation()
@@ -351,7 +351,9 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
         }
 
         let failBlock = { (error: Error) -> Void in
-            XCTFail()
+            if !allowsFail {
+                XCTFail()
+            }
 
             expectation.fulfill()
         }

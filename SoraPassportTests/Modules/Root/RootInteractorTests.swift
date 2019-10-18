@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -33,9 +33,17 @@ class RootInteractorTests: XCTestCase {
         performTestDecidedOnboarding()
     }
 
-    func testDecidedOnboardingWhenHasVerificationState() {
-        settings.verificationState = VerificationState()
+    func testDecidedOnboardingWhenDecentralizedIdAndVerificationStateExists() {
+        settings.decentralizedId = Constants.dummyDid
+
+        var verificationState = VerificationState()
+        verificationState.didPerformAttempt(with: Constants.networkRequestTimeout)
+        settings.verificationState = verificationState
+
         performTestDecidedOnboarding()
+
+        XCTAssertEqual(settings.verificationState, verificationState)
+        XCTAssertEqual(settings.decentralizedId, Constants.dummyDid)
     }
 
     private func performTestDecidedOnboarding() {
@@ -77,6 +85,9 @@ class RootInteractorTests: XCTestCase {
 
         // then
         wait(for: [expectation], timeout: Constants.expectationDuration)
+
+        XCTAssertEqual(settings.decentralizedId, Constants.dummyDid)
+        XCTAssertNil(settings.verificationState)
     }
 
     func testDecideLocalAuth() {
@@ -101,6 +112,9 @@ class RootInteractorTests: XCTestCase {
 
         // then
         wait(for: [expectation], timeout: Constants.expectationDuration)
+
+        XCTAssertEqual(settings.decentralizedId, Constants.dummyDid)
+        XCTAssertNil(settings.verificationState)
     }
 
     // MARK: Private
@@ -109,15 +123,21 @@ class RootInteractorTests: XCTestCase {
         view = UIWindow()
         presenter = RootPresenter()
         wireframe = MockRootWireframeProtocol()
-        let securityLayerService = MockSecurityLayerInteractorInputProtocol()
+        let securityLayerInteractor = MockSecurityLayerInteractorInputProtocol()
+        let networkAvailabilityLayer = MockNetworkAvailabilityLayerInteractorInputProtocol()
 
-        stub(securityLayerService) { stub in
+        stub(securityLayerInteractor) { stub in
+            when(stub).setup().thenDoNothing()
+        }
+
+        stub(networkAvailabilityLayer) { stub in
             when(stub).setup().thenDoNothing()
         }
 
         interactor = RootInteractor(settings: SettingsManager.shared,
                                     keystore: Keychain(),
-                                    securityLayerService: securityLayerService)
+                                    securityLayerInteractor: securityLayerInteractor,
+                                    networkAvailabilityLayerInteractor: networkAvailabilityLayer)
 
         presenter.view = view
         presenter.wireframe = wireframe

@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -137,7 +137,7 @@ extension ProjectOperationFactory: ProjectFundingOperationFactoryProtocol {
             let resultData = try JSONDecoder().decode(MultifieldResultData<VotesData>.self, from: data)
 
             guard resultData.status.isSuccess else {
-                if let resultError = VotesCountDataError.error(from: resultData.status) {
+                if let resultError = UserDataError.error(from: resultData.status) {
                     throw resultError
                 } else {
                     throw ResultStatusError(statusData: resultData.status)

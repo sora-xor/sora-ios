@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import UIKit
@@ -9,13 +9,7 @@ final class ActivityFeedCollectionFlowLayout: UICollectionViewFlowLayout {
     private(set) var decoratorAttributesDictionary: [IndexPath: UICollectionViewLayoutAttributes] = [:]
     private(set) var decorationViewKind: String?
 
-    var shouldDisplayDecoration: Bool = true {
-        didSet {
-            if shouldDisplayDecoration != oldValue {
-                invalidateLayout()
-            }
-        }
-    }
+    var shouldDisplayDecoration: Bool = true
 
     override func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
         var attributesList = super.layoutAttributesForElements(in: rect) ?? [UICollectionViewLayoutAttributes]()
@@ -65,15 +59,9 @@ final class ActivityFeedCollectionFlowLayout: UICollectionViewFlowLayout {
             return
         }
 
-        guard let collectionView = collectionView else {
-            return
-        }
-
-        guard let dataSource = collectionView.dataSource else {
-            return
-        }
-
-        guard let delegate = collectionView.delegate as? UICollectionViewDelegateFlowLayout else {
+        guard
+            let collectionView = collectionView,
+            let dataSource = collectionView.dataSource else {
             return
         }
 
@@ -83,51 +71,68 @@ final class ActivityFeedCollectionFlowLayout: UICollectionViewFlowLayout {
             return
         }
 
-        var currentYOrigin: CGFloat = 0.0
+        var verticalPosition: CGFloat = 0.0
 
         for section in 0..<sectionCount {
-            let headerSize = delegate.collectionView?(collectionView,
-                                                      layout: self,
-                                                      referenceSizeForHeaderInSection: section) ?? headerReferenceSize
-
-            currentYOrigin += headerSize.height
-
-            let itemsCount = dataSource.collectionView(collectionView, numberOfItemsInSection: section)
-
-            var sectionHeight: CGFloat = 0.0
-            var separatorPositions: [CGFloat] = []
-            var itemWidth: CGFloat = 0.0
-
-            for row in 0..<itemsCount {
-                let indexPath = IndexPath(item: row, section: section)
-                let rowSize = delegate.collectionView?(collectionView,
-                                                       layout: self,
-                                                       sizeForItemAt: indexPath) ?? itemSize
-
-                sectionHeight += rowSize.height
-
-                if row < itemsCount - 1 {
-                    separatorPositions.append(sectionHeight)
-                } else {
-                    itemWidth = rowSize.width
-                }
-            }
-
-            if section > 0 {
-                let indexPath = IndexPath(item: 0, section: section)
-                let decoratorAttributes = ActivityFeedDecoratorAttributes(forDecorationViewOfKind: decorationViewKind,
-                                                                          with: indexPath)
-                decoratorAttributes.separatorVerticalPositions = separatorPositions
-                decoratorAttributes.frame = CGRect(x: collectionViewContentSize.width / 2.0 - itemWidth / 2.0,
-                                                   y: currentYOrigin,
-                                                   width: itemWidth,
-                                                   height: sectionHeight)
-                decoratorAttributes.zIndex = -1
-
-                decoratorAttributesDictionary[decoratorAttributes.indexPath] = decoratorAttributes
-            }
-
-            currentYOrigin += sectionHeight
+            verticalPosition = configureDecorationAttributes(for: section,
+                                                             decorationViewKind: decorationViewKind,
+                                                             collectionView: collectionView,
+                                                             verticalPosition: verticalPosition)
         }
+    }
+
+    private func configureDecorationAttributes(for section: Int,
+                                               decorationViewKind: String,
+                                               collectionView: UICollectionView,
+                                               verticalPosition: CGFloat) -> CGFloat {
+
+        let layoutDelegate = collectionView.delegate as? UICollectionViewDelegateFlowLayout
+
+        var newVerticalPosition = verticalPosition
+
+        let optionalHeaderSize = layoutDelegate?.collectionView?(collectionView,
+                                                                 layout: self,
+                                                                 referenceSizeForHeaderInSection: section)
+
+        newVerticalPosition += optionalHeaderSize?.height ?? headerReferenceSize.height
+
+        let itemsCount = collectionView.dataSource?.collectionView(collectionView, numberOfItemsInSection: section) ?? 0
+
+        var sectionHeight: CGFloat = 0.0
+        var separatorPositions: [CGFloat] = []
+        var itemWidth: CGFloat = 0.0
+
+        for row in 0..<itemsCount {
+            let indexPath = IndexPath(item: row, section: section)
+            let rowSize = layoutDelegate?.collectionView?(collectionView,
+                                                          layout: self,
+                                                          sizeForItemAt: indexPath) ?? itemSize
+
+            sectionHeight += rowSize.height
+
+            if row < itemsCount - 1 {
+                separatorPositions.append(sectionHeight)
+            } else {
+                itemWidth = rowSize.width
+            }
+        }
+
+        if section > 0 {
+            let indexPath = IndexPath(item: 0, section: section)
+            let decoratorAttributes = ActivityFeedDecoratorAttributes(forDecorationViewOfKind: decorationViewKind,
+                                                                      with: indexPath)
+            decoratorAttributes.separatorVerticalPositions = separatorPositions
+            decoratorAttributes.frame = CGRect(x: collectionViewContentSize.width / 2.0 - itemWidth / 2.0,
+                                               y: newVerticalPosition,
+                                               width: itemWidth,
+                                               height: sectionHeight)
+            decoratorAttributes.zIndex = -1
+
+            decoratorAttributesDictionary[decoratorAttributes.indexPath] = decoratorAttributes
+        }
+
+        newVerticalPosition += sectionHeight
+
+        return newVerticalPosition
     }
 }

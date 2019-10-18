@@ -1,7 +1,15 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
+
+//
+//  SoraPassportUITests.swift
+//  SoraPassportUITests
+//
+//  Created by Ruslan Rezin on 18/10/2018.
+//  Copyright © 2018 Ruslan Rezin. All rights reserved.
+//
 
 import XCTest
 

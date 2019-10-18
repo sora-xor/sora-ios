@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import XCTest
@@ -9,22 +9,62 @@ import RobinHood
 @testable import SoraPassport
 
 class VotesHistoryInteractorTests: NetworkBaseTests {
-    func testSuccessFullSetupAndFirstPageLoading() {
-        // given
+    func testSuccessfullSetupAndFirstPageLoading() {
         VotesHistoryFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
         let interator = createInteractor()
         let presenter = createPresenter()
-        let viewMock = MockVotesHistoryViewProtocol()
+        let view = MockVotesHistoryViewProtocol()
 
         interator.presenter = presenter
-        presenter.view = viewMock
+        presenter.view = view
         presenter.interactor = interator
+
+        performSetup(with: view, presenter: presenter)
+    }
+
+    func testDateFormatterChange() {
+        // given
+
+        VotesHistoryFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        let interator = createInteractor()
+        let presenter = createPresenter()
+        let view = MockVotesHistoryViewProtocol()
+
+        interator.presenter = presenter
+        presenter.view = view
+        presenter.interactor = interator
+
+        performSetup(with: view, presenter: presenter)
+
+        // when
+
+        let expectation = XCTestExpectation()
+
+        stub(view) { stub in
+            when(stub).didReload().then {
+                XCTAssert(Thread.isMainThread)
+                expectation.fulfill()
+            }
+        }
+
+        NotificationCenter.default.post(name: .NSCalendarDayChanged, object: self)
+
+        // then
+
+        wait(for: [expectation], timeout: Constants.expectationDuration)
+    }
+
+    // MARK: Private
+
+    private func performSetup(with view: MockVotesHistoryViewProtocol, presenter: VotesHistoryPresenter) {
+        // given
 
         let expectation = XCTestExpectation()
         expectation.expectedFulfillmentCount = 2
 
-        stub(viewMock) { (stub) in
+        stub(view) { (stub) in
             when(stub).didReload().then { _ in
                 expectation.fulfill()
             }
@@ -47,10 +87,8 @@ class VotesHistoryInteractorTests: NetworkBaseTests {
             return
         }
 
-        verify(viewMock, times(2)).didReload()
+        verify(view, times(2)).didReload()
     }
-
-    // MARK: Private
 
     private func createInteractor() -> VotesHistoryInteractor {
         let requestSigner = createDummyRequestSigner()
@@ -70,15 +108,11 @@ class VotesHistoryInteractorTests: NetworkBaseTests {
     }
 
     private func createPresenter() -> VotesHistoryPresenter {
-        let dateFormatterBuilder = CompoundDateFormatterBuilder()
-        let votesHistoryDateFormatter = dateFormatterBuilder
-            .withToday(title: R.string.localizable.today())
-            .withYesterday(title: R.string.localizable.yesterday())
-            .withThisYear(dateFormatter: DateFormatter.sectionThisYear)
-            .build(defaultFormat: R.string.localizable.anyYearFormat())
+        let dateFormatterProvider = DateFormatterProvider(dateFormatterFactory: EventListDateFormatterFactory.self,
+                                                          dayChangeHandler: DayChangeHandler())
 
-        let votesHistoryViewModelFactory = VotesHistoryViewModelFactory(dateFormatter: votesHistoryDateFormatter,
-                                                                        amountFormatter: NumberFormatter.vote)
+        let votesHistoryViewModelFactory = VotesHistoryViewModelFactory(amountFormatter: NumberFormatter.vote,
+                                                                        dateFormatterProvider: dateFormatterProvider)
 
         return VotesHistoryPresenter(viewModelFactory: votesHistoryViewModelFactory)
     }

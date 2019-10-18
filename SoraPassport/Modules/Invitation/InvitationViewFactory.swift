@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -16,7 +16,10 @@ final class InvitationViewFactory: InvitationViewFactoryProtocol {
         let view = InvitationViewController(nib: R.nib.invitationViewController)
         view.changesAnimation = BlockViewAnimator(duration: 0.1, delay: 0.0, options: .curveLinear)
 
-        let presenter = InvitationPresenter(integerNumberFormatter: NumberFormatter.anyInteger)
+        let invitationFactory = InvitationFactory(host: ApplicationConfig.shared.invitationHostURL)
+
+        let presenter = InvitationPresenter(integerNumberFormatter: NumberFormatter.anyInteger,
+                                            invitationFactory: invitationFactory)
 
         let projectUnitService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
         projectUnitService.requestSigner = requestSigner

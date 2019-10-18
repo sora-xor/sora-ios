@@ -1,6 +1,6 @@
 /**
 * Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache 2.0
 */
 
 import Foundation
@@ -28,6 +28,9 @@ protocol ProjectDataProviderFacadeProtocol: DataProviderFacadeProtocol {
 protocol InformationDataProviderFacadeProtocol: DataProviderFacadeProtocol {
     var announcementDataProvider: SingleValueProvider<AnnouncementData?, CDSingleValue> { get }
     var helpDataProvider: SingleValueProvider<HelpData, CDSingleValue> { get }
+    var reputationDetailsProvider: SingleValueProvider<ReputationDetailsData, CDSingleValue> { get }
+    var currencyDataProvider: SingleValueProvider<CurrencyData, CDSingleValue> { get }
+    var countryDataProvider: SingleValueProvider<CountryData, CDSingleValue> { get }
 }
 
 protocol SettingsDataProviderFacadeProtocol: DataProviderFacadeProtocol {
