@@ -13,7 +13,7 @@ private enum StartupInteractorError: Error {
     case verificationFailed
 }
 
-private typealias RegistrationCompletionBlock = (OperationResult<UserData>?) -> Void
+private typealias RegistrationCompletionBlock = (Result<UserData?, Error>?) -> Void
 
 final class StartupInteractor {
 
@@ -113,10 +113,10 @@ final class StartupInteractor {
                 case .success(let data):
                     self.logger?.debug("Current version is supported = \(data.supported)")
                     if !data.supported {
-                        identityFetchOperation.result = .error(StartupInteractorError.unsupportedVersion(data: data))
+                        identityFetchOperation.result = .failure(StartupInteractorError.unsupportedVersion(data: data))
                     }
-                case .error(let error):
-                    identityFetchOperation.result = .error(error)
+                case .failure(let error):
+                    identityFetchOperation.result = .failure(error)
                 }
             }
 
@@ -145,10 +145,10 @@ final class StartupInteractor {
                     self.logger?.debug("Successfully fetched identity for \(decentralizedId)")
 
                     identityVerifyOperation.decentralizedDocument = documentObject
-                case .error(let error):
+                case .failure(let error):
                     self.logger?.warning("Identity fetching error received \(error)")
 
-                    identityVerifyOperation.result = .error(error)
+                    identityVerifyOperation.result = .failure(error)
                 }
             }
 
@@ -182,10 +182,10 @@ final class StartupInteractor {
 
                 self.settings.publicKeyId = publicKeyId
                 identityUpdateOperation.result = .success(true)
-            case .error(let error):
+            case .failure(let error):
                 self.logger?.warning("Update identity error \(error)")
 
-                identityUpdateOperation.result = .error(error)
+                identityUpdateOperation.result = .failure(error)
             }
         }
 
@@ -217,17 +217,17 @@ final class StartupInteractor {
             switch dependencyResult {
             case .success(let isSuccess):
                 if !isSuccess {
-                    userOperation.result = .error(StartupInteractorError.verificationFailed)
+                    userOperation.result = .failure(StartupInteractorError.verificationFailed)
                 }
-            case .error(let error):
+            case .failure(let error):
                 if let verificationError = error as? IdentityVerifyOperationError,
                     verificationError == .authenticablePublicKeyNotFound {
-                    userOperation.result = .error(StartupInteractorError.verificationFailed)
+                    userOperation.result = .failure(StartupInteractorError.verificationFailed)
                 } else if let decentralizedObjectError = error as? DecentralizedDocumentQueryDataError,
                     decentralizedObjectError == .decentralizedIdNotFound {
-                    userOperation.result = .error(StartupInteractorError.verificationFailed)
+                    userOperation.result = .failure(StartupInteractorError.verificationFailed)
                 } else {
-                    userOperation.result = .error(error)
+                    userOperation.result = .failure(error)
                 }
             }
         }
@@ -270,16 +270,16 @@ final class StartupInteractor {
         operationManager.enqueue(operations: [removalOperation], in: .normal)
     }
 
-    private func proccessRemovalOperation(result: OperationResult<Bool>) {
+    private func proccessRemovalOperation(result: Result<Bool, Error>) {
         switch result {
         case .success:
             completeVerification(success: false)
-        case .error:
+        case .failure:
             scheduleVerificationRetry()
         }
     }
 
-    private func processVerification(result: OperationResult<UserData>?) {
+    private func processVerification(result: Result<UserData?, Error>?) {
         logger?.debug("Processing identity verification result")
 
         guard let verificationResult = result else {
@@ -294,7 +294,7 @@ final class StartupInteractor {
             logger?.info("Successfully verified identity")
 
             completeVerification(success: true)
-        case .error(let error):
+        case .failure(let error):
             self.logger?.warning("Identity verification completed with \(error)")
 
             if let interactorError = error as? StartupInteractorError {

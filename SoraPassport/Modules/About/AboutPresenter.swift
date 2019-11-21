@@ -44,9 +44,12 @@ extension AboutPresenter: AboutPresenterProtocol {
             let message = SocialMessage(body: nil,
                                         subject: about.writeUs.subject,
                                         recepients: [about.writeUs.email])
-            wireframe.writeEmail(with: message,
-                                 from: view,
-                                 completionHandler: nil)
+            if !wireframe.writeEmail(with: message, from: view, completionHandler: nil) {
+                wireframe.present(message: R.string.localizable.noEmailBoundErrorMessage(),
+                                  title: R.string.localizable.errorTitle(),
+                                  closeAction: R.string.localizable.close(),
+                                  from: view)
+            }
         }
     }
 }

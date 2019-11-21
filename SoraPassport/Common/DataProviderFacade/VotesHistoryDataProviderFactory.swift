@@ -9,7 +9,7 @@ import RobinHood
 
 protocol VotesHistoryDataProviderFactoryProtocol {
     func createVotesHistoryDataProvider(with pageSize: Int, updateTrigger: DataProviderTriggerProtocol)
-        -> SingleValueProvider<[VotesHistoryEventData], CDSingleValue>?
+        -> SingleValueProvider<[VotesHistoryEventData]>?
 }
 
 final class VotesHistoryDataProviderFactory {
@@ -33,16 +33,16 @@ final class VotesHistoryDataProviderFactory {
 
 extension VotesHistoryDataProviderFactory: VotesHistoryDataProviderFactoryProtocol {
     func createVotesHistoryDataProvider(with pageSize: Int, updateTrigger: DataProviderTriggerProtocol)
-        -> SingleValueProvider<[VotesHistoryEventData], CDSingleValue>? {
+        -> SingleValueProvider<[VotesHistoryEventData]>? {
         guard let service = projectUnit.service(for: ProjectServiceType.votesHistory.rawValue) else {
             return nil
         }
 
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
             .createCoreDataCache(domain: Constants.domain)
 
         let info = Pagination(offset: 0, count: pageSize)
-        let fetchVotesHistoryBlock: () -> BaseOperation<[VotesHistoryEventData]> = {
+        let fetchVotesHistoryBlock: () -> BaseOperation<[VotesHistoryEventData]?> = {
             let votesHistoryOperation = self.projectUnitOperationFactory
                 .fetchVotesHistory(service.serviceEndpoint, with: info)
             votesHistoryOperation.requestModifier = self.requestSigner
@@ -50,11 +50,11 @@ extension VotesHistoryDataProviderFactory: VotesHistoryDataProviderFactoryProtoc
             return votesHistoryOperation
         }
 
-        let source = AnySingleValueProviderSource(base: self, fetch: fetchVotesHistoryBlock)
+        let source = AnySingleValueProviderSource(fetch: fetchVotesHistoryBlock)
 
         return SingleValueProvider(targetIdentifier: Constants.targetIdentifier,
                                    source: source,
-                                   cache: cache,
+                                   repository: AnyDataProviderRepository(cache),
                                    updateTrigger: updateTrigger)
     }
 }

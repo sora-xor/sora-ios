@@ -9,10 +9,10 @@ import RobinHood
 final class VotesHistoryInteractor {
 	weak var presenter: VotesHistoryInteractorOutputProtocol?
 
-    private(set) var votesHistoryDataProvider: SingleValueProvider<[VotesHistoryEventData], CDSingleValue>
+    private(set) var votesHistoryDataProvider: SingleValueProvider<[VotesHistoryEventData]>
     private(set) var projectService: ProjectUnitFundingProtocol
 
-    init(votesHistoryDataProvider: SingleValueProvider<[VotesHistoryEventData], CDSingleValue>,
+    init(votesHistoryDataProvider: SingleValueProvider<[VotesHistoryEventData]>,
          projectService: ProjectUnitFundingProtocol) {
         self.votesHistoryDataProvider = votesHistoryDataProvider
         self.projectService = projectService
@@ -36,12 +36,13 @@ final class VotesHistoryInteractor {
             self?.presenter?.didReceiveVotesHistoryDataProvider(error: error)
         }
 
-        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true)
-        votesHistoryDataProvider.addCacheObserver(self,
-                                                  deliverOn: .main,
-                                                  executing: changesBlock,
-                                                  failing: failBlock,
-                                                  options: options)
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true,
+                                                  waitsInProgressSyncOnAdd: false)
+        votesHistoryDataProvider.addObserver(self,
+                                             deliverOn: .main,
+                                             executing: changesBlock,
+                                             failing: failBlock,
+                                             options: options)
     }
 }
 
@@ -51,7 +52,7 @@ extension VotesHistoryInteractor: VotesHistoryInteractorInputProtocol {
     }
 
     func reload() {
-        votesHistoryDataProvider.refreshCache()
+        votesHistoryDataProvider.refresh()
     }
 
     func loadNext(page: Pagination) {
@@ -61,8 +62,8 @@ extension VotesHistoryInteractor: VotesHistoryInteractorInputProtocol {
                 if let result = optionalResult {
                     switch result {
                     case .success(let events):
-                        self?.presenter?.didLoadNext(events: events, for: page)
-                    case .error(let error):
+                        self?.presenter?.didLoadNext(events: events ?? [], for: page)
+                    case .failure(let error):
                         self?.presenter?.didReceiveLoadNext(error: error, for: page)
                     }
                 }

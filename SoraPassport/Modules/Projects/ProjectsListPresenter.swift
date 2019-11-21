@@ -19,7 +19,9 @@ final class ProjectsListPresenter {
     private(set) var loadingState: ProjectDataLoadingState = .waitingCache
 
     private var projectsDiffCalculator: ListDifferenceCalculator<ProjectData> = {
-        let sortBlock: (ProjectData, ProjectData) -> Bool = { $0.fundingDeadline < $1.fundingDeadline }
+        let sortBlock: (ProjectData, ProjectData) -> Bool = {
+            return $0.statusUpdateTime > $1.statusUpdateTime
+        }
         return ListDifferenceCalculator<ProjectData>(initialItems: [], sortBlock: sortBlock)
     }()
 

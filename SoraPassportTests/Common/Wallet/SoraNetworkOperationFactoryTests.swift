@@ -38,7 +38,11 @@ class SoraNetworkOperationFactoryTests: NetworkBaseTests {
             let accountId = try primitiveFactory.createAccountId()
             let accountSettings = try primitiveFactory.createAccountSettings(for: accountId)
 
-            let networkFactory = SoraNetworkOperationFactory(accountSettings: accountSettings)
+            let networkResolver = WalletNetworkResolverMock { _ in
+                return transferService.serviceEndpoint
+            }
+
+            let networkFactory = SoraNetworkOperationFactory(accountSettings: accountSettings, networkResolver: networkResolver)
 
             let sourceAccountId = try IRAccountIdFactory.account(withIdentifier: Constants.dummyWalletAccountId)
             let destinationAccountId = try IRAccountIdFactory.account(withIdentifier: Constants.dummyOtherWalletAccountId)
@@ -55,22 +59,23 @@ class SoraNetworkOperationFactoryTests: NetworkBaseTests {
 
             // when
 
-            let operation = networkFactory.transferOperation(transferService.serviceEndpoint,
-                                                             info: transferInfo)
+            let operation = networkFactory.transferOperation(transferInfo)
 
             let expectation = XCTestExpectation()
 
             operation.completionBlock = {
-                if let result = operation.result {
-                    switch result {
-                    case .success(let value):
-                        XCTAssert(value)
-                    case .error(let error):
-                        XCTFail("Unexpected result error \(error)")
-                    }
+                defer {
+                    expectation.fulfill()
                 }
 
-                expectation.fulfill()
+                guard let result = operation.result else {
+                    XCTFail("Unexpected empty result")
+                    return
+                }
+
+                if case .failure(let error) = result {
+                    XCTFail("Unexpected result error \(error)")
+                }
             }
 
             let operationQueue = OperationQueue()

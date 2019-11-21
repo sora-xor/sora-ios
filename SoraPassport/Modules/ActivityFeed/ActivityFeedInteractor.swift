@@ -9,12 +9,12 @@ import RobinHood
 final class ActivityFeedInteractor {
 	weak var presenter: ActivityFeedInteractorOutputProtocol?
 
-    private(set) var activityFeedDataProvider: SingleValueProvider<ActivityData, CDSingleValue>
-    private(set) var announcementDataProvider: SingleValueProvider<AnnouncementData?, CDSingleValue>
+    private(set) var activityFeedDataProvider: SingleValueProvider<ActivityData>
+    private(set) var announcementDataProvider: SingleValueProvider<AnnouncementData>
     private(set) var projectService: ProjectUnitFundingProtocol
 
-    init(activityFeedDataProvider: SingleValueProvider<ActivityData, CDSingleValue>,
-         announcementDataProvider: SingleValueProvider<AnnouncementData?, CDSingleValue>,
+    init(activityFeedDataProvider: SingleValueProvider<ActivityData>,
+         announcementDataProvider: SingleValueProvider<AnnouncementData>,
          projectService: ProjectUnitFundingProtocol) {
         self.activityFeedDataProvider = activityFeedDataProvider
         self.announcementDataProvider = announcementDataProvider
@@ -22,7 +22,7 @@ final class ActivityFeedInteractor {
     }
 
     private func setupAnnouncementDataProvider() {
-        let changesBlock = { [weak self] (changes: [DataProviderChange<AnnouncementData?>]) -> Void in
+        let changesBlock = { [weak self] (changes: [DataProviderChange<AnnouncementData>]) -> Void in
             if let change = changes.first {
                 switch change {
                 case .insert(let announcement), .update(let announcement):
@@ -39,10 +39,10 @@ final class ActivityFeedInteractor {
             self?.presenter?.didReceiveAnnouncementDataProvider(error: error)
         }
 
-        announcementDataProvider.addCacheObserver(self,
-                                                  deliverOn: .main,
-                                                  executing: changesBlock,
-                                                  failing: failBlock)
+        announcementDataProvider.addObserver(self,
+                                             deliverOn: .main,
+                                             executing: changesBlock,
+                                             failing: failBlock)
     }
 
     private func setupActivityFeedDataProvider() {
@@ -63,12 +63,12 @@ final class ActivityFeedInteractor {
             self?.presenter?.didReceiveActivityFeedDataProvider(error: error)
         }
 
-        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true)
-        activityFeedDataProvider.addCacheObserver(self,
-                                                  deliverOn: .main,
-                                                  executing: changesBlock,
-                                                  failing: failBlock,
-                                                  options: options)
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true, waitsInProgressSyncOnAdd: false)
+        activityFeedDataProvider.addObserver(self,
+                                             deliverOn: .main,
+                                             executing: changesBlock,
+                                             failing: failBlock,
+                                             options: options)
     }
 }
 
@@ -79,8 +79,8 @@ extension ActivityFeedInteractor: ActivityFeedInteractorInputProtocol {
     }
 
     func reload() {
-        activityFeedDataProvider.refreshCache()
-        announcementDataProvider.refreshCache()
+        activityFeedDataProvider.refresh()
+        announcementDataProvider.refresh()
     }
 
     func loadNext(page: Pagination) {
@@ -90,8 +90,8 @@ extension ActivityFeedInteractor: ActivityFeedInteractorInputProtocol {
                 if let result = optionalResult {
                     switch result {
                     case .success(let activity):
-                        self?.presenter?.didLoadNext(activity: activity, for: page)
-                    case .error(let error):
+                        self?.presenter?.didLoadNext(activity: activity ?? .empty, for: page)
+                    case .failure(let error):
                         self?.presenter?.didReceiveLoadNext(error: error, for: page)
                     }
                 }

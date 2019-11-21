@@ -6,6 +6,7 @@
 import UIKit
 
 protocol OutboundUrlPresentable {
+    @discardableResult
     func open(url: URL) -> Bool
 }
 

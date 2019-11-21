@@ -114,6 +114,26 @@ extension ProjectUnitService: ProjectUnitAccountProtocol {
         return operation
     }
 
+    func applyInvitation(code: String, runCompletionIn queue: DispatchQueue,
+                         completionBlock: @escaping NetworkEmptyCompletionBlock) throws -> Operation {
+        guard let service = unit.service(for: ProjectServiceType.applyInvitation.rawValue) else {
+            throw NetworkUnitError.serviceUnavailable
+        }
+
+        let operation = operationFactory.applyInvitationCodeOperation(service.serviceEndpoint, code: code)
+        operation.requestModifier = requestSigner
+
+        operation.completionBlock = {
+            queue.async {
+                completionBlock(operation.result)
+            }
+        }
+
+        execute(operations: [operation])
+
+        return operation
+    }
+
     func markAsUsed(invitationCode: String,
                     runCompletionIn queue: DispatchQueue,
                     completionBlock: @escaping NetworkBoolResultCompletionBlock) throws -> Operation {
@@ -123,6 +143,26 @@ extension ProjectUnitService: ProjectUnitAccountProtocol {
 
         let operation = operationFactory.markAsUsedOperation(service.serviceEndpoint, invitationCode: invitationCode)
         operation.requestModifier = requestSigner
+
+        operation.completionBlock = {
+            queue.async {
+                completionBlock(operation.result)
+            }
+        }
+
+        execute(operations: [operation])
+
+        return operation
+    }
+
+    func checkInvitation(for deviceInfo: DeviceInfo,
+                         runCompletionIn queue: DispatchQueue,
+                         completionBlock: @escaping NetworkCheckInvitationCompletionBlock) throws -> Operation {
+        guard let service = unit.service(for: ProjectServiceType.checkInvitation.rawValue) else {
+            throw NetworkUnitError.serviceUnavailable
+        }
+
+        let operation = operationFactory.checkInvitation(service.serviceEndpoint, deviceInfo: deviceInfo)
 
         operation.completionBlock = {
             queue.async {

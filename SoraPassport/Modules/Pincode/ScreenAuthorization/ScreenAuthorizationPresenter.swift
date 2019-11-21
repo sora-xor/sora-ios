@@ -17,6 +17,10 @@ extension ScreenAuthorizationPresenter: PinSetupPresenterProtocol {
         interactor.startAuth()
     }
 
+    func cancel() {
+        wireframe.showAuthorizationCompletion(with: false)
+    }
+
     func activateBiometricAuth() {
         interactor.startAuth()
     }

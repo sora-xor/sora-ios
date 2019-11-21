@@ -5,6 +5,7 @@
 
 import XCTest
 @testable import SoraPassport
+import RobinHood
 
 class ProjectUnitAccountServiceTests: NetworkBaseTests {
     var service: ProjectUnitService!
@@ -18,7 +19,7 @@ class ProjectUnitAccountServiceTests: NetworkBaseTests {
 
     func testCustomerFetchSuccess() {
         // given
-        ProjectsCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
         let expectation = XCTestExpectation()
 
@@ -235,6 +236,102 @@ class ProjectUnitAccountServiceTests: NetworkBaseTests {
         wait(for: [expectation], timeout: Constants.networkRequestTimeout)
     }
 
+    func testApplyInvitationSuccess() {
+        // given
+
+        ApplyInvitationMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        let expectation = XCTestExpectation()
+
+        // when
+
+        let operation = try? service.applyInvitation(code: Constants.dummyInvitationCode,
+                                                     runCompletionIn: .main) { (optionalResult) in
+            defer {
+                expectation.fulfill()
+            }
+
+            guard let result = optionalResult, case .success = result else {
+                XCTFail()
+                return
+            }
+        }
+
+        guard operation != nil else {
+            XCTFail()
+            return
+        }
+
+        // then
+
+        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
+    }
+
+    func testCheckInvitationSuccess() {
+        CheckInvitationMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        performCheckInvitationTest { result in
+            if let result = result, case .success = result {
+                return true
+            } else {
+                return false
+            }
+        }
+    }
+
+    func testCheckInvitationNotFound() {
+        CheckInvitationMock.register(mock: .notFound, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        performCheckInvitationTest { result in
+            if let result = result,
+                case .failure(let error) = result,
+                let checkInvitationError = error as? InvitationCheckDataError {
+
+                return checkInvitationError == .notFound
+            } else {
+                return false
+            }
+        }
+    }
+
+    func testCheckInvitationAmbigious() {
+        CheckInvitationMock.register(mock: .ambigious, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+
+        performCheckInvitationTest { result in
+            if let result = result,
+                case .failure(let error) = result,
+                let checkInvitationError = error as? InvitationCheckDataError {
+
+                return checkInvitationError == .ambigious
+            } else {
+                return false
+            }
+
+        }
+    }
+
+    private func performCheckInvitationTest(for closure:
+        @escaping (Result<InvitationCheckData, Error>?) -> Bool) {
+
+        let expectation = XCTestExpectation()
+
+        do {
+
+            let deviceInfo = DeviceInfoFactory().createDeviceInfo()
+
+            _ = try service.checkInvitation(for: deviceInfo, runCompletionIn: .main) { (result) in
+                XCTAssert(closure(result))
+
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: Constants.networkRequestTimeout)
+
+        } catch {
+            XCTFail("Unexpected error \(error)")
+        }
+    }
+
     func testReputationSuccess() {
         // given
         performTestReputationSuccess(for: .success)
@@ -411,7 +508,7 @@ class ProjectUnitAccountServiceTests: NetworkBaseTests {
 
             guard
                 let result = optionalResult,
-                case .error(let error) = result,
+                case .failure(let error) = result,
                 let userCreationError = error as? UserCreationError,
                 expectedError == userCreationError else {
                 XCTFail()

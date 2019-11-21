@@ -23,67 +23,67 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
 
     lazy var projectOperationFactory: ProjectInformationOperationFactoryProtocol = ProjectOperationFactory()
 
-    lazy private(set) var announcementDataProvider: SingleValueProvider<AnnouncementData?, CDSingleValue> = {
-            let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+    lazy private(set) var announcementDataProvider: SingleValueProvider<AnnouncementData> = {
+            let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
             .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
 
-            let source = AnySingleValueProviderSource(base: self, fetch: self.fetchAnnouncement)
+            let source = AnySingleValueProviderSource(fetch: self.fetchAnnouncement)
 
             return SingleValueProvider(targetIdentifier: InformationDataProviderFacade.announcementIdentifier,
                                        source: source,
-                                       cache: cache,
+                                       repository: AnyDataProviderRepository(cache),
                                        updateTrigger: DataProviderEventTrigger.onAddObserver,
                                        executionQueue: self.executionQueue)
     }()
 
-    lazy private(set) var helpDataProvider: SingleValueProvider<HelpData, CDSingleValue> = {
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+    lazy private(set) var helpDataProvider: SingleValueProvider<HelpData> = {
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
             .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
 
-        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchHelp)
+        let source = AnySingleValueProviderSource(fetch: self.fetchHelp)
 
         return SingleValueProvider(targetIdentifier: InformationDataProviderFacade.helpIdentifier,
                                    source: source,
-                                   cache: cache,
+                                   repository: AnyDataProviderRepository(cache),
                                    updateTrigger: DataProviderEventTrigger.onAddObserver,
                                    executionQueue: self.executionQueue)
     }()
 
-    lazy private(set) var currencyDataProvider: SingleValueProvider<CurrencyData, CDSingleValue> = {
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+    lazy private(set) var currencyDataProvider: SingleValueProvider<CurrencyData> = {
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
             .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
 
-        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchCurrency)
+        let source = AnySingleValueProviderSource(fetch: self.fetchCurrency)
 
         return SingleValueProvider(targetIdentifier: InformationDataProviderFacade.currencyIdentifier,
                                    source: source,
-                                   cache: cache,
+                                   repository: AnyDataProviderRepository(cache),
                                    updateTrigger: DataProviderEventTrigger.onAddObserver,
                                    executionQueue: self.executionQueue)
     }()
 
-    lazy private(set) var countryDataProvider: SingleValueProvider<CountryData, CDSingleValue> = {
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+    lazy private(set) var countryDataProvider: SingleValueProvider<CountryData> = {
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
             .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
 
-        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchCountry)
+        let source = AnySingleValueProviderSource(fetch: self.fetchCountry)
 
         return SingleValueProvider(targetIdentifier: InformationDataProviderFacade.countryIdentifier,
                                    source: source,
-                                   cache: cache,
+                                   repository: AnyDataProviderRepository(cache),
                                    updateTrigger: DataProviderEventTrigger.onAddObserver,
                                    executionQueue: self.executionQueue)
     }()
 
-    lazy private(set) var reputationDetailsProvider: SingleValueProvider<ReputationDetailsData, CDSingleValue> = {
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+    lazy private(set) var reputationDetailsProvider: SingleValueProvider<ReputationDetailsData> = {
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
         .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
 
-        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchReputationDetails)
+        let source = AnySingleValueProviderSource(fetch: self.fetchReputationDetails)
 
         return SingleValueProvider(targetIdentifier: InformationDataProviderFacade.reputationDetailsIdentifier,
                                    source: source,
-                                   cache: cache)
+                                   repository: AnyDataProviderRepository(cache))
 
     }()
 
@@ -96,7 +96,7 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
     private func fetchAnnouncement() -> BaseOperation<AnnouncementData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.announcement.rawValue) else {
             let operation = BaseOperation<AnnouncementData?>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -106,10 +106,10 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
         return operation
     }
 
-    private func fetchHelp() -> BaseOperation<HelpData> {
+    private func fetchHelp() -> BaseOperation<HelpData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.help.rawValue) else {
-            let operation = BaseOperation<HelpData>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            let operation = BaseOperation<HelpData?>()
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -119,10 +119,10 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
         return operation
     }
 
-    private func fetchCurrency() -> BaseOperation<CurrencyData> {
+    private func fetchCurrency() -> BaseOperation<CurrencyData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.currency.rawValue) else {
-            let operation = BaseOperation<CurrencyData>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            let operation = BaseOperation<CurrencyData?>()
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -132,10 +132,10 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
         return operation
     }
 
-    private func fetchCountry() -> BaseOperation<CountryData> {
+    private func fetchCountry() -> BaseOperation<CountryData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.country.rawValue) else {
-            let operation = BaseOperation<CountryData>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            let operation = BaseOperation<CountryData?>()
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -145,11 +145,11 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
         return operation
     }
 
-    private func fetchReputationDetails() -> BaseOperation<ReputationDetailsData> {
+    private func fetchReputationDetails() -> BaseOperation<ReputationDetailsData?> {
         guard let service = self.config.defaultProjectUnit
             .service(for: ProjectServiceType.reputationDetails.rawValue) else {
-            let operation = BaseOperation<ReputationDetailsData>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            let operation = BaseOperation<ReputationDetailsData?>()
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 

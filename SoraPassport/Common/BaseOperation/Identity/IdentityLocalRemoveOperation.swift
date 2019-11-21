@@ -43,7 +43,7 @@ final class IdentityLocalRemoveOperation: BaseOperation<Bool> {
 
             result = .success(true)
         } catch {
-            result = .error(error)
+            result = .failure(error)
         }
     }
 }

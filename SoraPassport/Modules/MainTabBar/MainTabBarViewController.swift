@@ -13,6 +13,8 @@ final class MainTabBarViewController: UITabBarController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        self.delegate = self
+
         configureTabBar()
     }
 
@@ -45,6 +47,18 @@ final class MainTabBarViewController: UITabBarController {
             tabBar.backgroundImage = UIImage.background(from: UIColor.tabBarBackground)
             tabBar.shadowImage = UIImage.background(from: UIColor.tabBarShadow)
         }
+    }
+}
+
+extension MainTabBarViewController: UITabBarControllerDelegate {
+    func tabBarController(_ tabBarController: UITabBarController,
+                          shouldSelect viewController: UIViewController) -> Bool {
+        if viewController == viewControllers?[selectedIndex],
+            let scrollableController = viewController as? ScrollsToTop {
+            scrollableController.scrollToTop()
+        }
+
+        return true
     }
 }
 

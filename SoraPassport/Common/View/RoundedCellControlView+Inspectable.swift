@@ -1,0 +1,333 @@
+/**
+* Copyright Soramitsu Co., Ltd. All Rights Reserved.
+* SPDX-License-Identifier: Apache 2.0
+*/
+
+import UIKit
+
+extension RoundedCellControlView {
+    @IBInspectable
+    private var _fillColor: UIColor {
+        get {
+            return roundedBackgroundView!.fillColor
+        }
+
+        set(newValue) {
+            roundedBackgroundView!.fillColor = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _highlightedFillColor: UIColor {
+        get {
+            return roundedBackgroundView!.highlightedFillColor
+        }
+
+        set(newValue) {
+            roundedBackgroundView!.highlightedFillColor = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _strokeColor: UIColor {
+        get {
+            return roundedBackgroundView!.strokeColor
+        }
+
+        set(newValue) {
+            roundedBackgroundView!.strokeColor = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _highlightedStrokeColor: UIColor {
+        get {
+            return roundedBackgroundView!.highlightedStrokeColor
+        }
+
+        set(newValue) {
+            roundedBackgroundView!.highlightedStrokeColor = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _strokeWidth: CGFloat {
+        get {
+            return roundedBackgroundView!.strokeWidth
+        }
+
+        set(newValue) {
+            roundedBackgroundView!.strokeWidth = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _icon: UIImage? {
+        get {
+            return titleAccessoryView.titleView.iconImage
+        }
+
+        set {
+            titleAccessoryView.titleView.iconImage = newValue
+            invalidateLayout()
+        }
+    }
+
+    @IBInspectable
+    private var _highlightedIcon: UIImage? {
+        get {
+            return titleAccessoryView.titleView.highlightedIconImage
+        }
+
+        set {
+            titleAccessoryView.titleView.highlightedIconImage = newValue
+            invalidateLayout()
+        }
+    }
+
+    @IBInspectable
+    private var _title: String? {
+        get {
+            return titleAccessoryView.titleView.title
+        }
+
+        set(newValue) {
+            titleAccessoryView.titleView.title = newValue
+            invalidateLayout()
+        }
+    }
+
+    @IBInspectable
+    private var _titleColor: UIColor? {
+        get {
+            return titleAccessoryView.titleView.titleColor
+        }
+
+        set(newValue) {
+            titleAccessoryView.titleView.titleColor = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _highlightedTitleColor: UIColor? {
+        get {
+            return titleAccessoryView.titleView.highlightedTitleColor
+        }
+
+        set(newValue) {
+            titleAccessoryView.titleView.highlightedTitleColor = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _titleFontName: String? {
+        set(newValue) {
+            guard let fontName = newValue else {
+                titleAccessoryView.titleView.titleFont = nil
+                return
+            }
+
+            let pointSize = titleAccessoryView.titleView.titleFont?.pointSize ?? UIFont.labelFontSize
+            titleAccessoryView.titleView.titleFont = UIFont(name: fontName, size: pointSize)
+
+            invalidateLayout()
+        }
+
+        get {
+            return titleAccessoryView.titleView.titleFont?.fontName
+        }
+    }
+
+    @IBInspectable
+    private var _titleFontSize: CGFloat {
+        set(newValue) {
+            let fontName = titleAccessoryView.titleView.titleFont?.fontName ?? UIFont
+                .systemFont(ofSize: UIFont.labelFontSize).fontName
+            titleAccessoryView.titleView.titleFont = UIFont(name: fontName, size: newValue)
+
+            invalidateLayout()
+        }
+
+        get {
+            return titleAccessoryView.titleView.titleFont?.pointSize ?? UIFont.labelFontSize
+        }
+    }
+
+    @IBInspectable
+    private var _spacingBetweenLabelAndIcon: CGFloat {
+        set {
+            titleAccessoryView.titleView.spacingBetweenLabelAndIcon = newValue
+        }
+
+        get {
+            return titleAccessoryView.titleView.spacingBetweenLabelAndIcon
+        }
+    }
+
+    @IBInspectable
+    private var _subtitle: String? {
+        get {
+            return titleAccessoryView.accessoryLabel.text
+        }
+
+        set(newValue) {
+            titleAccessoryView.accessoryLabel.text = newValue
+            invalidateLayout()
+        }
+    }
+
+    @IBInspectable
+    private var _subtitleColor: UIColor? {
+        get {
+            return titleAccessoryView.accessoryLabel.textColor
+        }
+
+        set(newValue) {
+            titleAccessoryView.accessoryLabel.textColor = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _highlightedSubtitleColor: UIColor? {
+        get {
+            return titleAccessoryView.accessoryLabel.highlightedTextColor
+        }
+
+        set(newValue) {
+            titleAccessoryView.accessoryLabel.highlightedTextColor = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _subtitleFontName: String? {
+        set(newValue) {
+            guard let fontName = newValue else {
+                titleAccessoryView.accessoryLabel.font = nil
+                return
+            }
+
+            let pointSize = titleAccessoryView.accessoryLabel.font.pointSize
+            titleAccessoryView.accessoryLabel.font = UIFont(name: fontName, size: pointSize)
+
+            invalidateLayout()
+        }
+
+        get {
+            return titleAccessoryView.accessoryLabel.font.fontName
+        }
+    }
+
+    @IBInspectable
+    private var _subtitleFontSize: CGFloat {
+        set(newValue) {
+            let fontName = titleAccessoryView.accessoryLabel.font.fontName
+            titleAccessoryView.accessoryLabel.font = UIFont(name: fontName, size: newValue)
+
+            invalidateLayout()
+        }
+
+        get {
+            return titleAccessoryView.accessoryLabel.font.pointSize
+        }
+    }
+
+    @IBInspectable
+    private var _shadowColor: UIColor {
+        get {
+            return self.roundedBackgroundView!.shadowColor
+        }
+
+        set(newValue) {
+            self.roundedBackgroundView!.shadowColor = newValue
+            self.invalidateLayout()
+        }
+    }
+
+    @IBInspectable
+    private var _shadowOffset: CGSize {
+        get {
+            return self.roundedBackgroundView!.shadowOffset
+        }
+
+        set(newValue) {
+            self.roundedBackgroundView!.shadowOffset = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _shadowRadius: CGFloat {
+        get {
+            return self.roundedBackgroundView!.shadowRadius
+        }
+
+        set(newValue) {
+            self.roundedBackgroundView!.shadowRadius = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _shadowOpacity: Float {
+        get {
+            return self.roundedBackgroundView!.shadowOpacity
+        }
+
+        set(newValue) {
+            self.roundedBackgroundView!.shadowOpacity = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _cornerRadius: CGFloat {
+        get {
+            return self.roundedBackgroundView!.cornerRadius
+        }
+
+        set(newValue) {
+            self.roundedBackgroundView!.cornerRadius = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _contentOpacityWhenHighlighted: CGFloat {
+        get {
+            return contentOpacityWhenHighlighted
+        }
+
+        set(newValue) {
+            contentOpacityWhenHighlighted = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _changesContentOpacityWhenHighlighted: Bool {
+        get {
+            return changesContentOpacityWhenHighlighted
+        }
+
+        set(newValue) {
+            changesContentOpacityWhenHighlighted = newValue
+        }
+    }
+
+    @IBInspectable
+    private var _separatorColor: UIColor {
+        set {
+            borderView.strokeColor = newValue
+        }
+
+        get {
+            return borderView.strokeColor
+        }
+    }
+
+    @IBInspectable
+    private var _separatorWidth: CGFloat {
+        set {
+            borderView.strokeWidth = newValue
+        }
+
+        get {
+            return borderView.strokeWidth
+        }
+    }
+}

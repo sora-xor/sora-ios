@@ -14,6 +14,7 @@ enum SettingsKey: String {
     case verificationState
     case selectedCurrency
     case invitationCode
+    case isCheckedInvitation
 }
 
 extension SettingsManagerProtocol {
@@ -92,6 +93,20 @@ extension SettingsManagerProtocol {
 
         get {
             return string(for: SettingsKey.invitationCode.rawValue)
+        }
+    }
+
+    var isCheckedInvitation: Bool? {
+        set {
+            if let existingValue = newValue {
+                set(value: existingValue, for: SettingsKey.isCheckedInvitation.rawValue)
+            } else {
+                removeValue(for: SettingsKey.isCheckedInvitation.rawValue)
+            }
+        }
+
+        get {
+            return bool(for: SettingsKey.isCheckedInvitation.rawValue)
         }
     }
 }

@@ -5,14 +5,11 @@ PODS:
   - BoringSSL/Implementation (10.0.3):
     - BoringSSL/Interface (= 10.0.3)
   - BoringSSL/Interface (10.0.3)
-  - CommonWallet (1.3.0):
+  - CommonWallet (1.5.2):
     - IrohaCommunication (~> 3.4.1)
-    - RobinHood (~> 1.0.6)
+    - RobinHood (~> 2.0.0)
     - SoraUI (~> 1.8.7)
-  - Crashlytics (3.12.0):
-    - Fabric (~> 1.9.0)
   - Cuckoo (1.0.4)
-  - Fabric (1.9.0)
   - Firebase/Core (5.14.0):
     - Firebase/CoreOnly
     - FirebaseAnalytics (= 5.4.0)
@@ -105,11 +102,11 @@ PODS:
   - nanopb/decode (0.3.8)
   - nanopb/encode (0.3.8)
   - Protobuf (3.5.0)
-  - R.swift (5.0.0):
-    - R.swift.Library (~> 5.0.0)
-  - R.swift.Library (5.0.0)
+  - R.swift (5.1.0):
+    - R.swift.Library (~> 5.1.0)
+  - R.swift.Library (5.1.0)
   - ReachabilitySwift (4.3.1)
-  - RobinHood (1.0.6)
+  - RobinHood (2.0.1)
   - SKPhotoBrowser (6.1.0)
   - SoraCrypto (0.1.2):
     - IrohaCrypto
@@ -148,10 +145,8 @@ PODS:
   - SwiftyBeaver (1.7.0)
 
 DEPENDENCIES:
-  - CommonWallet (from `https://github.com/soramitsu/Capital-iOS.git`, commit `1df65a808cb9401ec23182d21be9a9e2a428d5ca`)
-  - Crashlytics
+  - CommonWallet
   - Cuckoo
-  - Fabric
   - Firebase/Core
   - Firebase/Messaging
   - FireMock
@@ -173,9 +168,8 @@ DEPENDENCIES:
 SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
     - BoringSSL
-    - Crashlytics
+    - CommonWallet
     - Cuckoo
-    - Fabric
     - Firebase
     - FirebaseAnalytics
     - FirebaseAnalyticsInterop
@@ -207,22 +201,10 @@ SPEC REPOS:
     - SwiftLint
     - SwiftyBeaver
 
-EXTERNAL SOURCES:
-  CommonWallet:
-    :commit: 1df65a808cb9401ec23182d21be9a9e2a428d5ca
-    :git: https://github.com/soramitsu/Capital-iOS.git
-
-CHECKOUT OPTIONS:
-  CommonWallet:
-    :commit: 1df65a808cb9401ec23182d21be9a9e2a428d5ca
-    :git: https://github.com/soramitsu/Capital-iOS.git
-
 SPEC CHECKSUMS:
   BoringSSL: c46efb47593135382bc0934196f16d2f726f5f36
-  CommonWallet: 409af3aff2117e5b08db1d5f2575494736c857b0
-  Crashlytics: 07fb167b1694128c1c9a5a5cc319b0e9c3ca0933
+  CommonWallet: 76e79eed2bdee24a440c680b5eb97e32d2e89198
   Cuckoo: 58e8219aa80f956350b6d3b396e9f1d6871544e7
-  Fabric: f988e33c97f08930a413e08123064d2e5f68d655
   Firebase: 963d5685fae888a56d6d4d9cfce6b9c976958798
   FirebaseAnalytics: c06f9d70577d79074214700a71fd5d39de5550fb
   FirebaseAnalyticsInterop: e5f21be9af6548372e2f0815834ff909bff395a2
@@ -242,10 +224,10 @@ SPEC CHECKSUMS:
   Kingfisher: c148cd7b47ebde9989f6bc7c27dcaa79d81279a0
   nanopb: 5601e6bca2dbf1ed831b519092ec110f66982ca3
   Protobuf: 8a9838fba8dae3389230e1b7f8c104aa32389c03
-  R.swift: f88c7d7d48a2be4dffa132dde1b3d389620310eb
-  R.swift.Library: 0bf390e729bc10bb2c9e4fb78bd043164a7be4ff
+  R.swift: 8cbc4fc69b740305b6a17c8a8ed968eb788962d9
+  R.swift.Library: fa85ce1e0d0b7e818cd9e080df910ba54d2776cc
   ReachabilitySwift: 4032e2f59586e11e3b0ebe15b167abdd587a388b
-  RobinHood: 0bd282623f472a2c29acfe9d053a2707a4bda50d
+  RobinHood: ed86ee904084d3a3b731dc57f5209c4e45fe33dc
   SKPhotoBrowser: 343de95d89dc7913763c5dda243cc6e606e4a168
   SoraCrypto: de324b661fb330ce8d80ff1be1351c6af4d420d5
   SoraDocuments: c927a79974f73672a8f39d8c2bb143afca5d3561
@@ -254,6 +236,6 @@ SPEC CHECKSUMS:
   SwiftLint: 6772320e40b52049053a518c17db9b0634a0b45a
   SwiftyBeaver: 4cc0080d2e23f980652e28978db11a5c9da39165
 
-PODFILE CHECKSUM: 8cba92e86dc01b3edf873900e8416c6416abfe86
+PODFILE CHECKSUM: cb24d3e5a37ce1c268df35614938ca9a71f0e7f1
 
-COCOAPODS: 1.8.3
+COCOAPODS: 1.8.4

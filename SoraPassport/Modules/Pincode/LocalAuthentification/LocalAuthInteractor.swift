@@ -62,6 +62,10 @@ class LocalAuthInteractor {
     }
 
     private func processBiometryAuth(result: Bool) {
+        guard state == .checkingBiometry else {
+            return
+        }
+
         if result {
            state = .completed
             presenter?.didCompleteAuth()
@@ -72,6 +76,10 @@ class LocalAuthInteractor {
     }
 
     private func processStored(pin: String?) {
+        guard state == .checkingPincode else {
+            return
+        }
+
         if pincode == pin {
             state = .completed
             pincode = nil
@@ -97,7 +105,7 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
     }
 
     func process(pin: String) {
-        guard state == .waitingPincode else { return }
+        guard state == .waitingPincode || state == .checkingBiometry else { return }
 
         self.pincode = pin
 

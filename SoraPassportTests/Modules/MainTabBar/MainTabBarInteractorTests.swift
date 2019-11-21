@@ -16,7 +16,7 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         let view = MockMainTabBarViewProtocol()
         let wireframe = MockMainTabBarWireframeProtocol()
 
-        let presenter = MainTabBarPresenter()
+        let presenter = MainTabBarPresenter(children: [])
         presenter.view = view
         presenter.wireframe = wireframe
 
@@ -74,7 +74,9 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         let view = MockMainTabBarViewProtocol()
         let wireframe = MockMainTabBarWireframeProtocol()
 
-        let presenter = MainTabBarPresenter()
+        let mockInvitationHandler = MockInvitationHandlePresenterProtocol()
+
+        let presenter = MainTabBarPresenter(children: [mockInvitationHandler])
         presenter.view = view
         presenter.wireframe = wireframe
 
@@ -106,7 +108,7 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         presenter.interactor = interactor
         interactor.presenter = presenter
 
-        stub(wireframe) { stub in
+        stub(mockInvitationHandler) { stub in
             when(stub).navigate(to: any(InvitationDeepLink.self)).thenReturn(true)
         }
 
@@ -120,6 +122,8 @@ class MainTabBarInteractorTests: NetworkBaseTests {
 
         XCTAssertNil(interactor.invitationLinkService.link)
         XCTAssertNil(settings.invitationCode)
+
+        verify(mockInvitationHandler, times(1)).navigate(to: any(InvitationDeepLink.self))
     }
 
     func testWalletAccountUpdatesWhenNotificationReceived() {
@@ -127,7 +131,7 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         let view = MockMainTabBarViewProtocol()
         let wireframe = MockMainTabBarWireframeProtocol()
 
-        let presenter = MainTabBarPresenter()
+        let presenter = MainTabBarPresenter(children: [])
         presenter.view = view
         presenter.wireframe = wireframe
 
@@ -193,7 +197,7 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         let view = MockMainTabBarViewProtocol()
         let wireframe = MockMainTabBarWireframeProtocol()
 
-        let presenter = MainTabBarPresenter()
+        let presenter = MainTabBarPresenter(children: [])
         presenter.view = view
         presenter.wireframe = wireframe
 

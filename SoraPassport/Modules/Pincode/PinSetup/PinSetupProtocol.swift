@@ -17,6 +17,7 @@ protocol PinSetupViewProtocol: ControllerBackedProtocol {
 
 protocol PinSetupPresenterProtocol: class {
     func start()
+    func cancel()
     func activateBiometricAuth()
     func submit(pin: String)
 }
@@ -42,7 +43,7 @@ protocol PinSetupWireframeProtocol: class {
 protocol PinViewFactoryProtocol: class {
     static func createPinSetupView() -> PinSetupViewProtocol?
     static func createSecuredPinView() -> PinSetupViewProtocol?
-    static func createScreenAuthorizationView(with wireframe: ScreenAuthorizationWireframeProtocol)
+    static func createScreenAuthorizationView(with wireframe: ScreenAuthorizationWireframeProtocol, cancellable: Bool)
         -> PinSetupViewProtocol?
 }
 

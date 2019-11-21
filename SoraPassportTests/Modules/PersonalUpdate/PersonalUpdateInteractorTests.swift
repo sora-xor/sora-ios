@@ -12,7 +12,7 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
     func testSuccessfullSetupAndUpdate() {
         // given
-        ProjectsCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         UpdateCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
         let presenter = createPresenter()
@@ -119,7 +119,7 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
     func testUpdateFailed() {
         // given
-        ProjectsCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         UpdateCustomerMock.register(mock: .resourceNotFound, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
         let presenter = createPresenter()

@@ -6,6 +6,28 @@
 import UIKit
 
 extension UIColor {
+    static var darkGreyish: UIColor {
+        return UIColor(red: 3.0 / 255.0, green: 92.0 / 255.0, blue: 90.0 / 255.0, alpha: 1.0)
+    }
+
+    static var greyish: UIColor {
+        return UIColor(red: 115.0 / 255.0,
+                       green: 168.0 / 255.0,
+                       blue: 166.0 / 255.0,
+                       alpha: 1.0)
+    }
+
+    static var coolGrey: UIColor {
+        return UIColor(red: 137.0 / 255.0,
+                       green: 159.0 / 255.0,
+                       blue: 158.0 / 255.0,
+                       alpha: 1.0)
+    }
+
+    static var darkRed: UIColor {
+        return UIColor(red: 208.0 / 255.0, green: 2.0 / 255.0, blue: 27.0 / 255.0, alpha: 1.0)
+    }
+
     static var background: UIColor {
         return UIColor(red: 242.0 / 255.0, green: 247.0 / 255.0, blue: 247.0 / 255.0, alpha: 1.0)
     }
@@ -214,11 +236,11 @@ extension UIColor {
         return .black
     }
 
-    static var accessoryTitleAction: UIColor {
+    static var actionTitle: UIColor {
         return UIColor(red: 208.0 / 255.0, green: 2.0 / 255.0, blue: 27.0 / 255.0, alpha: 1.0)
     }
 
-    static var onboardingSeparator: UIColor {
+    static var listSeparator: UIColor {
         return UIColor(white: 153.0 / 255.0, alpha: 0.25)
     }
 

@@ -46,7 +46,7 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
         // given
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
-        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
+        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
 
         let finishExpectation = XCTestExpectation()
 
@@ -96,6 +96,58 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
         wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
     }
 
+    func testStateNotChangedWhenMnemonicInvalid() {
+        // given
+
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ProjectsCustomerMock.register(mock: .unauthorized, projectUnit: projectUnit)
+
+        let finishExpectation = XCTestExpectation()
+
+        let presenterMock = MockAccessRestoreInteractorOutputProtocol()
+
+        stub(presenterMock) { stub in
+            when(stub.didReceiveRestoreAccess(error: any(Error.self))).then { _ in
+                finishExpectation.fulfill()
+            }
+        }
+
+        interactor.presenter = presenterMock
+
+        let document = createIdentity()
+
+        var settings = interactor.settings
+        settings.decentralizedId = document.decentralizedId
+        settings.publicKeyId = document.publicKey.first!.pubKeyId
+
+        let verificationState = VerificationState(resendDelay: 60.0, lastAttempted: Date())
+        settings.verificationState = verificationState
+
+        guard let newPrivateKey = IREd25519KeyFactory().createRandomKeypair() else {
+            XCTFail()
+            return
+        }
+
+        XCTAssertNoThrow(try interactor.keystore.saveKey(newPrivateKey.privateKey().rawData(),
+                                                         with: KeystoreKey.privateKey.rawValue))
+
+        // when
+
+        interactor.restoreAccess(phrase: Constants.dummyValidMnemonic.components(separatedBy: CharacterSet.wordsSeparator))
+
+        // then
+
+        wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
+
+        XCTAssertEqual(settings.decentralizedId, document.decentralizedId)
+        XCTAssertEqual(settings.publicKeyId, document.publicKey.first!.pubKeyId)
+        XCTAssertEqual(settings.verificationState, verificationState)
+
+        let currentPrivateKeyData = try? interactor.keystore.fetchKey(for: KeystoreKey.privateKey.rawValue)
+
+        XCTAssertEqual(newPrivateKey.privateKey().rawData(), currentPrivateKeyData)
+    }
+
     // MARK: Private
 
     private func performTestSuccessfullRestoration() {
@@ -103,7 +155,7 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
-        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
+        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
 
         let finishExpectation = XCTestExpectation()
 

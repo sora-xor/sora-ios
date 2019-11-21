@@ -18,7 +18,8 @@ final class SelectCountryPresenter {
 
     private func update() {
         if !query.isEmpty {
-            matchingCountries = countries.filter { $0.name.localizedCaseInsensitiveContains(query) }
+            let lowercasedQuery = query.lowercased()
+            matchingCountries = countries.filter { $0.name.lowercased().hasPrefix(lowercasedQuery) }
         } else {
             matchingCountries = countries
         }

@@ -6,23 +6,25 @@
 import Foundation
 import RobinHood
 
-typealias NetworkBoolResultCompletionBlock = (OperationResult<Bool>?) -> Void
-typealias NetworkProjectCompletionBlock = (OperationResult<[ProjectData]>?) -> Void
-typealias NetworkProjectDetailsCompletionBlock = (OperationResult<ProjectDetailsData>?) -> Void
-typealias NetworkUserCompletionBlock = (OperationResult<UserData>?) -> Void
-typealias NetworkFetchVotesCompletionBlock = (OperationResult<VotesData>?) -> Void
-typealias NetworkFetchInviteCodeCompletionBlock = (OperationResult<InvitationCodeData>?) -> Void
-typealias NetworkFetchInvitedCompletionBlock = (OperationResult<ActivatedInvitationsData>?) -> Void
-typealias NetworkReputationCompletionBlock = (OperationResult<ReputationData>?) -> Void
-typealias NetworkReputationDetailsCompletionBlock = (OperationResult<ReputationDetailsData>?) -> Void
-typealias NetworkVotesHistoryCompletionBlock = (OperationResult<[VotesHistoryEventData]>?) -> Void
-typealias NetworkActivityFeedCompletionBlock = (OperationResult<ActivityData>?) -> Void
-typealias NetworkAnnouncementCompletionBlock = (OperationResult<AnnouncementData?>?) -> Void
-typealias NetworkHelpCompletionBlock = (OperationResult<HelpData>?) -> Void
-typealias NetworkCurrencyCompletionBlock = (OperationResult<CurrencyData>?) -> Void
-typealias NetworkSupportedVersionBlock = (OperationResult<SupportedVersionData>?) -> Void
-typealias NetworkVerificationCodeCompletionBlock = (OperationResult<VerificationCodeData>?) -> Void
-typealias NetworkCountryCompletionBlock = (OperationResult<CountryData>?) -> Void
+typealias NetworkBoolResultCompletionBlock = (Result<Bool, Error>?) -> Void
+typealias NetworkProjectCompletionBlock = (Result<[ProjectData], Error>?) -> Void
+typealias NetworkProjectDetailsCompletionBlock = (Result<ProjectDetailsData?, Error>?) -> Void
+typealias NetworkUserCompletionBlock = (Result<UserData?, Error>?) -> Void
+typealias NetworkFetchVotesCompletionBlock = (Result<VotesData?, Error>?) -> Void
+typealias NetworkFetchInviteCodeCompletionBlock = (Result<InvitationCodeData, Error>?) -> Void
+typealias NetworkFetchInvitedCompletionBlock = (Result<ActivatedInvitationsData?, Error>?) -> Void
+typealias NetworkCheckInvitationCompletionBlock = (Result<InvitationCheckData, Error>?) -> Void
+typealias NetworkReputationCompletionBlock = (Result<ReputationData?, Error>?) -> Void
+typealias NetworkReputationDetailsCompletionBlock = (Result<ReputationDetailsData?, Error>?) -> Void
+typealias NetworkVotesHistoryCompletionBlock = (Result<[VotesHistoryEventData]?, Error>?) -> Void
+typealias NetworkActivityFeedCompletionBlock = (Result<ActivityData?, Error>?) -> Void
+typealias NetworkAnnouncementCompletionBlock = (Result<AnnouncementData?, Error>?) -> Void
+typealias NetworkHelpCompletionBlock = (Result<HelpData?, Error>?) -> Void
+typealias NetworkCurrencyCompletionBlock = (Result<CurrencyData?, Error>?) -> Void
+typealias NetworkSupportedVersionBlock = (Result<SupportedVersionData, Error>?) -> Void
+typealias NetworkVerificationCodeCompletionBlock = (Result<VerificationCodeData, Error>?) -> Void
+typealias NetworkCountryCompletionBlock = (Result<CountryData?, Error>?) -> Void
+typealias NetworkEmptyCompletionBlock = (Result<Void, Error>?) -> Void
 
 protocol ProjectUnitAccountProtocol {
     func registerCustomer(with info: RegistrationInfo,
@@ -43,9 +45,16 @@ protocol ProjectUnitAccountProtocol {
     func fetchInvitationCode(runCompletionIn queue: DispatchQueue,
                              completionBlock: @escaping NetworkFetchInviteCodeCompletionBlock) throws -> Operation
 
+    func applyInvitation(code: String, runCompletionIn queue: DispatchQueue,
+                         completionBlock: @escaping NetworkEmptyCompletionBlock) throws -> Operation
+
     func markAsUsed(invitationCode: String,
                     runCompletionIn queue: DispatchQueue,
                     completionBlock: @escaping NetworkBoolResultCompletionBlock) throws -> Operation
+
+    func checkInvitation(for deviceInfo: DeviceInfo,
+                         runCompletionIn queue: DispatchQueue,
+                         completionBlock: @escaping NetworkCheckInvitationCompletionBlock) throws -> Operation
 
     func fetchActivatedInvitations(runCompletionIn queue: DispatchQueue,
                                    completionBlock: @escaping NetworkFetchInvitedCompletionBlock) throws -> Operation

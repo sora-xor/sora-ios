@@ -31,7 +31,10 @@ extension UnsupportedVersionPresenter: UnsupportedVersionPresenterProtocol {
     func performAction() {
         if let url = supportedVersionData.updateUrl {
             if !wireframe.open(url: url) {
-                logger?.warning("Can't open update url: \(url)")
+                wireframe.present(message: R.string.localizable.urlNoAppErrorMessage(),
+                                  title: R.string.localizable.errorTitle(),
+                                  closeAction: R.string.localizable.close(),
+                                  from: view)
             }
         } else {
             logger?.warning("Update application url is empty")

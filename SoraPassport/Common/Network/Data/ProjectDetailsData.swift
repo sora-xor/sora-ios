@@ -10,6 +10,7 @@ struct ProjectDetailsData: Equatable, Codable {
         case identifier = "id"
         case title = "name"
         case annotation = "description"
+        case discussionLink
         case favorite
         case favoriteCount
         case votedFriendsCount
@@ -30,6 +31,7 @@ struct ProjectDetailsData: Equatable, Codable {
     var title: String
     var annotation: String
     var details: String?
+    var discussionLink: LinkData?
     var favorite: Bool
     var favoriteCount: Int32
     var votedFriendsCount: Int32
@@ -41,7 +43,7 @@ struct ProjectDetailsData: Equatable, Codable {
     var email: String?
     var gallery: [MediaItemData]?
     var status: ProjectDataStatus
-    var statusUpdateTime: Int64?
+    var statusUpdateTime: Int64
     var votes: String
 }
 

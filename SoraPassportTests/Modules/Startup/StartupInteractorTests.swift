@@ -44,7 +44,7 @@ class StartupInteractorTests: NetworkBaseTests {
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
-        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
+        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
 
         let document = createIdentity()
 
@@ -192,7 +192,7 @@ class StartupInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
-        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
+        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         DecentralizedDocumentFetchMock.register(mock: .notFound)
 
@@ -332,7 +332,7 @@ class StartupInteractorTests: NetworkBaseTests {
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
-        ProjectsCustomerMock.register(mock: .success, projectUnit: projectUnit)
+        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
 
         let document = createIdentity()
 

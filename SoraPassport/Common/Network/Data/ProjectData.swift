@@ -42,7 +42,7 @@ struct ProjectData: Equatable, Codable {
     var fundingCurrent: String
     var fundingDeadline: Int64
     var status: ProjectDataStatus
-    var statusUpdateTime: Int64?
+    var statusUpdateTime: Int64
     var votedFriendsCount: Int32
     var votes: String
 }

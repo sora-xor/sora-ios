@@ -24,7 +24,9 @@ protocol AccessRestoreInteractorOutputProtocol: class {
 }
 
 enum AccessRestoreInteractorError: Error {
+    case userMissing
     case documentMissing
+    case keystoreMissing
     case invalidPassphrase
 }
 

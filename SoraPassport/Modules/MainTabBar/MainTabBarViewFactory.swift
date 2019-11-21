@@ -10,8 +10,6 @@ import CommonWallet
 
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 	static func createView() -> MainTabBarViewProtocol? {
-        let presenter = MainTabBarPresenter()
-
         guard let activityController = createActivityController() else {
             return nil
         }
@@ -41,6 +39,9 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let view = MainTabBarViewController()
         view.viewControllers = [activityController, projectsController, walletController,
                                 profileController, friendsController]
+
+        let children = preparePresenterChildren(for: view)
+        let presenter = MainTabBarPresenter(children: children)
 
         let notificationRegistrator = NotificationsService.sharedNotificationsInteractor.notificationsRegistrator
         let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
@@ -76,6 +77,16 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         navigationController.viewControllers = [activityView.controller]
 
         return navigationController
+    }
+
+    static func preparePresenterChildren(for view: ControllerBackedProtocol) -> [ChildPresenterProtocol] {
+        var children: [ChildPresenterProtocol] = []
+
+        if let invitationHandlePresenter = InvitationHandlePresenterFactory.createPresenter(for: view) {
+            children.append(invitationHandlePresenter)
+        }
+
+        return children
     }
 
     static func createProjectsController() -> UIViewController? {

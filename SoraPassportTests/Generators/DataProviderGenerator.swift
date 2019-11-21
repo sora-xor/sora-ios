@@ -8,16 +8,15 @@ import CoreData
 import RobinHood
 @testable import SoraPassport
 
-func createDefaultCoreDataCache<T, U>() -> CoreDataCache<T, U>
+func createDefaultCoreDataCache<T, U>() -> CoreDataRepository<T, U>
     where T: Identifiable & Codable, U: NSManagedObject & CoreDataCodable {
         let coreDataService = CoreDataCacheFacade.shared.databaseService
         let mapper = AnyCoreDataMapper(CodableCoreDataMapper<T, U>())
 
-        return CoreDataCache(databaseService: coreDataService,
-                             mapper: mapper)
+        return CoreDataRepository(databaseService: coreDataService, mapper: mapper)
 }
 
-func createDataSourceMock<T>(base: Any, returns items: [T]) -> AnyDataProviderSource<T> {
+func createDataSourceMock<T>(returns items: [T]) -> AnyDataProviderSource<T> {
     let fetchPageBlock: (UInt) -> BaseOperation<[T]> = { _ in
         let pageOperation = BaseOperation<[T]>()
         pageOperation.result = .success(items)
@@ -32,51 +31,47 @@ func createDataSourceMock<T>(base: Any, returns items: [T]) -> AnyDataProviderSo
         return identifierOperation
     }
 
-    return AnyDataProviderSource(base: base,
-                                 fetchByPage: fetchPageBlock,
+    return AnyDataProviderSource(fetchByPage: fetchPageBlock,
                                  fetchById: fetchByIdBlock)
 }
 
-func createDataSourceMock<T>(base: Any, returns error: Error) -> AnyDataProviderSource<T> {
+func createDataSourceMock<T>(returns error: Error) -> AnyDataProviderSource<T> {
     let fetchPageBlock: (UInt) -> BaseOperation<[T]> = { _ in
         let pageOperation = BaseOperation<[T]>()
-        pageOperation.result = .error(error)
+        pageOperation.result = .failure(error)
 
         return pageOperation
     }
 
     let fetchByIdBlock: (String) -> BaseOperation<T?> = { _ in
         let identifierOperation = BaseOperation<T?>()
-        identifierOperation.result = .error(error)
+        identifierOperation.result = .failure(error)
 
         return identifierOperation
     }
 
-    return AnyDataProviderSource(base: base,
-                                 fetchByPage: fetchPageBlock,
+    return AnyDataProviderSource(fetchByPage: fetchPageBlock,
                                  fetchById: fetchByIdBlock)
 }
 
-func createSingleValueSourceMock<T>(base: Any, returns item: T) -> AnySingleValueProviderSource<T> {
-    let fetch: () -> BaseOperation<T> = {
-        let operation = BaseOperation<T>()
+func createSingleValueSourceMock<T>(returns item: T) -> AnySingleValueProviderSource<T> {
+    let fetch: () -> BaseOperation<T?> = {
+        let operation = BaseOperation<T?>()
         operation.result = .success(item)
 
         return operation
     }
 
-    return AnySingleValueProviderSource(base: base,
-                                        fetch: fetch)
+    return AnySingleValueProviderSource(fetch: fetch)
 }
 
-func createSingleValueSourceMock<T>(base: Any, returns error: Error) -> AnySingleValueProviderSource<T> {
-    let fetch: () -> BaseOperation<T> = {
-        let operation = BaseOperation<T>()
-        operation.result = .error(error)
+func createSingleValueSourceMock<T>(returns error: Error) -> AnySingleValueProviderSource<T> {
+    let fetch: () -> BaseOperation<T?> = {
+        let operation = BaseOperation<T?>()
+        operation.result = .failure(error)
 
         return operation
     }
 
-    return AnySingleValueProviderSource(base: base,
-                                        fetch: fetch)
+    return AnySingleValueProviderSource(fetch: fetch)
 }

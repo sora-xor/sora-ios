@@ -37,11 +37,11 @@ final class PersonalUpdateInteractor {
         }
 
         let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true)
-        customerFacade.userProvider.addCacheObserver(self,
-                                                     deliverOn: .main,
-                                                     executing: changesBlock,
-                                                     failing: failBlock,
-                                                     options: options)
+        customerFacade.userProvider.addObserver(self,
+                                                deliverOn: .main,
+                                                executing: changesBlock,
+                                                failing: failBlock,
+                                                options: options)
     }
 }
 
@@ -51,7 +51,7 @@ extension PersonalUpdateInteractor: PersonalUpdateInteractorInputProtocol {
     }
 
     func refresh() {
-        customerFacade.userProvider.refreshCache()
+        customerFacade.userProvider.refresh()
     }
 
     func update(with info: PersonalInfo) {
@@ -61,7 +61,7 @@ extension PersonalUpdateInteractor: PersonalUpdateInteractorInputProtocol {
                     switch result {
                     case .success:
                         self.presenter?.didUpdateUser(with: info)
-                    case .error(let error):
+                    case .failure(let error):
                         self.presenter?.didReceiveUserUpdate(error: error)
                     }
                 }

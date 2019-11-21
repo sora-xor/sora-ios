@@ -458,3 +458,16 @@ extension ProjectsViewController: ProjectsViewProtocol {
         compactTopBar.votesButton.invalidateLayout()
     }
 }
+
+extension ProjectsViewController: ScrollsToTop {
+    func scrollToTop() {
+        var contentInsets = collectionView.contentInset
+
+        if #available(iOS 11.0, *) {
+            contentInsets = collectionView.adjustedContentInset
+        }
+
+        let contentOffset = CGPoint(x: 0.0, y: -contentInsets.top)
+        collectionView.setContentOffset(contentOffset, animated: true)
+    }
+}

@@ -10,7 +10,7 @@ import CoreData
 protocol CoreDataCacheFacadeProtocol: class {
     var databaseService: CoreDataServiceProtocol { get }
 
-    func createCoreDataCache<T, U>(domain: String) -> CoreDataCache<T, U>
+    func createCoreDataCache<T, U>(domain: String) -> CoreDataRepository<T, U>
         where T: Identifiable & Codable, U: NSManagedObject & CoreDataCodable
 }
 
@@ -37,12 +37,12 @@ final class CoreDataCacheFacade: CoreDataCacheFacadeProtocol {
         databaseService = CoreDataService(configuration: configuration)
     }
 
-    func createCoreDataCache<T, U>(domain: String) -> CoreDataCache<T, U>
+    func createCoreDataCache<T, U>(domain: String) -> CoreDataRepository<T, U>
         where T: Identifiable & Codable, U: NSManagedObject & CoreDataCodable {
 
             let mapper = AnyCoreDataMapper(CodableCoreDataMapper<T, U>())
-            return CoreDataCache(databaseService: databaseService,
-                                 mapper: mapper,
-                                 domain: domain)
+            return CoreDataRepository(databaseService: databaseService,
+                                      mapper: mapper,
+                                      domain: domain)
     }
 }

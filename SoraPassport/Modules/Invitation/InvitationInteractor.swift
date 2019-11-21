@@ -11,6 +11,7 @@ final class InvitationInteractor {
 
     private(set) var projectUnitService: ProjectUnitServiceProtocol
     private(set) var customerDataProviderFacade: CustomerDataProviderFacadeProtocol
+    private(set) var eventCenter: EventCenterProtocol
 
     private var invitationCodeOperation: Operation?
     private var markOperation: Operation?
@@ -20,9 +21,11 @@ final class InvitationInteractor {
     }
 
     init(service: ProjectUnitServiceProtocol,
-         customerDataProviderFacade: CustomerDataProviderFacadeProtocol) {
+         customerDataProviderFacade: CustomerDataProviderFacadeProtocol,
+         eventCenter: EventCenterProtocol) {
         self.projectUnitService = service
         self.customerDataProviderFacade = customerDataProviderFacade
+        self.eventCenter = eventCenter
     }
 
     private func setupUserDataProvider() {
@@ -30,9 +33,9 @@ final class InvitationInteractor {
             if let change = changes.first {
                 switch change {
                 case .insert(let user):
-                    self?.presenter?.didLoad(userValues: user.values)
+                    self?.presenter?.didLoad(user: user)
                 case .update(let user):
-                    self?.presenter?.didLoad(userValues: user.values)
+                    self?.presenter?.didLoad(user: user)
                 case .delete:
                     break
                 }
@@ -40,13 +43,17 @@ final class InvitationInteractor {
         }
 
         let failBlock = { [weak self] (error: Error) -> Void in
-            self?.presenter?.didReceiveValuesDataProvider(error: error)
+            self?.presenter?.didReceiveUserDataProvider(error: error)
         }
 
-        customerDataProviderFacade.userProvider.addCacheObserver(self,
-                                                                 deliverOn: .main,
-                                                                 executing: changesBlock,
-                                                                 failing: failBlock)
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
+                                                  waitsInProgressSyncOnAdd: false)
+
+        customerDataProviderFacade.userProvider.addObserver(self,
+                                                            deliverOn: .main,
+                                                            executing: changesBlock,
+                                                            failing: failBlock,
+                                                            options: options)
     }
 
     private func setupInvitationsDataProvider() {
@@ -64,25 +71,29 @@ final class InvitationInteractor {
         }
 
         let failBlock = { [weak self] (error: Error) -> Void in
-            self?.presenter?.didReceiveValuesDataProvider(error: error)
+            self?.presenter?.didReceiveInvitedUsersDataProvider(error: error)
         }
 
-        customerDataProviderFacade.friendsDataProvider.addCacheObserver(self,
-                                                                        deliverOn: .main,
-                                                                        executing: changesBlock,
-                                                                        failing: failBlock)
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
+                                                  waitsInProgressSyncOnAdd: false)
+
+        customerDataProviderFacade.friendsDataProvider.addObserver(self,
+                                                                   deliverOn: .main,
+                                                                   executing: changesBlock,
+                                                                   failing: failBlock,
+                                                                   options: options)
     }
 
-    private func process(result: OperationResult<InvitationCodeData>) {
+    private func process(result: Result<InvitationCodeData, Error>) {
         switch result {
         case .success(let code):
             presenter?.didLoad(invitationCodeData: code)
-        case .error(let error):
+        case .failure(let error):
             presenter?.didReceiveInvitationCode(error: error)
         }
     }
 
-    private func processMark(result: OperationResult<Bool>, for invitationCode: String) {
+    private func processMark(result: Result<Bool, Error>, for invitationCode: String) {
         if case .success = result {
             presenter?.didMark(invitationCode: invitationCode)
         }
@@ -93,14 +104,16 @@ extension InvitationInteractor: InvitationInteractorInputProtocol {
     func setup() {
         setupUserDataProvider()
         setupInvitationsDataProvider()
+
+        eventCenter.add(observer: self)
     }
 
-    func refreshUserValues() {
-        customerDataProviderFacade.userProvider.refreshCache()
+    func refreshUser() {
+        customerDataProviderFacade.userProvider.refresh()
     }
 
     func refreshInvitedUsers() {
-        customerDataProviderFacade.friendsDataProvider.refreshCache()
+        customerDataProviderFacade.friendsDataProvider.refresh()
     }
 
     func loadInvitationCode() {
@@ -140,5 +153,16 @@ extension InvitationInteractor: InvitationInteractorInputProtocol {
                     self?.processMark(result: result, for: invitationCode)
                 }
         }
+    }
+
+    func apply(invitationCode: String) {
+        eventCenter.notify(with: InvitationInputEvent(code: invitationCode))
+    }
+}
+
+extension InvitationInteractor: EventVisitorProtocol {
+    func processInvitationApplied(event: InvitationAppliedEvent) {
+        refreshUser()
+        refreshInvitedUsers()
     }
 }

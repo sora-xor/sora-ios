@@ -13,9 +13,9 @@ func createTestOperation<ResultType>(url: URL, resultValue: ResultType) -> Netwo
     }
 
     let resultFactory = AnyNetworkResultFactory
-    { (data: Data?, response: URLResponse?, error: Error?) -> OperationResult<ResultType> in
+    { (data: Data?, response: URLResponse?, error: Error?) -> Result<ResultType, Error> in
         if let existingError = error {
-            return .error(existingError)
+            return .failure(existingError)
         } else {
             return .success(resultValue)
         }

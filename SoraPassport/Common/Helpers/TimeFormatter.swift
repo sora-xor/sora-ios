@@ -9,7 +9,7 @@ protocol TimeFormatterProtocol {
     func string(from timeInterval: TimeInterval) throws -> String
 }
 
-struct TimeFormatter: TimeFormatterProtocol {
+struct MinuteSecondFormatter: TimeFormatterProtocol {
     func string(from timeInterval: TimeInterval) throws -> String {
         let minutes = Int(timeInterval) / 60
         let seconds = Int(timeInterval) % 60
@@ -18,6 +18,23 @@ struct TimeFormatter: TimeFormatterProtocol {
         let secondsString = seconds < 10 ? "0\(seconds)" : String(seconds)
 
         return "\(minutesString):\(secondsString)"
+    }
+}
+
+struct HourMinuteFormatter: TimeFormatterProtocol {
+    func string(from timeInterval: TimeInterval) throws -> String {
+        var currentInterval = Int(timeInterval)
+
+        let hours = currentInterval / 3600
+
+        currentInterval = currentInterval % 3600
+
+        let minutes = currentInterval / 60
+
+        let hoursString = hours < 10 ? "0\(hours)" : String(hours)
+        let minutesString = minutes < 10 ? "0\(minutes)" : String(minutes)
+
+        return "\(hoursString):\(minutesString)"
     }
 }
 

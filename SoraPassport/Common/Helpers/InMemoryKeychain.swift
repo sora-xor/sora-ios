@@ -57,7 +57,8 @@ extension InMemoryKeychain: SecretStoreManagerProtocol {
         }
     }
 
-    func removeSecret(for identifier: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+    func removeSecret(for identifier: String, completionQueue: DispatchQueue,
+                      completionBlock: @escaping (Bool) -> Void) {
         keystore[identifier] = nil
 
         completionQueue.async {
@@ -65,7 +66,8 @@ extension InMemoryKeychain: SecretStoreManagerProtocol {
         }
     }
 
-    func checkSecret(for identifier: String, completionQueue: DispatchQueue, completionBlock: @escaping (Bool) -> Void) {
+    func checkSecret(for identifier: String, completionQueue: DispatchQueue,
+                     completionBlock: @escaping (Bool) -> Void) {
         let exists = keystore[identifier] != nil
 
         completionQueue.async {

@@ -14,10 +14,18 @@ final class MainTabBarPresenter {
 
     private var shouldRequestNotificationConfiguration: Bool = true
     private var shouldRequestDeepLinkConfiguration: Bool = true
+
+    let children: [ChildPresenterProtocol]
+
+    init(children: [ChildPresenterProtocol]) {
+        self.children = children
+    }
 }
 
 extension MainTabBarPresenter: MainTabBarPresenterProtocol {
     func viewIsReady() {
+        children.forEach { $0.setup() }
+
         if shouldRequestNotificationConfiguration {
             shouldRequestNotificationConfiguration = false
             interactor.configureNotifications()
@@ -36,8 +44,11 @@ extension MainTabBarPresenter: MainTabBarPresenterProtocol {
 
 extension MainTabBarPresenter: MainTabBarInteractorOutputProtocol {
     func didReceive(deepLink: DeepLinkProtocol) {
-        if deepLink.accept(navigator: wireframe) {
-            interactor.resolvePendingDeepLink()
+        for child in children {
+            if let navigator = child as? DeepLinkNavigatorProtocol, deepLink.accept(navigator: navigator) {
+                interactor.resolvePendingDeepLink()
+                return
+            }
         }
     }
 }

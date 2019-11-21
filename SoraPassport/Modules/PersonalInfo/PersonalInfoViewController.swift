@@ -5,26 +5,59 @@
 
 import UIKit
 
-final class PersonalInfoViewController: AccessoryViewController {
+final class PersonalInfoViewController: AccessoryViewController, AdaptiveDesignable {
     var presenter: PersonalInfoPresenterProtocol!
 
     private(set) var models: [PersonalInfoViewModelProtocol] = []
 
     @IBOutlet private var tableView: UITableView!
 
+    private var contentWidth: CGFloat = 375.0
+
     // MARK: Initialization
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        adjustLayout()
 
         configureTableView()
 
         presenter.load()
     }
 
+    private func adjustLayout() {
+        contentWidth *= designScaleRatio.width
+    }
+
     private func configureTableView() {
         tableView.register(UINib(resource: R.nib.personalInfoCell),
                            forCellReuseIdentifier: R.reuseIdentifier.personalInfoCellId.identifier)
+
+        setupTableFooter(for: nil)
+    }
+
+    private func setupTableFooter(for viewModel: PersonalInfoFooterViewModel?) {
+        guard let viewModel = viewModel else {
+            tableView.tableFooterView = nil
+            return
+        }
+
+        var footerView = tableView.tableFooterView as? PersonalInfoFooterView
+
+        if footerView == nil {
+            footerView = R.nib.personalInfoFooterView(owner: nil)
+        }
+
+        footerView?.bind(viewModel: viewModel)
+
+        if let footerView = footerView {
+            let size = footerView.sizeThatFits(CGSize(width: contentWidth,
+                                                      height: CGFloat.greatestFiniteMagnitude))
+            footerView.frame = CGRect(origin: .zero, size: size)
+        }
+
+        tableView.tableFooterView = footerView
     }
 
     override func updateBottom(inset: CGFloat) {
@@ -123,6 +156,10 @@ extension PersonalInfoViewController: PersonalInfoViewProtocol {
     func didReceive(viewModels: [PersonalInfoViewModelProtocol]) {
         models = viewModels
         tableView.reloadData()
+    }
+
+    func didReceive(footerViewModel: PersonalInfoFooterViewModel?) {
+        setupTableFooter(for: footerViewModel)
     }
 
     func didStartEditing(at index: Int) {

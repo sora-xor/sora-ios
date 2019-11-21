@@ -50,7 +50,7 @@ final class IdentityCreationOperation: BaseOperation<DecentralizedDocumentObject
             result = .success(documentObject)
 
         } catch {
-            result = .error(error)
+            result = .failure(error)
         }
     }
 

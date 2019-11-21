@@ -18,7 +18,7 @@ protocol UnsupportedVersionInteractorInputProtocol: class {}
 
 protocol UnsupportedVersionInteractorOutputProtocol: class {}
 
-protocol UnsupportedVersionWireframeProtocol: class, OutboundUrlPresentable {}
+protocol UnsupportedVersionWireframeProtocol: OutboundUrlPresentable, AlertPresentable {}
 
 protocol UnsupportedVersionViewFactoryProtocol: class {
     static func createView(supportedVersionData: SupportedVersionData) -> UnsupportedVersionViewProtocol?

@@ -9,10 +9,10 @@ import RobinHood
 final class CurrencyInteractor {
 	weak var presenter: CurrencyInteractorOutputProtocol?
 
-    private(set) var currencyDataProvider: SingleValueProvider<CurrencyData, CDSingleValue>
+    private(set) var currencyDataProvider: SingleValueProvider<CurrencyData>
     private(set) var selectedCurrencyDataProvider: SelectedCurrencyDataProvider
 
-    init(currencyDataProvider: SingleValueProvider<CurrencyData, CDSingleValue>,
+    init(currencyDataProvider: SingleValueProvider<CurrencyData>,
          selectedCurrencyDataProvider: SelectedCurrencyDataProvider) {
         self.currencyDataProvider = currencyDataProvider
         self.selectedCurrencyDataProvider = selectedCurrencyDataProvider
@@ -34,10 +34,10 @@ final class CurrencyInteractor {
             self?.presenter?.didReceiveSelectedCurrencyDataProvider(error: error)
         }
 
-        selectedCurrencyDataProvider.addCacheObserver(self,
-                                                      deliverOn: .main,
-                                                      executing: changesBlock,
-                                                      failing: failBlock)
+        selectedCurrencyDataProvider.addObserver(self,
+                                                 deliverOn: .main,
+                                                 executing: changesBlock,
+                                                 failing: failBlock)
     }
 
     private func setupCurrencyDataProvider() {
@@ -58,10 +58,10 @@ final class CurrencyInteractor {
             self?.presenter?.didReceiveCurrencyDataProvider(error: error)
         }
 
-        currencyDataProvider.addCacheObserver(self,
-                                              deliverOn: .main,
-                                              executing: changesBlock,
-                                              failing: failBlock)
+        currencyDataProvider.addObserver(self,
+                                         deliverOn: .main,
+                                         executing: changesBlock,
+                                         failing: failBlock)
     }
 
     private func handle(optionalCurrencyData: CurrencyData?) {

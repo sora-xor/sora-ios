@@ -26,7 +26,7 @@ protocol MainTabBarInteractorOutputProtocol: class {
     func didReceive(deepLink: DeepLinkProtocol)
 }
 
-protocol MainTabBarWireframeProtocol: AlertPresentable, DeepLinkNavigatorProtocol {}
+protocol MainTabBarWireframeProtocol: AlertPresentable {}
 
 protocol MainTabBarViewFactoryProtocol: class {
     static func createView() -> MainTabBarViewProtocol?

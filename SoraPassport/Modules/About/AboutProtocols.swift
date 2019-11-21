@@ -16,7 +16,7 @@ protocol AboutPresenterProtocol: class {
     func activateWriteUs()
 }
 
-protocol AboutWireframeProtocol: WebPresentable, EmailPresentable {}
+protocol AboutWireframeProtocol: WebPresentable, EmailPresentable, AlertPresentable {}
 
 protocol AboutViewFactoryProtocol: class {
 	static func createView() -> AboutViewProtocol?

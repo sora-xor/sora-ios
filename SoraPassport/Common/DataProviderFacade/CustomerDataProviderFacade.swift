@@ -25,54 +25,54 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
 
     let executionQueue: OperationQueue
 
-    lazy private(set) var votesProvider: SingleValueProvider<VotesData, CDSingleValue> = {
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+    lazy private(set) var votesProvider: SingleValueProvider<VotesData> = {
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
             .createCoreDataCache(domain: CustomerDataProviderFacade.cacheDomain)
 
-        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchVotesOperation)
+        let source = AnySingleValueProviderSource(fetch: self.fetchVotesOperation)
 
         return SingleValueProvider(targetIdentifier: CustomerDataProviderFacade.votesIdentifier,
                                    source: source,
-                                   cache: cache,
+                                   repository: AnyDataProviderRepository(cache),
                                    updateTrigger: DataProviderEventTrigger.onAddObserver,
                                    executionQueue: self.executionQueue)
     }()
 
-    lazy private(set) var userProvider: SingleValueProvider<UserData, CDSingleValue> = {
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+    lazy private(set) var userProvider: SingleValueProvider<UserData> = {
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
             .createCoreDataCache(domain: CustomerDataProviderFacade.cacheDomain)
 
-        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchUserOperation)
+        let source = AnySingleValueProviderSource(fetch: self.fetchUserOperation)
 
         return SingleValueProvider(targetIdentifier: CustomerDataProviderFacade.userIdentifier,
                                    source: source,
-                                   cache: cache,
+                                   repository: AnyDataProviderRepository(cache),
                                    updateTrigger: DataProviderEventTrigger.onAddObserver,
                                    executionQueue: self.executionQueue)
     }()
 
-    lazy private(set) var friendsDataProvider: SingleValueProvider<ActivatedInvitationsData, CDSingleValue> = {
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+    lazy private(set) var friendsDataProvider: SingleValueProvider<ActivatedInvitationsData> = {
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
             .createCoreDataCache(domain: CustomerDataProviderFacade.cacheDomain)
 
-        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchFriendsOperation)
+        let source = AnySingleValueProviderSource(fetch: self.fetchFriendsOperation)
 
         return SingleValueProvider(targetIdentifier: CustomerDataProviderFacade.friendsIdentifier,
                                    source: source,
-                                   cache: cache,
+                                   repository: AnyDataProviderRepository(cache),
                                    updateTrigger: DataProviderEventTrigger.onAddObserver,
                                    executionQueue: self.executionQueue)
     }()
 
-    lazy private(set) var reputationDataProvider: SingleValueProvider<ReputationData, CDSingleValue> = {
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
+    lazy private(set) var reputationDataProvider: SingleValueProvider<ReputationData> = {
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
             .createCoreDataCache(domain: CustomerDataProviderFacade.cacheDomain)
 
-        let source = AnySingleValueProviderSource(base: self, fetch: self.fetchReputationOperation)
+        let source = AnySingleValueProviderSource(fetch: self.fetchReputationOperation)
 
         return SingleValueProvider(targetIdentifier: CustomerDataProviderFacade.reputationIdentifier,
                                    source: source,
-                                   cache: cache,
+                                   repository: AnyDataProviderRepository(cache),
                                    updateTrigger: DataProviderEventTrigger.onAddObserver,
                                    executionQueue: self.executionQueue)
     }()
@@ -81,10 +81,10 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
         executionQueue = OperationQueue()
     }
 
-    private func fetchVotesOperation() -> BaseOperation<VotesData> {
+    private func fetchVotesOperation() -> BaseOperation<VotesData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.votesCount.rawValue) else {
-            let operation = BaseOperation<VotesData>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            let operation = BaseOperation<VotesData?>()
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -94,11 +94,11 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
         return operation
     }
 
-    private func fetchUserOperation() -> BaseOperation<UserData> {
+    private func fetchUserOperation() -> BaseOperation<UserData?> {
         let projectUnit = self.config.defaultProjectUnit
         guard let service = projectUnit.service(for: ProjectServiceType.customer.rawValue) else {
-            let operation = BaseOperation<UserData>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            let operation = BaseOperation<UserData?>()
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -108,11 +108,11 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
         return operation
     }
 
-    private func fetchFriendsOperation() -> BaseOperation<ActivatedInvitationsData> {
+    private func fetchFriendsOperation() -> BaseOperation<ActivatedInvitationsData?> {
         let projectUnit = self.config.defaultProjectUnit
         guard let service = projectUnit.service(for: ProjectServiceType.fetchInvited.rawValue) else {
-            let operation = BaseOperation<ActivatedInvitationsData>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            let operation = BaseOperation<ActivatedInvitationsData?>()
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -122,11 +122,11 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
         return operation
     }
 
-    private func fetchReputationOperation() -> BaseOperation<ReputationData> {
+    private func fetchReputationOperation() -> BaseOperation<ReputationData?> {
         let projectUnit = self.config.defaultProjectUnit
         guard let service = projectUnit.service(for: ProjectServiceType.reputation.rawValue) else {
-            let operation = BaseOperation<ReputationData>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            let operation = BaseOperation<ReputationData?>()
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 

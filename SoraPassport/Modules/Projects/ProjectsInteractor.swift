@@ -40,9 +40,10 @@ final class ProjectsInteractor {
             self?.presenter?.didReceiveVotesDataProvider(error: error)
         }
 
-        customerDataProviderFacade.votesProvider.addCacheObserver(self, deliverOn: .main,
-                                                                  executing: changesBlock,
-                                                                  failing: failBlock)
+        customerDataProviderFacade.votesProvider.addObserver(self,
+                                                             deliverOn: .main,
+                                                             executing: changesBlock,
+                                                             failing: failBlock)
     }
 
     private func setupEventCenter() {
@@ -57,7 +58,7 @@ extension ProjectsInteractor: ProjectsInteractorInputProtocol {
     }
 
     func refreshVotes() {
-        customerDataProviderFacade.votesProvider.refreshCache()
+        customerDataProviderFacade.votesProvider.refresh()
     }
 
     func vote(for project: ProjectVote) {
@@ -67,7 +68,7 @@ extension ProjectsInteractor: ProjectsInteractorInputProtocol {
                     switch result {
                     case .success:
                         self.eventCenter.notify(with: ProjectVoteEvent(details: project))
-                    case .error(let error):
+                    case .failure(let error):
                         self.presenter?.didReceiveVote(error: error, for: project)
                     }
                 }
@@ -84,7 +85,7 @@ extension ProjectsInteractor: ProjectsInteractorInputProtocol {
                     switch result {
                     case .success:
                         self.eventCenter.notify(with: ProjectFavoriteToggleEvent(projectId: projectId))
-                    case .error(let error):
+                    case .failure(let error):
                         self.presenter?.didReceiveTogglingFavorite(error: error, for: projectId)
                     }
                 }

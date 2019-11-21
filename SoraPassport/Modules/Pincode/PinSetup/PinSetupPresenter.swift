@@ -16,6 +16,8 @@ class PinSetupPresenter: PinSetupPresenterProtocol {
 
     func activateBiometricAuth() {}
 
+    func cancel() {}
+
     func submit(pin: String) {
         interactor.process(pin: pin)
     }

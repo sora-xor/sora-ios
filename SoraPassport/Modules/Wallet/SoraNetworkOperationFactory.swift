@@ -8,19 +8,23 @@ import CommonWallet
 import RobinHood
 import IrohaCommunication
 
-final class SoraNetworkOperationFactory: IrohaOperationFactoryProtocol {
-
+final class SoraNetworkOperationFactory: MiddlewareOperationFactoryProtocol {
     let accountSettings: WalletAccountSettingsProtocol
+    let networkResolver: WalletNetworkResolverProtocol
 
     private(set) lazy var encoder: JSONEncoder = JSONEncoder()
     private(set) lazy var decoder: JSONDecoder = JSONDecoder()
 
-    init(accountSettings: WalletAccountSettingsProtocol) {
+    init(accountSettings: WalletAccountSettingsProtocol, networkResolver: WalletNetworkResolverProtocol) {
         self.accountSettings = accountSettings
+        self.networkResolver = networkResolver
     }
 
-    func transferOperation(_ urlTemplate: String, info: TransferInfo) -> NetworkOperation<Bool> {
+    func transferOperation(_ info: TransferInfo) -> BaseOperation<Void> {
+        let urlTemplate = networkResolver.urlTemplate(for: .transfer)
+
         let requestFactory = BlockNetworkRequestFactory {
+
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
             }
@@ -52,17 +56,17 @@ final class SoraNetworkOperationFactory: IrohaOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<Bool> { (data) in
+        let resultFactory = AnyNetworkResultFactory { (data) in
             let resultData = try self.decoder.decode(ResultData<Bool>.self, from: data)
 
             guard resultData.status.isSuccess else {
                 throw ResultStatusError(statusData: resultData.status)
             }
-
-            return true
         }
 
-        return NetworkOperation(requestFactory: requestFactory,
-                                resultFactory: resultFactory)
+        let operation = NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
+        operation.requestModifier = networkResolver.adapter(for: .transfer)
+
+        return operation
     }
 }

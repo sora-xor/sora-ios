@@ -26,7 +26,7 @@ class IdentityCreationOperationTests: XCTestCase {
 
         let expectation = XCTestExpectation()
 
-        var optionalResult: OperationResult<DecentralizedDocumentObject>?
+        var optionalResult: Result<DecentralizedDocumentObject, Error>?
 
         operation.completionBlock = {
             optionalResult = operation.result

@@ -82,13 +82,19 @@ extension PersonalInfoPresenter: PersonalInfoPresenterProtocol {
 }
 
 extension PersonalInfoPresenter: PersonalInfoInteractorOutputProtocol {
-    func didReceive(invitationCode: String) {
+    func didReceive(invitationCode: String?) {
         updatePersonalForm()
 
         personalForm.invitationCode = invitationCode
 
         models = viewModelFactory.createRegistrationForm(from: personalForm)
         view?.didReceive(viewModels: models)
+
+        if invitationCode == nil {
+            let footerViewModel = PersonalInfoFooterViewModel(text: R.string.localizable
+                                                                .personalInfoInvitationMessage())
+            view?.didReceive(footerViewModel: footerViewModel)
+        }
     }
 
     func didStartRegistration(with form: PersonalForm) {

@@ -6,9 +6,9 @@
 import Foundation
 import RobinHood
 
-typealias NotificationRegisterCompletionBlock = (OperationResult<Bool>?) -> Void
-typealias NotificationTokenExchangeCompletionBlock = (OperationResult<Bool>?) -> Void
-typealias NotificationPermissionOnCompletionBlock = (OperationResult<Bool>?) -> Void
+typealias NotificationRegisterCompletionBlock = (Result<Bool, Error>?) -> Void
+typealias NotificationTokenExchangeCompletionBlock = (Result<Bool, Error>?) -> Void
+typealias NotificationPermissionOnCompletionBlock = (Result<Bool, Error>?) -> Void
 
 protocol NotificationUnitServiceProtocol: BaseServiceProtocol {
     func registerUser(with info: NotificationUserInfo,

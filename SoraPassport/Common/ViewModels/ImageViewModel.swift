@@ -13,6 +13,8 @@ protocol ImageViewModelProtocol: class {
     var cornerRadius: CGFloat? { get set }
     func loadImage(with completionBlock: @escaping (UIImage?, Error?) -> Void)
     func cancel()
+
+    func isEqual(to viewModel: ImageViewModelProtocol) -> Bool
 }
 
 final class ImageViewModel: NSObject {
@@ -67,6 +69,16 @@ extension ImageViewModel: ImageViewModelProtocol {
 
                                                             completionBlock(image, error)
         }
+    }
+
+    func isEqual(to viewModel: ImageViewModelProtocol) -> Bool {
+        guard let otherViewModel = viewModel as? ImageViewModel else {
+            return false
+        }
+
+        return url == otherViewModel.url &&
+            cornerRadius == otherViewModel.cornerRadius &&
+            targetSize == otherViewModel.targetSize
     }
 
     func cancel() {

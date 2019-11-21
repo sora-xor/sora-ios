@@ -169,6 +169,11 @@ extension OpenProjectViewModelFactory: OpenProjectViewModelFactoryProtocol {
             viewModel.statisticsDetails = favoritesString
         }
 
+        if let discussionLink = projectDetails.discussionLink {
+            viewModel.discussionDetails = R.string.localizable
+                .projectDetailsDiscussFormat(discussionLink.title)
+        }
+
         viewModel.details = projectDetails.details ?? projectDetails.annotation
 
         viewModel.website = projectDetails.link?.absoluteString ?? ""

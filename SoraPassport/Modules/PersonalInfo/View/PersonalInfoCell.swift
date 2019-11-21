@@ -81,7 +81,16 @@ final class PersonalInfoCell: UITableViewCell {
         }
     }
 
-    @IBAction private func actionTextFieldChange(sender: AnyObject) {
+    @IBAction private func actionTextFieldChange(sender: UITextField) {
+        if sender.text?.count != model?.value.count {
+            /**
+             * prevent app from crash if text field changes without
+             * notifying delegate (like smart replacement)
+            */
+
+            sender.text = model?.value
+        }
+
         if let delegate = delegate {
             delegate.didChangeValue(in: self)
         }

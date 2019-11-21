@@ -71,7 +71,7 @@ final class ProjectsViewFactory: ProjectsViewFactoryProtocol {
     }
 
     private static func createProjectListPresenter(viewModelFactory: ProjectViewModelFactoryProtocol,
-                                                   dataProvider: DataProvider<ProjectData, CDProject>,
+                                                   dataProvider: DataProvider<ProjectData>,
                                                    eventCenter: EventCenterProtocol)
         -> ProjectsListPresenter {
 

@@ -133,4 +133,16 @@ extension UIFont {
     static var accessoryTitle: UIFont {
         return R.font.soraRc0040417Regular(size: 14.0)!
     }
+
+    static var darkGreyishSemiboldLabel: UIFont {
+        return R.font.soraRc0040417SemiBold(size: 14.0)!
+    }
+
+    static var greyishRegularLabel: UIFont {
+        return R.font.soraRc0040417Regular(size: 14.0)!
+    }
+
+    static var roundedContentCellText: UIFont {
+        return R.font.soraRc0040417SemiBold(size: 14.0)!
+    }
 }

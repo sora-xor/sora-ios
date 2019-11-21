@@ -59,7 +59,7 @@ final class ActivityFeedViewFactory: ActivityFeedViewFactoryProtocol {
 
     static func createActivityFeedDataProvider(with requestSigner: DARequestSigner,
                                                projectUnit: ServiceUnit)
-        -> SingleValueProvider<ActivityData, CDSingleValue>? {
+        -> SingleValueProvider<ActivityData>? {
         let activityFeedDataProviderFactory = ActivityFeedDataProviderFactory(
             requestSigner: requestSigner,
             projectUnit: projectUnit)

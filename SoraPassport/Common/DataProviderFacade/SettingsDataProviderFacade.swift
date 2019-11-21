@@ -10,7 +10,7 @@ import RobinHood
 final class SettingsDataProviderFacade: SettingsDataProviderFacadeProtocol {
     static let shared = SettingsDataProviderFacade()
 
-    lazy var currenciesDataProvider: SingleValueProvider<CurrencyData, CDSingleValue> =
+    lazy var currenciesDataProvider: SingleValueProvider<CurrencyData> =
         InformationDataProviderFacade.shared.currencyDataProvider
 
     lazy var settingsManager: SettingsManagerProtocol = SettingsManager.shared

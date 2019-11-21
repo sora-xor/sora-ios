@@ -28,7 +28,7 @@ func createRandomProject() -> ProjectData {
                        fundingCurrent: String(fundingCurrent),
                        fundingDeadline: fundingDeadline,
                        status: .open,
-                       statusUpdateTime: nil,
+                       statusUpdateTime: (0...Int64.max).randomElement()!,
                        votedFriendsCount: votedFriendsCount,
                        votes: String(votes))
 }

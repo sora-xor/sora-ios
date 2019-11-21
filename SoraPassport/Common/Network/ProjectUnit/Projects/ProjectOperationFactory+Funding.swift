@@ -35,7 +35,7 @@ extension ProjectOperationFactory: ProjectFundingOperationFactoryProtocol {
     }
 
     func fetchProjectDetailsOperation(_ urlTemplate: String, projectId: String)
-        -> NetworkOperation<ProjectDetailsData> {
+        -> NetworkOperation<ProjectDetailsData?> {
         let requestFactory = BlockNetworkRequestFactory {
             let serviceUrl = try EndpointBuilder(urlTemplate: urlTemplate).buildParameterURL(projectId)
 
@@ -44,7 +44,7 @@ extension ProjectOperationFactory: ProjectFundingOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<ProjectDetailsData> { (data) in
+        let resultFactory = AnyNetworkResultFactory<ProjectDetailsData?> { (data) in
             let resultData = try JSONDecoder().decode(ResultData<ProjectDetailsData>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -62,8 +62,7 @@ extension ProjectOperationFactory: ProjectFundingOperationFactoryProtocol {
             return projectDetails
         }
 
-        return NetworkOperation<ProjectDetailsData>(requestFactory: requestFactory,
-                                                    resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
     func toggleFavoriteOperation(_ urlTemplate: String, projectId: String) -> NetworkOperation<Bool> {
@@ -122,7 +121,7 @@ extension ProjectOperationFactory: ProjectFundingOperationFactoryProtocol {
                                       resultFactory: resultFactory)
     }
 
-    func fetchVotesOperation(_ urlTemplate: String) -> NetworkOperation<VotesData> {
+    func fetchVotesOperation(_ urlTemplate: String) -> NetworkOperation<VotesData?> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
@@ -133,7 +132,7 @@ extension ProjectOperationFactory: ProjectFundingOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<VotesData> { data in
+        let resultFactory = AnyNetworkResultFactory<VotesData?> { data in
             let resultData = try JSONDecoder().decode(MultifieldResultData<VotesData>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -147,11 +146,10 @@ extension ProjectOperationFactory: ProjectFundingOperationFactoryProtocol {
             return resultData.result
         }
 
-        return NetworkOperation<VotesData>(requestFactory: requestFactory,
-                                           resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
-    func fetchVotesHistory(_ urlTemplate: String, with info: Pagination) -> NetworkOperation<[VotesHistoryEventData]> {
+    func fetchVotesHistory(_ urlTemplate: String, with info: Pagination) -> NetworkOperation<[VotesHistoryEventData]?> {
         let requestFactory = BlockNetworkRequestFactory {
             let serviceUrl = try EndpointBuilder(urlTemplate: urlTemplate).buildURL(with: info)
 
@@ -160,7 +158,7 @@ extension ProjectOperationFactory: ProjectFundingOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<[VotesHistoryEventData]> { data in
+        let resultFactory = AnyNetworkResultFactory<[VotesHistoryEventData]?> { data in
             let resultData = try JSONDecoder().decode(ResultData<[VotesHistoryEventData]>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -174,7 +172,6 @@ extension ProjectOperationFactory: ProjectFundingOperationFactoryProtocol {
             return votesHistoryEvents
         }
 
-        return NetworkOperation<[VotesHistoryEventData]>(requestFactory: requestFactory,
-                                                         resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 }

@@ -24,7 +24,7 @@ class ProfileInteractorTests: NetworkBaseTests {
 
     func testSuccessfullInteractorSetup() {
         // given
-        ProjectsCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         ProjectsVotesCountMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         ProjectsReputationFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         CurrencyFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)

@@ -84,9 +84,7 @@ final class FinishedProjectViewModelFactory {
 
             $0.fundingProgressDetails = createFundingProgress(from: project.fundingTarget)
 
-            if let completionTime = project.statusUpdateTime {
-                $0.completionTimeDetails = createCompletionDetails(from: completionTime)
-            }
+            $0.completionTimeDetails = createCompletionDetails(from: project.statusUpdateTime)
 
             let votingDetails = createVotingDetails(from: project.status)
             $0.isSuccessfull = votingDetails.isSuccessfull
@@ -139,9 +137,7 @@ extension FinishedProjectViewModelFactory: FinishedProjectViewModelFactoryProtoc
 
         viewModel.fundingDetails = createFundingProgress(from: projectDetails.fundingTarget)
 
-        if let completionTime = projectDetails.statusUpdateTime {
-            viewModel.remainedTimeDetails = createCompletionDetails(from: completionTime)
-        }
+        viewModel.remainedTimeDetails = createCompletionDetails(from: projectDetails.statusUpdateTime)
 
         let votingDetails = createVotingDetails(from: projectDetails.status)
         viewModel.status = .finished(successfull: votingDetails.isSuccessfull)
@@ -163,6 +159,11 @@ extension FinishedProjectViewModelFactory: FinishedProjectViewModelFactoryProtoc
             viewModel.statisticsDetails = votedFriendsString
         } else if !favoritesString.isEmpty {
             viewModel.statisticsDetails = favoritesString
+        }
+
+        if let discussionLink = projectDetails.discussionLink {
+            viewModel.discussionDetails = R.string.localizable
+                .projectDetailsDiscussFormat(discussionLink.title)
         }
 
         viewModel.details = projectDetails.details ?? projectDetails.annotation

@@ -10,7 +10,8 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
     struct Constants {
         static let galleryCellSpacing: CGFloat = 19.0
         static let galleryHorizontalInsets: CGFloat = 20.0
-        static let detailsCollapsedHeight: CGFloat = 172.0
+        static let detailsMinimumHeight: CGFloat = 86.0
+        static let detailsBottomSpacing: CGFloat = 16.0
         static let horizontalMinimumSpacing: CGFloat = 8.0
         static let rewardLableLeftWhenSuccess: CGFloat = 25.0
         static let rewardLableLeftWhenFail: CGFloat = 0.0
@@ -47,6 +48,8 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
     @IBOutlet private(set) var rewardImageView: UIImageView!
     @IBOutlet private(set) var statisticsView: BorderedContainerView!
     @IBOutlet private(set) var statisticsLabel: UILabel!
+    @IBOutlet private(set) var discussionContentView: BorderedContainerView!
+    @IBOutlet private(set) var discussionLinkView: IconCellControlView!
     @IBOutlet private(set) var detailsTextView: DetailsTextView!
     @IBOutlet private(set) var detailsTextViewHeight: NSLayoutConstraint!
     @IBOutlet private(set) var galleryLabel: UILabel!
@@ -73,9 +76,14 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
     @IBOutlet private(set) var statisticsTopWithReward: NSLayoutConstraint!
     @IBOutlet private(set) var statisticsTopWithFavorite: NSLayoutConstraint!
 
+    @IBOutlet private(set) var discussionTopWithStatistics: NSLayoutConstraint!
+    @IBOutlet private(set) var discussionTopWithReward: NSLayoutConstraint!
+    @IBOutlet private(set) var discussionTopWithFavorite: NSLayoutConstraint!
+
     @IBOutlet private(set) var detailsTopWithStatistics: NSLayoutConstraint!
     @IBOutlet private(set) var detailsTopWithReward: NSLayoutConstraint!
     @IBOutlet private(set) var detailsTopWithFavorite: NSLayoutConstraint!
+    @IBOutlet private(set) var detailsTopWithDiscussion: NSLayoutConstraint!
 
     @IBOutlet private(set) var galleryExpandedConstraint: NSLayoutConstraint!
     @IBOutlet private(set) var galleryCollapsedConstraint: NSLayoutConstraint!
@@ -89,8 +97,7 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
     private(set) var mainImageSize = CGSize(width: 375.0, height: 213.0)
     private(set) var galleryCellSize = CGSize(width: 316.0, height: 220.0)
 
-    var detailsExpandedHeight: CGFloat = 174.0
-    var detailsCollapsedHeight: CGFloat = 174.0
+    var detailsHeight: CGFloat = 172.0
 
     var contentWidth: CGFloat = 335.0
     var contentInsets: UIEdgeInsets = UIEdgeInsets(top: 0.0, left: 20.0, bottom: 0.0, right: 20.0)
@@ -262,6 +269,14 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
 
         viewModel.delegate?.writeEmail(for: viewModel)
     }
+
+    @IBAction private func actionOpenDiscussion(sender: AnyObject) {
+        guard let viewModel = viewModel else {
+            return
+        }
+
+        viewModel.delegate?.openDiscussion(for: viewModel)
+    }
 }
 
 extension ProjectDetailsViewController: UICollectionViewDataSource {
@@ -354,8 +369,7 @@ extension ProjectDetailsViewController: ProjectDetailsViewProtocol {
 extension ProjectDetailsViewController: DetailsTextViewDelegate {
     func didChangeExpandingState(in detailsView: DetailsTextView) {
         changesAnimator.animate(block: {
-            self.detailsTextViewHeight.constant = detailsView.expanded ? self.detailsExpandedHeight
-                : self.detailsCollapsedHeight
+            self.detailsTextViewHeight.constant = self.detailsHeight
             self.view.layoutIfNeeded()
         }, completionBlock: nil)
     }
