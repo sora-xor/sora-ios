@@ -77,14 +77,19 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
 
             let setupExpectation = XCTestExpectation()
 
+            let footerExpectation = XCTestExpectation()
+
+            var currentViewModels: [PersonalInfoViewModelProtocol]?
+
             stub(view) { stub in
                 when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).then { viewModels in
-                    _ = viewModels[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue]
-                        .didReceiveReplacement(Constants.dummyFirstName, for: NSRange(location: 0, length: 0))
-                    _ = viewModels[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue]
-                        .didReceiveReplacement(Constants.dummyLastName, for: NSRange(location: 0, length: 0))
+                    currentViewModels = viewModels
 
                     setupExpectation.fulfill()
+                }
+
+                when(stub).didReceive(footerViewModel: any()).then { _ in
+                    footerExpectation.fulfill()
                 }
             }
 
@@ -94,9 +99,14 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
 
             // then
 
-            wait(for: [setupExpectation], timeout: Constants.networkRequestTimeout)
+            wait(for: [setupExpectation, footerExpectation], timeout: Constants.networkRequestTimeout)
 
             // when
+
+            _ = currentViewModels?[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue]
+                .didReceiveReplacement(Constants.dummyFirstName, for: NSRange(location: 0, length: 0))
+            _ = currentViewModels?[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue]
+                .didReceiveReplacement(Constants.dummyLastName, for: NSRange(location: 0, length: 0))
 
             let invitationDeliveredExpectation = XCTestExpectation()
 
@@ -108,6 +118,8 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
 
                     invitationDeliveredExpectation.fulfill()
                 }
+
+                when(stub).didReceive(footerViewModel: any()).thenDoNothing()
             }
 
             XCTAssertTrue(interactor.invitationLinkService.handle(url: Constants.dummyInvitationLink))
@@ -159,6 +171,8 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
                 _ = viewModels[PersonalInfoPresenter.ViewModelIndex.invitationCode.rawValue]
                     .didReceiveReplacement(Constants.dummyInvitationCode, for: NSRange(location: 0, length: 0))
             }
+
+            when(stub).didReceive(footerViewModel: any()).thenDoNothing()
         }
 
         // when
@@ -170,6 +184,12 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
         // then
 
         wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
+
+        // no footer should be displayed when there is an invitation code
+
+        if settings.invitationCode != nil {
+            verify(view, times(0)).didReceive(footerViewModel: any())
+        }
     }
 
     private func createInteractor(for settings: SettingsManagerProtocol, keystore: KeystoreProtocol) -> PersonalInfoInteractor {

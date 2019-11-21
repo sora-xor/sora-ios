@@ -17,6 +17,8 @@ protocol InvitationLinkServiceProtocol: DeepLinkServiceProtocol {
 
     func remove(observer: InvitationLinkObserver)
 
+    func save(code: String)
+
     func clear()
 }
 
@@ -41,20 +43,6 @@ final class InvitationLinkService {
         }
     }
 
-    private func save(code: String) {
-        let oldLink = link
-        link = InvitationDeepLink(code: code)
-
-        if !settings.isRegistered {
-            settings.invitationCode = code
-        }
-
-        self.observers.forEach { wrapper in
-            if let observer = wrapper.observer {
-                observer.didUpdateInvitationLink(from: oldLink)
-            }
-        }
-    }
 }
 
 extension InvitationLinkService: InvitationLinkServiceProtocol {
@@ -92,6 +80,21 @@ extension InvitationLinkService: InvitationLinkServiceProtocol {
         } catch {
             logger?.error("Unexpected error \(error)")
             return false
+        }
+    }
+
+    func save(code: String) {
+        let oldLink = link
+        link = InvitationDeepLink(code: code)
+
+        if !settings.isRegistered {
+            settings.invitationCode = code
+        }
+
+        self.observers.forEach { wrapper in
+            if let observer = wrapper.observer {
+                observer.didUpdateInvitationLink(from: oldLink)
+            }
         }
     }
 

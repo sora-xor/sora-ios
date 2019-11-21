@@ -40,7 +40,7 @@ final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable
     }
 
     func showPassphraseView(from view: ProfileViewProtocol?) {
-        authorize(animated: true) { (isAuthorized) in
+        authorize(animated: true, cancellable: true) { (isAuthorized) in
             if isAuthorized {
                 guard let passphraseView = PassphraseViewFactory.createView() else {
                     return

@@ -31,6 +31,7 @@ protocol ProjectDetailsViewModelProtocol: class {
     var isVoted: Bool { get }
     var rewardDetails: String? { get }
     var statisticsDetails: String? { get }
+    var discussionDetails: String? { get }
     var website: String { get }
     var email: String { get }
     var mainImageViewModel: ImageViewModelProtocol? { get }
@@ -44,6 +45,7 @@ protocol ProjectDetailsViewModelDelegate: class {
     func toggleFavorite(for model: ProjectDetailsViewModelProtocol) -> Bool
     func openWebsite(for model: ProjectDetailsViewModelProtocol)
     func writeEmail(for model: ProjectDetailsViewModelProtocol)
+    func openDiscussion(for model: ProjectDetailsViewModelProtocol)
 }
 
 final class ProjectDetailsViewModel: ProjectDetailsViewModelProtocol {
@@ -58,6 +60,7 @@ final class ProjectDetailsViewModel: ProjectDetailsViewModelProtocol {
     var isVoted: Bool = false
     var rewardDetails: String?
     var statisticsDetails: String?
+    var discussionDetails: String?
     var website: String = ""
     var email: String = ""
     var mainImageViewModel: ImageViewModelProtocol?

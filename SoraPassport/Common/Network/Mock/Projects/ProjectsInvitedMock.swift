@@ -35,11 +35,11 @@ extension ProjectsInvitedMock {
             return
         }
 
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create invited fetch regex")
+        guard let url = URL(string: service.serviceEndpoint) else {
+            Logger.shared.warning("Can't create invited fetch url")
             return
         }
 
-        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
+        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
     }
 }

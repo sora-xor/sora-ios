@@ -92,10 +92,10 @@ extension CurrencyBasedRewardCalculator: SynchronizableRewardCalculatorProtocol 
             self?.handleFail(with: error)
         }
 
-        selectedCurrencyDataProvider.addCacheObserver(self,
-                                                      deliverOn: .main,
-                                                      executing: changesBlock,
-                                                      failing: failBlock)
+        selectedCurrencyDataProvider.addObserver(self,
+                                                 deliverOn: .main,
+                                                 executing: changesBlock,
+                                                 failing: failBlock)
     }
 
     func calculate(for value: Double) throws -> Double {

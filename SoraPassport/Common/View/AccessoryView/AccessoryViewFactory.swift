@@ -33,7 +33,7 @@ final class AccessoryViewFactory: AccessoryViewFactoryProtocol {
                                       target: Any?,
                                       actionHandler: Selector?) -> RoundedButton {
         let actionButton = RoundedButton()
-        actionButton.imageWithTitleView?.titleColor = UIColor.accessoryTitleAction
+        actionButton.imageWithTitleView?.titleColor = UIColor.actionTitle
         actionButton.imageWithTitleView?.titleFont = UIFont.accessoryTitle
         actionButton.imageWithTitleView?.title = title
         actionButton.roundedBackgroundView?.fillColor = .clear

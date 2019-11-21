@@ -12,6 +12,11 @@ enum CountdownTimerState {
 }
 
 protocol CountdownTimerProtocol: class {
+    var delegate: CountdownTimerDelegate? { get set }
+    var state: CountdownTimerState { get }
+    var notificationInterval: TimeInterval { get }
+    var remainedInterval: TimeInterval { get }
+
     func start(with interval: TimeInterval)
     func stop()
 }
@@ -31,11 +36,15 @@ final class CountdownTimer: NSObject {
 
     private(set) var state: CountdownTimerState = .stopped
     private(set) var remainedInterval: TimeInterval = 0.0
+    private(set) var lastNotifiedInterval: TimeInterval = 0.0
+    let notificationInterval: TimeInterval
 
     init(delegate: CountdownTimerDelegate,
-         applicationHander: ApplicationHandlerProtocol = ApplicationHandler()) {
+         applicationHander: ApplicationHandlerProtocol = ApplicationHandler(),
+         notificationInterval: TimeInterval = 1.0) {
         self.delegate = delegate
         self.applicationHandler = applicationHander
+        self.notificationInterval = notificationInterval
 
         super.init()
     }
@@ -45,9 +54,11 @@ final class CountdownTimer: NSObject {
 
         if remainedInterval < TimeInterval.leastNonzeroMagnitude {
             remainedInterval = 0.0
+            lastNotifiedInterval = 0.0
 
             stop()
-        } else {
+        } else if lastNotifiedInterval - remainedInterval >= notificationInterval {
+            lastNotifiedInterval = remainedInterval
             delegate?.didCountdown(remainedInterval: remainedInterval)
         }
     }
@@ -66,6 +77,7 @@ extension CountdownTimer: CountdownTimerProtocol {
         stop()
 
         remainedInterval = interval
+        lastNotifiedInterval = interval
 
         state = .inProgress
 
@@ -91,7 +103,8 @@ extension CountdownTimer: CountdownTimerProtocol {
         timer = nil
 
         let currentRemainedInterval = remainedInterval
-        remainedInterval = 0
+        remainedInterval = 0.0
+        lastNotifiedInterval = 0.0
 
         applicationHandler.delegate = nil
 
@@ -129,7 +142,8 @@ extension CountdownTimer: ApplicationHandlerDelegate {
 
                 scheduleTimer()
 
-                if leftInterval > 0.0 {
+                if lastNotifiedInterval - remainedInterval >= notificationInterval {
+                    lastNotifiedInterval = remainedInterval
                     delegate?.didCountdown(remainedInterval: remainedInterval)
                 }
 

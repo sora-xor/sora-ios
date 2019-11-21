@@ -15,6 +15,8 @@ class LocalAuthPresenter: PinSetupPresenterProtocol {
         interactor.startAuth()
     }
 
+    func cancel() {}
+
     func activateBiometricAuth() {
         interactor.startAuth()
     }

@@ -76,7 +76,7 @@ final class IdentityVerifyOperation: BaseOperation<String> {
             result = .success(ddoPublicKey.pubKeyId)
 
         } catch {
-            result = .error(error)
+            result = .failure(error)
         }
     }
 }

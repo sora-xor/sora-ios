@@ -10,6 +10,7 @@ enum OperationMode {
 }
 
 protocol OperationManagerProtocol {
+    func allOperations(for mode: OperationMode) -> [Operation]
     func enqueue(operations: [Operation], in mode: OperationMode)
 }
 
@@ -26,6 +27,13 @@ extension OperationManager: OperationManagerProtocol {
         switch mode {
         case .normal:
             normalQueue.addOperations(operations, waitUntilFinished: false)
+        }
+    }
+
+    func allOperations(for mode: OperationMode) -> [Operation] {
+        switch mode {
+        case .normal:
+            return normalQueue.operations
         }
     }
 }

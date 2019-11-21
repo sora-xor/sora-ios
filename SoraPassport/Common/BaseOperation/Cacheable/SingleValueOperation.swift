@@ -7,10 +7,10 @@ import Foundation
 import RobinHood
 import CoreData
 
-final class SingleValueOperation<T: Codable & Equatable, U: NSManagedObject>: BaseOperation<T> {
-    let provider: SingleValueProvider<T, U>
+final class SingleValueOperation<T: Codable & Equatable>: BaseOperation<T> {
+    let provider: SingleValueProvider<T>
 
-    init(provider: SingleValueProvider<T, U>) {
+    init(provider: SingleValueProvider<T>) {
         self.provider = provider
 
         super.init()
@@ -42,24 +42,24 @@ final class SingleValueOperation<T: Codable & Equatable, U: NSManagedObject>: Ba
             semaphore.signal()
         }
 
-        provider.addCacheObserver(self,
-                                  deliverOn: nil,
-                                  executing: updateBlock,
-                                  failing: failureBlock,
-                                  options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
-        provider.refreshCache()
+        provider.addObserver(self,
+                             deliverOn: nil,
+                             executing: updateBlock,
+                             failing: failureBlock,
+                             options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
+        provider.refresh()
 
         semaphore.wait()
 
-        provider.removeCacheObserver(self)
+        provider.removeObserver(self)
 
         if let resultError = optionalResultError {
-            result = .error(resultError)
+            result = .failure(resultError)
             return
         }
 
         guard let resultData = optionalResultData else {
-            result = .error(NetworkBaseError.unexpectedResponseObject)
+            result = .failure(NetworkBaseError.unexpectedResponseObject)
             return
         }
 

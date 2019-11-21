@@ -45,7 +45,7 @@ final class IdentityRestorationOperation: BaseOperation<DecentralizedDocumentObj
             result = .success(documentObject)
 
         } catch {
-            result = .error(error)
+            result = .failure(error)
         }
     }
 

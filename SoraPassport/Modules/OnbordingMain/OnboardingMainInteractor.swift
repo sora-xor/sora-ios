@@ -10,8 +10,8 @@ import SoraKeystore
 
 enum OnboardingMainInteractorState {
     case initial
-    case checkingVersion(operation: BaseOperation<SupportedVersionData>)
-    case checkedVersion
+    case preparing(operation: BaseOperation<SupportedVersionData>)
+    case prepared
     case preparingSignup(onlyVersionCheck: Bool)
     case preparingRestoration(operation: BaseOperation<SupportedVersionData>)
 }
@@ -21,27 +21,24 @@ final class OnboardingMainInteractor {
 
     var logger: LoggerProtocol?
 
-    let applicationConfig: ApplicationConfigProtocol
+    let onboardingPreparationService: OnboardingPreparationServiceProtocol
     private(set) var settings: SettingsManagerProtocol
     let keystore: KeystoreProtocol
-    let informationOperationFactory: ProjectInformationOperationFactoryProtocol
     let identityLocalOperationFactory: IdentityOperationFactoryProtocol.Type
     let identityNetworkOperationFactory: DecentralizedResolverOperationFactoryProtocol
     let operationManager: OperationManagerProtocol
 
     private(set) var state: OnboardingMainInteractorState = .initial
 
-    init(applicationConfig: ApplicationConfigProtocol,
+    init(onboardingPreparationService: OnboardingPreparationServiceProtocol,
          settings: SettingsManagerProtocol,
          keystore: KeystoreProtocol,
-         informationOperationFactory: ProjectInformationOperationFactoryProtocol,
          identityNetworkOperationFactory: DecentralizedResolverOperationFactoryProtocol,
          identityLocalOperationFactory: IdentityOperationFactoryProtocol.Type,
          operationManager: OperationManagerProtocol) {
-        self.applicationConfig = applicationConfig
+        self.onboardingPreparationService = onboardingPreparationService
         self.settings = settings
         self.keystore = keystore
-        self.informationOperationFactory = informationOperationFactory
         self.identityNetworkOperationFactory = identityNetworkOperationFactory
         self.identityLocalOperationFactory = identityLocalOperationFactory
         self.operationManager = operationManager
@@ -63,8 +60,8 @@ final class OnboardingMainInteractor {
                     if !data.supported {
                         creationOperation.cancel()
                     }
-                case .error(let error):
-                    creationOperation.result = .error(error)
+                case .failure(let error):
+                    creationOperation.result = .failure(error)
                 }
             }
         }
@@ -91,7 +88,7 @@ final class OnboardingMainInteractor {
             switch result {
             case .success(let documentObject):
                 return documentObject
-            case .error(let error):
+            case .failure(let error):
                 throw error
             }
         }
@@ -113,19 +110,19 @@ final class OnboardingMainInteractor {
                 return
             }
 
-            if case .error(let error) = submitionResult {
-                saveOperation.result = .error(error)
+            if case .failure(let error) = submitionResult {
+                saveOperation.result = .failure(error)
                 return
             }
 
             guard let creationResult = identityCreationOperation.result,
                 case .success(let document) = creationResult else {
-                    saveOperation.result = .error(BaseOperationError.unexpectedDependentResult)
+                    saveOperation.result = .failure(BaseOperationError.unexpectedDependentResult)
                     return
             }
 
             guard let publicKeyId = document.publicKey.first?.pubKeyId else {
-                saveOperation.result = .error(DDOBuilderError.noPublicKeysFound)
+                saveOperation.result = .failure(DDOBuilderError.noPublicKeysFound)
                 return
             }
 
@@ -144,7 +141,7 @@ final class OnboardingMainInteractor {
                     switch result {
                     case .success:
                         self?.handleIdentityCreationCompletion()
-                    case .error(let error):
+                    case .failure(let error):
                         self?.handleIdentityCreation(error: error)
                     }
                 } else {
@@ -159,46 +156,17 @@ final class OnboardingMainInteractor {
     }
 
     private func prepareOnboarding() throws -> BaseOperation<SupportedVersionData> {
-        guard let service = applicationConfig.defaultProjectUnit
-            .service(for: ProjectServiceType.supportedVersion.rawValue) else {
-                throw NetworkUnitError.serviceUnavailable
-        }
+        let operation = try onboardingPreparationService.prepare(using: operationManager)
 
-        let version = applicationConfig.version
-
-        let versionCheckOperation = informationOperationFactory.checkSupportedVersionOperation(service.serviceEndpoint,
-                                                                                               version: version)
-
-        let keystoreClearOperation = ClosureOperation<SupportedVersionData> {
-            guard let result = versionCheckOperation.result else {
-                throw BaseOperationError.parentOperationCancelled
-            }
-
-            switch result {
-            case .success(let versionCheckData):
-                if versionCheckData.supported {
-                    if self.settings.verificationState == nil {
-                        self.settings.verificationState = VerificationState()
-                    }
-
-                    try self.keystore.deleteKeyIfExists(for: KeystoreKey.pincode.rawValue)
-                }
-
-                return versionCheckData
-            case .error(let error):
-                throw error
-            }
-        }
-
-        keystoreClearOperation.completionBlock = { [weak self] in
+        operation.completionBlock = { [weak self] in
             DispatchQueue.main.async {
 
-                if let result = keystoreClearOperation.result {
+                if let result = operation.result {
                     switch result {
                     case .success(let data):
-                        self?.handleCheckVersion(data: data)
-                    case .error(let error):
-                        self?.handleCheckVersion(error: error)
+                        self?.handlePreparation(data: data)
+                    case .failure(let error):
+                        self?.handlePreparation(error: error)
                     }
                 } else {
                     self?.logger?.warning("Check version unexpectedly cancelled")
@@ -206,23 +174,19 @@ final class OnboardingMainInteractor {
             }
         }
 
-        keystoreClearOperation.addDependency(versionCheckOperation)
-
-        operationManager.enqueue(operations: [versionCheckOperation, keystoreClearOperation], in: .normal)
-
-        return keystoreClearOperation
+        return operation
     }
 
-    private func handleCheckVersion(data: SupportedVersionData) {
+    private func handlePreparation(data: SupportedVersionData) {
         switch state {
-        case .initial, .checkedVersion:
+        case .initial, .prepared:
             logger?.warning("Unexpected state \(state) when version result received")
-        case .checkingVersion:
-            state = .checkedVersion
+        case .preparing:
+            state = .prepared
             presenter?.didReceiveVersion(data: data)
         case .preparingSignup(let onlyVersionCheck):
             if onlyVersionCheck {
-                state = .checkedVersion
+                state = .prepared
 
                 presenter?.didReceiveVersion(data: data)
 
@@ -231,7 +195,7 @@ final class OnboardingMainInteractor {
                 }
             } else {
                 if !data.supported {
-                    state = .checkedVersion
+                    state = .prepared
                 }
 
                 presenter?.didReceiveVersion(data: data)
@@ -239,7 +203,7 @@ final class OnboardingMainInteractor {
                 logger?.debug("Wait until new identity creation completes")
             }
         case .preparingRestoration:
-            state = .checkedVersion
+            state = .prepared
 
             presenter?.didReceiveVersion(data: data)
 
@@ -249,11 +213,11 @@ final class OnboardingMainInteractor {
         }
     }
 
-    private func handleCheckVersion(error: Error) {
+    private func handlePreparation(error: Error) {
         switch state {
-        case .initial, .checkedVersion:
+        case .initial, .prepared:
             logger?.warning("Unexpected state \(state) when received version error: \(error)")
-        case .checkingVersion:
+        case .preparing:
             state = .initial
         case .preparingSignup(let onlyVersionCheck):
             if onlyVersionCheck {
@@ -270,7 +234,7 @@ final class OnboardingMainInteractor {
 
     private func handleIdentityCreationCompletion() {
         if case .preparingSignup = state {
-            state = .checkedVersion
+            state = .prepared
 
             presenter?.didFinishSignupPreparation()
         } else {
@@ -292,7 +256,7 @@ final class OnboardingMainInteractor {
 extension OnboardingMainInteractor: OnboardingMainInputInteractorProtocol {
     func setup() {
         if case .initial = state, let operation = try? prepareOnboarding() {
-            state = .checkingVersion(operation: operation)
+            state = .preparing(operation: operation)
         }
     }
 
@@ -315,7 +279,7 @@ extension OnboardingMainInteractor: OnboardingMainInputInteractorProtocol {
                 presenter?.didReceiveSignupPreparation(error: error)
             }
 
-        case .checkingVersion(let operation):
+        case .preparing(let operation):
             if settings.decentralizedId == nil {
                 createNewIdentity(dependingOn: operation)
 
@@ -325,7 +289,7 @@ extension OnboardingMainInteractor: OnboardingMainInputInteractorProtocol {
             }
 
             presenter?.didStartSignupPreparation()
-        case .checkedVersion:
+        case .prepared:
             if settings.decentralizedId == nil {
                 createNewIdentity(dependingOn: nil)
 
@@ -352,10 +316,10 @@ extension OnboardingMainInteractor: OnboardingMainInputInteractorProtocol {
             } catch {
                 presenter?.didReceiveRestorePreparation(error: error)
             }
-        case .checkingVersion(let operation):
+        case .preparing(let operation):
             state = .preparingRestoration(operation: operation)
             presenter?.didStartRestorePreparation()
-        case .checkedVersion:
+        case .prepared:
             presenter?.didFinishRestorePreparation()
         case .preparingSignup:
             logger?.warning("Already processing signing up but restoration requested")

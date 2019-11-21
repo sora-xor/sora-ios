@@ -7,6 +7,7 @@ import Foundation
 
 protocol PersonalInfoViewProtocol: LoadableViewProtocol, ControllerBackedProtocol {
     func didReceive(viewModels: [PersonalInfoViewModelProtocol])
+    func didReceive(footerViewModel: PersonalInfoFooterViewModel?)
     func didStartEditing(at index: Int)
 }
 
@@ -21,7 +22,7 @@ protocol PersonalInfoInteractorInputProtocol: class {
 }
 
 protocol PersonalInfoInteractorOutputProtocol: class {
-    func didReceive(invitationCode: String)
+    func didReceive(invitationCode: String?)
     func didStartRegistration(with form: PersonalForm)
     func didCompleteRegistration(with form: PersonalForm)
     func didReceiveRegistration(error: Error)

@@ -9,18 +9,20 @@ import MessageUI
 typealias EmailComposerCompletion = (Bool) -> Void
 
 protocol EmailPresentable {
+    @discardableResult
     func writeEmail(with message: SocialMessage,
                     from view: ControllerBackedProtocol,
-                    completionHandler: EmailComposerCompletion?)
+                    completionHandler: EmailComposerCompletion?) -> Bool
 }
 
 extension EmailPresentable {
+    @discardableResult
     func writeEmail(with message: SocialMessage,
                     from view: ControllerBackedProtocol,
-                    completionHandler: EmailComposerCompletion?) {
-        MFEmailPresenter.shared.presentComposer(with: message,
-                                                from: view,
-                                                completionBlock: completionHandler)
+                    completionHandler: EmailComposerCompletion?) -> Bool {
+        return MFEmailPresenter.shared.presentComposer(with: message,
+                                                       from: view,
+                                                       completionBlock: completionHandler)
     }
 }
 
@@ -34,15 +36,13 @@ private class MFEmailPresenter: NSObject, MFMailComposeViewControllerDelegate {
 
     func presentComposer(with message: SocialMessage,
                          from view: ControllerBackedProtocol,
-                         completionBlock: EmailComposerCompletion?) {
+                         completionBlock: EmailComposerCompletion?) -> Bool {
         guard self.message == nil else {
-            completionBlock?(false)
-            return
+            return false
         }
 
         guard MFMailComposeViewController.canSendMail() else {
-            completionBlock?(false)
-            return
+            return false
         }
 
         self.message = message
@@ -67,6 +67,8 @@ private class MFEmailPresenter: NSObject, MFMailComposeViewControllerDelegate {
         view.controller.present(emailComposer,
                                 animated: true,
                                 completion: nil)
+
+        return true
     }
 
     func mailComposeController(_ controller: MFMailComposeViewController,

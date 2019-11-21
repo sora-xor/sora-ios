@@ -52,11 +52,11 @@ class NotificationsInteractor: NotificationsInteractorInputProtocol {
         }
     }
 
-    private func processTokenExchange(result: OperationResult<Bool>, for token: String) {
+    private func processTokenExchange(result: Result<Bool, Error>, for token: String) {
         switch result {
         case .success:
             sendEnabledPermissions()
-        case .error(let error):
+        case .failure(let error):
             guard let tokenExchangeError = error as? NotificationTokenExchangeDataError else {
                 presenter.didReceiveNotificationsSetup(error: error)
                 return
@@ -88,11 +88,11 @@ class NotificationsInteractor: NotificationsInteractorInputProtocol {
         }
     }
 
-    private func processPermissions(result: OperationResult<Bool>) {
+    private func processPermissions(result: Result<Bool, Error>) {
         switch result {
         case .success:
             presenter.didCompleteNotificationsSetup()
-        case .error(let error):
+        case .failure(let error):
             presenter.didReceiveNotificationsSetup(error: error)
         }
     }
@@ -116,11 +116,11 @@ class NotificationsInteractor: NotificationsInteractorInputProtocol {
         }
     }
 
-    private func processRegistration(result: OperationResult<Bool>) {
+    private func processRegistration(result: Result<Bool, Error>) {
         switch result {
         case .success:
             presenter.didCompleteNotificationsSetup()
-        case .error(let error):
+        case .failure(let error):
             presenter.didReceiveNotificationsSetup(error: error)
         }
     }

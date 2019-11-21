@@ -33,10 +33,14 @@ final class ProfileInteractor {
             self?.presenter?.didReceiveUserDataProvider(error: error)
         }
 
-        customerDataProviderFacade.userProvider.addCacheObserver(self,
-                                                               deliverOn: .main,
-                                                               executing: changesBlock,
-                                                               failing: failBlock)
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
+                                                  waitsInProgressSyncOnAdd: false)
+
+        customerDataProviderFacade.userProvider.addObserver(self,
+                                                            deliverOn: .main,
+                                                            executing: changesBlock,
+                                                            failing: failBlock,
+                                                            options: options)
     }
 
     private func setupVotesDataProvider() {
@@ -57,10 +61,14 @@ final class ProfileInteractor {
             self?.presenter?.didReceiveVotesDataProvider(error: error)
         }
 
-        customerDataProviderFacade.votesProvider.addCacheObserver(self,
-                                                                 deliverOn: .main,
-                                                                 executing: changesBlock,
-                                                                 failing: failBlock)
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
+                                                  waitsInProgressSyncOnAdd: false)
+
+        customerDataProviderFacade.votesProvider.addObserver(self,
+                                                             deliverOn: .main,
+                                                             executing: changesBlock,
+                                                             failing: failBlock,
+                                                             options: options)
     }
 
     private func setupReputationDataProvider() {
@@ -81,10 +89,14 @@ final class ProfileInteractor {
             self?.presenter?.didReceiveReputationDataProvider(error: error)
         }
 
-        customerDataProviderFacade.reputationDataProvider.addCacheObserver(self,
-                                                                           deliverOn: .main,
-                                                                           executing: changesBlock,
-                                                                           failing: failBlock)
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
+                                                  waitsInProgressSyncOnAdd: false)
+
+        customerDataProviderFacade.reputationDataProvider.addObserver(self,
+                                                                      deliverOn: .main,
+                                                                      executing: changesBlock,
+                                                                      failing: failBlock,
+                                                                      options: options)
     }
 }
 
@@ -96,14 +108,14 @@ extension ProfileInteractor: ProfileInteractorInputProtocol {
     }
 
     func refreshUser() {
-        customerDataProviderFacade.userProvider.refreshCache()
+        customerDataProviderFacade.userProvider.refresh()
     }
 
     func refreshVotes() {
-        customerDataProviderFacade.votesProvider.refreshCache()
+        customerDataProviderFacade.votesProvider.refresh()
     }
 
     func refreshReputation() {
-        customerDataProviderFacade.reputationDataProvider.refreshCache()
+        customerDataProviderFacade.reputationDataProvider.refresh()
     }
 }

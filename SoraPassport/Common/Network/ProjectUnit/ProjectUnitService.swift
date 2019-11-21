@@ -21,7 +21,9 @@ enum ProjectServiceType: String {
     case register
     case createUser
     case fetchInvitation
+    case applyInvitation
     case markInvitation
+    case checkInvitation
     case fetchInvited
     case reputation
     case reputationDetails

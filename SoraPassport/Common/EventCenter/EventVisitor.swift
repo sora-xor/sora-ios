@@ -10,6 +10,8 @@ protocol EventVisitorProtocol: class {
     func processProjectVote(event: ProjectVoteEvent)
     func processProjectFavoriteToggle(event: ProjectFavoriteToggleEvent)
     func processProjectView(event: ProjectViewEvent)
+    func processInvitationInput(event: InvitationInputEvent)
+    func processInvitationApplied(event: InvitationAppliedEvent)
 }
 
 extension EventVisitorProtocol {
@@ -17,4 +19,6 @@ extension EventVisitorProtocol {
     func processProjectVote(event: ProjectVoteEvent) {}
     func processProjectFavoriteToggle(event: ProjectFavoriteToggleEvent) {}
     func processProjectView(event: ProjectViewEvent) {}
+    func processInvitationInput(event: InvitationInputEvent) {}
+    func processInvitationApplied(event: InvitationAppliedEvent) {}
 }

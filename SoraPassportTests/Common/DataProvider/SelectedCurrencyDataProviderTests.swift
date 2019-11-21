@@ -42,7 +42,7 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
         topics[String(topics.count - 1)]?.code = locale.currencyCode!
         currencyData.topics = topics
 
-        let source: AnySingleValueProviderSource<CurrencyData> = createSingleValueSourceMock(base: self, returns: currencyData)
+        let source: AnySingleValueProviderSource<CurrencyData> = createSingleValueSourceMock(returns: currencyData)
 
         let dataProvider = createSelectedCurrencyDataProvider(from: source,
                                                               defaultCurrency: createRandomCurrencyItem(),
@@ -67,11 +67,11 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
 
         // when
 
-        dataProvider.addCacheObserver(self,
-                                      deliverOn: .main,
-                                      executing: changesBlock,
-                                      failing: failBlock,
-                                      options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
+        dataProvider.addObserver(self,
+                                 deliverOn: .main,
+                                 executing: changesBlock,
+                                 failing: failBlock,
+                                 options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
 
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
@@ -129,15 +129,15 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
 
         // when
 
-        dataProvider.addCacheObserver(self,
-                                      deliverOn: .main,
-                                      executing: changesBlock,
-                                      failing: failBlock,
-                                      options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
+        dataProvider.addObserver(self,
+                                 deliverOn: .main,
+                                 executing: changesBlock,
+                                 failing: failBlock,
+                                 options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
 
         wait(for: [initializationExpectation], timeout: Constants.expectationDuration)
 
-        dataProvider.refreshCache()
+        dataProvider.refresh()
 
         wait(for: [updateExpectation], timeout: Constants.expectationDuration)
 
@@ -212,11 +212,11 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
 
         // when
 
-        dataProvider.addCacheObserver(self,
-                                      deliverOn: .main,
-                                      executing: changesBlock,
-                                      failing: failBlock,
-                                      options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
+        dataProvider.addObserver(self,
+                                 deliverOn: .main,
+                                 executing: changesBlock,
+                                 failing: failBlock,
+                                 options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
 
         wait(for: [initializationExpectation], timeout: Constants.expectationDuration)
 
@@ -307,7 +307,7 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
         }
 
         switch fetchResult {
-        case .error:
+        case .failure:
             XCTFail()
         default:
             break
@@ -317,7 +317,7 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
     // MARK: Test Templates
 
     func performTestInitialValueGuaranteeWhenSourceNotReachableWithUpdateTrigger(_ updateTrigger: DataProviderTriggerProtocol) {
-        let source: AnySingleValueProviderSource<CurrencyData> = createSingleValueSourceMock(base: self, returns: NetworkBaseError.unexpectedResponseObject)
+        let source: AnySingleValueProviderSource<CurrencyData> = createSingleValueSourceMock(returns: NetworkBaseError.unexpectedResponseObject)
 
         let dataProvider = createSelectedCurrencyDataProvider(from: source,
                                                               defaultCurrency: createRandomCurrencyItem(),
@@ -360,11 +360,11 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
 
         // when
 
-        dataProvider.addCacheObserver(self,
-                                      deliverOn: .main,
-                                      executing: changesBlock,
-                                      failing: failBlock,
-                                      options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
+        dataProvider.addObserver(self,
+                                 deliverOn: .main,
+                                 executing: changesBlock,
+                                 failing: failBlock,
+                                 options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true))
 
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
@@ -395,7 +395,7 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
                                                     updateTrigger: DataProviderTriggerProtocol = DataProviderEventTrigger.onAll,
                                                     locale: Locale = Locale.current)
         -> SelectedCurrencyDataProvider {
-        let source = createSingleValueSourceMock(base: self, returns: currencyData)
+        let source = createSingleValueSourceMock(returns: currencyData)
         return createSelectedCurrencyDataProvider(from: source,
                                                   defaultCurrency: defaultCurrency,
                                                   settingsManager: settingsManager,
@@ -409,13 +409,13 @@ class SelectedCurrencyDataProviderTests: XCTestCase {
                                                     updateTrigger: DataProviderTriggerProtocol = DataProviderEventTrigger.onAll,
                                                     locale: Locale = Locale.current)
         -> SelectedCurrencyDataProvider {
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = cacheFacade
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = cacheFacade
             .createCoreDataCache(domain: UUID().uuidString)
 
-        let currenciesProvider = SingleValueProvider<CurrencyData, CDSingleValue>(targetIdentifier: UUID().uuidString,
-                                                                                  source: source,
-                                                                                  cache: cache,
-                                                                                  updateTrigger: updateTrigger)
+        let currenciesProvider = SingleValueProvider(targetIdentifier: UUID().uuidString,
+                                                     source: source,
+                                                     repository: AnyDataProviderRepository(cache),
+                                                     updateTrigger: updateTrigger)
         return SelectedCurrencyDataProvider(currenciesDataProvider: currenciesProvider,
                                             settingsManager: settingsManager,
                                             settingsKey: SettingsKey.selectedCurrency.rawValue,

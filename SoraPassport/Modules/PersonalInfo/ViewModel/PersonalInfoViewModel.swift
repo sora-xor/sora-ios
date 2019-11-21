@@ -15,7 +15,7 @@ protocol PersonalInfoViewModelProtocol {
     func didReceiveReplacement(_ string: String, for range: NSRange) -> Bool
 }
 
-class PersonalInfoViewModel {
+class PersonalInfoViewModel: PersonalInfoViewModelProtocol {
     var title: String
     var value: String
     var enabled: Bool
@@ -56,9 +56,7 @@ class PersonalInfoViewModel {
 
         self.autocapitalizationType = autocapitalizationType
     }
-}
 
-extension PersonalInfoViewModel: PersonalInfoViewModelProtocol {
     var isComplete: Bool {
         if let predicate = predicate {
             return predicate.evaluate(with: value)

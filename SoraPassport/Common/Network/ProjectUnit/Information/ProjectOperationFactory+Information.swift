@@ -36,7 +36,7 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
                                                    resultFactory: resultFactory)
     }
 
-    func fetchHelpOperation(_ urlTemplate: String) -> NetworkOperation<HelpData> {
+    func fetchHelpOperation(_ urlTemplate: String) -> NetworkOperation<HelpData?> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
@@ -47,7 +47,7 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<HelpData> { data in
+        let resultFactory = AnyNetworkResultFactory<HelpData?> { data in
             let resultData = try JSONDecoder().decode(ResultData<HelpData>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -65,11 +65,10 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
             return helpData
         }
 
-        return NetworkOperation<HelpData>(requestFactory: requestFactory,
-                                          resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
-    func fetchReputationDetailsOperation(_ urlTemplate: String) -> NetworkOperation<ReputationDetailsData> {
+    func fetchReputationDetailsOperation(_ urlTemplate: String) -> NetworkOperation<ReputationDetailsData?> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
@@ -80,7 +79,7 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<ReputationDetailsData> { data in
+        let resultFactory = AnyNetworkResultFactory<ReputationDetailsData?> { data in
             let resultData = try JSONDecoder().decode(ResultData<ReputationDetailsData>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -98,11 +97,10 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
             return reputationDetailsData
         }
 
-        return NetworkOperation(requestFactory: requestFactory,
-                                resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
-    func fetchCurrencyOperation(_ urlTemplate: String) -> NetworkOperation<CurrencyData> {
+    func fetchCurrencyOperation(_ urlTemplate: String) -> NetworkOperation<CurrencyData?> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
@@ -113,7 +111,7 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<CurrencyData> { data in
+        let resultFactory = AnyNetworkResultFactory<CurrencyData?> { data in
             let resultData = try JSONDecoder().decode(ResultData<CurrencyData>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -131,8 +129,7 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
             return currencyData
         }
 
-        return NetworkOperation<CurrencyData>(requestFactory: requestFactory,
-                                              resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
     func checkSupportedVersionOperation(_ urlTemplate: String,
@@ -158,7 +155,7 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
         return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
-    func fetchCountryOperation(_ urlTemplate: String) -> NetworkOperation<CountryData> {
+    func fetchCountryOperation(_ urlTemplate: String) -> NetworkOperation<CountryData?> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
@@ -169,7 +166,7 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<CountryData> { data in
+        let resultFactory = AnyNetworkResultFactory<CountryData?> { data in
             let resultData = try JSONDecoder().decode(ResultData<CountryData>.self, from: data)
 
             guard resultData.status.isSuccess else {

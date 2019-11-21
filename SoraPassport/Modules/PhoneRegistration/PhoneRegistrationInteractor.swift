@@ -19,12 +19,12 @@ final class PhoneRegistrationInteractor {
         self.settings = settings
     }
 
-    private func handleCustomerCreation(result: OperationResult<VerificationCodeData>) {
+    private func handleCustomerCreation(result: Result<VerificationCodeData, Error>) {
         switch result {
         case .success(let verificationCodeData):
             updateVerificationState(from: verificationCodeData)
             presenter?.didCreateCustomer()
-        case .error(let error):
+        case .failure(let error):
             presenter?.didReceiveCustomerCreation(error: error)
         }
     }

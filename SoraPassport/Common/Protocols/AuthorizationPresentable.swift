@@ -8,7 +8,9 @@ import UIKit
 typealias AuthorizationCompletionBlock = (Bool) -> Void
 
 protocol AuthorizationPresentable: ScreenAuthorizationWireframeProtocol {
-    func authorize(animated: Bool, with completionBlock: @escaping AuthorizationCompletionBlock)
+    func authorize(animated: Bool,
+                   cancellable: Bool,
+                   with completionBlock: @escaping AuthorizationCompletionBlock)
 }
 
 private let authorization = UUID().uuidString
@@ -54,6 +56,12 @@ extension AuthorizationPresentable {
 
 extension AuthorizationPresentable {
     func authorize(animated: Bool, with completionBlock: @escaping AuthorizationCompletionBlock) {
+        authorize(animated: animated, cancellable: false, with: completionBlock)
+    }
+
+    func authorize(animated: Bool,
+                   cancellable: Bool,
+                   with completionBlock: @escaping AuthorizationCompletionBlock) {
         guard !isAuthorizing else {
             return
         }
@@ -63,7 +71,8 @@ extension AuthorizationPresentable {
             return
         }
 
-        guard let authorizationView = PinViewFactory.createScreenAuthorizationView(with: self) else {
+        guard let authorizationView = PinViewFactory.createScreenAuthorizationView(with: self,
+                                                                                   cancellable: cancellable) else {
             completionBlock(false)
             return
         }

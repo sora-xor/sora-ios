@@ -10,7 +10,7 @@ import SoraCrypto
 import RobinHood
 
 private typealias ModificationBlock = (DecentralizedDocumentObject) -> DecentralizedDocumentObject
-private typealias ExpectationBlock = (DecentralizedDocumentObject, OperationResult<String>) -> Bool
+private typealias ExpectationBlock = (DecentralizedDocumentObject, Result<String, Error>) -> Bool
 
 class IdentityVerifyOperationTests: XCTestCase {
     private let keystore = Keychain()
@@ -55,7 +55,7 @@ class IdentityVerifyOperationTests: XCTestCase {
 
         let expectation: ExpectationBlock = { (_, result) in
             switch result {
-            case .error(let error):
+            case .failure(let error):
                 if let identityError = error as? IdentityVerifyOperationError {
                     return identityError == .signatureInvalid
                 } else {
@@ -94,8 +94,8 @@ class IdentityVerifyOperationTests: XCTestCase {
                 let modifiedDocument = ddoModification(document)
                 optionalDocumentObject = modifiedDocument
                 verificationOperation.decentralizedDocument = modifiedDocument
-            case .error(let error):
-                verificationOperation.result = .error(error)
+            case .failure(let error):
+                verificationOperation.result = .failure(error)
             }
         }
 

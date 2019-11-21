@@ -6,6 +6,11 @@
 import UIKit
 import SoraUI
 
+enum InvitationViewLayout {
+    case `default`
+    case compactWidth
+}
+
 final class InvitationViewController: UIViewController, AdaptiveDesignable, HiddableBarWhenPushed {
     private struct Constants {
         static let defaultInvitationHeight: CGFloat = 47.0
@@ -18,27 +23,30 @@ final class InvitationViewController: UIViewController, AdaptiveDesignable, Hidd
     @IBOutlet private var scrollView: UIScrollView!
     @IBOutlet private var invitationContentView: RoundedView!
     @IBOutlet private var invitationTableView: UITableView!
-    @IBOutlet private var leftInvitationLabel: UILabel!
-    @IBOutlet private var parentLabel: UILabel!
+    @IBOutlet private var actionView: InvitationActionView!
     @IBOutlet private var invitationHeight: NSLayoutConstraint!
-    @IBOutlet private var acceptedInvitationsTopParent: NSLayoutConstraint!
-    @IBOutlet private var acceptedInvitationsTopActions: NSLayoutConstraint!
-
-    var parentLabelApperanceAnimation: ViewAnimatorProtocol = TransitionAnimator(type: .fade)
-    var parentLabelDismissAnimation: ViewAnimatorProtocol = TransitionAnimator(type: .fade)
-    var changesAnimation: BlockViewAnimatorProtocol = BlockViewAnimator()
 
     private var invitedViewModels: [InvitedViewModelProtocol]?
+
+    private var preferredContentWidth: CGFloat = 375.0
 
     // MARK: Initialization
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        actionView.delegate = self
+
+        adjustLayout()
+
         configureInvitationTableView()
         setupCompactBar(with: .initial)
 
-        presenter.viewIsReady()
+        if isAdaptiveWidthDecreased {
+            presenter.viewIsReady(with: .compactWidth)
+        } else {
+            presenter.viewIsReady(with: .default)
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -53,8 +61,19 @@ final class InvitationViewController: UIViewController, AdaptiveDesignable, Hidd
         let invitationMaxPosition = view.convert(CGPoint(x: view.bounds.maxX, y: view.bounds.maxY),
                                                  to: scrollView)
 
-        let minimumHeight = max(Constants.defaultInvitationHeight,
-                                invitationMaxPosition.y - invitationContentView.frame.origin.y)
+        let targetSize = CGSize(width: preferredContentWidth, height: UIView.layoutFittingCompressedSize.height)
+        let actionSize = actionView.systemLayoutSizeFitting(targetSize,
+                                                            withHorizontalFittingPriority: .defaultHigh,
+                                                            verticalFittingPriority: .defaultLow)
+        let invitationTablePosition = actionView.frame.minY + actionSize.height
+
+        var estimatedHeight = invitationMaxPosition.y - invitationTablePosition
+
+        if #available(iOS 11.0, *) {
+            estimatedHeight -= scrollView.adjustedContentInset.bottom
+        }
+
+        let minimumHeight = max(Constants.defaultInvitationHeight, estimatedHeight)
 
         if let viewModels = invitedViewModels, viewModels.count > 0 {
             let tableHeight = CGFloat(viewModels.count) * Constants.inviteTableViewCellHeight
@@ -75,39 +94,11 @@ final class InvitationViewController: UIViewController, AdaptiveDesignable, Hidd
         invitationTableView.rowHeight = Constants.inviteTableViewCellHeight
     }
 
-    private func animateParentLabelAppearance() {
-        parentLabel.isHidden = false
-
-        parentLabelApperanceAnimation.animate(view: parentLabel, completionBlock: nil)
-
-        changesAnimation.animate(block: {
-            self.acceptedInvitationsTopActions.isActive = false
-            self.acceptedInvitationsTopParent.isActive = true
-            self.view.layoutIfNeeded()
-        }, completionBlock: { _ in
-            self.view.setNeedsLayout()
-        })
-    }
-
-    private func animateParentLabelDismiss() {
-        parentLabel.isHidden = true
-
-        parentLabelDismissAnimation.animate(view: parentLabel, completionBlock: nil)
-
-        changesAnimation.animate(block: {
-            self.acceptedInvitationsTopActions.isActive = true
-            self.acceptedInvitationsTopParent.isActive = false
-            self.view.layoutIfNeeded()
-        }, completionBlock: { _ in
-            self.view.setNeedsLayout()
-        })
+    private func adjustLayout() {
+        preferredContentWidth *= designScaleRatio.width
     }
 
     // MARK: Actions
-
-    @IBAction private func actionSendInvite(sender: AnyObject) {
-        presenter.sendInvitation()
-    }
 
     @IBAction private func actionHelp(sender: AnyObject) {
         presenter.openHelp()
@@ -127,18 +118,17 @@ extension InvitationViewController: UITableViewDataSource {
 }
 
 extension InvitationViewController: InvitationViewProtocol {
-    func didReceive(parentTitle: String) {
-        parentLabel.text = parentTitle
-
-        if parentLabel.isHidden, parentTitle.count > 0 {
-            animateParentLabelAppearance()
-        } else if !parentLabel.isHidden, parentTitle.count == 0 {
-            animateParentLabelDismiss()
-        }
+    func didReceive(actionListViewModel: InvitationActionListViewModel) {
+        actionView.bind(viewModel: actionListViewModel)
+        view.setNeedsLayout()
     }
 
-    func didReceive(leftInvitations: String) {
-        leftInvitationLabel.text = R.string.localizable.inviteInvitationLeft(leftInvitations)
+    func didChange(accessoryTitle: String, at actionIndex: Int) {
+        actionView.changeAccessory(title: accessoryTitle, at: actionIndex)
+    }
+
+    func didChange(actionStyle: InvitationActionStyle, at actionIndex: Int) {
+        actionView.changeAccessory(style: actionStyle, at: actionIndex)
     }
 
     func didReceive(invitedUsers: [InvitedViewModelProtocol]) {
@@ -208,7 +198,7 @@ extension InvitationViewController: EmptyStateViewOwnerProtocol {
     }
 
     var displayInsetsForEmptyState: UIEdgeInsets {
-        return UIEdgeInsets(top: 38.0, left: 0.0, bottom: 0.0, right: 0.0)
+        return UIEdgeInsets(top: 50.0, left: 0.0, bottom: 0.0, right: 0.0)
     }
 }
 
@@ -237,5 +227,11 @@ extension InvitationViewController: SoraCompactNavigationBarFloating {
 
     var compactBarTitle: String? {
         return R.string.localizable.tabbarFriendsTitle()
+    }
+}
+
+extension InvitationViewController: InvitationActionViewDelegate {
+    func invitationAction(view: InvitationActionView, didSelectActionAt index: Int) {
+        presenter.didSelectAction(at: index)
     }
 }

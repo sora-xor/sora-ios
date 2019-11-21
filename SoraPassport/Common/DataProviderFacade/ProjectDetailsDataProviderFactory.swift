@@ -8,7 +8,7 @@ import SoraCrypto
 import RobinHood
 
 protocol ProjectDetailsDataProviderFactoryProtocol {
-    func createDetailsDataProvider(for projectId: String) -> SingleValueProvider<ProjectDetailsData, CDSingleValue>?
+    func createDetailsDataProvider(for projectId: String) -> SingleValueProvider<ProjectDetailsData>?
 }
 
 final class ProjectDetailsDataProviderFactory {
@@ -30,15 +30,15 @@ final class ProjectDetailsDataProviderFactory {
 }
 
 extension ProjectDetailsDataProviderFactory: ProjectDetailsDataProviderFactoryProtocol {
-    func createDetailsDataProvider(for projectId: String) -> SingleValueProvider<ProjectDetailsData, CDSingleValue>? {
+    func createDetailsDataProvider(for projectId: String) -> SingleValueProvider<ProjectDetailsData>? {
         guard let service = projectUnit.service(for: ProjectServiceType.projectDetails.rawValue) else {
             return nil
         }
 
-        let cache: CoreDataCache<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
             .createCoreDataCache(domain: Constants.domain)
 
-        let fetchDetailsBlock: () -> BaseOperation<ProjectDetailsData> = {
+        let fetchDetailsBlock: () -> BaseOperation<ProjectDetailsData?> = {
             let operation = self.projectUnitOperationFactory
                 .fetchProjectDetailsOperation(service.serviceEndpoint, projectId: projectId)
 
@@ -47,11 +47,11 @@ extension ProjectDetailsDataProviderFactory: ProjectDetailsDataProviderFactoryPr
             return operation
         }
 
-        let source = AnySingleValueProviderSource(base: self, fetch: fetchDetailsBlock)
+        let source = AnySingleValueProviderSource(fetch: fetchDetailsBlock)
 
         return SingleValueProvider(targetIdentifier: projectId,
                                    source: source,
-                                   cache: cache,
+                                   repository: AnyDataProviderRepository(cache),
                                    updateTrigger: DataProviderEventTrigger.onAddObserver)
     }
 }

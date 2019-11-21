@@ -11,6 +11,7 @@
 "skip" = "Skip";
 "confirm" = "Confirm";
 "later" = "Later";
+"apply" = "Apply";
 "go.settings" = "Open Settings";
 "not.now" = "Not Now";
 "error.title" = "Error";
@@ -24,6 +25,8 @@
 "login" = "Login";
 "network.unavailable" = "Network connection unavailable";
 "network.available" = "Network connection available";
+"congratulation.title" = "Congratulation!";
+"invitation.code" = "Invitation code";
 
 // Error
 
@@ -57,7 +60,11 @@
 "user.create.phone.registered.error.message" = "Sorry, this phone number is already in use. Please, try another one.";
 "user.create.phone.verified.error.message" = "Phone number already verified.";
 "user.create.phone.invalid.message" = "Phone number is invalid. Please, try another one.";
-"user.create..unexpected.message" = "Please, contact support for further steps.";
+"user.create.unexpected.message" = "Please, contact support for further steps.";
+
+"url.no.app.error.message" = "Can't open external link. Please, make sure there are any application that supports link handling.";
+
+"no.email.bound.error.message" = "Please, check is there any email setup in the mail app.";
 
 // TabBar
 
@@ -74,7 +81,7 @@
 "project.finished.at" = "Ended %@";
 "project.not.voted.title" = "Vote";
 "project.reward.title" = "%@ reward in XOR if completed";
-"project.finished.successfull.title" = "Succesfull voting";
+"project.finished.successfull.title" = "Succesful voting";
 "project.finished.unsuccessfull.title" = "Unsuccessful voting";
 "project.finished.spent.votes" = "You've spent %@ votes";
 "project.finished.reward" = "Rewarded with %@ in XOR";
@@ -87,7 +94,7 @@
 "project.favorite.small.title" = "Favourites";
 "project.completed.small.title" = "Done";
 "project.empty.opened.title" = "We are waiting for new\n projects to arrive";
-"project.empty.voted.title" = "Vote for the projets and they\n will be appear here";
+"project.empty.voted.title" = "Vote for the projeсts and they\n will appear here";
 "project.empty.favorite.title" = "Add projects to favourites and\n they will appear here";
 "project.empty.completed.title" = "When project's funding target or deadline is reached\n you will find it here";
 
@@ -99,6 +106,7 @@
 "project.details.email.subject" = "Sora project details";
 "project.details.collapsed.title" = "Show more...";
 "project.details.expanded.title" = "Collapse";
+"project.details.discuss.format" = "Discuss on %@";
 
 // Vote
 
@@ -119,6 +127,7 @@
 "personal.info.phone" = "Mobile Phone";
 "personal.info.country" = "Country";
 "personal.info.invitation.code" = "Invitation code (optional)";
+"personal.info.invitation.message" = "👋Got an invitation link? Just tap on it to apply code, or enter 8 length code manually.";
 
 "registration.wrong.status.message" = "You phone number has not been verified yet. Please, try again later.";
 "registration.invitation.code.invalid.message" = "Invitation code is invalid.";
@@ -131,16 +140,27 @@
 "pinsetup.title.enter" = "Enter pin code";
 
 "ask.touchid.title" = "Touch ID";
-"ask.touchid.message" = "Would you like to user Touch ID for authentification?";
+"ask.touchid.message" = "Would you like to user Touch ID for authentication?";
 "ask.faceid.title" = "Face ID";
-"ask.faceid.message" = "Would you like to user Face ID for authentification?";
-"ask.biometry.reason" = "Authentificate to access the account";
+"ask.faceid.message" = "Would you like to user Face ID for authentication?";
+"ask.biometry.reason" = "Authenticate to access the account";
 
 // Invitation
 
-"invite.friends.title" = "Invite friends";
-"invite.parent.title" = "You were invited by %@";
-"invite.invitation.left" = "%@ left";
+"invite.header.title" = "Invitе friends and get more daily votes";
+"invite.footer.parent.title" = "You were invited by %@";
+"invite.footer.code.title" = "Have you been invited to Sora? Tap on the button above and enter the code.";
+"invite.action.send.title" = "Send invite";
+"invite.action.send.accessory.format" = "%@ left";
+"invite.action.enter.code.title" = "Enter invitation code";
+"invite.action.compact.enter.code.title" = "Enter code";
+"invite.code.applied.message" = "Invitation code has been successfully applied.";
+"invite.code.apply.message" = "Do you want to apply invitation code %@?";
+"invite.code.not.found.message" = "Invitation code is not found.";
+"invite.code.input.expired.message" = "Time to apply invitation code is up.";
+"invite.code.parent.exists.message" = "You have already applied another invitation code.";
+"invite.code.parent.young.message" = "Provided invitation code cannot be applied because it is from the user who registered after you.";
+"invite.code.self.message" = "You cannot use your invitation code for yourself.";
 
 "invitations.values.not.found.error.message" = "Can't determine available invitations. Please, try again later.";
 "invitations.not.enough.error.message" = "Sorry, but you don't have any invitations to share.";
@@ -156,8 +176,8 @@
 
 // Account Backup
 
-"access.backup.load.error.title" = "Creadentials Loading Failed";
-"access.backup.completion.error.title" = "Creadentials Finalization Failed";
+"access.backup.load.error.title" = "Credentials Loading Failed";
+"access.backup.completion.error.title" = "Credentials Finalization Failed";
 "access.backup.copy.error.message" = "Copy Failed";
 "access.backup.error.message" = "Please, try repeat registration from scratch.";
 
@@ -213,6 +233,7 @@
 // Personal Update Info
 
 "user.not.found.message" = "Can't continue operation because user is not found";
+"user.status.invalid.message" = "Can't continue operation because user's status is invalid";
 "user.values.not.found.message" = "Can't continue operation because user values data is not found";
 
 // Activity
@@ -274,6 +295,8 @@
 "wallet.account.share.asset.or.amount.message" = "My Sora Network address to Receive %@:";
 "wallet.account.share.message" = "My Sora Network address to Receive:";
 
+"wallet.receive.title" = "Receive XOR";
+
 // Help
 
 "help.support.title" = "SORA support";
@@ -296,10 +319,10 @@
 "eth.withdraw.short.title" = "Withdraw to Ethereum";
 "eth.withdraw.details" = "Ethereum wallet address";
 
-// Deep Links
+// Invitation code input
 
-"deep.link.invitation.already.registered.title" = "Invitation code";
-"deep.link.invitation.already.registered.message" = "Invitation can't be applied because the user already registered.";
+"input.field.invitation.title" = "Enter code";
+"input.field.invitation.hint.format" = "%d alphanumeric characters";
 
 // About
 

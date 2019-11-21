@@ -14,7 +14,7 @@ protocol SelectedCurrencyDataProviderProtocol: SingleValueProviderProtocol {
 }
 
 final class SelectedCurrencyDataProvider {
-    private(set) var currenciesDataProvider: SingleValueProvider<CurrencyData, CDSingleValue>
+    private(set) var currenciesDataProvider: SingleValueProvider<CurrencyData>
     private(set) var settingsManager: SettingsManagerProtocol
     private(set) var settingsKey: String
     private(set) var defaultCurrencyItem: CurrencyItemData
@@ -26,9 +26,9 @@ final class SelectedCurrencyDataProvider {
 
     private var isInitialized: Bool = false
 
-    private var cacheObservers: [CacheObserver<CurrencyItemData>] = []
+    private var cacheObservers: [DataProviderObserver<CurrencyItemData>] = []
 
-    init(currenciesDataProvider: SingleValueProvider<CurrencyData, CDSingleValue>,
+    init(currenciesDataProvider: SingleValueProvider<CurrencyData>,
          settingsManager: SettingsManagerProtocol,
          settingsKey: String,
          defaultCurrencyItem: CurrencyItemData,
@@ -85,11 +85,11 @@ final class SelectedCurrencyDataProvider {
         }
 
         let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true)
-        currenciesDataProvider.addCacheObserver(self,
-                                                deliverOn: synchronizationQueue,
-                                                executing: changesBlock,
-                                                failing: failBlock,
-                                                options: options)
+        currenciesDataProvider.addObserver(self,
+                                           deliverOn: synchronizationQueue,
+                                           executing: changesBlock,
+                                           failing: failBlock,
+                                           options: options)
     }
 
     private func updateWaitingInitializationGuaranteeState(with update: CurrencyData?) -> Bool {
@@ -107,7 +107,7 @@ final class SelectedCurrencyDataProvider {
     private func handleCurrencies(update: CurrencyData?) {
         if update == nil, !isInitialized {
             isInitialized = true
-            currenciesDataProvider.refreshCache()
+            currenciesDataProvider.refresh()
             return
         }
 
@@ -191,7 +191,7 @@ final class SelectedCurrencyDataProvider {
         executionQueue.addOperation(saveOperation)
     }
 
-    private func handleSaveOperation(optionalResult: OperationResult<CurrencyItemChange?>?) {
+    private func handleSaveOperation(optionalResult: Result<CurrencyItemChange?, Error>?) {
         guard let result = optionalResult else {
             return
         }
@@ -201,7 +201,7 @@ final class SelectedCurrencyDataProvider {
             self.synchronizationQueue.async {
                 self.notifyObservers(with: optionalUpdate)
             }
-        case .error(let error):
+        case .failure(let error):
             self.synchronizationQueue.async {
                 self.notifyObservers(with: error)
             }
@@ -249,10 +249,10 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
         return currenciesDataProvider.executionQueue
     }
 
-    func addCacheObserver(_ observer: AnyObject, deliverOn queue: DispatchQueue?,
-                          executing updateBlock: @escaping ([CurrencyItemChange]) -> Void,
-                          failing failureBlock: @escaping (Error) -> Void,
-                          options: DataProviderObserverOptions) {
+    func addObserver(_ observer: AnyObject, deliverOn queue: DispatchQueue?,
+                     executing updateBlock: @escaping ([CurrencyItemChange]) -> Void,
+                     failing failureBlock: @escaping (Error) -> Void,
+                     options: DataProviderObserverOptions) {
         synchronizationQueue.async {
             self.cacheObservers = self.cacheObservers.filter { $0.observer != nil }
 
@@ -272,11 +272,11 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
                 switch result {
                 case .success(let optionalCurrencyItem):
                     self.synchronizationQueue.async {
-                        let cacheObserver = CacheObserver(observer: observer,
-                                                          queue: queue,
-                                                          updateBlock: updateBlock,
-                                                          failureBlock: failureBlock,
-                                                          options: options)
+                        let cacheObserver = DataProviderObserver(observer: observer,
+                                                                 queue: queue,
+                                                                 updateBlock: updateBlock,
+                                                                 failureBlock: failureBlock,
+                                                                 options: options)
                         self.cacheObservers.append(cacheObserver)
 
                         self.updateTrigger.receive(event: .addObserver(observer))
@@ -287,7 +287,7 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
                             }
                         }
                     }
-                case .error(let error):
+                case .failure(let error):
                     dispatchInQueueWhenPossible(queue) {
                         failureBlock(error)
                     }
@@ -300,10 +300,10 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
         }
     }
 
-    func fetch(with completionBlock: ((OperationResult<CurrencyItemData>?) -> Void)?)
-        -> BaseOperation<CurrencyItemData> {
+    func fetch(with completionBlock: ((Result<CurrencyItemData?, Error>?) -> Void)?)
+        -> BaseOperation<CurrencyItemData?> {
         if let currencyItem = self.settingsManager.value(of: CurrencyItemData.self, for: self.settingsKey) {
-            let operation = BaseOperation<CurrencyItemData>()
+            let operation = BaseOperation<CurrencyItemData?>()
             operation.result = .success(currencyItem)
 
             operation.completionBlock = {
@@ -316,19 +316,20 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
 
         let currenciesOperation = currenciesDataProvider.fetch(with: nil)
 
-        let processingOperation = ClosureOperation<CurrencyItemData> {
+        let processingOperation = ClosureOperation<CurrencyItemData?> {
             guard let result = currenciesOperation.result else {
                 throw BaseOperationError.parentOperationCancelled
             }
 
             switch result {
             case .success(let currencies):
-                if let currency = self.firstMatchingLocale(from: currencies.sortedItems()) {
+                if let currencies = currencies,
+                    let currency = self.firstMatchingLocale(from: currencies.sortedItems()) {
                     return currency
                 } else {
                     return self.defaultCurrencyItem
                 }
-            case .error(let error):
+            case .failure(let error):
                 throw error
             }
         }
@@ -346,7 +347,7 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
         return processingOperation
     }
 
-    func removeCacheObserver(_ observer: AnyObject) {
+    func removeObserver(_ observer: AnyObject) {
         synchronizationQueue.async {
             self.cacheObservers = self.cacheObservers.filter { $0.observer !== observer && $0.observer != nil}
 
@@ -354,8 +355,8 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
         }
     }
 
-    func refreshCache() {
-        currenciesDataProvider.refreshCache()
+    func refresh() {
+        currenciesDataProvider.refresh()
     }
 
     func replaceModel(with newModel: Model) {
@@ -367,6 +368,6 @@ extension SelectedCurrencyDataProvider: SelectedCurrencyDataProviderProtocol {
 
 extension SelectedCurrencyDataProvider: DataProviderTriggerDelegate {
     func didTrigger() {
-        currenciesDataProvider.refreshCache()
+        currenciesDataProvider.refresh()
     }
 }

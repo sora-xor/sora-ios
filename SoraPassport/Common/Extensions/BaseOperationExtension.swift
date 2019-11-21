@@ -23,7 +23,7 @@ extension BaseOperation {
         switch result {
         case .success(let data):
             return data
-        case .error(let error):
+        case .failure(let error):
             throw error
         }
     }

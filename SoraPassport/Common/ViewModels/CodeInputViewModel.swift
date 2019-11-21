@@ -30,19 +30,17 @@ final class CodeInputViewModel {
 
 extension CodeInputViewModel: CodeInputViewModelProtocol {
     func didReceiveReplacement(_ string: String, for range: NSRange) -> Bool {
-        let newLength = code.count + string.count - range.length
+        let newValue = (code as NSString).replacingCharacters(in: range, with: string)
 
-        guard newLength <= requiredLength else {
+        if requiredLength > 0, newValue.count > requiredLength {
             return false
         }
 
-        guard string.rangeOfCharacter(from: invalidCharacters) == nil else {
+        if newValue.rangeOfCharacter(from: invalidCharacters) != nil {
             return false
         }
 
-        let startIndex = code.index(code.startIndex, offsetBy: range.location)
-        let endIndex = code.index(startIndex, offsetBy: range.length)
-        code.replaceSubrange(startIndex..<endIndex, with: string)
+        code = newValue
 
         return true
     }

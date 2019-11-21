@@ -9,10 +9,10 @@ import RobinHood
 final class ProjectsListInteractor {
     weak var presenter: ProjectsListInteractorOutputProtocol?
 
-    let projectsDataProvider: DataProvider<ProjectData, CDProject>
+    let projectsDataProvider: DataProvider<ProjectData>
     let eventCenter: EventCenterProtocol
 
-    init(projectsDataProvider: DataProvider<ProjectData, CDProject>,
+    init(projectsDataProvider: DataProvider<ProjectData>,
          eventCenter: EventCenterProtocol) {
         self.projectsDataProvider = projectsDataProvider
         self.eventCenter = eventCenter
@@ -28,11 +28,11 @@ final class ProjectsListInteractor {
         }
 
         let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true)
-        projectsDataProvider.addCacheObserver(self,
-                                              deliverOn: .main,
-                                              executing: changesBlock,
-                                              failing: failBlock,
-                                              options: options)
+        projectsDataProvider.addObserver(self,
+                                         deliverOn: .main,
+                                         executing: changesBlock,
+                                         failing: failBlock,
+                                         options: options)
     }
 
     private func setupEventCenter() {
@@ -47,7 +47,7 @@ extension ProjectsListInteractor: ProjectsListInteractorInputProtocol {
     }
 
     func refresh() {
-        projectsDataProvider.refreshCache()
+        projectsDataProvider.refresh()
     }
 }
 

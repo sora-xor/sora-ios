@@ -10,12 +10,12 @@ final class ProjectDetailsInteractor {
 	weak var presenter: ProjectDetailsInteractorOutputProtocol?
 
     let customerDataProviderFacade: CustomerDataProviderFacadeProtocol
-    let projectDetailsDataProvider: SingleValueProvider<ProjectDetailsData, CDSingleValue>
+    let projectDetailsDataProvider: SingleValueProvider<ProjectDetailsData>
     let projectService: ProjectUnitServiceProtocol
     let eventCenter: EventCenterProtocol
 
     init(customerDataProviderFacade: CustomerDataProviderFacadeProtocol,
-         projectDetailsDataProvider: SingleValueProvider<ProjectDetailsData, CDSingleValue>,
+         projectDetailsDataProvider: SingleValueProvider<ProjectDetailsData>,
          projectService: ProjectUnitServiceProtocol,
          eventCenter: EventCenterProtocol) {
         self.customerDataProviderFacade = customerDataProviderFacade
@@ -42,10 +42,14 @@ final class ProjectDetailsInteractor {
             self?.presenter?.didReceiveVotesDataProvider(error: error)
         }
 
-        customerDataProviderFacade.votesProvider.addCacheObserver(self,
-                                                                  deliverOn: .main,
-                                                                  executing: changesBlock,
-                                                                  failing: failBlock)
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
+                                                  waitsInProgressSyncOnAdd: false)
+
+        customerDataProviderFacade.votesProvider.addObserver(self,
+                                                             deliverOn: .main,
+                                                             executing: changesBlock,
+                                                             failing: failBlock,
+                                                             options: options)
     }
 
     private func setupProjectDetailsProvider() {
@@ -66,10 +70,14 @@ final class ProjectDetailsInteractor {
             self?.presenter?.didReceiveVotesDataProvider(error: error)
         }
 
-        projectDetailsDataProvider.addCacheObserver(self,
-                                                    deliverOn: .main,
-                                                    executing: changesBlock,
-                                                    failing: failBlock)
+        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
+                                                  waitsInProgressSyncOnAdd: false)
+
+        projectDetailsDataProvider.addObserver(self,
+                                               deliverOn: .main,
+                                               executing: changesBlock,
+                                               failing: failBlock,
+                                               options: options)
     }
 
     func setupEventCenter() {
@@ -91,7 +99,7 @@ extension ProjectDetailsInteractor: ProjectDetailsInteractorInputProtocol {
                     switch result {
                     case .success:
                         self.eventCenter.notify(with: ProjectVoteEvent(details: project))
-                    case .error(let error):
+                    case .failure(let error):
                         self.presenter?.didReceiveVote(error: error, for: project)
                     }
                 }
@@ -102,11 +110,11 @@ extension ProjectDetailsInteractor: ProjectDetailsInteractorInputProtocol {
     }
 
     func refreshVotes() {
-        customerDataProviderFacade.votesProvider.refreshCache()
+        customerDataProviderFacade.votesProvider.refresh()
     }
 
     func refreshProjectDetails() {
-        projectDetailsDataProvider.refreshCache()
+        projectDetailsDataProvider.refresh()
     }
 
     func toggleFavorite(for projectId: String) {
@@ -116,7 +124,7 @@ extension ProjectDetailsInteractor: ProjectDetailsInteractorInputProtocol {
                     switch result {
                     case .success:
                         self.eventCenter.notify(with: ProjectFavoriteToggleEvent(projectId: projectId))
-                    case .error(let error):
+                    case .failure(let error):
                         self.presenter?.didReceiveToggleFavorite(error: error, for: projectId)
                     }
                 }

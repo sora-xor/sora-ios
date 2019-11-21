@@ -14,18 +14,21 @@ final class InvitationViewFactory: InvitationViewFactoryProtocol {
         }
 
         let view = InvitationViewController(nib: R.nib.invitationViewController)
-        view.changesAnimation = BlockViewAnimator(duration: 0.1, delay: 0.0, options: .curveLinear)
 
         let invitationFactory = InvitationFactory(host: ApplicationConfig.shared.invitationHostURL)
+        let timerFactory = CountdownTimerFactory()
+        let invitationViewModelFactory = InvitationViewModelFactory(integerFormatter: .anyInteger)
 
-        let presenter = InvitationPresenter(integerNumberFormatter: NumberFormatter.anyInteger,
+        let presenter = InvitationPresenter(invitationViewModelFactory: invitationViewModelFactory,
+                                            timerFactory: timerFactory,
                                             invitationFactory: invitationFactory)
 
         let projectUnitService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
         projectUnitService.requestSigner = requestSigner
 
         let interator = InvitationInteractor(service: projectUnitService,
-                                             customerDataProviderFacade: CustomerDataProviderFacade.shared)
+                                             customerDataProviderFacade: CustomerDataProviderFacade.shared,
+                                             eventCenter: EventCenter.shared)
         let wireframe = InvitationWireframe()
 
         view.presenter = presenter

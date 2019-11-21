@@ -310,9 +310,25 @@ extension ProjectDetailsPresenter: ProjectDetailsViewModelDelegate {
             $0.recepients = [model.email]
         }
 
-        wireframe.writeEmail(with: message,
-                             from: view,
-                             completionHandler: nil)
+        if !wireframe.writeEmail(with: message, from: view, completionHandler: nil) {
+            wireframe.present(message: R.string.localizable.noEmailBoundErrorMessage(),
+                              title: R.string.localizable.errorTitle(),
+                              closeAction: R.string.localizable.close(),
+                              from: view)
+        }
+    }
+
+    func openDiscussion(for model: ProjectDetailsViewModelProtocol) {
+        guard let discussionUrl = projectDetails?.discussionLink?.url else {
+            return
+        }
+
+        if !wireframe.open(url: discussionUrl) {
+            wireframe.present(message: R.string.localizable.urlNoAppErrorMessage(),
+                              title: R.string.localizable.errorTitle(),
+                              closeAction: R.string.localizable.close(),
+                              from: view)
+        }
     }
 }
 

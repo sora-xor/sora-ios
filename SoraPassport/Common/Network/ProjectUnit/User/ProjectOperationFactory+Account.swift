@@ -67,7 +67,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
         return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
-    func fetchCustomerOperation(_ urlTemplate: String) -> NetworkOperation<UserData> {
+    func fetchCustomerOperation(_ urlTemplate: String) -> NetworkOperation<UserData?> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
@@ -78,7 +78,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<UserData> { data in
+        let resultFactory = AnyNetworkResultFactory<UserData?> { data in
             let resultData = try JSONDecoder().decode(ResultData<UserData>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -96,8 +96,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return userData
         }
 
-        return NetworkOperation<UserData>(requestFactory: requestFactory,
-                                      resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
     func updateCustomerOperation(_ urlTemplate: String, info: PersonalInfo) -> NetworkOperation<Bool> {
@@ -129,8 +128,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return true
         }
 
-        return NetworkOperation<Bool>(requestFactory: requestFactory,
-                                      resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
     func fetchInvitationCodeOperation(_ urlTemplate: String) -> NetworkOperation<InvitationCodeData> {
@@ -157,8 +155,31 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             }
         }
 
-        return NetworkOperation<InvitationCodeData>(requestFactory: requestFactory,
-                                                    resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
+    }
+
+    func applyInvitationCodeOperation(_ urlTemplate: String, code: String) -> NetworkOperation<Void> {
+        let requestFactory = BlockNetworkRequestFactory {
+            let serviceUrl = try EndpointBuilder(urlTemplate: urlTemplate).buildParameterURL(code)
+
+            var request = URLRequest(url: serviceUrl)
+            request.httpMethod = HttpMethod.post.rawValue
+            return request
+        }
+
+        let resultFactory = AnyNetworkResultFactory<Void> { data in
+            let statusData = try JSONDecoder().decode(ResultData<Bool>.self, from: data)
+
+            guard statusData.status.isSuccess else {
+                if let invitationApplyError = ApplyInvitationDataError.error(from: statusData.status) {
+                    throw invitationApplyError
+                } else {
+                    throw ResultStatusError(statusData: statusData.status)
+                }
+            }
+        }
+
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
     func markAsUsedOperation(_ urlTemplate: String, invitationCode: String) -> NetworkOperation<Bool> {
@@ -189,7 +210,39 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
                                       resultFactory: resultFactory)
     }
 
-    func fetchActivatedInvitationsOperation(_ urlTemplate: String) -> NetworkOperation<ActivatedInvitationsData> {
+    func checkInvitation(_ urlTemplate: String, deviceInfo: DeviceInfo) -> NetworkOperation<InvitationCheckData> {
+        let requestFactory = BlockNetworkRequestFactory {
+            guard let serviceUrl = URL(string: urlTemplate) else {
+                throw NetworkBaseError.invalidUrl
+            }
+
+            var request = URLRequest(url: serviceUrl)
+            request.httpMethod = HttpMethod.post.rawValue
+            request.setValue(HttpContentType.json.rawValue,
+                             forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
+            request.httpBody = try JSONEncoder().encode(deviceInfo)
+            return request
+        }
+
+        let resultFactory = AnyNetworkResultFactory<InvitationCheckData> { data in
+            let resultData = try JSONDecoder().decode(MultifieldResultData<InvitationCheckData>.self,
+                                                      from: data)
+
+            guard resultData.status.isSuccess else {
+                if let invitationCheckError = InvitationCheckDataError.error(from: resultData.status) {
+                    throw invitationCheckError
+                } else {
+                    throw ResultStatusError(statusData: resultData.status)
+                }
+            }
+
+            return resultData.result
+        }
+
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
+    }
+
+    func fetchActivatedInvitationsOperation(_ urlTemplate: String) -> NetworkOperation<ActivatedInvitationsData?> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
@@ -200,7 +253,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<ActivatedInvitationsData> { data in
+        let resultFactory = AnyNetworkResultFactory<ActivatedInvitationsData?> { data in
             let resultData = try JSONDecoder().decode(MultifieldResultData<ActivatedInvitationsData>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -210,11 +263,10 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return resultData.result
         }
 
-        return NetworkOperation<ActivatedInvitationsData>(requestFactory: requestFactory,
-                                                          resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
-    func fetchReputationOperation(_ urlTemplate: String) -> NetworkOperation<ReputationData> {
+    func fetchReputationOperation(_ urlTemplate: String) -> NetworkOperation<ReputationData?> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
                 throw NetworkBaseError.invalidUrl
@@ -225,7 +277,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<ReputationData> { (data) in
+        let resultFactory = AnyNetworkResultFactory<ReputationData?> { (data) in
             let resultData = try JSONDecoder().decode(ResultData<ReputationData>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -243,12 +295,11 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return reputation
         }
 
-        return NetworkOperation<ReputationData>(requestFactory: requestFactory,
-                                                resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
     func fetchActivityFeedOperation(_ urlTemplate: String,
-                                    with page: Pagination) -> NetworkOperation<ActivityData> {
+                                    with page: Pagination) -> NetworkOperation<ActivityData?> {
         let requestFactory = BlockNetworkRequestFactory {
             let serviceUrl = try EndpointBuilder(urlTemplate: urlTemplate).buildURL(with: page)
 
@@ -258,7 +309,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return request
         }
 
-        let resultFactory = AnyNetworkResultFactory<ActivityData> { data in
+        let resultFactory = AnyNetworkResultFactory<ActivityData?> { data in
             let resultData = try JSONDecoder().decode(MultifieldResultData<ActivityData>.self, from: data)
 
             guard resultData.status.isSuccess else {
@@ -268,8 +319,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return resultData.result
         }
 
-        return NetworkOperation<ActivityData>(requestFactory: requestFactory,
-                                              resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
     func sendSmsCodeOperation(_ urlTemplate: String) -> NetworkOperation<VerificationCodeData> {
@@ -289,8 +339,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
             return verificationData
         }
 
-        return NetworkOperation<VerificationCodeData>(requestFactory: requestFactory,
-                                                      resultFactory: resultFactory)
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
     func verifySmsCodeOperation(_ urlTemplate: String, info: VerificationCodeInfo) -> NetworkOperation<Bool> {

@@ -7,8 +7,8 @@ import Foundation
 import SoraCrypto
 import RobinHood
 
-typealias NetworkDecentralizedDocumentFetchBlock = (OperationResult<DecentralizedDocumentObject>?) -> Void
-typealias NetworkDecentralizedDocumentCreateBlock = (OperationResult<Bool>?) -> Void
+typealias NetworkDecentralizedDocumentFetchBlock = (Result<DecentralizedDocumentObject, Error>?) -> Void
+typealias NetworkDecentralizedDocumentCreateBlock = (Result<Bool, Error>?) -> Void
 
 protocol DecentralizedResolverServiceProtocol {
     @discardableResult

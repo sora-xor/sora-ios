@@ -43,11 +43,11 @@ final class PersonalInfoInteractor {
         self.registrationOperation = registrationOperation
     }
 
-    private func process(result: OperationResult<Bool>, for form: PersonalForm) {
+    private func process(result: Result<Bool, Error>, for form: PersonalForm) {
         switch result {
         case .success:
             completeRegistration(for: form)
-        case .error(let error):
+        case .failure(let error):
             presenter?.didReceiveRegistration(error: error)
         }
     }
@@ -66,9 +66,7 @@ extension PersonalInfoInteractor: PersonalInfoInteractorInputProtocol {
     func load() {
         invitationLinkService.add(observer: self)
 
-        guard let invitationCode = invitationLinkService.link?.code else {
-            return
-        }
+        let invitationCode = invitationLinkService.link?.code
 
         presenter?.didReceive(invitationCode: invitationCode)
     }

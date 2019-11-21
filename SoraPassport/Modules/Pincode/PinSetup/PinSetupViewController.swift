@@ -7,8 +7,14 @@ import UIKit
 import SoraUI
 
 class PinSetupViewController: UIViewController, AdaptiveDesignable {
+    private struct Constants {
+        static var cancelBottomMargin: CGFloat = 30.0
+    }
+
     var presenter: PinSetupPresenterProtocol!
     var mode = PinView.Mode.create
+
+    var cancellable: Bool = false
 
     var mainViewAccessibilityId: String? = "MainViewAccessibilityId"
     var bgViewAccessibilityId: String? = "BgViewAccessibilityId"
@@ -26,6 +32,8 @@ class PinSetupViewController: UIViewController, AdaptiveDesignable {
     @IBOutlet private var pinViewTopConstraint: NSLayoutConstraint!
     @IBOutlet private var pinViewBottomConstraint: NSLayoutConstraint!
 
+    private var cancelButton: UIButton?
+
     // MARK: View Setup
 
     override func viewDidLoad() {
@@ -33,6 +41,11 @@ class PinSetupViewController: UIViewController, AdaptiveDesignable {
 
         configureNavigationBar()
         configurePinView()
+
+        if cancellable {
+            configureCancelButton()
+        }
+
         updateTitleLabelState()
         adjustLayoutConstraints()
         setupAccessibilityIdentifiers()
@@ -47,7 +60,36 @@ class PinSetupViewController: UIViewController, AdaptiveDesignable {
 
         navigationBar.setBackgroundImage(UIImage(), for: UIBarMetrics.default)
         navigationBar.shadowImage = UIImage()
+        navigationBar.tintColor = UIColor.navigationBarBackTintColor
         navigationBar.delegate = self
+    }
+
+    private func configureCancelButton() {
+        let cancelButton = UIButton()
+        cancelButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(cancelButton)
+
+        let bottomMargin = -Constants.cancelBottomMargin * designScaleRatio.height
+
+        if #available(iOS 11.0, *) {
+            cancelButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor,
+                                                 constant: bottomMargin).isActive = true
+        } else {
+            cancelButton.bottomAnchor.constraint(equalTo: view.bottomAnchor,
+                                                 constant: bottomMargin).isActive = true
+        }
+
+        cancelButton.trailingAnchor.constraint(equalTo: pinView.trailingAnchor).isActive = true
+
+        cancelButton.setTitle(R.string.localizable.cancel(), for: .normal)
+        cancelButton.setTitleColor(UIColor.navigationBarBackTintColor, for: .normal)
+        cancelButton.titleLabel?.font = UIFont.accessoryTitle
+
+        cancelButton.addTarget(self,
+                               action: #selector(actionCancel),
+                               for: .touchUpInside)
+
+        self.cancelButton = cancelButton
     }
 
     private func updateTitleLabelState() {
@@ -106,6 +148,11 @@ class PinSetupViewController: UIViewController, AdaptiveDesignable {
 
         if isAdaptiveHeightDecreased {
             pinView.verticalSpacing *= designScaleRatio.height
+
+            if let cancelButton = cancelButton {
+                pinView.verticalSpacing -= cancelButton.intrinsicContentSize.height
+            }
+
             pinView.numpadView?.verticalSpacing *= designScaleRatio.height
             pinView.characterFieldsView?.fieldSize.height *= designScaleRatio.height
             pinView.securedCharacterFieldsView?.fieldSize.height *= designScaleRatio.height
@@ -119,7 +166,20 @@ class PinSetupViewController: UIViewController, AdaptiveDesignable {
 
         titleTopConstraint.constant *= designScaleRatio.height
         pinViewTopConstraint.constant *= designScaleRatio.height
+
         pinViewBottomConstraint.constant *= designScaleRatio.height
+
+        if cancellable {
+            let cancelMargin = Constants.cancelBottomMargin * designScaleRatio.height
+            titleTopConstraint.constant -= cancelMargin
+            pinViewBottomConstraint.constant += cancelMargin
+        }
+    }
+
+    // MARK: Action
+
+    @objc func actionCancel() {
+        presenter.cancel()
     }
 }
 

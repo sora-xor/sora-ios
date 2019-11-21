@@ -7,9 +7,11 @@ import Foundation
 import FireMock
 
 enum ProjectsCustomerMock: FireMockProtocol {
-    case success
+    case successWithParent
+    case successWithoutParent
+    case successWithExpiredParentMoment
     case resourceNotFound
-    case unsupportedCountry
+    case unauthorized
 
     var afterTime: TimeInterval {
         return 1.0
@@ -17,8 +19,10 @@ enum ProjectsCustomerMock: FireMockProtocol {
 
     var statusCode: Int {
         switch self {
-        case .success, .unsupportedCountry:
+        case .successWithParent, .successWithoutParent, .successWithExpiredParentMoment:
             return 200
+        case .unauthorized:
+            return 401
         case .resourceNotFound:
             return 404
         }
@@ -26,11 +30,15 @@ enum ProjectsCustomerMock: FireMockProtocol {
 
     func mockFile() -> String {
         switch self {
-        case .success:
+        case .successWithParent:
             return R.file.customerFetchResponseJson.fullName
-        case .unsupportedCountry:
-            return R.file.customerUnsupportedCountryResponseJson.fullName
+        case .successWithoutParent:
+            return R.file.customerWithoutParentJson.fullName
+        case .successWithExpiredParentMoment:
+            return R.file.customerWithExpiredParentMomentJson.fullName
         case .resourceNotFound:
+            return R.file.emptyResponseJson.fullName
+        case .unauthorized:
             return R.file.emptyResponseJson.fullName
         }
     }
@@ -43,11 +51,11 @@ extension ProjectsCustomerMock {
             return
         }
 
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create customer fetch regex")
+        guard let url = URL(string: service.serviceEndpoint) else {
+            Logger.shared.warning("Can't create customer fetch url")
             return
         }
 
-        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
+        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
     }
 }

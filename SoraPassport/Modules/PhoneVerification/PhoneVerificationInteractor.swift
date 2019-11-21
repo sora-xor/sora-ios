@@ -34,7 +34,7 @@ extension PhoneVerificationInteractor: PhoneVerificationInteractorInputProtocol 
                     switch result {
                     case .success(let verificationCodeData):
                         self?.presenter?.didReceive(verificationCodeData: verificationCodeData)
-                    case .error(let error):
+                    case .failure(let error):
                         self?.presenter?.didReceivePhoneVerificationCodeRequest(error: error)
                     }
                 }
@@ -52,7 +52,7 @@ extension PhoneVerificationInteractor: PhoneVerificationInteractorInputProtocol 
                     switch result {
                     case .success:
                         self?.presenter?.didVerifyPhoneCode()
-                    case .error(let error):
+                    case .failure(let error):
                         self?.presenter?.didReceivePhoneVerification(error: error)
                     }
                 }

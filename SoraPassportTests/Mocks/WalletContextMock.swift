@@ -17,6 +17,12 @@ class WalletCommandMock: WalletCommandProtocol {
 
 class WalletPresentationCommandMock: WalletCommandMock, WalletPresentationCommandProtocol {
     var presentationStyle: WalletPresentationStyle = .modal(inNavigation: true)
+    var animated: Bool = true
+}
+
+class WalletHideCommandMock: WalletCommandMock, WalletHideCommandProtocol {
+    var actionType: WalletHideActionType = .dismiss
+    var animated: Bool = true
 }
 
 class AssetDetailsCommandMock: WalletPresentationCommandMock, AssetDetailsCommadProtocol {
@@ -32,6 +38,7 @@ final class WalletContextMock: CommonWalletContextProtocol {
     var closurePrepareWithdrawCommand: ((IRAssetId, String) -> WalletPresentationCommandProtocol)?
     var closurePreparePresentationCommand: ((UIViewController) -> WalletPresentationCommandProtocol)?
     var closurePrepareAccountUpdateCommand: (() -> WalletCommandProtocol)?
+    var closurePrepareHideCommand: ((WalletHideActionType) -> WalletHideCommandProtocol)?
 
     func createRootController() throws -> UINavigationController {
         return closureCreateRootController?() ?? UINavigationController()
@@ -65,5 +72,7 @@ final class WalletContextMock: CommonWalletContextProtocol {
         return closurePrepareAccountUpdateCommand?() ?? WalletCommandMock()
     }
 
-    
+    func prepareHideCommand(with actionType: WalletHideActionType) -> WalletHideCommandProtocol {
+        return closurePrepareHideCommand?(actionType) ?? WalletHideCommandMock()
+    }
 }

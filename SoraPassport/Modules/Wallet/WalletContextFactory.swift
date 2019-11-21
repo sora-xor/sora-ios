@@ -33,7 +33,8 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
 
             let inputValidFactory = WalletDescriptionInputValidatorFactory()
 
-            let networkOperationFactory = SoraNetworkOperationFactory(accountSettings: accountSettings)
+            let networkOperationFactory = SoraNetworkOperationFactory(accountSettings: accountSettings,
+                                                                      networkResolver: networkResolver)
 
             let builder = CommonWalletBuilder.builder(with: accountSettings, networkResolver: networkResolver)
                 .with(logger: logger)
@@ -150,8 +151,10 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
     static private func configureReceiverModule(with builder: ReceiveAmountModuleBuilderProtocol,
                                                 assets: [WalletAsset],
                                                 amountFormatter: NumberFormatter) {
-        builder.with(accountShareFactory: WalletAccountSharingFactory(assets: assets,
-                                                                      amountFormatter: amountFormatter))
+        builder
+            .with(accountShareFactory: WalletAccountSharingFactory(assets: assets,
+                                                                   amountFormatter: amountFormatter))
+            .with(title: R.string.localizable.walletReceiveTitle())
     }
 
     static private func configureTransactionDetails(with builder: TransactionDetailsModuleBuilderProtocol,

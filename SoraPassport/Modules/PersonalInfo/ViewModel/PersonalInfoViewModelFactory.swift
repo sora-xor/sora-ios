@@ -53,12 +53,12 @@ final class PersonalInfoViewModelFactory {
     private func createInvitationCodeViewModel(with value: String) -> PersonalInfoViewModel {
         let predicates = [NSPredicate.invitationCode, NSPredicate.empty]
         let compoundPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
-        return PersonalInfoViewModel(title: R.string.localizable.personalInfoInvitationCode(),
-                                     value: value,
-                                     maxLength: PersonalInfoSharedConstants.invitationCodeLimit,
-                                     validCharacterSet: CharacterSet.alphanumerics,
-                                     predicate: compoundPredicate,
-                                     autocapitalizationType: .none)
+        return PersonalInfoCodeViewModel(title: R.string.localizable.personalInfoInvitationCode(),
+                                         value: value,
+                                         maxLength: PersonalInfoSharedConstants.invitationCodeLimit,
+                                         validCharacterSet: CharacterSet.alphanumerics,
+                                         predicate: compoundPredicate,
+                                         autocapitalizationType: .none)
     }
 }
 

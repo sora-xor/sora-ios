@@ -21,10 +21,20 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
         let identityNetworkOperationFactory = DecentralizedResolverOperationFactory(url: identityUrl)
         let projectOperationFactory = ProjectOperationFactory()
 
-        interactor = OnboardingMainInteractor(applicationConfig: ApplicationConfig.shared,
+        let invitationLinkService = InvitationLinkService(settings: settings)
+
+        let onboardingPreparationService = OnboardingPreparationService(
+            accountOperationFactory: projectOperationFactory,
+            informationOperationFactory: projectOperationFactory,
+            invitationLinkService: invitationLinkService,
+            deviceInfoFactory: DeviceInfoFactory(),
+            keystore: keystore,
+            settings: settings,
+            applicationConfig: ApplicationConfig.shared)
+
+        interactor = OnboardingMainInteractor(onboardingPreparationService: onboardingPreparationService,
                                               settings: settings,
                                               keystore: keystore,
-                                              informationOperationFactory: projectOperationFactory,
                                               identityNetworkOperationFactory: identityNetworkOperationFactory,
                                               identityLocalOperationFactory: IdentityOperationFactory.self,
                                               operationManager: OperationManager.shared)
@@ -168,14 +178,14 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         interactor.setup()
 
-        guard case .checkingVersion = interactor.state else {
+        guard case .preparing = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
 
         wait(for: [supportedExpectation], timeout: Constants.expectationDuration)
 
-        guard case .checkedVersion = interactor.state else {
+        guard case .prepared = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
@@ -208,7 +218,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         interactor.setup()
 
-        guard case .checkingVersion = interactor.state else {
+        guard case .preparing = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
@@ -222,7 +232,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         wait(for: [supportedExpectation], timeout: Constants.expectationDuration)
 
-        guard case .checkedVersion = interactor.state else {
+        guard case .prepared = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
@@ -264,7 +274,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         interactor.setup()
 
-        guard case .checkingVersion = interactor.state else {
+        guard case .preparing = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
@@ -320,7 +330,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         interactor.setup()
 
-        guard case .checkingVersion = interactor.state else {
+        guard case .preparing = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
@@ -347,6 +357,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
+        CheckInvitationMock.register(mock: .success, projectUnit: projectUnit)
         DecentralizedDocumentCreateMock.register(mock: .success)
 
         let presenter = MockOnboardingMainOutputInteractorProtocol()
@@ -360,6 +371,9 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         let signupEndExpectation = XCTestExpectation()
         signupEndExpectation.assertForOverFulfill = true
+
+        let invitationCodeSavedExpectation = XCTestExpectation()
+        invitationCodeSavedExpectation.assertForOverFulfill = true
 
         // when
 
@@ -378,6 +392,18 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
             }
         }
 
+        let invitationLinkObserver = MockInvitationLinkObserver()
+
+        if let service = interactor.onboardingPreparationService as? OnboardingPreparationService {
+            stub(invitationLinkObserver) { stub in
+                stub.didUpdateInvitationLink(from: any()).then { _ in
+                    invitationCodeSavedExpectation.fulfill()
+                }
+            }
+
+            service.invitationLinkService.add(observer: invitationLinkObserver)
+        }
+
         // then
 
         guard case .initial = interactor.state else {
@@ -387,7 +413,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         interactor.setup()
 
-        guard case .checkingVersion = interactor.state else {
+        guard case .preparing = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
@@ -409,13 +435,20 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
             wait(for: [signupStartExpectation, versionExpectation, signupEndExpectation], timeout: Constants.expectationDuration)
         }
 
-        guard case .checkedVersion = interactor.state else {
+        wait(for: [invitationCodeSavedExpectation], timeout: Constants.expectationDuration)
+
+        verify(invitationLinkObserver, times(1)).didUpdateInvitationLink(from: any())
+
+        guard case .prepared = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
 
         XCTAssertNotNil(interactor.settings.decentralizedId)
         XCTAssertNotNil(interactor.settings.publicKeyId)
+
+        XCTAssertNotNil(interactor.settings.isCheckedInvitation)
+        XCTAssertNotNil(interactor.settings.invitationCode)
 
         let keystore = Keychain()
 
@@ -440,6 +473,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
+        CheckInvitationMock.register(mock: .success, projectUnit: projectUnit)
         DecentralizedDocumentCreateMock.register(mock: .notFound)
 
         let presenter = MockOnboardingMainOutputInteractorProtocol()
@@ -480,7 +514,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         interactor.setup()
 
-        guard case .checkingVersion = interactor.state else {
+        guard case .preparing = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
@@ -513,6 +547,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
+        CheckInvitationMock.register(mock: .success, projectUnit: projectUnit)
 
         let presenter = MockOnboardingMainOutputInteractorProtocol()
         interactor.presenter = presenter
@@ -552,7 +587,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
         interactor.setup()
 
-        guard case .checkingVersion = interactor.state else {
+        guard case .preparing = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }
@@ -564,7 +599,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
         interactor.prepareRestore()
 
         if waitVersionCheck {
-            guard case .checkedVersion = interactor.state else {
+            guard case .prepared = interactor.state else {
                 XCTFail("Unexpected state \(interactor.state)")
                 return
             }
@@ -581,7 +616,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
             wait(for: [restoreStartExpectation, versionExpectation, restoreEndExpectation], timeout: Constants.expectationDuration)
         }
 
-        guard case .checkedVersion = interactor.state else {
+        guard case .prepared = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
         }

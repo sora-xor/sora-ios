@@ -41,7 +41,7 @@ protocol ProjectDetailsInteractorOutputProtocol: class {
 }
 
 protocol ProjectDetailsWireframeProtocol: AlertPresentable, ErrorPresentable,
-WebPresentable, EmailPresentable, MediaGalleryPresentable {
+WebPresentable, EmailPresentable, MediaGalleryPresentable, OutboundUrlPresentable {
     func showVotingView(from view: ProjectDetailsViewProtocol?,
                         with model: VoteViewModelProtocol,
                         delegate: VoteViewDelegate?)

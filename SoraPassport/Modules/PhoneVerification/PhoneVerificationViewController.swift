@@ -13,7 +13,7 @@ final class PhoneVerificationViewController: AccessoryViewController, AdaptiveDe
 
     @IBOutlet private var textField: UITextField!
 
-    lazy private(set) var resendDelayTimeFormatter = TimeFormatter()
+    lazy private(set) var resendDelayTimeFormatter = MinuteSecondFormatter()
 
     override func viewDidLoad() {
         super.viewDidLoad()

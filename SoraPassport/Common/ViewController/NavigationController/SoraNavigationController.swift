@@ -72,3 +72,11 @@ final class SoraNavigationController: UINavigationController, UINavigationContro
         viewController.navigationItem.backBarButtonItem = backButtonItem
     }
 }
+
+extension SoraNavigationController: ScrollsToTop {
+    func scrollToTop() {
+        if let scrollableController = topViewController as? ScrollsToTop {
+            scrollableController.scrollToTop()
+        }
+    }
+}

@@ -29,3 +29,9 @@ struct ActivityData: Codable, Equatable {
     var users: [String: ActivityUserData]?
     var projects: [String: ActivityProjectData]?
 }
+
+extension ActivityData {
+    static var empty: ActivityData {
+        return ActivityData(events: [], users: nil, projects: nil)
+    }
+}

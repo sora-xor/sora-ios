@@ -39,7 +39,7 @@ class IdentityRestorationOperationTests: XCTestCase {
 
         let expectation = XCTestExpectation()
 
-        var optionalResult: OperationResult<DecentralizedDocumentObject>?
+        var optionalResult: Result<DecentralizedDocumentObject, Error>?
 
         operation.completionBlock = {
             optionalResult = operation.result
@@ -73,7 +73,7 @@ class IdentityRestorationOperationTests: XCTestCase {
             }
 
         } else {
-            guard let result = optionalResult, case .error = result else {
+            guard let result = optionalResult, case .failure = result else {
                 XCTFail()
                 return
             }

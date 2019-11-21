@@ -15,6 +15,12 @@ final class OnboardingMainViewFactory: OnboardingMainViewFactoryProtocol {
             return nil
         }
 
+        guard let invitationLinkService: InvitationLinkServiceProtocol = DeepLinkService.shared
+            .findService() else {
+            Logger.shared.error("Can't find invitation link service")
+            return nil
+        }
+
         let legalData = LegalData(termsUrl: applicationConfig.termsURL,
                               privacyPolicyUrl: applicationConfig.privacyPolicyURL)
 
@@ -24,13 +30,24 @@ final class OnboardingMainViewFactory: OnboardingMainViewFactoryProtocol {
         let presenter = OnboardingMainPresenter(legalData: legalData)
         let wireframe = OnboardingMainWireframe()
 
-        let informationFactory = ProjectOperationFactory()
+        let projectOperationFactory = ProjectOperationFactory()
         let identityNetworkOperationFactory = DecentralizedResolverOperationFactory(url: decentralizedResolverUrl)
+        let deviceInfoFactory = DeviceInfoFactory()
+        let settings = SettingsManager.shared
+        let keystore = Keychain()
 
-        let interactor = OnboardingMainInteractor(applicationConfig: ApplicationConfig.shared,
-                                                  settings: SettingsManager.shared,
-                                                  keystore: Keychain(),
-                                                  informationOperationFactory: informationFactory,
+        let onboardingPreparationService = OnboardingPreparationService(
+            accountOperationFactory: projectOperationFactory,
+            informationOperationFactory: projectOperationFactory,
+            invitationLinkService: invitationLinkService,
+            deviceInfoFactory: deviceInfoFactory,
+            keystore: keystore,
+            settings: settings,
+            applicationConfig: applicationConfig)
+
+        let interactor = OnboardingMainInteractor(onboardingPreparationService: onboardingPreparationService,
+                                                  settings: settings,
+                                                  keystore: keystore,
                                                   identityNetworkOperationFactory: identityNetworkOperationFactory,
                                                   identityLocalOperationFactory: IdentityOperationFactory.self,
                                                   operationManager: OperationManager.shared)

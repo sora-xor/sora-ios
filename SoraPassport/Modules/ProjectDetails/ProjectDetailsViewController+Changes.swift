@@ -33,6 +33,10 @@ extension ProjectDetailsViewController {
                 hasLayoutChanges = true
             }
 
+            if self.applyDiscussionChanges(since: oldViewModel) {
+                hasLayoutChanges = true
+            }
+
             if self.applyDetailsSectionChanges(since: oldViewModel) {
                 hasLayoutChanges = true
             }
@@ -141,11 +145,11 @@ extension ProjectDetailsViewController {
 
         if shouldChangeLayout {
             if progressWidth <= contentWidth {
-                progressLabelTrallingWhenShort.isActive = true
-                deadlineLabelTopWhenShort.isActive = true
                 progressLabelTrallingWhenLong.isActive = false
                 deadlineLabelTopWhenLong.isActive = false
                 deadlineLabelLeftWhenLong.isActive = false
+                progressLabelTrallingWhenShort.isActive = true
+                deadlineLabelTopWhenShort.isActive = true
             } else {
                 progressLabelTrallingWhenShort.isActive = false
                 deadlineLabelTopWhenShort.isActive = false
@@ -285,11 +289,55 @@ extension ProjectDetailsViewController {
 
         if shouldChangeLayout {
             if viewModel.rewardDetails != nil {
-                statisticsTopWithReward.isActive = true
                 statisticsTopWithFavorite.isActive = false
+                statisticsTopWithReward.isActive = true
             } else {
                 statisticsTopWithReward.isActive = false
                 statisticsTopWithFavorite.isActive = true
+            }
+
+            hasLayoutChanges = true
+        }
+
+        return hasLayoutChanges
+    }
+
+    private func applyDiscussionChanges(since oldViewModel: ProjectDetailsViewModelProtocol?) -> Bool {
+        guard let viewModel = viewModel else {
+            return false
+        }
+
+        var hasLayoutChanges = false
+
+        if oldViewModel == nil || (oldViewModel?.discussionDetails != viewModel.discussionDetails) {
+            if let discussionDetails = viewModel.discussionDetails {
+                discussionContentView.alpha = 1.0
+                discussionLinkView.imageWithTitleView?.title = discussionDetails
+                discussionLinkView.invalidateLayout()
+            } else {
+                discussionContentView.alpha = 0.0
+            }
+
+            hasLayoutChanges = true
+        }
+
+        let shouldChangeLayout = (oldViewModel == nil) ||
+            ((oldViewModel?.rewardDetails == nil) != (viewModel.rewardDetails == nil)) ||
+            ((oldViewModel?.statisticsDetails == nil) != (viewModel.statisticsDetails == nil))
+
+        if shouldChangeLayout {
+            if viewModel.statisticsDetails != nil {
+                discussionTopWithFavorite.isActive = false
+                discussionTopWithReward.isActive = false
+                discussionTopWithStatistics.isActive = true
+            } else if viewModel.rewardDetails != nil {
+                discussionTopWithFavorite.isActive = false
+                discussionTopWithStatistics.isActive = false
+                discussionTopWithReward.isActive = true
+            } else {
+                discussionTopWithReward.isActive = false
+                discussionTopWithStatistics.isActive = false
+                discussionTopWithFavorite.isActive = true
             }
 
             hasLayoutChanges = true
@@ -307,28 +355,37 @@ extension ProjectDetailsViewController {
 
         if oldViewModel?.details != viewModel.details {
             updateDetailsViewHeight()
-            setDetails(expanded: false)
-            detailsTextViewHeight.constant = detailsCollapsedHeight
+            updateDetails()
+            detailsTextViewHeight.constant = detailsHeight
 
             hasLayoutChanges = true
         }
 
         let shouldChangeLayout = (oldViewModel == nil) ||
             ((oldViewModel?.rewardDetails == nil) != (viewModel.rewardDetails == nil)) ||
-            ((oldViewModel?.statisticsDetails == nil) != (viewModel.statisticsDetails == nil))
+            ((oldViewModel?.statisticsDetails == nil) != (viewModel.statisticsDetails == nil)) ||
+            ((oldViewModel?.discussionDetails == nil) != (viewModel.discussionDetails == nil))
 
         if shouldChangeLayout {
-            if viewModel.statisticsDetails != nil {
-                detailsTopWithStatistics.isActive = true
+            if viewModel.discussionDetails != nil {
                 detailsTopWithReward.isActive = false
                 detailsTopWithFavorite.isActive = false
+                detailsTopWithStatistics.isActive = false
+                detailsTopWithDiscussion.isActive = true
+            } else if viewModel.statisticsDetails != nil {
+                detailsTopWithReward.isActive = false
+                detailsTopWithFavorite.isActive = false
+                detailsTopWithDiscussion.isActive = false
+                detailsTopWithStatistics.isActive = true
             } else if viewModel.rewardDetails != nil {
                 detailsTopWithStatistics.isActive = false
-                detailsTopWithReward.isActive = true
                 detailsTopWithFavorite.isActive = false
+                detailsTopWithDiscussion.isActive = false
+                detailsTopWithReward.isActive = true
             } else {
                 detailsTopWithStatistics.isActive = false
                 detailsTopWithReward.isActive = false
+                detailsTopWithDiscussion.isActive = false
                 detailsTopWithFavorite.isActive = true
             }
         }
@@ -339,6 +396,10 @@ extension ProjectDetailsViewController {
     }
 
     private func applyGallerySectionChanges(since oldViewModel: ProjectDetailsViewModelProtocol?) -> Bool {
+        guard viewModel?.galleryImageViewModels != oldViewModel?.galleryImageViewModels else {
+            return false
+        }
+
         var hasGallery = false
 
         if let viewModel = viewModel, viewModel.galleryImageViewModels.count > 0 {
@@ -377,14 +438,19 @@ extension ProjectDetailsViewController {
     private func setProgressView(hidden: Bool) {
         progressView.alpha = hidden ? 0.0 : 1.0
 
-        voteButtonTopWhenOpen.isActive = !hidden
-        voteButtonTopWhenFinished.isActive = hidden
+        if hidden {
+            voteButtonTopWhenOpen.isActive = false
+            voteButtonTopWhenFinished.isActive = true
+        } else {
+            voteButtonTopWhenFinished.isActive = false
+            voteButtonTopWhenOpen.isActive = true
+        }
     }
 
-    private func setDetails(expanded: Bool) {
-        detailsTextView.expanded = expanded
+    private func updateDetails() {
+        detailsTextView.expanded = true
         detailsTextView.text = viewModel?.details
-        detailsTextView.showsFooter = detailsExpandedHeight > detailsCollapsedHeight
+        detailsTextView.showsFooter = false
     }
 
     private func updateActionsLayout(from previousActionWidth: CGFloat) -> Bool {
@@ -397,12 +463,12 @@ extension ProjectDetailsViewController {
 
         if shouldChangeLayout {
             if actionsWidth <= contentWidth {
-                voteButtonLeftWhenShort.isActive = true
-                favoriteButtonCenterYWhenShort.isActive = true
-                favoriteButtonTrallingWhenShort.isActive = true
                 voteButtonCenterWhenLong.isActive = false
                 favoriteButtonTopWhenLong.isActive = false
                 favoriteButtonCenterXWhenLong.isActive = false
+                voteButtonLeftWhenShort.isActive = true
+                favoriteButtonCenterYWhenShort.isActive = true
+                favoriteButtonTrallingWhenShort.isActive = true
             } else {
                 voteButtonLeftWhenShort.isActive = false
                 favoriteButtonCenterYWhenShort.isActive = false
@@ -420,19 +486,18 @@ extension ProjectDetailsViewController {
 
     private func updateDetailsViewHeight() {
         guard let text = viewModel?.details else {
-            detailsExpandedHeight = detailsCollapsedHeight
+            detailsHeight = Constants.detailsMinimumHeight
             return
         }
 
         let boundingSize = CGSize(width: detailsTextView.frame.size.width, height: CGFloat.greatestFiniteMagnitude)
-        detailsExpandedHeight = (text as NSString).boundingRect(with: boundingSize,
-                                                                options: .usesLineFragmentOrigin,
-                                                                attributes: [.font: detailsTextView.textFont],
-                                                                context: nil).size.height
-        detailsExpandedHeight += detailsTextView.footerHeight
+        detailsHeight = (text as NSString).boundingRect(with: boundingSize,
+                                                        options: .usesLineFragmentOrigin,
+                                                        attributes: [.font: detailsTextView.textFont],
+                                                        context: nil).size.height
+        detailsHeight += Constants.detailsBottomSpacing
 
-        detailsCollapsedHeight = detailsExpandedHeight > Constants.detailsCollapsedHeight
-            ? Constants.detailsCollapsedHeight : detailsExpandedHeight
+        detailsHeight = max(detailsHeight, Constants.detailsMinimumHeight)
     }
 
     private func setGallery(hidden: Bool) {

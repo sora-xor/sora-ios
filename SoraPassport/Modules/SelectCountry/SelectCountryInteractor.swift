@@ -9,9 +9,9 @@ import RobinHood
 final class SelectCountryInteractor {
     weak var presenter: SelectCountryInteractorOutputProtocol!
 
-    let countryProvider: SingleValueProvider<CountryData, CDSingleValue>
+    let countryProvider: SingleValueProvider<CountryData>
 
-    init(countryProvider: SingleValueProvider<CountryData, CDSingleValue>) {
+    init(countryProvider: SingleValueProvider<CountryData>) {
         self.countryProvider = countryProvider
     }
 
@@ -33,10 +33,10 @@ final class SelectCountryInteractor {
             self?.presenter.didReceiveDataProvider(error: error)
         }
 
-        countryProvider.addCacheObserver(self,
-                                         deliverOn: .main,
-                                         executing: updateBlock,
-                                         failing: failureBlock)
+        countryProvider.addObserver(self,
+                                    deliverOn: .main,
+                                    executing: updateBlock,
+                                    failing: failureBlock)
     }
 }
 

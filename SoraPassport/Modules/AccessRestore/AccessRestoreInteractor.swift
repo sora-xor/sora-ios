@@ -25,6 +25,7 @@ final class AccessRestoreInteractor {
 
     private(set) var restoreOperation: Operation?
 
+    private var restoreKeystore: KeystoreProtocol?
     private var restoredDocument: DecentralizedDocumentObject?
 
     init(identityLocalOperationFactory: IdentityOperationFactoryProtocol.Type,
@@ -46,14 +47,18 @@ final class AccessRestoreInteractor {
     }
 
     private func createIdentityRestorationOperation(mnemonic: IRMnemonicProtocol) -> IdentityRestorationOperation {
+
+            let restoreKeystore = InMemoryKeychain()
+            self.restoreKeystore = restoreKeystore
+
             let operation = identityLocalOperationFactory.createRestorationOperation(with: mnemonic,
-                                                                                     keystore: keystore)
+                                                                                     keystore: restoreKeystore)
             return operation
     }
 
     private func createCustormerCheck(with endpoint: String,
                                       dependingOn identityOperation: IdentityRestorationOperation)
-        -> NetworkOperation<UserData> {
+        -> NetworkOperation<UserData?> {
             let operation = accountOperationFactory.fetchCustomerOperation(endpoint)
 
             operation.configurationBlock = {
@@ -68,20 +73,20 @@ final class AccessRestoreInteractor {
                 case .success(let document):
                     self.restoredDocument = document
 
-                    let rawSigner = IRSigningDecorator(keystore: self.keystore,
+                    let rawSigner = IRSigningDecorator(keystore: identityOperation.keystore,
                                                        identifier: KeystoreKey.privateKey.rawValue)
                     if let requestSigner = DARequestSigner.createFrom(document: document, rawSigner: rawSigner) {
                         operation.requestModifier = requestSigner
                     } else {
-                        operation.result = .error(DARequestSignerError.signatureCreationFailed)
+                        operation.result = .failure(DARequestSignerError.signatureCreationFailed)
                     }
 
                     self.logger?.debug("Start checking customer registration")
 
-                case .error(let error):
+                case .failure(let error):
                     self.logger?.warning("Document object generation failed with \(error)")
 
-                    operation.result = .error(error)
+                    operation.result = .failure(error)
                     return
                 }
             }
@@ -91,10 +96,18 @@ final class AccessRestoreInteractor {
             return operation
     }
 
-    private func completeRestoration(with result: OperationResult<UserData>,
+    private func completeRestoration(with result: Result<UserData?, Error>,
                                      phrase: [String]) {
+
         switch result {
         case .success(let userData):
+            guard let userData = userData else {
+                logger?.error("User is missing")
+
+                presenter?.didReceiveRestoreAccess(error: AccessRestoreInteractorError.userMissing)
+                return
+            }
+
             logger?.debug("Customer check successfully completed for \(userData.userId)")
 
             guard let document = restoredDocument else {
@@ -104,15 +117,32 @@ final class AccessRestoreInteractor {
                 return
             }
 
-            settings.decentralizedId = document.decentralizedId
-            settings.publicKeyId = document.publicKey.first?.pubKeyId
-            settings.verificationState = nil
+            guard let restoreKeystore = restoreKeystore else {
+                logger?.error("Restore keystore missing")
 
-            invitationLinkService.clear()
+                presenter?.didReceiveRestoreAccess(error: AccessRestoreInteractorError.keystoreMissing)
+                return
+            }
 
-            presenter?.didRestoreAccess(from: phrase)
+            do {
+                let newPrivateKeyData = try restoreKeystore.fetchKey(for: KeystoreKey.privateKey.rawValue)
+                let seedData = try restoreKeystore.fetchKey(for: KeystoreKey.seedEntropy.rawValue)
 
-        case .error(let error):
+                try keystore.saveKey(newPrivateKeyData, with: KeystoreKey.privateKey.rawValue)
+                try keystore.saveKey(seedData, with: KeystoreKey.seedEntropy.rawValue)
+
+                settings.decentralizedId = document.decentralizedId
+                settings.publicKeyId = document.publicKey.first?.pubKeyId
+                settings.verificationState = nil
+
+                invitationLinkService.clear()
+
+                presenter?.didRestoreAccess(from: phrase)
+            } catch {
+                presenter?.didReceiveRestoreAccess(error: error)
+            }
+
+        case .failure(let error):
             self.logger?.error("Access restoration failed with \(error)")
 
             if let networkError = error as? NetworkResponseError, networkError == .authorizationError {
@@ -153,6 +183,8 @@ extension AccessRestoreInteractor: AccessRestoreInteractorInputProtocol {
                     if let result = customerOperation.result {
                         self.completeRestoration(with: result, phrase: phrase)
                     }
+
+                    self.restoreKeystore = nil
                 }
             }
 

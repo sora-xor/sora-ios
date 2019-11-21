@@ -24,33 +24,29 @@ final class ProjectDataProviderFacade: ProjectDataProviderFacadeProtocol {
     let executionQueue: OperationQueue
     private let serialCacheQueue: DispatchQueue
 
-    lazy private(set) var allProjectsProvider: DataProvider<ProjectData, CDProject> = {
-        let source = AnyDataProviderSource(base: self,
-                                           fetchByPage: self.fetchAllProjectsByPageOperation,
+    lazy private(set) var allProjectsProvider: DataProvider<ProjectData> = {
+        let source = AnyDataProviderSource(fetchByPage: self.fetchAllProjectsByPageOperation,
                                            fetchById: self.fetchProjectByIdOperation)
 
         return createProjectDataProvider(with: source, domain: ProjectDataProviderFacade.allDomain)
     }()
 
-    lazy private(set) var favoriteProjectsProvider: DataProvider<ProjectData, CDProject> = {
-        let source = AnyDataProviderSource(base: self,
-                                           fetchByPage: self.fetchFavoriteProjectsByPageOperation,
+    lazy private(set) var favoriteProjectsProvider: DataProvider<ProjectData> = {
+        let source = AnyDataProviderSource(fetchByPage: self.fetchFavoriteProjectsByPageOperation,
                                            fetchById: self.fetchProjectByIdOperation)
 
         return createProjectDataProvider(with: source, domain: ProjectDataProviderFacade.favoriteDomain)
     }()
 
-    lazy private(set) var votedProjectsProvider: DataProvider<ProjectData, CDProject> = {
-        let source = AnyDataProviderSource(base: self,
-                                           fetchByPage: self.fetchVotedProjectsByPageOperation,
+    lazy private(set) var votedProjectsProvider: DataProvider<ProjectData> = {
+        let source = AnyDataProviderSource(fetchByPage: self.fetchVotedProjectsByPageOperation,
                                            fetchById: self.fetchProjectByIdOperation)
 
         return createProjectDataProvider(with: source, domain: ProjectDataProviderFacade.votedDomain)
     }()
 
-    lazy private(set) var finishedProjectsProvider: DataProvider<ProjectData, CDProject> = {
-        let source = AnyDataProviderSource(base: self,
-                                           fetchByPage: self.fetchFinishedProjectsByPageOperation,
+    lazy private(set) var finishedProjectsProvider: DataProvider<ProjectData> = {
+        let source = AnyDataProviderSource(fetchByPage: self.fetchFinishedProjectsByPageOperation,
                                            fetchById: self.fetchProjectByIdOperation)
 
         return createProjectDataProvider(with: source, domain: ProjectDataProviderFacade.finishedDomain)
@@ -64,15 +60,16 @@ final class ProjectDataProviderFacade: ProjectDataProviderFacadeProtocol {
     private func createProjectDataProvider(with source: AnyDataProviderSource<ProjectData>,
                                            domain: String,
                                            updateTrigger: DataProviderTriggerProtocol = DataProviderEventTrigger.onNone)
-        -> DataProvider<ProjectData, CDProject> {
+        -> DataProvider<ProjectData> {
 
-        let cache: CoreDataCache<ProjectData, CDProject> = self.coreDataCacheFacade.createCoreDataCache(domain: domain)
+        let cache: CoreDataRepository<ProjectData, CDProject> = self.coreDataCacheFacade
+             .createCoreDataCache(domain: domain)
 
         return DataProvider(source: source,
-                            cache: cache,
+                            repository: AnyDataProviderRepository(cache),
                             updateTrigger: updateTrigger,
                             executionQueue: executionQueue,
-                            serialCacheQueue: serialCacheQueue)
+                            serialSyncQueue: serialCacheQueue)
     }
 
     // MARK: Domain Operations
@@ -80,7 +77,7 @@ final class ProjectDataProviderFacade: ProjectDataProviderFacadeProtocol {
     private func fetchAllProjectsByPageOperation(_ page: UInt) -> BaseOperation<[ProjectData]> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.fetch.rawValue) else {
             let operation = BaseOperation<[ProjectData]>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -90,7 +87,7 @@ final class ProjectDataProviderFacade: ProjectDataProviderFacadeProtocol {
     private func fetchFavoriteProjectsByPageOperation(_ page: UInt) -> BaseOperation<[ProjectData]> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.favorites.rawValue) else {
             let operation = BaseOperation<[ProjectData]>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -100,7 +97,7 @@ final class ProjectDataProviderFacade: ProjectDataProviderFacadeProtocol {
     private func fetchVotedProjectsByPageOperation(_ page: UInt) -> BaseOperation<[ProjectData]> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.voted.rawValue) else {
             let operation = BaseOperation<[ProjectData]>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 
@@ -110,7 +107,7 @@ final class ProjectDataProviderFacade: ProjectDataProviderFacadeProtocol {
     private func fetchFinishedProjectsByPageOperation(_ page: UInt) -> BaseOperation<[ProjectData]> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.finished.rawValue) else {
             let operation = BaseOperation<[ProjectData]>()
-            operation.result = .error(NetworkUnitError.serviceUnavailable)
+            operation.result = .failure(NetworkUnitError.serviceUnavailable)
             return operation
         }
 

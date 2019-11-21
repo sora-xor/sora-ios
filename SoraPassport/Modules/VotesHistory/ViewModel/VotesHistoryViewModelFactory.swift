@@ -79,7 +79,7 @@ extension VotesHistoryViewModelFactory: VotesHistoryViewModelFactoryProtocol {
                 let itemChange = ListDifference.insert(index: searchableSection.section.items.count, new: viewModel)
                 let sectionChange = SectionedListDifference.update(index: searchableSection.index,
                                                                    itemChange: itemChange,
-                                                                   newSection: searchableSection.section)
+                                                                   section: searchableSection.section)
                 changes.append(sectionChange)
 
                 searchableSection.section.items.append(viewModel)
