@@ -7,8 +7,8 @@ abstract_target 'SoraPassportAll' do
   
   pod 'SwiftLint'
   pod 'R.swift', :inhibit_warnings => true
-  pod 'FireMock', :inhibit_warnings => true
   pod 'GCDWebServer', :inhibit_warnings => true
+  pod 'FireMock'
   pod 'IrohaCrypto'
   pod 'SoraDocuments'
   pod 'SoraCrypto'
@@ -30,8 +30,8 @@ abstract_target 'SoraPassportAll' do
       inherit! :search_paths
       
       pod 'Cuckoo'
-      pod 'FireMock'
       pod 'SoraUI'
+      pod 'FireMock'
       pod 'SoraDocuments'
       pod 'SoraCrypto'
       pod 'SoraKeystore'

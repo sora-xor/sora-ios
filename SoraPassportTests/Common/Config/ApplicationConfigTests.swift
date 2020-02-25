@@ -17,10 +17,7 @@ class ApplicationConfigTests: XCTestCase {
     }
 
     func testConfigurationIntegrity() {
-        XCTAssertNotNil(ApplicationConfig(configName: "Dev"))
         XCTAssertNotNil(ApplicationConfig(configName: "Release"))
-        XCTAssertNotNil(ApplicationConfig(configName: "Test"))
-        XCTAssertNotNil(ApplicationConfig(configName: "Staging"))
         XCTAssertNotNil(ApplicationConfig.shared)
 
         XCTAssertNoThrow(ApplicationConfig.shared.termsURL)

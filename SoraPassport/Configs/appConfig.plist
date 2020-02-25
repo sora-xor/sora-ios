@@ -50,12 +50,8 @@
 				<string>RegistrationService</string>
 				<key>createUser</key>
 				<string>UserCreateService</string>
-				<key>fetchInvitation</key>
-				<string>InvitationFetchService</string>
 				<key>applyInvitation</key>
 				<string>InvitationApplyService</string>
-				<key>markInvitation</key>
-				<string>InvitationMarkService</string>
 				<key>checkInvitation</key>
 				<string>InvitationCheckService</string>
 				<key>fetchInvited</key>
@@ -203,14 +199,6 @@
 					</dict>
 					<dict>
 						<key>type</key>
-						<string>InvitationFetchService</string>
-						<key>id</key>
-						<string>did:sora:passport#invitation-fetch</string>
-						<key>serviceEndpoint</key>
-						<string>https://s1.sora.soramitsu.co.jp/account/v1/invitation</string>
-					</dict>
-					<dict>
-						<key>type</key>
 						<string>UserCreateService</string>
 						<key>id</key>
 						<string>did:sora:passport#create</string>
@@ -224,14 +212,6 @@
 						<string>did:sora:passport#invitation-apply</string>
 						<key>serviceEndpoint</key>
 						<string>https://s1.sora.soramitsu.co.jp/account/v1/invitation/accept/{invitationCode}</string>
-					</dict>
-					<dict>
-						<key>type</key>
-						<string>InvitationMarkService</string>
-						<key>id</key>
-						<string>did:sora:passport#invitation-mark</string>
-						<key>serviceEndpoint</key>
-						<string>https://s1.sora.soramitsu.co.jp/account/v1/invitation/is_sent/{invitationCode}</string>
 					</dict>
 					<dict>
 						<key>type</key>
