@@ -5,6 +5,7 @@
 
 import UIKit
 import SoraUI
+import SoraFoundation
 
 // MARK: Details Changes Logic
 
@@ -424,11 +425,15 @@ extension ProjectDetailsViewController {
     }
 
     func setFavorite(_ value: Bool) {
+        let languages = localizationManager?.preferredLocalizations
+
         if value {
-            favoriteButton.imageWithTitleView?.title = R.string.localizable.projectDetailsFavoriteMarkedTitle()
+            favoriteButton.imageWithTitleView?.title = R.string.localizable
+                .projectRemoveFromFavourite(preferredLanguages: languages)
             favoriteButton.imageWithTitleView?.iconImage = R.image.favoriteButtonIconSel()
         } else {
-            favoriteButton.imageWithTitleView?.title = R.string.localizable.projectDetailsFavoriteNotMarkedTitle()
+            favoriteButton.imageWithTitleView?.title = R.string.localizable
+                .projectAddToFavourite(preferredLanguages: languages)
             favoriteButton.imageWithTitleView?.iconImage = R.image.favoriteButtonIcon()
         }
 

@@ -7,6 +7,7 @@ import XCTest
 @testable import SoraPassport
 import Cuckoo
 import SoraKeystore
+import SoraFoundation
 
 class LocalAuthInteractorTests: XCTestCase {
     func testSuccessfullPincodeInput() {
@@ -174,7 +175,8 @@ class LocalAuthInteractorTests: XCTestCase {
 
         let interactor = LocalAuthInteractor(secretManager: keystoreManager,
                                              settingsManager: settingsManager,
-                                             biometryAuth: biometricManager)
+                                             biometryAuth: biometricManager,
+                                             locale: Locale.current)
 
         let presenter = LocalAuthPresenter()
         presenter.view = view

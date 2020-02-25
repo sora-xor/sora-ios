@@ -6,7 +6,7 @@
 import UIKit
 
 extension CompoundAttributedStringDecorator {
-    static var legal: AttributedStringDecoratorProtocol {
+    static func legal(for locale: Locale?) -> AttributedStringDecoratorProtocol {
         let textColor = UIColor(red: 155.0 / 255.0, green: 155.0 / 255.0, blue: 155.0 / 255.0, alpha: 1.0)
         let attributes: [NSAttributedString.Key: Any] = [
             .foregroundColor: textColor,
@@ -19,9 +19,14 @@ extension CompoundAttributedStringDecorator {
             .underlineStyle: NSNumber(value: NSUnderlineStyle.single.rawValue)
         ]
 
-        let termDecorator = HighlightingAttributedStringDecorator(pattern: R.string.localizable.termsTitle(),
+        let termsConditions = R.string.localizable
+            .tutorialTermsAndConditions2(preferredLanguages: locale?.rLanguages)
+        let termDecorator = HighlightingAttributedStringDecorator(pattern: termsConditions,
                                                                            attributes: highlightAttributes)
-        let privacyDecorator = HighlightingAttributedStringDecorator(pattern: R.string.localizable.privacyTitle(),
+
+        let privacyPolicy = R.string.localizable
+            .tutorialPrivacyPolicy(preferredLanguages: locale?.rLanguages)
+        let privacyDecorator = HighlightingAttributedStringDecorator(pattern: privacyPolicy,
                                                                      attributes: highlightAttributes)
 
         return CompoundAttributedStringDecorator(decorators: [rangeDecorator, termDecorator, privacyDecorator])

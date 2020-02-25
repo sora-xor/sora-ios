@@ -26,14 +26,18 @@ final class VotesHistoryPresenter {
     private(set) var viewModels: [VotesHistorySectionViewModel] = []
     private(set) var pages: [[VotesHistoryEventData]] = []
 
-    init(viewModelFactory: VotesHistoryViewModelFactoryProtocol) {
+    let locale: Locale
+
+    init(locale: Locale, viewModelFactory: VotesHistoryViewModelFactoryProtocol) {
+        self.locale = locale
         self.viewModelFactory = viewModelFactory
     }
 
     private func reloadView(with events: [VotesHistoryEventData], andSwitch newDataLoadingState: DataState) throws {
         var viewModels = [VotesHistorySectionViewModel]()
         _ = try viewModelFactory.merge(newItems: events,
-                                       into: &viewModels)
+                                       into: &viewModels,
+                                       locale: locale)
 
         self.dataLoadingState = newDataLoadingState
         self.pages = [events]
@@ -45,7 +49,8 @@ final class VotesHistoryPresenter {
     private func appendPage(with events: [VotesHistoryEventData], andSwitch newDataLoadingState: DataState) throws {
         var viewModels = self.viewModels
         let viewChanges = try viewModelFactory.merge(newItems: events,
-                                                     into: &viewModels)
+                                                     into: &viewModels,
+                                                     locale: locale)
 
         self.dataLoadingState = newDataLoadingState
         self.pages.append(events)
@@ -61,7 +66,8 @@ final class VotesHistoryPresenter {
 
         for page in pages {
             _ = try viewModelFactory.merge(newItems: page,
-                                           into: &viewModels)
+                                           into: &viewModels,
+                                           locale: locale)
         }
 
         self.viewModels = viewModels
@@ -82,7 +88,7 @@ extension VotesHistoryPresenter: VotesHistoryPresenterProtocol {
         }
     }
 
-    func viewIsReady() {
+    func setup() {
         viewModelFactory.delegate = self
 
         interactor.setup()
@@ -179,7 +185,7 @@ extension VotesHistoryPresenter: VotesHistoryInteractorOutputProtocol {
                 }
             }
 
-            if !wireframe.present(error: error, from: view) {
+            if !wireframe.present(error: error, from: view, locale: locale) {
                 logger?.debug("Cache refresh failed \(error)")
             }
         case .loaded:

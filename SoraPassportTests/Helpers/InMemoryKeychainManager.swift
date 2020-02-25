@@ -6,6 +6,7 @@
 import Foundation
 import SoraKeystore
 @testable import SoraPassport
+import SoraFoundation
 
 final class InMemoryKeychainManager {
     let keychain = InMemoryKeychain()

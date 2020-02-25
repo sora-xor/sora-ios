@@ -16,7 +16,7 @@ protocol VotesHistoryViewProtocol: ControllerBackedProtocol {
 }
 
 protocol VotesHistoryPresenterProtocol: EmptyStateDelegate {
-    func viewIsReady()
+    func setup()
     func reload()
     func loadNext() -> Bool
 

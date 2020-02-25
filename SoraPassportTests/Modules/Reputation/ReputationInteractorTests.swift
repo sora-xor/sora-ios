@@ -4,9 +4,10 @@
 */
 
 import XCTest
+@testable import SoraPassport
 import Cuckoo
 import RobinHood
-@testable import SoraPassport
+import SoraFoundation
 
 class ReputationInteractorTests: NetworkBaseTests {
     var interactor: ReputationInteractor!
@@ -37,7 +38,8 @@ class ReputationInteractorTests: NetworkBaseTests {
         ReputationDetailsFetchMock.register(mock: .success, projectUnit: projectUnit)
 
         let viewModelFactory = ReputationViewModelFactory(timeFormatter: TotalTimeFormatter())
-        let presenter = ReputationPresenter(viewModelFactory: viewModelFactory,
+        let presenter = ReputationPresenter(locale: Locale.current,
+                                            viewModelFactory: viewModelFactory,
                                             reputationDelayFactory: ReputationDelayFactory(),
                                             votesFormatter: NumberFormatter.vote,
                                             integerFormatter: NumberFormatter.anyInteger)
@@ -69,7 +71,7 @@ class ReputationInteractorTests: NetworkBaseTests {
 
         // when
 
-        presenter.viewIsReady()
+        presenter.setup()
 
         // then
 
@@ -84,9 +86,11 @@ class ReputationInteractorTests: NetworkBaseTests {
         ProjectsVotesCountMock.register(mock: .success, projectUnit: projectUnit)
         ReputationDetailsFetchMock.register(mock: .success, projectUnit: projectUnit)
 
+        let locale = Locale.current
         let viewModelFactory = ReputationViewModelFactory(timeFormatter: TotalTimeFormatter())
         let reputationDelayFactory = MockReputationDelayFactoryProtocol()
-        let presenter = ReputationPresenter(viewModelFactory: viewModelFactory,
+        let presenter = ReputationPresenter(locale: locale,
+                                            viewModelFactory: viewModelFactory,
                                             reputationDelayFactory: reputationDelayFactory,
                                             votesFormatter: NumberFormatter.vote,
                                             integerFormatter: NumberFormatter.anyInteger)
@@ -126,7 +130,7 @@ class ReputationInteractorTests: NetworkBaseTests {
 
         // when
 
-        presenter.viewIsReady()
+        presenter.setup()
 
         // then
 

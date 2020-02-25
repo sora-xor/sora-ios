@@ -5,6 +5,7 @@
 
 import Foundation
 import SoraCrypto
+import SoraFoundation
 
 final class InvitationHandlePresenterFactory: InvitationHandlePresenterFactoryProtocol {
     static func createPresenter(for view: ControllerBackedProtocol) -> InvitationHandlePresenterProtocol? {
@@ -22,7 +23,7 @@ final class InvitationHandlePresenterFactory: InvitationHandlePresenterFactoryPr
         let interactor = InvitationHandleInteractor(projectService: projectService,
                                                     userDataProvider: userDataProvider,
                                                     eventCenter: EventCenter.shared)
-        let presenter = InvitationHandlePresenter()
+        let presenter = InvitationHandlePresenter(localizationManager: LocalizationManager.shared)
         let wireframe = InvitationHandleWireframe()
 
         presenter.view = view

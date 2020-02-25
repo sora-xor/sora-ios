@@ -29,8 +29,6 @@ final class PhoneRegistrationViewController: AccessoryViewController {
 
         configureTableView()
 
-        applyAccessoryViewModel()
-
         if let bottomInset = accessoryView?.contentView.frame.height {
             updateBottom(inset: bottomInset)
         }
@@ -57,8 +55,14 @@ final class PhoneRegistrationViewController: AccessoryViewController {
         tableView.register(R.nib.phoneInputTableViewCell)
     }
 
-    private func applyAccessoryViewModel() {
-        accessoryView?.title = R.string.localizable.phoneRegistrationAccessoryText()
+    override func setupLocalization() {
+        super.setupLocalization()
+
+        let languages = localizationManager?.selectedLocale.rLanguages
+
+        title = R.string.localizable.phoneNumberTitle(preferredLanguages: languages)
+        accessoryView?.title = R.string.localizable
+            .phoneNumberSmsCodeWillBeSent(preferredLanguages: languages)
     }
 
     private func updateNextButton() {

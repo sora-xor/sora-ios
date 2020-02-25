@@ -12,7 +12,6 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
     static let userIdentifier = "co.jp.sora.user.data"
     static let friendsIdentifier = "co.jp.sora.user.friends"
     static let reputationIdentifier = "co.jp.sora.user.reputation"
-    static let cacheDomain = "co.jp.sora.user"
 
     static let shared: CustomerDataProviderFacade = CustomerDataProviderFacade()
 
@@ -26,8 +25,8 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
     let executionQueue: OperationQueue
 
     lazy private(set) var votesProvider: SingleValueProvider<VotesData> = {
-        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
-            .createCoreDataCache(domain: CustomerDataProviderFacade.cacheDomain)
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
+            self.coreDataCacheFacade.createCoreDataCache()
 
         let source = AnySingleValueProviderSource(fetch: self.fetchVotesOperation)
 
@@ -39,8 +38,8 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
     }()
 
     lazy private(set) var userProvider: SingleValueProvider<UserData> = {
-        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
-            .createCoreDataCache(domain: CustomerDataProviderFacade.cacheDomain)
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
+            self.coreDataCacheFacade.createCoreDataCache()
 
         let source = AnySingleValueProviderSource(fetch: self.fetchUserOperation)
 
@@ -52,8 +51,8 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
     }()
 
     lazy private(set) var friendsDataProvider: SingleValueProvider<ActivatedInvitationsData> = {
-        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
-            .createCoreDataCache(domain: CustomerDataProviderFacade.cacheDomain)
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
+            self.coreDataCacheFacade.createCoreDataCache()
 
         let source = AnySingleValueProviderSource(fetch: self.fetchFriendsOperation)
 
@@ -65,8 +64,8 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
     }()
 
     lazy private(set) var reputationDataProvider: SingleValueProvider<ReputationData> = {
-        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
-            .createCoreDataCache(domain: CustomerDataProviderFacade.cacheDomain)
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
+            self.coreDataCacheFacade.createCoreDataCache()
 
         let source = AnySingleValueProviderSource(fetch: self.fetchReputationOperation)
 

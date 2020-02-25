@@ -9,10 +9,16 @@ final class StartupPresenter {
 	weak var view: StartupViewProtocol?
 	var interactor: StartupInteractorInputProtocol!
 	var wireframe: StartupWireframeProtocol!
+
+    let locale: Locale
+
+    init(locale: Locale) {
+        self.locale = locale
+    }
 }
 
 extension StartupPresenter: StartupPresenterProtocol {
-    func viewIsReady() {
+    func setup() {
         interactor.verify()
     }
 }
@@ -37,11 +43,15 @@ extension StartupPresenter: StartupInteractorOutputProtocol {
     func didChangeState() {
         switch interactor.state {
         case .waitingRetry:
-            view?.didUpdate(title: R.string.localizable.startupWaitingNetworkTitle(),
-                            subtitle: R.string.localizable.startupWaitingNetworkSubtitle())
+            view?.didUpdate(title: R.string.localizable
+                .startupWaitingNetworkTitle(preferredLanguages: locale.rLanguages),
+                            subtitle: R.string.localizable
+                                .startupWaitingNetworkSubtitle(preferredLanguages: locale.rLanguages))
         default:
-            view?.didUpdate(title: R.string.localizable.startupVerificationTitle(),
-                            subtitle: R.string.localizable.startupVerificationSubtitle())
+            view?.didUpdate(title: R.string.localizable
+                .startupVerificationTitle(preferredLanguages: locale.rLanguages),
+                            subtitle: R.string.localizable
+                                .startupVerificationSubtitle(preferredLanguages: locale.rLanguages))
         }
     }
 }

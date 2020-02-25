@@ -10,7 +10,7 @@ protocol MainTabBarViewProtocol: ControllerBackedProtocol {
 }
 
 protocol MainTabBarPresenterProtocol: class {
-    func viewIsReady()
+    func setup()
     func viewDidAppear()
 }
 

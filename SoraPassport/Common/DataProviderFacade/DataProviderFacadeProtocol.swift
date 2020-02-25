@@ -32,7 +32,3 @@ protocol InformationDataProviderFacadeProtocol: DataProviderFacadeProtocol {
     var currencyDataProvider: SingleValueProvider<CurrencyData> { get }
     var countryDataProvider: SingleValueProvider<CountryData> { get }
 }
-
-protocol SettingsDataProviderFacadeProtocol: DataProviderFacadeProtocol {
-    var selectedCurrencyDataProvider: SelectedCurrencyDataProvider { get }
-}

@@ -9,15 +9,18 @@ import CommonWallet
 struct WalletAccountSharingFactory: AccountShareFactoryProtocol {
     let assets: [WalletAsset]
     let amountFormatter: NumberFormatter
+    let locale: Locale
 
     func createSources(for receiveInfo: ReceiveInfo, qrImage: UIImage) -> [Any] {
         var title: String
         var optionalAssetTitle: String?
         var optionalAmountTitle: String?
 
+        let languages = locale.rLanguages
+
         if let assetId = receiveInfo.assetId,
             let asset = assets.first(where: { $0.identifier.identifier() == assetId.identifier() }) {
-            optionalAssetTitle = asset.details
+            optionalAssetTitle = asset.details.value(for: locale)
         }
 
         if let amount = receiveInfo.amount?.value,
@@ -27,13 +30,17 @@ struct WalletAccountSharingFactory: AccountShareFactoryProtocol {
         }
 
         if let assetTitle = optionalAssetTitle, let amountTitle = optionalAmountTitle {
-            title = R.string.localizable.walletAccountShareAssetAmountMessage(amountTitle, assetTitle)
+            title = R.string.localizable
+                .walletAccountShareAssetAmountMessage(amountTitle, assetTitle, preferredLanguages: languages)
         } else if let assetTitle = optionalAssetTitle {
-            title = R.string.localizable.walletAccountShareAssetOrAmountMessage(assetTitle)
+            title = R.string.localizable
+                .walletAccountShareAssetOrAmountMessage(assetTitle, preferredLanguages: languages)
         } else if let amountTitle = optionalAmountTitle {
-            title = R.string.localizable.walletAccountShareAssetOrAmountMessage(amountTitle)
+            title = R.string.localizable
+                .walletAccountShareAssetOrAmountMessage(amountTitle, preferredLanguages: languages)
         } else {
-            title = R.string.localizable.walletAccountShareMessage()
+            title = R.string.localizable
+                .walletAccountShareMessage(preferredLanguages: languages)
         }
 
         return [qrImage, title, receiveInfo.accountId.identifier()]

@@ -11,7 +11,7 @@ protocol ProfileViewProtocol: ControllerBackedProtocol {
 }
 
 protocol ProfilePresenterProtocol: class {
-    func viewIsReady()
+    func setup()
     func viewDidAppear()
     func activateUserDetails()
     func activateOption(at index: UInt)
@@ -41,6 +41,7 @@ protocol ProfileWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPrese
     func showVotesHistoryView(from view: ProfileViewProtocol?)
     func showPersonalDetailsView(from view: ProfileViewProtocol?)
     func showPassphraseView(from view: ProfileViewProtocol?)
+    func showLanguageSelection(from view: ProfileViewProtocol?)
     func showAbout(from view: ProfileViewProtocol?)
 }
 

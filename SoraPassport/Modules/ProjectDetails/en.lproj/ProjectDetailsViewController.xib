@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="15505" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="15510"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <customFonts key="customFonts">
+        <array key="sora-Bold.otf">
+            <string>sora-rc004-0417-Bold</string>
+        </array>
+        <array key="sora-Regular.otf">
+            <string>sora-rc004-0417-Regular</string>
+        </array>
+        <array key="sora-SemiBold.otf">
+            <string>sora-rc004-0417-SemiBold</string>
+        </array>
+    </customFonts>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="ProjectDetailsViewController" customModule="SoraPassport" customModuleProvider="target">
+            <connections>
+                <outlet property="contactsLabel" destination="NeY-Ph-3Up" id="T2e-7k-MNz"/>
+                <outlet property="deadlineLabel" destination="Tu5-VU-JGy" id="9lD-BG-Oa0"/>
+                <outlet property="deadlineLabelLeftWhenLong" destination="GgF-8o-tKG" id="24c-ps-3ry"/>
+                <outlet property="deadlineLabelTopWhenLong" destination="Hef-x6-qDB" id="1Dv-is-ug0"/>
+                <outlet property="deadlineLabelTopWhenShort" destination="diu-jA-2tG" id="ej8-9E-Cbf"/>
+                <outlet property="detailsTextView" destination="piB-un-SYC" id="DUw-ll-kN8"/>
+                <outlet property="detailsTextViewHeight" destination="5LA-NZ-9TB" id="P3o-Sv-pfH"/>
+                <outlet property="detailsTopWithDiscussion" destination="sSV-NP-0cV" id="c5q-1w-uso"/>
+                <outlet property="detailsTopWithFavorite" destination="AEc-G2-QQk" id="E4j-ek-DC5"/>
+                <outlet property="detailsTopWithReward" destination="7ix-Ad-LGs" id="kdq-6R-gtn"/>
+                <outlet property="detailsTopWithStatistics" destination="DQv-4C-Lzb" id="aoO-0B-GgQ"/>
+                <outlet property="discussionContentView" destination="wg9-T7-Xoq" id="Lrd-zC-IDl"/>
+                <outlet property="discussionLinkView" destination="p7T-pS-OWM" id="2ma-X4-qqX"/>
+                <outlet property="discussionTopWithFavorite" destination="oOH-fq-alT" id="oDN-6e-PeW"/>
+                <outlet property="discussionTopWithReward" destination="r3G-lm-Fmn" id="ejm-Yy-poC"/>
+                <outlet property="discussionTopWithStatistics" destination="Oqx-bz-XMu" id="pOW-NK-5II"/>
+                <outlet property="emailButton" destination="8JI-Bw-9Ek" id="V7H-4S-EUB"/>
+                <outlet property="emailLabel" destination="WIb-3E-h6z" id="8Pc-5z-hVj"/>
+                <outlet property="favoriteButton" destination="oal-Ky-NK7" id="hoV-fj-Inb"/>
+                <outlet property="favoriteButtonCenterXWhenLong" destination="JbX-r2-hL1" id="GmR-CT-G1s"/>
+                <outlet property="favoriteButtonCenterYWhenShort" destination="Adi-kg-LaH" id="76L-Df-iW5"/>
+                <outlet property="favoriteButtonTopWhenLong" destination="SFD-QI-KVY" id="5ki-qk-sPN"/>
+                <outlet property="favoriteButtonTrallingWhenShort" destination="3bM-5n-YqT" id="fr3-AW-ekk"/>
+                <outlet property="galleryCollapsedConstraint" destination="uNj-AN-fUi" id="xzW-xX-XTe"/>
+                <outlet property="galleryCollectionView" destination="3da-jm-Hyw" id="77q-6g-AiD"/>
+                <outlet property="galleryCollectionViewHeightConstraint" destination="m4g-uk-oLE" id="K5h-5p-4Ei"/>
+                <outlet property="galleryExpandedConstraint" destination="bCM-pi-YNL" id="I7E-AR-8Uk"/>
+                <outlet property="galleryLabel" destination="XJl-yn-eQc" id="FSL-8s-rve"/>
+                <outlet property="mainImageHeightConstraint" destination="bpI-Uw-oCL" id="UwV-Yj-hTv"/>
+                <outlet property="mainImageView" destination="q0q-RT-Yht" id="rcj-w9-20H"/>
+                <outlet property="progressLabel" destination="JZk-ra-VVb" id="XbP-07-bSz"/>
+                <outlet property="progressLabelTrallingWhenLong" destination="gLe-BT-eCK" id="9nW-rz-e4u"/>
+                <outlet property="progressLabelTrallingWhenShort" destination="1tW-Ml-kub" id="6JT-Nc-oF4"/>
+                <outlet property="progressView" destination="AW4-ae-hi1" id="Wyz-Kn-Pu9"/>
+                <outlet property="rewardImageView" destination="y6e-ng-ctt" id="djq-fD-jfN"/>
+                <outlet property="rewardLabel" destination="TEo-Pc-EcK" id="DeS-Gu-89F"/>
+                <outlet property="rewardLabelLeading" destination="sb3-sw-cKk" id="G8t-Zd-CtM"/>
+                <outlet property="rewardView" destination="q1w-Bv-Qyd" id="iGg-sJ-vs5"/>
+                <outlet property="scrollView" destination="SNV-pT-mdw" id="tvT-um-QoF"/>
+                <outlet property="statisticsLabel" destination="3LS-ur-wyl" id="tGN-Ap-Pct"/>
+                <outlet property="statisticsTopWithFavorite" destination="kWk-Yx-UKL" id="oH0-RR-UIj"/>
+                <outlet property="statisticsTopWithReward" destination="8vW-pi-0Km" id="rfv-YU-DXm"/>
+                <outlet property="statisticsView" destination="yNC-iG-UPa" id="8Dv-T8-ReK"/>
+                <outlet property="titleLabel" destination="VyC-3c-GyT" id="8BZ-tB-hbE"/>
+                <outlet property="view" destination="iN0-l3-epB" id="GAI-eM-wew"/>
+                <outlet property="voteButton" destination="rwG-FZ-SPh" id="Djc-cs-sE7"/>
+                <outlet property="voteButtonCenterWhenLong" destination="gao-e2-sBl" id="WLI-W6-nFs"/>
+                <outlet property="voteButtonLeftWhenShort" destination="TRY-dm-ifc" id="xCU-Hr-9Ku"/>
+                <outlet property="voteButtonTopWhenFinished" destination="MRY-Q9-XfW" id="8ZY-a9-hLV"/>
+                <outlet property="voteButtonTopWhenOpen" destination="IBX-ON-kGc" id="Riq-6q-Vfg"/>
+                <outlet property="websiteButton" destination="Wvf-mx-dey" id="TQH-G7-lOX"/>
+                <outlet property="websiteLabel" destination="y3f-ih-yw8" id="coW-lQ-od1"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB">
+            <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <scrollView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="SNV-pT-mdw">
+                    <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                    <subviews>
+                        <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="q0q-RT-Yht">
+                            <rect key="frame" x="0.0" y="0.0" width="375" height="213"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="213" id="bpI-Uw-oCL"/>
+                            </constraints>
+                        </imageView>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Decentralized Digital Depositary" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="2" baselineAdjustment="alignBaselines" minimumScaleFactor="0.5" translatesAutoresizingMaskIntoConstraints="NO" id="VyC-3c-GyT">
+                            <rect key="frame" x="20" y="233" width="335" height="50.5"/>
+                            <fontDescription key="fontDescription" name="sora-rc004-0417-Bold" family="sora-rc004-0417" pointSize="20"/>
+                            <color key="textColor" red="0.1803921568627451" green="0.1803921568627451" blue="0.1803921568627451" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="80% votes of 3,405,043" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.75" translatesAutoresizingMaskIntoConstraints="NO" id="JZk-ra-VVb">
+                            <rect key="frame" x="20" y="304.5" width="155" height="16.5"/>
+                            <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="13"/>
+                            <color key="textColor" red="0.47450980392156861" green="0.5725490196078431" blue="0.5725490196078431" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="751" text="30 days left" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Tu5-VU-JGy">
+                            <rect key="frame" x="278.5" y="304.5" width="76.5" height="16.5"/>
+                            <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="13"/>
+                            <color key="textColor" red="0.47450980390000003" green="0.57254901960000004" blue="0.57254901960000004" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="AW4-ae-hi1" customClass="ProgressView" customModule="SoraUI">
+                            <rect key="frame" x="20" y="337" width="335" height="5"/>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="5" id="Qip-D9-mXg"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="color" keyPath="fillColor">
+                                    <color key="value" red="0.92156862745098034" green="0.92156862745098034" blue="0.92156862745098034" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="progressColor">
+                                    <color key="value" red="0.81568627449999997" green="0.031372549020000001" blue="0.1058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="progress">
+                                    <real key="value" value="0.80000000000000004"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
+                                    <real key="value" value="5"/>
+                                </userDefinedRuntimeAttribute>
+                            </userDefinedRuntimeAttributes>
+                        </view>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="rwG-FZ-SPh" customClass="RoundedButton" customModule="SoraUI">
+                            <rect key="frame" x="20" y="365" width="182.5" height="45"/>
+                            <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="45" id="KVm-mE-8j7"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_topInset">
+                                    <real key="value" value="0.0"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_leftInset">
+                                    <real key="value" value="62"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_bottomInset">
+                                    <real key="value" value="0.0"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_rightInset">
+                                    <real key="value" value="62"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
+                                    <color key="value" red="0.81568627449999997" green="0.031372549020000001" blue="0.1058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_highlightedFillColor">
+                                    <color key="value" red="0.81568627449999997" green="0.031372549020000001" blue="0.1058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_strokeColor">
+                                    <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_highlightedStrokeColor">
+                                    <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="string" keyPath="_title" value="Vote"/>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
+                                    <real key="value" value="0.0"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
+                                    <real key="value" value="22"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="voteWhiteButtonIcon"/>
+                                <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Regular"/>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
+                                    <real key="value" value="14"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_titleColor">
+                                    <color key="value" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_spacingBetweenItems">
+                                    <real key="value" value="6"/>
+                                </userDefinedRuntimeAttribute>
+                            </userDefinedRuntimeAttributes>
+                            <connections>
+                                <action selector="actionVoteWithSender:" destination="-1" eventType="touchUpInside" id="AnW-oM-K7i"/>
+                            </connections>
+                        </view>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="oal-Ky-NK7" customClass="RoundedButton" customModule="SoraUI">
+                            <rect key="frame" x="298" y="365" width="53" height="45"/>
+                            <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="45" id="Z3c-zR-PND"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_topInset">
+                                    <real key="value" value="0.0"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_leftInset">
+                                    <real key="value" value="0.0"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_bottomInset">
+                                    <real key="value" value="0.0"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_rightInset">
+                                    <real key="value" value="0.0"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
+                                    <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_highlightedFillColor">
+                                    <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_strokeColor">
+                                    <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_highlightedStrokeColor">
+                                    <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="string" keyPath="_title" value="Add"/>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
+                                    <real key="value" value="0.0"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
+                                    <real key="value" value="22"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="favoriteButtonIcon"/>
+                                <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Regular"/>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
+                                    <real key="value" value="14"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_titleColor">
+                                    <color key="value" red="0.81568627449999997" green="0.031372549020000001" blue="0.1058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_spacingBetweenItems">
+                                    <real key="value" value="6"/>
+                                </userDefinedRuntimeAttribute>
+                            </userDefinedRuntimeAttributes>
+                            <connections>
+                                <action selector="actionFavoriteWithSender:" destination="-1" eventType="touchUpInside" id="t7h-R5-96f"/>
+                            </connections>
+                        </view>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="q1w-Bv-Qyd">
+                            <rect key="frame" x="20" y="410" width="335" height="58.5"/>
+                            <subviews>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="You will get $1300 reward if voting completes" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="TEo-Pc-EcK">
+                                    <rect key="frame" x="25" y="21" width="310" height="16.5"/>
+                                    <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="13"/>
+                                    <color key="textColor" red="0.47450980392156861" green="0.5725490196078431" blue="0.5725490196078431" alpha="1" colorSpace="calibratedRGB"/>
+                                    <nil key="highlightedColor"/>
+                                </label>
+                                <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="rewardIcon" translatesAutoresizingMaskIntoConstraints="NO" id="y6e-ng-ctt">
+                                    <rect key="frame" x="0.0" y="23" width="13" height="13"/>
+                                </imageView>
+                            </subviews>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstItem="y6e-ng-ctt" firstAttribute="leading" secondItem="q1w-Bv-Qyd" secondAttribute="leading" id="T1E-kd-OdW"/>
+                                <constraint firstAttribute="trailing" secondItem="TEo-Pc-EcK" secondAttribute="trailing" id="lgT-Oo-eEr"/>
+                                <constraint firstItem="y6e-ng-ctt" firstAttribute="centerY" secondItem="TEo-Pc-EcK" secondAttribute="centerY" id="pFp-eq-DFi"/>
+                                <constraint firstItem="TEo-Pc-EcK" firstAttribute="leading" secondItem="q1w-Bv-Qyd" secondAttribute="leading" constant="25" id="sb3-sw-cKk"/>
+                                <constraint firstAttribute="bottom" secondItem="TEo-Pc-EcK" secondAttribute="bottom" constant="21" id="uaq-Di-PZZ"/>
+                                <constraint firstItem="TEo-Pc-EcK" firstAttribute="top" secondItem="q1w-Bv-Qyd" secondAttribute="top" constant="21" id="xM2-rC-BgM"/>
+                            </constraints>
+                        </view>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="yNC-iG-UPa" customClass="BorderedContainerView" customModule="SoraUI">
+                            <rect key="frame" x="20" y="468.5" width="335" height="58.5"/>
+                            <subviews>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="20 friends voted   20 favourites" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="3LS-ur-wyl">
+                                    <rect key="frame" x="0.0" y="21" width="335" height="16.5"/>
+                                    <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="13"/>
+                                    <color key="textColor" red="0.47450980392156861" green="0.5725490196078431" blue="0.5725490196078431" alpha="1" colorSpace="calibratedRGB"/>
+                                    <nil key="highlightedColor"/>
+                                </label>
+                            </subviews>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="bottom" secondItem="3LS-ur-wyl" secondAttribute="bottom" constant="21" id="LEa-6A-yJg"/>
+                                <constraint firstItem="3LS-ur-wyl" firstAttribute="leading" secondItem="yNC-iG-UPa" secondAttribute="leading" id="VC1-lZ-0l7"/>
+                                <constraint firstAttribute="trailing" secondItem="3LS-ur-wyl" secondAttribute="trailing" id="ZQj-rn-2bL"/>
+                                <constraint firstItem="3LS-ur-wyl" firstAttribute="top" secondItem="yNC-iG-UPa" secondAttribute="top" constant="21" id="yw5-23-m3A"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="YES"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                                    <color key="value" red="0.84705882352941175" green="0.84705882352941175" blue="0.84705882352941175" alpha="1" colorSpace="calibratedRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                                    <real key="value" value="1"/>
+                                </userDefinedRuntimeAttribute>
+                            </userDefinedRuntimeAttributes>
+                        </view>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="wg9-T7-Xoq" customClass="BorderedContainerView" customModule="SoraUI">
+                            <rect key="frame" x="20" y="527" width="335" height="58"/>
+                            <subviews>
+                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="p7T-pS-OWM" customClass="IconCellControlView" customModule="SoraUI">
+                                    <rect key="frame" x="0.0" y="0.0" width="335" height="58"/>
+                                    <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                                    <userDefinedRuntimeAttributes>
+                                        <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
+                                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="color" keyPath="_highlightedFillColor">
+                                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="YES"/>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
+                                            <real key="value" value="0.0"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
+                                            <real key="value" value="0.0"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconDiscussionLink"/>
+                                        <userDefinedRuntimeAttribute type="string" keyPath="_title" value="Discuss on Reddit"/>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_leftInset">
+                                            <real key="value" value="0.0"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_rightInset">
+                                            <real key="value" value="0.0"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_topInset">
+                                            <real key="value" value="1"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_bottomInset">
+                                            <real key="value" value="0.0"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_strokeWidth">
+                                            <real key="value" value="0.0"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_separatorWidth">
+                                            <real key="value" value="0.0"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_spacingBetweenItems">
+                                            <real key="value" value="15"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="color" keyPath="_titleColor">
+                                            <color key="value" red="0.10980392156862745" green="0.31372549019607843" blue="0.30588235294117649" alpha="1" colorSpace="calibratedRGB"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Regular"/>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
+                                            <real key="value" value="14"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_highlighted" value="NO"/>
+                                    </userDefinedRuntimeAttributes>
+                                    <connections>
+                                        <action selector="actionOpenDiscussionWithSender:" destination="-1" eventType="touchUpInside" id="4HO-sY-xVO"/>
+                                    </connections>
+                                </view>
+                            </subviews>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="58" id="0V6-qW-Y9V"/>
+                                <constraint firstAttribute="trailing" secondItem="p7T-pS-OWM" secondAttribute="trailing" id="6WH-or-tew"/>
+                                <constraint firstAttribute="bottom" secondItem="p7T-pS-OWM" secondAttribute="bottom" id="Znn-vp-dil"/>
+                                <constraint firstItem="p7T-pS-OWM" firstAttribute="centerY" secondItem="wg9-T7-Xoq" secondAttribute="centerY" id="bRn-j7-fhN"/>
+                                <constraint firstItem="p7T-pS-OWM" firstAttribute="top" secondItem="wg9-T7-Xoq" secondAttribute="top" id="pHO-zS-aBU"/>
+                                <constraint firstItem="p7T-pS-OWM" firstAttribute="leading" secondItem="wg9-T7-Xoq" secondAttribute="leading" id="uVo-dg-5Jd"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="YES"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                                    <color key="value" red="0.84705882349999995" green="0.84705882349999995" blue="0.84705882349999995" alpha="1" colorSpace="calibratedRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                                    <real key="value" value="1"/>
+                                </userDefinedRuntimeAttribute>
+                            </userDefinedRuntimeAttributes>
+                        </view>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="lrF-r6-x77" customClass="BorderedContainerView" customModule="SoraUI">
+                            <rect key="frame" x="20" y="585" width="335" height="188"/>
+                            <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="YES"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                                    <color key="value" red="0.84705882352941175" green="0.84705882352941175" blue="0.84705882352941175" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                                    <real key="value" value="1"/>
+                                </userDefinedRuntimeAttribute>
+                            </userDefinedRuntimeAttributes>
+                        </view>
+                        <view clipsSubviews="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="piB-un-SYC" customClass="DetailsTextView" customModule="SoraUI">
+                            <rect key="frame" x="20" y="601" width="335" height="172"/>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="172" id="5LA-NZ-9TB"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="string" keyPath="text">
+                                    <string key="value">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. </string>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="footerHeight">
+                                    <real key="value" value="58"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="string" keyPath="collapsedActionTitle" value="Show more..."/>
+                                <userDefinedRuntimeAttribute type="string" keyPath="expandedActionTitle" value="Show less..."/>
+                                <userDefinedRuntimeAttribute type="color" keyPath="actionTitleColor">
+                                    <color key="value" red="0.81568627450980391" green="0.0078431372549019607" blue="0.10588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="gradientStartColor">
+                                    <color key="value" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="gradientEndColor">
+                                    <color key="value" red="1" green="1" blue="1" alpha="0.0" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="gradientTransitionLocation">
+                                    <real key="value" value="0.75"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="string" keyPath="_textFontName" value="sora-rc004-0417-Regular"/>
+                                <userDefinedRuntimeAttribute type="number" keyPath="_textFontSize">
+                                    <real key="value" value="14"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="color" keyPath="textColor">
+                                    <color key="value" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                            </userDefinedRuntimeAttributes>
+                        </view>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Gallery" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="XJl-yn-eQc">
+                            <rect key="frame" x="20" y="792" width="335" height="19"/>
+                            <fontDescription key="fontDescription" name="sora-rc004-0417-SemiBold" family="sora-rc004-0417" pointSize="15"/>
+                            <color key="textColor" red="0.1803921568627451" green="0.1803921568627451" blue="0.1803921568627451" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <collectionView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" showsHorizontalScrollIndicator="NO" showsVerticalScrollIndicator="NO" dataMode="none" translatesAutoresizingMaskIntoConstraints="NO" id="3da-jm-Hyw">
+                            <rect key="frame" x="0.0" y="831" width="375" height="220"/>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="220" id="m4g-uk-oLE"/>
+                            </constraints>
+                            <collectionViewFlowLayout key="collectionViewLayout" scrollDirection="horizontal" minimumLineSpacing="0.0" minimumInteritemSpacing="19" id="6k8-vx-vCc" customClass="MediaGalleryCollectionViewLayout" customModule="SoraPassport" customModuleProvider="target">
+                                <size key="itemSize" width="50" height="50"/>
+                                <size key="headerReferenceSize" width="0.0" height="0.0"/>
+                                <size key="footerReferenceSize" width="0.0" height="0.0"/>
+                                <inset key="sectionInset" minX="20" minY="0.0" maxX="0.0" maxY="0.0"/>
+                            </collectionViewFlowLayout>
+                            <connections>
+                                <outlet property="dataSource" destination="-1" id="VsS-dd-bYg"/>
+                                <outlet property="delegate" destination="-1" id="NH6-If-tk9"/>
+                            </connections>
+                        </collectionView>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Contacts and information" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="NeY-Ph-3Up">
+                            <rect key="frame" x="20" y="1072" width="335" height="19"/>
+                            <fontDescription key="fontDescription" name="sora-rc004-0417-SemiBold" family="sora-rc004-0417" pointSize="15"/>
+                            <color key="textColor" red="0.18039215689999999" green="0.18039215689999999" blue="0.18039215689999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="TkR-zB-8qJ" customClass="BorderedContainerView" customModule="SoraUI">
+                            <rect key="frame" x="20" y="1150" width="335" height="67"/>
+                            <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="67" id="325-7q-vUl"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="YES"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                                <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                                    <color key="value" red="0.91764705882352937" green="0.91764705882352937" blue="0.91764705882352937" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                                    <real key="value" value="1"/>
+                                </userDefinedRuntimeAttribute>
+                            </userDefinedRuntimeAttributes>
+                        </view>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Website" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="y3f-ih-yw8">
+                            <rect key="frame" x="20" y="1116" width="59" height="18"/>
+                            <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="14"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <button opaque="NO" contentMode="scaleToFill" horizontalCompressionResistancePriority="749" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Wvf-mx-dey">
+                            <rect key="frame" x="228" y="1110" width="127" height="30"/>
+                            <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="14"/>
+                            <state key="normal" title="www.vincero.com">
+                                <color key="titleColor" red="0.81568627449999997" green="0.031372549020000001" blue="0.1058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </state>
+                            <connections>
+                                <action selector="actionOpenWebsiteWithSender:" destination="-1" eventType="touchUpInside" id="moF-RV-iqF"/>
+                            </connections>
+                        </button>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Email" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="WIb-3E-h6z">
+                            <rect key="frame" x="20" y="1166" width="38.5" height="18"/>
+                            <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="14"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <button opaque="NO" contentMode="scaleToFill" horizontalCompressionResistancePriority="749" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="8JI-Bw-9Ek">
+                            <rect key="frame" x="223" y="1160" width="132" height="30"/>
+                            <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="14"/>
+                            <state key="normal" title="info@vincero.com">
+                                <color key="titleColor" red="0.81568627449999997" green="0.031372549020000001" blue="0.1058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </state>
+                            <connections>
+                                <action selector="actionWriteEmailWithSender:" destination="-1" eventType="touchUpInside" id="S4X-Yz-sQ9"/>
+                            </connections>
+                        </button>
+                    </subviews>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <constraints>
+                        <constraint firstItem="XJl-yn-eQc" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="14p-Kn-yFp"/>
+                        <constraint firstItem="Tu5-VU-JGy" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="JZk-ra-VVb" secondAttribute="trailing" constant="8" id="1tW-Ml-kub"/>
+                        <constraint firstAttribute="trailing" secondItem="oal-Ky-NK7" secondAttribute="trailing" constant="24" id="3bM-5n-YqT"/>
+                        <constraint firstAttribute="trailing" secondItem="NeY-Ph-3Up" secondAttribute="trailing" constant="20" id="6MT-Lx-GbW"/>
+                        <constraint firstItem="WIb-3E-h6z" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="73C-jv-xcw"/>
+                        <constraint firstAttribute="trailing" secondItem="q1w-Bv-Qyd" secondAttribute="trailing" constant="20" id="77X-50-U7l"/>
+                        <constraint firstItem="JZk-ra-VVb" firstAttribute="top" secondItem="VyC-3c-GyT" secondAttribute="bottom" constant="21" id="7Jl-H1-6OE"/>
+                        <constraint firstItem="lrF-r6-x77" firstAttribute="top" secondItem="q1w-Bv-Qyd" secondAttribute="bottom" id="7ix-Ad-LGs"/>
+                        <constraint firstAttribute="trailing" secondItem="8JI-Bw-9Ek" secondAttribute="trailing" constant="20" id="7oG-LX-wAu"/>
+                        <constraint firstItem="yNC-iG-UPa" firstAttribute="top" secondItem="q1w-Bv-Qyd" secondAttribute="bottom" id="8vW-pi-0Km"/>
+                        <constraint firstItem="3da-jm-Hyw" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" id="9Ke-9F-g4X"/>
+                        <constraint firstItem="NeY-Ph-3Up" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="A4o-tZ-fsp"/>
+                        <constraint firstItem="lrF-r6-x77" firstAttribute="top" secondItem="oal-Ky-NK7" secondAttribute="bottom" constant="20" id="AEc-G2-QQk"/>
+                        <constraint firstAttribute="bottom" secondItem="TkR-zB-8qJ" secondAttribute="bottom" id="ALv-1n-rnT"/>
+                        <constraint firstItem="oal-Ky-NK7" firstAttribute="centerY" secondItem="rwG-FZ-SPh" secondAttribute="centerY" id="Adi-kg-LaH"/>
+                        <constraint firstItem="Wvf-mx-dey" firstAttribute="centerY" secondItem="y3f-ih-yw8" secondAttribute="centerY" id="BIQ-rv-y6Z"/>
+                        <constraint firstItem="lrF-r6-x77" firstAttribute="top" secondItem="yNC-iG-UPa" secondAttribute="bottom" id="DQv-4C-Lzb"/>
+                        <constraint firstItem="AW4-ae-hi1" firstAttribute="top" secondItem="Tu5-VU-JGy" secondAttribute="bottom" constant="16" id="FQE-bJ-YfM"/>
+                        <constraint firstItem="Tu5-VU-JGy" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="GgF-8o-tKG"/>
+                        <constraint firstAttribute="trailing" secondItem="Wvf-mx-dey" secondAttribute="trailing" constant="20" id="HEc-No-zss"/>
+                        <constraint firstItem="Tu5-VU-JGy" firstAttribute="top" secondItem="JZk-ra-VVb" secondAttribute="bottom" constant="8" id="Hef-x6-qDB"/>
+                        <constraint firstAttribute="trailing" secondItem="AW4-ae-hi1" secondAttribute="trailing" constant="20" id="I7g-No-xoQ"/>
+                        <constraint firstItem="rwG-FZ-SPh" firstAttribute="top" secondItem="AW4-ae-hi1" secondAttribute="bottom" constant="23" id="IBX-ON-kGc"/>
+                        <constraint firstAttribute="trailing" secondItem="TkR-zB-8qJ" secondAttribute="trailing" constant="20" id="Iaz-B9-1Bf"/>
+                        <constraint firstItem="piB-un-SYC" firstAttribute="top" secondItem="lrF-r6-x77" secondAttribute="top" constant="16" id="IcV-8F-cej"/>
+                        <constraint firstItem="oal-Ky-NK7" firstAttribute="centerX" secondItem="SNV-pT-mdw" secondAttribute="centerX" id="JbX-r2-hL1"/>
+                        <constraint firstItem="y3f-ih-yw8" firstAttribute="top" secondItem="NeY-Ph-3Up" secondAttribute="bottom" constant="25" id="LAP-SO-hUR"/>
+                        <constraint firstItem="rwG-FZ-SPh" firstAttribute="top" secondItem="Tu5-VU-JGy" secondAttribute="bottom" constant="20" id="MRY-Q9-XfW"/>
+                        <constraint firstAttribute="trailing" secondItem="lrF-r6-x77" secondAttribute="trailing" constant="20" id="OS5-kA-gGX"/>
+                        <constraint firstItem="wg9-T7-Xoq" firstAttribute="top" secondItem="yNC-iG-UPa" secondAttribute="bottom" id="Oqx-bz-XMu"/>
+                        <constraint firstItem="q0q-RT-Yht" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" id="PGm-LV-xvh"/>
+                        <constraint firstItem="q1w-Bv-Qyd" firstAttribute="top" secondItem="oal-Ky-NK7" secondAttribute="bottom" id="Qc5-AU-gdY"/>
+                        <constraint firstItem="piB-un-SYC" firstAttribute="leading" secondItem="lrF-r6-x77" secondAttribute="leading" id="Qpa-v4-e8i"/>
+                        <constraint firstAttribute="trailing" secondItem="Tu5-VU-JGy" secondAttribute="trailing" constant="20" id="QwB-Gz-7G9"/>
+                        <constraint firstAttribute="trailing" secondItem="q0q-RT-Yht" secondAttribute="trailing" id="RAb-XJ-i9l"/>
+                        <constraint firstItem="oal-Ky-NK7" firstAttribute="top" secondItem="rwG-FZ-SPh" secondAttribute="bottom" id="SFD-QI-KVY"/>
+                        <constraint firstItem="Wvf-mx-dey" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="y3f-ih-yw8" secondAttribute="trailing" constant="8" id="SS3-t9-fMX"/>
+                        <constraint firstItem="rwG-FZ-SPh" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="TRY-dm-ifc"/>
+                        <constraint firstAttribute="trailing" secondItem="VyC-3c-GyT" secondAttribute="trailing" constant="20" id="U4E-v6-1mk"/>
+                        <constraint firstItem="3da-jm-Hyw" firstAttribute="top" secondItem="XJl-yn-eQc" secondAttribute="bottom" constant="20" id="UHC-RP-wab"/>
+                        <constraint firstItem="yNC-iG-UPa" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="Ux8-mV-Rlr"/>
+                        <constraint firstItem="TkR-zB-8qJ" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="WQY-vu-voQ"/>
+                        <constraint firstItem="VyC-3c-GyT" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="Wef-TQ-2WT"/>
+                        <constraint firstItem="AW4-ae-hi1" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="Wkv-07-SzR"/>
+                        <constraint firstItem="8JI-Bw-9Ek" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="WIb-3E-h6z" secondAttribute="trailing" constant="8" id="Z6S-hF-eB3"/>
+                        <constraint firstItem="NeY-Ph-3Up" firstAttribute="top" secondItem="3da-jm-Hyw" secondAttribute="bottom" constant="21" id="bCM-pi-YNL"/>
+                        <constraint firstItem="Tu5-VU-JGy" firstAttribute="top" secondItem="VyC-3c-GyT" secondAttribute="bottom" constant="21" id="diu-jA-2tG"/>
+                        <constraint firstAttribute="trailing" secondItem="XJl-yn-eQc" secondAttribute="trailing" constant="20" id="eUQ-l7-Abc"/>
+                        <constraint firstItem="lrF-r6-x77" firstAttribute="bottom" secondItem="piB-un-SYC" secondAttribute="bottom" id="fD2-h7-8Pp"/>
+                        <constraint firstItem="WIb-3E-h6z" firstAttribute="top" secondItem="y3f-ih-yw8" secondAttribute="bottom" constant="32" id="fgb-Kw-DEP"/>
+                        <constraint firstAttribute="trailing" secondItem="JZk-ra-VVb" secondAttribute="trailing" constant="20" id="gLe-BT-eCK"/>
+                        <constraint firstItem="rwG-FZ-SPh" firstAttribute="centerX" secondItem="SNV-pT-mdw" secondAttribute="centerX" id="gao-e2-sBl"/>
+                        <constraint firstItem="JZk-ra-VVb" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="ji8-ML-oV0"/>
+                        <constraint firstItem="VyC-3c-GyT" firstAttribute="top" secondItem="q0q-RT-Yht" secondAttribute="bottom" constant="20" id="kJs-NA-PO4"/>
+                        <constraint firstItem="yNC-iG-UPa" firstAttribute="top" secondItem="oal-Ky-NK7" secondAttribute="bottom" id="kWk-Yx-UKL"/>
+                        <constraint firstItem="piB-un-SYC" firstAttribute="trailing" secondItem="lrF-r6-x77" secondAttribute="trailing" id="kYh-zM-qSo"/>
+                        <constraint firstItem="wg9-T7-Xoq" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="l2K-5G-Br4"/>
+                        <constraint firstAttribute="trailing" secondItem="wg9-T7-Xoq" secondAttribute="trailing" constant="20" id="lFP-7O-xUL"/>
+                        <constraint firstAttribute="trailing" secondItem="3da-jm-Hyw" secondAttribute="trailing" id="lJI-dr-yta"/>
+                        <constraint firstItem="8JI-Bw-9Ek" firstAttribute="centerY" secondItem="WIb-3E-h6z" secondAttribute="centerY" id="n1Y-8b-5OC"/>
+                        <constraint firstItem="TkR-zB-8qJ" firstAttribute="top" secondItem="y3f-ih-yw8" secondAttribute="bottom" constant="16" id="nWC-p1-oOW"/>
+                        <constraint firstItem="q1w-Bv-Qyd" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="nYy-tn-F3K"/>
+                        <constraint firstItem="wg9-T7-Xoq" firstAttribute="top" secondItem="oal-Ky-NK7" secondAttribute="bottom" constant="20" id="oOH-fq-alT"/>
+                        <constraint firstItem="q0q-RT-Yht" firstAttribute="top" secondItem="SNV-pT-mdw" secondAttribute="top" id="qTU-Gd-FCE"/>
+                        <constraint firstItem="wg9-T7-Xoq" firstAttribute="top" secondItem="q1w-Bv-Qyd" secondAttribute="bottom" id="r3G-lm-Fmn"/>
+                        <constraint firstItem="lrF-r6-x77" firstAttribute="top" secondItem="wg9-T7-Xoq" secondAttribute="bottom" id="sSV-NP-0cV"/>
+                        <constraint firstItem="NeY-Ph-3Up" firstAttribute="top" secondItem="lrF-r6-x77" secondAttribute="bottom" constant="21" id="uNj-AN-fUi"/>
+                        <constraint firstItem="lrF-r6-x77" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="ugt-aC-X9D"/>
+                        <constraint firstItem="y3f-ih-yw8" firstAttribute="leading" secondItem="SNV-pT-mdw" secondAttribute="leading" constant="20" id="vxy-eT-YHJ"/>
+                        <constraint firstAttribute="trailing" secondItem="yNC-iG-UPa" secondAttribute="trailing" constant="20" id="xfd-Am-1Eg"/>
+                        <constraint firstItem="XJl-yn-eQc" firstAttribute="top" secondItem="lrF-r6-x77" secondAttribute="bottom" constant="19" id="xmU-NE-SQc"/>
+                    </constraints>
+                    <variation key="default">
+                        <mask key="constraints">
+                            <exclude reference="gLe-BT-eCK"/>
+                            <exclude reference="MRY-Q9-XfW"/>
+                            <exclude reference="gao-e2-sBl"/>
+                            <exclude reference="GgF-8o-tKG"/>
+                            <exclude reference="Hef-x6-qDB"/>
+                            <exclude reference="kWk-Yx-UKL"/>
+                            <exclude reference="JbX-r2-hL1"/>
+                            <exclude reference="SFD-QI-KVY"/>
+                            <exclude reference="oOH-fq-alT"/>
+                            <exclude reference="r3G-lm-Fmn"/>
+                            <exclude reference="7ix-Ad-LGs"/>
+                            <exclude reference="AEc-G2-QQk"/>
+                            <exclude reference="DQv-4C-Lzb"/>
+                            <exclude reference="uNj-AN-fUi"/>
+                        </mask>
+                    </variation>
+                </scrollView>
+            </subviews>
+            <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <constraints>
+                <constraint firstItem="q0q-RT-Yht" firstAttribute="width" secondItem="iN0-l3-epB" secondAttribute="width" id="7u5-QE-k5F"/>
+                <constraint firstItem="SNV-pT-mdw" firstAttribute="top" secondItem="vUN-kp-3ea" secondAttribute="top" id="HBJ-r1-axD"/>
+                <constraint firstAttribute="bottom" secondItem="SNV-pT-mdw" secondAttribute="bottom" id="IYJ-yz-y7B"/>
+                <constraint firstItem="SNV-pT-mdw" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" id="MqB-OE-cgP"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="SNV-pT-mdw" secondAttribute="trailing" id="UH8-rC-9J4"/>
+            </constraints>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <point key="canvasLocation" x="140" y="154"/>
+        </view>
+    </objects>
+    <resources>
+        <image name="favoriteButtonIcon" width="17" height="16"/>
+        <image name="iconDiscussionLink" width="16" height="16"/>
+        <image name="rewardIcon" width="13" height="13"/>
+        <image name="voteWhiteButtonIcon" width="19" height="16"/>
+    </resources>
+</document>

@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 enum TimerNotificationInterval: TimeInterval {
     case second = 1.0

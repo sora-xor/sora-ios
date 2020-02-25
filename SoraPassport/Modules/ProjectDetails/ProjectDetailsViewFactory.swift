@@ -6,6 +6,7 @@
 import UIKit
 import SoraCrypto
 import SoraUI
+import SoraFoundation
 
 final class ProjectDetailsViewFactory: ProjectDetailsViewFactoryProtocol {
 	static func createView(for projectId: String) -> ProjectDetailsViewProtocol? {
@@ -22,6 +23,8 @@ final class ProjectDetailsViewFactory: ProjectDetailsViewFactoryProtocol {
             return nil
         }
 
+        let localizationManager = LocalizationManager.shared
+
         let projectUnitService = ProjectUnitService(unit: projectUnit)
         projectUnitService.requestSigner = requestSigner
 
@@ -29,7 +32,7 @@ final class ProjectDetailsViewFactory: ProjectDetailsViewFactoryProtocol {
         view.favoriteAnimator = SpringAnimator(initialScale: 1.2)
         view.changesAnimator = BlockViewAnimator(duration: 0.2, delay: 0.0, options: .curveLinear)
 
-        let voteViewModelFactory = VoteViewModelFactory(amountFormatter: NumberFormatter.vote)
+        let voteViewModelFactory = VoteViewModelFactory(amountFormatter: NumberFormatter.vote.localizableResource())
         let projectViewModelFactory = ProjectViewModelFactory.createDefault()
 
         let presenter = ProjectDetailsPresenter(projectDetailsViewModelFactory: projectViewModelFactory,
@@ -49,6 +52,9 @@ final class ProjectDetailsViewFactory: ProjectDetailsViewFactoryProtocol {
         presenter.wireframe = wireframe
         presenter.logger = Logger.shared
         interactor.presenter = presenter
+
+        view.localizationManager = localizationManager
+        presenter.localizationManager = localizationManager
 
         return view
     }

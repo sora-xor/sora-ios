@@ -10,25 +10,34 @@ final class OnboardingMainPresenter {
     var interactor: OnboardingMainInputInteractorProtocol!
     var wireframe: OnboardingMainWireframeProtocol!
 
-    var legalData: LegalData
+    let legalData: LegalData
+
+    let locale: Locale
 
     private func provideTutorialViewModels() {
         var viewModels: [TutorialViewModel] = []
 
-        viewModels.append(TutorialViewModel(details: R.string.localizable.tutorial1Details(),
+        let projectInitialDescription = R.string.localizable
+            .tutorialProjectsDesc(preferredLanguages: locale.rLanguages)
+        viewModels.append(TutorialViewModel(details: projectInitialDescription,
                                             imageName: R.image.tutorial1.name))
 
-        viewModels.append(TutorialViewModel(details: R.string.localizable.tutorial2Details(),
+        let votesDescription = R.string.localizable
+            .tutorialVotesDesc(preferredLanguages: locale.rLanguages)
+        viewModels.append(TutorialViewModel(details: votesDescription,
                                             imageName: R.image.tutorial2.name))
 
-        viewModels.append(TutorialViewModel(details: R.string.localizable.tutorial3Details(),
+        let projectFundDescription = R.string.localizable
+            .tutorialProjectSuccessDesc(preferredLanguages: locale.rLanguages)
+        viewModels.append(TutorialViewModel(details: projectFundDescription,
                                             imageName: R.image.tutorial3.name))
 
         view?.didReceive(viewModels: viewModels)
     }
 
-    init(legalData: LegalData) {
+    init(legalData: LegalData, locale: Locale) {
         self.legalData = legalData
+        self.locale = locale
     }
 }
 
@@ -49,7 +58,7 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
         }
     }
 
-    func viewIsReady() {
+    func setup() {
         provideTutorialViewModels()
 
         interactor.setup()
@@ -76,7 +85,7 @@ extension OnboardingMainPresenter: OnboardingMainOutputInteractorProtocol {
 
     func didReceiveSignupPreparation(error: Error) {
         view?.didStopLoading()
-        _ = wireframe.present(error: error, from: view)
+        _ = wireframe.present(error: error, from: view, locale: locale)
     }
 
     func didStartRestorePreparation() {
@@ -90,7 +99,7 @@ extension OnboardingMainPresenter: OnboardingMainOutputInteractorProtocol {
 
     func didReceiveRestorePreparation(error: Error) {
         view?.didStopLoading()
-        _ = wireframe.present(error: error, from: view)
+        _ = wireframe.present(error: error, from: view, locale: locale)
     }
 
     func didReceiveVersion(data: SupportedVersionData) {

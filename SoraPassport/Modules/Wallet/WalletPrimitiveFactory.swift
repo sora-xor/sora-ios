@@ -7,11 +7,11 @@ import Foundation
 import IrohaCommunication
 import SoraKeystore
 import CommonWallet
+import SoraFoundation
 
 protocol WalletPrimitiveFactoryProtocol {
     var sendBackSupportIdentifiers: [String] { get }
 
-    func createWithdrawOption() -> WalletWithdrawOption
     func createTransactionTypes() -> [WalletTransactionType]
     func createAssetId() throws -> IRAssetId
     func createAccountId() throws -> IRAccountId
@@ -40,10 +40,14 @@ final class WalletPrimitiveFactory {
 
     let keychain: KeystoreProtocol
     let settings: SettingsManagerProtocol
+    let localizationManager: LocalizationManagerProtocol
 
-    init(keychain: KeystoreProtocol, settings: SettingsManagerProtocol) {
+    init(keychain: KeystoreProtocol,
+         settings: SettingsManagerProtocol,
+         localizationManager: LocalizationManagerProtocol) {
         self.keychain = keychain
         self.settings = settings
+        self.localizationManager = localizationManager
     }
 
     private func createAccountId(with domainName: String) throws -> IRAccountId {
@@ -72,16 +76,10 @@ final class WalletPrimitiveFactory {
 }
 
 extension WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
-    func createWithdrawOption() -> WalletWithdrawOption {
-        return WalletWithdrawOption(identifier: "ETH",
-                                    symbol: String.eth,
-                                    shortTitle: R.string.localizable.ethWithdrawShortTitle(),
-                                    longTitle: R.string.localizable.ethWithdrawLongTitle(),
-                                    details: R.string.localizable.ethWithdrawDetails(),
-                                    icon: R.image.iconEth())
-    }
 
     func createTransactionTypes() -> [WalletTransactionType] {
+        let languages = localizationManager.preferredLocalizations
+
         let incoming = WalletTransactionType(backendName: WalletTransactionTypeValue.incoming.rawValue,
                                              displayName: "",
                                              isIncome: true,
@@ -92,8 +90,9 @@ extension WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
                                              isIncome: false,
                                              typeIcon: nil)
 
+        let withdrawName = R.string.localizable.walletWithdraw(preferredLanguages: languages)
         let withdraw = WalletTransactionType(backendName: WalletTransactionTypeValue.withdraw.rawValue,
-                                             displayName: R.string.localizable.walletWithdrawDisplayName(),
+                                             displayName: withdrawName,
                                              isIncome: false,
                                              typeIcon: nil)
 
@@ -126,9 +125,11 @@ extension WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
 
         let assetId = try createAssetId()
 
+        let details = LocalizableResource { R.string.localizable.assetDetails(preferredLanguages: $0.rLanguages) }
+
         let asset = WalletAsset(identifier: assetId,
                                 symbol: String.xor,
-                                details: R.string.localizable.assetDetails())
+                                details: details)
 
         var accountSettings = WalletAccountSettings(accountId: accountId,
                                                    assets: [asset],

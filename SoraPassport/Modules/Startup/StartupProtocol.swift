@@ -10,7 +10,7 @@ protocol StartupViewProtocol: ControllerBackedProtocol {
 }
 
 protocol StartupPresenterProtocol: class {
-    func viewIsReady()
+    func setup()
 }
 
 enum StartupInteratorState {

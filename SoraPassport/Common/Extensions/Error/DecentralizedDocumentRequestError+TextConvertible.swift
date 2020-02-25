@@ -6,23 +6,34 @@
 import Foundation
 
 extension DecentralizedDocumentCreationDataError: ErrorContentConvertible {
-    func toErrorContent() -> ErrorContent {
+    func toErrorContent(for locale: Locale?) -> ErrorContent {
+        let title: String
+        let message: String
+
         switch self {
         case .decentralizedIdDuplicated:
-            return ErrorContent(title: R.string.localizable.didResolverIdDuplicatedErrorTitle(),
-                                message: R.string.localizable.didResolverErrorMessage())
+            title = R.string.localizable
+                .didResolverIdDuplicatedErrorTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable
+                .didResolverErrorMessage(preferredLanguages: locale?.rLanguages)
         case .decentralizedIdTooLong:
-            return ErrorContent(title: R.string.localizable.didResolverIdTooLongErrorTitle(),
-                                message: R.string.localizable.didResolverErrorMessage())
+            title = R.string.localizable
+                .didResolverIdTooLongErrorTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.didResolverErrorMessage(preferredLanguages: locale?.rLanguages)
         case .invalidProof:
-            return ErrorContent(title: R.string.localizable.didResolverInvalidProofFormatErrorTitle(),
-                                message: R.string.localizable.didResolverErrorMessage())
+            title = R.string.localizable
+                .didResolverInvalidProofFormatErrorTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.didResolverErrorMessage(preferredLanguages: locale?.rLanguages)
         case .proofVerificationFailed:
-            return ErrorContent(title: R.string.localizable.didResolverProofVerificationErrorTitle(),
-                                message: R.string.localizable.didResolverErrorMessage())
+            title = R.string.localizable
+                .didResolverProofVerificationErrorTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.didResolverErrorMessage(preferredLanguages: locale?.rLanguages)
         case .publicKeyNotFound:
-            return ErrorContent(title: R.string.localizable.didResolverPublicKeyNotFoundErrorTitle(),
-                                message: R.string.localizable.didResolverErrorMessage())
+            title = R.string.localizable
+                .didResolverPublicKeyNotFoundErrorTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.didResolverErrorMessage(preferredLanguages: locale?.rLanguages)
         }
+
+        return ErrorContent(title: title, message: message)
     }
 }

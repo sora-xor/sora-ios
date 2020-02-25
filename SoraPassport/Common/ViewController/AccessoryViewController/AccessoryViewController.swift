@@ -4,6 +4,7 @@
 */
 
 import UIKit
+import SoraFoundation
 
 class AccessoryViewController: UIViewController {
     var shouldSetupKeyboardHandler: Bool = true
@@ -20,6 +21,7 @@ class AccessoryViewController: UIViewController {
         super.viewDidLoad()
 
         configureAccessoryView()
+        setupLocalization()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -53,7 +55,6 @@ class AccessoryViewController: UIViewController {
     func configureAccessoryView() {
         let accessoryView = accessoryViewFactory.createAccessoryView(target: self,
                                                                      completionSelector: #selector(actionAccessory))
-        accessoryView.actionTitle = R.string.localizable.next()
         view.addSubview(accessoryView.contentView)
         self.accessoryView = accessoryView
 
@@ -122,7 +123,21 @@ class AccessoryViewController: UIViewController {
 
     // MARK: Overridable methods
 
+    func setupLocalization() {
+        accessoryView?.actionTitle = R.string.localizable
+            .commonNext(preferredLanguages: localizationManager?.selectedLocale.rLanguages)
+    }
+
     func updateBottom(inset: CGFloat) {}
 
     @objc func actionAccessory() {}
+}
+
+extension AccessoryViewController: Localizable {
+    func applyLocalization() {
+        if isViewLoaded {
+            setupLocalization()
+            view.setNeedsLayout()
+        }
+    }
 }

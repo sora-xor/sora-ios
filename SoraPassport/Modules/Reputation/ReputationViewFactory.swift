@@ -6,17 +6,27 @@
 import UIKit
 import SoraCrypto
 import RobinHood
+import SoraFoundation
 
 final class ReputationViewFactory: ReputationViewFactoryProtocol {
 	static func createView() -> ReputationViewProtocol? {
+        let locale = LocalizationManager.shared.selectedLocale
+
         let viewModelFactory = ReputationViewModelFactory(timeFormatter: TotalTimeFormatter())
         let reputationDelayFactory = ReputationDelayFactory()
 
+        let votesFormater = NumberFormatter.vote
+        votesFormater.locale = locale
+
+        let integerFormatter = NumberFormatter.anyInteger
+        integerFormatter.locale = locale
+
         let view = ReputationViewController(nib: R.nib.reputationViewController)
-        let presenter = ReputationPresenter(viewModelFactory: viewModelFactory,
+        let presenter = ReputationPresenter(locale: locale,
+                                            viewModelFactory: viewModelFactory,
                                             reputationDelayFactory: reputationDelayFactory,
-                                            votesFormatter: NumberFormatter.vote,
-                                            integerFormatter: NumberFormatter.anyInteger)
+                                            votesFormatter: votesFormater,
+                                            integerFormatter: integerFormatter)
         let interactor = ReputationInteractor(reputationProvider:
             CustomerDataProviderFacade.shared.reputationDataProvider,
                                               reputationDetailsProvider:
@@ -31,6 +41,7 @@ final class ReputationViewFactory: ReputationViewFactoryProtocol {
         presenter.wireframe = wireframe
         interactor.presenter = presenter
 
+        view.locale = locale
         presenter.logger = Logger.shared
 
         return view

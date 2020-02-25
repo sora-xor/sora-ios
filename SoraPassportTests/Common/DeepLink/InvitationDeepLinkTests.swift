@@ -6,11 +6,12 @@
 import XCTest
 import SoraKeystore
 @testable import SoraPassport
+import SoraFoundation
 
 class InvitationDeepLinkTests: XCTestCase {
 
     func testValidJoinUrlHandled() {
-        let codes = ["12345678", "asasadas", "asd23vnm"]
+        let codes = ["12345678", "asasadas", "asd23vnm", "aSd23vnM", "AsdvnM"]
 
         let invitationFactory = InvitationFactory(host: ApplicationConfig.shared.invitationHostURL)
         codes.forEach { code in
@@ -22,7 +23,7 @@ class InvitationDeepLinkTests: XCTestCase {
     }
 
     func testInvalidCodesHandled() {
-        let codes = ["", "asasada", "asd23vnm1", "12привет", "12-12345"]
+        let codes = ["", "asasadaaasasadaad", "asd23vnm1asd23vnm1", "12привет", "ASпривет", "12-12345"]
 
         let invitationFactory = InvitationFactory(host: ApplicationConfig.shared.invitationHostURL)
 

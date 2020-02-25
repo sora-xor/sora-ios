@@ -33,9 +33,11 @@ class PredicateExtensionTests: XCTestCase {
         XCTAssertTrue(predicate.evaluate(with: "12345678"))
         XCTAssertTrue(predicate.evaluate(with: "12a4b67f"))
         XCTAssertTrue(predicate.evaluate(with: "asdadsaz"))
-        XCTAssertFalse(predicate.evaluate(with: "123456а8"))
-        XCTAssertFalse(predicate.evaluate(with: "12a4b67"))
-        XCTAssertFalse(predicate.evaluate(with: "asdadsaz2"))
+        XCTAssertTrue(predicate.evaluate(with: "asAaDs2z"))
+        XCTAssertTrue(predicate.evaluate(with: "12a4b6712a4b6767"))
+        XCTAssertFalse(predicate.evaluate(with: "123456п8"))
+        XCTAssertFalse(predicate.evaluate(with: "12a4b6712a4b67679"))
+        XCTAssertFalse(predicate.evaluate(with: ""))
     }
 
     func testEmpty() {

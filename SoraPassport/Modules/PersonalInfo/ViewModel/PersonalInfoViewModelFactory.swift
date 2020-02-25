@@ -6,11 +6,12 @@
 import Foundation
 
 protocol PersonalInfoViewModelFactoryProtocol {
-    func createRegistrationForm(from form: PersonalForm) -> [PersonalInfoViewModel]
-    func createViewModels(from user: UserData?) -> [PersonalInfoViewModel]
+    func createRegistrationForm(from form: PersonalForm, locale: Locale) -> [PersonalInfoViewModel]
+    func createViewModels(from user: UserData?, locale: Locale) -> [PersonalInfoViewModel]
 }
 
 final class PersonalInfoViewModelFactory {
+
     private func applyNameFilter(for value: String) -> String {
         if value.count > PersonalInfoSharedConstants.personNameLimit {
             return ""
@@ -23,8 +24,9 @@ final class PersonalInfoViewModelFactory {
         return value
     }
 
-    private func createFirstNameViewModel(with value: String) -> PersonalInfoViewModel {
-        return PersonalInfoViewModel(title: R.string.localizable.personalInfoFirstName(),
+    private func createFirstNameViewModel(with value: String, locale: Locale) -> PersonalInfoViewModel {
+        let title = R.string.localizable.personalInfoFirstName(preferredLanguages: locale.rLanguages)
+        return PersonalInfoViewModel(title: title,
                                      value: value,
                                      maxLength: PersonalInfoSharedConstants.personNameLimit,
                                      validCharacterSet: CharacterSet.personName,
@@ -32,8 +34,9 @@ final class PersonalInfoViewModelFactory {
                                      autocapitalizationType: .words)
     }
 
-    private func createLastNameViewModel(with value: String) -> PersonalInfoViewModel {
-        return PersonalInfoViewModel(title: R.string.localizable.personalInfoLastName(),
+    private func createLastNameViewModel(with value: String, locale: Locale) -> PersonalInfoViewModel {
+        let title = R.string.localizable.personalInfoLastName(preferredLanguages: locale.rLanguages)
+        return PersonalInfoViewModel(title: title,
                                      value: value,
                                      maxLength: PersonalInfoSharedConstants.personNameLimit,
                                      validCharacterSet: CharacterSet.personName,
@@ -41,8 +44,9 @@ final class PersonalInfoViewModelFactory {
                                      autocapitalizationType: .words)
     }
 
-    private func createPhoneViewModel(with value: String) -> PersonalInfoViewModel {
-        return PersonalInfoViewModel(title: R.string.localizable.personalInfoPhone(),
+    private func createPhoneViewModel(with value: String, locale: Locale) -> PersonalInfoViewModel {
+        let title = R.string.localizable.personalInfoPhone(preferredLanguages: locale.rLanguages)
+        return PersonalInfoViewModel(title: title,
                                      value: value,
                                      maxLength: PersonalInfoSharedConstants.phoneLimit,
                                      validCharacterSet: CharacterSet.phone,
@@ -50,31 +54,35 @@ final class PersonalInfoViewModelFactory {
                                      autocapitalizationType: .none)
     }
 
-    private func createInvitationCodeViewModel(with value: String) -> PersonalInfoViewModel {
+    private func createInvitationCodeViewModel(with value: String, locale: Locale) -> PersonalInfoViewModel {
         let predicates = [NSPredicate.invitationCode, NSPredicate.empty]
         let compoundPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
-        return PersonalInfoCodeViewModel(title: R.string.localizable.personalInfoInvitationCode(),
-                                         value: value,
-                                         maxLength: PersonalInfoSharedConstants.invitationCodeLimit,
-                                         validCharacterSet: CharacterSet.alphanumerics,
-                                         predicate: compoundPredicate,
-                                         autocapitalizationType: .none)
+        let title = R.string.localizable.personalInfoInvCodeHint(preferredLanguages: locale.rLanguages)
+        return PersonalInfoViewModel(title: title,
+                                     value: value,
+                                     maxLength: PersonalInfoSharedConstants.invitationCodeLimit,
+                                     validCharacterSet: CharacterSet.alphanumerics,
+                                     predicate: compoundPredicate,
+                                     autocapitalizationType: .none)
     }
 }
 
 extension PersonalInfoViewModelFactory: PersonalInfoViewModelFactoryProtocol {
-    func createRegistrationForm(from form: PersonalForm) -> [PersonalInfoViewModel] {
-        let firstNameModel = createFirstNameViewModel(with: applyNameFilter(for: form.firstName))
-        let lastNameModel = createLastNameViewModel(with: applyNameFilter(for: form.lastName))
-        let invitationCode = createInvitationCodeViewModel(with: form.invitationCode ?? "")
+    func createRegistrationForm(from form: PersonalForm, locale: Locale) -> [PersonalInfoViewModel] {
+        let firstNameModel = createFirstNameViewModel(with: applyNameFilter(for: form.firstName),
+                                                      locale: locale)
+        let lastNameModel = createLastNameViewModel(with: applyNameFilter(for: form.lastName),
+                                                    locale: locale)
+        let invitationCode = createInvitationCodeViewModel(with: form.invitationCode ?? "",
+                                                           locale: locale)
 
         return [firstNameModel, lastNameModel, invitationCode]
     }
 
-    func createViewModels(from user: UserData?) -> [PersonalInfoViewModel] {
-        let firstNameModel = createFirstNameViewModel(with: user?.firstName ?? "")
-        let lastNameModel = createLastNameViewModel(with: user?.lastName ?? "")
-        let phoneModel = createPhoneViewModel(with: user?.phone ?? "")
+    func createViewModels(from user: UserData?, locale: Locale) -> [PersonalInfoViewModel] {
+        let firstNameModel = createFirstNameViewModel(with: user?.firstName ?? "", locale: locale)
+        let lastNameModel = createLastNameViewModel(with: user?.lastName ?? "", locale: locale)
+        let phoneModel = createPhoneViewModel(with: user?.phone ?? "", locale: locale)
 
         return [firstNameModel, lastNameModel, phoneModel]
     }

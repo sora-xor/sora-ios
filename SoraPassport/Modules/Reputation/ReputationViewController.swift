@@ -42,13 +42,17 @@ final class ReputationViewController: UIViewController {
 
     private var headerMode: HeaderMode = .hidden
 
+    var locale: Locale?
+
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        setupLocalization()
 
         apply(headerMode: .hidden)
         apply(detailsMode: .hidden)
 
-        presenter.viewIsReady()
+        presenter.setup()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -72,6 +76,13 @@ final class ReputationViewController: UIViewController {
     }
 
     // MARK: Private
+
+    private func setupLocalization() {
+        title = R.string.localizable
+            .reputationTitle(preferredLanguages: locale?.rLanguages)
+        rankTitleLabel.text = R.string.localizable
+            .reputationScreenYourCurrentReputation(preferredLanguages: locale?.rLanguages)
+    }
 
     private func apply(headerMode: HeaderMode) {
         self.headerMode = headerMode

@@ -4,13 +4,16 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class NetworkAvailabilityLayerService {
     static let shared = NetworkAvailabilityLayerService()
 
     private(set) var interactor: NetworkAvailabilityLayerInteractorInputProtocol?
 
-    func setup(with view: SoraWindow, logger: LoggerProtocol? = nil) {
+    func setup(with view: SoraWindow,
+               localizationManager: LocalizationManagerProtocol,
+               logger: LoggerProtocol? = nil) {
         guard let reachabilityManager = ReachabilityManager.shared else {
             return
         }
@@ -24,5 +27,7 @@ final class NetworkAvailabilityLayerService {
         interactor.presenter = presenter
 
         self.interactor = interactor
+
+        presenter.localizationManager = localizationManager
     }
 }

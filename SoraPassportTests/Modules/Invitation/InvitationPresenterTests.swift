@@ -23,7 +23,7 @@ class InvitationPresenterTests: XCTestCase {
 
         // when
 
-        presenter.viewIsReady(with: .default)
+        presenter.setup(with: .default)
         presenter.viewDidAppear()
 
         presenter.didLoad(user: user)
@@ -50,7 +50,7 @@ class InvitationPresenterTests: XCTestCase {
 
         // when
 
-        presenter.viewIsReady(with: .default)
+        presenter.setup(with: .default)
         presenter.viewDidAppear()
 
         presenter.didLoad(user: user)
@@ -79,7 +79,7 @@ class InvitationPresenterTests: XCTestCase {
 
         // when
 
-        presenter.viewIsReady(with: .default)
+        presenter.setup(with: .default)
         presenter.viewDidAppear()
 
         let userRefreshExpection = XCTestExpectation()
@@ -145,7 +145,8 @@ class InvitationPresenterTests: XCTestCase {
 
         let invitationFactory = InvitationFactory(host: ApplicationConfig.shared.invitationHostURL)
 
-        let invitationViewModelFactory = InvitationViewModelFactory(integerFormatter: NumberFormatter.anyInteger)
+        let integerFormatter = NumberFormatter.anyInteger.localizableResource()
+        let invitationViewModelFactory = InvitationViewModelFactory(integerFormatter: integerFormatter)
         let timerFactory = CountdownTimerFactory()
 
         let presenter = InvitationPresenter(invitationViewModelFactory: invitationViewModelFactory,

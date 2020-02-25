@@ -5,6 +5,7 @@
 
 import Foundation
 import SoraKeystore
+import SoraFoundation
 
 final class SecurityLayerInteractor {
     var presenter: SecurityLayerInteractorOutputProtocol!

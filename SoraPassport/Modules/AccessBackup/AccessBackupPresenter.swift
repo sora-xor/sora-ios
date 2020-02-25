@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class AccessBackupPresenter {
     weak var view: AccessBackupViewProtocol?
@@ -14,7 +15,7 @@ final class AccessBackupPresenter {
 }
 
 extension AccessBackupPresenter: AccessBackupPresenterProtocol {
-    func viewIsReady() {
+    func setup() {
         guard let phrase = phrase else {
             interactor.load()
             return
@@ -28,8 +29,11 @@ extension AccessBackupPresenter: AccessBackupPresenterProtocol {
             return
         }
 
+        let languages = localizationManager?.preferredLocalizations
+        let subject = R.string.localizable
+            .commonPassphraseSharingSubject(preferredLanguages: languages)
         let source = TextSharingSource(message: phrase,
-                                       subject: R.string.localizable.accessBackupSharingSubject())
+                                       subject: subject)
 
         wireframe.share(source: source, from: view, with: nil)
     }
@@ -47,13 +51,21 @@ extension AccessBackupPresenter: AccessBackupInteractorOutputProtocol {
 
     func didReceive(error: Error) {
         if let interactorError = error as? AccessBackupInteractorError {
+            let languages = localizationManager?.preferredLocalizations
             switch interactorError {
             case .loading:
-                wireframe.present(message: R.string.localizable.accessBackupErrorMessage(),
-                                  title: R.string.localizable.accessBackupLoadErrorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .accessBackupErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable
+                                    .accessBackupLoadErrorTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable
+                                    .commonClose(preferredLanguages: languages),
                                   from: view)
             }
         }
     }
+}
+
+extension AccessBackupPresenter: Localizable {
+    func applyLocalization() {}
 }

@@ -32,7 +32,7 @@ final class ReachabilityManager {
     private var reachability: Reachability
 
     private init?() {
-        guard let newReachability = Reachability() else {
+        guard let newReachability = try? Reachability() else {
             return nil
         }
 
@@ -55,7 +55,7 @@ final class ReachabilityManager {
 extension ReachabilityManager: ReachabilityManagerProtocol {
 
     var isReachable: Bool {
-        return reachability.connection != .none
+        return reachability.connection != .unavailable
     }
 
     func add(listener: ReachabilityListenerDelegate) throws {

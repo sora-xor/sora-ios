@@ -51,7 +51,9 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
     @IBOutlet private var sliderView: UISlider!
     @IBOutlet private var voteTextField: UITextField!
     @IBOutlet private var keyboardActionControl: ActionTitleControl!
+    @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var voteButton: RoundedButton!
+    @IBOutlet private var cancelButton: RoundedButton!
 
     @IBOutlet private var leadingConstraint: NSLayoutConstraint!
     @IBOutlet private var trallingConstraint: NSLayoutConstraint!
@@ -86,12 +88,22 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
         super.awakeFromNib()
 
         configure()
+        setupLocalization()
         adjustLayout()
     }
 
     override func resignFirstResponder() -> Bool {
         voteTextField.resignFirstResponder()
         return super.resignFirstResponder()
+    }
+
+    private func setupLocalization() {
+        titleLabel.text = R.string.localizable
+            .projectVoteDialogTitle(preferredLanguages: model?.locale.rLanguages)
+        voteButton.imageWithTitleView?.title = R.string.localizable
+            .commonVote(preferredLanguages: model?.locale.rLanguages)
+        cancelButton.imageWithTitleView?.title = R.string.localizable
+            .commonCancel(preferredLanguages: model?.locale.rLanguages)
     }
 
     private func adjustLayout() {
@@ -112,6 +124,7 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
         sliderView.minimumValue = 0.0
         sliderView.maximumValue = 1.0
 
+        setupLocalization()
         updateDisplay(animated: false)
     }
 

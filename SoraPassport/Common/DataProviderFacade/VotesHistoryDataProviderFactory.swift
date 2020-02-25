@@ -39,7 +39,7 @@ extension VotesHistoryDataProviderFactory: VotesHistoryDataProviderFactoryProtoc
         }
 
         let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
-            .createCoreDataCache(domain: Constants.domain)
+            .createCoreDataCache()
 
         let info = Pagination(offset: 0, count: pageSize)
         let fetchVotesHistoryBlock: () -> BaseOperation<[VotesHistoryEventData]?> = {

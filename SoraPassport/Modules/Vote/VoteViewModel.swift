@@ -13,6 +13,7 @@ protocol VoteViewModelProtocol: class {
     var minimumVoteAmount: Decimal { get }
     var maximumVoteAmount: Decimal { get }
     var canVote: Bool { get }
+    var locale: Locale { get }
 
     func updateAmount(with newAmount: Decimal)
     func updateAmount(with inputString: String)
@@ -40,16 +41,23 @@ final class VoteViewModel {
 
     var rightBoundBreakPolicy: BoundBreakPolicy = .notify
 
+    var locale: Locale
+
     private(set) var error: VoteViewModelError?
 
     private(set) var amount: Decimal
     private(set) var formattedAmount: String
 
-    init(projectId: String, amount: Decimal, minimumVoteAmount: Decimal, maximumVoteAmount: Decimal) {
+    init(projectId: String,
+         amount: Decimal,
+         minimumVoteAmount: Decimal,
+         maximumVoteAmount: Decimal,
+         locale: Locale = Locale.current) {
         self.projectId = projectId
         self.amount = amount
         self.minimumVoteAmount = minimumVoteAmount
         self.maximumVoteAmount = maximumVoteAmount
+        self.locale = locale
 
         formattedAmount = amountFormatter.string(from: amount as NSNumber) ?? ""
     }
@@ -73,7 +81,7 @@ extension VoteViewModel: VoteViewModelProtocol {
         if let error = error {
             return errorDisplayMapping?(error) ?? ""
         } else {
-            return R.string.localizable.voteDescriptionMessage()
+            return ""
         }
     }
 
@@ -88,8 +96,7 @@ extension VoteViewModel: VoteViewModelProtocol {
             }
 
             error = .tooSmallAmount(amount: roundedAmount)
-            formattedAmount = amountFormatter
-                .string(from: roundedAmount as NSNumber) ?? formattedAmount
+            formattedAmount = amountFormatter.string(from: roundedAmount as NSNumber) ?? formattedAmount
 
             return
         }
@@ -122,8 +129,7 @@ extension VoteViewModel: VoteViewModelProtocol {
 
         amount = roundedAmount
 
-        formattedAmount = amountFormatter
-            .string(from: roundedAmount as NSNumber) ?? formattedAmount
+        formattedAmount = amountFormatter.string(from: roundedAmount as NSNumber) ?? formattedAmount
     }
 
     func updateAmount(with inputString: String) {

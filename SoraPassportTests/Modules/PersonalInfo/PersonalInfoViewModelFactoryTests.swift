@@ -32,7 +32,8 @@ class PersonalInfoViewModelFactoryTests: XCTestCase {
                                         invitationCode: "")
 
         let viewModelFactory = PersonalInfoViewModelFactory()
-        let viewModel = viewModelFactory.createRegistrationForm(from: personalForm)
+        let viewModel = viewModelFactory.createRegistrationForm(from: personalForm,
+                                                                locale: Locale.current)
 
         let expectedValue = shouldAccept ? value : ""
 

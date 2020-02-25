@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 enum ActivityFeedPresenterError: Error {
     case unexpectedEmptyItemMetadata
@@ -32,6 +33,7 @@ final class ActivityFeedPresenter {
     private(set) var dataLoadingState: DataState = .waitingCached
     private(set) var viewModels: [ActivityFeedSectionViewModel] = []
     private(set) var uncommitedViewModels: [ActivityFeedSectionViewModel] = []
+    private(set) var currentViewState: ActivityFeedViewState = .empty
     private(set) var pages: [ActivityData] = []
 
     init(itemViewModelFactory: ActivityFeedViewModelFactoryProtocol,
@@ -45,18 +47,27 @@ final class ActivityFeedPresenter {
             throw ActivityFeedPresenterError.unexpectedEmptyItemMetadata
         }
 
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+
         uncommitedViewModels = [ActivityFeedSectionViewModel]()
         let newChanges = try itemViewModelFactory
             .merge(activity: activity,
                    into: &uncommitedViewModels,
-                   using: layoutMetadataContainer)
+                   using: layoutMetadataContainer,
+                   locale: locale)
 
         let commitedViewModels = uncommitedViewModels
 
-        self.dataLoadingState = newDataLoadingState
-        self.pages = [activity]
+        let state = deriveViewLoadingState(from: commitedViewModels,
+                                           oldDataState: dataLoadingState,
+                                           newDataState: newDataLoadingState)
 
-        let updateBlock = { () -> [ActivityFeedViewModelChange] in
+        dataLoadingState = newDataLoadingState
+        currentViewState = state
+
+        pages = [activity]
+
+        let updateBlock = { () -> ActivityFeedStateChange in
 
             var changes = [ActivityFeedViewModelChange]()
 
@@ -68,7 +79,7 @@ final class ActivityFeedPresenter {
 
             self.viewModels = commitedViewModels
 
-            return changes
+            return ActivityFeedStateChange(state: state, changes: changes)
         }
 
         view?.didReceive(using: updateBlock)
@@ -79,20 +90,25 @@ final class ActivityFeedPresenter {
             throw ActivityFeedPresenterError.unexpectedEmptyItemMetadata
         }
 
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+
         let newChanges = try itemViewModelFactory
             .merge(activity: activity,
                    into: &uncommitedViewModels,
-                   using: layoutMetadataContainer)
+                   using: layoutMetadataContainer,
+                   locale: locale)
 
         let commitedViewModels = uncommitedViewModels
 
         self.dataLoadingState = newDataLoadingState
         self.pages.append(activity)
 
-        let updateBlock = { () -> [ActivityFeedViewModelChange] in
+        let updateBlock = { () -> ActivityFeedStateChange in
             self.viewModels = commitedViewModels
 
-            return newChanges
+            let viewState: ActivityFeedViewState = commitedViewModels.count > 0 ? .data : .empty
+
+            return ActivityFeedStateChange(state: viewState, changes: newChanges)
         }
 
         view?.didReceive(using: updateBlock)
@@ -119,6 +135,8 @@ final class ActivityFeedPresenter {
             throw ActivityFeedPresenterError.unexpectedEmptyItemMetadata
         }
 
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+
         uncommitedViewModels = [ActivityFeedSectionViewModel]()
 
         var newChanges = [ActivityFeedViewModelChange]()
@@ -127,14 +145,16 @@ final class ActivityFeedPresenter {
             let changes = try itemViewModelFactory
                 .merge(activity: activity,
                        into: &uncommitedViewModels,
-                       using: layoutMetadataContainer)
+                       using: layoutMetadataContainer,
+                       locale: locale)
 
             newChanges.append(contentsOf: changes)
         }
 
         let commitedViewModels = uncommitedViewModels
+        let viewState = currentViewState
 
-        let updateBlock = { () -> [ActivityFeedViewModelChange] in
+        let updateBlock = { () -> ActivityFeedStateChange in
 
             var commitedChanges = [ActivityFeedViewModelChange]()
 
@@ -146,24 +166,32 @@ final class ActivityFeedPresenter {
 
             self.viewModels = commitedViewModels
 
-            return commitedChanges
+            return ActivityFeedStateChange(state: viewState, changes: commitedChanges)
         }
 
         view?.didReceive(using: updateBlock)
     }
+
+    private func deriveViewLoadingState(from viewModels: [ActivityFeedSectionViewModel],
+                                        oldDataState: DataState,
+                                        newDataState: DataState) -> ActivityFeedViewState {
+        switch newDataState {
+        case .waitingCached:
+            return .data
+        case .loading(let page) where page == 0:
+            if case .waitingCached = oldDataState {
+                return viewModels.count > 0 ? .data : .loading
+            } else {
+                return viewModels.count > 0 ? .data : .empty
+            }
+        default:
+            return viewModels.count > 0 ? .data : .empty
+        }
+    }
 }
 
 extension ActivityFeedPresenter: ActivityFeedPresenterProtocol {
-    var shouldDisplayEmptyState: Bool {
-        switch dataLoadingState {
-        case .waitingCached, .loading:
-            return false
-        case .loaded:
-            return viewModels.count == 0
-        }
-    }
-
-    func viewIsReady() {
+    func setup() {
         itemViewModelFactory.delegate = self
 
         interactor.setup()
@@ -182,14 +210,10 @@ extension ActivityFeedPresenter: ActivityFeedPresenterProtocol {
         case .loading(let page) where page == 0:
             return false
         default:
-            break
+            dataLoadingState = .loading(page: 0)
+            interactor.reload()
+            return true
         }
-
-        dataLoadingState = .loading(page: 0)
-
-        interactor.reload()
-
-        return true
     }
 
     func loadNext() -> Bool {
@@ -281,11 +305,12 @@ extension ActivityFeedPresenter: ActivityFeedInteractorOutputProtocol {
                     let canLoadMore = pages[0].events.count == ActivityFeedPresenter.eventsPerPage
                     try reloadView(with: pages[0], andSwitch: .loaded(page: 0, canLoadMore: canLoadMore))
                 } catch {
-                    logger?.error("Unconsistent data loading before cache")
+                    logger?.error("Can't apply old data when reload failed")
                 }
             }
 
-            if !wireframe.present(error: error, from: view) {
+            let locale = localizationManager?.selectedLocale
+            if !wireframe.present(error: error, from: view, locale: locale) {
                 logger?.debug("Cache refresh failed \(error)")
             }
 
@@ -350,10 +375,24 @@ extension ActivityFeedPresenter: ActivityFeedInteractorOutputProtocol {
 
 extension ActivityFeedPresenter: ActivityFeedViewModelFactoryDelegate {
     func activityFeedViewModelFactoryDidChange(_ factory: ActivityFeedViewModelFactoryProtocol) {
-        do {
-            try reloadActivityViewModels()
-        } catch {
-            logger?.error("Can't reload view models due to error \(error)")
+        if view?.isSetup == true {
+            do {
+                try reloadActivityViewModels()
+            } catch {
+                logger?.error("Can't reload view models due to error \(error)")
+            }
+        }
+    }
+}
+
+extension ActivityFeedPresenter: Localizable {
+    func applyLocalization() {
+        if view?.isSetup == true {
+            do {
+                try reloadActivityViewModels()
+            } catch {
+                logger?.error("Can't reload view models due to error \(error)")
+            }
         }
     }
 }

@@ -4,39 +4,48 @@
 */
 
 import Foundation
+import SoraFoundation
 
 protocol OpenProjectViewModelFactoryProtocol {
     func create(from project: ProjectData,
                 layoutMetadata: OpenProjectLayoutMetadata,
-                delegate: OpenProjectViewModelDelegate?) -> OpenProjectViewModel
+                delegate: OpenProjectViewModelDelegate?,
+                locale: Locale) -> OpenProjectViewModel
 
     func create(from projectDetails: ProjectDetailsData,
-                delegate: ProjectDetailsViewModelDelegate?) -> ProjectDetailsViewModel
+                delegate: ProjectDetailsViewModelDelegate?,
+                locale: Locale) -> ProjectDetailsViewModel
 }
 
 final class OpenProjectViewModelFactory {
-    private(set) var votesFormatter: NumberFormatter
-    private(set) var integerFormatter: NumberFormatter
+    private(set) var votesFormatter: LocalizableResource<NumberFormatter>
+    private(set) var integerFormatter: LocalizableResource<NumberFormatter>
 
-    init(votesFormatter: NumberFormatter, integerFormatter: NumberFormatter) {
+    init(votesFormatter: LocalizableResource<NumberFormatter>, integerFormatter: LocalizableResource<NumberFormatter>) {
         self.votesFormatter = votesFormatter
         self.integerFormatter = integerFormatter
     }
 
-    private func convertRemained(timestamp: Int64) -> String {
+    private func convertRemained(timestamp: Int64, locale: Locale) -> String {
+        let preferredLanguages = locale.rLanguages
+
         if timestamp < 60 {
-            return R.string.localizable.remainedSeconds(value: Int(timestamp))
+            return R.string.localizable.projectDateSecondPlurals(value: Int(timestamp),
+                                                                 preferredLanguages: preferredLanguages)
         }
 
         if timestamp < 3600 {
-            return R.string.localizable.remainedMinutes(value: Int(timestamp / 60))
+            return R.string.localizable.projectDateMinutePlurals(value: Int(timestamp / 60),
+                                                                 preferredLanguages: preferredLanguages)
         }
 
         if timestamp < 24 * 3600 {
-            return R.string.localizable.remainedHours(value: Int(timestamp / 3600))
+            return R.string.localizable.projectDateHourPlurals(value: Int(timestamp / 3600),
+                                                               preferredLanguages: preferredLanguages)
         }
 
-        return R.string.localizable.remainedDays(value: Int(timestamp / (24 * 3600)))
+        return R.string.localizable.projectDateDayPlurals(value: Int(timestamp / (24 * 3600)),
+                                                          preferredLanguages: preferredLanguages)
     }
 
     private func createFundingProgress(from fundingCurrent: String, fundingTarget: String) -> Float {
@@ -52,34 +61,35 @@ final class OpenProjectViewModelFactory {
         return progress
     }
 
-    private func createFundingProgressDetails(from progress: Float, fundingTarget: String) -> String {
+    private func createFundingProgressDetails(from progress: Float, fundingTarget: String, locale: Locale) -> String {
         let fundingTarget = Decimal(string: fundingTarget)
 
         let progressDescription = String(Int(progress * 100.0))
         var targetDescription = ""
 
         if let fundingTarget = fundingTarget {
-            targetDescription = votesFormatter.string(from: fundingTarget as NSNumber) ?? ""
+            targetDescription = votesFormatter.value(for: locale).string(from: fundingTarget as NSNumber) ?? ""
         }
 
-        return R.string.localizable.projectFundedOf(progressDescription,
-                                                    targetDescription)
+        return R.string.localizable.projectFoundedTemplate(progressDescription,
+                                                    targetDescription,
+                                                    preferredLanguages: locale.rLanguages)
     }
 
-    private func createVoteTitle(from votes: String) -> String {
+    private func createVoteTitle(from votes: String, locale: Locale) -> String {
         if let votedAmount = Decimal(string: votes), votedAmount > 0.0 {
-            return votesFormatter.string(from: votedAmount as NSNumber) ?? votes
+            return votesFormatter.value(for: locale).string(from: votedAmount as NSNumber) ?? votes
         } else {
-            return R.string.localizable.projectNotVotedTitle()
+            return R.string.localizable.projectNotVotedTitle(preferredLanguages: locale.rLanguages)
         }
     }
 
-    private func createRemainedDeadlineDescrition(from fundingDeadline: Int64) -> String {
+    private func createRemainedDeadlineDescrition(from fundingDeadline: Int64, locale: Locale) -> String {
         let timestampLeft = fundingDeadline - Int64(Date().timeIntervalSince1970)
-        return timestampLeft > 0 ? convertRemained(timestamp: timestampLeft) : ""
+        return timestampLeft > 0 ? convertRemained(timestamp: timestampLeft, locale: locale) : ""
     }
 
-    private func createContent(from project: ProjectData) -> OpenProjectContent {
+    private func createContent(from project: ProjectData, locale: Locale) -> OpenProjectContent {
         return OpenProjectContent {
             $0.title = project.name
             $0.details = project.description ?? ""
@@ -91,21 +101,25 @@ final class OpenProjectViewModelFactory {
             $0.fundingProgressValue = progress
 
             $0.fundingProgressDetails = createFundingProgressDetails(from: progress,
-                                                                     fundingTarget: project.fundingTarget)
+                                                                     fundingTarget: project.fundingTarget,
+                                                                     locale: locale)
 
-            $0.remainedTimeDetails = createRemainedDeadlineDescrition(from: project.fundingDeadline)
+            $0.remainedTimeDetails = createRemainedDeadlineDescrition(from: project.fundingDeadline,
+                                                                      locale: locale)
 
-            $0.voteTitle = createVoteTitle(from: project.votes)
+            $0.voteTitle = createVoteTitle(from: project.votes, locale: locale)
 
             $0.isVoted = project.isVoted
 
             if project.votedFriendsCount > 0 {
                 $0.votedFriendsDetails = R.string.localizable
-                    .votedFriends(voted: Int(project.votedFriendsCount))
+                    .votedFriends(voted: Int(project.votedFriendsCount),
+                                  preferredLanguages: locale.rLanguages)
             }
 
             if project.favoriteCount > 0,
-                let favoritesString = integerFormatter.string(from: NSNumber(value: project.favoriteCount)) {
+                let favoritesString = integerFormatter.value(for: locale)
+                    .string(from: NSNumber(value: project.favoriteCount)) {
                 $0.favoriteDetails = favoritesString
             }
         }
@@ -115,9 +129,10 @@ final class OpenProjectViewModelFactory {
 extension OpenProjectViewModelFactory: OpenProjectViewModelFactoryProtocol {
     func create(from project: ProjectData,
                 layoutMetadata: OpenProjectLayoutMetadata,
-                delegate: OpenProjectViewModelDelegate?) -> OpenProjectViewModel {
+                delegate: OpenProjectViewModelDelegate?,
+                locale: Locale) -> OpenProjectViewModel {
 
-        let content = createContent(from: project)
+        let content = createContent(from: project, locale: locale)
 
         let layout = createLayout(from: content,
                                   layoutMetadata: layoutMetadata)
@@ -139,7 +154,8 @@ extension OpenProjectViewModelFactory: OpenProjectViewModelFactoryProtocol {
     }
 
     func create(from projectDetails: ProjectDetailsData,
-                delegate: ProjectDetailsViewModelDelegate?) -> ProjectDetailsViewModel {
+                delegate: ProjectDetailsViewModelDelegate?,
+                locale: Locale) -> ProjectDetailsViewModel {
         let viewModel = ProjectDetailsViewModel()
         viewModel.status = .open
 
@@ -151,27 +167,37 @@ extension OpenProjectViewModelFactory: OpenProjectViewModelFactoryProtocol {
                                                                fundingTarget: projectDetails.fundingTarget)
 
         viewModel.fundingDetails = createFundingProgressDetails(from: viewModel.fundingProgressValue,
-                                                                        fundingTarget: projectDetails.fundingTarget)
+                                                                fundingTarget: projectDetails.fundingTarget,
+                                                                locale: locale)
 
-        viewModel.remainedTimeDetails = createRemainedDeadlineDescrition(from: projectDetails.fundingDeadline)
+        viewModel.remainedTimeDetails = createRemainedDeadlineDescrition(from: projectDetails.fundingDeadline,
+                                                                         locale: locale)
 
-        viewModel.votingTitle = createVoteTitle(from: projectDetails.votes)
+        viewModel.votingTitle = createVoteTitle(from: projectDetails.votes,
+                                                locale: locale)
 
-        let votedFriendsString = R.string.localizable.votedFriends(voted: Int(projectDetails.votedFriendsCount))
-        let favoritesString = R.string.localizable.favoriteUsers(favorite: Int(projectDetails.favoriteCount))
+        let votedFriendsString = R.string.localizable
+            .votedFriends(voted: Int(projectDetails.votedFriendsCount),
+                          preferredLanguages: locale.rLanguages)
 
-        if !votedFriendsString.isEmpty, !favoritesString.isEmpty {
+        let favoritesString = R.string.localizable
+            .favoriteUsers(favorite: Int(projectDetails.favoriteCount),
+                           preferredLanguages: locale.rLanguages)
+
+        if projectDetails.votedFriendsCount > 0, projectDetails.favoriteCount > 0 {
             viewModel.statisticsDetails = R.string.localizable
-                .projectDetailsFavoriteVotedCount(votedFriendsString, favoritesString)
-        } else if !votedFriendsString.isEmpty {
+                .projectDetailsFavoriteVotedCount(votedFriendsString, favoritesString,
+                                                  preferredLanguages: locale.rLanguages)
+        } else if projectDetails.votedFriendsCount > 0 {
             viewModel.statisticsDetails = votedFriendsString
-        } else if !favoritesString.isEmpty {
+        } else if projectDetails.favoriteCount > 0 {
             viewModel.statisticsDetails = favoritesString
         }
 
         if let discussionLink = projectDetails.discussionLink {
             viewModel.discussionDetails = R.string.localizable
-                .projectDetailsDiscussFormat(discussionLink.title)
+                .projectDiscussionTemplate(discussionLink.title,
+                                           preferredLanguages: locale.rLanguages)
         }
 
         viewModel.details = projectDetails.details ?? projectDetails.annotation

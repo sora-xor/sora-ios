@@ -54,14 +54,14 @@ final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable
         }
     }
 
-    func showCurrencyView(from view: ProfileViewProtocol?) {
-        guard let currencyView = CurrencyViewFactory.createView() else {
+    func showLanguageSelection(from view: ProfileViewProtocol?) {
+        guard let languageSelection = LanguageSelectionViewFactory.createView() else {
             return
         }
 
         if let navigationController = view?.controller.navigationController {
-            currencyView.controller.hidesBottomBarWhenPushed = true
-            navigationController.pushViewController(currencyView.controller, animated: true)
+            languageSelection.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(languageSelection.controller, animated: true)
         }
     }
 

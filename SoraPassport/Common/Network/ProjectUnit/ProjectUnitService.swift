@@ -20,9 +20,7 @@ enum ProjectServiceType: String {
     case customerUpdate
     case register
     case createUser
-    case fetchInvitation
     case applyInvitation
-    case markInvitation
     case checkInvitation
     case fetchInvited
     case reputation

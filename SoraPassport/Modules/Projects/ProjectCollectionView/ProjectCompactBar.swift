@@ -8,7 +8,6 @@ import SoraUI
 
 final class ProjectCompactBar: ShadowShapeView {
     @IBOutlet private(set) var segmentedControl: PlainSegmentedControl!
-    @IBOutlet private var segmentedControlWidthConstraint: NSLayoutConstraint!
     @IBOutlet private(set) var votesButton: RoundedButton!
 
     override func awakeFromNib() {
@@ -20,17 +19,6 @@ final class ProjectCompactBar: ShadowShapeView {
     var segmentedControlItemMargin: CGFloat = 20.0 {
         didSet {
             updateSegmentedControlLayout()
-        }
-    }
-
-    var segmentedControlWidth: CGFloat {
-        set {
-            segmentedControlWidthConstraint.constant = newValue
-            setNeedsLayout()
-        }
-
-        get {
-            return segmentedControlWidthConstraint.constant
         }
     }
 

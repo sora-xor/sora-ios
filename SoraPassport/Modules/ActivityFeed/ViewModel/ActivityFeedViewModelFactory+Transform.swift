@@ -8,81 +8,98 @@ import Foundation
 extension ActivityFeedViewModelFactory {
     func transform(event: ActivityOneOfEventData,
                    from activity: ActivityData,
-                   metadataContainer: ActivityFeedLayoutMetadataContainer)
+                   metadataContainer: ActivityFeedLayoutMetadataContainer,
+                   locale: Locale)
         -> SectionedActivityFeedItemViewModel? {
 
             switch event {
             case .friendRegistered(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer,
+                                 locale: locale)
             case .votingRightsCredited(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer,
+                                 locale: locale)
             case .userRankChanged(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
-            case .invitationsCredited(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer,
+                                 locale: locale)
             case .projectFunded(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer,
+                                 locale: locale)
             case .projectClosed(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer,
+                                 locale: locale)
             case .projectCreated(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer,
+                                 locale: locale)
             case .xorTransfered(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer,
+                                 locale: locale)
             case .xorRewardCreditedFromProject(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer,
+                                 locale: locale)
             case .userHasVoted(let concreteEvent):
-                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer)
+                return transform(event: concreteEvent, from: activity, metadataContainer: metadataContainer,
+                                 locale: locale)
             default:
                 return nil
             }
     }
 
-    private func transformSection(timestamp: Int64) -> String {
-        return sectionFormatterProvider.dateFormatter.string(from: Date(timeIntervalSince1970: TimeInterval(timestamp)))
+    private func transformSection(timestamp: Int64, locale: Locale) -> String {
+        return sectionFormatterProvider.dateFormatter.value(for: locale)
+            .string(from: Date(timeIntervalSince1970: TimeInterval(timestamp)))
     }
 
-    private func transformActivity(timestamp: Int64) -> String {
-        return timestampDateFormatter.string(from: Date(timeIntervalSince1970: TimeInterval(timestamp)))
+    private func transformActivity(timestamp: Int64, locale: Locale) -> String {
+        return timestampDateFormatter.value(for: locale)
+            .string(from: Date(timeIntervalSince1970: TimeInterval(timestamp)))
     }
 
     private func transform(event: FriendRegisteredEventData,
                            from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer,
+                           locale: Locale)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityUser()
-                $0.type = R.string.localizable.activityEventFriendRegisteredType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
+                $0.type = R.string.localizable.activityUserRegisteredType(preferredLanguages: locale.rLanguages)
+                $0.timestamp = transformActivity(timestamp: event.issuedAt, locale: locale)
 
                 if let userInfo = activity.users?[event.userId] {
                     $0.title = "\(userInfo.firstName) \(userInfo.lastName)"
-                    $0.details = R.string.localizable.activityEventFriendRegisteredDetails()
                 } else {
-                    $0.details = R.string.localizable.activityEventFriendRegisteredDetails()
+                    $0.title = R.string.localizable.activityUser(preferredLanguages: locale.rLanguages)
                 }
+
+                $0.details = R.string.localizable
+                    .activityUserRegisteredDescription(preferredLanguages: locale.rLanguages)
             }
 
             let layout = createLayout(for: content, metadata: metadataContainer.basicLayoutMetadata)
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            let sectionTitle = transformSection(timestamp: event.issuedAt, locale: locale)
             return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: VotingRightsCreditedEventData,
                            from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer,
+                           locale: Locale)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedAmountItemContent {
                 $0.icon = R.image.iconActivityVote()
-                $0.type = R.string.localizable.activityEventVotesCreditedType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
+                $0.type = R.string.localizable
+                    .activityVotingRightsCreditedTypeTemplate(preferredLanguages: locale.rLanguages)
+                $0.timestamp = transformActivity(timestamp: event.issuedAt, locale: locale)
 
                 let votingRights = Decimal(string: event.votingRights) ?? 0
-                let votesString = votesNumberFormatter.string(from: (votingRights as NSNumber)) ?? ""
-                $0.details = R.string.localizable.activityEventVotesCreditedTitle()
+                let votesString = votesNumberFormatter.value(for: locale)
+                    .string(from: (votingRights as NSNumber)) ?? ""
+                $0.details = R.string.localizable
+                    .activityVotingRightsTitleTemplate(preferredLanguages: locale.rLanguages)
 
                 $0.amountStateIcon = R.image.increaseIcon()
                 $0.amountText = votesString
@@ -93,23 +110,30 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedAmountItemViewModel(content: content, layout: layout)
 
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            let sectionTitle = transformSection(timestamp: event.issuedAt, locale: locale)
             return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .amount(concreteViewModel: viewModel))
     }
 
     private func transform(event: UserRankChangedEventData,
                            from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer,
+                           locale: Locale)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityRank()
-                $0.type = R.string.localizable.activityEventRankChangeType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
+                $0.type = R.string.localizable
+                    .activityUserRankChangedTypeTemplate(preferredLanguages: locale.rLanguages)
+                $0.timestamp = transformActivity(timestamp: event.issuedAt, locale: locale)
 
-                if let rankString = integerFormatter.string(from: NSNumber(value: event.rank)),
-                    let totalRankString = integerFormatter.string(from: NSNumber(value: event.totalRank)) {
-                    $0.details = R.string.localizable.activityEventRankChangeTitle(rankString, totalRankString)
+                if let rankString = integerFormatter.value(for: locale)
+                    .string(from: NSNumber(value: event.rank)),
+                    let totalRankString = integerFormatter.value(for: locale)
+                        .string(from: NSNumber(value: event.totalRank)) {
+                    $0.details = R.string.localizable
+                        .activityUserRankChangedTitleTemplate(rankString,
+                                                              totalRankString,
+                                                              preferredLanguages: locale.rLanguages)
                 }
             }
 
@@ -117,71 +141,57 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
-            return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
-                                                      itemViewModel: .basic(concreteViewModel: viewModel))
-    }
-
-    private func transform(event: InvitationsCreditedEventData,
-                           from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
-        -> SectionedActivityFeedItemViewModel {
-            let content = ActivityFeedItemContent {
-                $0.icon = R.image.iconActivityUser()
-                $0.type = R.string.localizable.activityEventInvitationsCreditedType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
-
-                $0.details = R.string.localizable.receivedInvitations(invitation: event.invitations)
-            }
-
-            let layout = createLayout(for: content, metadata: metadataContainer.basicLayoutMetadata)
-
-            let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
-
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            let sectionTitle = transformSection(timestamp: event.issuedAt, locale: locale)
             return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: ProjectFundedEventData,
                            from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer,
+                           locale: Locale)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityProject()
-                $0.type = R.string.localizable.activityEventProjectFundedType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
+                $0.type = R.string.localizable
+                    .activityProjectFundedTypeTemplate(preferredLanguages: locale.rLanguages)
+                $0.timestamp = transformActivity(timestamp: event.issuedAt, locale: locale)
 
                 if let project = activity.projects?[event.projectId] {
                     $0.title = project.name
-                    $0.details = R.string.localizable.activityEventProjectFundedDetails()
                 } else {
-                    $0.details = R.string.localizable.activityEventProjectFundedDefault()
+                    $0.title = R.string.localizable
+                        .activityProject(preferredLanguages: locale.rLanguages)
                 }
+
+                $0.details = R.string.localizable
+                    .activityProjectFundedDescriptionTemplate(preferredLanguages: locale.rLanguages)
             }
 
             let layout = createLayout(for: content, metadata: metadataContainer.basicLayoutMetadata)
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            let sectionTitle = transformSection(timestamp: event.issuedAt, locale: locale)
             return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: ProjectClosedEventData,
                            from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer,
+                           locale: Locale)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityProject()
-                $0.type = R.string.localizable.activityEventProjectClosedType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
+                $0.type = R.string.localizable
+                    .activityProjectClosedTypeTemplate(preferredLanguages: locale.rLanguages)
+                $0.timestamp = transformActivity(timestamp: event.issuedAt, locale: locale)
 
                 if let project = activity.projects?[event.projectId] {
                     $0.title = project.name
                 } else {
-                    $0.details = R.string.localizable.activityEventProjectClosedDefault()
+                    $0.title = R.string.localizable.activityProject(preferredLanguages: locale.rLanguages)
                 }
             }
 
@@ -189,19 +199,21 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            let sectionTitle = transformSection(timestamp: event.issuedAt, locale: locale)
             return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: ProjectCreatedEventData,
                            from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer,
+                           locale: Locale)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityProject()
-                $0.type = R.string.localizable.activityEventProjectCreatedType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
+                $0.type = R.string.localizable
+                    .activityProjectCreatedTypeTemplate(preferredLanguages: locale.rLanguages)
+                $0.timestamp = transformActivity(timestamp: event.issuedAt, locale: locale)
                 $0.title = event.name
                 $0.details = event.description
             }
@@ -210,27 +222,30 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            let sectionTitle = transformSection(timestamp: event.issuedAt, locale: locale)
             return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }
 
     private func transform(event: XORTransferedEventData,
                            from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer,
+                           locale: Locale)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedAmountItemContent {
                 $0.icon = R.image.iconXor()
-                $0.type = R.string.localizable.activityEventXorTransferedType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
+                $0.type = R.string.localizable
+                    .activityEventXorTransferedType(preferredLanguages: locale.rLanguages)
+                $0.timestamp = transformActivity(timestamp: event.issuedAt, locale: locale)
 
                 let xor = Decimal(string: event.amount) ?? 0
-                let amountString = amountFormatter.string(from: (xor as NSNumber)) ?? ""
+                let amountString = amountFormatter.value(for: locale).string(from: (xor as NSNumber)) ?? ""
 
                 if let userInfo = activity.users?[event.source] {
                     $0.details = "\(userInfo.firstName) \(userInfo.lastName)"
                 } else {
-                    $0.details = R.string.localizable.activityEventXorTransferedDefaultTitle()
+                    $0.details = R.string.localizable
+                        .activityUser(preferredLanguages: locale.rLanguages)
                 }
 
                 $0.amountStateIcon = R.image.increaseIcon()
@@ -241,27 +256,30 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedAmountItemViewModel(content: content, layout: layout)
 
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            let sectionTitle = transformSection(timestamp: event.issuedAt, locale: locale)
             return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .amount(concreteViewModel: viewModel))
     }
 
     private func transform(event: XORRewardCreditedFromProjectEventData,
                            from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer,
+                           locale: Locale)
         -> SectionedActivityFeedItemViewModel {
             let content = ActivityFeedAmountItemContent {
                 $0.icon = R.image.iconXor()
-                $0.type = R.string.localizable.activityEventXorProjectCreditedType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
+                $0.type = R.string.localizable
+                    .activityXorRewardCreditedFromProjectTypeTemplate(preferredLanguages: locale.rLanguages)
+                $0.timestamp = transformActivity(timestamp: event.issuedAt, locale: locale)
 
                 let reward = Decimal(string: event.reward) ?? 0
-                let rewardString = amountFormatter.string(from: reward as NSNumber) ?? ""
+                let rewardString = amountFormatter.value(for: locale).string(from: reward as NSNumber) ?? ""
 
                 if let project = activity.projects?[event.projectId] {
                     $0.details = project.name
                 } else {
-                    $0.details = R.string.localizable.activityEventXorProjectCreditedDetails()
+                    $0.details = R.string.localizable
+                        .activityProject(preferredLanguages: locale.rLanguages)
                 }
 
                 $0.amountStateIcon = R.image.increaseIcon()
@@ -272,39 +290,58 @@ extension ActivityFeedViewModelFactory {
 
             let viewModel = ActivityFeedAmountItemViewModel(content: content, layout: layout)
 
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            let sectionTitle = transformSection(timestamp: event.issuedAt, locale: locale)
             return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .amount(concreteViewModel: viewModel))
     }
 
     private func transform(event: UserHasVotedEventData,
                            from activity: ActivityData,
-                           metadataContainer: ActivityFeedLayoutMetadataContainer)
+                           metadataContainer: ActivityFeedLayoutMetadataContainer,
+                           locale: Locale)
         -> SectionedActivityFeedItemViewModel {
 
             let content = ActivityFeedItemContent {
                 $0.icon = R.image.iconActivityVote()
-                $0.type = R.string.localizable.activityEventUserHasVotedType()
-                $0.timestamp = transformActivity(timestamp: event.issuedAt)
+                $0.type = R.string.localizable
+                    .activityVotedFriendAddedTypeTemplate(preferredLanguages: locale.rLanguages)
+                $0.timestamp = transformActivity(timestamp: event.issuedAt, locale: locale)
 
                 let givenVotes = Decimal(string: event.givenVotes) ?? 0
-                let givenVotesString = votesNumberFormatter.string(from: givenVotes as NSNumber) ?? ""
+                let givenVotesString = votesNumberFormatter.value(for: locale)
+                    .string(from: givenVotes as NSNumber) ?? ""
 
-                if let user = activity.users?[event.userId], let project = activity.projects?[event.projectId] {
-                    $0.title = "\(user.firstName) \(user.lastName)"
-                    $0.details = R.string.localizable.activityEventUserHasVotedDetails(user.firstName,
-                                                                                       givenVotesString,
-                                                                                       project.name)
+                let fullName: String
+                let firstName: String
+                let projectName: String
+
+                if let user = activity.users?[event.userId] {
+                    fullName = "\(user.firstName) \(user.lastName)"
+                    firstName = user.firstName
                 } else {
-                    $0.title = R.string.localizable.activityEventUserHasVotedDefault()
+                    fullName = R.string.localizable.activityUser(preferredLanguages: locale.rLanguages)
+                    firstName = R.string.localizable.activityUser(preferredLanguages: locale.rLanguages)
                 }
+
+                if let project = activity.projects?[event.projectId] {
+                    projectName = project.name
+                } else {
+                    projectName = R.string.localizable.activityProject(preferredLanguages: locale.rLanguages)
+                }
+
+                $0.title = fullName
+                $0.details = R.string.localizable
+                    .activityVotedFriendAddedDescriptionTemplate(firstName,
+                                                                 givenVotesString,
+                                                                 projectName,
+                                                                 preferredLanguages: locale.rLanguages)
             }
 
             let layout = createLayout(for: content, metadata: metadataContainer.basicLayoutMetadata)
 
             let viewModel = ActivityFeedItemViewModel(content: content, layout: layout)
 
-            let sectionTitle = transformSection(timestamp: event.issuedAt)
+            let sectionTitle = transformSection(timestamp: event.issuedAt, locale: locale)
             return SectionedActivityFeedItemViewModel(sectionTitle: sectionTitle,
                                                       itemViewModel: .basic(concreteViewModel: viewModel))
     }

@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class PhoneVerificationPresenter {
     private struct Constants {
@@ -16,6 +17,12 @@ final class PhoneVerificationPresenter {
 	var wireframe: PhoneVerificationWireframeProtocol!
 
     var logger: LoggerProtocol?
+
+    let locale: Locale
+
+    init(locale: Locale) {
+        self.locale = locale
+    }
 
     private(set) var verificationState: VerificationState?
     lazy private(set) var countdownTimer: CountdownTimer = {
@@ -54,7 +61,7 @@ final class PhoneVerificationPresenter {
 }
 
 extension PhoneVerificationPresenter: PhoneVerificationPresenterProtocol {
-    func viewIsReady() {
+    func setup() {
         provideNewViewModel()
 
         view?.didStartLoading()
@@ -103,9 +110,12 @@ extension PhoneVerificationPresenter: PhoneVerificationInteractorOutputProtocol 
                 let resendDelay = verificationCodeData.delay ?? Constants.defaultResendDelay
                 updateVerificationState(with: TimeInterval(resendDelay))
 
-                wireframe.present(message: R.string.localizable.phoneVerificationTooFrequentMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .phoneVerificationTooFrequentMessage(preferredLanguages: locale.rLanguages),
+                                  title: R.string.localizable
+                                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                                  closeAction: R.string.localizable
+                                    .commonClose(preferredLanguages: locale.rLanguages),
                                   from: view)
             } else {
                 handleSendVerificationCode(error: verificationRequestError)
@@ -122,7 +132,7 @@ extension PhoneVerificationPresenter: PhoneVerificationInteractorOutputProtocol 
 
         updateResendCodeDisplayState()
 
-        if wireframe.present(error: error, from: view) {
+        if wireframe.present(error: error, from: view, locale: locale) {
             return
         }
 
@@ -136,14 +146,20 @@ extension PhoneVerificationPresenter: PhoneVerificationInteractorOutputProtocol 
     private func handleSendVerificationCode(error: SmsCodeSendDataError) {
         switch error {
         case .userNotFound, .userValuesNotFound:
-            wireframe.present(message: R.string.localizable.phoneVerificationUserNotFoundMessage(),
-                              title: R.string.localizable.errorTitle(),
-                              closeAction: R.string.localizable.close(),
+            wireframe.present(message: R.string.localizable
+                .phoneVerificationUserNotFoundMessage(preferredLanguages: locale.rLanguages),
+                              title: R.string.localizable
+                                .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                              closeAction: R.string.localizable
+                                .commonClose(preferredLanguages: locale.rLanguages),
                               from: view)
         case .tooFrequentRequest:
-            wireframe.present(message: R.string.localizable.phoneVerificationTooFrequentMessage(),
-                              title: R.string.localizable.errorTitle(),
-                              closeAction: R.string.localizable.close(),
+            wireframe.present(message: R.string.localizable
+                .phoneVerificationTooFrequentMessage(preferredLanguages: locale.rLanguages),
+                              title: R.string.localizable
+                                .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                              closeAction: R.string.localizable
+                                .commonClose(preferredLanguages: locale.rLanguages),
                               from: view)
         }
     }
@@ -157,33 +173,45 @@ extension PhoneVerificationPresenter: PhoneVerificationInteractorOutputProtocol 
     func didReceivePhoneVerification(error: Error) {
         view?.didStopLoading()
 
-        if wireframe.present(error: error, from: view) {
+        if wireframe.present(error: error, from: view, locale: locale) {
             return
         }
 
         if let verificationError = error as? SmsCodeVerifyDataError {
             switch verificationError {
             case .userNotFound:
-                wireframe.present(message: R.string.localizable.phoneVerificationUserNotFoundMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .phoneVerificationUserNotFoundMessage(preferredLanguages: locale.rLanguages),
+                                  title: R.string.localizable
+                                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                                  closeAction: R.string.localizable
+                                    .commonClose(preferredLanguages: locale.rLanguages),
                                   from: view)
             case .smsCodeExpired:
-                wireframe.present(message: R.string.localizable.phoneVerificationCodeExpiredMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .phoneVerificationCodeExpiredMessage(preferredLanguages: locale.rLanguages),
+                                  title: R.string.localizable
+                                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                                  closeAction: R.string.localizable
+                                    .commonClose(preferredLanguages: locale.rLanguages),
                                   from: view)
             case .smsCodeIncorrect:
-                wireframe.present(message: R.string.localizable.phoneVerificationCodeIncorrectMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .phoneVerificationCodeIncorrectMessage(preferredLanguages: locale.rLanguages),
+                                  title: R.string.localizable
+                                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                                  closeAction: R.string.localizable
+                                    .commonClose(preferredLanguages: locale.rLanguages),
                                   from: view)
 
                 provideNewViewModel()
             case .smsCodeNotFound:
-                wireframe.present(message: R.string.localizable.phoneVerificationCodeNotFoundMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .phoneVerificationCodeNotFoundMessage(preferredLanguages: locale.rLanguages),
+                                  title: R.string.localizable
+                                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                                  closeAction: R.string.localizable
+                                    .commonClose(preferredLanguages: locale.rLanguages),
                                   from: view)
             }
         } else {

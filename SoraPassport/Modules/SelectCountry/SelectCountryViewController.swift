@@ -4,6 +4,7 @@
 */
 
 import UIKit
+import SoraUI
 
 final class SelectCountryViewController: UIViewController, AdaptiveDesignable {
     private struct Constants {
@@ -13,17 +14,24 @@ final class SelectCountryViewController: UIViewController, AdaptiveDesignable {
 
     var presenter: SelectCountryPresenterProtocol!
 
+    var locale: Locale?
+
     @IBOutlet private var tableView: UITableView!
     @IBOutlet private var searchBar: UISearchBar!
     @IBOutlet private var searchBackgroundHeight: NSLayoutConstraint!
 
-    private var viewModels: [String] = []
+    private var state: ViewModelState<[String]> = .loading(viewModel: [])
+
+    private var titles: [String] {
+        return state.viewModel ?? []
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
         configureTableView()
         configureSearchBar()
+        setupLocalization()
         adjustLayout()
 
         presenter.setup()
@@ -33,6 +41,11 @@ final class SelectCountryViewController: UIViewController, AdaptiveDesignable {
         if isAdaptiveWidthDecreased {
             searchBackgroundHeight.constant *= designScaleRatio.width
         }
+    }
+
+    private func setupLocalization() {
+        title = R.string.localizable.countriesTitle(preferredLanguages: locale?.rLanguages)
+        searchBar.placeholder = R.string.localizable.search(preferredLanguages: locale?.rLanguages)
     }
 
     private func configureSearchBar() {
@@ -73,12 +86,12 @@ extension SelectCountryViewController: UISearchBarDelegate {
 
 extension SelectCountryViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return viewModels.count
+        return titles.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: R.reuseIdentifier.titleCellId, for: indexPath)!
-        cell.bind(title: viewModels[indexPath.row])
+        cell.bind(title: titles[indexPath.row])
         return cell
     }
 }
@@ -92,14 +105,72 @@ extension SelectCountryViewController: UITableViewDelegate {
 }
 
 extension SelectCountryViewController: SelectCountryViewProtocol {
-    func didReceive(viewModels: [String]) {
-        self.viewModels = viewModels
+    func didReceive(state: ViewModelState<[String]>) {
+        self.state = state
+
         tableView.reloadData()
+
+        updateEmptyState(animated: false)
     }
 }
 
 extension SelectCountryViewController: DesignableNavigationBarProtocol {
     var separatorStyle: NavigationBarSeparatorStyle {
         return .empty
+    }
+}
+
+extension SelectCountryViewController: EmptyStateViewOwnerProtocol {
+    var emptyStateDelegate: EmptyStateDelegate {
+        self
+    }
+
+    var emptyStateDataSource: EmptyStateDataSource {
+        self
+    }
+}
+
+extension SelectCountryViewController: EmptyStateDataSource {
+    var trimStrategyForEmptyState: EmptyStateView.TrimStrategy {
+        return .none
+    }
+
+    var viewForEmptyState: UIView? {
+        return nil
+    }
+
+    var imageForEmptyState: UIImage? {
+        return R.image.searchEmptyState()
+    }
+
+    var titleForEmptyState: String? {
+        return R.string.localizable
+            .countriesCountryNotFound(preferredLanguages: locale?.rLanguages)
+    }
+
+    var titleColorForEmptyState: UIColor? {
+        return UIColor.emptyStateTitle
+    }
+    var titleFontForEmptyState: UIFont? {
+        return UIFont.emptyStateTitle
+    }
+
+    var displayInsetsForEmptyState: UIEdgeInsets {
+        return UIEdgeInsets(top: searchBar.frame.size.height,
+                            left: 0.0, bottom: 0.0, right: 0.0)
+    }
+
+    var verticalSpacingForEmptyState: CGFloat? {
+        return 40.0
+    }
+}
+
+extension SelectCountryViewController: EmptyStateDelegate {
+    var shouldDisplayEmptyState: Bool {
+        if case .empty = state {
+            return true
+        } else {
+            return false
+        }
     }
 }

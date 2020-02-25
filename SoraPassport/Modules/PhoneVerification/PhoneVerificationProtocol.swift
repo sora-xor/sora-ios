@@ -11,7 +11,7 @@ protocol PhoneVerificationViewProtocol: ControllerBackedProtocol, LoadableViewPr
 }
 
 protocol PhoneVerificationPresenterProtocol: class {
-    func viewIsReady()
+    func setup()
     func viewDidDisappear()
     func process(viewModel: CodeInputViewModelProtocol)
     func resendCode()

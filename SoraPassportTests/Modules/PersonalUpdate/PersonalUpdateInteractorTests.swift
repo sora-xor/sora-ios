@@ -50,7 +50,7 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
         }
 
         // when
-        presenter.viewIsReady()
+        presenter.setup()
 
         // then
         XCTAssertTrue(presenter.dataLoadingState == .waitingCached)
@@ -105,7 +105,7 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
         // when
 
-        presenter.viewIsReady()
+        presenter.setup()
 
         // then
 
@@ -154,7 +154,7 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
         // when
 
-        presenter.viewIsReady()
+        presenter.setup()
 
         wait(for: [setupExpectation], timeout: Constants.networkRequestTimeout)
 
@@ -178,7 +178,8 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
     // MARK: Private
     private func createPresenter() -> PersonalUpdatePresenter {
-        return PersonalUpdatePresenter(viewModelFactory: PersonalInfoViewModelFactory())
+        let factory = PersonalInfoViewModelFactory()
+        return PersonalUpdatePresenter(locale: Locale.current, viewModelFactory: factory)
     }
 
     private func createInteractor() -> PersonalUpdateInteractor {

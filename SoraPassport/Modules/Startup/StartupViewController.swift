@@ -21,7 +21,7 @@ final class StartupViewController: UIViewController, AdaptiveDesignable {
 
         loadingView.startAnimating()
 
-        presenter.viewIsReady()
+        presenter.setup()
     }
 
     private func adjustConstraints() {

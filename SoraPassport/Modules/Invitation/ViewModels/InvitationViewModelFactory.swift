@@ -4,37 +4,37 @@
 */
 
 import Foundation
+import SoraFoundation
 
-protocol InvitationViewModelFactoryProtocol {
+protocol InvitationViewModelFactoryProtocol: class {
     func createActionListViewModel(from userData: UserData?,
                                    parentInfo: ParentInfoData?,
-                                   layout: InvitationViewLayout) -> InvitationActionListViewModel
+                                   layout: InvitationViewLayout,
+                                   locale: Locale) -> InvitationActionListViewModel
     func createActionAccessory(from remainedInterval: TimeInterval,
                                notificationInterval: TimerNotificationInterval) -> String
     func createActivatedInvitationViewModel(from data: ActivatedInvitationsData) -> [InvitedViewModel]
 }
 
-struct InvitationViewModelFactory: InvitationViewModelFactoryProtocol {
-    let integerFormatter: NumberFormatter
+class InvitationViewModelFactory: InvitationViewModelFactoryProtocol {
+    let integerFormatter: LocalizableResource<NumberFormatter>
+
+    init(integerFormatter: LocalizableResource<NumberFormatter>) {
+        self.integerFormatter = integerFormatter
+    }
 
     func createActionListViewModel(from userData: UserData?,
                                    parentInfo: ParentInfoData?,
-                                   layout: InvitationViewLayout) -> InvitationActionListViewModel {
-        let headerText = R.string.localizable.inviteHeaderTitle()
-
-        var sendActionAccessory: String?
-
-        if let invitationsCount = userData?.values.invitations, invitationsCount >= 0 {
-            if let invitationsTitle = integerFormatter.string(from: NSNumber(value: invitationsCount)) {
-                sendActionAccessory = R.string.localizable.inviteActionSendAccessoryFormat(invitationsTitle)
-            }
-        }
+                                   layout: InvitationViewLayout,
+                                   locale: Locale) -> InvitationActionListViewModel {
+        let headerText = R.string.localizable.inviteTitle(preferredLanguages: locale.rLanguages)
 
         var actions: [InvitationActionViewModel] = []
 
-        let sendAction = InvitationActionViewModel(title: R.string.localizable.inviteActionSendTitle(),
+        let title = R.string.localizable.inviteSendInvite(preferredLanguages: locale.rLanguages)
+        let sendAction = InvitationActionViewModel(title: title,
                                                    icon: R.image.iconSendInvite(),
-                                                   accessoryText: sendActionAccessory,
+                                                   accessoryText: nil,
                                                    style: .normal)
 
         actions.append(sendAction)
@@ -43,17 +43,23 @@ struct InvitationViewModelFactory: InvitationViewModelFactoryProtocol {
 
         if let userData = userData {
             if let parent = parentInfo?.fullName {
-                footerText = R.string.localizable.inviteFooterParentTitle(parent)
+                footerText = R.string.localizable
+                    .inviteParentInvitationTemplate(parent,
+                                                    preferredLanguages: locale.rLanguages)
             } else if userData.canAcceptInvitation {
-                let title = layout == .default ? R.string.localizable.inviteActionEnterCodeTitle()
-                    : R.string.localizable.inviteActionCompactEnterCodeTitle()
+                let title = layout == .default ?
+                    R.string.localizable
+                        .inviteEnterInvitationCode(preferredLanguages: locale.rLanguages) :
+                    R.string.localizable
+                        .inviteEnterInvitationCodeCompact(preferredLanguages: locale.rLanguages)
                 let enterCodeAction = InvitationActionViewModel(title: title,
                                                                 icon: R.image.imageInvitation(),
                                                                 accessoryText: nil,
                                                                 style: .normal)
                 actions.append(enterCodeAction)
 
-                footerText = R.string.localizable.inviteFooterCodeTitle()
+                footerText = R.string.localizable
+                    .inviteEnterCodeDescription(preferredLanguages: locale.rLanguages)
             }
         }
 

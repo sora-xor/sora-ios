@@ -23,8 +23,7 @@ func createRandomPhoneNumber() -> String {
 
 func createRandomUserValue(for userId: String) -> UserValuesData {
     return UserValuesData(userId: userId,
-                          invitations: (0..<100).randomElement()!,
-                          tokens: String((0..<100).randomElement()!))
+                          invitationCode: Constants.dummyInvitationCode)
 }
 
 func createRandomUser() -> UserData {

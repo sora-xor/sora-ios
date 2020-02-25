@@ -10,8 +10,21 @@ import CoreData
 protocol CoreDataCacheFacadeProtocol: class {
     var databaseService: CoreDataServiceProtocol { get }
 
-    func createCoreDataCache<T, U>(domain: String) -> CoreDataRepository<T, U>
-        where T: Identifiable & Codable, U: NSManagedObject & CoreDataCodable
+    func createCoreDataCache<T, U>(filter: NSPredicate?, mapper: AnyCoreDataMapper<T, U>) -> CoreDataRepository<T, U>
+        where T: Identifiable & Codable, U: NSManagedObject
+}
+
+extension CoreDataCacheFacadeProtocol {
+    func createCoreDataCache<T, U>(mapper: AnyCoreDataMapper<T, U>) -> CoreDataRepository<T, U>
+    where T: Identifiable & Codable, U: NSManagedObject {
+        return createCoreDataCache(filter: nil, mapper: mapper)
+    }
+
+    func createCoreDataCache<T, U>() -> CoreDataRepository<T, U>
+    where T: Identifiable & Codable, U: NSManagedObject & CoreDataCodable {
+        let mapper = AnyCoreDataMapper(CodableCoreDataMapper<T, U>())
+        return createCoreDataCache(filter: nil, mapper: mapper)
+    }
 }
 
 final class CoreDataCacheFacade: CoreDataCacheFacadeProtocol {
@@ -37,12 +50,10 @@ final class CoreDataCacheFacade: CoreDataCacheFacadeProtocol {
         databaseService = CoreDataService(configuration: configuration)
     }
 
-    func createCoreDataCache<T, U>(domain: String) -> CoreDataRepository<T, U>
-        where T: Identifiable & Codable, U: NSManagedObject & CoreDataCodable {
-
-            let mapper = AnyCoreDataMapper(CodableCoreDataMapper<T, U>())
+    func createCoreDataCache<T, U>(filter: NSPredicate?, mapper: AnyCoreDataMapper<T, U>)
+        -> CoreDataRepository<T, U> where T: Identifiable & Codable, U: NSManagedObject {
             return CoreDataRepository(databaseService: databaseService,
                                       mapper: mapper,
-                                      domain: domain)
+                                      filter: filter)
     }
 }

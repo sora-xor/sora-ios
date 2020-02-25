@@ -7,6 +7,7 @@ import XCTest
 @testable import SoraPassport
 import SoraKeystore
 import Cuckoo
+import SoraFoundation
 
 class PhoneRegistrationTests: NetworkBaseTests {
 
@@ -45,7 +46,7 @@ class PhoneRegistrationTests: NetworkBaseTests {
         let expectation = XCTestExpectation()
 
         stub(wireframe) { stub in
-            when(stub).present(error: any(), from: any()).then { _ in
+            when(stub).present(error: any(), from: any(), locale: any()).then { _ in
                 expectation.fulfill()
 
                 return true
@@ -73,7 +74,7 @@ class PhoneRegistrationTests: NetworkBaseTests {
         let expectation = XCTestExpectation()
 
         stub(wireframe) { stub in
-            when(stub).present(error: any(), from: any()).thenReturn(true)
+            when(stub).present(error: any(), from: any(), locale: any()).thenReturn(true)
             when(stub).showRegistration(from: any(), country: any()).then { _ in
                 expectation.fulfill()
             }
@@ -128,7 +129,8 @@ class PhoneRegistrationTests: NetworkBaseTests {
     }
 
     private func createPresenter(settings: SettingsManagerProtocol, country: Country) -> PhoneRegistrationPresenter {
-        let presenter = PhoneRegistrationPresenter(country: country)
+        let presenter = PhoneRegistrationPresenter(locale: Locale.current,
+                                                   country: country)
 
         let projectService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
         projectService.requestSigner = createDummyRequestSigner()

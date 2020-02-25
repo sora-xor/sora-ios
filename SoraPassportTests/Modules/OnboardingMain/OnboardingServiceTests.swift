@@ -5,6 +5,8 @@
 
 import XCTest
 @testable import SoraPassport
+import SoraFoundation
+import SoraKeystore
 
 class OnboardingServiceTests: NetworkBaseTests {
 

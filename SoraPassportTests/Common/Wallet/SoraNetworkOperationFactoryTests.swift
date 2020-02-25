@@ -8,6 +8,8 @@ import XCTest
 import IrohaCrypto
 import IrohaCommunication
 import CommonWallet
+import SoraFoundation
+import SoraKeystore
 
 class SoraNetworkOperationFactoryTests: NetworkBaseTests {
 
@@ -34,7 +36,11 @@ class SoraNetworkOperationFactoryTests: NetworkBaseTests {
             settings.decentralizedId = Constants.dummyDid
             settings.publicKeyId = Constants.dummyPubKeyId
 
-            let primitiveFactory = WalletPrimitiveFactory(keychain: keychain, settings: settings)
+            let localizationManager = LocalizationManager(localization: Constants.englishLocalization)!
+
+            let primitiveFactory = WalletPrimitiveFactory(keychain: keychain,
+                                                          settings: settings,
+                                                          localizationManager: localizationManager)
             let accountId = try primitiveFactory.createAccountId()
             let accountSettings = try primitiveFactory.createAccountSettings(for: accountId)
 

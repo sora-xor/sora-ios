@@ -5,6 +5,7 @@
 
 import UIKit
 import SoraCrypto
+import SoraFoundation
 
 final class PersonalUpdateViewFactory: PersonalUpdateViewFactoryProtocol {
 	static func createView() -> PersonalUpdateViewProtocol? {
@@ -17,8 +18,11 @@ final class PersonalUpdateViewFactory: PersonalUpdateViewFactoryProtocol {
         let projectService = ProjectUnitService(unit: projectUnit)
         projectService.requestSigner = requestSigner
 
+        let locale = LocalizationManager.shared.selectedLocale
+
         let view = PersonalUpdateViewController(nib: R.nib.personalUpdateViewController)
-        let presenter = PersonalUpdatePresenter(viewModelFactory: PersonalInfoViewModelFactory())
+        let viewModelFactory = PersonalInfoViewModelFactory()
+        let presenter = PersonalUpdatePresenter(locale: locale, viewModelFactory: viewModelFactory)
         let interactor = PersonalUpdateInteractor(customerFacade: CustomerDataProviderFacade.shared,
                                                   projectService: projectService)
         let wireframe = PersonalUpdateWireframe()
@@ -28,6 +32,8 @@ final class PersonalUpdateViewFactory: PersonalUpdateViewFactoryProtocol {
         presenter.interactor = interactor
         presenter.wireframe = wireframe
         interactor.presenter = presenter
+
+        view.locale = locale
 
         return view
 	}

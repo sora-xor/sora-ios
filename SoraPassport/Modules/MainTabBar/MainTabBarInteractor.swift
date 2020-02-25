@@ -6,6 +6,7 @@
 import Foundation
 import SoraKeystore
 import CommonWallet
+import SoraFoundation
 
 final class MainTabBarInteractor {
 	weak var presenter: MainTabBarInteractorOutputProtocol?

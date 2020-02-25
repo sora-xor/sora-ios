@@ -5,6 +5,7 @@
 
 import Foundation
 import FireMock
+import SoraFoundation
 
 enum ProjectsFavoritesFetchMock: FireMockProtocol {
     case success

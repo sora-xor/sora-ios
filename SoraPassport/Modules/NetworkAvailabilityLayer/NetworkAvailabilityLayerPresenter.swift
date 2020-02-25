@@ -4,6 +4,7 @@
 */
 
 import UIKit
+import SoraFoundation
 
 final class NetworkAvailabilityLayerPresenter {
     var view: ApplicationStatusPresentable!
@@ -15,7 +16,7 @@ final class NetworkAvailabilityLayerPresenter {
                                       titleFont: UIFont.statusTitle)
     }
 
-    var availbleStyle: ApplicationStatusStyle {
+    var availableStyle: ApplicationStatusStyle {
         return ApplicationStatusStyle(backgroundColor: UIColor.networkAvailableBackground,
                                       titleColor: UIColor.white,
                                       titleFont: UIFont.statusTitle)
@@ -24,14 +25,22 @@ final class NetworkAvailabilityLayerPresenter {
 
 extension NetworkAvailabilityLayerPresenter: NetworkAvailabilityLayerInteractorOutputProtocol {
     func didDecideUnreachableStatusPresentation() {
-        view.presentStatus(title: R.string.localizable.networkUnavailable(),
+        let languages = localizationManager?.preferredLocalizations
+        view.presentStatus(title: R.string.localizable
+            .networkUnavailable(preferredLanguages: languages),
                            style: unavailbleStyle,
                            animated: true)
     }
 
     func didDecideReachableStatusPresentation() {
-        view.dismissStatus(title: R.string.localizable.networkAvailable(),
-                           style: availbleStyle,
+        let languages = localizationManager?.preferredLocalizations
+        view.dismissStatus(title: R.string.localizable
+            .networkAvailable(preferredLanguages: languages),
+                           style: availableStyle,
                            animated: true)
     }
+}
+
+extension NetworkAvailabilityLayerPresenter: Localizable {
+    func applyLocalization() {}
 }

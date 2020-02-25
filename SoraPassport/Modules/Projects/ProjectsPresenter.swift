@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 private typealias PendingProjectFavorite = (value: Bool, displayType: ProjectDisplayType)
 private typealias PendingProjectVote = (value: String, displayType: ProjectDisplayType)
@@ -16,7 +17,7 @@ final class ProjectsPresenter {
     private(set) var children: [ProjectDisplayType: ProjectsListPresenterProtocol]
 
     private(set) var voteViewModelFactory: VoteViewModelFactoryProtocol
-    private(set) var votesDisplayFormatter: NumberFormatter
+    private(set) var votesDisplayFormatter: LocalizableResource<NumberFormatter>
 
     private(set) var displayType = ProjectDisplayType.all
 
@@ -28,7 +29,7 @@ final class ProjectsPresenter {
 
     init(children: [ProjectDisplayType: ProjectsListPresenterProtocol],
          voteViewModelFactory: VoteViewModelFactoryProtocol,
-         votesDisplayFormatter: NumberFormatter) {
+         votesDisplayFormatter: LocalizableResource<NumberFormatter>) {
         self.children = children
         self.voteViewModelFactory = voteViewModelFactory
         self.votesDisplayFormatter = votesDisplayFormatter
@@ -37,6 +38,24 @@ final class ProjectsPresenter {
     private func refreshProjects() {
         children.forEach { (_, child) in
             child.refresh()
+        }
+    }
+
+    private func updateVotesView() {
+        if let votes = votes {
+            let displayVotes: String
+
+            let locale = localizationManager?.selectedLocale ?? Locale.current
+
+            if let votesValue = Decimal(string: votes.value),
+                let votesString = votesDisplayFormatter.value(for: locale)
+                    .string(from: (votesValue as NSNumber)) {
+                displayVotes =  votesString
+            } else {
+                displayVotes = ""
+            }
+
+            view?.didLoad(votes: displayVotes)
         }
     }
 
@@ -91,7 +110,7 @@ extension ProjectsPresenter: ProjectsPresenterProtocol {
         }
     }
 
-    func viewIsReady(layoutMetadata: ProjectLayoutMetadata) {
+    func setup(layoutMetadata: ProjectLayoutMetadata) {
         children[displayType]?.view = view
 
         interactor.setup()
@@ -151,16 +170,7 @@ extension ProjectsPresenter: ProjectsPresenterProtocol {
 extension ProjectsPresenter: ProjectsInteractorOutputProtocol {
     func didReceive(votes: VotesData) {
         self.votes = votes
-        let displayVotes: String
-
-        if let votesValue = Decimal(string: votes.value),
-            let votesString = votesDisplayFormatter.string(from: (votesValue as NSNumber)) {
-            displayVotes =  votesString
-        } else {
-            displayVotes = ""
-        }
-
-        view?.didLoad(votes: displayVotes)
+        updateVotesView()
     }
 
     func didReceiveVotesDataProvider(error: Error) {
@@ -174,33 +184,39 @@ extension ProjectsPresenter: ProjectsInteractorOutputProtocol {
     }
 
     func didReceiveVote(error: Error, for project: ProjectVote) {
-        if wireframe.present(error: error, from: view) {
+        if wireframe.present(error: error, from: view, locale: localizationManager?.selectedLocale) {
             return
         }
 
         if let votingError = error as? VoteDataError {
+            let languages = localizationManager?.preferredLocalizations
+
             switch votingError {
             case .votesNotEnough:
-                wireframe.present(message: R.string.localizable.votesNotEnoughErrorMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                                    .votesNotEnoughErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                                   from: view)
             case .projectNotFound:
-                wireframe.present(message: R.string.localizable.votesProjectNotFoundErrorMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .votesProjectNotFoundErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                                   from: view)
 
                 refreshProjects()
             case .votingNotAllowed:
-                wireframe.present(message: R.string.localizable.votesNotAllowedErrorMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                                    .votesNotAllowedErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                                   from: view)
             case .incorrectVotesFormat:
-                wireframe.present(message: R.string.localizable.votesInvalidFormatErrorMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                                    .votesInvalidFormatErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                                   from: view)
             }
         }
@@ -215,21 +231,25 @@ extension ProjectsPresenter: ProjectsInteractorOutputProtocol {
     func didReceiveTogglingFavorite(error: Error, for projectId: String) {
         restorePendingFavorite(for: projectId)
 
-        if wireframe.present(error: error, from: view) {
+        if wireframe.present(error: error, from: view, locale: localizationManager?.selectedLocale) {
             return
         }
 
         if let togglingFavoriteError = error as? ProjectFavoriteToggleDataError {
+            let languages = localizationManager?.preferredLocalizations
+
             switch togglingFavoriteError {
             case .projectNotFound:
-                wireframe.present(message: R.string.localizable.favoriteProjectNotFoundErrorMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .favoriteProjectNotFoundErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                                   from: view)
             case .userNotFound:
-                wireframe.present(message: R.string.localizable.favoriteUserNotFoundErrorMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .favoriteUserNotFoundErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                                   from: view)
             }
         }
@@ -243,33 +263,41 @@ extension ProjectsPresenter: ProjectsListPresenterDelegate {
         }
 
         do {
+            let locale = localizationManager?.selectedLocale ?? Locale.current
             let viewModel = try voteViewModelFactory.createViewModel(with: project,
-                                                                     votes: votes)
+                                                                     votes: votes,
+                                                                     locale: locale)
             wireframe.showVotingView(from: view,
                                      with: viewModel,
                                      delegate: self)
 
             return true
         } catch VoteViewModelFactoryError.notEnoughVotes {
-            wireframe.present(message: R.string.localizable.votesZeroErrorMessage(),
+            let languages = localizationManager?.preferredLocalizations
+            wireframe.present(message: R.string.localizable
+                .votesZeroErrorMessage(preferredLanguages: languages),
                               title: "",
-                              closeAction: R.string.localizable.close(),
+                              closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                               from: view)
 
             interactor.refreshVotes()
 
             return false
         } catch VoteViewModelFactoryError.noVotesNeeded {
-            wireframe.present(message: R.string.localizable.votesNotAllowedErrorMessage(),
+            let languages = localizationManager?.preferredLocalizations
+            wireframe.present(message: R.string.localizable
+                .votesNotAllowedErrorMessage(preferredLanguages: languages),
                               title: "",
-                              closeAction: R.string.localizable.close(),
+                              closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                               from: view)
 
             return false
         } catch {
-            wireframe.present(message: R.string.localizable.votesProjectParametersErrorMessage(),
-                              title: R.string.localizable.errorTitle(),
-                              closeAction: R.string.localizable.close(),
+            let languages = localizationManager?.preferredLocalizations
+            wireframe.present(message: R.string.localizable
+                .votesProjectParametersErrorMessage(preferredLanguages: languages),
+                              title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                              closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                               from: view)
 
             return false
@@ -303,5 +331,13 @@ extension ProjectsPresenter: VoteViewDelegate {
 
     func didCancel(on view: VoteView) {
         logger?.debug("Did cancel voting")
+    }
+}
+
+extension ProjectsPresenter: Localizable {
+    func applyLocalization() {
+        if view?.isSetup == true {
+            updateVotesView()
+        }
     }
 }

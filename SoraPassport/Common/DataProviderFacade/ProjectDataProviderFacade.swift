@@ -62,8 +62,11 @@ final class ProjectDataProviderFacade: ProjectDataProviderFacadeProtocol {
                                            updateTrigger: DataProviderTriggerProtocol = DataProviderEventTrigger.onNone)
         -> DataProvider<ProjectData> {
 
+            let filter = NSPredicate(format: "%K == %@", #keyPath(CDProject.domain), domain)
+            let mapper = ProjectDataMapper(domain: domain)
+
         let cache: CoreDataRepository<ProjectData, CDProject> = self.coreDataCacheFacade
-             .createCoreDataCache(domain: domain)
+            .createCoreDataCache(filter: filter, mapper: AnyCoreDataMapper(mapper))
 
         return DataProvider(source: source,
                             repository: AnyDataProviderRepository(cache),

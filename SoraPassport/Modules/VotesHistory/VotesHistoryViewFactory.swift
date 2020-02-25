@@ -6,6 +6,7 @@
 import UIKit
 import SoraCrypto
 import RobinHood
+import SoraFoundation
 
 final class VotesHistoryViewFactory: VotesHistoryViewFactoryProtocol {
 	static func createView() -> VotesHistoryViewProtocol? {
@@ -13,6 +14,8 @@ final class VotesHistoryViewFactory: VotesHistoryViewFactoryProtocol {
             Logger.shared.error("Can't create decentralized resolver url")
             return nil
         }
+
+        let locale = LocalizationManager.shared.selectedLocale
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
@@ -33,11 +36,12 @@ final class VotesHistoryViewFactory: VotesHistoryViewFactoryProtocol {
         let dateFormatterProvider = DateFormatterProvider(dateFormatterFactory: EventListDateFormatterFactory.self,
                                                           dayChangeHandler: DayChangeHandler())
 
-        let votesHistoryViewModelFactory = VotesHistoryViewModelFactory(amountFormatter: NumberFormatter.vote,
+        let amountFormatter = NumberFormatter.vote.localizableResource()
+        let votesHistoryViewModelFactory = VotesHistoryViewModelFactory(amountFormatter: amountFormatter,
                                                                         dateFormatterProvider: dateFormatterProvider)
 
         let view = VotesHistoryViewController(nib: R.nib.votesHistoryViewController)
-        let presenter = VotesHistoryPresenter(viewModelFactory: votesHistoryViewModelFactory)
+        let presenter = VotesHistoryPresenter(locale: locale, viewModelFactory: votesHistoryViewModelFactory)
         let interactor = VotesHistoryInteractor(votesHistoryDataProvider: votesHistoryDataProvider,
                                                 projectService: projectService)
         let wireframe = VotesHistoryWireframe()
@@ -47,6 +51,8 @@ final class VotesHistoryViewFactory: VotesHistoryViewFactoryProtocol {
         presenter.interactor = interactor
         presenter.wireframe = wireframe
         interactor.presenter = presenter
+
+        view.locale = locale
 
         presenter.logger = Logger.shared
 

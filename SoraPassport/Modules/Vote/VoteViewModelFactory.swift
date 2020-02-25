@@ -4,13 +4,16 @@
 */
 
 import Foundation
+import SoraFoundation
 
 protocol VoteViewModelFactoryProtocol {
     func createViewModel(with project: ProjectData,
-                         votes: VotesData) throws -> VoteViewModelProtocol
+                         votes: VotesData,
+                         locale: Locale) throws -> VoteViewModelProtocol
 
     func createViewModel(with projectDetails: ProjectDetailsData,
-                         votes: VotesData) throws -> VoteViewModelProtocol
+                         votes: VotesData,
+                         locale: Locale) throws -> VoteViewModelProtocol
 }
 
 enum VoteViewModelFactoryError: Error {
@@ -20,16 +23,17 @@ enum VoteViewModelFactoryError: Error {
 }
 
 final class VoteViewModelFactory {
-    private(set) var amountFormatter: NumberFormatter
+    let amountFormatter: LocalizableResource<NumberFormatter>
 
-    init(amountFormatter: NumberFormatter) {
+    init(amountFormatter: LocalizableResource<NumberFormatter>) {
         self.amountFormatter = amountFormatter
     }
 
     private func createViewModel(for projectId: String,
                                  votes: VotesData,
                                  fundingCurrent: String,
-                                 fundingTarget: String) throws -> VoteViewModelProtocol {
+                                 fundingTarget: String,
+                                 locale: Locale) throws -> VoteViewModelProtocol {
         let minimumVotes: Decimal = 1.0
         var availableVotes: Decimal = 0.0
 
@@ -67,28 +71,34 @@ final class VoteViewModelFactory {
         let viewModel = VoteViewModel(projectId: projectId,
                                       amount: minimumVotes,
                                       minimumVoteAmount: minimumVotes,
-                                      maximumVoteAmount: maximumVotes)
+                                      maximumVoteAmount: maximumVotes,
+                                      locale: locale)
 
         viewModel.rightBoundBreakPolicy = maximumBoundPolicy
-        viewModel.amountFormatter = amountFormatter
-        viewModel.errorDisplayMapping = createErrorDisplayMapping(for: maximumVotes)
+        viewModel.amountFormatter = amountFormatter.value(for: locale)
+        viewModel.errorDisplayMapping = createErrorDisplayMapping(for: maximumVotes, locale: locale)
 
         return viewModel
     }
 
-    private func createErrorDisplayMapping(for maximumVotes: Decimal) -> (VoteViewModelError) -> String {
-        let formattedVotes = amountFormatter.string(from: maximumVotes as NSNumber)
+    private func createErrorDisplayMapping(for maximumVotes: Decimal,
+                                           locale: Locale) -> (VoteViewModelError) -> String {
+        let formattedVotes = amountFormatter.value(for: locale).string(from: maximumVotes as NSNumber)
         return { error in
             switch error {
             case .emptyAmount:
-                return R.string.localizable.voteTooSmallErrorMessage()
+                return R.string.localizable
+                    .projectYouCanVoteAtLeast1Point(preferredLanguages: locale.rLanguages)
             case .tooSmallAmount:
-                return R.string.localizable.voteTooSmallErrorMessage()
+                return R.string.localizable
+                    .projectYouCanVoteAtLeast1Point(preferredLanguages: locale.rLanguages)
             case .tooBigAmount:
-                return R.string.localizable.voteNotEnoughErrorMessage()
+                return R.string.localizable
+                    .projectUserHaveNotEnoughVotesMessage(preferredLanguages: locale.rLanguages)
             case .adjustedMax:
                 if let votes = formattedVotes {
-                    return R.string.localizable.voteProjectMaxMessage(votes)
+                    return R.string.localizable
+                        .projectRequiresVotesFormat(votes, preferredLanguages: locale.rLanguages)
                 } else {
                     return ""
                 }
@@ -99,18 +109,22 @@ final class VoteViewModelFactory {
 
 extension VoteViewModelFactory: VoteViewModelFactoryProtocol {
     func createViewModel(with project: ProjectData,
-                         votes: VotesData) throws -> VoteViewModelProtocol {
+                         votes: VotesData,
+                         locale: Locale) throws -> VoteViewModelProtocol {
         return try createViewModel(for: project.identifier,
                                    votes: votes,
                                    fundingCurrent: project.fundingCurrent,
-                                   fundingTarget: project.fundingTarget)
+                                   fundingTarget: project.fundingTarget,
+                                   locale: locale)
     }
 
     func createViewModel(with projectDetails: ProjectDetailsData,
-                         votes: VotesData) throws -> VoteViewModelProtocol {
+                         votes: VotesData,
+                         locale: Locale) throws -> VoteViewModelProtocol {
         return try createViewModel(for: projectDetails.identifier,
                                    votes: votes,
                                    fundingCurrent: projectDetails.fundingCurrent,
-                                   fundingTarget: projectDetails.fundingTarget)
+                                   fundingTarget: projectDetails.fundingTarget,
+                                   locale: locale)
     }
 }

@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class ProfilePresenter {
 	weak var view: ProfileViewProtocol?
@@ -17,6 +18,7 @@ final class ProfilePresenter {
     private(set) var userData: UserData?
     private(set) var votesData: VotesData?
     private(set) var reputationData: ReputationData?
+    private(set) var language: Language?
 
     init(viewModelFactory: ProfileViewModelFactoryProtocol) {
         self.viewModelFactory = viewModelFactory
@@ -34,14 +36,20 @@ final class ProfilePresenter {
     }
 
     private func updateOptionsViewModel() {
+        let language = localizationManager?.selectedLanguage
+
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+
         let optionViewModels = viewModelFactory.createOptionViewModels(from: votesData,
-                                                                       reputationData: reputationData)
+                                                                       reputationData: reputationData,
+                                                                       language: language,
+                                                                       locale: locale)
         view?.didLoad(optionViewModels: optionViewModels)
     }
 }
 
 extension ProfilePresenter: ProfilePresenterProtocol {
-    func viewIsReady() {
+    func setup() {
         updateUserDetailsViewModel()
         updateOptionsViewModel()
 
@@ -70,6 +78,8 @@ extension ProfilePresenter: ProfilePresenterProtocol {
             wireframe.showPersonalDetailsView(from: view)
         case .passphrase:
             wireframe.showPassphraseView(from: view)
+        case .language:
+            wireframe.showLanguageSelection(from: view)
         case .about:
             wireframe.showAbout(from: view)
         }
@@ -106,5 +116,13 @@ extension ProfilePresenter: ProfileInteractorOutputProtocol {
 
     func didReceiveReputationDataProvider(error: Error) {
         logger?.debug("Did receive reputation data provider \(error)")
+    }
+}
+
+extension ProfilePresenter: Localizable {
+    func applyLocalization() {
+        if view?.isSetup == true {
+            updateOptionsViewModel()
+        }
     }
 }

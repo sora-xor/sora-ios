@@ -6,6 +6,7 @@
 import UIKit
 import SoraCrypto
 import RobinHood
+import SoraFoundation
 
 final class ProjectsViewFactory: ProjectsViewFactoryProtocol {
 	static func createView() -> ProjectsViewProtocol? {
@@ -14,19 +15,22 @@ final class ProjectsViewFactory: ProjectsViewFactoryProtocol {
             return nil
         }
 
+        let localizationManager = LocalizationManager.shared
+
         let projectService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
         projectService.requestSigner = requestSigner
 
-        let voteViewModelFactory = VoteViewModelFactory(amountFormatter: NumberFormatter.vote)
+        let voteViewModelFactory = VoteViewModelFactory(amountFormatter: NumberFormatter.vote.localizableResource())
 
         let view = ProjectsViewController(nib: R.nib.projectsViewController)
 
         let eventCenter = EventCenter.shared
 
-        let childPresenters = createChildPresenters(with: eventCenter)
+        let childPresenters = createChildPresenters(with: eventCenter,
+                                                    localizationManager: localizationManager)
         let presenter = ProjectsPresenter(children: childPresenters,
                                           voteViewModelFactory: voteViewModelFactory,
-                                          votesDisplayFormatter: NumberFormatter.vote)
+                                          votesDisplayFormatter: NumberFormatter.vote.localizableResource())
 
         childPresenters.forEach { (_, child) in
             child.delegate = presenter
@@ -44,35 +48,44 @@ final class ProjectsViewFactory: ProjectsViewFactoryProtocol {
         presenter.wireframe = wireframe
         interactor.presenter = presenter
 
+        view.localizationManager = localizationManager
+
+        presenter.localizationManager = localizationManager
         presenter.logger = Logger.shared
 
         return view
 	}
 
-    private static func createChildPresenters(with eventCenter: EventCenterProtocol)
+    private static func createChildPresenters(with eventCenter: EventCenterProtocol,
+                                              localizationManager: LocalizationManagerProtocol)
         -> [ProjectDisplayType: ProjectsListPresenter] {
         let dataProviderFacade = ProjectDataProviderFacade.shared
 
         var children = [ProjectDisplayType: ProjectsListPresenter]()
-        children[.all] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
-                                                    dataProvider: dataProviderFacade.allProjectsProvider,
-                                                    eventCenter: eventCenter)
+            children[.all] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
+                                                        dataProvider: dataProviderFacade.allProjectsProvider,
+                                                        eventCenter: eventCenter,
+                                                        localizationManager: localizationManager)
         children[.voted] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
                                                       dataProvider: dataProviderFacade.votedProjectsProvider,
-                                                      eventCenter: eventCenter)
+                                                      eventCenter: eventCenter,
+                                                      localizationManager: localizationManager)
         children[.favorite] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
                                                          dataProvider: dataProviderFacade.favoriteProjectsProvider,
-                                                         eventCenter: eventCenter)
+                                                         eventCenter: eventCenter,
+                                                         localizationManager: localizationManager)
         children[.completed] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
                                                           dataProvider: dataProviderFacade.finishedProjectsProvider,
-                                                          eventCenter: eventCenter)
+                                                          eventCenter: eventCenter,
+                                                          localizationManager: localizationManager)
 
         return children
     }
 
     private static func createProjectListPresenter(viewModelFactory: ProjectViewModelFactoryProtocol,
                                                    dataProvider: DataProvider<ProjectData>,
-                                                   eventCenter: EventCenterProtocol)
+                                                   eventCenter: EventCenterProtocol,
+                                                   localizationManager: LocalizationManagerProtocol)
         -> ProjectsListPresenter {
 
         let presenter = ProjectsListPresenter(viewModelFactory: viewModelFactory)
@@ -81,6 +94,8 @@ final class ProjectsViewFactory: ProjectsViewFactoryProtocol {
 
         presenter.interactor = interactor
         interactor.presenter = presenter
+
+        presenter.localizationManager = localizationManager
 
         return presenter
     }

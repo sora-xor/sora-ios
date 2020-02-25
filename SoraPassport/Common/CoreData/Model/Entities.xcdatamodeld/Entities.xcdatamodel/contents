@@ -1,30 +1,29 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="14490.99" systemVersion="18F203" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="15702" systemVersion="19C57" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
     <entity name="CDProject" representedClassName="CDProject" syncable="YES" codeGenerationType="class">
-        <attribute name="domain" optional="YES" attributeType="String" syncable="YES"/>
-        <attribute name="favorite" optional="YES" attributeType="Boolean" usesScalarValueType="YES" syncable="YES"/>
-        <attribute name="favoriteCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
-        <attribute name="fundingCurrent" attributeType="String" minValueString="1" syncable="YES"/>
-        <attribute name="fundingDeadline" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
-        <attribute name="fundingTarget" attributeType="String" minValueString="1" syncable="YES"/>
-        <attribute name="identifier" attributeType="String" minValueString="0" syncable="YES"/>
-        <attribute name="imageLink" optional="YES" attributeType="String" syncable="YES"/>
-        <attribute name="link" optional="YES" attributeType="String" syncable="YES"/>
-        <attribute name="name" attributeType="String" minValueString="0" syncable="YES"/>
-        <attribute name="projectDescription" optional="YES" attributeType="String" syncable="YES"/>
-        <attribute name="status" attributeType="String" minValueString="0" syncable="YES"/>
-        <attribute name="statusUpdateTime" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="NO" syncable="YES"/>
-        <attribute name="unwatched" optional="YES" attributeType="Boolean" usesScalarValueType="YES" syncable="YES"/>
-        <attribute name="votedFriendsCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
-        <attribute name="votes" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="domain" optional="YES" attributeType="String"/>
+        <attribute name="favorite" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="favoriteCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="fundingCurrent" attributeType="String" minValueString="1"/>
+        <attribute name="fundingDeadline" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="fundingTarget" attributeType="String" minValueString="1"/>
+        <attribute name="identifier" attributeType="String" minValueString="0"/>
+        <attribute name="imageLink" optional="YES" attributeType="String"/>
+        <attribute name="link" optional="YES" attributeType="String"/>
+        <attribute name="name" attributeType="String" minValueString="0"/>
+        <attribute name="projectDescription" optional="YES" attributeType="String"/>
+        <attribute name="status" attributeType="String" minValueString="0"/>
+        <attribute name="statusUpdateTime" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="NO"/>
+        <attribute name="unwatched" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="votedFriendsCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="votes" optional="YES" attributeType="String"/>
     </entity>
     <entity name="CDSingleValue" representedClassName="CDSingleValue" syncable="YES" codeGenerationType="class">
-        <attribute name="domain" optional="YES" attributeType="String" syncable="YES"/>
-        <attribute name="identifier" attributeType="String" syncable="YES"/>
-        <attribute name="payload" attributeType="Binary" syncable="YES"/>
+        <attribute name="identifier" attributeType="String"/>
+        <attribute name="payload" attributeType="Binary"/>
     </entity>
     <elements>
         <element name="CDProject" positionX="-63" positionY="-18" width="128" height="285"/>
-        <element name="CDSingleValue" positionX="-63" positionY="54" width="128" height="90"/>
+        <element name="CDSingleValue" positionX="-63" positionY="54" width="128" height="73"/>
     </elements>
 </model>

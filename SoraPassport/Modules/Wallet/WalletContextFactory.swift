@@ -8,6 +8,7 @@ import CommonWallet
 import IrohaCommunication
 import SoraKeystore
 import SoraCrypto
+import SoraFoundation
 
 protocol WalletContextFactoryProtocol: class {
     static func createContext() -> CommonWalletContextProtocol?
@@ -23,22 +24,30 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
         let logger = Logger.shared
 
         do {
+            let localizationManager = LocalizationManager.shared
+            let locale = localizationManager.selectedLocale
+
             let primitiveFactory = WalletPrimitiveFactory(keychain: Keychain(),
-                                                          settings: SettingsManager.shared)
+                                                          settings: SettingsManager.shared,
+                                                          localizationManager: localizationManager)
 
             let accountId: IRAccountId = try primitiveFactory.createAccountId()
 
             let accountSettings = try primitiveFactory.createAccountSettings(for: accountId)
             let networkResolver = try createNetworkResolver(with: logger)
 
-            let inputValidFactory = WalletDescriptionInputValidatorFactory()
+            let inputValidFactory = WalletDescriptionInputValidatorFactory(localizationManager: localizationManager)
 
             let networkOperationFactory = SoraNetworkOperationFactory(accountSettings: accountSettings,
                                                                       networkResolver: networkResolver)
 
+            let language = WalletLanguage(rawValue: localizationManager.selectedLocalization)
+                ?? WalletLanguage.defaultLanguage
+
             let builder = CommonWalletBuilder.builder(with: accountSettings, networkResolver: networkResolver)
+                .with(language: language)
                 .with(logger: logger)
-                .with(amountFormatter: NumberFormatter.amount)
+                .with(amountFormatter: NumberFormatter.amount.localizableResource())
                 .with(transactionTypeList: primitiveFactory.createTransactionTypes())
                 .with(inputValidatorFactory: inputValidFactory)
                 .with(networkOperationFactory: networkOperationFactory)
@@ -56,12 +65,15 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
 
             configureReceiverModule(with: builder.receiveModuleBuilder,
                                     assets: accountSettings.assets,
-                                    amountFormatter: NumberFormatter.amount)
+                                    amountFormatter: NumberFormatter.amount,
+                                    locale: locale)
 
             configureTransactionDetails(with: builder.transactionDetailsModuleBuilder,
                                         primitiveFactory: primitiveFactory)
 
             let walletContext = try builder.build()
+
+            subscribeContextToLanguageSwitch(walletContext, localizationManager: localizationManager, logger: logger)
 
             headerViewModel.walletContext = walletContext
 
@@ -69,6 +81,22 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
         } catch {
             logger.error("Wallet initialization error \(error)")
             return nil
+        }
+    }
+
+    static private func subscribeContextToLanguageSwitch(_ context: CommonWalletContextProtocol,
+                                                         localizationManager: LocalizationManagerProtocol,
+                                                         logger: LoggerProtocol) {
+        localizationManager.addObserver(with: context) { [weak context] (_, newLocalization) in
+            if let newLanguage = WalletLanguage(rawValue: newLocalization) {
+                do {
+                    try context?.prepareLanguageSwitchCommand(with: newLanguage).execute()
+                } catch {
+                    logger.error("Error received when tried to change wallet language")
+                }
+            } else {
+                logger.error("New selected language \(newLocalization) error is unsupported")
+            }
         }
     }
 
@@ -141,8 +169,13 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
     }
 
     static private func configureContactsModule(with builder: ContactsModuleBuilderProtocol) {
+
+        let searchPlaceholder = LocalizableResource { locale in
+            R.string.localizable.contactsSearchHint(preferredLanguages: locale.rLanguages)
+        }
+
         builder
-            .with(searchPlaceholder: R.string.localizable.walletSearchPlaceholder())
+            .with(searchPlaceholder: searchPlaceholder)
             .with(searchEmptyStateDataSource: WalletEmptyStateDataSource.search)
             .with(contactsEmptyStateDataSource: WalletEmptyStateDataSource.contacts)
             .with(supportsLiveSearch: false)
@@ -150,11 +183,18 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
 
     static private func configureReceiverModule(with builder: ReceiveAmountModuleBuilderProtocol,
                                                 assets: [WalletAsset],
-                                                amountFormatter: NumberFormatter) {
-        builder
-            .with(accountShareFactory: WalletAccountSharingFactory(assets: assets,
-                                                                   amountFormatter: amountFormatter))
-            .with(title: R.string.localizable.walletReceiveTitle())
+                                                amountFormatter: NumberFormatter,
+                                                locale: Locale) {
+
+        let receiveTitle = LocalizableResource { locale in
+            R.string.localizable.walletReceiveXor(preferredLanguages: locale.rLanguages)
+        }
+
+        let sharingFactory = WalletAccountSharingFactory(assets: assets,
+                                                         amountFormatter: amountFormatter,
+                                                         locale: locale)
+
+        builder.with(accountShareFactory: sharingFactory).with(title: receiveTitle)
     }
 
     static private func configureTransactionDetails(with builder: TransactionDetailsModuleBuilderProtocol,

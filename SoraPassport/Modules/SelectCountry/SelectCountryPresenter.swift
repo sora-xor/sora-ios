@@ -24,7 +24,13 @@ final class SelectCountryPresenter {
             matchingCountries = countries
         }
 
-        view?.didReceive(viewModels: matchingCountries.map { $0.name })
+        let titles = matchingCountries.map { $0.name }
+
+        if !query.isEmpty, titles.count == 0 {
+            view?.didReceive(state: .empty)
+        } else {
+            view?.didReceive(state: .data(viewModel: titles))
+        }
     }
 }
 

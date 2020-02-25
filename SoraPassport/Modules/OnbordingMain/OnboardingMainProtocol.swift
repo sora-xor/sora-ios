@@ -10,7 +10,7 @@ protocol OnboardingMainViewProtocol: ControllerBackedProtocol, LoadableViewProto
 }
 
 protocol OnboardingMainPresenterProtocol: class {
-    func viewIsReady()
+    func setup()
     func activateSignup()
     func activateAccountRestore()
     func activateTerms()

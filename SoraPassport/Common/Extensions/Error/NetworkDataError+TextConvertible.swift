@@ -7,23 +7,42 @@ import Foundation
 import RobinHood
 
 extension NetworkResponseError: ErrorContentConvertible {
-    func toErrorContent() -> ErrorContent {
+    func toErrorContent(for locale: Locale?) -> ErrorContent {
+        let title: String
+        let message: String
+
         switch self {
         case .authorizationError:
-            return ErrorContent(title: R.string.localizable.authorizationErrorTitle(),
-                                message: R.string.localizable.authorizationErrorMessage())
+            title = R.string.localizable
+                .commonErrorUnauthorizedTitle(preferredLanguages: locale?.rLanguages)
+
+            message = R.string.localizable
+                .commonErrorUnauthorizedBody(preferredLanguages: locale?.rLanguages)
         case .internalServerError:
-            return ErrorContent(title: R.string.localizable.internalServerErrorTitle(),
-                                message: R.string.localizable.internalServerErrorMessage())
+            title = R.string.localizable
+                .commonErrorInternalErrorTitle(preferredLanguages: locale?.rLanguages)
+
+            message = R.string.localizable
+                .commonErrorInternalErrorBody(preferredLanguages: locale?.rLanguages)
         case .invalidParameters:
-            return ErrorContent(title: R.string.localizable.invalidParametersErrorTitle(),
-                                message: R.string.localizable.invalidParametersErrorMessage())
+            title = R.string.localizable
+                .commonErrorInvalidParameters(preferredLanguages: locale?.rLanguages)
+
+            message = R.string.localizable
+                .commonErrorInvalidParametersBody(preferredLanguages: locale?.rLanguages)
         case .resourceNotFound:
-            return ErrorContent(title: R.string.localizable.resourceUnavailableErrorTitle(),
-                                message: R.string.localizable.resourceUnavailableErrorMessage())
+            title = R.string.localizable
+                .commonErrorNotFoundTitle(preferredLanguages: locale?.rLanguages)
+
+            message = R.string.localizable
+                .commonErrorNotFoundBody(preferredLanguages: locale?.rLanguages)
         case .unexpectedStatusCode:
-            return ErrorContent(title: R.string.localizable.unexpectedStatusErrorTitle(),
-                                message: R.string.localizable.serverErrorMessage())
+            title = R.string.localizable
+                .commonErrorUnexpectedStatusTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable
+                .commonErrorGeneralMessage(preferredLanguages: locale?.rLanguages)
         }
+
+        return ErrorContent(title: title, message: message)
     }
 }

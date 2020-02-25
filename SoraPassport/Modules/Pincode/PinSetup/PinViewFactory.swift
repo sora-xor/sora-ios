@@ -5,6 +5,7 @@
 
 import Foundation
 import SoraKeystore
+import SoraFoundation
 
 class PinViewFactory: PinViewFactoryProtocol {
     static func createPinSetupView() -> PinSetupViewProtocol? {
@@ -25,6 +26,8 @@ class PinViewFactory: PinViewFactoryProtocol {
 
         interactor.presenter = presenter
 
+        pinSetupView.localizationManager = LocalizationManager.shared
+
         return pinSetupView
     }
 
@@ -36,7 +39,8 @@ class PinViewFactory: PinViewFactoryProtocol {
         let presenter = LocalAuthPresenter()
         let interactor = LocalAuthInteractor(secretManager: KeychainManager.shared,
                                              settingsManager: SettingsManager.shared,
-                                             biometryAuth: BiometryAuth())
+                                             biometryAuth: BiometryAuth(),
+                                             locale: LocalizationManager.shared.selectedLocale)
         let wireframe = PinSetupWireframe()
 
         pinVerifyView.presenter = presenter
@@ -45,6 +49,8 @@ class PinViewFactory: PinViewFactoryProtocol {
         presenter.wireframe = wireframe
 
         interactor.presenter = presenter
+
+        pinVerifyView.localizationManager = LocalizationManager.shared
 
         return pinVerifyView
     }
@@ -59,7 +65,8 @@ class PinViewFactory: PinViewFactoryProtocol {
         let presenter = ScreenAuthorizationPresenter()
         let interactor = LocalAuthInteractor(secretManager: KeychainManager.shared,
                                              settingsManager: SettingsManager.shared,
-                                             biometryAuth: BiometryAuth())
+                                             biometryAuth: BiometryAuth(),
+                                             locale: LocalizationManager.shared.selectedLocale)
 
         pinVerifyView.presenter = presenter
         presenter.interactor = interactor
@@ -67,6 +74,8 @@ class PinViewFactory: PinViewFactoryProtocol {
         presenter.wireframe = wireframe
 
         interactor.presenter = presenter
+
+        pinVerifyView.localizationManager = LocalizationManager.shared
 
         return pinVerifyView
     }

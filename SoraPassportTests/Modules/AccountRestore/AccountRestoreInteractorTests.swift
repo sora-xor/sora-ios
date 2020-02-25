@@ -8,6 +8,7 @@ import XCTest
 import Cuckoo
 import SoraKeystore
 import IrohaCrypto
+import SoraFoundation
 
 class AccountRestoreInteractorTests: NetworkBaseTests {
     var interactor: AccessRestoreInteractor!

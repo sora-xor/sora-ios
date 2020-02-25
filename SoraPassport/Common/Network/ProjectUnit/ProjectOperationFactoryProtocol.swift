@@ -21,9 +21,7 @@ protocol ProjectAccountOperationFactoryProtocol {
                              with info: UserCreationInfo) -> NetworkOperation<VerificationCodeData>
     func fetchCustomerOperation(_ urlTemplate: String) -> NetworkOperation<UserData?>
     func updateCustomerOperation(_ urlTemplate: String, info: PersonalInfo) -> NetworkOperation<Bool>
-    func fetchInvitationCodeOperation(_ urlTemplate: String) -> NetworkOperation<InvitationCodeData>
     func applyInvitationCodeOperation(_ urlTemplate: String, code: String) -> NetworkOperation<Void>
-    func markAsUsedOperation(_ urlTemplate: String, invitationCode: String) -> NetworkOperation<Bool>
     func checkInvitation(_ urlTemplate: String, deviceInfo: DeviceInfo) -> NetworkOperation<InvitationCheckData>
     func fetchActivatedInvitationsOperation(_ urlTemplate: String) -> NetworkOperation<ActivatedInvitationsData?>
     func fetchReputationOperation(_ urlTemplate: String) -> NetworkOperation<ReputationData?>

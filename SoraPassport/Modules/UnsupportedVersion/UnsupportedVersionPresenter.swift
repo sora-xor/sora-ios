@@ -11,29 +11,42 @@ final class UnsupportedVersionPresenter {
     var interactor: UnsupportedVersionInteractorInputProtocol!
 
     let supportedVersionData: SupportedVersionData
+    let locale: Locale
 
     var logger: LoggerProtocol?
 
-    init(supportedVersionData: SupportedVersionData) {
+    init(locale: Locale, supportedVersionData: SupportedVersionData) {
+        self.locale = locale
         self.supportedVersionData = supportedVersionData
     }
 }
 
 extension UnsupportedVersionPresenter: UnsupportedVersionPresenterProtocol {
     func setup() {
-        let viewModel = UnsupportedVersionViewModel(title: R.string.localizable.unsupportedTitle(),
-                                                    message: R.string.localizable.unsupportedMessage(),
+        let title = R.string.localizable
+            .commonUnsupportedVersionTitle(preferredLanguages: locale.rLanguages)
+        let message = R.string.localizable
+            .commonUnsupportedVersionBody(preferredLanguages: locale.rLanguages)
+        let actionTitle = R.string.localizable
+            .commonUnsupportedVersionAction(preferredLanguages: locale.rLanguages)
+        let viewModel = UnsupportedVersionViewModel(title: title,
+                                                    message: message,
                                                     icon: R.image.iconAppUpdate(),
-                                                    actionTitle: R.string.localizable.unsupportedAction())
+                                                    actionTitle: actionTitle)
         view?.didReceive(viewModel: viewModel)
     }
 
     func performAction() {
         if let url = supportedVersionData.updateUrl {
             if !wireframe.open(url: url) {
-                wireframe.present(message: R.string.localizable.urlNoAppErrorMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                let message = R.string.localizable
+                    .urlNoAppErrorMessage(preferredLanguages: locale.rLanguages)
+                let title = R.string.localizable
+                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages)
+                let closeAction = R.string.localizable.commonClose(preferredLanguages: locale.rLanguages)
+                wireframe.present(message: message,
+                                  title: title,
+                                  closeAction: closeAction,
                                   from: view)
             }
         } else {

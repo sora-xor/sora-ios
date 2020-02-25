@@ -5,6 +5,7 @@
 
 import Foundation
 import RobinHood
+import SoraFoundation
 
 protocol VotesHistoryViewModelFactoryDelegate: class {
     func votesHistoryViewModelFactoryDidChange(_ factory: VotesHistoryViewModelFactory)
@@ -14,7 +15,8 @@ protocol VotesHistoryViewModelFactoryProtocol {
     var delegate: VotesHistoryViewModelFactoryDelegate? { get set }
 
     func merge(newItems: [VotesHistoryEventData],
-               into existingViewModels: inout [VotesHistorySectionViewModel]) throws
+               into existingViewModels: inout [VotesHistorySectionViewModel],
+               locale: Locale) throws
         -> [SectionedListDifference<VotesHistorySectionViewModel, VotesHistoryItemViewModel>]
 }
 
@@ -25,12 +27,12 @@ enum VotesHistoryViewModelFactoryError: Error {
 }
 
 final class VotesHistoryViewModelFactory {
-    private(set) var amountFormatter: NumberFormatter
-    private(set) var dateFormatterProvider: DateFormatterProviderProtocol
+    let amountFormatter: LocalizableResource<NumberFormatter>
+    let dateFormatterProvider: DateFormatterProviderProtocol
 
     weak var delegate: VotesHistoryViewModelFactoryDelegate?
 
-    init(amountFormatter: NumberFormatter,
+    init(amountFormatter: LocalizableResource<NumberFormatter>,
          dateFormatterProvider: DateFormatterProviderProtocol) {
         self.amountFormatter = amountFormatter
         self.dateFormatterProvider = dateFormatterProvider
@@ -38,14 +40,16 @@ final class VotesHistoryViewModelFactory {
         dateFormatterProvider.delegate = self
     }
 
-    private func createViewModel(from event: VotesHistoryEventData) throws -> VotesHistoryItemViewModel {
+    private func createViewModel(from event: VotesHistoryEventData,
+                                 locale: Locale) throws -> VotesHistoryItemViewModel {
         guard let amountValue = Decimal(string: event.votes) else {
             throw VotesHistoryViewModelFactoryError.invalidEventAmount
         }
 
         let eventType: VotesHistoryItemType = amountValue > 0.0 ? .increase : .decrease
 
-        guard let amountDisplayString = amountFormatter.string(from: (abs(amountValue) as NSNumber)) else {
+        guard let amountDisplayString = amountFormatter.value(for: locale)
+            .string(from: (abs(amountValue) as NSNumber)) else {
             throw VotesHistoryViewModelFactoryError.amountFormattingFailed
         }
 
@@ -59,7 +63,8 @@ private typealias SearchableSection = (section: VotesHistorySectionViewModel, in
 
 extension VotesHistoryViewModelFactory: VotesHistoryViewModelFactoryProtocol {
     func merge(newItems: [VotesHistoryEventData],
-               into existingViewModels: inout [VotesHistorySectionViewModel]) throws
+               into existingViewModels: inout [VotesHistorySectionViewModel],
+               locale: Locale) throws
         -> [SectionedListDifference<VotesHistorySectionViewModel, VotesHistoryItemViewModel>] {
 
         var searchableSections = [String: SearchableSection]()
@@ -70,10 +75,11 @@ extension VotesHistoryViewModelFactory: VotesHistoryViewModelFactoryProtocol {
         var changes = [SectionedListDifference<VotesHistorySectionViewModel, VotesHistoryItemViewModel>]()
 
         try newItems.forEach { (event) in
-            let viewModel = try self.createViewModel(from: event)
+            let viewModel = try self.createViewModel(from: event, locale: locale)
 
             let eventDate = Date(timeIntervalSince1970: TimeInterval(event.timestamp))
-            let sectionTitle = dateFormatterProvider.dateFormatter.string(from: eventDate)
+            let sectionTitle = dateFormatterProvider.dateFormatter.value(for: locale)
+                .string(from: eventDate)
 
             if let searchableSection = searchableSections[sectionTitle] {
                 let itemChange = ListDifference.insert(index: searchableSection.section.items.count, new: viewModel)

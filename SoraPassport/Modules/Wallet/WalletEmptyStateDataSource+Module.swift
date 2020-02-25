@@ -4,23 +4,42 @@
 */
 
 import Foundation
+import SoraFoundation
 
 extension WalletEmptyStateDataSource {
     static var history: WalletEmptyStateDataSource {
-        let title = R.string.localizable.walletHistoryEmptyStateTitle()
+        let title = LocalizableResource { locale in
+            R.string.localizable.walletEmptyDescription(preferredLanguages: locale.rLanguages)
+        }
+
         let image = R.image.transactionsEmptyState()
-        return WalletEmptyStateDataSource(title: title, image: image)
+        let dataSource = WalletEmptyStateDataSource(titleResource: title, image: image)
+        dataSource.localizationManager = LocalizationManager.shared
+
+        return dataSource
     }
 
     static var search: WalletEmptyStateDataSource {
-        let title = R.string.localizable.walletSearchEmptyStateTitle()
+        let title = LocalizableResource { locale in
+            R.string.localizable.contactsSearchEmptyStateTitle(preferredLanguages: locale.rLanguages)
+        }
+
         let image = R.image.searchEmptyState()
-        return WalletEmptyStateDataSource(title: title, image: image)
+        let dataSource = WalletEmptyStateDataSource(titleResource: title, image: image)
+        dataSource.localizationManager = LocalizationManager.shared
+
+        return dataSource
     }
 
     static var contacts: WalletEmptyStateDataSource {
-        let title = R.string.localizable.walletContactsEmptyStateTitle()
+        let title = LocalizableResource { locale in
+            R.string.localizable.contactsEmptyStateTitle(preferredLanguages: locale.rLanguages)
+        }
+
         let image = R.image.transactionsEmptyState()
-        return WalletEmptyStateDataSource(title: title, image: image)
+        let dataSource = WalletEmptyStateDataSource(titleResource: title, image: image)
+        dataSource.localizationManager = LocalizationManager.shared
+
+        return dataSource
     }
 }

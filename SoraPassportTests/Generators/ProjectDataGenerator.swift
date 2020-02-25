@@ -13,7 +13,7 @@ func createRandomProject() -> ProjectData {
     let votedFriendsCount = Int32.random(in: 0..<100)
     let fundingDeadline = Int64(Date().timeIntervalSince1970)
     let favorite = [false, true].randomElement()!
-    let favoriteCount = Int32((0...100).randomElement()!)
+    let favoriteCount = Int32.random(in: 0...100)
     let unwatched = [false, true].randomElement()!
 
     return ProjectData(identifier: UUID().uuidString,
@@ -28,7 +28,7 @@ func createRandomProject() -> ProjectData {
                        fundingCurrent: String(fundingCurrent),
                        fundingDeadline: fundingDeadline,
                        status: .open,
-                       statusUpdateTime: (0...Int64.max).randomElement()!,
+                       statusUpdateTime: Int64.random(in: 0...Int64.max),
                        votedFriendsCount: votedFriendsCount,
                        votes: String(votes))
 }

@@ -8,7 +8,6 @@ import SoraCrypto
 import RobinHood
 
 final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol {
-    static let cacheDomain = "co.jp.sora.information"
     static let announcementIdentifier = "co.jp.sora.information.announcement"
     static let helpIdentifier = "co.jp.sora.information.help"
     static let currencyIdentifier = "co.jp.sora.information.currency"
@@ -24,8 +23,8 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
     lazy var projectOperationFactory: ProjectInformationOperationFactoryProtocol = ProjectOperationFactory()
 
     lazy private(set) var announcementDataProvider: SingleValueProvider<AnnouncementData> = {
-            let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
-            .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
+            let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
+                self.coreDataCacheFacade.createCoreDataCache()
 
             let source = AnySingleValueProviderSource(fetch: self.fetchAnnouncement)
 
@@ -37,8 +36,8 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
     }()
 
     lazy private(set) var helpDataProvider: SingleValueProvider<HelpData> = {
-        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
-            .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
+            self.coreDataCacheFacade.createCoreDataCache()
 
         let source = AnySingleValueProviderSource(fetch: self.fetchHelp)
 
@@ -51,7 +50,7 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
 
     lazy private(set) var currencyDataProvider: SingleValueProvider<CurrencyData> = {
         let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
-            .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
+            .createCoreDataCache()
 
         let source = AnySingleValueProviderSource(fetch: self.fetchCurrency)
 
@@ -64,7 +63,7 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
 
     lazy private(set) var countryDataProvider: SingleValueProvider<CountryData> = {
         let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
-            .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
+            .createCoreDataCache()
 
         let source = AnySingleValueProviderSource(fetch: self.fetchCountry)
 
@@ -77,7 +76,7 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
 
     lazy private(set) var reputationDetailsProvider: SingleValueProvider<ReputationDetailsData> = {
         let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = self.coreDataCacheFacade
-        .createCoreDataCache(domain: InformationDataProviderFacade.cacheDomain)
+        .createCoreDataCache()
 
         let source = AnySingleValueProviderSource(fetch: self.fetchReputationDetails)
 

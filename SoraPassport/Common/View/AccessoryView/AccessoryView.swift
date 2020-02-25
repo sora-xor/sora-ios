@@ -66,6 +66,14 @@ final class AccessoryView: UIView, AccessoryViewProtocol {
         }
     }
 
+    var minimumTitleScaleFactor: CGFloat = 0.75 {
+        didSet {
+            if let titleLabel = titleView as? UILabel {
+                titleLabel.minimumScaleFactor = minimumTitleScaleFactor
+            }
+        }
+    }
+
     var title: String? {
         set {
             if let titleLabel = titleView as? UILabel {
@@ -126,6 +134,8 @@ final class AccessoryView: UIView, AccessoryViewProtocol {
         titleLabel.text = title
         titleLabel.textColor = titleColor
         titleLabel.font = titleFont
+        titleLabel.adjustsFontSizeToFitWidth = true
+        titleLabel.minimumScaleFactor = minimumTitleScaleFactor
         self.titleView = titleLabel
     }
 }

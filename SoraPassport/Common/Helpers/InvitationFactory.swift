@@ -6,20 +6,20 @@
 import Foundation
 
 protocol InvitationFactoryProtocol {
-    func createInvitation(for code: String, enviroment: RemoteEnviroment) -> String
+    func createInvitation(for code: String, enviroment: RemoteEnviroment, locale: Locale?) -> String
     func createInvitationLink(for code: String, enviroment: RemoteEnviroment) -> URL
 }
 
 extension InvitationFactoryProtocol {
-    func createInvitation(from code: String) -> String {
+    func createInvitation(from code: String, locale: Locale?) -> String {
         #if F_DEV
-        return createInvitation(for: code, enviroment: .development)
+        return createInvitation(for: code, enviroment: .development, locale: locale)
         #elseif F_TEST
-        return createInvitation(for: code, enviroment: .test)
+        return createInvitation(for: code, enviroment: .test, locale: locale)
         #elseif F_STAGING
-        return createInvitation(for: code, enviroment: .staging)
+        return createInvitation(for: code, enviroment: .staging, locale: locale)
         #else
-        return createInvitation(for: code, enviroment: .release)
+        return createInvitation(for: code, enviroment: .release, locale: locale)
         #endif
     }
 }
@@ -37,8 +37,9 @@ struct InvitationFactory: InvitationFactoryProtocol {
         return url.appendingPathComponent("/join/\(code)")
     }
 
-    func createInvitation(for code: String, enviroment: RemoteEnviroment) -> String {
+    func createInvitation(for code: String, enviroment: RemoteEnviroment, locale: Locale?) -> String {
         let url = createInvitationLink(for: code, enviroment: enviroment)
-        return "Join Sora using link below:\n\(url.absoluteString)"
+        return R.string.localizable.inviteLinkFormat(url.absoluteString,
+                                                     preferredLanguages: locale?.rLanguages)
     }
 }

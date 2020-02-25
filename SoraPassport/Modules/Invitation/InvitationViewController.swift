@@ -5,6 +5,7 @@
 
 import UIKit
 import SoraUI
+import SoraFoundation
 
 enum InvitationViewLayout {
     case `default`
@@ -20,7 +21,9 @@ final class InvitationViewController: UIViewController, AdaptiveDesignable, Hidd
 
     var presenter: InvitationPresenterProtocol!
 
+    @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var scrollView: UIScrollView!
+    @IBOutlet private var invitationTitleLabel: UILabel!
     @IBOutlet private var invitationContentView: RoundedView!
     @IBOutlet private var invitationTableView: UITableView!
     @IBOutlet private var actionView: InvitationActionView!
@@ -37,15 +40,16 @@ final class InvitationViewController: UIViewController, AdaptiveDesignable, Hidd
 
         actionView.delegate = self
 
+        setupLocalization()
         adjustLayout()
 
         configureInvitationTableView()
         setupCompactBar(with: .initial)
 
         if isAdaptiveWidthDecreased {
-            presenter.viewIsReady(with: .compactWidth)
+            presenter.setup(with: .compactWidth)
         } else {
-            presenter.viewIsReady(with: .default)
+            presenter.setup(with: .default)
         }
     }
 
@@ -96,6 +100,14 @@ final class InvitationViewController: UIViewController, AdaptiveDesignable, Hidd
 
     private func adjustLayout() {
         preferredContentWidth *= designScaleRatio.width
+    }
+
+    private func setupLocalization() {
+        let languages = localizationManager?.preferredLocalizations
+        titleLabel.text = R.string.localizable
+            .inviteFragmentTitle(preferredLanguages: languages)
+        invitationTitleLabel.text = R.string.localizable
+            .inviteAcceptedInvitationsTitle(preferredLanguages: languages)
     }
 
     // MARK: Actions
@@ -164,7 +176,9 @@ extension InvitationViewController: EmptyStateDataSource {
     }
 
     var titleForEmptyState: String? {
-        return R.string.localizable.invitationsEmptyTitle()
+        let languages = localizationManager?.preferredLocalizations
+        return R.string.localizable
+            .inviteEmptyFriendsDescription(preferredLanguages: languages)
     }
 
     var titleColorForEmptyState: UIColor? {
@@ -226,12 +240,25 @@ extension InvitationViewController: SoraCompactNavigationBarFloating {
     }
 
     var compactBarTitle: String? {
-        return R.string.localizable.tabbarFriendsTitle()
+        let languages = localizationManager?.preferredLocalizations
+        return R.string.localizable.tabbarFriendsTitle(preferredLanguages: languages)
     }
 }
 
 extension InvitationViewController: InvitationActionViewDelegate {
     func invitationAction(view: InvitationActionView, didSelectActionAt index: Int) {
         presenter.didSelectAction(at: index)
+    }
+}
+
+extension InvitationViewController: Localizable {
+    func applyLocalization() {
+        if isViewLoaded {
+            setupLocalization()
+            view.setNeedsDisplay()
+
+            reloadEmptyState(animated: false)
+            reloadCompactBar()
+        }
     }
 }
