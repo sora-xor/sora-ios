@@ -15,7 +15,6 @@ protocol ActivityFeedDataProviderFactoryProtocol {
 final class ActivityFeedDataProviderFactory {
     private struct Constants {
         static let targetIdentifier = "co.jp.sora.projects.activity.feed"
-        static let domain = "co.jp.sora.projects"
     }
 
     private(set) var requestSigner: DARequestSigner
@@ -37,8 +36,8 @@ extension ActivityFeedDataProviderFactory: ActivityFeedDataProviderFactoryProtoc
                 return nil
             }
 
-            let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
-                .createCoreDataCache(domain: Constants.domain)
+            let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
+                coreDataCacheFacade.createCoreDataCache()
 
             let info = Pagination(offset: 0, count: pageSize)
             let fetchActivityFeedBlock: () -> BaseOperation<ActivityData?> = {

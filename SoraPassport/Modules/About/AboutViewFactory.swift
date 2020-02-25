@@ -4,18 +4,20 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class AboutViewFactory: AboutViewFactoryProtocol {
     static func createView() -> AboutViewProtocol? {
 
+        let locale = LocalizationManager.shared.selectedLocale
+
         let config: ApplicationConfigProtocol = ApplicationConfig.shared
         let legal = LegalData(termsUrl: config.termsURL, privacyPolicyUrl: config.privacyPolicyURL)
 
-        let email = ApplicationConfig.shared.supportEmail
-        let supportDetails = R.string.localizable.helpSupportDetails(email)
-        let supportData = SupportData(title: R.string.localizable.helpSupportTitle(),
+        let supportData = SupportData(title: R.string.localizable
+            .helpSupportTitle(preferredLanguages: locale.rLanguages),
                                       subject: "",
-                                      details: supportDetails,
+                                      details: "",
                                       email: ApplicationConfig.shared.supportEmail)
 
         let about = AboutData(version: config.version,
@@ -24,12 +26,14 @@ final class AboutViewFactory: AboutViewFactoryProtocol {
                               writeUs: supportData)
 
         let view = AboutViewController(nib: R.nib.aboutViewController)
-        let presenter = AboutPresenter(about: about)
+        let presenter = AboutPresenter(locale: locale, about: about)
         let wireframe = AboutWireframe()
 
         view.presenter = presenter
         presenter.view = view
         presenter.wireframe = wireframe
+
+        view.locale = locale
 
         return view
     }

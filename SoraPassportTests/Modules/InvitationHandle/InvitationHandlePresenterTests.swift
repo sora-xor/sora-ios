@@ -6,6 +6,7 @@
 import XCTest
 @testable import SoraPassport
 import Cuckoo
+import SoraFoundation
 
 class InvitationHandlePresenterTests: NetworkBaseTests {
 
@@ -116,7 +117,7 @@ class InvitationHandlePresenterTests: NetworkBaseTests {
         let alertExpectation = XCTestExpectation()
 
         stub(wireframe) { stub in
-            when(stub).present(error: any(), from: any()).then { error, _ in
+            when(stub).present(error: any(), from: any(), locale: any()).then { error, _, _ in
                 guard
                     let applyDataError = error as? ApplyInvitationDataError,
                     applyDataError == .codeNotFound else {
@@ -145,7 +146,9 @@ class InvitationHandlePresenterTests: NetworkBaseTests {
     private func createPresenter(for wireframe: MockInvitationHandleWireframeProtocol, eventCenter: EventCenterProtocol) -> InvitationHandlePresenter {
         let mockedRequestSigner = createDummyRequestSigner()
 
-        let presenter = InvitationHandlePresenter()
+        let localizationManager = LocalizationManager(localization: Constants.englishLocalization)!
+
+        let presenter = InvitationHandlePresenter(localizationManager: localizationManager)
 
         let projectService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
         projectService.requestSigner = mockedRequestSigner

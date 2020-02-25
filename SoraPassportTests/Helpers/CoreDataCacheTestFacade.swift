@@ -22,12 +22,11 @@ final class CoreDataCacheTestFacade: CoreDataCacheFacadeProtocol {
         databaseService = CoreDataService(configuration: configuration)
     }
 
-    func createCoreDataCache<T, U>(domain: String) -> CoreDataRepository<T, U>
-        where T: Identifiable & Codable, U: NSManagedObject & CoreDataCodable {
+    func createCoreDataCache<T, U>(filter: NSPredicate?, mapper: AnyCoreDataMapper<T, U>)
+        -> CoreDataRepository<T, U> where T: Identifiable & Codable, U: NSManagedObject {
 
-            let mapper = AnyCoreDataMapper(CodableCoreDataMapper<T, U>())
             return CoreDataRepository(databaseService: databaseService,
                                       mapper: mapper,
-                                      domain: domain)
+                                      filter: filter)
     }
 }

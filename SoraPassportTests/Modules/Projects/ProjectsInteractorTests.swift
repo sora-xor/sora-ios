@@ -113,6 +113,8 @@ class ProjectsInteractorTests: NetworkBaseTests {
             when(stub).didEditProjects(using: any((() -> ViewModelUpdateResult).self)).then { _ in
                 expectation.fulfill()
             }
+
+            when(stub).isSetup.get.thenReturn(true)
         }
 
         // when

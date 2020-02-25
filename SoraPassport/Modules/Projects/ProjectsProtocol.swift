@@ -34,7 +34,7 @@ protocol ProjectsViewProtocol: ProjectsListViewProtocol {
 protocol ProjectsPresenterProtocol: EmptyStateDelegate {
     var displayType: ProjectDisplayType { get }
 
-    func viewIsReady(layoutMetadata: ProjectLayoutMetadata)
+    func setup(layoutMetadata: ProjectLayoutMetadata)
     func viewDidAppear()
     func activateProjectDisplay(type: ProjectDisplayType)
     func activateProject(at index: Int)

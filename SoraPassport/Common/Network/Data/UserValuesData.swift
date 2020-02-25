@@ -7,6 +7,5 @@ import Foundation
 
 struct UserValuesData: Codable, Equatable {
     var userId: String
-    var invitations: Int
-    var tokens: String
+    var invitationCode: String
 }

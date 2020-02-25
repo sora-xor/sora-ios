@@ -13,7 +13,7 @@ protocol InvitationViewProtocol: ControllerBackedProtocol, LoadableViewProtocol 
 }
 
 protocol InvitationPresenterProtocol: class {
-    func viewIsReady(with layout: InvitationViewLayout)
+    func setup(with layout: InvitationViewLayout)
     func viewDidAppear()
     func openHelp()
     func didSelectAction(at index: Int)
@@ -23,8 +23,6 @@ protocol InvitationInteractorInputProtocol: class {
     func setup()
     func refreshUser()
     func refreshInvitedUsers()
-    func loadInvitationCode()
-    func mark(invitationCode: String)
     func apply(invitationCode: String)
 }
 
@@ -34,11 +32,6 @@ protocol InvitationInteractorOutputProtocol: class {
 
     func didLoad(invitationsData: ActivatedInvitationsData)
     func didReceiveInvitedUsersDataProvider(error: Error)
-
-    func didLoad(invitationCodeData: InvitationCodeData)
-    func didReceiveInvitationCode(error: Error)
-
-    func didMark(invitationCode: String)
 }
 
 enum InvitationInteractorError: Error {

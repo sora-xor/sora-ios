@@ -6,33 +6,50 @@
 import Foundation
 
 extension UserDataError: ErrorContentConvertible {
-    func toErrorContent() -> ErrorContent {
+    func toErrorContent(for locale: Locale?) -> ErrorContent {
+        let title: String
+        let message: String
+
         switch self {
         case .userNotFound:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.userNotFoundMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.userNotFoundMessage(preferredLanguages: locale?.rLanguages)
         case .userValuesNotFound:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.userValuesNotFoundMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.userValuesNotFoundMessage(preferredLanguages: locale?.rLanguages)
         }
+
+        return ErrorContent(title: title, message: message)
     }
 }
 
 extension UserCreationError: ErrorContentConvertible {
-    func toErrorContent() -> ErrorContent {
+    func toErrorContent(for locale: Locale?) -> ErrorContent {
+        let title: String
+        let message: String
+
         switch self {
         case .alreadyExists:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.userCreatePhoneRegisteredErrorMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+
+            message = R.string.localizable
+                .userCreatePhoneRegisteredErrorMessage(preferredLanguages: locale?.rLanguages)
         case .verified:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.userCreatePhoneVerifiedErrorMessage())
+            title = R.string.localizable
+                .commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+
+            message = R.string.localizable
+                .userCreatePhoneVerifiedErrorMessage(preferredLanguages: locale?.rLanguages)
         case .invalid:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.userCreatePhoneInvalidMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable
+                .userCreatePhoneInvalidMessage(preferredLanguages: locale?.rLanguages)
         case .unexpectedUser:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.userCreateUnexpectedMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable
+                .userCreateUnexpectedMessage(preferredLanguages: locale?.rLanguages)
         }
+
+        return ErrorContent(title: title, message: message)
     }
 }

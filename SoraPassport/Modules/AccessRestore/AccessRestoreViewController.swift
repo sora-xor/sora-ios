@@ -5,6 +5,7 @@
 
 import UIKit
 import SoraUI
+import SoraFoundation
 
 final class AccessRestoreViewController: AccessoryViewController {
     var presenter: AccessRestorePresenterProtocol!
@@ -13,6 +14,8 @@ final class AccessRestoreViewController: AccessoryViewController {
     @IBOutlet private var roundedView: RoundedView!
     @IBOutlet private var phraseTextView: UITextView!
     @IBOutlet private var phrasePlaceholder: UILabel!
+    @IBOutlet private var titleLabel: UILabel!
+    @IBOutlet private var subtitleLabel: UILabel!
 
     private var model: AccessRestoreViewModelProtocol? {
         didSet {
@@ -54,6 +57,18 @@ final class AccessRestoreViewController: AccessoryViewController {
     }
 
     // MARK: Accessory Override
+
+    override func setupLocalization() {
+        super.setupLocalization()
+
+        let languages = localizationManager?.preferredLocalizations
+
+        title = R.string.localizable.recoveryTitle(preferredLanguages: languages)
+
+        titleLabel.text = R.string.localizable.recoveryBodyTitle(preferredLanguages: languages)
+        subtitleLabel.text = R.string.localizable.recoveryBodySubtitle(preferredLanguages: languages)
+        phrasePlaceholder.text = R.string.localizable.recoveryPassphrase(preferredLanguages: languages)
+    }
 
     override func updateBottom(inset: CGFloat) {
         super.updateBottom(inset: inset)

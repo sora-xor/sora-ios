@@ -7,6 +7,7 @@ import XCTest
 @testable import SoraPassport
 import Cuckoo
 import SoraKeystore
+import SoraFoundation
 
 class PhoneVerificationInteractorTests: NetworkBaseTests {
 
@@ -15,7 +16,7 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
         SmsCodeSendMock.register(mock: .successWithDelay, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         SmsCodeVerificationMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
-        let presenter = PhoneVerificationPresenter()
+        let presenter = PhoneVerificationPresenter(locale: Locale.current)
         let wireframe = MockPhoneVerificationWireframeProtocol()
         let view = MockPhoneVerificationViewProtocol()
 
@@ -78,7 +79,7 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
         SmsCodeSendMock.register(mock: .successEmpty, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         SmsCodeVerificationMock.register(mock: .incorrect, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
-        let presenter = PhoneVerificationPresenter()
+        let presenter = PhoneVerificationPresenter(locale: Locale.current)
         let wireframe = MockPhoneVerificationWireframeProtocol()
         let view = MockPhoneVerificationViewProtocol()
 
@@ -120,7 +121,7 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
         let errorExpectation = XCTestExpectation()
 
         stub(wireframe) { stub in
-            when(stub).present(error: any(), from: any()).then { _ in
+            when(stub).present(error: any(), from: any(), locale: any()).then { _ in
                 errorExpectation.fulfill()
                 return true
             }
@@ -172,7 +173,7 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
 
         // when
 
-        presenter.viewIsReady()
+        presenter.setup()
 
         // then
 

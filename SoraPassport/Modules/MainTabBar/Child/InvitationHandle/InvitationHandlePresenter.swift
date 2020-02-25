@@ -4,16 +4,23 @@
 */
 
 import UIKit
+import SoraFoundation
 
 final class InvitationHandlePresenter {
     weak var view: ControllerBackedProtocol?
     var interactor: InvitationHandleInteractorInputProtocol!
     var wireframe: InvitationHandleWireframeProtocol!
 
+    let localizationManager: LocalizationManagerProtocol
+
     private var userDataResult: Result<UserData, Error>?
     private(set) var pendingInvitationCode: String?
 
     var logger: LoggerProtocol?
+
+    init(localizationManager: LocalizationManagerProtocol) {
+        self.localizationManager = localizationManager
+    }
 
     private func process() {
         guard let userDataResult = userDataResult else {
@@ -34,11 +41,16 @@ final class InvitationHandlePresenter {
                     throw ApplyInvitationDataError.invitationAcceptingWindowClosed
                 }
 
-                let message = R.string.localizable.inviteCodeApplyMessage(invitationCode)
+                let languages = localizationManager.selectedLocale.rLanguages
 
-                let cancelAction = AlertPresentableAction(title: R.string.localizable.cancel())
+                let message = R.string.localizable
+                    .inviteEnterConfirmationBodyMask(invitationCode, preferredLanguages: languages)
 
-                let applyAction = AlertPresentableAction(title: R.string.localizable.apply()) { [weak self] in
+                let cancelTitle = R.string.localizable.commonCancel(preferredLanguages: languages)
+                let cancelAction = AlertPresentableAction(title: cancelTitle)
+
+                let applyTitle = R.string.localizable.commonApply(preferredLanguages: languages)
+                let applyAction = AlertPresentableAction(title: applyTitle) { [weak self] in
                     self?.interactor.apply(invitationCode: invitationCode)
                 }
 
@@ -48,7 +60,9 @@ final class InvitationHandlePresenter {
                                   from: view)
             }
         } catch {
-            if !wireframe.present(error: error, from: view) {
+            let locale = localizationManager.selectedLocale
+
+            if !wireframe.present(error: error, from: view, locale: locale) {
                 logger?.error("Did receive invitation processing error \(error) after user data")
             }
         }
@@ -82,14 +96,18 @@ extension InvitationHandlePresenter: InvitationHandleInteractorOutputProtocol {
     }
 
     func didApply(invitationCode: String) {
-        wireframe.present(message: R.string.localizable.inviteCodeAppliedMessage(),
-                          title: R.string.localizable.congratulationTitle(),
-                          closeAction: R.string.localizable.close(),
+        let languages = localizationManager.selectedLocale.rLanguages
+
+        wireframe.present(message: R.string.localizable.inviteCodeAppliedBody(preferredLanguages: languages),
+                          title: R.string.localizable.inviteCodeAppliedTitle(preferredLanguages: languages),
+                          closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
                           from: view)
     }
 
     func didReceiveInvitationApplication(error: Error, of code: String) {
-        if !wireframe.present(error: error, from: view) {
+        let locale = localizationManager.selectedLocale
+
+        if !wireframe.present(error: error, from: view, locale: locale) {
             logger?.error("Did receive invitation application error \(error)")
         }
     }

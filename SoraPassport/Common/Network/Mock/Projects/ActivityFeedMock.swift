@@ -5,17 +5,24 @@
 
 import Foundation
 import FireMock
+import SoraFoundation
 
 enum ActivityFeedMock: FireMockProtocol {
     case success
     case empty
+    case internalError
 
     var afterTime: TimeInterval {
         return 1.0
     }
 
     var statusCode: Int {
-        return 200
+        switch self {
+        case .success, .empty:
+            return 200
+        case .internalError:
+            return 500
+        }
     }
 
     func mockFile() -> String {
@@ -23,6 +30,8 @@ enum ActivityFeedMock: FireMockProtocol {
         case .success:
             return R.file.activityFeedResponseJson.fullName
         case .empty:
+            return R.file.activityFeedEmptyResponseJson.fullName
+        case .internalError:
             return R.file.activityFeedEmptyResponseJson.fullName
         }
     }

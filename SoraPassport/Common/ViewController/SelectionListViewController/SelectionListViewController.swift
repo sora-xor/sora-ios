@@ -4,9 +4,15 @@
 */
 
 import UIKit
+import Rswift
 
-class SelectionListViewController: UIViewController {
+class SelectionListViewController<C: UITableViewCell & SelectionItemViewProtocol>
+    : UIViewController, UITableViewDataSource, UITableViewDelegate {
+
     var listPresenter: SelectionListPresenterProtocol!
+
+    var selectableCellIdentifier: ReuseIdentifier<C>! { return nil }
+    var selectableCellNib: UINib? { return nil }
 
     @IBOutlet private(set) var tableView: UITableView!
 
@@ -17,29 +23,31 @@ class SelectionListViewController: UIViewController {
     }
 
     private func configureTableView() {
-        tableView.register(R.nib.selectionItemTableViewCell)
+        tableView.register(selectableCellNib,
+                           forCellReuseIdentifier: selectableCellIdentifier.identifier)
 
         let footerView = UIView(frame: CGRect(origin: .zero, size: CGSize(width: view.bounds.width, height: 1.0)))
         tableView.tableFooterView = footerView
     }
-}
 
-extension SelectionListViewController: UITableViewDataSource {
+    // MARK: UITableView DataSource
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return listPresenter.numberOfItems
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: R.reuseIdentifier.selectionItemCellId,
+        let cell = tableView.dequeueReusableCell(withIdentifier: selectableCellIdentifier,
                                                  for: indexPath)!
 
-        cell.bind(viewModel: listPresenter.item(at: indexPath.row))
+        let viewModel = listPresenter.item(at: indexPath.row)
+        cell.bind(viewModel: viewModel)
 
         return cell
     }
-}
 
-extension SelectionListViewController: UITableViewDelegate {
+    // MARK: UITableView Delegate
+
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
 

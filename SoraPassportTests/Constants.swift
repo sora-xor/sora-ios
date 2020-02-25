@@ -28,6 +28,7 @@ final class Constants {
     static let dummyInvalidMnemonic = "sheriff firewall three cross tone smile element shop theme bring release artwork tunnel prepare myself"
     static let dummyWalletAccountId = "dummy@sora"
     static let dummyOtherWalletAccountId = "otherdummy@sora"
+    static let englishLocalization = "en"
 }
 
 func createDummyDecentralizedDocument() -> DecentralizedDocumentObject {

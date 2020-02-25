@@ -5,22 +5,6 @@
 
 import Foundation
 
-enum InvitationCodeDataError: Error {
-    case userValuesNotFound
-    case notEnoughInvitations
-
-    static func error(from status: StatusData) -> InvitationCodeDataError? {
-        switch status.code {
-        case "USER_VALUES_NOT_FOUND":
-            return .userValuesNotFound
-        case "NOT_ENOUGH_INVITATIONS":
-            return .notEnoughInvitations
-        default:
-            return nil
-        }
-    }
-}
-
 enum InvitationCheckDataError: Error {
     case ambigious
     case notFound
@@ -31,25 +15,6 @@ enum InvitationCheckDataError: Error {
             return .ambigious
         case "INVITATION_CODE_NOT_FOUND":
             return .notFound
-        default:
-            return nil
-        }
-    }
-}
-
-enum InvitationMarkDataError: Error {
-    case codeNotFound
-    case userValuesNotFound
-    case notEnoughInvitations
-
-    static func error(from status: StatusData) -> InvitationMarkDataError? {
-        switch status.code {
-        case "INVITATION_CODE_NOT_FOUND":
-            return .codeNotFound
-        case "USER_VALUES_NOT_FOUND":
-            return .userValuesNotFound
-        case "NOT_ENOUGH_INVITATIONS":
-            return .notEnoughInvitations
         default:
             return nil
         }

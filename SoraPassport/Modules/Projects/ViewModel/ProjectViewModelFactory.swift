@@ -4,6 +4,7 @@
 */
 
 import UIKit
+import SoraFoundation
 
 enum ProjectOneOfViewModel {
     case open(viewModel: OpenProjectViewModel)
@@ -70,10 +71,12 @@ protocol ProjectViewModelFactoryDelegate: class {
 protocol ProjectViewModelFactoryProtocol: DynamicProjectViewModelFactoryProtocol {
     func create(from project: ProjectData,
                 layoutMetadata: ProjectLayoutMetadata,
-                delegate: ProjectViewModelDelegate?) -> ProjectOneOfViewModel
+                delegate: ProjectViewModelDelegate?,
+                locale: Locale) -> ProjectOneOfViewModel
 
     func create(from projectDetails: ProjectDetailsData,
-                delegate: ProjectDetailsViewModelDelegate?) -> ProjectDetailsViewModel
+                delegate: ProjectDetailsViewModelDelegate?,
+                locale: Locale) -> ProjectDetailsViewModel
 }
 
 final class ProjectViewModelFactory: ProjectViewModelFactoryProtocol {
@@ -92,32 +95,38 @@ final class ProjectViewModelFactory: ProjectViewModelFactoryProtocol {
 
     func create(from project: ProjectData,
                 layoutMetadata: ProjectLayoutMetadata,
-                delegate: ProjectViewModelDelegate?) -> ProjectOneOfViewModel {
+                delegate: ProjectViewModelDelegate?,
+                locale: Locale) -> ProjectOneOfViewModel {
         switch project.status {
         case .open:
             let viewModel = openProjectViewModelFactory
                 .create(from: project,
                         layoutMetadata: layoutMetadata.openProjectLayoutMetadata,
-                        delegate: delegate)
+                        delegate: delegate,
+                        locale: locale)
             return .open(viewModel: viewModel)
         case .closed, .failed:
             let viewModel = finishedProjectViewModelFactory
                 .create(from: project,
                         layoutMetadata: layoutMetadata.finishedProjectLayoutMetadata,
-                        delegate: delegate)
+                        delegate: delegate,
+                        locale: locale)
             return .finished(viewModel: viewModel)
         }
     }
 
     func create(from projectDetails: ProjectDetailsData,
-                delegate: ProjectDetailsViewModelDelegate?) -> ProjectDetailsViewModel {
+                delegate: ProjectDetailsViewModelDelegate?,
+                locale: Locale) -> ProjectDetailsViewModel {
         switch projectDetails.status {
         case .open:
             return openProjectViewModelFactory.create(from: projectDetails,
-                                                      delegate: delegate)
+                                                      delegate: delegate,
+                                                      locale: locale)
         case .closed, .failed:
             return finishedProjectViewModelFactory.create(from: projectDetails,
-                                                          delegate: delegate)
+                                                          delegate: delegate,
+                                                          locale: locale)
         }
     }
 }
@@ -130,8 +139,8 @@ extension ProjectViewModelFactory: ProjectViewModelFactoryDelegate {
 
 extension ProjectViewModelFactory {
     static func createDefault() -> ProjectViewModelFactoryProtocol {
-        let votesFormatter = NumberFormatter.vote
-        let integerFormatter = NumberFormatter.anyInteger
+        let votesFormatter = NumberFormatter.vote.localizableResource()
+        let integerFormatter = NumberFormatter.anyInteger.localizableResource()
 
         let dateFormatterFactory = FinishedProjectDateFormatterFactory.self
         let dateFormatterProvider = DateFormatterProvider(dateFormatterFactory: dateFormatterFactory,

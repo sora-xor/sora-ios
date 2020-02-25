@@ -8,6 +8,7 @@ import SoraKeystore
 import SoraCrypto
 import IrohaCrypto
 import RobinHood
+import SoraFoundation
 
 final class AccessRestoreInteractor {
     weak var presenter: AccessRestoreInteractorOutputProtocol?

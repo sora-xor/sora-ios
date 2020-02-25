@@ -4,7 +4,7 @@
 */
 
 protocol SelectCountryViewProtocol: ControllerBackedProtocol {
-    func didReceive(viewModels: [String])
+    func didReceive(state: ViewModelState<[String]>)
 }
 
 protocol SelectCountryPresenterProtocol: class {

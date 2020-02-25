@@ -165,10 +165,11 @@ class ProjectsEventCenterTests: NetworkBaseTests {
     }
 
     private func performPresenterSetup(for interactor: ProjectsInteractor, view: MockProjectsViewProtocol, children: [ProjectDisplayType: ProjectsListPresenterProtocol]) -> ProjectsPresenter {
-        let voteViewModelFactory = VoteViewModelFactory(amountFormatter: NumberFormatter.anyInteger)
+        let voteViewModelFactory = VoteViewModelFactory(amountFormatter: NumberFormatter.anyInteger.localizableResource())
         let presenter = ProjectsPresenter(children: children,
                                           voteViewModelFactory: voteViewModelFactory,
-                                          votesDisplayFormatter: NumberFormatter.anyInteger)
+                                          votesDisplayFormatter: NumberFormatter.anyInteger
+                                            .localizableResource())
 
         interactor.presenter = presenter
         presenter.interactor = interactor
@@ -182,7 +183,7 @@ class ProjectsEventCenterTests: NetworkBaseTests {
             }
         }
 
-        presenter.viewIsReady(layoutMetadata: ProjectLayoutMetadata.createDefault())
+        presenter.setup(layoutMetadata: ProjectLayoutMetadata.createDefault())
 
         wait(for: [votesExpectation], timeout: Constants.networkRequestTimeout)
 

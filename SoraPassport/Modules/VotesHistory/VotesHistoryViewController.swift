@@ -26,12 +26,15 @@ final class VotesHistoryViewController: UIViewController {
 
     private var pageLoadingView: PageLoadingView!
 
+    var locale: Locale?
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
         configureTableView()
+        setupLocalization()
 
-        presenter.viewIsReady()
+        presenter.setup()
     }
 
     private func configureTableView() {
@@ -44,6 +47,10 @@ final class VotesHistoryViewController: UIViewController {
         pageLoadingView.frame = CGRect(origin: .zero, size: size)
 
         tableView.tableFooterView = pageLoadingView
+    }
+
+    private func setupLocalization() {
+        title = R.string.localizable.votesHistoryTitle(preferredLanguages: locale?.rLanguages)
     }
 
     // MARK: Action
@@ -170,7 +177,8 @@ extension VotesHistoryViewController: EmptyStateDataSource {
     }
 
     var titleForEmptyState: String? {
-        return R.string.localizable.votesHistoryEmptyTitle()
+        return R.string.localizable
+            .votesEmptyHistoryDescription(preferredLanguages: locale?.rLanguages)
     }
 
     var titleColorForEmptyState: UIColor? {

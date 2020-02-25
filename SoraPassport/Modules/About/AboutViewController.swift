@@ -30,18 +30,11 @@ final class AboutViewController: UIViewController {
                 return [.terms, .privacy]
             }
         }
-
-        var title: String {
-            switch self {
-            case .software:
-                return R.string.localizable.aboutSoftwareTitle()
-            case .legal:
-                return R.string.localizable.aboutLegalTitle()
-            }
-        }
     }
 
     var presenter: AboutPresenterProtocol!
+
+    var locale: Locale?
 
     @IBOutlet private var tableView: UITableView!
 
@@ -51,11 +44,21 @@ final class AboutViewController: UIViewController {
         super.viewDidLoad()
 
         configureTableView()
+        setupLocalization()
 
         presenter.setup()
     }
 
     // MARK: UITableView
+
+    private func title(for section: Section) -> String {
+        switch section {
+        case .software:
+            return R.string.localizable.aboutSoftware(preferredLanguages: locale?.rLanguages)
+        case .legal:
+            return R.string.localizable.aboutLegal(preferredLanguages: locale?.rLanguages)
+        }
+    }
 
     private func configureTableView() {
         tableView.register(R.nib.aboutAccessoryTitleCell)
@@ -64,6 +67,10 @@ final class AboutViewController: UIViewController {
         let hiddableFooterSize = CGSize(width: tableView.bounds.width, height: 1.0)
         tableView.tableFooterView = UIView(frame: CGRect(origin: .zero,
                                                          size: hiddableFooterSize))
+    }
+
+    private func setupLocalization() {
+        title = R.string.localizable.aboutTitle(preferredLanguages: locale?.rLanguages)
     }
 
     private func prepareAccessoryCell(for tableView: UITableView,
@@ -104,24 +111,29 @@ extension AboutViewController: UITableViewDataSource {
         case .version:
             return prepareAccessoryCell(for: tableView,
                                         indexPath: indexPath,
-                                        title: R.string.localizable.aboutVersionTitle(),
+                                        title: R.string.localizable
+                                            .aboutVersion(preferredLanguages: locale?.rLanguages),
                                         subtitle: version)
         case .writeUs:
             return prepareNavigationCell(for: tableView,
                                          indexPath: indexPath,
-                                         title: R.string.localizable.aboutWriteUs())
+                                         title: R.string.localizable
+                                            .aboutContactUs(preferredLanguages: locale?.rLanguages))
         case .opensource:
             return prepareNavigationCell(for: tableView,
                                          indexPath: indexPath,
-                                         title: R.string.localizable.aboutOpensourceTitle())
+                                         title: R.string.localizable
+                                            .aboutSourceCode(preferredLanguages: locale?.rLanguages))
         case .terms:
             return prepareNavigationCell(for: tableView,
                                          indexPath: indexPath,
-                                         title: R.string.localizable.aboutTermsTitle())
+                                         title: R.string.localizable
+                                            .aboutTerms(preferredLanguages: locale?.rLanguages))
         case .privacy:
             return prepareNavigationCell(for: tableView,
                                          indexPath: indexPath,
-                                         title: R.string.localizable.aboutPrivacyTitle())
+                                         title: R.string.localizable
+                                            .aboutPrivacy(preferredLanguages: locale?.rLanguages))
         }
     }
 }
@@ -141,7 +153,7 @@ extension AboutViewController: UITableViewDelegate {
                 return nil
         }
 
-        view.bind(title: Section(rawValue: section)!.title)
+        view.bind(title: title(for: Section(rawValue: section)!))
 
         return view
     }

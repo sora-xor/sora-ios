@@ -12,7 +12,7 @@ protocol PersonalUpdateViewProtocol: ControllerBackedProtocol, LoadableViewProto
 }
 
 protocol PersonalUpdatePresenterProtocol: class {
-	func viewIsReady()
+	func setup()
     func save()
 }
 

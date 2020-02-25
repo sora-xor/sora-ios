@@ -6,6 +6,7 @@
 import Foundation
 import SoraCrypto
 import SoraUI
+import SoraFoundation
 
 final class InvitationViewFactory: InvitationViewFactoryProtocol {
     static func createView() -> InvitationViewProtocol? {
@@ -13,11 +14,15 @@ final class InvitationViewFactory: InvitationViewFactoryProtocol {
             return nil
         }
 
+        let localizationManager = LocalizationManager.shared
+
         let view = InvitationViewController(nib: R.nib.invitationViewController)
 
         let invitationFactory = InvitationFactory(host: ApplicationConfig.shared.invitationHostURL)
         let timerFactory = CountdownTimerFactory()
-        let invitationViewModelFactory = InvitationViewModelFactory(integerFormatter: .anyInteger)
+
+        let integerFormatter = NumberFormatter.anyInteger.localizableResource()
+        let invitationViewModelFactory = InvitationViewModelFactory(integerFormatter: integerFormatter)
 
         let presenter = InvitationPresenter(invitationViewModelFactory: invitationViewModelFactory,
                                             timerFactory: timerFactory,
@@ -26,8 +31,7 @@ final class InvitationViewFactory: InvitationViewFactoryProtocol {
         let projectUnitService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
         projectUnitService.requestSigner = requestSigner
 
-        let interator = InvitationInteractor(service: projectUnitService,
-                                             customerDataProviderFacade: CustomerDataProviderFacade.shared,
+        let interator = InvitationInteractor(customerDataProviderFacade: CustomerDataProviderFacade.shared,
                                              eventCenter: EventCenter.shared)
         let wireframe = InvitationWireframe()
 
@@ -37,6 +41,9 @@ final class InvitationViewFactory: InvitationViewFactoryProtocol {
         presenter.wireframe = wireframe
         interator.presenter = presenter
 
+        view.localizationManager = localizationManager
+
+        presenter.localizationManager = localizationManager
         presenter.logger = Logger.shared
 
         return view

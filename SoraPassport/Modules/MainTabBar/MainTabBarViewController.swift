@@ -23,7 +23,7 @@ final class MainTabBarViewController: UITabBarController {
 
         if !viewAppeared {
             viewAppeared = true
-            presenter.viewIsReady()
+            presenter.setup()
         }
 
         presenter.viewDidAppear()

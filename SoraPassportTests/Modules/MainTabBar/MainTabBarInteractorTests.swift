@@ -8,6 +8,7 @@ import XCTest
 import Cuckoo
 import SoraKeystore
 import IrohaCrypto
+import SoraFoundation
 
 class MainTabBarInteractorTests: NetworkBaseTests {
 
@@ -62,7 +63,7 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         }
 
         // when
-        presenter.viewIsReady()
+        presenter.setup()
 
         // then
         verify(notificationRegistration, times(1)).registerForRemoteNotifications()
@@ -183,7 +184,7 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         }
 
         // when
-        presenter.viewIsReady()
+        presenter.setup()
 
         eventCenter.notify(with: PushNotificationEvent(notification: SoraNotification(title: nil, body: nil)))
 
@@ -248,9 +249,9 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         }
 
         // when
-        presenter.viewIsReady()
+        presenter.setup()
 
-        applicationHandler.willEnterForeground(notification: Notification(name: UIApplication.willEnterForegroundNotification))
+        NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
 
         // then
 

@@ -5,6 +5,7 @@
 
 import Foundation
 import SoraKeystore
+import SoraFoundation
 
 final class SecurityLayerService {
     static let pincodeDelay: TimeInterval = 1.0 * 60.0

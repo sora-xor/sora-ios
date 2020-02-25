@@ -158,7 +158,7 @@ class StartupInteractorTests: NetworkBaseTests {
 
         let wireframe = MockStartupWireframeProtocol()
 
-        let presenter = StartupPresenter()
+        let presenter = StartupPresenter(locale: Locale.current)
         presenter.interactor = interactor
         presenter.wireframe = wireframe
 
@@ -173,7 +173,7 @@ class StartupInteractorTests: NetworkBaseTests {
         }
 
         // when
-        presenter.viewIsReady()
+        presenter.setup()
 
         wait(for: [expectation], timeout: Constants.expectationDuration)
 

@@ -39,6 +39,7 @@ final class WalletContextMock: CommonWalletContextProtocol {
     var closurePreparePresentationCommand: ((UIViewController) -> WalletPresentationCommandProtocol)?
     var closurePrepareAccountUpdateCommand: (() -> WalletCommandProtocol)?
     var closurePrepareHideCommand: ((WalletHideActionType) -> WalletHideCommandProtocol)?
+    var closurePrepareLanguageSwitch: ((WalletLanguage) -> WalletCommandProtocol)?
 
     func createRootController() throws -> UINavigationController {
         return closureCreateRootController?() ?? UINavigationController()
@@ -74,5 +75,9 @@ final class WalletContextMock: CommonWalletContextProtocol {
 
     func prepareHideCommand(with actionType: WalletHideActionType) -> WalletHideCommandProtocol {
         return closurePrepareHideCommand?(actionType) ?? WalletHideCommandMock()
+    }
+
+    func prepareLanguageSwitchCommand(with newLanguage: WalletLanguage) -> WalletCommandProtocol {
+        return closurePrepareLanguageSwitch?(newLanguage) ?? WalletCommandMock()
     }
 }

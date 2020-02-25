@@ -6,6 +6,8 @@
 import XCTest
 @testable import SoraPassport
 import Cuckoo
+import SoraFoundation
+import SoraKeystore
 
 class SecurityLayerInteractorTests: XCTestCase {
     func testSecuredOverlayAppearanceAndDismissing() {

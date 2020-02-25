@@ -6,6 +6,7 @@
 import Foundation
 import SoraCrypto
 import SoraKeystore
+import SoraFoundation
 
 final class PersonalInfoViewFactory: PersonalInfoViewFactoryProtocol {
     static func createView(with form: PersonalForm) -> PersonalInfoViewProtocol? {
@@ -18,9 +19,12 @@ final class PersonalInfoViewFactory: PersonalInfoViewFactoryProtocol {
             return nil
         }
 
+        let locale = LocalizationManager.shared.selectedLocale
+
         let view = PersonalInfoViewController(nib: R.nib.personalInfoViewController)
         let presenter = PersonalInfoPresenter(viewModelFactory: PersonalInfoViewModelFactory(),
-                                              personalForm: form)
+                                              personalForm: form,
+                                              locale: locale)
         let wireframe = PersonalInfoWireframe()
 
         let projectService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
@@ -35,6 +39,8 @@ final class PersonalInfoViewFactory: PersonalInfoViewFactoryProtocol {
         presenter.interactor = interactor
         presenter.wireframe = wireframe
         interactor.presenter = presenter
+
+        view.localizationManager = LocalizationManager.shared
 
         return view
     }

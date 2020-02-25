@@ -94,26 +94,6 @@ extension ProjectUnitService: ProjectUnitAccountProtocol {
         return operation
     }
 
-    func fetchInvitationCode(runCompletionIn queue: DispatchQueue,
-                             completionBlock: @escaping NetworkFetchInviteCodeCompletionBlock) throws -> Operation {
-        guard let service = unit.service(for: ProjectServiceType.fetchInvitation.rawValue) else {
-            throw NetworkUnitError.serviceUnavailable
-        }
-
-        let operation = operationFactory.fetchInvitationCodeOperation(service.serviceEndpoint)
-        operation.requestModifier = requestSigner
-
-        operation.completionBlock = {
-            queue.async {
-                completionBlock(operation.result)
-            }
-        }
-
-        execute(operations: [operation])
-
-        return operation
-    }
-
     func applyInvitation(code: String, runCompletionIn queue: DispatchQueue,
                          completionBlock: @escaping NetworkEmptyCompletionBlock) throws -> Operation {
         guard let service = unit.service(for: ProjectServiceType.applyInvitation.rawValue) else {
@@ -121,27 +101,6 @@ extension ProjectUnitService: ProjectUnitAccountProtocol {
         }
 
         let operation = operationFactory.applyInvitationCodeOperation(service.serviceEndpoint, code: code)
-        operation.requestModifier = requestSigner
-
-        operation.completionBlock = {
-            queue.async {
-                completionBlock(operation.result)
-            }
-        }
-
-        execute(operations: [operation])
-
-        return operation
-    }
-
-    func markAsUsed(invitationCode: String,
-                    runCompletionIn queue: DispatchQueue,
-                    completionBlock: @escaping NetworkBoolResultCompletionBlock) throws -> Operation {
-        guard let service = unit.service(for: ProjectServiceType.markInvitation.rawValue) else {
-            throw NetworkUnitError.serviceUnavailable
-        }
-
-        let operation = operationFactory.markAsUsedOperation(service.serviceEndpoint, invitationCode: invitationCode)
         operation.requestModifier = requestSigner
 
         operation.completionBlock = {

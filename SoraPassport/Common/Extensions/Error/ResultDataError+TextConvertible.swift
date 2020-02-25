@@ -6,14 +6,19 @@
 import Foundation
 
 extension ResultDataError: ErrorContentConvertible {
-    func toErrorContent() -> ErrorContent {
-        let message = R.string.localizable.serverErrorMessage()
+    func toErrorContent(for locale: Locale?) -> ErrorContent {
+        let message = R.string.localizable
+            .commonErrorGeneralMessage(preferredLanguages: locale?.rLanguages)
+
+        let title: String
 
         switch self {
         case .missingStatusField:
-            return ErrorContent(title: R.string.localizable.resourceUnavailableErrorTitle(), message: message)
+            title = R.string.localizable.commonErrorNotFoundTitle(preferredLanguages: locale?.rLanguages)
         case .unexpectedNumberOfFields:
-            return ErrorContent(title: R.string.localizable.resultAmbiguousErrorTitle(), message: message)
+            title = R.string.localizable.resultAmbiguousErrorTitle(preferredLanguages: locale?.rLanguages)
         }
+
+        return ErrorContent(title: title, message: message)
     }
 }

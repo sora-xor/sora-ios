@@ -4,6 +4,7 @@
 */
 
 import UIKit
+import SoraFoundation
 
 final class PersonalUpdateViewController: UIViewController {
 	var presenter: PersonalUpdatePresenterProtocol!
@@ -14,15 +15,18 @@ final class PersonalUpdateViewController: UIViewController {
 
     private var keyboardHandler: KeyboardHandler?
 
+    var locale: Locale?
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
         configureTableView()
         configureSaveButton()
+        setupLocalization()
 
         resetChanges()
 
-        presenter.viewIsReady()
+        presenter.setup()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -42,7 +46,8 @@ final class PersonalUpdateViewController: UIViewController {
     }
 
     private func configureSaveButton() {
-        let saveButton = UIBarButtonItem(title: R.string.localizable.save(),
+        let saveButton = UIBarButtonItem(title: R.string.localizable
+            .commonSave(preferredLanguages: locale?.rLanguages),
                                          style: .plain,
                                          target: self,
                                          action: #selector(actionSave(sender:)))
@@ -60,6 +65,10 @@ final class PersonalUpdateViewController: UIViewController {
         saveButton.setTitleTextAttributes(disabledTextAttributes, for: .disabled)
 
         navigationItem.rightBarButtonItem = saveButton
+    }
+
+    private func setupLocalization() {
+        title = R.string.localizable.personalUpdateTitle(preferredLanguages: locale?.rLanguages)
     }
 
     // MARK: Keyboard

@@ -4,6 +4,18 @@
 */
 
 import UIKit
+import RobinHood
+
+enum ActivityFeedViewState {
+    case data
+    case loading
+    case empty
+}
+
+typealias ActivityFeedViewModelChange =
+    SectionedListDifference<ActivityFeedSectionViewModel, ActivityFeedOneOfItemViewModel>
+
+typealias ActivityFeedStateChange = (state: ActivityFeedViewState, changes: [ActivityFeedViewModelChange])
 
 protocol ActivityFeedHeaderLayoutContainable {
     var iconSize: CGSize { get }

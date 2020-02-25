@@ -26,6 +26,13 @@ final class PersonalInfoViewController: AccessoryViewController, AdaptiveDesigna
         presenter.load()
     }
 
+    override func setupLocalization() {
+        super.setupLocalization()
+
+        title = R.string.localizable
+            .personalInfoTitle(preferredLanguages: localizationManager?.selectedLocale.rLanguages)
+    }
+
     private func adjustLayout() {
         contentWidth *= designScaleRatio.width
     }

@@ -9,32 +9,38 @@ import RobinHood
 typealias ErrorContent = (title: String, message: String)
 
 protocol ErrorContentConvertible {
-    func toErrorContent() -> ErrorContent
+    func toErrorContent(for locale: Locale?) -> ErrorContent
 }
 
 extension ErrorPresentable where Self: AlertPresentable {
-    func present(error: Error, from view: ControllerBackedProtocol?) -> Bool {
+    func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool {
         var optionalContent: ErrorContent?
 
         if let contentConvertibleError = error as? ErrorContentConvertible {
-            optionalContent = contentConvertibleError.toErrorContent()
+            optionalContent = contentConvertibleError.toErrorContent(for: locale)
         }
 
         if error as? BaseOperationError != nil {
-            optionalContent = ErrorContent(title: R.string.localizable.operationErrorTitle(),
-                                           message: R.string.localizable.operationErrorMessage())
+            let title = R.string.localizable.operationErrorTitle(preferredLanguages: locale?.rLanguages)
+            let message = R.string.localizable.operationErrorMessage(preferredLanguages: locale?.rLanguages)
+
+            optionalContent = ErrorContent(title: title, message: message)
         }
 
         if (error as NSError).domain == NSURLErrorDomain {
-            optionalContent = ErrorContent(title: R.string.localizable.connectionErrorTitle(),
-                                           message: R.string.localizable.connectionErrorMessage())
+            let title = R.string.localizable.connectionErrorTitle(preferredLanguages: locale?.rLanguages)
+            let message = R.string.localizable.connectionErrorMessage(preferredLanguages: locale?.rLanguages)
+
+            optionalContent = ErrorContent(title: title, message: message)
         }
 
         guard let content = optionalContent else {
             return false
         }
 
-        present(message: content.message, title: content.title, closeAction: R.string.localizable.close(), from: view)
+        let closeAction = R.string.localizable.commonClose(preferredLanguages: locale?.rLanguages)
+
+        present(message: content.message, title: content.title, closeAction: closeAction, from: view)
 
         return true
     }

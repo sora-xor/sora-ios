@@ -4,11 +4,13 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class UnsupportedVersionViewFactory: UnsupportedVersionViewFactoryProtocol {
     static func createView(supportedVersionData: SupportedVersionData) -> UnsupportedVersionViewProtocol? {
         let view = UnsupportedVersionViewController(nib: R.nib.unsupportedVersionViewController)
-        let presenter = UnsupportedVersionPresenter(supportedVersionData: supportedVersionData)
+        let presenter = UnsupportedVersionPresenter(locale: LocalizationManager.shared.selectedLocale,
+                                                    supportedVersionData: supportedVersionData)
         let interactor = UnsupportedVersionInteractor()
         let wireframe = UnsupportedVersionWireframe()
 

@@ -20,12 +20,16 @@ final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, 
     @IBOutlet private var tutorialCollectionView: UICollectionView!
     @IBOutlet private var pageControl: UIPageControl!
     @IBOutlet private var termsLabel: UILabel!
+    @IBOutlet private var signUpButton: RoundedButton!
+    @IBOutlet private var restoreButton: RoundedButton!
 
     @IBOutlet private var collectionViewTopConstraint: NSLayoutConstraint!
     @IBOutlet private var collectionViewHeightConstraint: NSLayoutConstraint!
     @IBOutlet private var restoreBottomConstraint: NSLayoutConstraint!
     @IBOutlet private var signupBottomConstraint: NSLayoutConstraint!
     @IBOutlet private var termsBottomConstraint: NSLayoutConstraint!
+
+    var locale: Locale?
 
     var termDecorator: AttributedStringDecoratorProtocol?
 
@@ -45,10 +49,11 @@ final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, 
 
         configurePageControl()
         configureCollectionView()
+        setupLocalization()
         configureTermsLabel()
         adjustLayout()
 
-        presenter.viewIsReady()
+        presenter.setup()
     }
 
     private func configureCollectionView() {
@@ -65,6 +70,17 @@ final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, 
         if let attributedText = termsLabel.attributedText {
             termsLabel.attributedText = termDecorator?.decorate(attributedString: attributedText)
         }
+    }
+
+    private func setupLocalization() {
+        signUpButton.imageWithTitleView?.title = R.string.localizable
+            .tutorialSignUp(preferredLanguages: locale?.rLanguages)
+        restoreButton.imageWithTitleView?.title = R.string.localizable
+            .tutorialRestoreAccount(preferredLanguages: locale?.rLanguages)
+
+        let text = NSAttributedString(string: R.string.localizable
+            .tutorialTermsAndConditions1(preferredLanguages: locale?.rLanguages))
+        termsLabel.attributedText = text
     }
 
     private func adjustLayout() {

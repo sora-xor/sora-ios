@@ -5,6 +5,7 @@
 
 import UIKit
 import SoraUI
+import SoraFoundation
 
 final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
     struct Constants {
@@ -54,8 +55,11 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
     @IBOutlet private(set) var detailsTextViewHeight: NSLayoutConstraint!
     @IBOutlet private(set) var galleryLabel: UILabel!
     @IBOutlet private(set) var galleryCollectionView: UICollectionView!
+    @IBOutlet private(set) var contactsLabel: UILabel!
     @IBOutlet private(set) var websiteButton: UIButton!
+    @IBOutlet private(set) var websiteLabel: UILabel!
     @IBOutlet private(set) var emailButton: UIButton!
+    @IBOutlet private(set) var emailLabel: UILabel!
 
     @IBOutlet private(set) var progressLabelTrallingWhenLong: NSLayoutConstraint!
     @IBOutlet private(set) var progressLabelTrallingWhenShort: NSLayoutConstraint!
@@ -111,9 +115,10 @@ final class ProjectDetailsViewController: UIViewController, AdaptiveDesignable {
         configureScrollView()
         configureDetailsView()
         configureGalleryCollectionView()
+        setupLocalization()
         adjustLayout()
 
-        presenter.viewIsReady()
+        presenter.setup()
     }
 
     // MARK: Configuration
@@ -372,5 +377,22 @@ extension ProjectDetailsViewController: DetailsTextViewDelegate {
             self.detailsTextViewHeight.constant = self.detailsHeight
             self.view.layoutIfNeeded()
         }, completionBlock: nil)
+    }
+}
+
+extension ProjectDetailsViewController: Localizable {
+    private func setupLocalization() {
+        let languages = localizationManager?.preferredLocalizations
+        galleryLabel.text = R.string.localizable.projectGallery(preferredLanguages: languages)
+        contactsLabel.text = R.string.localizable.projectContacts(preferredLanguages: languages)
+        websiteLabel.text = R.string.localizable.projectWebsite(preferredLanguages: languages)
+        emailLabel.text = R.string.localizable.projectEmail(preferredLanguages: languages)
+    }
+
+    func applyLocalization() {
+        if isViewLoaded {
+            setupLocalization()
+            view.setNeedsLayout()
+        }
     }
 }

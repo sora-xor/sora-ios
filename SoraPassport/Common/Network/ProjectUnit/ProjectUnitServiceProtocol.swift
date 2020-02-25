@@ -11,7 +11,6 @@ typealias NetworkProjectCompletionBlock = (Result<[ProjectData], Error>?) -> Voi
 typealias NetworkProjectDetailsCompletionBlock = (Result<ProjectDetailsData?, Error>?) -> Void
 typealias NetworkUserCompletionBlock = (Result<UserData?, Error>?) -> Void
 typealias NetworkFetchVotesCompletionBlock = (Result<VotesData?, Error>?) -> Void
-typealias NetworkFetchInviteCodeCompletionBlock = (Result<InvitationCodeData, Error>?) -> Void
 typealias NetworkFetchInvitedCompletionBlock = (Result<ActivatedInvitationsData?, Error>?) -> Void
 typealias NetworkCheckInvitationCompletionBlock = (Result<InvitationCheckData, Error>?) -> Void
 typealias NetworkReputationCompletionBlock = (Result<ReputationData?, Error>?) -> Void
@@ -42,15 +41,8 @@ protocol ProjectUnitAccountProtocol {
                         runCompletionIn queue: DispatchQueue,
                         completionBlock: @escaping NetworkBoolResultCompletionBlock) throws -> Operation
 
-    func fetchInvitationCode(runCompletionIn queue: DispatchQueue,
-                             completionBlock: @escaping NetworkFetchInviteCodeCompletionBlock) throws -> Operation
-
     func applyInvitation(code: String, runCompletionIn queue: DispatchQueue,
                          completionBlock: @escaping NetworkEmptyCompletionBlock) throws -> Operation
-
-    func markAsUsed(invitationCode: String,
-                    runCompletionIn queue: DispatchQueue,
-                    completionBlock: @escaping NetworkBoolResultCompletionBlock) throws -> Operation
 
     func checkInvitation(for deviceInfo: DeviceInfo,
                          runCompletionIn queue: DispatchQueue,

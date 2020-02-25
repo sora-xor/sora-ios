@@ -7,6 +7,7 @@ import XCTest
 @testable import SoraPassport
 import Cuckoo
 import SoraKeystore
+import SoraFoundation
 
 class PersonalInfoInteractorTests: NetworkBaseTests {
 
@@ -66,7 +67,10 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
             let wireframe = MockPersonalInfoWireframeProtocol()
 
             let form = PersonalForm.create(from: createRandomCountry())
-            let presenter = PersonalInfoPresenter(viewModelFactory: PersonalInfoViewModelFactory(), personalForm: form)
+            let viewModelFactory = PersonalInfoViewModelFactory()
+            let presenter = PersonalInfoPresenter(viewModelFactory: viewModelFactory,
+                                                  personalForm: form,
+                                                  locale: Locale.current)
             let interactor = createInteractor(for: settings, keystore: keystore)
 
             presenter.view = view
@@ -143,7 +147,12 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
         let wireframe = MockPersonalInfoWireframeProtocol()
 
         let form = PersonalForm.create(from: country)
-        let presenter = PersonalInfoPresenter(viewModelFactory: PersonalInfoViewModelFactory(), personalForm: form)
+
+        let locale = Locale.current
+        let viewModelFactory = PersonalInfoViewModelFactory()
+        let presenter = PersonalInfoPresenter(viewModelFactory: viewModelFactory,
+                                              personalForm: form,
+                                              locale: locale)
         let interactor = createInteractor(for: settings, keystore: keystore)
 
         presenter.view = view

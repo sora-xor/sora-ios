@@ -131,33 +131,6 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
         return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
-    func fetchInvitationCodeOperation(_ urlTemplate: String) -> NetworkOperation<InvitationCodeData> {
-        let requestFactory = BlockNetworkRequestFactory {
-            guard let serviceUrl = URL(string: urlTemplate) else {
-                throw NetworkBaseError.invalidUrl
-            }
-
-            var request = URLRequest(url: serviceUrl)
-            request.httpMethod = HttpMethod.get.rawValue
-            return request
-        }
-
-        let resultFactory = AnyNetworkResultFactory<InvitationCodeData> { data in
-            if let resultData = try? JSONDecoder().decode(InvitationCodeData.self, from: data) {
-                return resultData
-            } else {
-                let statusData = try JSONDecoder().decode(ResultData<InvitationCodeData>.self, from: data)
-                if let resultError = InvitationCodeDataError.error(from: statusData.status) {
-                    throw resultError
-                } else {
-                    throw NetworkBaseError.unexpectedResponseObject
-                }
-            }
-        }
-
-        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
-    }
-
     func applyInvitationCodeOperation(_ urlTemplate: String, code: String) -> NetworkOperation<Void> {
         let requestFactory = BlockNetworkRequestFactory {
             let serviceUrl = try EndpointBuilder(urlTemplate: urlTemplate).buildParameterURL(code)
@@ -180,34 +153,6 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
         }
 
         return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
-    }
-
-    func markAsUsedOperation(_ urlTemplate: String, invitationCode: String) -> NetworkOperation<Bool> {
-        let requestFactory = BlockNetworkRequestFactory {
-            let serviceUrl = try EndpointBuilder(urlTemplate: urlTemplate)
-                .buildParameterURL(invitationCode)
-
-            var request = URLRequest(url: serviceUrl)
-            request.httpMethod = HttpMethod.put.rawValue
-            return request
-        }
-
-        let resultFactory = AnyNetworkResultFactory<Bool> { data in
-            let resultData = try JSONDecoder().decode(ResultData<Bool>.self, from: data)
-
-            guard resultData.status.isSuccess else {
-                if let invitationMarkError = InvitationMarkDataError.error(from: resultData.status) {
-                    throw invitationMarkError
-                } else {
-                    throw ResultStatusError(statusData: resultData.status)
-                }
-            }
-
-            return true
-        }
-
-        return NetworkOperation<Bool>(requestFactory: requestFactory,
-                                      resultFactory: resultFactory)
     }
 
     func checkInvitation(_ urlTemplate: String, deviceInfo: DeviceInfo) -> NetworkOperation<InvitationCheckData> {

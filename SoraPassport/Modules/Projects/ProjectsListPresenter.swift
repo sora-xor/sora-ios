@@ -5,6 +5,7 @@
 
 import Foundation
 import RobinHood
+import SoraFoundation
 
 final class ProjectsListPresenter {
     weak var view: ProjectsListViewProtocol?
@@ -37,6 +38,7 @@ final class ProjectsListPresenter {
         }
 
         let changes: () -> ViewModelUpdateResult = {
+            let locale = self.localizationManager?.selectedLocale ?? Locale.current
             let diffs: [ListDifference<ProjectData>] = self.projectsDiffCalculator.lastDifferences
 
             var updatedIndexes: [Int] = []
@@ -48,7 +50,8 @@ final class ProjectsListPresenter {
                 case .update(let index, _, let new):
                     let viewModel = self.viewModelFactory.create(from: new,
                                                                  layoutMetadata: layoutMetadata,
-                                                                 delegate: self)
+                                                                 delegate: self,
+                                                                 locale: locale)
                     self.viewModels[index] = viewModel
                     updatedIndexes.append(index)
                 case .delete(let index, let old):
@@ -57,7 +60,8 @@ final class ProjectsListPresenter {
                 case .insert(let index, let new):
                     let viewModel = self.viewModelFactory.create(from: new,
                                                                  layoutMetadata: layoutMetadata,
-                                                                 delegate: self)
+                                                                 delegate: self,
+                                                                 locale: locale)
                     self.viewModels.insert(viewModel, at: index)
                     insertedIndexes.append(index)
                 }
@@ -81,10 +85,12 @@ final class ProjectsListPresenter {
         }
 
         let changes: () -> Void = {
+            let locale = self.localizationManager?.selectedLocale ?? Locale.current
             self.viewModels = self.projectsDiffCalculator.allItems.map {
                 self.viewModelFactory.create(from: $0,
                                              layoutMetadata: layoutMetadata,
-                                             delegate: self)
+                                             delegate: self,
+                                             locale: locale)
             }
         }
 
@@ -231,6 +237,16 @@ extension ProjectsListPresenter: ProjectsListInteractorOutputProtocol {
 
 extension ProjectsListPresenter: ProjectViewModelFactoryDelegate {
     func projectFactoryDidChange(_ factory: DynamicProjectViewModelFactoryProtocol) {
-        reloadModel()
+        if layoutMetadata != nil {
+            reloadModel()
+        }
+    }
+}
+
+extension ProjectsListPresenter: Localizable {
+    func applyLocalization() {
+        if layoutMetadata != nil {
+            reloadModel()
+        }
     }
 }

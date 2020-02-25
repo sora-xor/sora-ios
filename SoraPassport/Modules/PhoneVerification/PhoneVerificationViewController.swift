@@ -5,12 +5,14 @@
 
 import UIKit
 import SoraUI
+import SoraFoundation
 
 final class PhoneVerificationViewController: AccessoryViewController, AdaptiveDesignable {
 	var presenter: PhoneVerificationPresenterProtocol!
 
     var viewModel: CodeInputViewModelProtocol?
 
+    @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var textField: UITextField!
 
     lazy private(set) var resendDelayTimeFormatter = MinuteSecondFormatter()
@@ -18,7 +20,7 @@ final class PhoneVerificationViewController: AccessoryViewController, AdaptiveDe
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        presenter.viewIsReady()
+        presenter.setup()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -41,6 +43,17 @@ final class PhoneVerificationViewController: AccessoryViewController, AdaptiveDe
         textField.text = viewModel.code
 
         accessoryView?.isActionEnabled = viewModel.isComplete
+    }
+
+    override func setupLocalization() {
+        super.setupLocalization()
+
+        let languages = localizationManager?.selectedLocale.rLanguages
+
+        title = R.string.localizable
+            .verificationTitle(preferredLanguages: languages)
+        titleLabel.text = R.string.localizable
+            .verificationEnterCodeFromSms(preferredLanguages: languages)
     }
 
     // MARK: Keyboard
@@ -101,16 +114,20 @@ extension PhoneVerificationViewController: PhoneVerificationViewProtocol {
     }
 
     func didUpdateResendRemained(delay: TimeInterval) {
+        let languages = localizationManager?.selectedLocale.rLanguages
+
         if delay > 0.0 {
             do {
                 let timeString = try resendDelayTimeFormatter.string(from: delay)
-                accessoryView?.title = R.string.localizable.phoneVerificationCodeResendFormat(timeString)
+                accessoryView?.title = R.string.localizable
+                    .verificationRequestNewCodeTime(timeString, preferredLanguages: languages)
             } catch {
-                accessoryView?.title = R.string.localizable.phoneVerificationCodeResendFormat("")
+                accessoryView?.title = R.string.localizable
+                    .verificationRequestNewCodeTime("", preferredLanguages: languages)
             }
 
         } else {
-            let title = R.string.localizable.phoneVerificationResendCodeMessage()
+            let title = R.string.localizable.verificationResendCode(preferredLanguages: languages)
             let resendButton = accessoryViewFactory
                 .createActionTitleView(with: title,
                                        target: self,

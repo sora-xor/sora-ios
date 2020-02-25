@@ -10,8 +10,10 @@ final class AboutPresenter {
     var wireframe: AboutWireframeProtocol!
 
     let about: AboutData
+    let locale: Locale
 
-    init(about: AboutData) {
+    init(locale: Locale, about: AboutData) {
+        self.locale = locale
         self.about = about
     }
 
@@ -45,9 +47,12 @@ extension AboutPresenter: AboutPresenterProtocol {
                                         subject: about.writeUs.subject,
                                         recepients: [about.writeUs.email])
             if !wireframe.writeEmail(with: message, from: view, completionHandler: nil) {
-                wireframe.present(message: R.string.localizable.noEmailBoundErrorMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .noEmailBoundErrorMessage(preferredLanguages: locale.rLanguages),
+                                  title: R.string.localizable
+                                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                                  closeAction: R.string.localizable
+                                    .commonClose(preferredLanguages: locale.rLanguages),
                                   from: view)
             }
         }

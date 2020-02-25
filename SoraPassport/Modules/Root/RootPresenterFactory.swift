@@ -5,13 +5,16 @@
 
 import UIKit
 import SoraKeystore
+import SoraFoundation
 
 final class RootPresenterFactory: RootPresenterFactoryProtocol {
     static func createPresenter(with view: SoraWindow) -> RootPresenterProtocol {
         let presenter = RootPresenter()
         let wireframe = RootWireframe()
 
-        NetworkAvailabilityLayerService.shared.setup(with: view, logger: Logger.shared)
+        NetworkAvailabilityLayerService.shared.setup(with: view,
+                                                     localizationManager: LocalizationManager.shared,
+                                                     logger: Logger.shared)
         let networkAvailabilityInteractor = NetworkAvailabilityLayerService.shared.interactor
 
         let interactor = RootInteractor(settings: SettingsManager.shared,

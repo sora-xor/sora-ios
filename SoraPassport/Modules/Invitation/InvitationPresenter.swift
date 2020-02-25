@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class InvitationPresenter {
     private struct Constants {
@@ -46,20 +47,6 @@ final class InvitationPresenter {
         invalidateTimerIfNeeded()
     }
 
-    private func invite(with code: String) {
-        let invitationMessage = invitationFactory.createInvitation(from: code)
-        let source = TextSharingSource(message: invitationMessage,
-                                       subject: R.string.localizable.invitationsSharingSubject())
-
-        wireframe.share(source: source, from: view) { [weak self] (completed) in
-            self?.isSharingInvitation = false
-
-            if completed {
-                self?.interactor.mark(invitationCode: code)
-            }
-        }
-    }
-
     private func updateInvitedUsers(from invitationsData: ActivatedInvitationsData) {
         let viewModels: [InvitedViewModel] = invitationViewModelFactory
             .createActivatedInvitationViewModel(from: invitationsData)
@@ -68,23 +55,25 @@ final class InvitationPresenter {
     }
 
     private func updateInvitationActions() {
+        let locale = localizationManager?.selectedLocale ?? Locale.current
         let viewModel = invitationViewModelFactory.createActionListViewModel(from: userData,
                                                                              parentInfo: parentInfo,
-                                                                             layout: layout)
+                                                                             layout: layout,
+                                                                             locale: locale)
 
         view?.didReceive(actionListViewModel: viewModel)
 
         if let userData = userData {
             if userData.canAcceptInvitation {
                 scheduleTimerIfNeeded()
-                updateEnterCodeAccessory()
+                updateEnterCodeAccessoryIfNeeded()
             } else {
                 invalidateTimerIfNeeded()
             }
         }
     }
 
-    private func updateEnterCodeAccessory() {
+    private func updateEnterCodeAccessoryIfNeeded() {
         if let timer = timer,
             let notificationType = TimerNotificationInterval(rawValue: timer.notificationInterval) {
             let accessoryTitle = invitationViewModelFactory
@@ -122,21 +111,35 @@ final class InvitationPresenter {
         timer = nil
     }
 
-    private func sendInvitation() {
-        if !isSharingInvitation {
+    private func sendInvitationIfNeeded() {
+        if !isSharingInvitation, let invitationCode = userData?.values.invitationCode {
             isSharingInvitation = true
-            interactor.loadInvitationCode()
+
+            let locale = localizationManager?.selectedLocale
+            let invitationMessage = invitationFactory.createInvitation(from: invitationCode,
+                                                                       locale: locale)
+            let languages = localizationManager?.preferredLocalizations
+            let subject = R.string.localizable
+                .invitationsSharingSubject(preferredLanguages: languages)
+            let source = TextSharingSource(message: invitationMessage,
+                                           subject: subject)
+
+            wireframe.share(source: source, from: view) { [weak self] _ in
+                self?.isSharingInvitation = false
+            }
         }
     }
 
     private func enterInvitationCode() {
-        let hint = R.string.localizable
-            .inputFieldInvitationHintFormat(PersonalInfoSharedConstants.invitationCodeLimit)
-        let title = R.string.localizable.inputFieldInvitationTitle()
-        let inputFieldViewModel = LowecasedInputFieldViewModel(title: title,
+        let languages = localizationManager?.preferredLocalizations
+        let hint = R.string.localizable.inviteEnterDialogHintTemplate(preferredLanguages: languages)
+        let title = R.string.localizable.inviteEnterInvitationCode(preferredLanguages: languages)
+        let inputFieldViewModel = InputFieldViewModel(title: title,
                                                       hint: hint,
-                                                      cancelActionTitle: R.string.localizable.cancel(),
-                                                      doneActionTitle: R.string.localizable.apply())
+                                                      cancelActionTitle: R.string.localizable
+                                                        .commonCancel(preferredLanguages: languages),
+                                                      doneActionTitle: R.string.localizable
+                                                        .commonApply(preferredLanguages: languages))
 
         inputFieldViewModel.completionPredicate = NSPredicate.invitationCode
         inputFieldViewModel.invalidCharacters = NSCharacterSet.alphanumerics.inverted
@@ -148,7 +151,7 @@ final class InvitationPresenter {
 }
 
 extension InvitationPresenter: InvitationPresenterProtocol {
-    func viewIsReady(with layout: InvitationViewLayout) {
+    func setup(with layout: InvitationViewLayout) {
         self.layout = layout
 
         updateInvitationActions()
@@ -172,7 +175,7 @@ extension InvitationPresenter: InvitationPresenterProtocol {
 
         switch actionType {
         case .sendInvite:
-            sendInvitation()
+            sendInvitationIfNeeded()
         case .enterCode:
             enterInvitationCode()
         }
@@ -200,45 +203,6 @@ extension InvitationPresenter: InvitationInteractorOutputProtocol {
     func didReceiveInvitedUsersDataProvider(error: Error) {
         logger?.debug("Did receive invited users data provider \(error)")
     }
-
-    func didLoad(invitationCodeData: InvitationCodeData) {
-        if isSharingInvitation {
-            invite(with: invitationCodeData.invitationCode)
-        }
-
-        userData?.values.invitations = invitationCodeData.invitationsCount
-
-        updateInvitationActions()
-    }
-
-    func didReceiveInvitationCode(error: Error) {
-        isSharingInvitation = false
-
-        if wireframe.present(error: error, from: view) {
-            return
-        }
-
-        if let invitationCodeError = error as? InvitationCodeDataError {
-            switch invitationCodeError {
-            case .userValuesNotFound:
-                wireframe.present(message: R.string.localizable.invitationsValuesNotFoundErrorMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
-                                  from: view)
-            case .notEnoughInvitations:
-                wireframe.present(message: R.string.localizable.invitationsNotEnoughErrorMessage(),
-                                  title: "",
-                                  closeAction: R.string.localizable.close(),
-                                  from: view)
-            }
-        }
-
-        interactor.refreshUser()
-    }
-
-    func didMark(invitationCode: String) {
-        interactor.refreshUser()
-    }
 }
 
 extension InvitationPresenter: InputFieldViewModelDelegate {
@@ -263,7 +227,7 @@ extension InvitationPresenter: CountdownTimerDelegate {
             scheduleTimerIfNeeded()
         }
 
-        updateEnterCodeAccessory()
+        updateEnterCodeAccessoryIfNeeded()
     }
 
     func didStop(with remainedInterval: TimeInterval) {
@@ -271,5 +235,13 @@ extension InvitationPresenter: CountdownTimerDelegate {
         interactor.refreshInvitedUsers()
 
         updateInvitationActions()
+    }
+}
+
+extension InvitationPresenter: Localizable {
+    func applyLocalization() {
+        if view?.isSetup == true {
+            updateInvitationActions()
+        }
     }
 }

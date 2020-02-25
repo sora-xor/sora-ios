@@ -7,8 +7,8 @@ abstract_target 'SoraPassportAll' do
   
   pod 'SwiftLint'
   pod 'R.swift', :inhibit_warnings => true
-  pod 'FireMock', :inhibit_warnings => true
   pod 'GCDWebServer', :inhibit_warnings => true
+  pod 'FireMock'
   pod 'IrohaCrypto'
   pod 'SoraDocuments'
   pod 'SoraCrypto'
@@ -19,22 +19,26 @@ abstract_target 'SoraPassportAll' do
   pod 'CommonWallet'
   pod 'Firebase/Core', :inhibit_warnings => true
   pod 'Firebase/Messaging', :inhibit_warnings => true
+  pod 'Fabric'
+  pod 'Crashlytics'
   pod 'ReachabilitySwift'
   pod 'SwiftyBeaver'
   pod 'SKPhotoBrowser'
+  pod 'SoraFoundation', '~> 0.4.0'
 
   target 'SoraPassportTests' do
       inherit! :search_paths
       
       pod 'Cuckoo'
-      pod 'FireMock'
       pod 'SoraUI'
+      pod 'FireMock'
       pod 'SoraDocuments'
       pod 'SoraCrypto'
       pod 'SoraKeystore'
       pod 'RobinHood'
       pod 'IrohaCommunication'
       pod 'CommonWallet'
+      pod 'SoraFoundation', '~> 0.4.0'
   end
   
   target 'SoraPassportUITests' do

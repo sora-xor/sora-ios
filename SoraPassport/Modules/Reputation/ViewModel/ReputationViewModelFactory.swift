@@ -4,9 +4,10 @@
 */
 
 import Foundation
+import SoraFoundation
 
 protocol ReputationViewModelFactoryProtocol {
-    func createEmptyRankTitle(for remainingDelay: TimeInterval) -> String
+    func createEmptyRankTitle(for remainingDelay: TimeInterval, locale: Locale) -> String
     func createReputationDetailsViewModel(from data: ReputationDetailsData) throws -> ReputationDetailsViewModel
 }
 
@@ -22,11 +23,12 @@ struct ReputationViewModelFactory: ReputationViewModelFactoryProtocol {
         self.timeFormatter = timeFormatter
     }
 
-    func createEmptyRankTitle(for remainingDelay: TimeInterval) -> String {
+    func createEmptyRankTitle(for remainingDelay: TimeInterval, locale: Locale) -> String {
         if remainingDelay > 0.0, let time = try? timeFormatter.string(from: remainingDelay) {
-            return R.string.localizable.reputationCalculationTime(time)
+            return R.string.localizable.reputationTimerFormat(time,
+                                                              preferredLanguages: locale.rLanguages)
         } else {
-            return R.string.localizable.reputationCalculationSoon()
+            return R.string.localizable.reputationSoon(preferredLanguages: locale.rLanguages)
         }
     }
 

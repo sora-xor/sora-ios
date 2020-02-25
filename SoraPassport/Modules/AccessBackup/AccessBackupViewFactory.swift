@@ -6,9 +6,12 @@
 import Foundation
 import SoraKeystore
 import IrohaCrypto
+import SoraFoundation
 
 final class AccessBackupViewFactory: AccessBackupViewFactoryProtocol {
     static func createView() -> AccessBackupViewProtocol? {
+        let localizationManager = LocalizationManager.shared
+
         let view = AccessBackupViewController(nib: R.nib.accessBackupViewController)
         view.mode = .registration
 
@@ -22,6 +25,9 @@ final class AccessBackupViewFactory: AccessBackupViewFactoryProtocol {
         presenter.interactor = interactor
         presenter.wireframe = wireframe
         interactor.presenter = presenter
+
+        view.localizationManager = localizationManager
+        presenter.localizationManager = localizationManager
 
         return view
     }

@@ -4,9 +4,10 @@
 */
 
 import XCTest
+@testable import SoraPassport
 import Cuckoo
 import RobinHood
-@testable import SoraPassport
+import SoraFoundation
 
 class ActivityFeedInteractorTests: NetworkBaseTests {
 
@@ -17,13 +18,14 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
         let interactor = createInteractor()
         let presenter = createPresenter()
         let viewMock = MockActivityFeedViewProtocol()
+        let wireframe = MockActivityFeedWireframeProtocol()
 
         interactor.presenter = presenter
         presenter.view = viewMock
-        presenter.wireframe = MockActivityFeedWireframeProtocol()
+        presenter.wireframe = wireframe
         presenter.interactor = interactor
 
-        performSetup(for: viewMock, presenter: presenter)
+        performSetup(for: viewMock, presenter: presenter, wireframe: wireframe)
     }
 
     func testSectionDateFormatterChanges() {
@@ -35,20 +37,21 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
         let interactor = createInteractor()
         let presenter = createPresenter()
         let view = MockActivityFeedViewProtocol()
+        let wireframe = MockActivityFeedWireframeProtocol()
 
         interactor.presenter = presenter
         presenter.view = view
-        presenter.wireframe = MockActivityFeedWireframeProtocol()
+        presenter.wireframe = wireframe
         presenter.interactor = interactor
 
-        performSetup(for: view, presenter: presenter)
+        performSetup(for: view, presenter: presenter, wireframe: wireframe)
 
         // when
 
         let expectation = XCTestExpectation()
 
         stub(view) { stub in
-            when(stub).didReceive(using: any((() -> [ActivityFeedViewModelChange]).self)).then { _ in
+            when(stub).didReceive(using: any((() -> ActivityFeedStateChange).self)).then { _ in
                 XCTAssert(Thread.isMainThread)
                 expectation.fulfill()
             }
@@ -65,13 +68,54 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
         wait(for: [expectation], timeout: Constants.expectationDuration)
     }
 
+    func testActivityFeedLoadingFailure() {
+        // given
+
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ActivityFeedMock.register(mock: .internalError, projectUnit: projectUnit)
+        AnnouncementFetchMock.register(mock: .successNotEmpty, projectUnit: projectUnit)
+
+        let interactor = createInteractor()
+        let presenter = createPresenter()
+        let view = MockActivityFeedViewProtocol()
+        let wireframe = MockActivityFeedWireframeProtocol()
+
+        interactor.presenter = presenter
+        presenter.view = view
+        presenter.wireframe = wireframe
+        presenter.interactor = interactor
+
+        performSetup(for: view, presenter: presenter, wireframe: wireframe, expectsError: true)
+
+        // when
+
+        let expectation = XCTestExpectation()
+
+        ActivityFeedMock.register(mock: .success, projectUnit: projectUnit)
+
+        stub(view) { stub in
+            when(stub).didReceive(using: any((() -> ActivityFeedStateChange).self)).then { _ in
+                expectation.fulfill()
+            }
+
+            when(stub).controller.get.thenReturn(UIViewController())
+        }
+
+        XCTAssert(presenter.reload())
+
+        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
+    }
+
     // MARK: Private
 
-    private func performSetup(for view: MockActivityFeedViewProtocol, presenter: ActivityFeedPresenter) {
+    private func performSetup(for view: MockActivityFeedViewProtocol,
+                              presenter: ActivityFeedPresenter,
+                              wireframe: MockActivityFeedWireframeProtocol,
+                              expectsError: Bool = false) {
         // given
 
         let itemsExpectation = XCTestExpectation()
-        itemsExpectation.expectedFulfillmentCount = 2
+        itemsExpectation.expectedFulfillmentCount = expectsError ? 1 : 2
         itemsExpectation.assertForOverFulfill = false
 
         let announcementExpectation = XCTestExpectation()
@@ -79,7 +123,7 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
         announcementExpectation.assertForOverFulfill = false
 
         stub(view) { (stub) in
-            when(stub).didReceive(using: any((() -> [ActivityFeedViewModelChange]).self)).then { _ in
+            when(stub).didReceive(using: any((() -> ActivityFeedStateChange).self)).then { _ in
                 itemsExpectation.fulfill()
             }
 
@@ -95,10 +139,28 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
             when(stub).announcementLayoutMetadata.get.then { _ in
                 return AnnouncementItemLayoutMetadata()
             }
+
+            when(stub).controller.get.thenReturn(UIViewController())
+            when(stub).isSetup.get.thenReturn(true)
         }
 
+        var expectations: [XCTestExpectation] = [itemsExpectation, announcementExpectation]
+
+        if expectsError {
+            let errorExpectation = XCTestExpectation()
+            expectations.append(errorExpectation)
+
+            stub(wireframe) { stub in
+                when(stub).present(error: any(), from: any(), locale: any()).then { _ in
+                    errorExpectation.fulfill()
+                    return true
+                }
+            }
+        }
+
+
         // when
-        presenter.viewIsReady()
+        presenter.setup()
 
         // then
 
@@ -107,15 +169,16 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
             return
         }
 
-        wait(for: [itemsExpectation, announcementExpectation],
-             timeout: Constants.networkRequestTimeout)
+        wait(for: expectations, timeout: Constants.networkRequestTimeout)
 
-        guard case .loaded(let page, _) = presenter.dataLoadingState, page == 0 else {
-            XCTFail()
-            return
+        if !expectsError {
+            guard case .loaded(let page, _) = presenter.dataLoadingState, page == 0 else {
+                XCTFail()
+                return
+            }
         }
 
-        verify(view, times(2)).didReceive(using: any((() -> [ActivityFeedViewModelChange]).self))
+        verify(view, times(2)).didReceive(using: any((() -> ActivityFeedStateChange).self))
         verify(view, atLeast(2)).didReload(announcement: any(AnnouncementItemViewModelProtocol?.self))
     }
 
@@ -150,10 +213,14 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
                                                           dayChangeHandler: DayChangeHandler())
 
         let activityFeedViewModelFactory = ActivityFeedViewModelFactory(sectionFormatterProvider: dateFormatterProvider,
-                                                                        timestampDateFormatter: DateFormatter.timeOnly,
-                                                                        votesNumberFormatter: NumberFormatter.vote,
-                                                                        amountFormatter: NumberFormatter.amount,
-                                                                        integerFormatter: NumberFormatter.anyInteger)
+                                                                        timestampDateFormatter: DateFormatter.timeOnly
+                                                                            .localizableResource(),
+                                                                        votesNumberFormatter: NumberFormatter.vote
+                                                                            .localizableResource(),
+                                                                        amountFormatter: NumberFormatter.amount
+                                                                            .localizableResource(),
+                                                                        integerFormatter: NumberFormatter.anyInteger
+                                                                            .localizableResource())
 
         let announcementViewModelFactory = AnnouncementViewModelFactory()
 

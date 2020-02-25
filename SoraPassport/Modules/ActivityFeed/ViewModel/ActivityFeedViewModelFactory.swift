@@ -5,17 +5,19 @@
 
 import Foundation
 import RobinHood
+import SoraFoundation
 
 protocol ActivityFeedViewModelFactoryDelegate: class {
     func activityFeedViewModelFactoryDidChange(_ factory: ActivityFeedViewModelFactoryProtocol)
 }
 
-protocol ActivityFeedViewModelFactoryProtocol {
+protocol ActivityFeedViewModelFactoryProtocol: class {
     var delegate: ActivityFeedViewModelFactoryDelegate? { get set }
 
     func merge(activity: ActivityData,
                into existingViewModels: inout [ActivityFeedSectionViewModel],
-               using metadataContainer: ActivityFeedLayoutMetadataContainer) throws
+               using metadataContainer: ActivityFeedLayoutMetadataContainer,
+               locale: Locale) throws
         -> [SectionedListDifference<ActivityFeedSectionViewModel, ActivityFeedOneOfItemViewModel>]
 }
 
@@ -23,20 +25,21 @@ typealias SectionedActivityFeedItemViewModel =
     (sectionTitle: String, itemViewModel: ActivityFeedOneOfItemViewModel)
 
 final class ActivityFeedViewModelFactory {
-    private(set) var timestampDateFormatter: DateFormatter
-    private(set) var votesNumberFormatter: NumberFormatter
-    private(set) var amountFormatter: NumberFormatter
-    private(set) var integerFormatter: NumberFormatter
+    private(set) var timestampDateFormatter: LocalizableResource<DateFormatter>
+    private(set) var votesNumberFormatter: LocalizableResource<NumberFormatter>
+    private(set) var amountFormatter: LocalizableResource<NumberFormatter>
+    private(set) var integerFormatter: LocalizableResource<NumberFormatter>
 
     weak var delegate: ActivityFeedViewModelFactoryDelegate?
 
-    let sectionFormatterProvider: DateFormatterProviderProtocol
+    private(set) var sectionFormatterProvider: DateFormatterProviderProtocol
 
     init(sectionFormatterProvider: DateFormatterProviderProtocol,
-         timestampDateFormatter: DateFormatter,
-         votesNumberFormatter: NumberFormatter,
-         amountFormatter: NumberFormatter,
-         integerFormatter: NumberFormatter) {
+         timestampDateFormatter: LocalizableResource<DateFormatter>,
+         votesNumberFormatter: LocalizableResource<NumberFormatter>,
+         amountFormatter: LocalizableResource<NumberFormatter>,
+         integerFormatter: LocalizableResource<NumberFormatter>) {
+
         self.sectionFormatterProvider = sectionFormatterProvider
         self.timestampDateFormatter = timestampDateFormatter
         self.votesNumberFormatter = votesNumberFormatter
@@ -52,7 +55,8 @@ private typealias SearchableSection = (section: ActivityFeedSectionViewModel, in
 extension ActivityFeedViewModelFactory: ActivityFeedViewModelFactoryProtocol {
     func merge(activity: ActivityData,
                into existingViewModels: inout [ActivityFeedSectionViewModel],
-               using metadataContainer: ActivityFeedLayoutMetadataContainer) throws
+               using metadataContainer: ActivityFeedLayoutMetadataContainer,
+               locale: Locale) throws
         -> [SectionedListDifference<ActivityFeedSectionViewModel, ActivityFeedOneOfItemViewModel>] {
 
         var searchableSections = [String: SearchableSection]()
@@ -65,7 +69,8 @@ extension ActivityFeedViewModelFactory: ActivityFeedViewModelFactoryProtocol {
         activity.events.forEach { oneOfEvent in
             let optionalSectionedViewModel = transform(event: oneOfEvent,
                                                        from: activity,
-                                                       metadataContainer: metadataContainer)
+                                                       metadataContainer: metadataContainer,
+                                                       locale: locale)
 
             guard let newSectionedViewModel = optionalSectionedViewModel else {
                 return

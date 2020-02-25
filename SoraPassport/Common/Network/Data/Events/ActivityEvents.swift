@@ -36,12 +36,6 @@ struct UserRankChangedEventData: Codable, Equatable {
     var totalRank: UInt
 }
 
-struct InvitationsCreditedEventData: Codable, Equatable {
-    var issuedAt: Int64
-    var invitations: Int
-    var userId: String
-}
-
 struct ProjectCreatedEventData: Codable, Equatable {
     var issuedAt: Int64
     var projectId: String

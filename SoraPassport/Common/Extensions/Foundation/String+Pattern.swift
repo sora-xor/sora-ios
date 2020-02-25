@@ -7,6 +7,6 @@ import Foundation
 
 extension String {
     static var invitationCodePattern: String {
-        return "[a-z0-9]{8}"
+        return "[a-zA-Z0-9]{1,16}"
     }
 }

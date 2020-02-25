@@ -6,29 +6,37 @@
 import Foundation
 
 extension ApplyInvitationDataError: ErrorContentConvertible {
-    func toErrorContent() -> ErrorContent {
+    func toErrorContent(for locale: Locale?) -> ErrorContent {
+        let title: String
+        let message: String
+
         switch self {
         case .userNotFound:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.userNotFoundMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.userNotFoundMessage(preferredLanguages: locale?.rLanguages)
         case .wrongUserStatus:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.userStatusInvalidMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.userStatusInvalidMessage(preferredLanguages: locale?.rLanguages)
         case .codeNotFound:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.inviteCodeNotFoundMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.inviteCodeNotFoundMessage(preferredLanguages: locale?.rLanguages)
         case .invitationAcceptingWindowClosed:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.inviteCodeInputExpiredMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.inviteEnterErrorTimeIsUp(preferredLanguages: locale?.rLanguages)
         case .inviterRegisteredAfterInvitee:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.inviteCodeParentYoungMessage())
+            title = R.string.localizable
+                .commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable
+                .inviteCodeParentYoungMessage(preferredLanguages: locale?.rLanguages)
         case .parentAlreadyExists:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.inviteCodeParentExistsMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable
+                .inviteEnterErrorAlreadyApplied(preferredLanguages: locale?.rLanguages)
         case .selfInvitation:
-            return ErrorContent(title: R.string.localizable.errorTitle(),
-                                message: R.string.localizable.inviteCodeSelfMessage())
+            title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.inviteCodeSelfMessage(preferredLanguages: locale?.rLanguages)
         }
+
+        return ErrorContent(title: title, message: message)
     }
 }

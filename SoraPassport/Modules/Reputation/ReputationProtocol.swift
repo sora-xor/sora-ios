@@ -13,7 +13,7 @@ protocol ReputationViewProtocol: ControllerBackedProtocol {
 }
 
 protocol ReputationPresenterProtocol: class {
-    func viewIsReady()
+    func setup()
     func viewDidAppear()
 }
 

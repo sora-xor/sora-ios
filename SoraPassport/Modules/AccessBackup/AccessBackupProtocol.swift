@@ -10,7 +10,7 @@ protocol AccessBackupViewProtocol: ControllerBackedProtocol {
 }
 
 protocol AccessBackupPresenterProtocol: class {
-    func viewIsReady()
+    func setup()
     func activateSharing()
     func activateNext()
 }

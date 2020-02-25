@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class AccessRestorePresenter {
     static let maxMnemonicLength: UInt = 150
@@ -38,13 +39,24 @@ extension AccessRestorePresenter: AccessRestoreInteractorOutputProtocol {
     func didReceiveRestoreAccess(error: Error) {
         view?.didStopLoading()
 
-        if wireframe.present(error: error, from: view) {
+        let locale = localizationManager?.selectedLocale
+
+        if wireframe.present(error: error, from: view, locale: locale) {
             return
         }
 
-        wireframe.present(message: R.string.localizable.accessRestorePhraseErrorMessage(),
-                          title: R.string.localizable.errorTitle(),
-                          closeAction: R.string.localizable.close(),
+        let languages = locale?.rLanguages
+
+        wireframe.present(message: R.string.localizable
+            .accessRestorePhraseErrorMessage(preferredLanguages: languages),
+                          title: R.string.localizable
+                            .commonErrorGeneralTitle(preferredLanguages: languages),
+                          closeAction: R.string.localizable
+                            .commonClose(preferredLanguages: languages),
                           from: view)
     }
+}
+
+extension AccessRestorePresenter: Localizable {
+    func applyLocalization() {}
 }

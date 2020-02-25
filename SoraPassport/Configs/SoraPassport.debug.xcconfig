@@ -1,0 +1,6 @@
+#include "../../Pods/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"
+
+OTHER_SWIFT_FLAGS = $(inherited) "-DENABLE_UITUNNEL" "-DF_DEV"
+
+SORA_APPLICATION_CONFIG = Release
+SORA_NAME = Sora

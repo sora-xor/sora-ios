@@ -1,10 +1,918 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
+import Cuckoo
+@testable import SoraPassport
+@testable import SoraFoundation
+
+import Foundation
+
+
+public class MockDayChangeHandlerDelegate: DayChangeHandlerDelegate, Cuckoo.ProtocolMock {
+    
+    public typealias MocksType = DayChangeHandlerDelegate
+    
+    public typealias Stubbing = __StubbingProxy_DayChangeHandlerDelegate
+    public typealias Verification = __VerificationProxy_DayChangeHandlerDelegate
+
+    public let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
+
+    
+    private var __defaultImplStub: DayChangeHandlerDelegate?
+
+    public func enableDefaultImplementation(_ stub: DayChangeHandlerDelegate) {
+        __defaultImplStub = stub
+        cuckoo_manager.enableDefaultStubImplementation()
+    }
+    
+
+    
+
+    
+
+    
+    
+    
+    public func handlerDidReceiveChange(_ handler: DayChangeHandlerProtocol)  {
+        
+    return cuckoo_manager.call("handlerDidReceiveChange(_: DayChangeHandlerProtocol)",
+            parameters: (handler),
+            escapingParameters: (handler),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.handlerDidReceiveChange(handler))
+        
+    }
+    
+
+	public struct __StubbingProxy_DayChangeHandlerDelegate: Cuckoo.StubbingProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	
+	    public init(manager: Cuckoo.MockManager) {
+	        self.cuckoo_manager = manager
+	    }
+	    
+	    
+	    func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(DayChangeHandlerProtocol)> where M1.MatchedType == DayChangeHandlerProtocol {
+	        let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockDayChangeHandlerDelegate.self, method: "handlerDidReceiveChange(_: DayChangeHandlerProtocol)", parameterMatchers: matchers))
+	    }
+	    
+	}
+
+	public struct __VerificationProxy_DayChangeHandlerDelegate: Cuckoo.VerificationProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	    private let callMatcher: Cuckoo.CallMatcher
+	    private let sourceLocation: Cuckoo.SourceLocation
+	
+	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+	        self.cuckoo_manager = manager
+	        self.callMatcher = callMatcher
+	        self.sourceLocation = sourceLocation
+	    }
+	
+	    
+	
+	    
+	    @discardableResult
+	    func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.__DoNotUse<(DayChangeHandlerProtocol), Void> where M1.MatchedType == DayChangeHandlerProtocol {
+	        let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
+	        return cuckoo_manager.verify("handlerDidReceiveChange(_: DayChangeHandlerProtocol)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	}
+}
+
+public class DayChangeHandlerDelegateStub: DayChangeHandlerDelegate {
+    
+
+    
+
+    
+    public func handlerDidReceiveChange(_ handler: DayChangeHandlerProtocol)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+}
+
+
+
+public class MockDayChangeHandlerProtocol: DayChangeHandlerProtocol, Cuckoo.ProtocolMock {
+    
+    public typealias MocksType = DayChangeHandlerProtocol
+    
+    public typealias Stubbing = __StubbingProxy_DayChangeHandlerProtocol
+    public typealias Verification = __VerificationProxy_DayChangeHandlerProtocol
+
+    public let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
+
+    
+    private var __defaultImplStub: DayChangeHandlerProtocol?
+
+    public func enableDefaultImplementation(_ stub: DayChangeHandlerProtocol) {
+        __defaultImplStub = stub
+        cuckoo_manager.enableDefaultStubImplementation()
+    }
+    
+
+    
+    
+    
+    public var delegate: DayChangeHandlerDelegate? {
+        get {
+            return cuckoo_manager.getter("delegate",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.delegate)
+        }
+        
+        set {
+            cuckoo_manager.setter("delegate",
+                value: newValue,
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.delegate = newValue)
+        }
+        
+    }
+    
+
+    
+
+    
+
+	public struct __StubbingProxy_DayChangeHandlerProtocol: Cuckoo.StubbingProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	
+	    public init(manager: Cuckoo.MockManager) {
+	        self.cuckoo_manager = manager
+	    }
+	    
+	    
+	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockDayChangeHandlerProtocol, DayChangeHandlerDelegate> {
+	        return .init(manager: cuckoo_manager, name: "delegate")
+	    }
+	    
+	    
+	}
+
+	public struct __VerificationProxy_DayChangeHandlerProtocol: Cuckoo.VerificationProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	    private let callMatcher: Cuckoo.CallMatcher
+	    private let sourceLocation: Cuckoo.SourceLocation
+	
+	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+	        self.cuckoo_manager = manager
+	        self.callMatcher = callMatcher
+	        self.sourceLocation = sourceLocation
+	    }
+	
+	    
+	    
+	    var delegate: Cuckoo.VerifyOptionalProperty<DayChangeHandlerDelegate> {
+	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	
+	    
+	}
+}
+
+public class DayChangeHandlerProtocolStub: DayChangeHandlerProtocol {
+    
+    
+    public var delegate: DayChangeHandlerDelegate? {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (DayChangeHandlerDelegate?).self)
+        }
+        
+        set { }
+        
+    }
+    
+
+    
+
+    
+}
+
 
 import Cuckoo
 @testable import SoraPassport
+@testable import SoraFoundation
+
+import UIKit
+
+
+public class MockApplicationHandlerDelegate: ApplicationHandlerDelegate, Cuckoo.ProtocolMock {
+    
+    public typealias MocksType = ApplicationHandlerDelegate
+    
+    public typealias Stubbing = __StubbingProxy_ApplicationHandlerDelegate
+    public typealias Verification = __VerificationProxy_ApplicationHandlerDelegate
+
+    public let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
+
+    
+    private var __defaultImplStub: ApplicationHandlerDelegate?
+
+    public func enableDefaultImplementation(_ stub: ApplicationHandlerDelegate) {
+        __defaultImplStub = stub
+        cuckoo_manager.enableDefaultStubImplementation()
+    }
+    
+
+    
+
+    
+
+    
+    
+    
+    public func didReceiveWillResignActive(notification: Notification)  {
+        
+    return cuckoo_manager.call("didReceiveWillResignActive(notification: Notification)",
+            parameters: (notification),
+            escapingParameters: (notification),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.didReceiveWillResignActive!(notification: notification))
+        
+    }
+    
+    
+    
+    public func didReceiveDidBecomeActive(notification: Notification)  {
+        
+    return cuckoo_manager.call("didReceiveDidBecomeActive(notification: Notification)",
+            parameters: (notification),
+            escapingParameters: (notification),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.didReceiveDidBecomeActive!(notification: notification))
+        
+    }
+    
+    
+    
+    public func didReceiveWillEnterForeground(notification: Notification)  {
+        
+    return cuckoo_manager.call("didReceiveWillEnterForeground(notification: Notification)",
+            parameters: (notification),
+            escapingParameters: (notification),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.didReceiveWillEnterForeground!(notification: notification))
+        
+    }
+    
+    
+    
+    public func didReceiveDidEnterBackground(notification: Notification)  {
+        
+    return cuckoo_manager.call("didReceiveDidEnterBackground(notification: Notification)",
+            parameters: (notification),
+            escapingParameters: (notification),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.didReceiveDidEnterBackground!(notification: notification))
+        
+    }
+    
+
+	public struct __StubbingProxy_ApplicationHandlerDelegate: Cuckoo.StubbingProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	
+	    public init(manager: Cuckoo.MockManager) {
+	        self.cuckoo_manager = manager
+	    }
+	    
+	    
+	    func didReceiveWillResignActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
+	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveWillResignActive(notification: Notification)", parameterMatchers: matchers))
+	    }
+	    
+	    func didReceiveDidBecomeActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
+	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveDidBecomeActive(notification: Notification)", parameterMatchers: matchers))
+	    }
+	    
+	    func didReceiveWillEnterForeground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
+	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveWillEnterForeground(notification: Notification)", parameterMatchers: matchers))
+	    }
+	    
+	    func didReceiveDidEnterBackground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
+	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveDidEnterBackground(notification: Notification)", parameterMatchers: matchers))
+	    }
+	    
+	}
+
+	public struct __VerificationProxy_ApplicationHandlerDelegate: Cuckoo.VerificationProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	    private let callMatcher: Cuckoo.CallMatcher
+	    private let sourceLocation: Cuckoo.SourceLocation
+	
+	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+	        self.cuckoo_manager = manager
+	        self.callMatcher = callMatcher
+	        self.sourceLocation = sourceLocation
+	    }
+	
+	    
+	
+	    
+	    @discardableResult
+	    func didReceiveWillResignActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
+	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+	        return cuckoo_manager.verify("didReceiveWillResignActive(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
+	    func didReceiveDidBecomeActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
+	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+	        return cuckoo_manager.verify("didReceiveDidBecomeActive(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
+	    func didReceiveWillEnterForeground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
+	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+	        return cuckoo_manager.verify("didReceiveWillEnterForeground(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
+	    func didReceiveDidEnterBackground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
+	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+	        return cuckoo_manager.verify("didReceiveDidEnterBackground(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	}
+}
+
+public class ApplicationHandlerDelegateStub: ApplicationHandlerDelegate {
+    
+
+    
+
+    
+    public func didReceiveWillResignActive(notification: Notification)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+    public func didReceiveDidBecomeActive(notification: Notification)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+    public func didReceiveWillEnterForeground(notification: Notification)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+    public func didReceiveDidEnterBackground(notification: Notification)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+}
+
+
+
+public class MockApplicationHandlerProtocol: ApplicationHandlerProtocol, Cuckoo.ProtocolMock {
+    
+    public typealias MocksType = ApplicationHandlerProtocol
+    
+    public typealias Stubbing = __StubbingProxy_ApplicationHandlerProtocol
+    public typealias Verification = __VerificationProxy_ApplicationHandlerProtocol
+
+    public let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
+
+    
+    private var __defaultImplStub: ApplicationHandlerProtocol?
+
+    public func enableDefaultImplementation(_ stub: ApplicationHandlerProtocol) {
+        __defaultImplStub = stub
+        cuckoo_manager.enableDefaultStubImplementation()
+    }
+    
+
+    
+    
+    
+    public var delegate: ApplicationHandlerDelegate? {
+        get {
+            return cuckoo_manager.getter("delegate",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.delegate)
+        }
+        
+        set {
+            cuckoo_manager.setter("delegate",
+                value: newValue,
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.delegate = newValue)
+        }
+        
+    }
+    
+
+    
+
+    
+
+	public struct __StubbingProxy_ApplicationHandlerProtocol: Cuckoo.StubbingProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	
+	    public init(manager: Cuckoo.MockManager) {
+	        self.cuckoo_manager = manager
+	    }
+	    
+	    
+	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockApplicationHandlerProtocol, ApplicationHandlerDelegate> {
+	        return .init(manager: cuckoo_manager, name: "delegate")
+	    }
+	    
+	    
+	}
+
+	public struct __VerificationProxy_ApplicationHandlerProtocol: Cuckoo.VerificationProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	    private let callMatcher: Cuckoo.CallMatcher
+	    private let sourceLocation: Cuckoo.SourceLocation
+	
+	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+	        self.cuckoo_manager = manager
+	        self.callMatcher = callMatcher
+	        self.sourceLocation = sourceLocation
+	    }
+	
+	    
+	    
+	    var delegate: Cuckoo.VerifyOptionalProperty<ApplicationHandlerDelegate> {
+	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	
+	    
+	}
+}
+
+public class ApplicationHandlerProtocolStub: ApplicationHandlerProtocol {
+    
+    
+    public var delegate: ApplicationHandlerDelegate? {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (ApplicationHandlerDelegate?).self)
+        }
+        
+        set { }
+        
+    }
+    
+
+    
+
+    
+}
+
+
+import Cuckoo
+@testable import SoraPassport
+@testable import SoraFoundation
+
+import Foundation
+
+
+public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.ProtocolMock {
+    
+    public typealias MocksType = CountdownTimerProtocol
+    
+    public typealias Stubbing = __StubbingProxy_CountdownTimerProtocol
+    public typealias Verification = __VerificationProxy_CountdownTimerProtocol
+
+    public let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
+
+    
+    private var __defaultImplStub: CountdownTimerProtocol?
+
+    public func enableDefaultImplementation(_ stub: CountdownTimerProtocol) {
+        __defaultImplStub = stub
+        cuckoo_manager.enableDefaultStubImplementation()
+    }
+    
+
+    
+    
+    
+    public var delegate: CountdownTimerDelegate? {
+        get {
+            return cuckoo_manager.getter("delegate",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.delegate)
+        }
+        
+        set {
+            cuckoo_manager.setter("delegate",
+                value: newValue,
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.delegate = newValue)
+        }
+        
+    }
+    
+    
+    
+    public var state: CountdownTimerState {
+        get {
+            return cuckoo_manager.getter("state",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.state)
+        }
+        
+    }
+    
+    
+    
+    public var notificationInterval: TimeInterval {
+        get {
+            return cuckoo_manager.getter("notificationInterval",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.notificationInterval)
+        }
+        
+    }
+    
+    
+    
+    public var remainedInterval: TimeInterval {
+        get {
+            return cuckoo_manager.getter("remainedInterval",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.remainedInterval)
+        }
+        
+    }
+    
+
+    
+
+    
+    
+    
+    public func start(with interval: TimeInterval)  {
+        
+    return cuckoo_manager.call("start(with: TimeInterval)",
+            parameters: (interval),
+            escapingParameters: (interval),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.start(with: interval))
+        
+    }
+    
+    
+    
+    public func stop()  {
+        
+    return cuckoo_manager.call("stop()",
+            parameters: (),
+            escapingParameters: (),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.stop())
+        
+    }
+    
+
+	public struct __StubbingProxy_CountdownTimerProtocol: Cuckoo.StubbingProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	
+	    public init(manager: Cuckoo.MockManager) {
+	        self.cuckoo_manager = manager
+	    }
+	    
+	    
+	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockCountdownTimerProtocol, CountdownTimerDelegate> {
+	        return .init(manager: cuckoo_manager, name: "delegate")
+	    }
+	    
+	    
+	    var state: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, CountdownTimerState> {
+	        return .init(manager: cuckoo_manager, name: "state")
+	    }
+	    
+	    
+	    var notificationInterval: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, TimeInterval> {
+	        return .init(manager: cuckoo_manager, name: "notificationInterval")
+	    }
+	    
+	    
+	    var remainedInterval: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, TimeInterval> {
+	        return .init(manager: cuckoo_manager, name: "remainedInterval")
+	    }
+	    
+	    
+	    func start<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method: "start(with: TimeInterval)", parameterMatchers: matchers))
+	    }
+	    
+	    func stop() -> Cuckoo.ProtocolStubNoReturnFunction<()> {
+	        let matchers: [Cuckoo.ParameterMatcher<Void>] = []
+	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method: "stop()", parameterMatchers: matchers))
+	    }
+	    
+	}
+
+	public struct __VerificationProxy_CountdownTimerProtocol: Cuckoo.VerificationProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	    private let callMatcher: Cuckoo.CallMatcher
+	    private let sourceLocation: Cuckoo.SourceLocation
+	
+	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+	        self.cuckoo_manager = manager
+	        self.callMatcher = callMatcher
+	        self.sourceLocation = sourceLocation
+	    }
+	
+	    
+	    
+	    var delegate: Cuckoo.VerifyOptionalProperty<CountdownTimerDelegate> {
+	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
+	    var state: Cuckoo.VerifyReadOnlyProperty<CountdownTimerState> {
+	        return .init(manager: cuckoo_manager, name: "state", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
+	    var notificationInterval: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
+	        return .init(manager: cuckoo_manager, name: "notificationInterval", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
+	    var remainedInterval: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
+	        return .init(manager: cuckoo_manager, name: "remainedInterval", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	
+	    
+	    @discardableResult
+	    func start<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
+	        return cuckoo_manager.verify("start(with: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
+	    func stop() -> Cuckoo.__DoNotUse<(), Void> {
+	        let matchers: [Cuckoo.ParameterMatcher<Void>] = []
+	        return cuckoo_manager.verify("stop()", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	}
+}
+
+public class CountdownTimerProtocolStub: CountdownTimerProtocol {
+    
+    
+    public var delegate: CountdownTimerDelegate? {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (CountdownTimerDelegate?).self)
+        }
+        
+        set { }
+        
+    }
+    
+    
+    public var state: CountdownTimerState {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (CountdownTimerState).self)
+        }
+        
+    }
+    
+    
+    public var notificationInterval: TimeInterval {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (TimeInterval).self)
+        }
+        
+    }
+    
+    
+    public var remainedInterval: TimeInterval {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (TimeInterval).self)
+        }
+        
+    }
+    
+
+    
+
+    
+    public func start(with interval: TimeInterval)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+    public func stop()   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+}
+
+
+
+public class MockCountdownTimerDelegate: CountdownTimerDelegate, Cuckoo.ProtocolMock {
+    
+    public typealias MocksType = CountdownTimerDelegate
+    
+    public typealias Stubbing = __StubbingProxy_CountdownTimerDelegate
+    public typealias Verification = __VerificationProxy_CountdownTimerDelegate
+
+    public let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
+
+    
+    private var __defaultImplStub: CountdownTimerDelegate?
+
+    public func enableDefaultImplementation(_ stub: CountdownTimerDelegate) {
+        __defaultImplStub = stub
+        cuckoo_manager.enableDefaultStubImplementation()
+    }
+    
+
+    
+
+    
+
+    
+    
+    
+    public func didStart(with interval: TimeInterval)  {
+        
+    return cuckoo_manager.call("didStart(with: TimeInterval)",
+            parameters: (interval),
+            escapingParameters: (interval),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.didStart(with: interval))
+        
+    }
+    
+    
+    
+    public func didCountdown(remainedInterval: TimeInterval)  {
+        
+    return cuckoo_manager.call("didCountdown(remainedInterval: TimeInterval)",
+            parameters: (remainedInterval),
+            escapingParameters: (remainedInterval),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.didCountdown(remainedInterval: remainedInterval))
+        
+    }
+    
+    
+    
+    public func didStop(with remainedInterval: TimeInterval)  {
+        
+    return cuckoo_manager.call("didStop(with: TimeInterval)",
+            parameters: (remainedInterval),
+            escapingParameters: (remainedInterval),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.didStop(with: remainedInterval))
+        
+    }
+    
+
+	public struct __StubbingProxy_CountdownTimerDelegate: Cuckoo.StubbingProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	
+	    public init(manager: Cuckoo.MockManager) {
+	        self.cuckoo_manager = manager
+	    }
+	    
+	    
+	    func didStart<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method: "didStart(with: TimeInterval)", parameterMatchers: matchers))
+	    }
+	    
+	    func didCountdown<M1: Cuckoo.Matchable>(remainedInterval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method: "didCountdown(remainedInterval: TimeInterval)", parameterMatchers: matchers))
+	    }
+	    
+	    func didStop<M1: Cuckoo.Matchable>(with remainedInterval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method: "didStop(with: TimeInterval)", parameterMatchers: matchers))
+	    }
+	    
+	}
+
+	public struct __VerificationProxy_CountdownTimerDelegate: Cuckoo.VerificationProxy {
+	    private let cuckoo_manager: Cuckoo.MockManager
+	    private let callMatcher: Cuckoo.CallMatcher
+	    private let sourceLocation: Cuckoo.SourceLocation
+	
+	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+	        self.cuckoo_manager = manager
+	        self.callMatcher = callMatcher
+	        self.sourceLocation = sourceLocation
+	    }
+	
+	    
+	
+	    
+	    @discardableResult
+	    func didStart<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
+	        return cuckoo_manager.verify("didStart(with: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
+	    func didCountdown<M1: Cuckoo.Matchable>(remainedInterval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
+	        return cuckoo_manager.verify("didCountdown(remainedInterval: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
+	    func didStop<M1: Cuckoo.Matchable>(with remainedInterval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
+	        return cuckoo_manager.verify("didStop(with: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	}
+}
+
+public class CountdownTimerDelegateStub: CountdownTimerDelegate {
+    
+
+    
+
+    
+    public func didStart(with interval: TimeInterval)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+    public func didCountdown(remainedInterval: TimeInterval)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+    public func didStop(with remainedInterval: TimeInterval)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+}
+
+
+import Cuckoo
+@testable import SoraPassport
+@testable import SoraFoundation
 
 import Foundation
 import os
@@ -616,1237 +1524,7 @@ import os
 
 import Cuckoo
 @testable import SoraPassport
-
-import UIKit
-
-
-public class MockApplicationHandlerDelegate: ApplicationHandlerDelegate, Cuckoo.ProtocolMock {
-    
-    public typealias MocksType = ApplicationHandlerDelegate
-    
-    public typealias Stubbing = __StubbingProxy_ApplicationHandlerDelegate
-    public typealias Verification = __VerificationProxy_ApplicationHandlerDelegate
-
-    public let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
-
-    
-    private var __defaultImplStub: ApplicationHandlerDelegate?
-
-    public func enableDefaultImplementation(_ stub: ApplicationHandlerDelegate) {
-        __defaultImplStub = stub
-        cuckoo_manager.enableDefaultStubImplementation()
-    }
-    
-
-    
-
-    
-
-    
-    
-    
-    public func didReceiveWillResignActive(notification: Notification)  {
-        
-    return cuckoo_manager.call("didReceiveWillResignActive(notification: Notification)",
-            parameters: (notification),
-            escapingParameters: (notification),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.didReceiveWillResignActive!(notification: notification))
-        
-    }
-    
-    
-    
-    public func didReceiveDidBecomeActive(notification: Notification)  {
-        
-    return cuckoo_manager.call("didReceiveDidBecomeActive(notification: Notification)",
-            parameters: (notification),
-            escapingParameters: (notification),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.didReceiveDidBecomeActive!(notification: notification))
-        
-    }
-    
-    
-    
-    public func didReceiveWillEnterForeground(notification: Notification)  {
-        
-    return cuckoo_manager.call("didReceiveWillEnterForeground(notification: Notification)",
-            parameters: (notification),
-            escapingParameters: (notification),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.didReceiveWillEnterForeground!(notification: notification))
-        
-    }
-    
-    
-    
-    public func didReceiveDidEnterBackground(notification: Notification)  {
-        
-    return cuckoo_manager.call("didReceiveDidEnterBackground(notification: Notification)",
-            parameters: (notification),
-            escapingParameters: (notification),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.didReceiveDidEnterBackground!(notification: notification))
-        
-    }
-    
-
-	public struct __StubbingProxy_ApplicationHandlerDelegate: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	    public init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    func didReceiveWillResignActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveWillResignActive(notification: Notification)", parameterMatchers: matchers))
-	    }
-	    
-	    func didReceiveDidBecomeActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveDidBecomeActive(notification: Notification)", parameterMatchers: matchers))
-	    }
-	    
-	    func didReceiveWillEnterForeground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveWillEnterForeground(notification: Notification)", parameterMatchers: matchers))
-	    }
-	    
-	    func didReceiveDidEnterBackground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveDidEnterBackground(notification: Notification)", parameterMatchers: matchers))
-	    }
-	    
-	}
-
-	public struct __VerificationProxy_ApplicationHandlerDelegate: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	
-	    
-	    @discardableResult
-	    func didReceiveWillResignActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return cuckoo_manager.verify("didReceiveWillResignActive(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didReceiveDidBecomeActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return cuckoo_manager.verify("didReceiveDidBecomeActive(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didReceiveWillEnterForeground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return cuckoo_manager.verify("didReceiveWillEnterForeground(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didReceiveDidEnterBackground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return cuckoo_manager.verify("didReceiveDidEnterBackground(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
-}
-
-public class ApplicationHandlerDelegateStub: ApplicationHandlerDelegate {
-    
-
-    
-
-    
-    public func didReceiveWillResignActive(notification: Notification)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-    public func didReceiveDidBecomeActive(notification: Notification)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-    public func didReceiveWillEnterForeground(notification: Notification)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-    public func didReceiveDidEnterBackground(notification: Notification)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-}
-
-
-
- class MockApplicationHandlerProtocol: ApplicationHandlerProtocol, Cuckoo.ProtocolMock {
-    
-     typealias MocksType = ApplicationHandlerProtocol
-    
-     typealias Stubbing = __StubbingProxy_ApplicationHandlerProtocol
-     typealias Verification = __VerificationProxy_ApplicationHandlerProtocol
-
-     let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
-
-    
-    private var __defaultImplStub: ApplicationHandlerProtocol?
-
-     func enableDefaultImplementation(_ stub: ApplicationHandlerProtocol) {
-        __defaultImplStub = stub
-        cuckoo_manager.enableDefaultStubImplementation()
-    }
-    
-
-    
-    
-    
-     var delegate: ApplicationHandlerDelegate? {
-        get {
-            return cuckoo_manager.getter("delegate",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.delegate)
-        }
-        
-        set {
-            cuckoo_manager.setter("delegate",
-                value: newValue,
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.delegate = newValue)
-        }
-        
-    }
-    
-
-    
-
-    
-
-	 struct __StubbingProxy_ApplicationHandlerProtocol: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockApplicationHandlerProtocol, ApplicationHandlerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate")
-	    }
-	    
-	    
-	}
-
-	 struct __VerificationProxy_ApplicationHandlerProtocol: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	    
-	    var delegate: Cuckoo.VerifyOptionalProperty<ApplicationHandlerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	
-	    
-	}
-}
-
- class ApplicationHandlerProtocolStub: ApplicationHandlerProtocol {
-    
-    
-     var delegate: ApplicationHandlerDelegate? {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (ApplicationHandlerDelegate?).self)
-        }
-        
-        set { }
-        
-    }
-    
-
-    
-
-    
-}
-
-
-import Cuckoo
-@testable import SoraPassport
-
-import Foundation
-
-
- class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.ProtocolMock {
-    
-     typealias MocksType = CountdownTimerProtocol
-    
-     typealias Stubbing = __StubbingProxy_CountdownTimerProtocol
-     typealias Verification = __VerificationProxy_CountdownTimerProtocol
-
-     let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
-
-    
-    private var __defaultImplStub: CountdownTimerProtocol?
-
-     func enableDefaultImplementation(_ stub: CountdownTimerProtocol) {
-        __defaultImplStub = stub
-        cuckoo_manager.enableDefaultStubImplementation()
-    }
-    
-
-    
-    
-    
-     var delegate: CountdownTimerDelegate? {
-        get {
-            return cuckoo_manager.getter("delegate",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.delegate)
-        }
-        
-        set {
-            cuckoo_manager.setter("delegate",
-                value: newValue,
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.delegate = newValue)
-        }
-        
-    }
-    
-    
-    
-     var state: CountdownTimerState {
-        get {
-            return cuckoo_manager.getter("state",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.state)
-        }
-        
-    }
-    
-    
-    
-     var notificationInterval: TimeInterval {
-        get {
-            return cuckoo_manager.getter("notificationInterval",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.notificationInterval)
-        }
-        
-    }
-    
-    
-    
-     var remainedInterval: TimeInterval {
-        get {
-            return cuckoo_manager.getter("remainedInterval",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.remainedInterval)
-        }
-        
-    }
-    
-
-    
-
-    
-    
-    
-     func start(with interval: TimeInterval)  {
-        
-    return cuckoo_manager.call("start(with: TimeInterval)",
-            parameters: (interval),
-            escapingParameters: (interval),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.start(with: interval))
-        
-    }
-    
-    
-    
-     func stop()  {
-        
-    return cuckoo_manager.call("stop()",
-            parameters: (),
-            escapingParameters: (),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.stop())
-        
-    }
-    
-
-	 struct __StubbingProxy_CountdownTimerProtocol: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockCountdownTimerProtocol, CountdownTimerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate")
-	    }
-	    
-	    
-	    var state: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, CountdownTimerState> {
-	        return .init(manager: cuckoo_manager, name: "state")
-	    }
-	    
-	    
-	    var notificationInterval: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "notificationInterval")
-	    }
-	    
-	    
-	    var remainedInterval: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "remainedInterval")
-	    }
-	    
-	    
-	    func start<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method: "start(with: TimeInterval)", parameterMatchers: matchers))
-	    }
-	    
-	    func stop() -> Cuckoo.ProtocolStubNoReturnFunction<()> {
-	        let matchers: [Cuckoo.ParameterMatcher<Void>] = []
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method: "stop()", parameterMatchers: matchers))
-	    }
-	    
-	}
-
-	 struct __VerificationProxy_CountdownTimerProtocol: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	    
-	    var delegate: Cuckoo.VerifyOptionalProperty<CountdownTimerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var state: Cuckoo.VerifyReadOnlyProperty<CountdownTimerState> {
-	        return .init(manager: cuckoo_manager, name: "state", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var notificationInterval: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "notificationInterval", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var remainedInterval: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "remainedInterval", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	
-	    
-	    @discardableResult
-	    func start<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
-	        return cuckoo_manager.verify("start(with: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func stop() -> Cuckoo.__DoNotUse<(), Void> {
-	        let matchers: [Cuckoo.ParameterMatcher<Void>] = []
-	        return cuckoo_manager.verify("stop()", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
-}
-
- class CountdownTimerProtocolStub: CountdownTimerProtocol {
-    
-    
-     var delegate: CountdownTimerDelegate? {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (CountdownTimerDelegate?).self)
-        }
-        
-        set { }
-        
-    }
-    
-    
-     var state: CountdownTimerState {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (CountdownTimerState).self)
-        }
-        
-    }
-    
-    
-     var notificationInterval: TimeInterval {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (TimeInterval).self)
-        }
-        
-    }
-    
-    
-     var remainedInterval: TimeInterval {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (TimeInterval).self)
-        }
-        
-    }
-    
-
-    
-
-    
-     func start(with interval: TimeInterval)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-     func stop()   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-}
-
-
-
- class MockCountdownTimerDelegate: CountdownTimerDelegate, Cuckoo.ProtocolMock {
-    
-     typealias MocksType = CountdownTimerDelegate
-    
-     typealias Stubbing = __StubbingProxy_CountdownTimerDelegate
-     typealias Verification = __VerificationProxy_CountdownTimerDelegate
-
-     let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
-
-    
-    private var __defaultImplStub: CountdownTimerDelegate?
-
-     func enableDefaultImplementation(_ stub: CountdownTimerDelegate) {
-        __defaultImplStub = stub
-        cuckoo_manager.enableDefaultStubImplementation()
-    }
-    
-
-    
-
-    
-
-    
-    
-    
-     func didStart(with interval: TimeInterval)  {
-        
-    return cuckoo_manager.call("didStart(with: TimeInterval)",
-            parameters: (interval),
-            escapingParameters: (interval),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.didStart(with: interval))
-        
-    }
-    
-    
-    
-     func didCountdown(remainedInterval: TimeInterval)  {
-        
-    return cuckoo_manager.call("didCountdown(remainedInterval: TimeInterval)",
-            parameters: (remainedInterval),
-            escapingParameters: (remainedInterval),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.didCountdown(remainedInterval: remainedInterval))
-        
-    }
-    
-    
-    
-     func didStop(with remainedInterval: TimeInterval)  {
-        
-    return cuckoo_manager.call("didStop(with: TimeInterval)",
-            parameters: (remainedInterval),
-            escapingParameters: (remainedInterval),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.didStop(with: remainedInterval))
-        
-    }
-    
-
-	 struct __StubbingProxy_CountdownTimerDelegate: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    func didStart<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method: "didStart(with: TimeInterval)", parameterMatchers: matchers))
-	    }
-	    
-	    func didCountdown<M1: Cuckoo.Matchable>(remainedInterval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method: "didCountdown(remainedInterval: TimeInterval)", parameterMatchers: matchers))
-	    }
-	    
-	    func didStop<M1: Cuckoo.Matchable>(with remainedInterval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method: "didStop(with: TimeInterval)", parameterMatchers: matchers))
-	    }
-	    
-	}
-
-	 struct __VerificationProxy_CountdownTimerDelegate: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	
-	    
-	    @discardableResult
-	    func didStart<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
-	        return cuckoo_manager.verify("didStart(with: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didCountdown<M1: Cuckoo.Matchable>(remainedInterval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
-	        return cuckoo_manager.verify("didCountdown(remainedInterval: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didStop<M1: Cuckoo.Matchable>(with remainedInterval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
-	        return cuckoo_manager.verify("didStop(with: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
-}
-
- class CountdownTimerDelegateStub: CountdownTimerDelegate {
-    
-
-    
-
-    
-     func didStart(with interval: TimeInterval)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-     func didCountdown(remainedInterval: TimeInterval)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-     func didStop(with remainedInterval: TimeInterval)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-}
-
-
-import Cuckoo
-@testable import SoraPassport
-
-import Foundation
-
-
- class MockDayChangeHandlerDelegate: DayChangeHandlerDelegate, Cuckoo.ProtocolMock {
-    
-     typealias MocksType = DayChangeHandlerDelegate
-    
-     typealias Stubbing = __StubbingProxy_DayChangeHandlerDelegate
-     typealias Verification = __VerificationProxy_DayChangeHandlerDelegate
-
-     let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
-
-    
-    private var __defaultImplStub: DayChangeHandlerDelegate?
-
-     func enableDefaultImplementation(_ stub: DayChangeHandlerDelegate) {
-        __defaultImplStub = stub
-        cuckoo_manager.enableDefaultStubImplementation()
-    }
-    
-
-    
-
-    
-
-    
-    
-    
-     func handlerDidReceiveChange(_ handler: DayChangeHandlerProtocol)  {
-        
-    return cuckoo_manager.call("handlerDidReceiveChange(_: DayChangeHandlerProtocol)",
-            parameters: (handler),
-            escapingParameters: (handler),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.handlerDidReceiveChange(handler))
-        
-    }
-    
-
-	 struct __StubbingProxy_DayChangeHandlerDelegate: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(DayChangeHandlerProtocol)> where M1.MatchedType == DayChangeHandlerProtocol {
-	        let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockDayChangeHandlerDelegate.self, method: "handlerDidReceiveChange(_: DayChangeHandlerProtocol)", parameterMatchers: matchers))
-	    }
-	    
-	}
-
-	 struct __VerificationProxy_DayChangeHandlerDelegate: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	
-	    
-	    @discardableResult
-	    func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.__DoNotUse<(DayChangeHandlerProtocol), Void> where M1.MatchedType == DayChangeHandlerProtocol {
-	        let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
-	        return cuckoo_manager.verify("handlerDidReceiveChange(_: DayChangeHandlerProtocol)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
-}
-
- class DayChangeHandlerDelegateStub: DayChangeHandlerDelegate {
-    
-
-    
-
-    
-     func handlerDidReceiveChange(_ handler: DayChangeHandlerProtocol)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-}
-
-
-
- class MockDayChangeHandlerProtocol: DayChangeHandlerProtocol, Cuckoo.ProtocolMock {
-    
-     typealias MocksType = DayChangeHandlerProtocol
-    
-     typealias Stubbing = __StubbingProxy_DayChangeHandlerProtocol
-     typealias Verification = __VerificationProxy_DayChangeHandlerProtocol
-
-     let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
-
-    
-    private var __defaultImplStub: DayChangeHandlerProtocol?
-
-     func enableDefaultImplementation(_ stub: DayChangeHandlerProtocol) {
-        __defaultImplStub = stub
-        cuckoo_manager.enableDefaultStubImplementation()
-    }
-    
-
-    
-    
-    
-     var delegate: DayChangeHandlerDelegate? {
-        get {
-            return cuckoo_manager.getter("delegate",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.delegate)
-        }
-        
-        set {
-            cuckoo_manager.setter("delegate",
-                value: newValue,
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.delegate = newValue)
-        }
-        
-    }
-    
-
-    
-
-    
-
-	 struct __StubbingProxy_DayChangeHandlerProtocol: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockDayChangeHandlerProtocol, DayChangeHandlerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate")
-	    }
-	    
-	    
-	}
-
-	 struct __VerificationProxy_DayChangeHandlerProtocol: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	    
-	    var delegate: Cuckoo.VerifyOptionalProperty<DayChangeHandlerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	
-	    
-	}
-}
-
- class DayChangeHandlerProtocolStub: DayChangeHandlerProtocol {
-    
-    
-     var delegate: DayChangeHandlerDelegate? {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (DayChangeHandlerDelegate?).self)
-        }
-        
-        set { }
-        
-    }
-    
-
-    
-
-    
-}
-
-
-import Cuckoo
-@testable import SoraPassport
-
-import Foundation
-import RobinHood
-
-
- class MockSynchronizableRewardCalculatorDelegate: SynchronizableRewardCalculatorDelegate, Cuckoo.ProtocolMock {
-    
-     typealias MocksType = SynchronizableRewardCalculatorDelegate
-    
-     typealias Stubbing = __StubbingProxy_SynchronizableRewardCalculatorDelegate
-     typealias Verification = __VerificationProxy_SynchronizableRewardCalculatorDelegate
-
-     let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
-
-    
-    private var __defaultImplStub: SynchronizableRewardCalculatorDelegate?
-
-     func enableDefaultImplementation(_ stub: SynchronizableRewardCalculatorDelegate) {
-        __defaultImplStub = stub
-        cuckoo_manager.enableDefaultStubImplementation()
-    }
-    
-
-    
-
-    
-
-    
-    
-    
-     func didSynchronize(calculator: SynchronizableRewardCalculatorProtocol)  {
-        
-    return cuckoo_manager.call("didSynchronize(calculator: SynchronizableRewardCalculatorProtocol)",
-            parameters: (calculator),
-            escapingParameters: (calculator),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.didSynchronize(calculator: calculator))
-        
-    }
-    
-    
-    
-     func didFail(synchronizer: SynchronizableRewardCalculatorProtocol, with error: Error)  {
-        
-    return cuckoo_manager.call("didFail(synchronizer: SynchronizableRewardCalculatorProtocol, with: Error)",
-            parameters: (synchronizer, error),
-            escapingParameters: (synchronizer, error),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.didFail(synchronizer: synchronizer, with: error))
-        
-    }
-    
-
-	 struct __StubbingProxy_SynchronizableRewardCalculatorDelegate: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    func didSynchronize<M1: Cuckoo.Matchable>(calculator: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(SynchronizableRewardCalculatorProtocol)> where M1.MatchedType == SynchronizableRewardCalculatorProtocol {
-	        let matchers: [Cuckoo.ParameterMatcher<(SynchronizableRewardCalculatorProtocol)>] = [wrap(matchable: calculator) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockSynchronizableRewardCalculatorDelegate.self, method: "didSynchronize(calculator: SynchronizableRewardCalculatorProtocol)", parameterMatchers: matchers))
-	    }
-	    
-	    func didFail<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(synchronizer: M1, with error: M2) -> Cuckoo.ProtocolStubNoReturnFunction<(SynchronizableRewardCalculatorProtocol, Error)> where M1.MatchedType == SynchronizableRewardCalculatorProtocol, M2.MatchedType == Error {
-	        let matchers: [Cuckoo.ParameterMatcher<(SynchronizableRewardCalculatorProtocol, Error)>] = [wrap(matchable: synchronizer) { $0.0 }, wrap(matchable: error) { $0.1 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockSynchronizableRewardCalculatorDelegate.self, method: "didFail(synchronizer: SynchronizableRewardCalculatorProtocol, with: Error)", parameterMatchers: matchers))
-	    }
-	    
-	}
-
-	 struct __VerificationProxy_SynchronizableRewardCalculatorDelegate: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	
-	    
-	    @discardableResult
-	    func didSynchronize<M1: Cuckoo.Matchable>(calculator: M1) -> Cuckoo.__DoNotUse<(SynchronizableRewardCalculatorProtocol), Void> where M1.MatchedType == SynchronizableRewardCalculatorProtocol {
-	        let matchers: [Cuckoo.ParameterMatcher<(SynchronizableRewardCalculatorProtocol)>] = [wrap(matchable: calculator) { $0 }]
-	        return cuckoo_manager.verify("didSynchronize(calculator: SynchronizableRewardCalculatorProtocol)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didFail<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(synchronizer: M1, with error: M2) -> Cuckoo.__DoNotUse<(SynchronizableRewardCalculatorProtocol, Error), Void> where M1.MatchedType == SynchronizableRewardCalculatorProtocol, M2.MatchedType == Error {
-	        let matchers: [Cuckoo.ParameterMatcher<(SynchronizableRewardCalculatorProtocol, Error)>] = [wrap(matchable: synchronizer) { $0.0 }, wrap(matchable: error) { $0.1 }]
-	        return cuckoo_manager.verify("didFail(synchronizer: SynchronizableRewardCalculatorProtocol, with: Error)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
-}
-
- class SynchronizableRewardCalculatorDelegateStub: SynchronizableRewardCalculatorDelegate {
-    
-
-    
-
-    
-     func didSynchronize(calculator: SynchronizableRewardCalculatorProtocol)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-     func didFail(synchronizer: SynchronizableRewardCalculatorProtocol, with error: Error)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-}
-
-
-
- class MockSynchronizableRewardCalculatorProtocol: SynchronizableRewardCalculatorProtocol, Cuckoo.ProtocolMock {
-    
-     typealias MocksType = SynchronizableRewardCalculatorProtocol
-    
-     typealias Stubbing = __StubbingProxy_SynchronizableRewardCalculatorProtocol
-     typealias Verification = __VerificationProxy_SynchronizableRewardCalculatorProtocol
-
-     let cuckoo_manager = Cuckoo.MockManager.preconfiguredManager ?? Cuckoo.MockManager(hasParent: false)
-
-    
-    private var __defaultImplStub: SynchronizableRewardCalculatorProtocol?
-
-     func enableDefaultImplementation(_ stub: SynchronizableRewardCalculatorProtocol) {
-        __defaultImplStub = stub
-        cuckoo_manager.enableDefaultStubImplementation()
-    }
-    
-
-    
-    
-    
-     var delegate: SynchronizableRewardCalculatorDelegate? {
-        get {
-            return cuckoo_manager.getter("delegate",
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.delegate)
-        }
-        
-        set {
-            cuckoo_manager.setter("delegate",
-                value: newValue,
-                superclassCall:
-                    
-                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                    ,
-                defaultCall: __defaultImplStub!.delegate = newValue)
-        }
-        
-    }
-    
-
-    
-
-    
-    
-    
-     func setup()  {
-        
-    return cuckoo_manager.call("setup()",
-            parameters: (),
-            escapingParameters: (),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.setup())
-        
-    }
-    
-    
-    
-     func calculate(for value: Double) throws -> Double {
-        
-    return try cuckoo_manager.callThrows("calculate(for: Double) throws -> Double",
-            parameters: (value),
-            escapingParameters: (value),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.calculate(for: value))
-        
-    }
-    
-    
-    
-     func formatedCalculation(for value: Double) throws -> String {
-        
-    return try cuckoo_manager.callThrows("formatedCalculation(for: Double) throws -> String",
-            parameters: (value),
-            escapingParameters: (value),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.formatedCalculation(for: value))
-        
-    }
-    
-
-	 struct __StubbingProxy_SynchronizableRewardCalculatorProtocol: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockSynchronizableRewardCalculatorProtocol, SynchronizableRewardCalculatorDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate")
-	    }
-	    
-	    
-	    func setup() -> Cuckoo.ProtocolStubNoReturnFunction<()> {
-	        let matchers: [Cuckoo.ParameterMatcher<Void>] = []
-	        return .init(stub: cuckoo_manager.createStub(for: MockSynchronizableRewardCalculatorProtocol.self, method: "setup()", parameterMatchers: matchers))
-	    }
-	    
-	    func calculate<M1: Cuckoo.Matchable>(for value: M1) -> Cuckoo.ProtocolStubThrowingFunction<(Double), Double> where M1.MatchedType == Double {
-	        let matchers: [Cuckoo.ParameterMatcher<(Double)>] = [wrap(matchable: value) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockSynchronizableRewardCalculatorProtocol.self, method: "calculate(for: Double) throws -> Double", parameterMatchers: matchers))
-	    }
-	    
-	    func formatedCalculation<M1: Cuckoo.Matchable>(for value: M1) -> Cuckoo.ProtocolStubThrowingFunction<(Double), String> where M1.MatchedType == Double {
-	        let matchers: [Cuckoo.ParameterMatcher<(Double)>] = [wrap(matchable: value) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockSynchronizableRewardCalculatorProtocol.self, method: "formatedCalculation(for: Double) throws -> String", parameterMatchers: matchers))
-	    }
-	    
-	}
-
-	 struct __VerificationProxy_SynchronizableRewardCalculatorProtocol: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	    
-	    var delegate: Cuckoo.VerifyOptionalProperty<SynchronizableRewardCalculatorDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	
-	    
-	    @discardableResult
-	    func setup() -> Cuckoo.__DoNotUse<(), Void> {
-	        let matchers: [Cuckoo.ParameterMatcher<Void>] = []
-	        return cuckoo_manager.verify("setup()", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func calculate<M1: Cuckoo.Matchable>(for value: M1) -> Cuckoo.__DoNotUse<(Double), Double> where M1.MatchedType == Double {
-	        let matchers: [Cuckoo.ParameterMatcher<(Double)>] = [wrap(matchable: value) { $0 }]
-	        return cuckoo_manager.verify("calculate(for: Double) throws -> Double", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func formatedCalculation<M1: Cuckoo.Matchable>(for value: M1) -> Cuckoo.__DoNotUse<(Double), String> where M1.MatchedType == Double {
-	        let matchers: [Cuckoo.ParameterMatcher<(Double)>] = [wrap(matchable: value) { $0 }]
-	        return cuckoo_manager.verify("formatedCalculation(for: Double) throws -> String", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
-}
-
- class SynchronizableRewardCalculatorProtocolStub: SynchronizableRewardCalculatorProtocol {
-    
-    
-     var delegate: SynchronizableRewardCalculatorDelegate? {
-        get {
-            return DefaultValueRegistry.defaultValue(for: (SynchronizableRewardCalculatorDelegate?).self)
-        }
-        
-        set { }
-        
-    }
-    
-
-    
-
-    
-     func setup()   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-     func calculate(for value: Double) throws -> Double  {
-        return DefaultValueRegistry.defaultValue(for: (Double).self)
-    }
-    
-     func formatedCalculation(for value: Double) throws -> String  {
-        return DefaultValueRegistry.defaultValue(for: (String).self)
-    }
-    
-}
-
-
-import Cuckoo
-@testable import SoraPassport
+@testable import SoraFoundation
 
 import Foundation
 import RobinHood
@@ -1975,6 +1653,7 @@ import SoraCrypto
 
 import Cuckoo
 @testable import SoraPassport
+@testable import SoraFoundation
 
 import Foundation
 import RobinHood
@@ -2306,21 +1985,6 @@ import RobinHood
     
     
     
-     func fetchInvitationCodeOperation(_ urlTemplate: String) -> NetworkOperation<InvitationCodeData> {
-        
-    return cuckoo_manager.call("fetchInvitationCodeOperation(_: String) -> NetworkOperation<InvitationCodeData>",
-            parameters: (urlTemplate),
-            escapingParameters: (urlTemplate),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.fetchInvitationCodeOperation(urlTemplate))
-        
-    }
-    
-    
-    
      func applyInvitationCodeOperation(_ urlTemplate: String, code: String) -> NetworkOperation<Void> {
         
     return cuckoo_manager.call("applyInvitationCodeOperation(_: String, code: String) -> NetworkOperation<Void>",
@@ -2331,21 +1995,6 @@ import RobinHood
                 Cuckoo.MockManager.crashOnProtocolSuperclassCall()
                 ,
             defaultCall: __defaultImplStub!.applyInvitationCodeOperation(urlTemplate, code: code))
-        
-    }
-    
-    
-    
-     func markAsUsedOperation(_ urlTemplate: String, invitationCode: String) -> NetworkOperation<Bool> {
-        
-    return cuckoo_manager.call("markAsUsedOperation(_: String, invitationCode: String) -> NetworkOperation<Bool>",
-            parameters: (urlTemplate, invitationCode),
-            escapingParameters: (urlTemplate, invitationCode),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.markAsUsedOperation(urlTemplate, invitationCode: invitationCode))
         
     }
     
@@ -2468,19 +2117,9 @@ import RobinHood
 	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "updateCustomerOperation(_: String, info: PersonalInfo) -> NetworkOperation<Bool>", parameterMatchers: matchers))
 	    }
 	    
-	    func fetchInvitationCodeOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<InvitationCodeData>> where M1.MatchedType == String {
-	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "fetchInvitationCodeOperation(_: String) -> NetworkOperation<InvitationCodeData>", parameterMatchers: matchers))
-	    }
-	    
 	    func applyInvitationCodeOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, code: M2) -> Cuckoo.ProtocolStubFunction<(String, String), NetworkOperation<Void>> where M1.MatchedType == String, M2.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: code) { $0.1 }]
 	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "applyInvitationCodeOperation(_: String, code: String) -> NetworkOperation<Void>", parameterMatchers: matchers))
-	    }
-	    
-	    func markAsUsedOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, invitationCode: M2) -> Cuckoo.ProtocolStubFunction<(String, String), NetworkOperation<Bool>> where M1.MatchedType == String, M2.MatchedType == String {
-	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: invitationCode) { $0.1 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockProjectAccountOperationFactoryProtocol.self, method: "markAsUsedOperation(_: String, invitationCode: String) -> NetworkOperation<Bool>", parameterMatchers: matchers))
 	    }
 	    
 	    func checkInvitation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, deviceInfo: M2) -> Cuckoo.ProtocolStubFunction<(String, DeviceInfo), NetworkOperation<InvitationCheckData>> where M1.MatchedType == String, M2.MatchedType == DeviceInfo {
@@ -2554,21 +2193,9 @@ import RobinHood
 	    }
 	    
 	    @discardableResult
-	    func fetchInvitationCodeOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<InvitationCodeData>> where M1.MatchedType == String {
-	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
-	        return cuckoo_manager.verify("fetchInvitationCodeOperation(_: String) -> NetworkOperation<InvitationCodeData>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
 	    func applyInvitationCodeOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, code: M2) -> Cuckoo.__DoNotUse<(String, String), NetworkOperation<Void>> where M1.MatchedType == String, M2.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: code) { $0.1 }]
 	        return cuckoo_manager.verify("applyInvitationCodeOperation(_: String, code: String) -> NetworkOperation<Void>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func markAsUsedOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(_ urlTemplate: M1, invitationCode: M2) -> Cuckoo.__DoNotUse<(String, String), NetworkOperation<Bool>> where M1.MatchedType == String, M2.MatchedType == String {
-	        let matchers: [Cuckoo.ParameterMatcher<(String, String)>] = [wrap(matchable: urlTemplate) { $0.0 }, wrap(matchable: invitationCode) { $0.1 }]
-	        return cuckoo_manager.verify("markAsUsedOperation(_: String, invitationCode: String) -> NetworkOperation<Bool>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
 	    }
 	    
 	    @discardableResult
@@ -2632,16 +2259,8 @@ import RobinHood
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<Bool>).self)
     }
     
-     func fetchInvitationCodeOperation(_ urlTemplate: String) -> NetworkOperation<InvitationCodeData>  {
-        return DefaultValueRegistry.defaultValue(for: (NetworkOperation<InvitationCodeData>).self)
-    }
-    
      func applyInvitationCodeOperation(_ urlTemplate: String, code: String) -> NetworkOperation<Void>  {
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<Void>).self)
-    }
-    
-     func markAsUsedOperation(_ urlTemplate: String, invitationCode: String) -> NetworkOperation<Bool>  {
-        return DefaultValueRegistry.defaultValue(for: (NetworkOperation<Bool>).self)
     }
     
      func checkInvitation(_ urlTemplate: String, deviceInfo: DeviceInfo) -> NetworkOperation<InvitationCheckData>  {
@@ -2914,6 +2533,7 @@ import RobinHood
 
 import Cuckoo
 @testable import SoraPassport
+@testable import SoraFoundation
 
 import Foundation
 import Reachability

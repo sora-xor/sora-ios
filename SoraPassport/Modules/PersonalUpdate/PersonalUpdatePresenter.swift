@@ -31,12 +31,15 @@ final class PersonalUpdatePresenter {
 
     private(set) var dataLoadingState: DataLoadingState = .waitingCached
 
-    init(viewModelFactory: PersonalInfoViewModelFactoryProtocol) {
+    let locale: Locale
+
+    init(locale: Locale, viewModelFactory: PersonalInfoViewModelFactoryProtocol) {
+        self.locale = locale
         self.viewModelFactory = viewModelFactory
     }
 
     private func updateViewModel() {
-        let models = viewModelFactory.createViewModels(from: userData)
+        let models = viewModelFactory.createViewModels(from: userData, locale: locale)
         models[ViewModelIndex.phone.rawValue].enabled = false
         self.models = models
 
@@ -71,14 +74,14 @@ final class PersonalUpdatePresenter {
     }
 
     private func handleDataProvider(error: Error) {
-        if wireframe.present(error: error, from: view) {
+        if wireframe.present(error: error, from: view, locale: locale) {
             return
         }
     }
 }
 
 extension PersonalUpdatePresenter: PersonalUpdatePresenterProtocol {
-    func viewIsReady() {
+    func setup() {
         view?.didStartLoading()
 
         interactor.setup()
@@ -146,7 +149,7 @@ extension PersonalUpdatePresenter: PersonalUpdateInteractorOutputProtocol {
         view?.didStopLoading()
         view?.didCompleteSaving(success: false)
 
-        if wireframe.present(error: error, from: view) {
+        if wireframe.present(error: error, from: view, locale: locale) {
             return
         }
     }

@@ -4,6 +4,7 @@
 */
 
 import UIKit
+import SoraFoundation
 
 final class ProfileViewController: UIViewController, HiddableBarWhenPushed {
     private struct Constants {
@@ -12,6 +13,7 @@ final class ProfileViewController: UIViewController, HiddableBarWhenPushed {
 
     var presenter: ProfilePresenterProtocol!
 
+    @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var scrollView: UIScrollView!
     @IBOutlet private var tableView: UITableView!
     @IBOutlet private var tableViewHeightConstraint: NSLayoutConstraint!
@@ -23,10 +25,11 @@ final class ProfileViewController: UIViewController, HiddableBarWhenPushed {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        setupLocalization()
         configureTableView()
         setupCompactBar(with: .initial)
 
-        presenter.viewIsReady()
+        presenter.setup()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -127,6 +130,23 @@ extension ProfileViewController: SoraCompactNavigationBarFloating {
     }
 
     var compactBarTitle: String? {
-        return R.string.localizable.tabbarProfileTitle()
+        let languages = localizationManager?.preferredLocalizations
+        return R.string.localizable.tabbarProfileTitle(preferredLanguages: languages)
+    }
+}
+
+extension ProfileViewController: Localizable {
+    private func setupLocalization() {
+        let languages = localizationManager?.preferredLocalizations
+        titleLabel.text = R.string.localizable.profileTitle(preferredLanguages: languages)
+    }
+
+    func applyLocalization() {
+        if isViewLoaded {
+            setupLocalization()
+            view.setNeedsLayout()
+
+            reloadCompactBar()
+        }
     }
 }

@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class ReputationPresenter {
 	weak var view: ReputationViewProtocol?
@@ -14,25 +15,30 @@ final class ReputationPresenter {
     let reputationDelayFactory: ReputationDelayFactoryProtocol
     let votesFormatter: NumberFormatter
     let integerFormatter: NumberFormatter
+    let locale: Locale
+
     private lazy var timer: CountdownTimerProtocol = {
         return CountdownTimer(delegate: self)
     }()
 
     var logger: LoggerProtocol?
 
-    init(viewModelFactory: ReputationViewModelFactoryProtocol,
+    init(locale: Locale,
+         viewModelFactory: ReputationViewModelFactoryProtocol,
          reputationDelayFactory: ReputationDelayFactoryProtocol,
          votesFormatter: NumberFormatter,
          integerFormatter: NumberFormatter) {
+        self.locale = locale
         self.votesFormatter = votesFormatter
         self.integerFormatter = integerFormatter
+
         self.viewModelFactory = viewModelFactory
         self.reputationDelayFactory = reputationDelayFactory
     }
 }
 
 extension ReputationPresenter: ReputationPresenterProtocol {
-    func viewIsReady() {
+    func setup() {
         interactor.setup()
     }
 
@@ -50,7 +56,10 @@ extension ReputationPresenter: ReputationInteractorOutputProtocol {
 
             timer.stop()
 
-            let details = R.string.localizable.reputationDetailsFormat(rankString, ranksCountString)
+            let details = R.string.localizable
+                .reputationTotalRankTemplate(rankString,
+                                             ranksCountString,
+                                             preferredLanguages: locale.rLanguages)
 
             view?.set(existingRankDetails: details)
 
@@ -81,7 +90,8 @@ extension ReputationPresenter: ReputationInteractorOutputProtocol {
     func didReceive(votesData: VotesData) {
         if let lastVotes = votesData.lastReceived, let decimalVotes = Decimal(string: lastVotes),
             let formattedVotes = votesFormatter.string(from: decimalVotes as NSNumber) {
-            let votesDetails = R.string.localizable.reputationVotesDetails(formattedVotes)
+            let votesDetails = R.string.localizable
+                .reputationLastVotesTemplate(formattedVotes, preferredLanguages: locale.rLanguages)
             view?.set(votesDetails: votesDetails)
         }
     }
@@ -93,17 +103,20 @@ extension ReputationPresenter: ReputationInteractorOutputProtocol {
 
 extension ReputationPresenter: CountdownTimerDelegate {
     func didStart(with interval: TimeInterval) {
-        let details = viewModelFactory.createEmptyRankTitle(for: interval)
+        let details = viewModelFactory.createEmptyRankTitle(for: interval,
+                                                            locale: locale)
         view?.set(emptyRankDetails: details)
     }
 
     func didCountdown(remainedInterval: TimeInterval) {
-        let details = viewModelFactory.createEmptyRankTitle(for: remainedInterval)
+        let details = viewModelFactory.createEmptyRankTitle(for: remainedInterval,
+                                                            locale: locale)
         view?.set(emptyRankDetails: details)
     }
 
     func didStop(with remainedInterval: TimeInterval) {
-        let details = viewModelFactory.createEmptyRankTitle(for: remainedInterval)
+        let details = viewModelFactory.createEmptyRankTitle(for: remainedInterval,
+                                                            locale: locale)
         view?.set(emptyRankDetails: details)
 
         interactor.refresh()

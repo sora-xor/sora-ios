@@ -12,6 +12,6 @@ protocol SelectionListViewProtocol: ControllerBackedProtocol {
 protocol SelectionListPresenterProtocol: class {
     var numberOfItems: Int { get }
 
-    func item(at index: Int) -> SelectionListViewModelProtocol
+    func item(at index: Int) -> SelectableViewModelProtocol
     func selectItem(at index: Int)
 }

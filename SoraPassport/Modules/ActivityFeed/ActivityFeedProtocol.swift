@@ -4,22 +4,18 @@
 */
 
 import Foundation
-import RobinHood
 import SoraUI
-
-typealias ActivityFeedViewModelChange =
-    SectionedListDifference<ActivityFeedSectionViewModel, ActivityFeedOneOfItemViewModel>
 
 protocol ActivityFeedViewProtocol: ControllerBackedProtocol {
     var itemLayoutMetadataContainer: ActivityFeedLayoutMetadataContainer { get }
     var announcementLayoutMetadata: AnnouncementItemLayoutMetadata { get }
 
-    func didReceive(using viewModelChangeBlock: @escaping () -> [ActivityFeedViewModelChange])
+    func didReceive(using viewModelChangeBlock: @escaping () -> ActivityFeedStateChange)
     func didReload(announcement: AnnouncementItemViewModelProtocol?)
 }
 
-protocol ActivityFeedPresenterProtocol: EmptyStateDelegate {
-    func viewIsReady()
+protocol ActivityFeedPresenterProtocol: class {
+    func setup()
     func viewDidAppear()
     func reload() -> Bool
     func loadNext() -> Bool

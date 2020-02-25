@@ -4,6 +4,7 @@
 */
 
 import UIKit
+import SoraFoundation
 
 public enum ActionPresentationConstants {
     public static let transitionDuration: TimeInterval = 0.25

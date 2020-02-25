@@ -15,7 +15,6 @@ class InvitationInteractorTests: NetworkBaseTests {
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
         ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
         ProjectsInvitedMock.register(mock: .successWithParent, projectUnit: projectUnit)
-        ProjectsFetchInvitationCodeMock.register(mock: .success, projectUnit: projectUnit)
 
         // when
 
@@ -39,7 +38,6 @@ class InvitationInteractorTests: NetworkBaseTests {
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
         ProjectsCustomerMock.register(mock: .successWithExpiredParentMoment, projectUnit: projectUnit)
         ProjectsInvitedMock.register(mock: .successWithoutParent, projectUnit: projectUnit)
-        ProjectsFetchInvitationCodeMock.register(mock: .success, projectUnit: projectUnit)
 
         // when
 
@@ -63,7 +61,6 @@ class InvitationInteractorTests: NetworkBaseTests {
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
         ProjectsCustomerMock.register(mock: .successWithoutParent, projectUnit: projectUnit)
         ProjectsInvitedMock.register(mock: .successWithoutParent, projectUnit: projectUnit)
-        ProjectsFetchInvitationCodeMock.register(mock: .success, projectUnit: projectUnit)
 
         // when
 
@@ -126,7 +123,7 @@ class InvitationInteractorTests: NetworkBaseTests {
             when(stub).didChange(accessoryTitle: any(), at: any()).thenDoNothing()
         }
 
-        presenter.viewIsReady(with: .default)
+        presenter.setup(with: .default)
         presenter.viewDidAppear()
 
         // then
@@ -208,7 +205,7 @@ class InvitationInteractorTests: NetworkBaseTests {
             }
         }
 
-        presenter.viewIsReady(with: .default)
+        presenter.setup(with: .default)
         presenter.viewDidAppear()
 
         // then
@@ -235,23 +232,20 @@ class InvitationInteractorTests: NetworkBaseTests {
         let mockedRequestSigner = createDummyRequestSigner()
         let invitationFactory = InvitationFactory(host: ApplicationConfig.shared.invitationHostURL)
 
-        let invitationViewModelFactory = InvitationViewModelFactory(integerFormatter: NumberFormatter.anyInteger)
+        let integerFormatter = NumberFormatter.anyInteger.localizableResource()
+        let invitationViewModelFactory = InvitationViewModelFactory(integerFormatter: integerFormatter)
         let timerFactory = CountdownTimerFactory()
 
         let presenter = InvitationPresenter(invitationViewModelFactory: invitationViewModelFactory,
                                             timerFactory: timerFactory,
                                             invitationFactory: invitationFactory)
 
-        let projectService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
-        projectService.requestSigner = mockedRequestSigner
-
         let coreDataFacade = CoreDataCacheTestFacade()
         let customerFacade = CustomerDataProviderFacade()
         customerFacade.coreDataCacheFacade = coreDataFacade
         customerFacade.requestSigner = mockedRequestSigner
 
-        let interactor = InvitationInteractor(service: projectService,
-                                              customerDataProviderFacade: customerFacade,
+        let interactor = InvitationInteractor(customerDataProviderFacade: customerFacade,
                                               eventCenter: eventCenter)
 
         presenter.view = view

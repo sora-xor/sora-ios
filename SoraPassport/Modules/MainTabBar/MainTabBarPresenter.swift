@@ -23,7 +23,7 @@ final class MainTabBarPresenter {
 }
 
 extension MainTabBarPresenter: MainTabBarPresenterProtocol {
-    func viewIsReady() {
+    func setup() {
         children.forEach { $0.setup() }
 
         if shouldRequestNotificationConfiguration {

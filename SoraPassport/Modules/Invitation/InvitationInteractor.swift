@@ -9,21 +9,11 @@ import RobinHood
 final class InvitationInteractor {
     weak var presenter: InvitationInteractorOutputProtocol?
 
-    private(set) var projectUnitService: ProjectUnitServiceProtocol
     private(set) var customerDataProviderFacade: CustomerDataProviderFacadeProtocol
     private(set) var eventCenter: EventCenterProtocol
 
-    private var invitationCodeOperation: Operation?
-    private var markOperation: Operation?
-
-    deinit {
-        invitationCodeOperation?.cancel()
-    }
-
-    init(service: ProjectUnitServiceProtocol,
-         customerDataProviderFacade: CustomerDataProviderFacadeProtocol,
+    init(customerDataProviderFacade: CustomerDataProviderFacadeProtocol,
          eventCenter: EventCenterProtocol) {
-        self.projectUnitService = service
         self.customerDataProviderFacade = customerDataProviderFacade
         self.eventCenter = eventCenter
     }
@@ -83,21 +73,6 @@ final class InvitationInteractor {
                                                                    failing: failBlock,
                                                                    options: options)
     }
-
-    private func process(result: Result<InvitationCodeData, Error>) {
-        switch result {
-        case .success(let code):
-            presenter?.didLoad(invitationCodeData: code)
-        case .failure(let error):
-            presenter?.didReceiveInvitationCode(error: error)
-        }
-    }
-
-    private func processMark(result: Result<Bool, Error>, for invitationCode: String) {
-        if case .success = result {
-            presenter?.didMark(invitationCode: invitationCode)
-        }
-    }
 }
 
 extension InvitationInteractor: InvitationInteractorInputProtocol {
@@ -114,45 +89,6 @@ extension InvitationInteractor: InvitationInteractorInputProtocol {
 
     func refreshInvitedUsers() {
         customerDataProviderFacade.friendsDataProvider.refresh()
-    }
-
-    func loadInvitationCode() {
-        guard markOperation == nil else {
-            presenter?.didReceiveInvitationCode(error: InvitationInteractorError.invalidatingPreviousCode)
-            return
-        }
-
-        guard invitationCodeOperation == nil else {
-            return
-        }
-
-        do {
-            invitationCodeOperation = try projectUnitService
-                .fetchInvitationCode(runCompletionIn: .main) { [weak self] (optionalResult) in
-                self?.invitationCodeOperation = nil
-
-                if let result = optionalResult {
-                    self?.process(result: result)
-                }
-            }
-        } catch {
-            presenter?.didReceiveInvitationCode(error: error)
-        }
-    }
-
-    func mark(invitationCode: String) {
-        guard markOperation == nil else {
-            return
-        }
-
-        markOperation = try? projectUnitService
-            .markAsUsed(invitationCode: invitationCode, runCompletionIn: .main) { [weak self] (optionalResult) in
-                self?.markOperation = nil
-
-                if let result = optionalResult {
-                    self?.processMark(result: result, for: invitationCode)
-                }
-        }
     }
 
     func apply(invitationCode: String) {

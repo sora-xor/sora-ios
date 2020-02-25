@@ -5,8 +5,9 @@
 
 import UIKit
 import SoraUI
+import SoraFoundation
 
-final class OpenProjectCollectionViewCell: AnimatableCollectionView {
+final class OpenProjectCollectionViewCell: AnimatableCollectionView, Localizable {
     lazy var imageAppearanceAnimator: ViewAnimatorProtocol = TransitionAnimator(type: .fade)
     lazy var favoriteAnimator: ViewAnimatorProtocol = SpringAnimator()
 
@@ -31,11 +32,33 @@ final class OpenProjectCollectionViewCell: AnimatableCollectionView {
 
     // MARK: Internal Management
 
+    override func awakeFromNib() {
+        super.awakeFromNib()
+
+        setupLocalization()
+    }
+
     override func prepareForReuse() {
         super.prepareForReuse()
 
         viewModel?.imageViewModel?.cancel()
         imageView.image = nil
+    }
+
+    private func setupLocalization() {
+        let languages = localizationManager?.preferredLocalizations
+
+        newIndicatorView.imageWithTitleView?.title = R.string.localizable
+            .projectMarkNew(preferredLanguages: languages)
+    }
+
+    func applyLocalization() {
+        setupLocalization()
+
+        if superview != nil {
+            newIndicatorView.invalidateLayout()
+            setNeedsLayout()
+        }
     }
 
     // MARK: View Model Setup

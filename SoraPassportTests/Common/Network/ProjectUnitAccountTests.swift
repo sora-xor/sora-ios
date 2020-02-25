@@ -149,61 +149,6 @@ class ProjectUnitAccountServiceTests: NetworkBaseTests {
         wait(for: [expectation], timeout: Constants.networkRequestTimeout)
     }
 
-    func testInvitationFetchSuccess() {
-        // given
-        ProjectsFetchInvitationCodeMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-
-        let expectation = XCTestExpectation()
-
-        // when
-        let operation = try? service.fetchInvitationCode(runCompletionIn: .main) { (optionalResult) in
-            defer {
-                expectation.fulfill()
-            }
-
-            guard let result = optionalResult, case .success = result else {
-                XCTFail()
-                return
-            }
-        }
-
-        guard operation != nil else {
-            XCTFail()
-            return
-        }
-
-        // then
-        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
-    }
-
-    func testMarkInvitationSuccess() {
-        // given
-        ProjectsMarkInvitationMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-
-        let expectation = XCTestExpectation()
-
-        // when
-        let operation = try? service.markAsUsed(invitationCode: Constants.dummyInvitationCode,
-                                                runCompletionIn: .main) { (optionalResult) in
-                                                    defer {
-                                                        expectation.fulfill()
-                                                    }
-
-                                                    guard let result = optionalResult, case .success = result else {
-                                                        XCTFail()
-                                                        return
-                                                    }
-        }
-
-        guard operation != nil else {
-            XCTFail()
-            return
-        }
-
-        // then
-        wait(for: [expectation], timeout: Constants.networkRequestTimeout)
-    }
-
     func testInvitedSuccess() {
         performInvitedTest(for: .successWithoutParent)
         performInvitedTest(for: .successWithParent)

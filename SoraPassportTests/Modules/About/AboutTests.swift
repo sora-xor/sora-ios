@@ -26,7 +26,7 @@ class AboutTests: XCTestCase {
     func testSetupAndActivitiesSelection() {
         // given
 
-        let presenter = AboutPresenter(about: about)
+        let presenter = AboutPresenter(locale: Locale.current, about: about)
         let view = MockAboutViewProtocol()
         let wireframe = MockAboutWireframeProtocol()
 

@@ -12,10 +12,6 @@ protocol ProjectDetailsDataProviderFactoryProtocol {
 }
 
 final class ProjectDetailsDataProviderFactory {
-    private struct Constants {
-        static let domain = "co.jp.sora.project.details"
-    }
-
     private(set) var requestSigner: DARequestSigner
     private(set) var projectUnit: ServiceUnit
 
@@ -36,7 +32,7 @@ extension ProjectDetailsDataProviderFactory: ProjectDetailsDataProviderFactoryPr
         }
 
         let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
-            .createCoreDataCache(domain: Constants.domain)
+            .createCoreDataCache()
 
         let fetchDetailsBlock: () -> BaseOperation<ProjectDetailsData?> = {
             let operation = self.projectUnitOperationFactory

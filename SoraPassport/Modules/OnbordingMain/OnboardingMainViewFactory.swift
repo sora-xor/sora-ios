@@ -5,6 +5,7 @@
 
 import Foundation
 import SoraKeystore
+import SoraFoundation
 
 final class OnboardingMainViewFactory: OnboardingMainViewFactoryProtocol {
     static func createView() -> OnboardingMainViewProtocol? {
@@ -21,15 +22,36 @@ final class OnboardingMainViewFactory: OnboardingMainViewFactoryProtocol {
             return nil
         }
 
+        let locale: Locale = LocalizationManager.shared.selectedLocale
+
         let legalData = LegalData(termsUrl: applicationConfig.termsURL,
                               privacyPolicyUrl: applicationConfig.privacyPolicyURL)
 
         let view = OnboardingMainViewController(nib: R.nib.onbordingMain)
-        view.termDecorator = CompoundAttributedStringDecorator.legal
+        view.termDecorator = CompoundAttributedStringDecorator.legal(for: locale)
+        view.locale = locale
 
-        let presenter = OnboardingMainPresenter(legalData: legalData)
+        let presenter = OnboardingMainPresenter(legalData: legalData, locale: locale)
         let wireframe = OnboardingMainWireframe()
 
+        let interactor = createInteractor(for: applicationConfig,
+                                          decentralizedResolverUrl: decentralizedResolverUrl,
+                                          invitationLinkService: invitationLinkService)
+
+        view.presenter = presenter
+        presenter.view = view
+        presenter.interactor = interactor
+        presenter.wireframe = wireframe
+
+        interactor.presenter = presenter
+
+        return view
+    }
+
+    private static func createInteractor(for config: ApplicationConfigProtocol,
+                                         decentralizedResolverUrl: URL,
+                                         invitationLinkService: InvitationLinkServiceProtocol)
+        -> OnboardingMainInteractor {
         let projectOperationFactory = ProjectOperationFactory()
         let identityNetworkOperationFactory = DecentralizedResolverOperationFactory(url: decentralizedResolverUrl)
         let deviceInfoFactory = DeviceInfoFactory()
@@ -43,7 +65,7 @@ final class OnboardingMainViewFactory: OnboardingMainViewFactoryProtocol {
             deviceInfoFactory: deviceInfoFactory,
             keystore: keystore,
             settings: settings,
-            applicationConfig: applicationConfig)
+            applicationConfig: config)
 
         let interactor = OnboardingMainInteractor(onboardingPreparationService: onboardingPreparationService,
                                                   settings: settings,
@@ -51,15 +73,8 @@ final class OnboardingMainViewFactory: OnboardingMainViewFactoryProtocol {
                                                   identityNetworkOperationFactory: identityNetworkOperationFactory,
                                                   identityLocalOperationFactory: IdentityOperationFactory.self,
                                                   operationManager: OperationManager.shared)
-
-        view.presenter = presenter
-        presenter.view = view
-        presenter.interactor = interactor
-        presenter.wireframe = wireframe
-
-        interactor.presenter = presenter
         interactor.logger = Logger.shared
 
-        return view
+        return interactor
     }
 }

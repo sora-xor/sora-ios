@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class SelectCountryViewFactory: SelectCountryViewFactoryProtocol {
     static func createView() -> SelectCountryViewProtocol? {
@@ -19,6 +20,8 @@ final class SelectCountryViewFactory: SelectCountryViewFactoryProtocol {
         presenter.interactor = interactor
         presenter.wireframe = wireframe
         interactor.presenter = presenter
+
+        view.locale = LocalizationManager.shared.selectedLocale
 
         presenter.logger = Logger.shared
 

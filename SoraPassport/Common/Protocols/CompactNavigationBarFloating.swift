@@ -107,6 +107,8 @@ public protocol CompactNavigationBarFloating: CompactBarFloating {
     var compactBarTitleAttributes: [NSAttributedString.Key: Any]? { get }
     var compactBarBackground: UIImage? { get }
     var compactBarShadow: UIImage? { get }
+
+    func reloadCompactBar()
 }
 
 extension CompactNavigationBarFloating where Self: UIViewController {
@@ -126,14 +128,12 @@ extension CompactNavigationBarFloating where Self: UIViewController {
                 return barView
             }
 
-            let currentTitle = (self.compactBarTitle ?? self.title) ?? ""
             let statusBarHeight = UIApplication.shared.statusBarFrame.height
             let compactBarHeight = statusBarHeight + CompactNavigationBarFloatingConstants.defaultCompactBarHeight
             let barFrame = CGRect(origin: .zero, size: CGSize(width: view.bounds.width,
                                                               height: compactBarHeight))
 
-            let navigationBar = createDefaultBarView(with: currentTitle,
-                                                     frame: barFrame,
+            let navigationBar = createDefaultBarView(with: barFrame,
                                                      verticalInset: statusBarHeight)
             view.addSubview(navigationBar)
 
@@ -149,20 +149,35 @@ extension CompactNavigationBarFloating where Self: UIViewController {
         return nil
     }
 
-    // MARK: Private
+    func reloadCompactBar() {
+        applyStyle(to: compactBar)
+    }
 
-    private func createDefaultBarView(with title: String, frame: CGRect, verticalInset: CGFloat) -> UIView {
+    // MARK: Private Default Bar View
+
+    private var currentCompactBarTitle: String {
+        return (self.compactBarTitle ?? self.title) ?? ""
+    }
+
+    private func createDefaultBarView(with frame: CGRect, verticalInset: CGFloat) -> UIView {
         let navigationBar = CompactBarView(frame: frame)
         navigationBar.topInset = verticalInset
-        navigationBar.titleLabel.text = title
-        navigationBar.backgroundImage = compactBarBackground
-        navigationBar.shadowImage = compactBarShadow
 
-        if let titleAttributes = compactBarTitleAttributes {
-            navigationBar.titleLabel.textColor = titleAttributes[.foregroundColor] as? UIColor
-            navigationBar.titleLabel.font = titleAttributes[.font] as? UIFont
-        }
+        applyStyle(to: navigationBar)
 
         return navigationBar
+    }
+
+    private func applyStyle(to compactBarView: UIView) {
+        if let compactBarView = compactBarView as? CompactBarView {
+            compactBarView.titleLabel.text = currentCompactBarTitle
+            compactBarView.backgroundImage = compactBarBackground
+            compactBarView.shadowImage = compactBarShadow
+
+            if let titleAttributes = compactBarTitleAttributes {
+                compactBarView.titleLabel.textColor = titleAttributes[.foregroundColor] as? UIColor
+                compactBarView.titleLabel.font = titleAttributes[.font] as? UIFont
+            }
+        }
     }
 }

@@ -6,6 +6,7 @@
 import UIKit
 import SoraCrypto
 import RobinHood
+import SoraFoundation
 
 final class ActivityFeedViewFactory: ActivityFeedViewFactoryProtocol {
 	static func createView() -> ActivityFeedViewProtocol? {
@@ -13,6 +14,8 @@ final class ActivityFeedViewFactory: ActivityFeedViewFactoryProtocol {
             Logger.shared.error("Can't create decentralized resolver url")
             return nil
         }
+
+        let localizationManager = LocalizationManager.shared
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
@@ -30,10 +33,14 @@ final class ActivityFeedViewFactory: ActivityFeedViewFactoryProtocol {
                                                           dayChangeHandler: DayChangeHandler())
 
         let activityFeedViewModelFactory = ActivityFeedViewModelFactory(sectionFormatterProvider: dateFormatterProvider,
-                                                                        timestampDateFormatter: DateFormatter.timeOnly,
-                                                                        votesNumberFormatter: NumberFormatter.vote,
-                                                                        amountFormatter: NumberFormatter.amount,
-                                                                        integerFormatter: NumberFormatter.anyInteger)
+                                                                        timestampDateFormatter: DateFormatter.timeOnly
+                                                                            .localizableResource(),
+                                                                        votesNumberFormatter: NumberFormatter.vote
+                                                                            .localizableResource(),
+                                                                        amountFormatter: NumberFormatter.amount
+                                                                            .localizableResource(),
+                                                                        integerFormatter: NumberFormatter.anyInteger
+                                                                            .localizableResource())
 
         let announcementViewModelFactory = AnnouncementViewModelFactory()
 
@@ -52,6 +59,9 @@ final class ActivityFeedViewFactory: ActivityFeedViewFactoryProtocol {
         presenter.wireframe = wireframe
         interactor.presenter = presenter
 
+        view.localizationManager = localizationManager
+
+        presenter.localizationManager = localizationManager
         presenter.logger = Logger.shared
 
         return view

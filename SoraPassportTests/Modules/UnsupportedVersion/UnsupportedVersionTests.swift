@@ -15,7 +15,8 @@ class UnsupportedVersionTests: XCTestCase {
         let view = MockUnsupportedVersionViewProtocol()
 
         let supportedVersionData = SupportedVersionData(supported: false, updateUrl: Constants.dummyNetworkURL)
-        let presenter = UnsupportedVersionPresenter(supportedVersionData: supportedVersionData)
+        let presenter = UnsupportedVersionPresenter(locale: Locale.current,
+                                                    supportedVersionData: supportedVersionData)
 
         presenter.view = view
 

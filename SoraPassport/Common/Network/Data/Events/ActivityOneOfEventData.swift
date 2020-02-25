@@ -6,7 +6,6 @@
 import Foundation
 
 enum ActivityEventType: String, Codable {
-    case invitationsCredited = "UserCreditedInvitation"
     case invitationSent = "InvitationSent"
     case potentialRewardCalculated = "PotentialRewardCalculated"
     case projectCreated = "ProjectCreated"
@@ -40,7 +39,6 @@ enum ActivityOneOfEventData: Codable, Equatable {
     case votingRightsCredited(_ event: VotingRightsCreditedEventData)
     case userReputationChanged(_ event: UserReputationChangedEventData)
     case userRankChanged(_ event: UserRankChangedEventData)
-    case invitationsCredited(_ event: InvitationsCreditedEventData)
     case projectCreated(_ event: ProjectCreatedEventData)
     case projectFunded(_ event: ProjectFundedEventData)
     case projectClosed(_ event: ProjectClosedEventData)
@@ -88,9 +86,6 @@ enum ActivityOneOfEventData: Codable, Equatable {
         case .userRankChanged:
             let event = try UserRankChangedEventData(from: decoder)
             self = .userRankChanged(event)
-        case .invitationsCredited:
-            let event = try InvitationsCreditedEventData(from: decoder)
-            self = .invitationsCredited(event)
         case .projectCreated:
             let event = try ProjectCreatedEventData(from: decoder)
             self = .projectCreated(event)
@@ -155,9 +150,6 @@ enum ActivityOneOfEventData: Codable, Equatable {
         case .friendHasVoted(let event):
             try event.encode(to: encoder)
             type = .votedFriendAdded
-        case .invitationsCredited(let event):
-            try event.encode(to: encoder)
-            type = .invitationsCredited
         case .invitationSent(let event):
             try event.encode(to: encoder)
             type = .invitationSent

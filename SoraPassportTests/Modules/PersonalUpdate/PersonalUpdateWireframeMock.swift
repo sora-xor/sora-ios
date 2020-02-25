@@ -27,7 +27,7 @@ final class PersonalUpdateWireframeMock: PersonalUpdateWireframeProtocol {
         alertPresentationCalledBlock?()
     }
 
-    func present(error: Error, from view: ControllerBackedProtocol?) -> Bool {
+    func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool {
         numberOfErrorPresentationCalled += 1
 
         errorPresentationCalledBlock?()

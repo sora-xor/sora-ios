@@ -11,13 +11,16 @@ final class PhoneRegistrationPresenter {
     var interactor: PhoneRegistrationInteractorInputProtocol!
 
     let country: Country
+    let locale: Locale
 
     private(set) var viewModel: PersonalInfoViewModel
 
-    init(country: Country) {
+    init(locale: Locale, country: Country) {
         self.country = country
+        self.locale = locale
 
-        viewModel = PersonalInfoViewModel(title: R.string.localizable.phoneRegistrationInputTitle(),
+        let title = R.string.localizable.phoneNumberMobile(preferredLanguages: locale.rLanguages)
+        viewModel = PersonalInfoViewModel(title: title,
                                           value: country.dialCode,
                                           enabled: true,
                                           minLength: country.dialCode.count,
@@ -56,7 +59,7 @@ extension PhoneRegistrationPresenter: PhoneRegistrationInteractorOutputProtocol 
             return
         }
 
-        if wireframe.present(error: error, from: view) {
+        if wireframe.present(error: error, from: view, locale: locale) {
             return
         }
     }

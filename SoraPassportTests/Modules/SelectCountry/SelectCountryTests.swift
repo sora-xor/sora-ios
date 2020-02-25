@@ -32,7 +32,7 @@ class SelectCountryTests: NetworkBaseTests {
         setupExpectation.assertForOverFulfill = true
 
         stub(view) { stub in
-            when(stub).didReceive(viewModels: any([String].self)).then { _ in
+            when(stub).didReceive(state: any(ViewModelState<[String]>.self)).then { _ in
                 setupExpectation.fulfill()
             }
         }
@@ -58,7 +58,7 @@ class SelectCountryTests: NetworkBaseTests {
 
         stub(view) { stub in
             when(stub).controller.get.thenReturn(UIViewController())
-            when(stub).didReceive(viewModels: any([String].self)).thenDoNothing()
+            when(stub).didReceive(state: any(ViewModelState<[String]>.self)).thenDoNothing()
         }
 
         // then

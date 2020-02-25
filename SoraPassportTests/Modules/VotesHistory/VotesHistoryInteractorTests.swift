@@ -4,9 +4,10 @@
 */
 
 import XCTest
+@testable import SoraPassport
 import Cuckoo
 import RobinHood
-@testable import SoraPassport
+import SoraFoundation
 
 class VotesHistoryInteractorTests: NetworkBaseTests {
     func testSuccessfullSetupAndFirstPageLoading() {
@@ -71,7 +72,7 @@ class VotesHistoryInteractorTests: NetworkBaseTests {
         }
 
         // when
-        presenter.viewIsReady()
+        presenter.setup()
 
         // then
 
@@ -111,9 +112,10 @@ class VotesHistoryInteractorTests: NetworkBaseTests {
         let dateFormatterProvider = DateFormatterProvider(dateFormatterFactory: EventListDateFormatterFactory.self,
                                                           dayChangeHandler: DayChangeHandler())
 
-        let votesHistoryViewModelFactory = VotesHistoryViewModelFactory(amountFormatter: NumberFormatter.vote,
+        let votesHistoryViewModelFactory = VotesHistoryViewModelFactory(amountFormatter: NumberFormatter.vote.localizableResource(),
                                                                         dateFormatterProvider: dateFormatterProvider)
 
-        return VotesHistoryPresenter(viewModelFactory: votesHistoryViewModelFactory)
+        return VotesHistoryPresenter(locale: Locale.current,
+                                     viewModelFactory: votesHistoryViewModelFactory)
     }
 }

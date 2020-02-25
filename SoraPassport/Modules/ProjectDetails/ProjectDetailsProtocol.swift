@@ -11,7 +11,7 @@ protocol ProjectDetailsViewProtocol: ControllerBackedProtocol {
 }
 
 protocol ProjectDetailsPresenterProtocol: class {
-	func viewIsReady()
+	func setup()
     func activateVotes()
     func activateGalleryItem(at index: Int, animatedFrom animatingView: UIView?)
     func activateClose()

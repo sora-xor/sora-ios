@@ -5,6 +5,7 @@
 
 import UIKit
 import SoraKeystore
+import SoraFoundation
 
 final class StartupViewFactory: StartupViewFactoryProtocol {
 	static func createView() -> StartupViewProtocol? {
@@ -14,7 +15,7 @@ final class StartupViewFactory: StartupViewFactoryProtocol {
         }
 
         let view = StartupViewController(nib: R.nib.startupViewController)
-        let presenter = StartupPresenter()
+        let presenter = StartupPresenter(locale: LocalizationManager.shared.selectedLocale)
 
         if ReachabilityManager.shared == nil {
             Logger.shared.warning("Can't initialize reachability manager")

@@ -19,13 +19,16 @@ class LocalAuthInteractor {
     private(set) var secretManager: SecretStoreManagerProtocol
     private(set) var settingsManager: SettingsManagerProtocol
     private(set) var biometryAuth: BiometryAuthProtocol
+    private(set) var locale: Locale
 
     init(secretManager: SecretStoreManagerProtocol,
          settingsManager: SettingsManagerProtocol,
-         biometryAuth: BiometryAuthProtocol) {
+         biometryAuth: BiometryAuthProtocol,
+         locale: Locale) {
         self.secretManager = secretManager
         self.settingsManager = settingsManager
         self.biometryAuth = biometryAuth
+        self.locale = locale
     }
 
     private(set) var state = LocalAuthState.waitingPincode {
@@ -54,7 +57,7 @@ class LocalAuthInteractor {
         }
 
         biometryAuth.authenticate(
-            localizedReason: R.string.localizable.askBiometryReason(),
+            localizedReason: R.string.localizable.askBiometryReason(preferredLanguages: locale.rLanguages),
             completionQueue: DispatchQueue.main) { [weak self] (result: Bool) -> Void in
 
             self?.processBiometryAuth(result: result)

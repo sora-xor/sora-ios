@@ -23,9 +23,14 @@ final class PersonalInfoPresenter {
 
     private var models: [PersonalInfoViewModel] = []
 
-    init(viewModelFactory: PersonalInfoViewModelFactoryProtocol, personalForm: PersonalForm) {
+    let locale: Locale
+
+    init(viewModelFactory: PersonalInfoViewModelFactoryProtocol,
+         personalForm: PersonalForm,
+         locale: Locale) {
         self.personalForm = personalForm
         self.viewModelFactory = viewModelFactory
+        self.locale = locale
     }
 
     private func updatePersonalForm() {
@@ -41,16 +46,20 @@ final class PersonalInfoPresenter {
     }
 
     private func handleInvalidInvitationCode() {
-        let tryAnotherAction = AlertPresentableAction(title: R.string.localizable.tryAnother()) { [weak self] in
+        let tryAnotherAction = AlertPresentableAction(title: R.string.localizable
+            .tryAnother(preferredLanguages: locale.rLanguages)) { [weak self] in
             self?.clearInvitation()
         }
 
-        let skipAction = AlertPresentableAction(title: R.string.localizable.skip()) { [weak self] in
+        let skipAction = AlertPresentableAction(title: R.string.localizable
+            .commonSkip(preferredLanguages: locale.rLanguages)) { [weak self] in
             self?.skipInvitation()
         }
 
-        wireframe.present(message: R.string.localizable.registrationInvitationCodeInvalidMessage(),
-                          title: R.string.localizable.errorTitle(),
+        wireframe.present(message: R.string.localizable
+            .personalInfoInvitationIsInvalid(preferredLanguages: locale.rLanguages),
+                          title: R.string.localizable
+                            .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
                           actions: [tryAnotherAction, skipAction],
                           from: view)
     }
@@ -69,7 +78,8 @@ final class PersonalInfoPresenter {
 
 extension PersonalInfoPresenter: PersonalInfoPresenterProtocol {
     func load() {
-        models = viewModelFactory.createRegistrationForm(from: personalForm)
+        models = viewModelFactory.createRegistrationForm(from: personalForm,
+                                                         locale: locale)
         view?.didReceive(viewModels: models)
 
         interactor.load()
@@ -87,12 +97,13 @@ extension PersonalInfoPresenter: PersonalInfoInteractorOutputProtocol {
 
         personalForm.invitationCode = invitationCode
 
-        models = viewModelFactory.createRegistrationForm(from: personalForm)
+        models = viewModelFactory.createRegistrationForm(from: personalForm,
+                                                         locale: locale)
         view?.didReceive(viewModels: models)
 
         if invitationCode == nil {
             let footerViewModel = PersonalInfoFooterViewModel(text: R.string.localizable
-                                                                .personalInfoInvitationMessage())
+                .personalInfoInvitationDescription(preferredLanguages: locale.rLanguages))
             view?.didReceive(footerViewModel: footerViewModel)
         }
     }
@@ -110,21 +121,27 @@ extension PersonalInfoPresenter: PersonalInfoInteractorOutputProtocol {
     func didReceiveRegistration(error: Error) {
         view?.didStopLoading()
 
-        if wireframe.present(error: error, from: view) {
+        if wireframe.present(error: error, from: view, locale: locale) {
             return
         }
 
         if let registrationError = error as? RegistrationDataError {
             switch registrationError {
             case .userNotFound:
-                wireframe.present(message: R.string.localizable.registrationUserNotFoundMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .registrationUserNotFoundMessage(preferredLanguages: locale.rLanguages),
+                                  title: R.string.localizable
+                                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                                  closeAction: R.string.localizable
+                                    .commonClose(preferredLanguages: locale.rLanguages),
                                   from: view)
             case .wrongUserStatus:
-                wireframe.present(message: R.string.localizable.registrationWrongStatusMessage(),
-                                  title: R.string.localizable.errorTitle(),
-                                  closeAction: R.string.localizable.close(),
+                wireframe.present(message: R.string.localizable
+                    .registrationWrongStatusMessage(preferredLanguages: locale.rLanguages),
+                                  title: R.string.localizable
+                                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
+                                  closeAction: R.string.localizable
+                                    .commonClose(preferredLanguages: locale.rLanguages),
                                   from: view)
             case .invitationCodeNotFound:
                 handleInvalidInvitationCode()
