@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -11,28 +6,28 @@ final class AccessBackupPresenter {
     var interactor: AccessBackupInteractorInputProtocol!
     var wireframe: AccessBackupWireframeProtocol!
 
-    var phrase: String?
+    var mnemonic: String?
 }
 
 extension AccessBackupPresenter: AccessBackupPresenterProtocol {
     func setup() {
-        guard let phrase = phrase else {
+        guard let mnemonic = mnemonic else {
             interactor.load()
             return
         }
 
-        view?.didReceiveBackup(phrase: phrase)
+        view?.didReceiveBackup(mnemonic: mnemonic)
     }
 
     func activateSharing() {
-        guard let phrase = phrase else {
+        guard let mnemonic = mnemonic else {
             return
         }
 
         let languages = localizationManager?.preferredLocalizations
         let subject = R.string.localizable
             .commonPassphraseSharingSubject(preferredLanguages: languages)
-        let source = TextSharingSource(message: phrase,
+        let source = TextSharingSource(message: mnemonic,
                                        subject: subject)
 
         wireframe.share(source: source, from: view, with: nil)
@@ -44,9 +39,9 @@ extension AccessBackupPresenter: AccessBackupPresenterProtocol {
 }
 
 extension AccessBackupPresenter: AccessBackupInteractorOutputProtocol {
-    func didLoad(mnemonicPhrase: String) {
-        phrase = mnemonicPhrase
-        view?.didReceiveBackup(phrase: mnemonicPhrase)
+    func didLoad(mnemonic: String) {
+        self.mnemonic = mnemonic
+        view?.didReceiveBackup(mnemonic: mnemonic)
     }
 
     func didReceive(error: Error) {

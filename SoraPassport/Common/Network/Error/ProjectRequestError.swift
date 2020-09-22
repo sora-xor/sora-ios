@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 enum VoteDataError: Error {
@@ -21,6 +16,28 @@ enum VoteDataError: Error {
             return .votesNotEnough
         case "INCORRECT_VOTES_VALUE_FORMAT":
             return .incorrectVotesFormat
+        default:
+            return nil
+        }
+    }
+}
+
+enum ReferendumVoteDataError: Error {
+    case referendumNotFound
+    case votingNotAllowed
+    case votesNotEnough
+    case userNotFound
+
+    static func error(from status: StatusData) -> ReferendumVoteDataError? {
+        switch status.code {
+        case "REFERENDUM_NOT_FOUND":
+            return .referendumNotFound
+        case "VOTING_NOT_ALLOWED":
+            return .votingNotAllowed
+        case "VOTES_NOT_ENOUGH":
+            return .votesNotEnough
+        case "USER_NOT_FOUND":
+            return .userNotFound
         default:
             return nil
         }

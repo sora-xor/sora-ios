@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import Cuckoo
@@ -29,6 +24,8 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         let eventCenter = MockEventCenterProtocol()
         let applicationHandler = MockApplicationHandlerProtocol()
 
+        let dataStreamService = MockDataStreamServiceProtocol()
+
         stub(eventCenter) { stub in
             when(stub).add(observer: any(), dispatchIn: any()).thenDoNothing()
         }
@@ -38,13 +35,19 @@ class MainTabBarInteractorTests: NetworkBaseTests {
             when(stub).delegate.set(any()).thenDoNothing()
         }
 
+        stub(dataStreamService) { stub in
+            when(stub).setup().thenDoNothing()
+            when(stub).throttle().thenDoNothing()
+        }
+
         let interactor = MainTabBarInteractor(eventCenter: eventCenter,
                                               settings: settings,
                                               applicationConfig: applicationConfig,
                                               applicationHandler: applicationHandler,
                                               notificationRegistrator: notificationRegistration,
                                               invitationLinkService: InvitationLinkService(settings: settings),
-                                              walletContext: WalletContextMock())
+                                              walletContext: WalletContextMock(),
+                                              userServices: [dataStreamService])
 
         presenter.interactor = interactor
         interactor.presenter = presenter
@@ -67,6 +70,7 @@ class MainTabBarInteractorTests: NetworkBaseTests {
 
         // then
         verify(notificationRegistration, times(1)).registerForRemoteNotifications()
+        verify(dataStreamService, times(1)).setup()
     }
 
     func testDeepLinkHandling() {
@@ -89,6 +93,8 @@ class MainTabBarInteractorTests: NetworkBaseTests {
         let eventCenter = MockEventCenterProtocol()
         let applicationHandler = MockApplicationHandlerProtocol()
 
+        let dataStreamService = MockDataStreamServiceProtocol()
+
         stub(eventCenter) { stub in
             when(stub).add(observer: any(), dispatchIn: any()).thenDoNothing()
         }
@@ -98,13 +104,19 @@ class MainTabBarInteractorTests: NetworkBaseTests {
             when(stub).delegate.set(any()).thenDoNothing()
         }
 
+        stub(dataStreamService) { stub in
+            when(stub).setup().thenDoNothing()
+            when(stub).throttle().thenDoNothing()
+        }
+
         let interactor = MainTabBarInteractor(eventCenter: eventCenter,
                                               settings: settings,
                                               applicationConfig: applicationConfig,
                                               applicationHandler: applicationHandler,
                                               notificationRegistrator: notificationRegistration,
                                               invitationLinkService: InvitationLinkService(settings: settings),
-                                              walletContext: WalletContextMock())
+                                              walletContext: WalletContextMock(),
+                                              userServices: [dataStreamService])
 
         presenter.interactor = interactor
         interactor.presenter = presenter
@@ -146,9 +158,16 @@ class MainTabBarInteractorTests: NetworkBaseTests {
 
         let walletContext = WalletContextMock()
 
+        let dataStreamService = MockDataStreamServiceProtocol()
+
         stub(applicationHandler) { stub in
             when(stub).delegate.get.thenReturn(nil)
             when(stub).delegate.set(any()).thenDoNothing()
+        }
+
+        stub(dataStreamService) { stub in
+            when(stub).setup().thenDoNothing()
+            when(stub).throttle().thenDoNothing()
         }
 
         let interactor = MainTabBarInteractor(eventCenter: eventCenter,
@@ -157,7 +176,8 @@ class MainTabBarInteractorTests: NetworkBaseTests {
                                               applicationHandler: applicationHandler,
                                               notificationRegistrator: notificationRegistration,
                                               invitationLinkService: InvitationLinkService(settings: settings),
-                                              walletContext: walletContext)
+                                              walletContext: walletContext,
+                                              userServices: [dataStreamService])
 
         presenter.interactor = interactor
         interactor.presenter = presenter
@@ -212,8 +232,15 @@ class MainTabBarInteractorTests: NetworkBaseTests {
 
         let walletContext = WalletContextMock()
 
+        let dataStreamService = MockDataStreamServiceProtocol()
+
         stub(eventCenter) { stub in
             when(stub).add(observer: any(), dispatchIn: any()).thenDoNothing()
+        }
+
+        stub(dataStreamService) { stub in
+            when(stub).setup().thenDoNothing()
+            when(stub).throttle().thenDoNothing()
         }
 
         let interactor = MainTabBarInteractor(eventCenter: eventCenter,
@@ -222,7 +249,8 @@ class MainTabBarInteractorTests: NetworkBaseTests {
                                               applicationHandler: applicationHandler,
                                               notificationRegistrator: notificationRegistration,
                                               invitationLinkService: InvitationLinkService(settings: settings),
-                                              walletContext: walletContext)
+                                              walletContext: walletContext,
+                                              userServices: [dataStreamService])
 
         presenter.interactor = interactor
         interactor.presenter = presenter

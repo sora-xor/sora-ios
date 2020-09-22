@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SwiftyBeaver
 
@@ -47,7 +42,7 @@ final class Logger {
         #if F_DEV
             destination.minLevel = .verbose
         #elseif F_TEST
-            destination.minLevel = .verbose
+            destination.minLevel = .info
         #else
             destination.minLevel = .info
         #endif

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import SoraFoundation
@@ -12,34 +7,33 @@ final class ProjectsListPresenter {
     var interactor: ProjectsListInteractorInputProtocol!
     weak var delegate: ProjectsListPresenterDelegate?
 
-    private(set) var layoutMetadata: ProjectLayoutMetadata?
+    private(set) var projectLayoutMetadata: ProjectLayoutMetadata!
+    private(set) var referendumLayoutMetadata: ReferendumLayoutMetadata!
 
-    private(set) var viewModelFactory: ProjectViewModelFactoryProtocol
-    private var viewModels: [ProjectOneOfViewModel] = []
+    private(set) var projectsViewModelFactory: ProjectViewModelFactoryProtocol
+    private(set) var referendumViewModelFactory: ReferendumViewModelFactoryProtocol
+    private var viewModels: [VotingOneOfViewModel] = []
 
     private(set) var loadingState: ProjectDataLoadingState = .waitingCache
 
-    private var projectsDiffCalculator: ListDifferenceCalculator<ProjectData> = {
-        let sortBlock: (ProjectData, ProjectData) -> Bool = {
+    private var projectsDiffCalculator: ListDifferenceCalculator<VotingListModel> = {
+        let sortBlock: (VotingListModel, VotingListModel) -> Bool = {
             return $0.statusUpdateTime > $1.statusUpdateTime
         }
-        return ListDifferenceCalculator<ProjectData>(initialItems: [], sortBlock: sortBlock)
+        return ListDifferenceCalculator(initialItems: [], sortBlock: sortBlock)
     }()
 
     var logger: LoggerProtocol?
 
-    init(viewModelFactory: ProjectViewModelFactoryProtocol) {
-        self.viewModelFactory = viewModelFactory
+    init(projectsViewModelFactory: ProjectViewModelFactoryProtocol,
+         referendumViewModelFactory: ReferendumViewModelFactoryProtocol) {
+        self.projectsViewModelFactory = projectsViewModelFactory
+        self.referendumViewModelFactory = referendumViewModelFactory
     }
 
     private func applyModelChanges() {
-        guard let layoutMetadata = layoutMetadata else {
-            return
-        }
-
         let changes: () -> ViewModelUpdateResult = {
-            let locale = self.localizationManager?.selectedLocale ?? Locale.current
-            let diffs: [ListDifference<ProjectData>] = self.projectsDiffCalculator.lastDifferences
+            let diffs: [ListDifference<VotingListModel>] = self.projectsDiffCalculator.lastDifferences
 
             var updatedIndexes: [Int] = []
             var deletedIndexes: [Int] = []
@@ -48,20 +42,14 @@ final class ProjectsListPresenter {
             for diff in diffs {
                 switch diff {
                 case .update(let index, _, let new):
-                    let viewModel = self.viewModelFactory.create(from: new,
-                                                                 layoutMetadata: layoutMetadata,
-                                                                 delegate: self,
-                                                                 locale: locale)
+                    let viewModel = self.buildViewModel(new)
                     self.viewModels[index] = viewModel
                     updatedIndexes.append(index)
                 case .delete(let index, let old):
                     self.viewModels.removeAll { $0.identifier == old.identifier }
                     deletedIndexes.append(index)
                 case .insert(let index, let new):
-                    let viewModel = self.viewModelFactory.create(from: new,
-                                                                 layoutMetadata: layoutMetadata,
-                                                                 delegate: self,
-                                                                 locale: locale)
+                    let viewModel = self.buildViewModel(new)
                     self.viewModels.insert(viewModel, at: index)
                     insertedIndexes.append(index)
                 }
@@ -80,17 +68,9 @@ final class ProjectsListPresenter {
     }
 
     private func reloadModel() {
-        guard let layoutMetadata = layoutMetadata else {
-            return
-        }
-
         let changes: () -> Void = {
-            let locale = self.localizationManager?.selectedLocale ?? Locale.current
             self.viewModels = self.projectsDiffCalculator.allItems.map {
-                self.viewModelFactory.create(from: $0,
-                                             layoutMetadata: layoutMetadata,
-                                             delegate: self,
-                                             locale: locale)
+                self.buildViewModel($0)
             }
         }
 
@@ -100,13 +80,35 @@ final class ProjectsListPresenter {
             changes()
         }
     }
+
+    private func buildViewModel(_ model: VotingListModel) -> VotingOneOfViewModel {
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+
+        switch model {
+        case .project(let project):
+            let viewModel = projectsViewModelFactory.create(from: project,
+                                                            layoutMetadata: projectLayoutMetadata,
+                                                            delegate: self,
+                                                            locale: locale)
+            return .project(viewModel)
+        case .referendum(let referendum):
+            let viewModel = referendumViewModelFactory.create(from: referendum,
+                                                              layoutMetadata: referendumLayoutMetadata,
+                                                              delegate: self,
+                                                              locale: locale)
+            return .referendum(viewModel)
+        }
+    }
 }
 
 extension ProjectsListPresenter: ProjectsListPresenterProtocol {
-    func setup(layoutMetadata: ProjectLayoutMetadata) {
-        viewModelFactory.delegate = self
+    func setup(projectLayoutMetadata: ProjectLayoutMetadata,
+               referendumLayoutMetadata: ReferendumLayoutMetadata) {
+        projectsViewModelFactory.delegate = self
+        referendumViewModelFactory.delegate = self
 
-        self.layoutMetadata = layoutMetadata
+        self.projectLayoutMetadata = projectLayoutMetadata
+        self.referendumLayoutMetadata = referendumLayoutMetadata
 
         interactor.setup()
     }
@@ -123,14 +125,14 @@ extension ProjectsListPresenter: ProjectsListPresenterProtocol {
             $0.identifier == projectId
         }
 
-        guard var project = optionalProject  else {
+        guard case .project(var item) = optionalProject  else {
             refresh()
             return
         }
 
-        project.favorite = value
+        item.favorite = value
 
-        projectsDiffCalculator.apply(changes: [DataProviderChange.update(newItem: project)])
+        projectsDiffCalculator.apply(changes: [DataProviderChange.update(newItem: .project(item))])
         applyModelChanges()
     }
 
@@ -138,7 +140,7 @@ extension ProjectsListPresenter: ProjectsListPresenterProtocol {
         return viewModels.count
     }
 
-    func viewModel(at index: Int) -> ProjectOneOfViewModel {
+    func viewModel(at index: Int) -> VotingOneOfViewModel {
         return viewModels[index]
     }
 }
@@ -157,7 +159,9 @@ extension ProjectsListPresenter: ProjectViewModelDelegate {
     }
 
     private func vote(modelId: String) -> Bool {
-        guard let project = projectsDiffCalculator.allItems.first(where: { $0.identifier == modelId }) else {
+        guard
+            let votingModel = projectsDiffCalculator.allItems.first(where: { $0.identifier == modelId }),
+            case .project(let project) = votingModel else {
             return false
         }
 
@@ -169,12 +173,15 @@ extension ProjectsListPresenter: ProjectViewModelDelegate {
     }
 
     private func toggleFavorite(modelId: String) -> Bool {
-        guard var project = projectsDiffCalculator.allItems.first(where: { $0.identifier == modelId }) else {
+        guard
+            let model = projectsDiffCalculator.allItems.first(where: { $0.identifier == modelId }),
+            case .project(var project) = model else {
             return false
         }
 
         let optionalViewModel = viewModels.first(where: { $0.identifier == modelId })
-        guard var currentViewModel = optionalViewModel else {
+        guard let currentViewModel = optionalViewModel,
+            case .project(var projectViewModel) = currentViewModel else {
             return false
         }
 
@@ -184,9 +191,9 @@ extension ProjectsListPresenter: ProjectViewModelDelegate {
 
         if delegate.didToggleFavorite(for: project, in: self) {
             project.favorite = !project.favorite
-            projectsDiffCalculator.apply(changes: [DataProviderChange.update(newItem: project)])
+            projectsDiffCalculator.apply(changes: [DataProviderChange.update(newItem: .project(project))])
 
-            currentViewModel.isFavorite = project.favorite
+            projectViewModel.isFavorite = project.favorite
 
             return true
         } else {
@@ -195,28 +202,80 @@ extension ProjectsListPresenter: ProjectViewModelDelegate {
     }
 }
 
+extension ProjectsListPresenter: ReferendumViewModelDelegate {
+    func support(referendum: ReferendumViewModelProtocol) {
+        vote(viewModel: referendum, option: .support)
+    }
+
+    func unsupport(referendum: ReferendumViewModelProtocol) {
+        vote(viewModel: referendum, option: .unsupport)
+    }
+
+    func handleElapsedTime(for referendum: ReferendumViewModelProtocol) {
+        guard let model = projectsDiffCalculator.allItems
+            .first(where: { $0.identifier == referendum.identifier }),
+            case .referendum(let item) = model else {
+            return
+        }
+
+        delegate?.didElapsedTime(for: item, in: self)
+    }
+
+    private func vote(viewModel: ReferendumViewModelProtocol, option: ReferendumVotingCase) {
+        guard let model = projectsDiffCalculator.allItems
+            .first(where: { $0.identifier == viewModel.identifier }),
+            case .referendum(let item) = model else {
+            return
+        }
+
+        _ = delegate?.didSelectVoting(for: item,
+                                      option: option,
+                                      in: self)
+    }
+}
+
 extension ProjectsListPresenter: ProjectsListInteractorOutputProtocol {
-    func didReceiveProjects(changes: [DataProviderChange<ProjectData>], at page: UInt) {
+    func didReceiveProjects(changes: [DataProviderChange<ProjectData>]) {
         switch loadingState {
         case .waitingCache:
+            loadingState = .waitingCacheReferendums
+        case .waitingCacheProjects:
             loadingState = .loading
             interactor.refresh()
         case .loading:
+            loadingState = .loadingReferendums
+        case .loadingProjects:
             loadingState = .loaded
-        case .loaded:
-            logger?.debug("Unexpected projects refresh")
+        case .waitingCacheReferendums, .loadingReferendums, .loaded:
+            logger?.debug("Unexpected projects refresh \(loadingState)")
         }
 
-        projectsDiffCalculator.apply(changes: changes)
+        let votingChanges: [DataProviderChange<VotingListModel>] = changes.map { change in
+            switch change {
+            case .insert(let newItem):
+                return DataProviderChange.insert(newItem: .project(newItem))
+            case .update(let newItem):
+                return DataProviderChange.update(newItem: .project(newItem))
+            case .delete(let deletedIdentifier):
+                return DataProviderChange.delete(deletedIdentifier: deletedIdentifier)
+            }
+        }
+
+        projectsDiffCalculator.apply(changes: votingChanges)
 
         applyModelChanges()
     }
 
     func didReceiveProjectsDataProvider(error: Error) {
         switch loadingState {
-        case .waitingCache:
+        case .waitingCache, .waitingCacheProjects:
+            logger?.error("Did receive unexpected projects data provider: \(error)")
+        case .waitingCacheReferendums, .loadingReferendums:
             logger?.error("Did receive unexpected projects data provider: \(error)")
         case .loading:
+            loadingState = .loadingReferendums
+            logger?.debug("Did receive project data provider error: \(error)")
+        case .loadingProjects:
             loadingState = .loaded
             logger?.debug("Did receive project data provider error: \(error)")
         case .loaded:
@@ -224,12 +283,61 @@ extension ProjectsListPresenter: ProjectsListInteractorOutputProtocol {
         }
     }
 
+    func didReceiveReferendums(changes: [DataProviderChange<ReferendumData>]) {
+        switch loadingState {
+        case .waitingCache:
+            loadingState = .waitingCacheProjects
+        case .waitingCacheReferendums:
+            loadingState = .loading
+            interactor.refresh()
+        case .loading:
+            loadingState = .loadingProjects
+        case .loadingReferendums:
+            loadingState = .loaded
+        case .waitingCacheProjects, .loadingProjects, .loaded:
+            logger?.debug("Unexpected projects refresh \(loadingState)")
+        }
+
+        let votingChanges: [DataProviderChange<VotingListModel>] = changes.map { change in
+            switch change {
+            case .insert(let newItem):
+                return DataProviderChange.insert(newItem: .referendum(newItem))
+            case .update(let newItem):
+                return DataProviderChange.update(newItem: .referendum(newItem))
+            case .delete(let deletedIdentifier):
+                return DataProviderChange.delete(deletedIdentifier: deletedIdentifier)
+            }
+        }
+
+        projectsDiffCalculator.apply(changes: votingChanges)
+
+        applyModelChanges()
+    }
+
+    func didReceiveReferendumsDataProvider(error: Error) {
+        switch loadingState {
+        case .waitingCache, .waitingCacheReferendums:
+            logger?.error("Did receive unexpected referendum data provider: \(error)")
+        case .waitingCacheProjects, .loadingProjects:
+            logger?.error("Did receive unexpected projects data provider: \(error)")
+        case .loading:
+            loadingState = .loadingProjects
+        case .loadingReferendums:
+            loadingState = .loaded
+            logger?.debug("Did receive referendum data provider error: \(error)")
+        case .loaded:
+            logger?.debug("Did receive referendum data provider error: \(error)")
+        }
+    }
+
     func didViewProject(with projectId: String) {
-        guard let project = projectsDiffCalculator.allItems.first(where: { $0.identifier == projectId }) else {
+        guard
+            let model = projectsDiffCalculator.allItems.first(where: { $0.identifier == projectId }),
+            case .project(let item) = model else {
             return
         }
 
-        if project.unwatched {
+        if item.unwatched {
             interactor.refresh()
         }
     }
@@ -237,7 +345,11 @@ extension ProjectsListPresenter: ProjectsListInteractorOutputProtocol {
 
 extension ProjectsListPresenter: ProjectViewModelFactoryDelegate {
     func projectFactoryDidChange(_ factory: DynamicProjectViewModelFactoryProtocol) {
-        if layoutMetadata != nil {
+        guard let view = view else {
+            return
+        }
+
+        if view.isSetup {
             reloadModel()
         }
     }
@@ -245,7 +357,11 @@ extension ProjectsListPresenter: ProjectViewModelFactoryDelegate {
 
 extension ProjectsListPresenter: Localizable {
     func applyLocalization() {
-        if layoutMetadata != nil {
+        guard let view = view else {
+            return
+        }
+
+        if view.isSetup {
             reloadModel()
         }
     }

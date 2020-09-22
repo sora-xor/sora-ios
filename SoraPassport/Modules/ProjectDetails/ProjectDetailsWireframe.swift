@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SKPhotoBrowser
 
@@ -11,9 +6,10 @@ final class ProjectDetailsWireframe: ProjectDetailsWireframeProtocol {
 
     func showVotingView(from view: ProjectDetailsViewProtocol?,
                         with model: VoteViewModelProtocol,
+                        style: VoteViewStyle,
                         delegate: VoteViewDelegate?) {
         guard let voteController = VoteViewFactory(transitioningDelegate: inputTransitioningHandler)
-            .createVoteViewController(with: model, delegate: delegate) else {
+            .createVoteViewController(with: model, style: style, delegate: delegate) else {
                 return
         }
 

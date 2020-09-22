@@ -1,33 +1,36 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 
 class PersonalInfoViewModelFactoryTests: XCTestCase {
     func testAcceptedValues() {
-        check(for: "D", shouldAccept: true)
-        check(for: "DummyDummyDummyDummyDummyDummy", shouldAccept: true)
-        check(for: "Виталий Дементьев", shouldAccept: true)
-        check(for: "Ваш'ер-Лаграв", shouldAccept: true)
-        check(for: "姓名", shouldAccept: true)
+        check(for: "D", changes: [], resultValue: "D", expectCompletion: true)
+        check(for: "Dummy", changes: (0..<5).map({ _ in "Dummy" }), resultValue: "DummyDummyDummyDummyDummyDummy", expectCompletion: true)
+        check(for: "Виталий", changes: [" ", "Деменьтьев"], resultValue: "Виталий Деменьтьев", expectCompletion: true)
+        check(for: "Ваш", changes: ["'","ер","-Лаграв"], resultValue: "Ваш'ер-Лаграв", expectCompletion: true)
+        check(for: "姓", changes: ["名"], resultValue: "姓名", expectCompletion: true)
+        check(for: "Виталий", changes: ["-"," ", "Деменьтьев"], resultValue: "Виталий- Деменьтьев", expectCompletion: true)
     }
 
-    func testUnacceptedValue() {
-        check(for: "DummyDummyDummyDummyDummyDummyA", shouldAccept: false)
-        check(for: "Виталий, Деметьев", shouldAccept: false)
-        check(for: "Ваш`ер-Лаграв", shouldAccept: false)
-        check(for: "Ваш'ер=Лаграв", shouldAccept: false)
-        check(for: "姓2名", shouldAccept: false)
+    func testHandlingInput() {
+        check(for: "DummyDummyDummyDummyDummyDummy", changes: ["A", "B"], resultValue: "DummyDummyDummyDummyDummyDummy", expectCompletion: true)
+        check(for: "Виталий", changes: [",", " ", "Деметьев"], resultValue: "Виталий Деметьев", expectCompletion: true)
+        check(for: "Ваш", changes: ["`", "ер", "-", "Лаграв"], resultValue: "Вашер-Лаграв", expectCompletion: true)
+        check(for: "Ваш", changes: ["'", "ер", "=","Лаграв"], resultValue: "Ваш'ерЛаграв", expectCompletion: true)
+        check(for: "", changes: ["姓", "2", "名"], resultValue: "姓名", expectCompletion: true)
+        check(for: "", changes: [" ", "-", "'"], resultValue: "", expectCompletion: false)
+        check(for: "Robert", changes: [" ", "-", "'"], resultValue: "Robert -'", expectCompletion: false)
+        check(for: "Robert", changes: [" ", "-", "'", "Brown"], resultValue: "Robert -'Brown", expectCompletion: true)
+        check(for: "Robert", changes: [" "], resultValue: "Robert", expectCompletion: true)
+        check(for: "Robert ", changes: [], resultValue: "Robert", expectCompletion: true)
+        check(for: "Robert", changes: ["-"], resultValue: "Robert-", expectCompletion: false)
+        check(for: "Robert", changes: ["'"], resultValue: "Robert'", expectCompletion: false)
     }
 
     // MARK: Private
 
-    func check(for value: String, shouldAccept: Bool) {
-        let personalForm = PersonalForm(firstName: value,
-                                        lastName: value,
+    func check(for initialValue: String, changes: [String], resultValue: String, expectCompletion: Bool) {
+        let personalForm = PersonalForm(firstName: initialValue,
+                                        lastName: initialValue,
                                         countryCode: "RU",
                                         invitationCode: "")
 
@@ -35,11 +38,22 @@ class PersonalInfoViewModelFactoryTests: XCTestCase {
         let viewModel = viewModelFactory.createRegistrationForm(from: personalForm,
                                                                 locale: Locale.current)
 
-        let expectedValue = shouldAccept ? value : ""
+        changes.forEach {
+            let value = viewModel[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].inputHandler.value
+            _ = viewModel[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].inputHandler
+                    .didReceiveReplacement($0, for: NSRange(location: value.unicodeScalars.count, length: 0))
+            _ = viewModel[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue].inputHandler
+                    .didReceiveReplacement($0, for: NSRange(location: value.unicodeScalars.count, length: 0))
+        }
 
-        XCTAssertEqual(viewModel[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].value,
-                       expectedValue)
-        XCTAssertEqual(viewModel[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue].value,
-                       expectedValue)
+        XCTAssertEqual(viewModel[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].inputHandler.completed, expectCompletion,
+                       "initial: \(initialValue)\nchanges: \(changes)")
+        XCTAssertEqual(viewModel[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue].inputHandler.completed, expectCompletion,
+                       "initial: \(initialValue)\nchanges: \(changes)")
+
+        XCTAssertEqual(viewModel[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].inputHandler.normalizedValue,
+                       resultValue)
+        XCTAssertEqual(viewModel[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue].inputHandler.normalizedValue,
+                       resultValue)
     }
 }

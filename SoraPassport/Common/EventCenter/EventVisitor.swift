@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 protocol EventVisitorProtocol: class {
@@ -12,6 +7,8 @@ protocol EventVisitorProtocol: class {
     func processProjectView(event: ProjectViewEvent)
     func processInvitationInput(event: InvitationInputEvent)
     func processInvitationApplied(event: InvitationAppliedEvent)
+    func processWalletUpdate(event: WalletUpdateEvent)
+    func processReferendumVote(event: ReferendumVoteEvent)
 }
 
 extension EventVisitorProtocol {
@@ -21,4 +18,6 @@ extension EventVisitorProtocol {
     func processProjectView(event: ProjectViewEvent) {}
     func processInvitationInput(event: InvitationInputEvent) {}
     func processInvitationApplied(event: InvitationAppliedEvent) {}
+    func processWalletUpdate(event: WalletUpdateEvent) {}
+    func processReferendumVote(event: ReferendumVoteEvent) {}
 }

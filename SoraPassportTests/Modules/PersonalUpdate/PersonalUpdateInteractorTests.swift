@@ -1,11 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import Cuckoo
 import RobinHood
+import SoraFoundation
 @testable import SoraPassport
 
 class PersonalUpdateInteractorTests: NetworkBaseTests {
@@ -32,7 +28,7 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
         let updateExpectation = XCTestExpectation()
 
         stub(mockView) { stub in
-            when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).then { _ in
+            when(stub).didReceive(viewModels: any([InputViewModelProtocol].self)).then { _ in
                 setupExpectation.fulfill()
             }
 
@@ -63,8 +59,10 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
         // when
         let personalUpdateInfo = createRandomPersonalUpdateInfo()
 
-        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.firstName.rawValue].value = personalUpdateInfo.firstName ?? ""
-        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.lastName.rawValue].value = personalUpdateInfo.lastName ?? ""
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.firstName.rawValue].inputHandler
+            .changeValue(to: personalUpdateInfo.firstName ?? "")
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.lastName.rawValue].inputHandler
+            .changeValue(to: personalUpdateInfo.lastName ?? "")
 
         presenter.save()
 
@@ -94,7 +92,7 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
         let setupExpectation = XCTestExpectation()
 
         stub(mockView) { stub in
-            when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).thenDoNothing()
+            when(stub).didReceive(viewModels: any([InputViewModelProtocol].self)).thenDoNothing()
             when(stub).didStartLoading().thenDoNothing()
             when(stub).didStopLoading().thenDoNothing()
         }
@@ -139,7 +137,7 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
         let updateExpectation = XCTestExpectation()
 
         stub(mockView) { stub in
-            when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).then { _ in
+            when(stub).didReceive(viewModels: any([InputViewModelProtocol].self)).then { _ in
                 setupExpectation.fulfill()
             }
 
@@ -162,8 +160,10 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
         XCTAssertNotNil(presenter.userData)
 
-        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.firstName.rawValue].value = personalUpdateInfo.firstName ?? ""
-        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.lastName.rawValue].value = personalUpdateInfo.lastName ?? ""
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.firstName.rawValue].inputHandler
+            .changeValue(to: personalUpdateInfo.firstName ?? "")
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.lastName.rawValue].inputHandler
+            .changeValue(to: personalUpdateInfo.lastName ?? "")
 
         presenter.save()
 

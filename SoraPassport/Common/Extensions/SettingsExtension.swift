@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import IrohaCrypto
@@ -16,6 +11,8 @@ enum SettingsKey: String {
     case invitationCode
     case isCheckedInvitation
     case selectedLocalization
+    case lastStreamEventId
+    case streamToken
 }
 
 extension SettingsManagerProtocol {
@@ -24,6 +21,10 @@ extension SettingsManagerProtocol {
     }
 
     var decentralizedId: String? {
+        get {
+            return string(for: SettingsKey.decentralizedId.rawValue)
+        }
+
         set {
             if let exisingValue = newValue {
                 set(value: exisingValue, for: SettingsKey.decentralizedId.rawValue)
@@ -31,13 +32,13 @@ extension SettingsManagerProtocol {
                 removeValue(for: SettingsKey.decentralizedId.rawValue)
             }
         }
-
-        get {
-            return string(for: SettingsKey.decentralizedId.rawValue)
-        }
     }
 
     var publicKeyId: String? {
+        get {
+            string(for: SettingsKey.publicKeyId.rawValue)
+        }
+
         set {
             if let existingValue = newValue {
                 set(value: existingValue, for: SettingsKey.publicKeyId.rawValue)
@@ -45,13 +46,13 @@ extension SettingsManagerProtocol {
                 removeValue(for: SettingsKey.publicKeyId.rawValue)
             }
         }
-
-        get {
-            return string(for: SettingsKey.publicKeyId.rawValue)
-        }
     }
 
     var biometryEnabled: Bool? {
+        get {
+            bool(for: SettingsKey.biometryEnabled.rawValue)
+        }
+
         set {
             if let existingValue = newValue {
                 set(value: existingValue, for: SettingsKey.biometryEnabled.rawValue)
@@ -59,23 +60,19 @@ extension SettingsManagerProtocol {
                 removeValue(for: SettingsKey.biometryEnabled.rawValue)
             }
         }
-
-        get {
-            return bool(for: SettingsKey.biometryEnabled.rawValue)
-        }
     }
 
     var verificationState: VerificationState? {
+        get {
+            value(of: VerificationState.self, for: SettingsKey.verificationState.rawValue)
+        }
+
         set {
             if let existingValue = newValue {
                 set(value: existingValue, for: SettingsKey.verificationState.rawValue)
             } else {
                 removeValue(for: SettingsKey.verificationState.rawValue)
             }
-        }
-
-        get {
-            return value(of: VerificationState.self, for: SettingsKey.verificationState.rawValue)
         }
     }
 
@@ -84,6 +81,10 @@ extension SettingsManagerProtocol {
     }
 
     var invitationCode: String? {
+        get {
+            string(for: SettingsKey.invitationCode.rawValue)
+        }
+
         set {
             if let existingValue = newValue {
                 set(value: existingValue, for: SettingsKey.invitationCode.rawValue)
@@ -91,13 +92,13 @@ extension SettingsManagerProtocol {
                 removeValue(for: SettingsKey.invitationCode.rawValue)
             }
         }
-
-        get {
-            return string(for: SettingsKey.invitationCode.rawValue)
-        }
     }
 
     var isCheckedInvitation: Bool? {
+        get {
+            bool(for: SettingsKey.isCheckedInvitation.rawValue)
+        }
+
         set {
             if let existingValue = newValue {
                 set(value: existingValue, for: SettingsKey.isCheckedInvitation.rawValue)
@@ -105,13 +106,13 @@ extension SettingsManagerProtocol {
                 removeValue(for: SettingsKey.isCheckedInvitation.rawValue)
             }
         }
-
-        get {
-            return bool(for: SettingsKey.isCheckedInvitation.rawValue)
-        }
     }
 
     var selectedLocalization: String? {
+        get {
+            string(for: SettingsKey.selectedLocalization.rawValue)
+        }
+
         set {
             if let existingValue = newValue {
                 set(value: existingValue, for: SettingsKey.selectedLocalization.rawValue)
@@ -119,9 +120,33 @@ extension SettingsManagerProtocol {
                 removeValue(for: SettingsKey.selectedLocalization.rawValue)
             }
         }
+    }
 
+    var lastStreamEventId: String? {
         get {
-            return string(for: SettingsKey.selectedLocalization.rawValue)
+            string(for: SettingsKey.lastStreamEventId.rawValue)
+        }
+
+        set {
+            if let existingValue = newValue {
+                set(value: existingValue, for: SettingsKey.lastStreamEventId.rawValue)
+            } else {
+                removeValue(for: SettingsKey.lastStreamEventId.rawValue)
+            }
+        }
+    }
+
+    var streamToken: String? {
+        get {
+            string(for: SettingsKey.streamToken.rawValue)
+        }
+
+        set {
+            if let existingValue = newValue {
+                set(value: existingValue, for: SettingsKey.streamToken.rawValue)
+            } else {
+                removeValue(for: SettingsKey.streamToken.rawValue)
+            }
         }
     }
 }

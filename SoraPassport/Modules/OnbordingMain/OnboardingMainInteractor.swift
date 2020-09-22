@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import SoraCrypto
@@ -24,7 +19,7 @@ final class OnboardingMainInteractor {
     let onboardingPreparationService: OnboardingPreparationServiceProtocol
     private(set) var settings: SettingsManagerProtocol
     let keystore: KeystoreProtocol
-    let identityLocalOperationFactory: IdentityOperationFactoryProtocol.Type
+    let identityLocalOperationFactory: IdentityOperationFactoryProtocol
     let identityNetworkOperationFactory: DecentralizedResolverOperationFactoryProtocol
     let operationManager: OperationManagerProtocol
 
@@ -34,7 +29,7 @@ final class OnboardingMainInteractor {
          settings: SettingsManagerProtocol,
          keystore: KeystoreProtocol,
          identityNetworkOperationFactory: DecentralizedResolverOperationFactoryProtocol,
-         identityLocalOperationFactory: IdentityOperationFactoryProtocol.Type,
+         identityLocalOperationFactory: IdentityOperationFactoryProtocol,
          operationManager: OperationManagerProtocol) {
         self.onboardingPreparationService = onboardingPreparationService
         self.settings = settings
@@ -45,7 +40,7 @@ final class OnboardingMainInteractor {
     }
 
     private func createNewIdentity(dependingOn optionalVersionOperation: BaseOperation<SupportedVersionData>?) {
-        let creationOperation = identityLocalOperationFactory.createNewIdentityOperation()
+        let creationOperation = identityLocalOperationFactory.createNewIdentityOperation(with: keystore)
 
         creationOperation.configurationBlock = { [weak self] in
             if let versionOperation = optionalVersionOperation {
@@ -70,7 +65,7 @@ final class OnboardingMainInteractor {
             creationOperation.addDependency(versionOperation)
         }
 
-        operationManager.enqueue(operations: [creationOperation], in: .normal)
+        operationManager.enqueue(operations: [creationOperation], in: .transient)
 
         let submitionOperation = submitIdentity(dependingOn: creationOperation)
 
@@ -95,7 +90,7 @@ final class OnboardingMainInteractor {
 
         identitySubmitOperation.addDependency(identityCreationOperation)
 
-        operationManager.enqueue(operations: [identitySubmitOperation], in: .normal)
+        operationManager.enqueue(operations: [identitySubmitOperation], in: .transient)
 
         return identitySubmitOperation
     }
@@ -150,7 +145,7 @@ final class OnboardingMainInteractor {
             }
         }
 
-        operationManager.enqueue(operations: [saveOperation], in: .normal)
+        operationManager.enqueue(operations: [saveOperation], in: .transient)
 
         return saveOperation
     }

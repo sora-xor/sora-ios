@@ -1,9 +1,5 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
+import SoraFoundation
 
 protocol PhoneInputTableViewCellDelegate: class {
     func phoneInputCellDidChangeValue(_ cell: PhoneInputTableViewCell)
@@ -13,15 +9,15 @@ final class PhoneInputTableViewCell: UITableViewCell {
     @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var phoneNumberTextField: UITextField!
 
-    private(set) var viewModel: PersonalInfoViewModelProtocol?
+    private(set) var viewModel: InputViewModelProtocol?
 
     weak var delegate: PhoneInputTableViewCellDelegate?
 
-    func bind(viewModel: PersonalInfoViewModelProtocol) {
+    func bind(viewModel: InputViewModelProtocol) {
         self.viewModel = viewModel
 
         titleLabel.text = viewModel.title
-        phoneNumberTextField.text = viewModel.value
+        phoneNumberTextField.text = viewModel.inputHandler.value
     }
 
     func startEditing() {
@@ -33,6 +29,10 @@ final class PhoneInputTableViewCell: UITableViewCell {
     }
 
     @IBAction private func actionTextDidChange() {
+        if phoneNumberTextField.text != viewModel?.inputHandler.value {
+            phoneNumberTextField.text = viewModel?.inputHandler.value
+        }
+
         delegate?.phoneInputCellDidChangeValue(self)
     }
 }
@@ -45,11 +45,12 @@ extension PhoneInputTableViewCell: UITextFieldDelegate {
             return false
         }
 
-        if !viewModel.didReceiveReplacement(string, for: range) {
-            phoneNumberTextField.text = viewModel.value
-            return false
+        let shouldApply = viewModel.inputHandler.didReceiveReplacement(string, for: range)
+
+        if !shouldApply, phoneNumberTextField.text != viewModel.inputHandler.value {
+            phoneNumberTextField.text = viewModel.inputHandler.value
         }
 
-        return true
+        return shouldApply
     }
 }

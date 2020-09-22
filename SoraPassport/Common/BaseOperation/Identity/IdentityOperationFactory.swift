@@ -1,61 +1,60 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import RobinHood
 import SoraKeystore
 import SoraCrypto
 import IrohaCrypto
 
 protocol IdentityOperationFactoryProtocol {
-    static func createNewIdentityOperation(with keystore: KeystoreProtocol) -> IdentityCreationOperation
-    static func createRestorationOperation(with mnemonic: IRMnemonicProtocol,
-                                           keystore: KeystoreProtocol) -> IdentityRestorationOperation
-    static func createVerificationOperation() -> IdentityVerifyOperation
-    static func createVerificationOperation(with keystore: KeystoreProtocol) -> IdentityVerifyOperation
-    static func createLocalRemoveOperation() -> IdentityLocalRemoveOperation
-    static func createLocalRemoveOperation(with keystore: KeystoreProtocol,
-                                           settings: SettingsManagerProtocol) -> IdentityLocalRemoveOperation
+    func createNewIdentityOperation(with keystore: KeystoreProtocol) -> IdentityCreationOperation
+    func createRestorationOperation(with mnemonic: IRMnemonicProtocol,
+                                    keystore: KeystoreProtocol) -> IdentityRestorationOperation
+    func createCopyingOperation(oldKeystore: KeystoreProtocol, newKeystore: KeystoreProtocol) -> IdentityCopyOperation
+    func createVerificationOperation(with keystore: KeystoreProtocol) -> IdentityVerifyOperation
+    func createLocalRemoveOperation(with keystore: KeystoreProtocol,
+                                    settings: SettingsManagerProtocol) -> IdentityLocalRemoveOperation
+    func createSecondaryIdentitiesOperation(with keystore: KeystoreProtocol, skipIfExists: Bool) -> BaseOperation<Void>
 }
 
-extension IdentityOperationFactoryProtocol {
-    static func createNewIdentityOperation() -> IdentityCreationOperation {
-        return createNewIdentityOperation(with: Keychain())
+struct IdentityOperationFactory: IdentityOperationFactoryProtocol {
+
+    func createNewIdentityOperation(with keystore: KeystoreProtocol) -> IdentityCreationOperation {
+        let ethIdentityService = EthereumIdentityService()
+        return IdentityCreationOperation(keystore: keystore,
+                                         secondaryServices: [ethIdentityService])
     }
 
-    static func createRestorationOperation(with mnemonic: IRMnemonicProtocol) -> IdentityRestorationOperation {
-        return createRestorationOperation(with: mnemonic, keystore: Keychain())
+    func createRestorationOperation(with mnemonic: IRMnemonicProtocol,
+                                    keystore: KeystoreProtocol) -> IdentityRestorationOperation {
+        let ethIdentityService = EthereumIdentityService()
+        return IdentityRestorationOperation(keystore: keystore, mnemonic: mnemonic,
+                                            secondaryServices: [ethIdentityService])
     }
 
-    static func createVerificationOperation() -> IdentityVerifyOperation {
-        return createVerificationOperation(with: Keychain())
+    func createVerificationOperation(with keystore: KeystoreProtocol) -> IdentityVerifyOperation {
+        IdentityVerifyOperation(verifier: DDOVerifier.createDefault(), keystore: keystore)
     }
 
-    static func createLocalRemoveOperation() -> IdentityLocalRemoveOperation {
-        return createLocalRemoveOperation(with: Keychain(), settings: SettingsManager.shared)
-    }
-}
+    func createLocalRemoveOperation(with keystore: KeystoreProtocol,
+                                    settings: SettingsManagerProtocol) -> IdentityLocalRemoveOperation {
+        let ethIdentityService = EthereumIdentityService()
 
-final class IdentityOperationFactory: IdentityOperationFactoryProtocol {
-
-    static func createNewIdentityOperation(with keystore: KeystoreProtocol) -> IdentityCreationOperation {
-        return IdentityCreationOperation(keystore: keystore)
-    }
-
-    static func createRestorationOperation(with mnemonic: IRMnemonicProtocol,
-                                           keystore: KeystoreProtocol) -> IdentityRestorationOperation {
-        return IdentityRestorationOperation(keystore: keystore, mnemonic: mnemonic)
-    }
-
-    static func createVerificationOperation(with keystore: KeystoreProtocol) -> IdentityVerifyOperation {
-        return IdentityVerifyOperation(verifier: DDOVerifier.createDefault(),
-                                       keystore: keystore)
-    }
-
-    static func createLocalRemoveOperation(with keystore: KeystoreProtocol,
-                                           settings: SettingsManagerProtocol) -> IdentityLocalRemoveOperation {
         return IdentityLocalRemoveOperation(keystore: keystore,
-                                            settings: settings)
+                                            settings: settings,
+                                            secondaryServices: [ethIdentityService])
+    }
+
+    func createCopyingOperation(oldKeystore: KeystoreProtocol, newKeystore: KeystoreProtocol) -> IdentityCopyOperation {
+        let ethIdentityService = EthereumIdentityService()
+
+        return IdentityCopyOperation(oldKeystore: oldKeystore,
+                                     newKeystore: newKeystore,
+                                     secondaryServices: [ethIdentityService])
+    }
+
+    func createSecondaryIdentitiesOperation(with keystore: KeystoreProtocol,
+                                            skipIfExists: Bool) -> BaseOperation<Void> {
+        return ClosureOperation {
+            try EthereumIdentityService().createIdentity(using: keystore, skipIfExists: skipIfExists)
+        }
     }
 }

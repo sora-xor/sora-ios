@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 extension UIColor {
@@ -22,6 +17,10 @@ extension UIColor {
                        green: 159.0 / 255.0,
                        blue: 158.0 / 255.0,
                        alpha: 1.0)
+    }
+
+    static var silver: UIColor {
+        return UIColor(red: 0.459, green: 0.471, blue: 0.482, alpha: 1)
     }
 
     static var darkRed: UIColor {

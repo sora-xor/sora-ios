@@ -1,10 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
+import CommonWallet
 
 extension NetworkResponseError: ErrorContentConvertible {
     func toErrorContent(for locale: Locale?) -> ErrorContent {
@@ -44,5 +40,12 @@ extension NetworkResponseError: ErrorContentConvertible {
         }
 
         return ErrorContent(title: title, message: message)
+    }
+}
+
+extension NetworkResponseError: WalletErrorContentConvertible {
+    public func toErrorContent(for locale: Locale?) -> WalletErrorContentProtocol {
+        let errorContent: ErrorContent = toErrorContent(for: locale)
+        return errorContent
     }
 }

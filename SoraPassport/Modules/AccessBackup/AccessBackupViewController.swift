@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 import SoraFoundation
@@ -74,7 +69,7 @@ final class AccessBackupViewController: AccessoryViewController {
 }
 
 extension AccessBackupViewController: AccessBackupViewProtocol {
-    func didReceiveBackup(phrase: String) {
-        phraseLabel.text = phrase
+    func didReceiveBackup(mnemonic: String) {
+        phraseLabel.text = mnemonic
     }
 }

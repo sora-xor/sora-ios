@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -225,8 +220,8 @@ extension ActivityFeedPresenter: ActivityFeedPresenterProtocol {
         case .loaded(let lastPage, let canLoadMore):
             if canLoadMore {
                 let newPage = lastPage + 1
-                let page = Pagination(offset: newPage * ActivityFeedPresenter.eventsPerPage,
-                                      count: ActivityFeedPresenter.eventsPerPage)
+                let page = OffsetPagination(offset: newPage * ActivityFeedPresenter.eventsPerPage,
+                                            count: ActivityFeedPresenter.eventsPerPage)
 
                 dataLoadingState = .loading(page: newPage)
                 interactor.loadNext(page: page)
@@ -319,7 +314,7 @@ extension ActivityFeedPresenter: ActivityFeedInteractorOutputProtocol {
         }
     }
 
-    func didLoadNext(activity: ActivityData, for page: Pagination) {
+    func didLoadNext(activity: ActivityData, for page: OffsetPagination) {
         switch dataLoadingState {
         case .waitingCached:
             logger?.error("Unexpected page loading before cache")
@@ -340,7 +335,7 @@ extension ActivityFeedPresenter: ActivityFeedInteractorOutputProtocol {
         }
     }
 
-    func didReceiveLoadNext(error: Error, for page: Pagination) {
+    func didReceiveLoadNext(error: Error, for page: OffsetPagination) {
         switch dataLoadingState {
         case .waitingCached:
             logger?.error("Cached data expected but received page error \(error)")

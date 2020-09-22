@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import SoraKeystore
@@ -151,10 +146,10 @@ extension OnboardingPreparationService: OnboardingPreparationServiceProtocol {
             operationManager.enqueue(operations: [versionCheckOperation,
                                                   stateOperation,
                                                   invitationOperation],
-                                     in: .normal)
+                                     in: .transient)
         } else {
             operationManager.enqueue(operations: [versionCheckOperation, stateOperation],
-                                     in: .normal)
+                                     in: .transient)
         }
 
         return stateOperation

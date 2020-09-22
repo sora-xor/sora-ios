@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 
@@ -17,7 +12,10 @@ class ApplicationConfigTests: XCTestCase {
     }
 
     func testConfigurationIntegrity() {
+        XCTAssertNotNil(ApplicationConfig(configName: "Dev"))
         XCTAssertNotNil(ApplicationConfig(configName: "Release"))
+        XCTAssertNotNil(ApplicationConfig(configName: "Test"))
+        XCTAssertNotNil(ApplicationConfig(configName: "Staging"))
         XCTAssertNotNil(ApplicationConfig.shared)
 
         XCTAssertNoThrow(ApplicationConfig.shared.termsURL)

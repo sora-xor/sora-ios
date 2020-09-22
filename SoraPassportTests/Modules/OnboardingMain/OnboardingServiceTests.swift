@@ -1,12 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import SoraFoundation
 import SoraKeystore
+import RobinHood
 
 class OnboardingServiceTests: NetworkBaseTests {
 
@@ -37,13 +33,14 @@ class OnboardingServiceTests: NetworkBaseTests {
 
             // when
 
-            let operationManager = OperationManager.shared
+            let operationQueue = OperationQueue()
+            let operationManager = OperationManager(operationQueue: operationQueue)
 
             let operation = try onboardingPreparationService.prepare(using: operationManager)
 
             // then
 
-            let operations = operationManager.allOperations(for: .normal)
+            let operations = operationQueue.operations
 
             XCTAssertEqual(operations.count, 2)
 

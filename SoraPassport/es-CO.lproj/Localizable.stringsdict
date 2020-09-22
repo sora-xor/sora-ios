@@ -13,9 +13,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>dia restante</string>
+        <string>%li dia restante</string>
         <key>other</key>
-        <string>dias restantes</string>
+        <string>%li dias restantes</string>
       </dict>
     </dict>
     <key>project.date.hour.plurals</key>
@@ -29,9 +29,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>hora restante</string>
+        <string>%li hora restante</string>
         <key>other</key>
-        <string>horas restantes</string>
+        <string>%li horas restantes</string>
       </dict>
     </dict>
     <key>project.date.minute.plurals</key>
@@ -45,9 +45,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>minuto restante</string>
+        <string>%li minuto restante</string>
         <key>other</key>
-        <string>minutos restantes</string>
+        <string>%li minutos restantes</string>
       </dict>
     </dict>
     <key>project.date.second.plurals</key>
@@ -61,9 +61,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>Segundo restante</string>
+        <string>%li Segundo restante</string>
         <key>other</key>
-        <string>Segundos restantes</string>
+        <string>%li Segundos restantes</string>
       </dict>
     </dict>
     <key>received.invitations</key>
@@ -109,9 +109,73 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>amigo voto</string>
+        <string>%li amigo voto</string>
         <key>other</key>
-        <string>amigos votaron</string>
+        <string>%li amigos votaron</string>
+      </dict>
+    </dict>
+    <key>referendum.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li dia restante</string>
+        <key>other</key>
+        <string>%li dias restantes</string>
+      </dict>
+    </dict>
+    <key>referendum.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li hora restante</string>
+        <key>other</key>
+        <string>%li horas restantes</string>
+      </dict>
+    </dict>
+    <key>referendum.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li minuto restante</string>
+        <key>other</key>
+        <string>%li minutos restantes</string>
+      </dict>
+    </dict>
+    <key>referendum.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li Segundo restante</string>
+        <key>other</key>
+        <string>%li Segundos restantes</string>
       </dict>
     </dict>
   </dict>

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraCrypto
 import RobinHood
@@ -80,58 +75,58 @@ final class CustomerDataProviderFacade: CustomerDataProviderFacadeProtocol {
         executionQueue = OperationQueue()
     }
 
-    private func fetchVotesOperation() -> BaseOperation<VotesData?> {
+    private func fetchVotesOperation() -> CompoundOperationWrapper<VotesData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.votesCount.rawValue) else {
             let operation = BaseOperation<VotesData?>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let operation = projectOperationFactory.fetchVotesOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
-    private func fetchUserOperation() -> BaseOperation<UserData?> {
+    private func fetchUserOperation() -> CompoundOperationWrapper<UserData?> {
         let projectUnit = self.config.defaultProjectUnit
         guard let service = projectUnit.service(for: ProjectServiceType.customer.rawValue) else {
             let operation = BaseOperation<UserData?>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let operation = projectOperationFactory.fetchCustomerOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
-    private func fetchFriendsOperation() -> BaseOperation<ActivatedInvitationsData?> {
+    private func fetchFriendsOperation() -> CompoundOperationWrapper<ActivatedInvitationsData?> {
         let projectUnit = self.config.defaultProjectUnit
         guard let service = projectUnit.service(for: ProjectServiceType.fetchInvited.rawValue) else {
             let operation = BaseOperation<ActivatedInvitationsData?>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let operation = projectOperationFactory.fetchActivatedInvitationsOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
-    private func fetchReputationOperation() -> BaseOperation<ReputationData?> {
+    private func fetchReputationOperation() -> CompoundOperationWrapper<ReputationData?> {
         let projectUnit = self.config.defaultProjectUnit
         guard let service = projectUnit.service(for: ProjectServiceType.reputation.rawValue) else {
             let operation = BaseOperation<ReputationData?>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let operation = projectOperationFactory.fetchReputationOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 }

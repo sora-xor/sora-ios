@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kamera ini digunakan untuk menangkap kod QR";
+"NSFaceIDUsageDescription" = "ID Muka digunakan untuk memberi kebenaran dalam aplikasi";
+"NSPhotoLibraryUsageDescription" = "Muatkan foto dari perpustakaan";
+"NSPhotoLibraryAddUsageDescription" = "Simpan permintaan pemindahan sebagai Kod QR";

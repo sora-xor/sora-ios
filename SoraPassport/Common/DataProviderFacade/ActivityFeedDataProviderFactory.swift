@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraCrypto
 import RobinHood
@@ -39,13 +34,13 @@ extension ActivityFeedDataProviderFactory: ActivityFeedDataProviderFactoryProtoc
             let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
                 coreDataCacheFacade.createCoreDataCache()
 
-            let info = Pagination(offset: 0, count: pageSize)
-            let fetchActivityFeedBlock: () -> BaseOperation<ActivityData?> = {
+            let info = OffsetPagination(offset: 0, count: pageSize)
+            let fetchActivityFeedBlock: () -> CompoundOperationWrapper<ActivityData?> = {
                 let activityFeedOperation = self.projectUnitOperationFactory
                     .fetchActivityFeedOperation(service.serviceEndpoint, with: info)
                 activityFeedOperation.requestModifier = self.requestSigner
 
-                return activityFeedOperation
+                return CompoundOperationWrapper(targetOperation: activityFeedOperation)
             }
 
             let source = AnySingleValueProviderSource(fetch: fetchActivityFeedBlock)

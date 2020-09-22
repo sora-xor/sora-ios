@@ -1,14 +1,11 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
 typealias NetworkBoolResultCompletionBlock = (Result<Bool, Error>?) -> Void
 typealias NetworkProjectCompletionBlock = (Result<[ProjectData], Error>?) -> Void
+typealias NetworkReferendumCompletionBlock = (Result<[ReferendumData], Error>?) -> Void
 typealias NetworkProjectDetailsCompletionBlock = (Result<ProjectDetailsData?, Error>?) -> Void
+typealias NetworkReferendumDetailsCompletionBlock = (Result<ReferendumData?, Error>?) -> Void
 typealias NetworkUserCompletionBlock = (Result<UserData?, Error>?) -> Void
 typealias NetworkFetchVotesCompletionBlock = (Result<VotesData?, Error>?) -> Void
 typealias NetworkFetchInvitedCompletionBlock = (Result<ActivatedInvitationsData?, Error>?) -> Void
@@ -62,20 +59,32 @@ protocol ProjectUnitAccountProtocol {
 }
 
 protocol ProjectUnitFundingProtocol {
-    func fetchAllProjects(with pagination: Pagination, runCompletionIn queue: DispatchQueue,
+    func fetchAllProjects(with pagination: OffsetPagination, runCompletionIn queue: DispatchQueue,
                           completionBlock: @escaping NetworkProjectCompletionBlock) throws -> Operation
 
-    func fetchFavoriteProjects(with pagination: Pagination, runCompletionIn queue: DispatchQueue,
+    func fetchFavoriteProjects(with pagination: OffsetPagination, runCompletionIn queue: DispatchQueue,
                                completionBlock: @escaping NetworkProjectCompletionBlock) throws -> Operation
 
-    func fetchVotedProjects(with pagination: Pagination, runCompletionIn queue: DispatchQueue,
+    func fetchVotedProjects(with pagination: OffsetPagination, runCompletionIn queue: DispatchQueue,
                             completionBlock: @escaping NetworkProjectCompletionBlock) throws -> Operation
 
-    func fetchFinishedProjects(with pagination: Pagination, runCompletionIn queue: DispatchQueue,
+    func fetchFinishedProjects(with pagination: OffsetPagination, runCompletionIn queue: DispatchQueue,
                                completionBlock: @escaping NetworkProjectCompletionBlock) throws -> Operation
+
+    func fetchOpenReferendums(runCompletionIn queue: DispatchQueue,
+                              completionBlock: @escaping NetworkReferendumCompletionBlock) throws -> Operation
+
+    func fetchVotedReferendums(runCompletionIn queue: DispatchQueue,
+                               completionBlock: @escaping NetworkReferendumCompletionBlock) throws -> Operation
+
+    func fetchFinishedReferendums(runCompletionIn queue: DispatchQueue,
+                                  completionBlock: @escaping NetworkReferendumCompletionBlock) throws -> Operation
 
     func fetchProjectDetails(for projectId: String, runCompletionIn queue: DispatchQueue,
                              completionBlock: @escaping NetworkProjectDetailsCompletionBlock) throws -> Operation
+
+    func fetchReferendumDetails(for referendumId: String, runCompletionIn queue: DispatchQueue,
+                                completionBlock: @escaping NetworkReferendumDetailsCompletionBlock) throws -> Operation
 
     func toggleFavorite(projectId: String,
                         runCompletionIn queue: DispatchQueue,
@@ -85,14 +94,18 @@ protocol ProjectUnitFundingProtocol {
               runCompletionIn queue: DispatchQueue,
               completionBlock: @escaping NetworkBoolResultCompletionBlock) throws -> Operation
 
+    func vote(with customerVote: ReferendumVote,
+              runCompletionIn queue: DispatchQueue,
+              completionBlock: @escaping NetworkEmptyCompletionBlock) throws -> Operation
+
     func fetchVotes(runCompletionIn queue: DispatchQueue,
                     completionBlock: @escaping NetworkFetchVotesCompletionBlock) throws -> Operation
 
-    func fetchVotesHistory(with info: Pagination,
+    func fetchVotesHistory(with info: OffsetPagination,
                            runCompletionIn queue: DispatchQueue,
                            completionBlock: @escaping NetworkVotesHistoryCompletionBlock) throws -> Operation
 
-    func fetchActivityFeed(with info: Pagination,
+    func fetchActivityFeed(with info: OffsetPagination,
                            runCompletionIn queue: DispatchQueue,
                            completionBlock: @escaping NetworkActivityFeedCompletionBlock) throws -> Operation
 }

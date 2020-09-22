@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -244,7 +239,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
     }
 
     func fetchActivityFeedOperation(_ urlTemplate: String,
-                                    with page: Pagination) -> NetworkOperation<ActivityData?> {
+                                    with page: OffsetPagination) -> NetworkOperation<ActivityData?> {
         let requestFactory = BlockNetworkRequestFactory {
             let serviceUrl = try EndpointBuilder(urlTemplate: urlTemplate).buildURL(with: page)
 

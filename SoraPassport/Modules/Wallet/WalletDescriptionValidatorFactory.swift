@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -18,7 +13,7 @@ final class WalletDescriptionInputValidatorFactory: WalletInputValidatorFactoryP
         let languages = localizationManager.preferredLocalizations
         let maxLength: UInt8 = 64
         let hint = R.string.localizable
-            .walletTransferDescriptionHint("\(maxLength)", preferredLanguages: languages)
+            .walletTransferNoteHint("\(maxLength)", preferredLanguages: languages)
         return WalletDefaultInputValidator(hint: hint, maxLength: maxLength)
     }
 

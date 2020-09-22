@@ -1,14 +1,10 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraCrypto
 import RobinHood
 
 protocol ProjectDetailsDataProviderFactoryProtocol {
     func createDetailsDataProvider(for projectId: String) -> SingleValueProvider<ProjectDetailsData>?
+    func createReferendumDataProvider(for referendumId: String) -> SingleValueProvider<ReferendumData>?
 }
 
 final class ProjectDetailsDataProviderFactory {
@@ -34,18 +30,43 @@ extension ProjectDetailsDataProviderFactory: ProjectDetailsDataProviderFactoryPr
         let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
             .createCoreDataCache()
 
-        let fetchDetailsBlock: () -> BaseOperation<ProjectDetailsData?> = {
+        let fetchDetailsBlock: () -> CompoundOperationWrapper<ProjectDetailsData?> = {
             let operation = self.projectUnitOperationFactory
                 .fetchProjectDetailsOperation(service.serviceEndpoint, projectId: projectId)
 
             operation.requestModifier = self.requestSigner
 
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let source = AnySingleValueProviderSource(fetch: fetchDetailsBlock)
 
         return SingleValueProvider(targetIdentifier: projectId,
+                                   source: source,
+                                   repository: AnyDataProviderRepository(cache),
+                                   updateTrigger: DataProviderEventTrigger.onAddObserver)
+    }
+
+    func createReferendumDataProvider(for referendumId: String) -> SingleValueProvider<ReferendumData>? {
+        guard let service = projectUnit.service(for: ProjectServiceType.referendumDetails.rawValue) else {
+            return nil
+        }
+
+        let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
+            .createCoreDataCache()
+
+        let fetchDetailsBlock: () -> CompoundOperationWrapper<ReferendumData?> = {
+            let operation = self.projectUnitOperationFactory
+                .fetchReferendumDetailsOperation(service.serviceEndpoint, referendumId: referendumId)
+
+            operation.requestModifier = self.requestSigner
+
+            return CompoundOperationWrapper(targetOperation: operation)
+        }
+
+        let source = AnySingleValueProviderSource(fetch: fetchDetailsBlock)
+
+        return SingleValueProvider(targetIdentifier: referendumId,
                                    source: source,
                                    repository: AnyDataProviderRepository(cache),
                                    updateTrigger: DataProviderEventTrigger.onAddObserver)

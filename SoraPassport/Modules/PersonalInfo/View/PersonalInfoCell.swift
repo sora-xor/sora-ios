@@ -1,10 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
+import SoraFoundation
 
 protocol PersonalInfoCellDelegate: class {
     func didSelectNext(on cell: PersonalInfoCell)
@@ -46,15 +42,15 @@ final class PersonalInfoCell: UITableViewCell {
 
     weak var delegate: PersonalInfoCellDelegate?
 
-    var model: PersonalInfoViewModelProtocol?
+    var model: InputViewModelProtocol?
 
-    func bind(model: PersonalInfoViewModelProtocol) {
+    func bind(model: InputViewModelProtocol) {
         self.model = model
 
         titleLabel.text = model.title
-        textField.text = model.value
+        textField.text = model.inputHandler.value
 
-        textField.autocapitalizationType = model.autocapitalizationType
+        textField.autocapitalizationType = model.autocapitalization
 
         updateEnabledState()
     }
@@ -70,7 +66,7 @@ final class PersonalInfoCell: UITableViewCell {
             return
         }
 
-        if model.enabled {
+        if model.inputHandler.enabled {
             textField.alpha = 1.0
             titleLabel.alpha = 1.0
             textField.isEnabled = true
@@ -82,13 +78,8 @@ final class PersonalInfoCell: UITableViewCell {
     }
 
     @IBAction private func actionTextFieldChange(sender: UITextField) {
-        if sender.text?.count != model?.value.count {
-            /**
-             * prevent app from crash if text field changes without
-             * notifying delegate (like smart replacement)
-            */
-
-            sender.text = model?.value
+        if sender.text != model?.inputHandler.value {
+            sender.text = model?.inputHandler.value
         }
 
         if let delegate = delegate {
@@ -109,12 +100,13 @@ extension PersonalInfoCell: UITextFieldDelegate {
             return false
         }
 
-        if !model.didReceiveReplacement(string, for: range) {
-            textField.text = model.value
-            return false
+        let shouldApply = model.inputHandler.didReceiveReplacement(string, for: range)
+
+        if !shouldApply, textField.text != model.inputHandler.value {
+            textField.text = model.inputHandler.value
         }
 
-        return true
+        return shouldApply
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import CommonWallet
@@ -18,8 +13,13 @@ final class MainTabBarInteractor {
     let invitationLinkService: InvitationLinkServiceProtocol
     let walletContext: CommonWalletContextProtocol
     let applicationHandler: ApplicationHandlerProtocol
+    let userServices: [UserApplicationServiceProtocol]
 
     var logger: LoggerProtocol?
+
+    deinit {
+        userServices.forEach { $0.throttle() }
+    }
 
     init(eventCenter: EventCenterProtocol,
          settings: SettingsManagerProtocol,
@@ -27,7 +27,8 @@ final class MainTabBarInteractor {
          applicationHandler: ApplicationHandlerProtocol,
          notificationRegistrator: NotificationsRegistrationProtocol,
          invitationLinkService: InvitationLinkServiceProtocol,
-         walletContext: CommonWalletContextProtocol) {
+         walletContext: CommonWalletContextProtocol,
+         userServices: [UserApplicationServiceProtocol]) {
 
         self.eventCenter = eventCenter
         self.settings = settings
@@ -36,6 +37,7 @@ final class MainTabBarInteractor {
         self.invitationLinkService = invitationLinkService
         self.walletContext = walletContext
         self.applicationHandler = applicationHandler
+        self.userServices = userServices
 
         setup()
     }
@@ -43,6 +45,8 @@ final class MainTabBarInteractor {
     private func setup() {
         eventCenter.add(observer: self)
         applicationHandler.delegate = self
+
+        userServices.forEach { $0.setup() }
     }
 
     private func updateWalletAccount() {
@@ -87,6 +91,10 @@ extension MainTabBarInteractor: InvitationLinkObserver {
 
 extension MainTabBarInteractor: EventVisitorProtocol {
     func processPushNotification(event: PushNotificationEvent) {
+        updateWalletAccount()
+    }
+
+    func processWalletUpdate(event: WalletUpdateEvent) {
         updateWalletAccount()
     }
 }

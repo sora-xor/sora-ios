@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 import SoraFoundation
@@ -34,15 +29,30 @@ extension ProjectsViewController: UICollectionViewDataSource {
             let oneOfViewModel = presenter.viewModel(at: indexPath.row)
 
             switch oneOfViewModel {
-            case .open(let viewModel):
-                return configureOpenProjectCell(for: collectionView,
+            case .project(let viewModel):
+                return configureProjectCell(for: collectionView,
+                                            indexPath: indexPath,
+                                            viewModel: viewModel)
+            case .referendum(let viewModel):
+                return configureReferendumCell(for: collectionView,
+                                               indexPath: indexPath,
+                                               viewModel: viewModel)
+            }
+        }
+    }
+
+    private func configureProjectCell(for collectionView: UICollectionView,
+                                      indexPath: IndexPath,
+                                      viewModel: ProjectOneOfViewModel) -> UICollectionViewCell {
+        switch viewModel {
+        case .open(let viewModel):
+            return configureOpenProjectCell(for: collectionView,
+                                            indexPath: indexPath,
+                                            viewModel: viewModel)
+        case .finished(let viewModel):
+            return configureFinishedProjectCell(for: collectionView,
                                                 indexPath: indexPath,
                                                 viewModel: viewModel)
-            case .finished(let viewModel):
-                return configureFinishedProjectCell(for: collectionView,
-                                                    indexPath: indexPath,
-                                                    viewModel: viewModel)
-            }
         }
     }
 
@@ -53,7 +63,7 @@ extension ProjectsViewController: UICollectionViewDataSource {
                                                       for: indexPath)!
 
         cell.localizationManager = localizationManager
-        cell.bind(viewModel: viewModel, layoutMetadata: layoutMetadata.openProjectLayoutMetadata)
+        cell.bind(viewModel: viewModel, layoutMetadata: projectLayoutMetadata.openProjectLayoutMetadata)
 
         return cell
     }
@@ -64,7 +74,19 @@ extension ProjectsViewController: UICollectionViewDataSource {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: R.reuseIdentifier.finishedProjectCellId,
                                                       for: indexPath)!
 
-        cell.bind(viewModel: viewModel, layoutMetadata: layoutMetadata.finishedProjectLayoutMetadata)
+        cell.bind(viewModel: viewModel, layoutMetadata: projectLayoutMetadata.finishedProjectLayoutMetadata)
+
+        return cell
+    }
+
+    private func configureReferendumCell(for collectionView: UICollectionView,
+                                         indexPath: IndexPath,
+                                         viewModel: ReferendumViewModelProtocol) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: R.reuseIdentifier.referendumCellId,
+                                                      for: indexPath)!
+
+        cell.localizationManager = localizationManager
+        cell.bind(viewModel: viewModel, layoutMetadata: referendumLayoutMetadata)
 
         return cell
     }

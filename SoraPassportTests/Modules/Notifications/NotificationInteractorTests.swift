@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import SoraCrypto
@@ -118,8 +113,7 @@ class NotificationInteractorTests: NetworkBaseTests {
                                                  eventCenter: eventCenter,
                                                  config: ApplicationConfig.shared,
                                                  notificationUnitService: notificationService,
-                                                 notificationsRegistrator: NotificationsRegistration(),
-                                                 notificationsLocalScheduler: NotificationsLocalScheduler())
+                                                 notificationsRegistrator: NotificationsRegistration())
 
         return interactor
     }

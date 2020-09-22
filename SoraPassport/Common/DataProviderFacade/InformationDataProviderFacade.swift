@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraCrypto
 import RobinHood
@@ -92,69 +87,69 @@ final class InformationDataProviderFacade: InformationDataProviderFacadeProtocol
         self.executionQueue = OperationQueue()
     }
 
-    private func fetchAnnouncement() -> BaseOperation<AnnouncementData?> {
+    private func fetchAnnouncement() -> CompoundOperationWrapper<AnnouncementData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.announcement.rawValue) else {
             let operation = BaseOperation<AnnouncementData?>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let operation = projectOperationFactory.fetchAnnouncementOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
-    private func fetchHelp() -> BaseOperation<HelpData?> {
+    private func fetchHelp() -> CompoundOperationWrapper<HelpData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.help.rawValue) else {
             let operation = BaseOperation<HelpData?>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let operation = projectOperationFactory.fetchHelpOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
-    private func fetchCurrency() -> BaseOperation<CurrencyData?> {
+    private func fetchCurrency() -> CompoundOperationWrapper<CurrencyData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.currency.rawValue) else {
             let operation = BaseOperation<CurrencyData?>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let operation = projectOperationFactory.fetchCurrencyOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
-    private func fetchCountry() -> BaseOperation<CountryData?> {
+    private func fetchCountry() -> CompoundOperationWrapper<CountryData?> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.country.rawValue) else {
             let operation = BaseOperation<CountryData?>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let operation = projectOperationFactory.fetchCountryOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
-    private func fetchReputationDetails() -> BaseOperation<ReputationDetailsData?> {
+    private func fetchReputationDetails() -> CompoundOperationWrapper<ReputationDetailsData?> {
         guard let service = self.config.defaultProjectUnit
             .service(for: ProjectServiceType.reputationDetails.rawValue) else {
             let operation = BaseOperation<ReputationDetailsData?>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         let operation = projectOperationFactory.fetchReputationDetailsOperation(service.serviceEndpoint)
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 }

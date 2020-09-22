@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -12,7 +7,6 @@ class NotificationsInteractor: NotificationsInteractorInputProtocol {
     private(set) var config: ApplicationConfigProtocol
     private(set) var notificationUnitService: NotificationUnitServiceProtocol
     private(set) var notificationsRegistrator: NotificationsRegistrationProtocol
-    private(set) var notificationsLocalScheduler: NotificationsLocalSchedulerProtocol
     private(set) var eventCenter: EventCenterProtocol
 
     private var tokenExchangeOperation: Operation?
@@ -23,14 +17,12 @@ class NotificationsInteractor: NotificationsInteractorInputProtocol {
          eventCenter: EventCenterProtocol,
          config: ApplicationConfigProtocol,
          notificationUnitService: NotificationUnitServiceProtocol,
-         notificationsRegistrator: NotificationsRegistrationProtocol,
-         notificationsLocalScheduler: NotificationsLocalSchedulerProtocol) {
+         notificationsRegistrator: NotificationsRegistrationProtocol) {
 
         self.presenter = presenter
         self.config = config
         self.notificationUnitService = notificationUnitService
         self.notificationsRegistrator = notificationsRegistrator
-        self.notificationsLocalScheduler = notificationsLocalScheduler
         self.eventCenter = eventCenter
     }
 

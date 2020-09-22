@@ -1,25 +1,25 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
 
-final class WalletNetworkResolverMock: WalletNetworkResolverProtocol {
-    var closureUrlResolver: ((WalletRequestType) -> String)?
-    var closureAdapter: ((WalletRequestType) -> NetworkRequestModifierProtocol?)?
+final class WalletNetworkResolverMock: MiddlewareNetworkResolverProtocol {
+    var closureUrlResolver: ((MiddlewareRequestType) -> String)?
+    var closureAdapter: ((MiddlewareRequestType) -> NetworkRequestModifierProtocol?)?
+    var closureErrorFactory: ((MiddlewareRequestType) -> MiddlewareNetworkErrorFactoryProtocol?)?
 
-    init(urlResolver: @escaping (WalletRequestType) -> String) {
+    init(urlResolver: @escaping (MiddlewareRequestType) -> String) {
         closureUrlResolver = urlResolver
     }
 
-    func urlTemplate(for type: WalletRequestType) -> String {
+    func urlTemplate(for type: MiddlewareRequestType) -> String {
         return closureUrlResolver?(type) ?? ""
     }
 
-    func adapter(for type: WalletRequestType) -> NetworkRequestModifierProtocol? {
+    func adapter(for type: MiddlewareRequestType) -> NetworkRequestModifierProtocol? {
         return closureAdapter?(type)
+    }
+
+    func errorFactory(for type: MiddlewareRequestType) -> MiddlewareNetworkErrorFactoryProtocol? {
+        return closureErrorFactory?(type)
     }
 }

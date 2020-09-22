@@ -1,9 +1,5 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import SoraFoundation
 
 final class PhoneRegistrationPresenter {
     weak var view: PhoneRegistrationViewProtocol?
@@ -13,20 +9,21 @@ final class PhoneRegistrationPresenter {
     let country: Country
     let locale: Locale
 
-    private(set) var viewModel: PersonalInfoViewModel
+    private(set) var viewModel: InputViewModelProtocol
 
     init(locale: Locale, country: Country) {
         self.country = country
         self.locale = locale
 
         let title = R.string.localizable.phoneNumberMobile(preferredLanguages: locale.rLanguages)
-        viewModel = PersonalInfoViewModel(title: title,
-                                          value: country.dialCode,
-                                          enabled: true,
-                                          minLength: country.dialCode.count,
-                                          maxLength: PersonalInfoSharedConstants.phoneLimit,
-                                          validCharacterSet: CharacterSet.decimalDigits,
-                                          predicate: NSPredicate.phone)
+
+        let inputHandler = InputHandler(value: country.dialCode,
+                                        minLength: country.dialCode.count,
+                                        maxLength: PersonalInfoSharedConstants.phoneLimit,
+                                        validCharacterSet: CharacterSet.decimalDigits,
+                                        predicate: NSPredicate.phone)
+
+        viewModel = InputViewModel(inputHandler: inputHandler, title: title)
     }
 }
 
@@ -38,7 +35,7 @@ extension PhoneRegistrationPresenter: PhoneRegistrationPresenterProtocol {
     func processPhoneInput() {
         view?.didStartLoading()
 
-        let userCreationInfo = UserCreationInfo(phone: viewModel.value)
+        let userCreationInfo = UserCreationInfo(phone: viewModel.inputHandler.normalizedValue)
 
         interactor.createCustomer(with: userCreationInfo)
     }

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import Cuckoo
@@ -83,10 +78,10 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
 
             let footerExpectation = XCTestExpectation()
 
-            var currentViewModels: [PersonalInfoViewModelProtocol]?
+            var currentViewModels: [InputViewModelProtocol]?
 
             stub(view) { stub in
-                when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).then { viewModels in
+                when(stub).didReceive(viewModels: any([InputViewModelProtocol].self)).then { viewModels in
                     currentViewModels = viewModels
 
                     setupExpectation.fulfill()
@@ -107,18 +102,22 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
 
             // when
 
-            _ = currentViewModels?[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue]
+            _ = currentViewModels?[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].inputHandler
                 .didReceiveReplacement(Constants.dummyFirstName, for: NSRange(location: 0, length: 0))
-            _ = currentViewModels?[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue]
+            _ = currentViewModels?[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue].inputHandler
                 .didReceiveReplacement(Constants.dummyLastName, for: NSRange(location: 0, length: 0))
 
             let invitationDeliveredExpectation = XCTestExpectation()
 
             stub(view) { stub in
-                when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).then { viewModels in
-                    XCTAssertEqual(viewModels[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].value, Constants.dummyFirstName)
-                    XCTAssertEqual(viewModels[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue].value, Constants.dummyLastName)
-                    XCTAssertEqual(viewModels[PersonalInfoPresenter.ViewModelIndex.invitationCode.rawValue].value, Constants.dummyInvitationCode)
+                when(stub).didReceive(viewModels: any([InputViewModelProtocol].self)).then { viewModels in
+                    XCTAssertEqual(viewModels[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].inputHandler.value,
+                                   Constants.dummyFirstName)
+
+                    XCTAssertEqual(viewModels[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue].inputHandler.value,
+                                   Constants.dummyLastName)
+                    XCTAssertEqual(viewModels[PersonalInfoPresenter.ViewModelIndex.invitationCode.rawValue].inputHandler.value,
+                                   Constants.dummyInvitationCode)
 
                     invitationDeliveredExpectation.fulfill()
                 }
@@ -172,12 +171,12 @@ class PersonalInfoInteractorTests: NetworkBaseTests {
         stub(view) { stub in
             when(stub).didStartLoading().thenDoNothing()
             when(stub).didStopLoading().thenDoNothing()
-            when(stub).didReceive(viewModels: any([PersonalInfoViewModelProtocol].self)).then { viewModels in
-                _ = viewModels[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue]
+            when(stub).didReceive(viewModels: any([InputViewModelProtocol].self)).then { viewModels in
+                _ = viewModels[PersonalInfoPresenter.ViewModelIndex.firstName.rawValue].inputHandler
                     .didReceiveReplacement(Constants.dummyFirstName, for: NSRange(location: 0, length: 0))
-                _ = viewModels[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue]
+                _ = viewModels[PersonalInfoPresenter.ViewModelIndex.lastName.rawValue].inputHandler
                     .didReceiveReplacement(Constants.dummyLastName, for: NSRange(location: 0, length: 0))
-                _ = viewModels[PersonalInfoPresenter.ViewModelIndex.invitationCode.rawValue]
+                _ = viewModels[PersonalInfoPresenter.ViewModelIndex.invitationCode.rawValue].inputHandler
                     .didReceiveReplacement(Constants.dummyInvitationCode, for: NSRange(location: 0, length: 0))
             }
 

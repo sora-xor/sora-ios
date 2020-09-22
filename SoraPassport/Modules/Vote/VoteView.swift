@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
@@ -42,6 +37,60 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
 
         get {
             return sliderView.maximumTrackImage(for: .normal)
+        }
+    }
+
+    var sliderThumb: UIImage? {
+        get {
+            sliderView.thumbImage(for: .normal)
+        }
+
+        set {
+            sliderView.setThumbImage(newValue, for: .normal)
+        }
+    }
+
+    var voteTitle: String? {
+        get {
+            voteButton.imageWithTitleView?.title
+        }
+
+        set {
+            voteButton.imageWithTitleView?.title = newValue
+        }
+    }
+
+    var voteIcon: UIImage? {
+        get {
+            voteButton.imageWithTitleView?.iconImage
+        }
+
+        set {
+            voteButton.imageWithTitleView?.iconImage = newValue
+        }
+    }
+
+    var voteFillColor: UIColor? {
+        get {
+            voteButton.roundedBackgroundView?.fillColor
+        }
+
+        set {
+            if let color = newValue {
+                voteButton.roundedBackgroundView?.fillColor = color
+            }
+        }
+    }
+
+    var voteHighlightedFillColor: UIColor? {
+        get {
+            voteButton.roundedBackgroundView?.highlightedFillColor
+        }
+
+        set {
+            if let color = newValue {
+                voteButton.roundedBackgroundView?.highlightedFillColor = color
+            }
         }
     }
 
@@ -87,7 +136,6 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
     override func awakeFromNib() {
         super.awakeFromNib()
 
-        configure()
         setupLocalization()
         adjustLayout()
     }
@@ -100,8 +148,6 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
     private func setupLocalization() {
         titleLabel.text = R.string.localizable
             .projectVoteDialogTitle(preferredLanguages: model?.locale.rLanguages)
-        voteButton.imageWithTitleView?.title = R.string.localizable
-            .commonVote(preferredLanguages: model?.locale.rLanguages)
         cancelButton.imageWithTitleView?.title = R.string.localizable
             .commonCancel(preferredLanguages: model?.locale.rLanguages)
     }
@@ -113,11 +159,6 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
         voteWidthConstraint.constant *= designScaleRatio.width
         cancelWidthConstraint.constant *= designScaleRatio.width
         keyboardActionControl.horizontalSpacing *= designScaleRatio.width
-    }
-
-    private func configure() {
-        sliderView.setMinimumTrackImage(minimumTrackImage, for: .normal)
-        sliderView.setMaximumTrackImage(maximumTrackImage, for: .normal)
     }
 
     private func setupFromModel() {

@@ -1,19 +1,15 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import SoraFoundation
 
 protocol PhoneVerificationViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
-    func didReceive(viewModel: CodeInputViewModelProtocol)
+    func didReceive(viewModel: InputViewModelProtocol)
     func didUpdateResendRemained(delay: TimeInterval)
 }
 
 protocol PhoneVerificationPresenterProtocol: class {
     func setup()
     func viewDidDisappear()
-    func process(viewModel: CodeInputViewModelProtocol)
+    func process(viewModel: InputViewModelProtocol)
     func resendCode()
 }
 

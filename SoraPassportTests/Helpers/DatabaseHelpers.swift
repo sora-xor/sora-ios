@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import CoreData
@@ -45,7 +40,7 @@ func fetchAll<T: Identifiable>(from repository: AnyDataProviderRepository<T>,
                                expectationHandler: XCTestCase) throws -> [T] {
     let expectation = XCTestExpectation()
 
-    let fetchOperation = repository.fetchAllOperation()
+    let fetchOperation = repository.fetchAllOperation(with: RepositoryFetchOptions())
 
     fetchOperation.completionBlock = {
         expectation.fulfill()

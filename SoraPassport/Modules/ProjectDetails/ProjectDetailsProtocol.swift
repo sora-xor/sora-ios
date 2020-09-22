@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 protocol ProjectDetailsViewProtocol: ControllerBackedProtocol {
@@ -44,6 +39,7 @@ protocol ProjectDetailsWireframeProtocol: AlertPresentable, ErrorPresentable,
 WebPresentable, EmailPresentable, MediaGalleryPresentable, OutboundUrlPresentable {
     func showVotingView(from view: ProjectDetailsViewProtocol?,
                         with model: VoteViewModelProtocol,
+                        style: VoteViewStyle,
                         delegate: VoteViewDelegate?)
 
     func close(view: ProjectDetailsViewProtocol?)

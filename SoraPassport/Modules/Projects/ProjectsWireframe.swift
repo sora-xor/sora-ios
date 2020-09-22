@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 final class ProjectsWireframe: ProjectsWireframeProtocol {
@@ -10,9 +5,10 @@ final class ProjectsWireframe: ProjectsWireframeProtocol {
 
     func showVotingView(from view: ProjectsViewProtocol?,
                         with model: VoteViewModelProtocol,
+                        style: VoteViewStyle,
                         delegate: VoteViewDelegate?) {
         guard let voteController = VoteViewFactory(transitioningDelegate: inputTransitioningHandler)
-            .createVoteViewController(with: model, delegate: delegate) else {
+            .createVoteViewController(with: model, style: style, delegate: delegate) else {
                 return
         }
 
@@ -30,6 +26,19 @@ final class ProjectsWireframe: ProjectsWireframeProtocol {
         }
 
         let navigationController = SoraNavigationController(rootViewController: projectDetailsView.controller)
+
+        view?.controller.present(navigationController,
+                                 animated: true,
+                                 completion: nil)
+    }
+
+    func showReferendumDetails(from view: ProjectsViewProtocol?,
+                               referendumId: String) {
+        guard let referendumDetailsView = ReferendumDetailsViewFactory.createView(for: referendumId) else {
+            return
+        }
+
+        let navigationController = SoraNavigationController(rootViewController: referendumDetailsView.controller)
 
         view?.controller.present(navigationController,
                                  animated: true,

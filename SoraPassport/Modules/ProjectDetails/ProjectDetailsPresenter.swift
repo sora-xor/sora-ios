@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraFoundation
 
@@ -263,6 +258,7 @@ extension ProjectDetailsPresenter: ProjectDetailsViewModelDelegate {
                                                                      locale: locale)
             wireframe.showVotingView(from: view,
                                      with: viewModel,
+                                     style: VoteViewStyle.projectStyle(for: locale),
                                      delegate: self)
 
             return true
@@ -367,7 +363,7 @@ extension ProjectDetailsPresenter: VoteViewDelegate {
     func didVote(on view: VoteView, amount: Decimal) {
         view.presenter?.hide(view: view, animated: true)
 
-        guard let projectId = view.model?.projectId else {
+        guard case .project(let projectId) = view.model?.target else {
             return
         }
 

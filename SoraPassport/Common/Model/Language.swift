@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 struct Language: Codable {
@@ -15,6 +10,16 @@ extension Language {
 
         if let language = components[NSLocale.Key.languageCode.rawValue] {
             return locale.localizedString(forLanguageCode: language)
+        } else {
+            return nil
+        }
+    }
+
+    func region(in locale: Locale) -> String? {
+        let components = Locale.components(fromIdentifier: code)
+
+        if let regionCode = components[NSLocale.Key.countryCode.rawValue] {
+            return locale.localizedString(forRegionCode: regionCode)
         } else {
             return nil
         }

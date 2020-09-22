@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraKeystore
 import IrohaCrypto
@@ -27,8 +22,8 @@ final class AccessBackupInteractor {
 extension AccessBackupInteractor: AccessBackupInteractorInputProtocol {
     func load() {
         do {
-            let phrase = try loadPhrase()
-            presenter?.didLoad(mnemonicPhrase: phrase)
+            let mnemonic = try loadPhrase()
+            presenter?.didLoad(mnemonic: mnemonic)
         } catch {
             presenter?.didReceive(error: AccessBackupInteractorError.loading)
         }

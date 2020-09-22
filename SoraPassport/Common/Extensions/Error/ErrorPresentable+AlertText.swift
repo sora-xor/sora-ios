@@ -1,12 +1,10 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
-typealias ErrorContent = (title: String, message: String)
+struct ErrorContent {
+    let title: String
+    let message: String
+}
 
 protocol ErrorContentConvertible {
     func toErrorContent(for locale: Locale?) -> ErrorContent

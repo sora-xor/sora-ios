@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import SoraKeystore
@@ -76,11 +71,11 @@ class IdentityVerifyOperationTests: XCTestCase {
         // given
 
         var optionalDocumentObject: DecentralizedDocumentObject?
-        let creationOperation = IdentityOperationFactory.createNewIdentityOperation()
+        let creationOperation = IdentityOperationFactory().createNewIdentityOperation(with: keystore)
 
         creationOperation.completionBlock = {}
 
-        let verificationOperation = IdentityOperationFactory.createVerificationOperation()
+        let verificationOperation = IdentityOperationFactory().createVerificationOperation(with: keystore)
         verificationOperation.configurationBlock = {
             guard let result = creationOperation.result else {
                 verificationOperation.cancel()
@@ -109,7 +104,11 @@ class IdentityVerifyOperationTests: XCTestCase {
 
         // when
 
-        OperationManager.shared.enqueue(operations: [creationOperation, verificationOperation], in: .normal)
+        let operationManager = OperationManagerFacade.sharedManager
+
+        operationManager.enqueue(operations: [creationOperation, verificationOperation],
+                                 in: .transient)
+
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
         guard let result = verificationOperation.result else {

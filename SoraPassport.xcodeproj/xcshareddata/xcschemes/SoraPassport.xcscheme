@@ -63,6 +63,16 @@
                ReferencedContainer = "container:SoraPassport.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "84324BCA2411446000CA339A"
+               BuildableName = "SoraPassportIntegrationTests.xctest"
+               BlueprintName = "SoraPassportIntegrationTests"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

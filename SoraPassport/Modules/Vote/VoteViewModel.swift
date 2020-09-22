@@ -1,12 +1,12 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
+enum VotingTarget {
+    case project(identifier: String)
+    case referendum(identifier: String, option: ReferendumVotingCase)
+}
+
 protocol VoteViewModelProtocol: class {
-    var projectId: String { get }
+    var target: VotingTarget { get }
     var amount: Decimal { get}
     var description: String { get }
     var formattedAmount: String { get }
@@ -34,7 +34,7 @@ final class VoteViewModel {
 
     private(set) var minimumVoteAmount: Decimal
     private(set) var maximumVoteAmount: Decimal
-    private(set) var projectId: String
+    private(set) var target: VotingTarget
 
     var amountFormatter: NumberFormatter = NumberFormatter()
     var errorDisplayMapping: ((VoteViewModelError) -> String)?
@@ -48,12 +48,12 @@ final class VoteViewModel {
     private(set) var amount: Decimal
     private(set) var formattedAmount: String
 
-    init(projectId: String,
+    init(target: VotingTarget,
          amount: Decimal,
          minimumVoteAmount: Decimal,
          maximumVoteAmount: Decimal,
          locale: Locale = Locale.current) {
-        self.projectId = projectId
+        self.target = target
         self.amount = amount
         self.minimumVoteAmount = minimumVoteAmount
         self.maximumVoteAmount = maximumVoteAmount

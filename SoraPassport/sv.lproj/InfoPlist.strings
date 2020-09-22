@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kameran används för att skanna QR-kod";
+"NSFaceIDUsageDescription" = "Face ID används för auktorisering i applikationen";
+"NSPhotoLibraryUsageDescription" = "Ladda foton från album";
+"NSPhotoLibraryAddUsageDescription" = "Spara överföringsbegäran som QR-kod";

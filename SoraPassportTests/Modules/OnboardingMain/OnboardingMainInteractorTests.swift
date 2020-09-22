@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import SoraKeystore
@@ -14,8 +9,8 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
     override func setUp() {
         super.setUp()
 
-        let settings = SettingsManager.shared
-        let keystore = Keychain()
+        let settings = InMemorySettingsManager()
+        let keystore = InMemoryKeychain()
 
         let identityUrl = URL(string: ApplicationConfig.shared.didResolverUrl)!
         let identityNetworkOperationFactory = DecentralizedResolverOperationFactory(url: identityUrl)
@@ -36,28 +31,20 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
                                               settings: settings,
                                               keystore: keystore,
                                               identityNetworkOperationFactory: identityNetworkOperationFactory,
-                                              identityLocalOperationFactory: IdentityOperationFactory.self,
-                                              operationManager: OperationManager.shared)
-
-        clearStorage()
+                                              identityLocalOperationFactory: IdentityOperationFactory(),
+                                              operationManager: OperationManagerFacade.sharedManager)
     }
 
-    override func tearDown() {
-        super.tearDown()
-
-        clearStorage()
+    func testSignupPreparationWithVersionCheck() throws {
+        try performTestSuccessfullSignUp(with: false, expectsOnlyVersionCheck: false)
     }
 
-    func testSignupPreparationWithVersionCheck() {
-        performTestSuccessfullSignUp(with: false, expectsOnlyVersionCheck: false)
+    func testSignupPreparationAfterVersionCheck() throws {
+        try performTestSuccessfullSignUp(with: true, expectsOnlyVersionCheck: false)
     }
 
-    func testSignupPreparationAfterVersionCheck() {
-        performTestSuccessfullSignUp(with: true, expectsOnlyVersionCheck: false)
-    }
-
-    func testSignupWithPrecreatedIdentity() {
-        let document = createIdentity()
+    func testSignupWithPrecreatedIdentity() throws {
+        let document = createIdentity(with: interactor.keystore)
 
         let decentralizedId = document.decentralizedId
         let publicKeyId = document.publicKey[0].pubKeyId
@@ -67,58 +54,52 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
         settings.publicKeyId = publicKeyId
         settings.verificationState = VerificationState()
 
-        let privateKey = try? interactor.keystore.fetchKey(for: KeystoreKey.privateKey.rawValue)
+        let secondaryIdentityRepository = SecondaryIdentityRepository(keystore: interactor.keystore)
 
-        performTestSuccessfullSignUp(with: false, expectsOnlyVersionCheck: true)
+        let privateKey = try interactor.keystore.fetchKey(for: KeystoreKey.privateKey.rawValue)
+        let secondaryKeys = try secondaryIdentityRepository.fetchAll()
+
+        try performTestSuccessfullSignUp(with: false, expectsOnlyVersionCheck: true)
 
         let expectedDecentralizedId = interactor.settings.decentralizedId!
         let expectedPublicKeyId = interactor.settings.publicKeyId!
-        let expectedPrivateKey = try? Keychain().fetchKey(for: KeystoreKey.privateKey.rawValue)
+        let expectedPrivateKey = try interactor.keystore.fetchKey(for: KeystoreKey.privateKey.rawValue)
+        let expectedSecondaryKeys = try secondaryIdentityRepository.fetchAll()
 
         XCTAssertEqual(decentralizedId, expectedDecentralizedId)
         XCTAssertEqual(publicKeyId, expectedPublicKeyId)
-        XCTAssertNotNil(privateKey)
         XCTAssertEqual(privateKey, expectedPrivateKey)
+        XCTAssertEqual(secondaryKeys, expectedSecondaryKeys)
     }
 
-    func testOnboardingPreparationForSignupWhenVerificationStateMissing() {
-        do {
-            let pincode = Constants.dummyPincode.data(using: .utf8)!
+    func testOnboardingPreparationForSignupWhenVerificationStateMissing() throws {
+        let pincode = Constants.dummyPincode.data(using: .utf8)!
 
-            try interactor.keystore.saveKey(pincode, with: KeystoreKey.pincode.rawValue)
+        try interactor.keystore.saveKey(pincode, with: KeystoreKey.pincode.rawValue)
 
-            XCTAssertNil(interactor.settings.verificationState)
+        XCTAssertNil(interactor.settings.verificationState)
 
-            performTestSuccessfullSignUp(with: false, expectsOnlyVersionCheck: false)
+        try performTestSuccessfullSignUp(with: false, expectsOnlyVersionCheck: false)
 
-            XCTAssertFalse(try interactor.keystore.checkKey(for: KeystoreKey.pincode.rawValue))
+        XCTAssertFalse(try interactor.keystore.checkKey(for: KeystoreKey.pincode.rawValue))
 
-            XCTAssertNotNil(interactor.settings.verificationState)
-
-        } catch {
-            XCTFail("Unexpected error \(error)")
-        }
+        XCTAssertNotNil(interactor.settings.verificationState)
     }
 
-    func testOnboardingPreparationForSignupWhenVerificationStateExists() {
-        do {
-            let pincode = Constants.dummyPincode.data(using: .utf8)!
+    func testOnboardingPreparationForSignupWhenVerificationStateExists() throws {
+        let pincode = Constants.dummyPincode.data(using: .utf8)!
 
-            try interactor.keystore.saveKey(pincode, with: KeystoreKey.pincode.rawValue)
+        try interactor.keystore.saveKey(pincode, with: KeystoreKey.pincode.rawValue)
 
-            var verificationState = VerificationState()
-            verificationState.didPerformAttempt(with: Constants.networkRequestTimeout)
-            interactor.settings.set(value: verificationState, for: SettingsKey.verificationState.rawValue)
+        var verificationState = VerificationState()
+        verificationState.didPerformAttempt(with: Constants.networkRequestTimeout)
+        interactor.settings.set(value: verificationState, for: SettingsKey.verificationState.rawValue)
 
-            performTestSuccessfullSignUp(with: false, expectsOnlyVersionCheck: false)
+        try performTestSuccessfullSignUp(with: false, expectsOnlyVersionCheck: false)
 
-            XCTAssertFalse(try interactor.keystore.checkKey(for: KeystoreKey.pincode.rawValue))
+        XCTAssertFalse(try interactor.keystore.checkKey(for: KeystoreKey.pincode.rawValue))
 
-            XCTAssertEqual(interactor.settings.verificationState, verificationState)
-
-        } catch {
-            XCTFail("Unexpected error \(error)")
-        }
+        XCTAssertEqual(interactor.settings.verificationState, verificationState)
     }
 
     func testOnboardingPreparationForRestore() {
@@ -352,7 +333,7 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
 
     // MARK: Private
 
-    private func performTestSuccessfullSignUp(with waitVersionCheck: Bool, expectsOnlyVersionCheck: Bool) {
+    private func performTestSuccessfullSignUp(with waitVersionCheck: Bool, expectsOnlyVersionCheck: Bool) throws {
         // given
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
@@ -450,22 +431,11 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
         XCTAssertNotNil(interactor.settings.isCheckedInvitation)
         XCTAssertNotNil(interactor.settings.invitationCode)
 
-        let keystore = Keychain()
+        XCTAssertTrue(try interactor.keystore.checkKey(for: KeystoreKey.privateKey.rawValue))
+        XCTAssertTrue(try interactor.keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue))
+        XCTAssertTrue(try SecondaryIdentityRepository(keystore: interactor.keystore).checkAllExist())
 
-        guard let keyExists = try? keystore.checkKey(for: KeystoreKey.privateKey.rawValue), keyExists else {
-            XCTFail()
-            return
-        }
-
-        guard let entropyExists = try? keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue), entropyExists else {
-            XCTFail()
-            return
-        }
-
-        guard let pincodeExists = try? keystore.checkKey(for: KeystoreKey.pincode.rawValue), !pincodeExists else {
-            XCTFail()
-            return
-        }
+        XCTAssertFalse(try interactor.keystore.checkKey(for: KeystoreKey.pincode.rawValue))
     }
 
     private func performTestFailIdentityCreation(with waitVersionCheck: Bool) {
@@ -619,15 +589,6 @@ class OnboardingMainInteractorTests: NetworkBaseTests {
         guard case .prepared = interactor.state else {
             XCTFail("Unexpected state \(interactor.state)")
             return
-        }
-    }
-
-    private func clearStorage() {
-        do {
-            try Keychain().deleteAll()
-            SettingsManager.shared.removeAll()
-        } catch {
-            XCTFail("\(error)")
         }
     }
 }

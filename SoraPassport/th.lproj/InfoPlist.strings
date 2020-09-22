@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "ใช้กล้องในการจับภาพรหัส QR";
+"NSFaceIDUsageDescription" = "ใช้ ID ใบหน้าเพื่ออนุญาตในแอปพลิเคชัน";
+"NSPhotoLibraryUsageDescription" = "โหลดรูปภาพจากคลัง";
+"NSPhotoLibraryAddUsageDescription" = "บันทึกคำขอโอนเป็นรหัส QR";

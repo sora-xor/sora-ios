@@ -1,15 +1,13 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 @testable import SoraPassport
 import SoraCrypto
-import XCTest
+import SoraKeystore
+import IrohaCrypto
+import RobinHood
 
-func createIdentity() -> DecentralizedDocumentObject {
-    let identityOperation = IdentityOperationFactory.createNewIdentityOperation()
+@discardableResult
+func createIdentity(with keystore: KeystoreProtocol) -> DecentralizedDocumentObject {
+    let identityOperation = IdentityOperationFactory().createNewIdentityOperation(with: keystore)
 
     let semaphore = DispatchSemaphore(value: 0)
 
@@ -27,9 +25,43 @@ func createIdentity() -> DecentralizedDocumentObject {
         ddo = document
     }
 
-    OperationManager.shared.enqueue(operations: [identityOperation], in: .normal)
+    OperationManagerFacade.sharedManager.enqueue(operations: [identityOperation], in: .transient)
 
-    _ = semaphore.wait(timeout: DispatchTime.now() + DispatchTimeInterval.milliseconds(Int(Constants.expectationDuration * 1000)))
+    _ = semaphore.wait(timeout: DispatchTime.now() + DispatchTimeInterval.milliseconds(Int(5 * 1000)))
 
     return ddo!
+}
+
+@discardableResult
+func setupKeystoreAndDdo(for mnemonicString: String, keystore: KeystoreProtocol) throws -> DecentralizedDocumentObject {
+
+    let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromList: mnemonicString)
+    let ddoCreationOperation = IdentityOperationFactory()
+        .createRestorationOperation(with: mnemonic, keystore: keystore)
+
+    let semaphore = DispatchSemaphore(value: 0)
+
+    ddoCreationOperation.completionBlock = {
+        semaphore.signal()
+    }
+
+    OperationManagerFacade.sharedManager.enqueue(operations: [ddoCreationOperation],
+                                                 in: .transient)
+
+    let status = semaphore.wait(timeout: .now() + 10.0)
+
+    guard status == .success else {
+        throw BaseOperationError.unexpectedDependentResult
+    }
+
+    guard let result = ddoCreationOperation.result else {
+        throw BaseOperationError.parentOperationCancelled
+    }
+
+    switch result {
+    case .success(let ddo):
+        return ddo
+    case .failure(let error):
+        throw error
+    }
 }

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraCrypto
 import SoraKeystore
@@ -22,8 +17,7 @@ class NotificationsInteractorFactory: NotificationsInteractorFactoryProtocol {
                                                  eventCenter: EventCenter.shared,
                                                  config: ApplicationConfig.shared,
                                                  notificationUnitService: notificationService,
-                                                 notificationsRegistrator: NotificationsRegistration(),
-                                                 notificationsLocalScheduler: NotificationsLocalScheduler())
+                                                 notificationsRegistrator: NotificationsRegistration())
 
         return interactor
     }

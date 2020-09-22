@@ -1,12 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import SoraFoundation
 
 protocol PersonalUpdateViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
-	func didReceive(viewModels: [PersonalInfoViewModelProtocol])
+	func didReceive(viewModels: [InputViewModelProtocol])
     func didStartSaving()
     func didCompleteSaving(success: Bool)
 }

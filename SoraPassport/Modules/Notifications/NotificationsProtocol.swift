@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 protocol NotificationsPresenterProtocol: class {}
@@ -25,10 +20,6 @@ protocol NotificationsInteractorFactoryProtocol: class {
 protocol NotificationsRegistrationProtocol: class {
     func registerNotifications(options: NotificationsOptions)
     func registerForRemoteNotifications()
-}
-
-protocol NotificationsLocalSchedulerProtocol: class {
-    func schedule(notification: SoraNotification, with identifier: String, on date: Date?)
 }
 
 protocol NotificationsServiceOutputProtocol: class {

@@ -170,5 +170,101 @@
         <string>%li дуҫ тауыш биргән</string>
       </dict>
     </dict>
+    <key>referendum.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>zero</key>
+        <string>%li көн</string>
+        <key>one</key>
+        <string>%li көн</string>
+        <key>two</key>
+        <string>%li көн</string>
+        <key>few</key>
+        <string>%li көн</string>
+        <key>many</key>
+        <string>%li көн</string>
+        <key>other</key>
+        <string>%li көн</string>
+      </dict>
+    </dict>
+    <key>referendum.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>zero</key>
+        <string>%li сәғәт</string>
+        <key>one</key>
+        <string>%li сәғәт</string>
+        <key>two</key>
+        <string>%li сәғәт</string>
+        <key>few</key>
+        <string>%li сәғәт</string>
+        <key>many</key>
+        <string>%li сәғәт</string>
+        <key>other</key>
+        <string>%li сәғәт</string>
+      </dict>
+    </dict>
+    <key>referendum.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>zero</key>
+        <string>%li минут</string>
+        <key>one</key>
+        <string>%li минут</string>
+        <key>two</key>
+        <string>%li минут</string>
+        <key>few</key>
+        <string>%li минут</string>
+        <key>many</key>
+        <string>%li минут</string>
+        <key>other</key>
+        <string>%li минут</string>
+      </dict>
+    </dict>
+    <key>referendum.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>zero</key>
+        <string>%li секунд</string>
+        <key>one</key>
+        <string>%li секунд</string>
+        <key>two</key>
+        <string>%li секунд</string>
+        <key>few</key>
+        <string>%li секунд</string>
+        <key>many</key>
+        <string>%li секунд</string>
+        <key>other</key>
+        <string>%li секунд</string>
+      </dict>
+    </dict>
   </dict>
 </plist>

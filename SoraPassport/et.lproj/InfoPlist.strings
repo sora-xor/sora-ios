@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kaamerat kasutatakse QR-koodi jäädvustamiseks";
+"NSFaceIDUsageDescription" = "Face ID-d kasutatakse rakenduses autoriseerimiseks";
+"NSPhotoLibraryUsageDescription" = "Laadige fotod galeriist";
+"NSPhotoLibraryAddUsageDescription" = "Salvesta ülekandetaotlus QR-koodina";

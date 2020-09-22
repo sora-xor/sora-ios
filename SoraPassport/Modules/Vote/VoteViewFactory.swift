@@ -1,12 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 protocol VoteViewFactoryProtocol {
     func createVoteViewController(with model: VoteViewModelProtocol,
+                                  style: VoteViewStyle,
                                   delegate: VoteViewDelegate?) -> UIViewController?
 }
 
@@ -20,6 +16,7 @@ class VoteViewFactory {
 
 extension VoteViewFactory: VoteViewFactoryProtocol {
     func createVoteViewController(with model: VoteViewModelProtocol,
+                                  style: VoteViewStyle,
                                   delegate: VoteViewDelegate?) -> UIViewController? {
         guard let view = UINib(resource: R.nib.voteView)
             .instantiate(withOwner: nil, options: nil).first as? VoteView else {
@@ -35,7 +32,7 @@ extension VoteViewFactory: VoteViewFactoryProtocol {
                                            left: trackCornerRadius,
                                            bottom: 0.0,
                                            right: trackCornerRadius)
-        let minimumTrackImage = UIImage.background(from: .voteMinimumTrack,
+        let minimumTrackImage = UIImage.background(from: style.tintColor,
                                                    size: trackImageSize,
                                                    cornerRadius: trackCornerRadius,
                                                    contentScale: UIScreen.main.scale)
@@ -46,6 +43,12 @@ extension VoteViewFactory: VoteViewFactoryProtocol {
                                                    cornerRadius: trackCornerRadius,
                                                    contentScale: UIScreen.main.scale)
         view.maximumTrackImage = maximumTrackImage?.resizableImage(withCapInsets: resizableInsets)
+
+        view.voteTitle = style.voteTitle
+        view.voteIcon = style.voteIcon
+        view.voteFillColor = style.tintColor
+        view.voteHighlightedFillColor = style.tintColor
+        view.sliderThumb = style.thumbIcon
 
         view.frame.size.width = min(UIScreen.main.bounds.size.width,
                                     UIScreen.main.bounds.size.height)

@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kamera digunakan untuk mengambil kode QR";
+"NSFaceIDUsageDescription" = "ID Wajah digunakan untuk mengotorisasi dalam aplikasi";
+"NSPhotoLibraryUsageDescription" = "Memuat foto dari Perpustakaan";
+"NSPhotoLibraryAddUsageDescription" = "Simpan permintaan transfer sebagai kode QR";

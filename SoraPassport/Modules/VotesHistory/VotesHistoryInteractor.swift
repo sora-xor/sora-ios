@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -55,7 +50,7 @@ extension VotesHistoryInteractor: VotesHistoryInteractorInputProtocol {
         votesHistoryDataProvider.refresh()
     }
 
-    func loadNext(page: Pagination) {
+    func loadNext(page: OffsetPagination) {
         do {
             _ = try projectService.fetchVotesHistory(with: page,
                                                      runCompletionIn: .main) { [weak self] (optionalResult) in

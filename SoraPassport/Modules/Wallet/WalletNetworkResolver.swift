@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -28,8 +23,8 @@ final class WalletNetworkResolver {
     }
 }
 
-extension WalletNetworkResolver: WalletNetworkResolverProtocol {
-    func urlTemplate(for type: WalletRequestType) -> String {
+extension WalletNetworkResolver: MiddlewareNetworkResolverProtocol {
+    func urlTemplate(for type: MiddlewareRequestType) -> String {
         switch type {
         case .balance:
             return endpointMapping.balance
@@ -50,7 +45,16 @@ extension WalletNetworkResolver: WalletNetworkResolverProtocol {
         }
     }
 
-    func adapter(for type: WalletRequestType) -> NetworkRequestModifierProtocol? {
+    func adapter(for type: MiddlewareRequestType) -> NetworkRequestModifierProtocol? {
         return requestSigner
+    }
+
+    func errorFactory(for type: MiddlewareRequestType) -> MiddlewareNetworkErrorFactoryProtocol? {
+        switch type {
+        case .search:
+            return WalletNetworkSearchErrorFactory()
+        default:
+            return nil
+        }
     }
 }

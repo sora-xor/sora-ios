@@ -1,10 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
+import SoraFoundation
 
 final class PersonalInfoPresenter {
     enum ViewModelIndex: Int {
@@ -21,7 +17,7 @@ final class PersonalInfoPresenter {
 
     var personalForm: PersonalForm
 
-    private var models: [PersonalInfoViewModel] = []
+    private var models: [InputViewModel] = []
 
     let locale: Locale
 
@@ -34,9 +30,9 @@ final class PersonalInfoPresenter {
     }
 
     private func updatePersonalForm() {
-        personalForm.firstName = models[ViewModelIndex.firstName.rawValue].value
-        personalForm.lastName = models[ViewModelIndex.lastName.rawValue].value
-        let invitationCode = models[ViewModelIndex.invitationCode.rawValue].value
+        personalForm.firstName = models[ViewModelIndex.firstName.rawValue].inputHandler.normalizedValue
+        personalForm.lastName = models[ViewModelIndex.lastName.rawValue].inputHandler.normalizedValue
+        let invitationCode = models[ViewModelIndex.invitationCode.rawValue].inputHandler.normalizedValue
 
         if !invitationCode.isEmpty {
             personalForm.invitationCode = invitationCode
@@ -65,13 +61,13 @@ final class PersonalInfoPresenter {
     }
 
     private func clearInvitation() {
-        models[ViewModelIndex.invitationCode.rawValue].value = ""
+        models[ViewModelIndex.invitationCode.rawValue].inputHandler.clearValue()
         view?.didReceive(viewModels: models)
         view?.didStartEditing(at: ViewModelIndex.invitationCode.rawValue)
     }
 
     private func skipInvitation() {
-        models[ViewModelIndex.invitationCode.rawValue].value = ""
+        models[ViewModelIndex.invitationCode.rawValue].inputHandler.clearValue()
         register()
     }
 }

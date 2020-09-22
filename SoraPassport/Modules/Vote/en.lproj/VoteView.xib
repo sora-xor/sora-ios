@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="15505" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="16097.2" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina4_7" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="15510"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16087"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -48,7 +48,6 @@
                         <slider opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="0.5" minValue="0.0" maxValue="1" translatesAutoresizingMaskIntoConstraints="NO" id="k6T-CX-BkN" customClass="SliderView" customModule="SoraUI">
                             <rect key="frame" x="19" y="130" width="337" height="23"/>
                             <gestureRecognizers/>
-                            <color key="minimumTrackTintColor" red="0.81568627449999997" green="0.031372549020000001" blue="0.1058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                             <color key="maximumTrackTintColor" red="0.94117647058823528" green="0.96862745098039216" blue="0.96862745098039216" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                             <userDefinedRuntimeAttributes>
                                 <userDefinedRuntimeAttribute type="number" keyPath="trackHeight">
@@ -87,11 +86,11 @@
                             </userDefinedRuntimeAttributes>
                         </view>
                         <view contentMode="scaleToFill" horizontalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="jJA-Gb-2Fa" customClass="RoundedButton" customModule="SoraUI">
-                            <rect key="frame" x="21" y="229" width="125" height="45"/>
+                            <rect key="frame" x="21" y="229" width="145" height="45"/>
                             <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                             <constraints>
                                 <constraint firstAttribute="height" constant="45" id="60e-BQ-xsG"/>
-                                <constraint firstAttribute="width" constant="125" id="aX9-Wm-f6G"/>
+                                <constraint firstAttribute="width" constant="145" id="aX9-Wm-f6G"/>
                             </constraints>
                             <userDefinedRuntimeAttributes>
                                 <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
@@ -138,17 +137,17 @@
                                 <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
                                     <real key="value" value="15"/>
                                 </userDefinedRuntimeAttribute>
-                                <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="NO"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="YES"/>
                             </userDefinedRuntimeAttributes>
                             <connections>
                                 <action selector="actionVoteWithSender:" destination="WQM-mr-WW4" eventType="touchUpInside" id="yBo-g4-hCD"/>
                             </connections>
                         </view>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="zNx-cF-aBy" customClass="RoundedButton" customModule="SoraUI">
-                            <rect key="frame" x="161" y="229" width="134" height="45"/>
+                            <rect key="frame" x="174" y="229" width="130" height="45"/>
                             <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                             <constraints>
-                                <constraint firstAttribute="width" constant="134" id="8Vq-BQ-RbO"/>
+                                <constraint firstAttribute="width" constant="130" id="8Vq-BQ-RbO"/>
                                 <constraint firstAttribute="height" constant="45" id="dTt-aN-K8q"/>
                             </constraints>
                             <userDefinedRuntimeAttributes>
@@ -196,7 +195,7 @@
                                 <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
                                     <real key="value" value="15"/>
                                 </userDefinedRuntimeAttribute>
-                                <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="NO"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="YES"/>
                                 <userDefinedRuntimeAttribute type="boolean" keyPath="_highlighted" value="NO"/>
                             </userDefinedRuntimeAttributes>
                             <connections>
@@ -237,7 +236,7 @@
                         <constraint firstAttribute="trailing" secondItem="TFi-dr-flN" secondAttribute="trailing" id="RfN-tC-UeM"/>
                         <constraint firstItem="Xef-01-hCh" firstAttribute="top" secondItem="k6T-CX-BkN" secondAttribute="bottom" constant="17" id="Yu7-5I-xeW"/>
                         <constraint firstItem="TFi-dr-flN" firstAttribute="leading" secondItem="ocg-QX-2Cv" secondAttribute="leading" id="ZiH-Be-pb2"/>
-                        <constraint firstItem="zNx-cF-aBy" firstAttribute="leading" secondItem="jJA-Gb-2Fa" secondAttribute="trailing" constant="15" id="bD6-bV-dg9"/>
+                        <constraint firstItem="zNx-cF-aBy" firstAttribute="leading" secondItem="jJA-Gb-2Fa" secondAttribute="trailing" constant="8" id="bD6-bV-dg9"/>
                         <constraint firstAttribute="bottom" secondItem="jJA-Gb-2Fa" secondAttribute="bottom" constant="20" id="bET-Yd-bi0"/>
                         <constraint firstItem="k6T-CX-BkN" firstAttribute="top" secondItem="wz2-ee-V4Q" secondAttribute="bottom" constant="29" id="ioU-fc-9ec"/>
                         <constraint firstItem="zNx-cF-aBy" firstAttribute="centerY" secondItem="jJA-Gb-2Fa" secondAttribute="centerY" id="l0M-bc-ZXF"/>

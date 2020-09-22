@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "使用相机获取二维码";
+"NSFaceIDUsageDescription" = "使用人脸识别授权应用程序";
+"NSPhotoLibraryUsageDescription" = "从相册中加载照片";
+"NSPhotoLibraryAddUsageDescription" = "将转账请求另存为二维码";
