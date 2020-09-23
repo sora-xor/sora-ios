@@ -26,7 +26,7 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
 
         // when
 
-        performSetup(for: presenter, view: view, wireframe: wireframe, settings: settings)
+        let viewModel = performSetup(for: presenter, view: view, wireframe: wireframe, settings: settings)
 
         let viewMatcher: ParameterMatcher<PhoneVerificationViewProtocol?> = ParameterMatcher { $0 === view }
 
@@ -51,9 +51,8 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
             }
         }
 
-        let viewModel = CodeInputViewModel(length: 4, invalidCharacters: CharacterSet.decimalDigits.inverted)
-        let enteringSuccess = viewModel.didReceiveReplacement(Constants.dummySmsCode,
-                                                              for: NSRange(location: 0, length: 0))
+        let enteringSuccess = viewModel.inputHandler.didReceiveReplacement(Constants.dummySmsCode,
+                                                                           for: NSRange(location: 0, length: 0))
 
         XCTAssertTrue(enteringSuccess)
 
@@ -64,7 +63,7 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
 
         // then
 
-        verify(view, times(1)).didReceive(viewModel: any(CodeInputViewModelProtocol.self))
+        verify(view, times(1)).didReceive(viewModel: any(InputViewModelProtocol.self))
         verify(view, atLeastOnce()).didUpdateResendRemained(delay: any(TimeInterval.self))
 
         XCTAssertEqual(startLoadingCalledTimes, stopLoadingCalledTimes)
@@ -89,7 +88,7 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
 
         // when
 
-        performSetup(for: presenter, view: view, wireframe: wireframe, settings: settings)
+        let viewModel = performSetup(for: presenter, view: view, wireframe: wireframe, settings: settings)
 
         let countdownTimerDelegate = MockCountdownTimerDelegate()
         presenter.countdownTimer.delegate = countdownTimerDelegate
@@ -127,9 +126,8 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
             }
         }
 
-        let viewModel = CodeInputViewModel(length: 4, invalidCharacters: CharacterSet.decimalDigits.inverted)
-        let enteringSuccess = viewModel.didReceiveReplacement(Constants.dummySmsCode,
-                                                              for: NSRange(location: 0, length: 0))
+        let enteringSuccess = viewModel.inputHandler.didReceiveReplacement(Constants.dummySmsCode,
+                                                                           for: NSRange(location: 0, length: 0))
 
         XCTAssertTrue(enteringSuccess)
 
@@ -148,7 +146,7 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
     private func performSetup(for presenter: PhoneVerificationPresenter,
                               view: MockPhoneVerificationViewProtocol,
                               wireframe: MockPhoneVerificationWireframeProtocol,
-                              settings: SettingsManagerProtocol) {
+                              settings: SettingsManagerProtocol) -> InputViewModelProtocol {
         // given
 
         let interactor = createInteractor(with: settings)
@@ -160,12 +158,20 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
         let verificationCodeSentExpectation = XCTestExpectation()
         verificationCodeSentExpectation.assertForOverFulfill = false
 
+        let viewModelExpectation = XCTestExpectation()
+
+        var inputViewModel: InputViewModelProtocol?
+
         stub(view) { stub in
             when(stub).didStartLoading().thenDoNothing()
 
             when(stub).didStopLoading().thenDoNothing()
 
-            when(stub).didReceive(viewModel: any(CodeInputViewModelProtocol.self)).thenDoNothing()
+            when(stub).didReceive(viewModel: any(InputViewModelProtocol.self)).then { viewModel in
+                inputViewModel = viewModel
+                viewModelExpectation.fulfill()
+            }
+
             when(stub).didUpdateResendRemained(delay: any(TimeInterval.self)).then { _ in
                 verificationCodeSentExpectation.fulfill()
             }
@@ -177,7 +183,9 @@ class PhoneVerificationInteractorTests: NetworkBaseTests {
 
         // then
 
-        wait(for: [verificationCodeSentExpectation], timeout: Constants.expectationDuration)
+        wait(for: [verificationCodeSentExpectation, viewModelExpectation], timeout: Constants.expectationDuration)
+
+        return inputViewModel!
     }
 
     private func createInteractor(with settings: SettingsManagerProtocol) -> PhoneVerificationInteractor {

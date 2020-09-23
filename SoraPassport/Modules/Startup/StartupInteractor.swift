@@ -35,7 +35,7 @@ final class StartupInteractor {
     private(set) var keystore: KeystoreProtocol
     private(set) var config: ApplicationConfigProtocol
     private(set) var identityNetworkOperationFactory: DecentralizedResolverOperationFactoryProtocol
-    private(set) var identityLocalOperationFactory: IdentityOperationFactoryProtocol.Type
+    private(set) var identityLocalOperationFactory: IdentityOperationFactoryProtocol
     private(set) var accountOperationFactory: ProjectAccountOperationFactoryProtocol
     private(set) var informationOperationFactory: ProjectInformationOperationFactoryProtocol
     private(set) var operationManager: OperationManagerProtocol
@@ -49,7 +49,7 @@ final class StartupInteractor {
          keystore: KeystoreProtocol,
          config: ApplicationConfigProtocol,
          identityNetworkOperationFactory: DecentralizedResolverOperationFactoryProtocol,
-         identityLocalOperationFactory: IdentityOperationFactoryProtocol.Type,
+         identityLocalOperationFactory: IdentityOperationFactoryProtocol,
          accountOperationFactory: ProjectAccountOperationFactoryProtocol,
          informationOperationFactory: ProjectInformationOperationFactoryProtocol,
          operationManager: OperationManagerProtocol,
@@ -76,21 +76,22 @@ final class StartupInteractor {
         let checkVersionOperation = informationOperationFactory
             .checkSupportedVersionOperation(urlTemplate, version: version)
 
-        operationManager.enqueue(operations: [checkVersionOperation], in: .normal)
+        operationManager.enqueue(operations: [checkVersionOperation], in: .transient)
 
         return checkVersionOperation
     }
 
     private func performIdentityUpdateOperation(for decentralizedId: String,
                                                 dependingOn versionOperation: BaseOperation<SupportedVersionData>)
-        -> BaseOperation<Bool> {
+        -> BaseOperation<Void> {
 
         let identityFetchOperation = performIdentityFetch(for: decentralizedId, dependingOn: versionOperation)
         let identityVerifyOperation = performIdentityVerify(for: decentralizedId, dependingOn: identityFetchOperation)
         let identityUpdateOperation = performIdentityUpdateOperation(for: decentralizedId,
                                                                      dependingOn: identityVerifyOperation)
+        let secondaryIdentityOperation = performSecondaryIdentitiesUpdateOperation(dependingOn: identityUpdateOperation)
 
-        return identityUpdateOperation
+        return secondaryIdentityOperation
     }
 
     private func performIdentityFetch(for decentralizedId: String,
@@ -122,7 +123,7 @@ final class StartupInteractor {
 
             identityFetchOperation.addDependency(versionOperation)
 
-            operationManager.enqueue(operations: [identityFetchOperation], in: .normal)
+            operationManager.enqueue(operations: [identityFetchOperation], in: .transient)
 
             return identityFetchOperation
     }
@@ -131,7 +132,7 @@ final class StartupInteractor {
                                        dependingOn fetchOperation: BaseOperation<DecentralizedDocumentObject>)
         -> IdentityVerifyOperation {
 
-            let identityVerifyOperation = identityLocalOperationFactory.createVerificationOperation()
+            let identityVerifyOperation = identityLocalOperationFactory.createVerificationOperation(with: keystore)
             identityVerifyOperation.configurationBlock = {
                 guard let fetchResult = fetchOperation.result else {
                     self.logger?.warning("Something caused identity fetch to cancel")
@@ -154,7 +155,7 @@ final class StartupInteractor {
 
             identityVerifyOperation.addDependency(fetchOperation)
 
-            operationManager.enqueue(operations: [identityVerifyOperation], in: .normal)
+            operationManager.enqueue(operations: [identityVerifyOperation], in: .transient)
 
             return identityVerifyOperation
     }
@@ -183,7 +184,7 @@ final class StartupInteractor {
                 self.settings.publicKeyId = publicKeyId
                 identityUpdateOperation.result = .success(true)
             case .failure(let error):
-                self.logger?.warning("Update identity error \(error)")
+                self.logger?.warning("Identity verification error \(error)")
 
                 identityUpdateOperation.result = .failure(error)
             }
@@ -191,12 +192,47 @@ final class StartupInteractor {
 
         identityUpdateOperation.addDependency(verifyOperation)
 
-        operationManager.enqueue(operations: [identityUpdateOperation], in: .normal)
+            operationManager.enqueue(operations: [identityUpdateOperation], in: .transient)
 
         return identityUpdateOperation
     }
 
-    private func performRegistrationCheckOperation(for urlTemplate: String, dependingOn operation: BaseOperation<Bool>,
+    private func performSecondaryIdentitiesUpdateOperation(dependingOn operation: BaseOperation<Bool>)
+        -> BaseOperation<Void> {
+        let updateOperation = identityLocalOperationFactory.createSecondaryIdentitiesOperation(with: keystore,
+                                                                                               skipIfExists: true)
+
+        updateOperation.configurationBlock = {
+            self.logger?.debug("Did start secondary identities update")
+
+            guard let dependencyResult = operation.result else {
+                self.logger?.warning("Something caused identity registration checking to cancel")
+
+                updateOperation.cancel()
+                return
+            }
+
+            switch dependencyResult {
+            case .success(let isSuccess):
+                if !isSuccess {
+                    updateOperation.result = .failure(StartupInteractorError.verificationFailed)
+                }
+            case .failure(let error):
+                self.logger?.warning("Update identity error \(error)")
+
+                updateOperation.result = .failure(error)
+            }
+        }
+
+        updateOperation.addDependency(operation)
+
+        operationManager.enqueue(operations: [updateOperation], in: .transient)
+
+        return updateOperation
+    }
+
+    private func performRegistrationCheckOperation(for urlTemplate: String,
+                                                   dependingOn operation: BaseOperation<Void>,
                                                    with completionBlock: @escaping RegistrationCompletionBlock) {
         let userOperation = accountOperationFactory.fetchCustomerOperation(urlTemplate)
 
@@ -214,12 +250,7 @@ final class StartupInteractor {
                 return
             }
 
-            switch dependencyResult {
-            case .success(let isSuccess):
-                if !isSuccess {
-                    userOperation.result = .failure(StartupInteractorError.verificationFailed)
-                }
-            case .failure(let error):
+            if case .failure(let error) = dependencyResult {
                 if let verificationError = error as? IdentityVerifyOperationError,
                     verificationError == .authenticablePublicKeyNotFound {
                     userOperation.result = .failure(StartupInteractorError.verificationFailed)
@@ -240,7 +271,7 @@ final class StartupInteractor {
             }
         }
 
-        operationManager.enqueue(operations: [userOperation], in: .normal)
+        operationManager.enqueue(operations: [userOperation], in: .transient)
     }
 
     private func handleInteractor(error: StartupInteractorError) {
@@ -255,7 +286,8 @@ final class StartupInteractor {
     }
 
     private func removeIdentityAndFailVerification() {
-        let removalOperation = identityLocalOperationFactory.createLocalRemoveOperation()
+        let removalOperation = identityLocalOperationFactory.createLocalRemoveOperation(with: keystore,
+                                                                                        settings: settings)
 
         removalOperation.completionBlock = {
             DispatchQueue.main.async {
@@ -267,7 +299,7 @@ final class StartupInteractor {
             }
         }
 
-        operationManager.enqueue(operations: [removalOperation], in: .normal)
+        operationManager.enqueue(operations: [removalOperation], in: .transient)
     }
 
     private func proccessRemovalOperation(result: Result<Bool, Error>) {

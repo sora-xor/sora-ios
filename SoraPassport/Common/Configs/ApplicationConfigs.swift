@@ -5,6 +5,7 @@
 
 import Foundation
 import os
+import SoraCrypto
 
 protocol ApplicationConfigProtocol {
     var projectDecentralizedId: String { get }
@@ -16,7 +17,11 @@ protocol ApplicationConfigProtocol {
     var defaultProjectUnit: ServiceUnit { get }
     var defaultNotificationUnit: ServiceUnit { get }
     var defaultWalletUnit: ServiceUnit { get }
+    var defaultSoranetUnit: ServiceUnit { get }
+    var defaultStreamUnit: ServiceUnit { get }
     var defaultCurrency: CurrencyItemData { get }
+    var soranetExplorerTemplate: String { get }
+    var ethereumExplorerTemplate: String { get }
 
     var supportEmail: String { get }
     var termsURL: URL { get }
@@ -25,6 +30,11 @@ protocol ApplicationConfigProtocol {
     var invitationHostURL: URL { get }
     var opensourceURL: URL { get }
     var faqURL: URL { get }
+    var ethereumMasterContract: Data { get }
+    var ethereumNodeUrl: URL { get }
+    var ethereumChainId: EthereumChain { get }
+    var ethereumPollingTimeInterval: TimeInterval { get }
+    var combinedTransfersHandlingDelay: TimeInterval { get }
 }
 
 private struct InternalConfig: Codable {
@@ -37,8 +47,12 @@ private struct InternalConfig: Codable {
         case defaultProjectUnit = "projectUnit"
         case defaultNotificationUnit = "notificationUnit"
         case defaultWalletUnit = "walletUnit"
+        case defaultSoranetUnit = "soranetUnit"
+        case defaultStreamUnit = "streamUnit"
         case decentralizedDomain = "decentralizedDomain"
         case defaultCurrency = "currency"
+        case soranetExplorerTemplate = "soranetExplorer"
+        case ethereumExplorerTemplate = "ethereumExplorer"
     }
 
     var projectDecentralizedId: String
@@ -50,7 +64,11 @@ private struct InternalConfig: Codable {
     var defaultProjectUnit: ServiceUnit
     var defaultNotificationUnit: ServiceUnit
     var defaultWalletUnit: ServiceUnit
+    var defaultSoranetUnit: ServiceUnit
+    var defaultStreamUnit: ServiceUnit
     var defaultCurrency: CurrencyItemData
+    var soranetExplorerTemplate: String
+    var ethereumExplorerTemplate: String
 }
 
 final class ApplicationConfig {
@@ -108,55 +126,71 @@ final class ApplicationConfig {
 
 extension ApplicationConfig: ApplicationConfigProtocol {
     var projectDecentralizedId: String {
-        return config.projectDecentralizedId
+        config.projectDecentralizedId
     }
 
     var notificationDecentralizedId: String {
-        return config.notificationDecentralizedId
+        config.notificationDecentralizedId
     }
 
     var notificationOptions: UInt8 {
-        return config.notificationOptions
+        config.notificationOptions
     }
 
     var walletDecentralizedId: String {
-        return config.walletDecentralizedId
+        config.walletDecentralizedId
     }
 
     var didResolverUrl: String {
-        return config.didResolverUrl
+        config.didResolverUrl
     }
 
     var defaultProjectUnit: ServiceUnit {
-        return config.defaultProjectUnit
+        config.defaultProjectUnit
     }
 
     var defaultNotificationUnit: ServiceUnit {
-        return config.defaultNotificationUnit
+        config.defaultNotificationUnit
     }
 
     var defaultWalletUnit: ServiceUnit {
-        return config.defaultWalletUnit
+        config.defaultWalletUnit
+    }
+
+    var defaultSoranetUnit: ServiceUnit {
+        config.defaultSoranetUnit
+    }
+
+    var defaultStreamUnit: ServiceUnit {
+        config.defaultStreamUnit
     }
 
     var decentralizedDomain: String {
-        return config.decentralizedDomain
+        config.decentralizedDomain
     }
 
     var defaultCurrency: CurrencyItemData {
-        return config.defaultCurrency
+        config.defaultCurrency
+    }
+
+    var soranetExplorerTemplate: String {
+        config.soranetExplorerTemplate
+    }
+
+    var ethereumExplorerTemplate: String {
+        config.ethereumExplorerTemplate
     }
 
     var supportEmail: String {
-        return "sora@soramitsu.co.jp"
+        "sora@soramitsu.co.jp"
     }
 
     var termsURL: URL {
-        return URL(string: "https://sora.org/terms")!
+        URL(string: "https://sora.org/terms")!
     }
 
     var privacyPolicyURL: URL {
-        return URL(string: "https://sora.org/privacy")!
+        URL(string: "https://sora.org/privacy")!
     }
 
     //swiftlint:disable force_cast
@@ -171,14 +205,46 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     //swiftlint:enable force_cast
 
     var invitationHostURL: URL {
-        return URL(string: "https://ref.sora.org")!
+        URL(string: "https://ref.sora.org")!
     }
 
     var opensourceURL: URL {
-        return URL(string: "https://github.com/sora-xor")!
+        URL(string: "https://github.com/sora-xor")!
     }
 
     var faqURL: URL {
-        return URL(string: "https://sora.org/faq")!
+        URL(string: "https://sora.org/faq")!
     }
+
+    var ethereumMasterContract: Data {
+        #if F_RELEASE
+        fatalError("No master contract address")
+        #elseif F_STAGING
+        return Data(hexString: "c228f9fe8857b0ad13605bd9c212f3efc7e1ad70")!
+        #elseif F_TEST
+        return Data(hexString: "942a57bc7112f4db2996b5cda7c378c21871676e")!
+        #else
+        return Data(hexString: "2C506b0f693A26dA3CC3eFD515224e31B0a96f69")!
+        #endif
+    }
+
+    var ethereumNodeUrl: URL {
+        #if F_RELEASE
+        fatalError("No mainnet url address")
+        #else
+        return URL(string: "https://ropsten.infura.io/v3/6b7733290b9a4156bf62a4ba105b76ec")!
+        #endif
+    }
+
+    var ethereumChainId: EthereumChain {
+        #if F_RELEASE
+        return .mainnet
+        #else
+        return .ropsten
+        #endif
+    }
+
+    var ethereumPollingTimeInterval: TimeInterval { 5.0 }
+
+    var combinedTransfersHandlingDelay: TimeInterval { 1800 }
 }

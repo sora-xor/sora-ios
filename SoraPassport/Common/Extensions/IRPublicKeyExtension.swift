@@ -5,10 +5,9 @@
 
 import Foundation
 import IrohaCrypto
-import SoraCrypto
 
 extension IRPublicKeyProtocol {
     var decentralizedUsername: String {
-        return String(rawData().toHexString().prefix(20))
+        return String(rawData().soraHex.prefix(20))
     }
 }

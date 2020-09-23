@@ -83,7 +83,7 @@ extension ActivityFeedInteractor: ActivityFeedInteractorInputProtocol {
         announcementDataProvider.refresh()
     }
 
-    func loadNext(page: Pagination) {
+    func loadNext(page: OffsetPagination) {
         do {
             _ = try projectService.fetchActivityFeed(with: page,
                                                      runCompletionIn: .main) { [weak self] (optionalResult) in

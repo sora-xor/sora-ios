@@ -16,6 +16,11 @@ extension NSPredicate {
         return NSPredicate(format: "SELF MATCHES %@", phoneFormat)
     }
 
+    static var phoneCode: NSPredicate {
+        let format = "[0-9]{4}"
+        return NSPredicate(format: "SELF MATCHES %@", format)
+    }
+
     static var empty: NSPredicate {
         return NSPredicate(format: "SELF = ''")
     }
@@ -24,7 +29,17 @@ extension NSPredicate {
         return NSPredicate(format: "SELF != ''")
     }
 
+    static var personName: NSPredicate {
+        let format = "\\p{L}([\\s'\\-]*\\p{L})*"
+        return NSPredicate(format: "SELF MATCHES %@", format)
+    }
+
     static var invitationCode: NSPredicate {
         return NSPredicate(format: "SELF MATCHES %@", String.invitationCodePattern)
+    }
+
+    static var ethereumAddress: NSPredicate {
+        let format = "0x[A-Fa-f0-9]{40}"
+        return NSPredicate(format: "SELF MATCHES %@", format)
     }
 }

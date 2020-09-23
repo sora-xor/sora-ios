@@ -6,7 +6,7 @@
 import Foundation
 
 protocol AccessBackupViewProtocol: ControllerBackedProtocol {
-    func didReceiveBackup(phrase: String)
+    func didReceiveBackup(mnemonic: String)
 }
 
 protocol AccessBackupPresenterProtocol: class {
@@ -20,7 +20,7 @@ protocol AccessBackupInteractorInputProtocol: class {
 }
 
 protocol AccessBackupInteractorOutputProtocol: class {
-    func didLoad(mnemonicPhrase: String)
+    func didLoad(mnemonic: String)
     func didReceive(error: Error)
 }
 

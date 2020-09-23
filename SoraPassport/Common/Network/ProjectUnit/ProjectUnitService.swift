@@ -11,11 +11,17 @@ enum ProjectServiceType: String {
     case favorites
     case voted
     case finished
+    case referendumsOpen
+    case referendumsVoted
+    case referendumsFinished
     case toggleFavorite
     case vote
+    case referendumSupportVote
+    case referendumUnsupportVote
     case votesCount
     case votesHistory
     case projectDetails
+    case referendumDetails
     case customer
     case customerUpdate
     case register

@@ -21,21 +21,19 @@ class IdentityRestorationOperationTests: XCTestCase {
         try? keystore.deleteAll()
     }
 
-    func testSuccessfullRestoration() {
-        runRestorationTest(for: Constants.dummyValidMnemonic, expectsSuccess: true)
+    func testSuccessfullRestoration() throws {
+        try runRestorationTest(for: Constants.dummyValidMnemonic, expectsSuccess: true)
     }
 
     // MARK: Private
 
-    func runRestorationTest(for phrase: String, expectsSuccess: Bool) {
+    func runRestorationTest(for mnemonic: String, expectsSuccess: Bool) throws {
         // given
-        let mnemonicCreator = IRBIP39MnemonicCreator(language: .english)
-        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: phrase.components(separatedBy: CharacterSet.wordsSeparator)) else {
-            XCTFail()
-            return
-        }
+        let mnemonicCreator = IRMnemonicCreator(language: .english)
+        let mnemonicRepresentation = try mnemonicCreator.mnemonic(fromList: mnemonic)
 
-        let operation = IdentityOperationFactory.createRestorationOperation(with: mnemonic)
+        let operation = IdentityOperationFactory()
+            .createRestorationOperation(with: mnemonicRepresentation, keystore: keystore)
 
         let expectation = XCTestExpectation()
 
@@ -48,7 +46,8 @@ class IdentityRestorationOperationTests: XCTestCase {
 
         // when
 
-        OperationManager.shared.enqueue(operations: [operation], in: .normal)
+        OperationManagerFacade.sharedManager.enqueue(operations: [operation],
+                                                     in: .transient)
 
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
@@ -60,31 +59,15 @@ class IdentityRestorationOperationTests: XCTestCase {
                 return
             }
 
-            let privateKeyExists = try? operation.keystore.checkKey(for: KeystoreKey.privateKey.rawValue)
-            guard privateKeyExists == true else {
-                XCTFail()
-                return
-            }
-
-            let seedEntropyExists = try? operation.keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue)
-            guard seedEntropyExists == true else {
-                XCTFail()
-                return
-            }
+            XCTAssertTrue(try operation.keystore.checkKey(for: KeystoreKey.privateKey.rawValue))
+            XCTAssertTrue(try operation.keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue))
+            XCTAssertTrue(try SecondaryIdentityRepository(keystore: operation.keystore).checkAllExist())
 
         } else {
             guard let result = optionalResult, case .failure = result else {
                 XCTFail()
                 return
             }
-
-            let privateKeyExists = try? operation.keystore.checkKey(for: KeystoreKey.privateKey.rawValue)
-
-            guard privateKeyExists != true else {
-                XCTFail()
-                return
-            }
         }
-
     }
 }

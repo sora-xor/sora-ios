@@ -5,6 +5,7 @@
 
 import UIKit
 import SoraUI
+import SoraFoundation
 
 final class PhoneRegistrationViewController: AccessoryViewController {
     enum Section: Int, CaseIterable {
@@ -22,7 +23,7 @@ final class PhoneRegistrationViewController: AccessoryViewController {
 
     @IBOutlet private var tableView: UITableView!
 
-    private var phoneInputViewModel: PersonalInfoViewModelProtocol?
+    private var phoneInputViewModel: InputViewModelProtocol?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -70,7 +71,7 @@ final class PhoneRegistrationViewController: AccessoryViewController {
             return
         }
 
-        accessoryView?.isActionEnabled = phoneInputViewModel.isComplete
+        accessoryView?.isActionEnabled = phoneInputViewModel.inputHandler.completed
     }
 
     // MARK: Subclass
@@ -153,7 +154,7 @@ extension PhoneRegistrationViewController: UITableViewDelegate {
 }
 
 extension PhoneRegistrationViewController: PhoneRegistrationViewProtocol {
-    func didReceive(viewModel: PersonalInfoViewModelProtocol) {
+    func didReceive(viewModel: InputViewModelProtocol) {
         phoneInputViewModel = viewModel
 
         tableView.reloadData()

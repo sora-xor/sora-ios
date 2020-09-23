@@ -22,19 +22,24 @@ class IdentityLocalRemoveOperationTests: XCTestCase {
         settings.removeAll()
     }
 
-    func testSuccessfullRemoval() {
+    func testSuccessfullRemoval() throws {
         // given
         settings.decentralizedId = Constants.dummyDid
         settings.publicKeyId = Constants.dummyPubKeyId
 
-        guard let keypair = IREd25519KeyFactory().createRandomKeypair() else {
-            XCTFail()
-            return
-        }
+        let keypair = try IRIrohaKeyFactory().createRandomKeypair()
 
-        XCTAssertNoThrow(try keystore.saveKey(keypair.privateKey().rawData(), with: KeystoreKey.privateKey.rawValue))
+        try keystore.saveKey(keypair.privateKey().rawData(), with: KeystoreKey.privateKey.rawValue)
 
-        let operation = IdentityOperationFactory.createLocalRemoveOperation()
+        let data = Data(repeating: 0, count: 32)
+
+        try keystore.saveKey(data, with: KeystoreKey.seedEntropy.rawValue)
+
+        let secondaryRepository = SecondaryIdentityRepository(keystore: keystore)
+        try secondaryRepository.generateAndSaveForAll()
+
+        let operation = IdentityOperationFactory().createLocalRemoveOperation(with: keystore,
+                                                                              settings: settings)
 
         let expectation = XCTestExpectation()
 
@@ -44,7 +49,7 @@ class IdentityLocalRemoveOperationTests: XCTestCase {
 
         // when
 
-        OperationManager.shared.enqueue(operations: [operation], in: .normal)
+        OperationManagerFacade.sharedManager.enqueue(operations: [operation], in: .transient)
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
         // then
@@ -57,10 +62,38 @@ class IdentityLocalRemoveOperationTests: XCTestCase {
         XCTAssertNil(settings.decentralizedId)
         XCTAssertNil(settings.publicKeyId)
 
-        guard (try? keystore.checkKey(for: KeystoreKey.privateKey.rawValue)) == false else {
+        XCTAssertFalse(try keystore.checkKey(for: KeystoreKey.privateKey.rawValue))
+        XCTAssertFalse(try keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue))
+        XCTAssertTrue(try secondaryRepository.checkAllEmpty())
+    }
+
+    func testEmptyIdentityRemovalDoesntThrow() throws {
+        let operation = IdentityOperationFactory().createLocalRemoveOperation(with: keystore,
+                                                                              settings: settings)
+
+        let expectation = XCTestExpectation()
+
+        operation.completionBlock = {
+            expectation.fulfill()
+        }
+
+        // when
+
+        OperationManagerFacade.sharedManager.enqueue(operations: [operation], in: .transient)
+        wait(for: [expectation], timeout: Constants.expectationDuration)
+
+        // then
+
+        guard let result = operation.result, case .success = result else {
             XCTFail()
             return
         }
-    }
 
+        XCTAssertNil(settings.decentralizedId)
+        XCTAssertNil(settings.publicKeyId)
+
+        XCTAssertFalse(try keystore.checkKey(for: KeystoreKey.privateKey.rawValue))
+        XCTAssertFalse(try keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue))
+        XCTAssertTrue(try SecondaryIdentityRepository(keystore: keystore).checkAllEmpty())
+    }
 }

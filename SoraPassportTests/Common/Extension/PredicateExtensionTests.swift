@@ -45,4 +45,42 @@ class PredicateExtensionTests: XCTestCase {
         XCTAssertTrue(predicate.evaluate(with: ""))
         XCTAssertFalse(predicate.evaluate(with: "1"))
     }
+
+    func testPhoneCode() {
+        let predicate = NSPredicate.phoneCode
+
+        XCTAssertTrue(predicate.evaluate(with: "1234"))
+        XCTAssertTrue(predicate.evaluate(with: "5555"))
+        XCTAssertTrue(predicate.evaluate(with: "0000"))
+        XCTAssertTrue(predicate.evaluate(with: "9900"))
+
+        XCTAssertFalse(predicate.evaluate(with: ""))
+        XCTAssertFalse(predicate.evaluate(with: "123"))
+        XCTAssertFalse(predicate.evaluate(with: "12355"))
+        XCTAssertFalse(predicate.evaluate(with: "123a"))
+        XCTAssertFalse(predicate.evaluate(with: "123L"))
+    }
+
+    func testPersonName() {
+        let predicate = NSPredicate.personName
+
+        XCTAssertTrue(predicate.evaluate(with: "John Gold"))
+        XCTAssertTrue(predicate.evaluate(with: "John-Gold"))
+        XCTAssertTrue(predicate.evaluate(with: "John'Gold"))
+        XCTAssertTrue(predicate.evaluate(with: "Джон'Голд"))
+        XCTAssertTrue(predicate.evaluate(with: "ДжонGold"))
+        XCTAssertTrue(predicate.evaluate(with: "G"))
+        XCTAssertTrue(predicate.evaluate(with: "д"))
+
+        XCTAssertFalse(predicate.evaluate(with: ""))
+        XCTAssertFalse(predicate.evaluate(with: " "))
+        XCTAssertFalse(predicate.evaluate(with: "-"))
+        XCTAssertFalse(predicate.evaluate(with: "'"))
+        XCTAssertFalse(predicate.evaluate(with: " Gold"))
+        XCTAssertFalse(predicate.evaluate(with: "-Gold"))
+        XCTAssertFalse(predicate.evaluate(with: "'Gold"))
+        XCTAssertFalse(predicate.evaluate(with: "Джон'"))
+        XCTAssertFalse(predicate.evaluate(with: "Джон-"))
+        XCTAssertFalse(predicate.evaluate(with: "Джон "))
+    }
 }

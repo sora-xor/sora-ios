@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 final class PersonalUpdatePresenter {
     enum ViewModelIndex: Int {
@@ -27,7 +28,7 @@ final class PersonalUpdatePresenter {
     private(set) var viewModelFactory: PersonalInfoViewModelFactoryProtocol
 
     private(set) var userData: UserData?
-    private(set) var models: [PersonalInfoViewModel]?
+    private(set) var models: [InputViewModelProtocol]?
 
     private(set) var dataLoadingState: DataLoadingState = .waitingCached
 
@@ -40,7 +41,6 @@ final class PersonalUpdatePresenter {
 
     private func updateViewModel() {
         let models = viewModelFactory.createViewModels(from: userData, locale: locale)
-        models[ViewModelIndex.phone.rawValue].enabled = false
         self.models = models
 
         view?.didReceive(viewModels: models)
@@ -58,13 +58,13 @@ final class PersonalUpdatePresenter {
         var info = PersonalInfo()
         var hasChanges: Bool = false
 
-        let newFirstName = models[ViewModelIndex.firstName.rawValue].value
+        let newFirstName = models[ViewModelIndex.firstName.rawValue].inputHandler.normalizedValue
         if newFirstName != userData.firstName {
             info.firstName = newFirstName
             hasChanges = true
         }
 
-        let newLastName = models[ViewModelIndex.lastName.rawValue].value
+        let newLastName = models[ViewModelIndex.lastName.rawValue].inputHandler.normalizedValue
         if newLastName != userData.lastName {
             info.lastName = newLastName
             hasChanges = true

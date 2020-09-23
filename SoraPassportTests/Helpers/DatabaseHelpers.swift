@@ -45,7 +45,7 @@ func fetchAll<T: Identifiable>(from repository: AnyDataProviderRepository<T>,
                                expectationHandler: XCTestCase) throws -> [T] {
     let expectation = XCTestExpectation()
 
-    let fetchOperation = repository.fetchAllOperation()
+    let fetchOperation = repository.fetchAllOperation(with: RepositoryFetchOptions())
 
     fetchOperation.completionBlock = {
         expectation.fulfill()

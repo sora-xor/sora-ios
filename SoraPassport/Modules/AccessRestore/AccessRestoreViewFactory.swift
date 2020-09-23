@@ -19,14 +19,14 @@ final class AccessRestoreViewFactory: AccessRestoreViewFactoryProtocol {
         let view = AccessRestoreViewController(nib: R.nib.accessRestoreViewController)
         let presenter = AccessRestorePresenter()
 
-        let interactor = AccessRestoreInteractor(identityLocalOperationFactory: IdentityOperationFactory.self,
+        let interactor = AccessRestoreInteractor(identityLocalOperationFactory: IdentityOperationFactory(),
                                                  accountOperationFactory: ProjectOperationFactory(),
                                                  keystore: Keychain(),
                                                  settings: SettingsManager.shared,
                                                  applicationConfig: ApplicationConfig.shared,
-                                                 mnemonicCreator: IRBIP39MnemonicCreator(language: .english),
+                                                 mnemonicCreator: IRMnemonicCreator(language: .english),
                                                  invitationLinkService: invitationLinkService,
-                                                 operationManager: OperationManager.shared)
+                                                 operationManager: OperationManagerFacade.sharedManager)
         interactor.logger = Logger.shared
 
         let wireframe = AccessRestoreWireframe()

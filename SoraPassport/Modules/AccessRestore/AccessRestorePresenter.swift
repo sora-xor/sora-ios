@@ -7,16 +7,18 @@ import Foundation
 import SoraFoundation
 
 final class AccessRestorePresenter {
-    static let maxMnemonicLength: UInt = 150
+    static let maxMnemonicLength: Int = 150
+    static let mnemonicSize: Int = 15
 
     weak var view: AccessRestoreViewProtocol?
     var interactor: AccessRestoreInteractorInputProtocol!
     var wireframe: AccessRestoreWireframeProtocol!
 
-    var model: AccessRestoreViewModelProtocol =
-        AccessRestoreViewModel(phrase: "",
-                               characterSet: CharacterSet.englishMnemonic,
-                               maxLength: AccessRestorePresenter.maxMnemonicLength)
+    var model: InputViewModel = {
+        let inputHandler = InputHandler(maxLength: AccessRestorePresenter.maxMnemonicLength,
+                                        validCharacterSet: CharacterSet.englishMnemonic)
+        return InputViewModel(inputHandler: inputHandler)
+    }()
 }
 
 extension AccessRestorePresenter: AccessRestorePresenterProtocol {
@@ -25,13 +27,28 @@ extension AccessRestorePresenter: AccessRestorePresenterProtocol {
     }
 
     func activateAccessRestoration() {
+        let mnemonicSize = model.inputHandler.normalizedValue
+            .components(separatedBy: CharacterSet.whitespaces).count
+        if mnemonicSize != AccessRestorePresenter.mnemonicSize {
+            let languages = localizationManager?.selectedLocale.rLanguages
+            let message = R.string.localizable.accessRestoreWordsErrorMessage(preferredLanguages: languages)
+            let title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages)
+
+            wireframe.present(message: message,
+                              title: title,
+                              closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
+                              from: view)
+
+            return
+        }
+
         view?.didStartLoading()
-        interactor.restoreAccess(phrase: model.phrase.components(separatedBy: CharacterSet.wordsSeparator))
+        interactor.restoreAccess(mnemonic: model.inputHandler.value)
     }
 }
 
 extension AccessRestorePresenter: AccessRestoreInteractorOutputProtocol {
-    func didRestoreAccess(from phrase: [String]) {
+    func didRestoreAccess(from mnemonic: String) {
         view?.didStopLoading()
         wireframe.showNext(from: view)
     }

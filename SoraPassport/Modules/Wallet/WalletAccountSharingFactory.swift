@@ -5,27 +5,33 @@
 
 import Foundation
 import CommonWallet
+import SoraFoundation
 
 struct WalletAccountSharingFactory: AccountShareFactoryProtocol {
     let assets: [WalletAsset]
-    let amountFormatter: NumberFormatter
-    let locale: Locale
+    let numberFactory: NumberFormatterFactoryProtocol
+    let localizationManager: LocalizationManagerProtocol
 
     func createSources(for receiveInfo: ReceiveInfo, qrImage: UIImage) -> [Any] {
         var title: String
         var optionalAssetTitle: String?
         var optionalAmountTitle: String?
+        var asset: WalletAsset?
 
+        let locale = localizationManager.selectedLocale
         let languages = locale.rLanguages
 
-        if let assetId = receiveInfo.assetId,
-            let asset = assets.first(where: { $0.identifier.identifier() == assetId.identifier() }) {
-            optionalAssetTitle = asset.details.value(for: locale)
+        if let assetId = receiveInfo.assetId {
+            asset = assets.first(where: { $0.identifier == assetId })
         }
 
-        if let amount = receiveInfo.amount?.value,
-            let amountDecimal = Decimal(string: amount),
-            let formattedAmount = amountFormatter.string(from: amountDecimal as NSNumber) {
+        optionalAssetTitle = asset?.name.value(for: locale)
+
+        let amountFormatter = numberFactory.createDisplayFormatter(for: asset)
+
+        if let amountDecimal = receiveInfo.amount?.decimalValue,
+            let formattedAmount = amountFormatter.value(for: locale)
+                .string(from: amountDecimal as NSNumber) {
             optionalAmountTitle = formattedAmount
         }
 
@@ -43,6 +49,6 @@ struct WalletAccountSharingFactory: AccountShareFactoryProtocol {
                 .walletAccountShareMessage(preferredLanguages: languages)
         }
 
-        return [qrImage, title, receiveInfo.accountId.identifier()]
+        return [qrImage, title, receiveInfo.accountId]
     }
 }

@@ -59,37 +59,54 @@ final class ProjectsViewFactory: ProjectsViewFactoryProtocol {
     private static func createChildPresenters(with eventCenter: EventCenterProtocol,
                                               localizationManager: LocalizationManagerProtocol)
         -> [ProjectDisplayType: ProjectsListPresenter] {
-        let dataProviderFacade = ProjectDataProviderFacade.shared
+        let projectsProviderFacade = ProjectDataProviderFacade.shared
+        let referendumProviderFacade = ReferendumDataProviderFacade.shared
+
+        let openProjects = projectsProviderFacade.allProjectsProvider
+        let openReferendums = referendumProviderFacade.openReferendumsProvider
+
+        let votedProjects = projectsProviderFacade.votedProjectsProvider
+        let votedReferendums = referendumProviderFacade.votedReferendumsProvider
+
+        let favoriteProjects = projectsProviderFacade.favoriteProjectsProvider
+
+        let finishedProjects = projectsProviderFacade.finishedProjectsProvider
+        let finishedReferendums = referendumProviderFacade.finishedReferendumsProvider
 
         var children = [ProjectDisplayType: ProjectsListPresenter]()
-            children[.all] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
-                                                        dataProvider: dataProviderFacade.allProjectsProvider,
-                                                        eventCenter: eventCenter,
-                                                        localizationManager: localizationManager)
-        children[.voted] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
-                                                      dataProvider: dataProviderFacade.votedProjectsProvider,
+        children[.all] = createProjectListPresenter(projectsProvider: openProjects,
+                                                    referendumsProvider: openReferendums,
+                                                    eventCenter: eventCenter,
+                                                    localizationManager: localizationManager)
+        children[.voted] = createProjectListPresenter(projectsProvider: votedProjects,
+                                                      referendumsProvider: votedReferendums,
                                                       eventCenter: eventCenter,
                                                       localizationManager: localizationManager)
-        children[.favorite] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
-                                                         dataProvider: dataProviderFacade.favoriteProjectsProvider,
+        children[.favorite] = createProjectListPresenter(projectsProvider: favoriteProjects,
+                                                         referendumsProvider: nil,
                                                          eventCenter: eventCenter,
                                                          localizationManager: localizationManager)
-        children[.completed] = createProjectListPresenter(viewModelFactory: ProjectViewModelFactory.createDefault(),
-                                                          dataProvider: dataProviderFacade.finishedProjectsProvider,
+        children[.completed] = createProjectListPresenter(projectsProvider: finishedProjects,
+                                                          referendumsProvider: finishedReferendums,
                                                           eventCenter: eventCenter,
                                                           localizationManager: localizationManager)
 
         return children
     }
 
-    private static func createProjectListPresenter(viewModelFactory: ProjectViewModelFactoryProtocol,
-                                                   dataProvider: DataProvider<ProjectData>,
+    private static func createProjectListPresenter(projectsProvider: DataProvider<ProjectData>,
+                                                   referendumsProvider: DataProvider<ReferendumData>?,
                                                    eventCenter: EventCenterProtocol,
                                                    localizationManager: LocalizationManagerProtocol)
         -> ProjectsListPresenter {
 
-        let presenter = ProjectsListPresenter(viewModelFactory: viewModelFactory)
-        let interactor = ProjectsListInteractor(projectsDataProvider: dataProvider,
+        let projectViewModelFactory = ProjectViewModelFactory.createDefault()
+        let referendumViewModelFactory = ReferendumViewModelFactory.createDefault()
+
+        let presenter = ProjectsListPresenter(projectsViewModelFactory: projectViewModelFactory,
+                                              referendumViewModelFactory: referendumViewModelFactory)
+        let interactor = ProjectsListInteractor(projectsDataProvider: projectsProvider,
+                                                referendumsDataProvider: referendumsProvider,
                                                 eventCenter: eventCenter)
 
         presenter.interactor = interactor

@@ -8,10 +8,6 @@ import Foundation
 extension CharacterSet {
     static var englishMnemonic: CharacterSet {
         return CharacterSet(charactersIn: "a"..."z")
-            .union(wordsSeparator)
-    }
-
-    static var wordsSeparator: CharacterSet {
-        return CharacterSet.whitespaces
+            .union(.whitespaces)
     }
 }

@@ -18,21 +18,21 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
 
         let settings = InMemorySettingsManager()
 
-        interactor = AccessRestoreInteractor(identityLocalOperationFactory: IdentityOperationFactory.self,
+        interactor = AccessRestoreInteractor(identityLocalOperationFactory: IdentityOperationFactory(),
                                              accountOperationFactory: ProjectOperationFactory(),
                                              keystore: InMemoryKeychain(),
                                              settings: settings,
                                              applicationConfig: ApplicationConfig.shared,
-                                             mnemonicCreator: IRBIP39MnemonicCreator(language: .english),
+                                             mnemonicCreator: IRMnemonicCreator(language: .english),
                                              invitationLinkService: InvitationLinkService(settings: settings),
-                                             operationManager: OperationManager.shared)
+                                             operationManager: OperationManagerFacade.sharedManager)
     }
 
-    func testSuccessfullRestorationImmediately() {
-        performTestSuccessfullRestoration()
+    func testSuccessfullRestorationImmediately() throws {
+        try performTestSuccessfullRestoration()
     }
 
-    func testSuccessfullRestorationAfterTryingRegistration() {
+    func testSuccessfullRestorationAfterTryingRegistration() throws {
         var settings = interactor.settings
         settings.decentralizedId = Constants.dummyDid
         settings.publicKeyId = Constants.dummyPubKeyId
@@ -40,7 +40,7 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
 
         XCTAssertTrue(interactor.invitationLinkService.handle(url: Constants.dummyInvitationLink))
 
-        performTestSuccessfullRestoration()
+        try performTestSuccessfullRestoration()
     }
 
     func testRestorationWithInvalidMnemonic() {
@@ -63,7 +63,7 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
 
         // when
 
-        interactor.restoreAccess(phrase: Constants.dummyInvalidMnemonic.components(separatedBy: CharacterSet.wordsSeparator))
+        interactor.restoreAccess(mnemonic: Constants.dummyInvalidMnemonic)
 
         // then
 
@@ -90,14 +90,14 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
 
         // when
 
-        interactor.restoreAccess(phrase: Constants.dummyValidMnemonic.components(separatedBy: CharacterSet.wordsSeparator))
+        interactor.restoreAccess(mnemonic: Constants.dummyValidMnemonic)
 
         // then
 
         wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
     }
 
-    func testStateNotChangedWhenMnemonicInvalid() {
+    func testStateNotChangedWhenMnemonicInvalid() throws {
         // given
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
@@ -115,7 +115,7 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
 
         interactor.presenter = presenterMock
 
-        let document = createIdentity()
+        let document = createIdentity(with: interactor.keystore)
 
         var settings = interactor.settings
         settings.decentralizedId = document.decentralizedId
@@ -124,17 +124,18 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
         let verificationState = VerificationState(resendDelay: 60.0, lastAttempted: Date())
         settings.verificationState = verificationState
 
-        guard let newPrivateKey = IREd25519KeyFactory().createRandomKeypair() else {
-            XCTFail()
-            return
-        }
+        let newPrivateKey = try IRIrohaKeyFactory().createRandomKeypair()
 
-        XCTAssertNoThrow(try interactor.keystore.saveKey(newPrivateKey.privateKey().rawData(),
-                                                         with: KeystoreKey.privateKey.rawValue))
+        try interactor.keystore.saveKey(newPrivateKey.privateKey().rawData(), with: KeystoreKey.privateKey.rawValue)
+
+        let secondaryRepository = SecondaryIdentityRepository(keystore: interactor.keystore)
+        try secondaryRepository.generateAndSaveForAll()
+
+        let secondaryKeys = try secondaryRepository.fetchAll()
 
         // when
 
-        interactor.restoreAccess(phrase: Constants.dummyValidMnemonic.components(separatedBy: CharacterSet.wordsSeparator))
+        interactor.restoreAccess(mnemonic: Constants.dummyValidMnemonic)
 
         // then
 
@@ -144,14 +145,17 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
         XCTAssertEqual(settings.publicKeyId, document.publicKey.first!.pubKeyId)
         XCTAssertEqual(settings.verificationState, verificationState)
 
-        let currentPrivateKeyData = try? interactor.keystore.fetchKey(for: KeystoreKey.privateKey.rawValue)
+        let currentPrivateKeyData = try interactor.keystore.fetchKey(for: KeystoreKey.privateKey.rawValue)
+
+        let expectedSecondaryKeys = try secondaryRepository.fetchAll()
 
         XCTAssertEqual(newPrivateKey.privateKey().rawData(), currentPrivateKeyData)
+        XCTAssertEqual(secondaryKeys, expectedSecondaryKeys)
     }
 
     // MARK: Private
 
-    private func performTestSuccessfullRestoration() {
+    private func performTestSuccessfullRestoration() throws {
         // given
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
@@ -163,7 +167,7 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
         let presenterMock = MockAccessRestoreInteractorOutputProtocol()
 
         stub(presenterMock) { stub in
-            when(stub.didRestoreAccess(from: any([String].self))).then { _ in
+            when(stub.didRestoreAccess(from: any(String.self))).then { _ in
                 finishExpectation.fulfill()
             }
             when(stub.didReceiveRestoreAccess(error: any(Error.self))).thenDoNothing()
@@ -171,11 +175,11 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
 
         interactor.presenter = presenterMock
 
-        interactor.restoreAccess(phrase: Constants.dummyValidMnemonic.components(separatedBy: CharacterSet.wordsSeparator))
+        interactor.restoreAccess(mnemonic: Constants.dummyValidMnemonic)
 
         wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
 
-        verify(presenterMock, times(1)).didRestoreAccess(from: any([String].self))
+        verify(presenterMock, times(1)).didRestoreAccess(from: any(String.self))
         verify(presenterMock, times(0)).didReceiveRestoreAccess(error: any(Error.self))
 
         XCTAssertNotNil(interactor.settings.decentralizedId)
@@ -183,14 +187,8 @@ class AccountRestoreInteractorTests: NetworkBaseTests {
         XCTAssertNil(interactor.settings.verificationState)
         XCTAssertNil(interactor.invitationLinkService.link)
 
-        guard let keyExists = try? interactor.keystore.checkKey(for: KeystoreKey.privateKey.rawValue), keyExists else {
-            XCTFail()
-            return
-        }
-
-        guard let seedEntropyExists = try? interactor.keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue), seedEntropyExists else {
-            XCTFail()
-            return
-        }
+        XCTAssertTrue(try interactor.keystore.checkKey(for: KeystoreKey.privateKey.rawValue))
+        XCTAssertTrue(try interactor.keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue))
+        XCTAssertTrue(try SecondaryIdentityRepository(keystore: interactor.keystore).checkAllExist())
     }
 }

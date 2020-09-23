@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>project.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>залишився %li день</string>
+        <key>few</key>
+        <string>залишилося %li дні</string>
+        <key>many</key>
+        <string>залишилося %li днів</string>
+        <key>other</key>
+        <string>залишилося %li днів</string>
+      </dict>
+    </dict>
+    <key>project.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>залишилась %li година</string>
+        <key>few</key>
+        <string>залишилось %li години</string>
+        <key>many</key>
+        <string>залишилось %li годин</string>
+        <key>other</key>
+        <string>залишилось %li годин</string>
+      </dict>
+    </dict>
+    <key>project.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>залишилась %li хвилина</string>
+        <key>few</key>
+        <string>залишилось %li хвилини</string>
+        <key>many</key>
+        <string>залишилось %li хвилин</string>
+        <key>other</key>
+        <string>залишилось %li хвилин</string>
+      </dict>
+    </dict>
+    <key>project.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>залишилась %li секунда</string>
+        <key>few</key>
+        <string>залишилось %li секунди</string>
+        <key>many</key>
+        <string>залишилось %li секунд</string>
+        <key>other</key>
+        <string>залишилось %li секунд</string>
+      </dict>
+    </dict>
+    <key>received.invitations</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>Ви отримали %#@invitation@</string>
+      <key>invitation</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li запрошення</string>
+        <key>few</key>
+        <string>%li запрошення</string>
+        <key>many</key>
+        <string>%li запрошень</string>
+        <key>other</key>
+        <string>%li запрошень</string>
+      </dict>
+    </dict>
+    <key>favorite.users</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@favorite@</string>
+      <key>favorite</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li сподобався</string>
+        <key>few</key>
+        <string>%li сподобався</string>
+        <key>many</key>
+        <string>%li сподобався</string>
+        <key>other</key>
+        <string>%li сподобався</string>
+      </dict>
+    </dict>
+    <key>voted.friends</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@voted@</string>
+      <key>voted</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li друг проголосував</string>
+        <key>few</key>
+        <string>%li друга проголосували</string>
+        <key>many</key>
+        <string>%li друзів проголосували</string>
+        <key>other</key>
+        <string>%li друзів проголосували</string>
+      </dict>
+    </dict>
+    <key>referendum.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li день</string>
+        <key>few</key>
+        <string>%li дні</string>
+        <key>many</key>
+        <string>%li днів</string>
+        <key>other</key>
+        <string>%li днів</string>
+      </dict>
+    </dict>
+    <key>referendum.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li година</string>
+        <key>few</key>
+        <string>%li години</string>
+        <key>many</key>
+        <string>%li годин</string>
+        <key>other</key>
+        <string>%li годин</string>
+      </dict>
+    </dict>
+    <key>referendum.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li хвилина</string>
+        <key>few</key>
+        <string>%li хвилини</string>
+        <key>many</key>
+        <string>%li хвилин</string>
+        <key>other</key>
+        <string>%li хвилин</string>
+      </dict>
+    </dict>
+    <key>referendum.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li секунда</string>
+        <key>few</key>
+        <string>%li секунди</string>
+        <key>many</key>
+        <string>%li секунд</string>
+        <key>other</key>
+        <string>%li секунд</string>
+      </dict>
+    </dict>
+  </dict>
+</plist>

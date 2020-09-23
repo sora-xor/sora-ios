@@ -25,7 +25,8 @@ final class ProjectsViewController: UIViewController, AdaptiveDesignable, Hiddab
 
     private(set) var emptyStateViewModel: EmptyStateListViewModelProtocol?
 
-    private(set) var layoutMetadata = ProjectLayoutMetadata.createDefault()
+    private(set) var projectLayoutMetadata = ProjectLayoutMetadata.createDefault()
+    private(set) var referendumLayoutMetadata = ReferendumLayoutMetadata()
 
     private var segmentedControlTitles: [String] {
         let languages = localizationManager?.preferredLocalizations
@@ -54,7 +55,8 @@ final class ProjectsViewController: UIViewController, AdaptiveDesignable, Hiddab
 
         configure()
 
-        presenter.setup(layoutMetadata: layoutMetadata)
+        presenter.setup(projectLayoutMetadata: projectLayoutMetadata,
+                        referendumLayoutMetadata: referendumLayoutMetadata)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -64,7 +66,8 @@ final class ProjectsViewController: UIViewController, AdaptiveDesignable, Hiddab
     }
 
     private func adjustLayout() {
-        layoutMetadata.adjust(using: self)
+        projectLayoutMetadata.adjust(using: self)
+        referendumLayoutMetadata.adjust(using: self)
 
         if isAdaptiveWidthDecreased {
             compactTopBar.segmentedControlItemMargin *= designScaleRatio.width
@@ -130,6 +133,7 @@ final class ProjectsViewController: UIViewController, AdaptiveDesignable, Hiddab
                                 forCellWithReuseIdentifier: EmptyStateListViewModel.cellIdentifier)
         collectionView.register(R.nib.openProjectCollectionViewCell)
         collectionView.register(R.nib.finishedProjectCollectionViewCell)
+        collectionView.register(R.nib.referendumCollectionViewCell)
         collectionView.register(R.nib.projectHeaderView,
                                 forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader)
 

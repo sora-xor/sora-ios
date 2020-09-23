@@ -29,10 +29,10 @@ final class StartupViewFactory: StartupViewFactoryProtocol {
                                            keystore: Keychain(),
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityNetworkOperationFactory,
-                                           identityLocalOperationFactory: IdentityOperationFactory.self,
+                                           identityLocalOperationFactory: IdentityOperationFactory(),
                                            accountOperationFactory: projectOperationFactory,
                                            informationOperationFactory: projectOperationFactory,
-                                           operationManager: OperationManager.shared,
+                                           operationManager: OperationManagerFacade.sharedManager,
                                            reachabilityManager: ReachabilityManager.shared)
 
         interactor.logger = Logger.shared

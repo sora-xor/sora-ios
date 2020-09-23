@@ -13,29 +13,24 @@ import RobinHood
 
 class StartupInteractorTests: NetworkBaseTests {
 
-    override func setUp() {
-        super.setUp()
-
-        try? Keychain().deleteAll()
-        SettingsManager.shared.removeAll()
-
+    func testSuccessfullIdentityVerificationWhenPincodeNotSet() throws {
+        try performTestSuccessfullIdentityVerification(with: InMemoryKeychain(),
+                                                       settings: InMemorySettingsManager(),
+                                                       clearSecondaryIdentities: false)
     }
 
-    override func tearDown() {
-        super.tearDown()
-
-        try? Keychain().deleteAll()
-        SettingsManager.shared.removeAll()
+    func testSuccessfullIdentityVerificationWhenPincodeSet() throws {
+        let keychain = InMemoryKeychain()
+        try keychain.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreKey.pincode.rawValue)
+        try performTestSuccessfullIdentityVerification(with: keychain,
+                                                       settings: InMemorySettingsManager(),
+                                                       clearSecondaryIdentities: false)
     }
 
-    func testSuccessfullIdentityVerificationWhenPincodeNotSet() {
-        performTestSuccessfullIdentityVerification(with: Keychain(), settings: SettingsManager.shared)
-    }
-
-    func testSuccessfullIdentityVerificationWhenPincodeSet() {
-        let keychain = Keychain()
-        try? keychain.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreKey.pincode.rawValue)
-        performTestSuccessfullIdentityVerification(with: keychain, settings: SettingsManager.shared)
+    func testSuccessullSecondaryIdentitiesCreationOnStart() throws {
+        try performTestSuccessfullIdentityVerification(with: InMemoryKeychain(),
+                                                       settings: InMemorySettingsManager(),
+                                                       clearSecondaryIdentities: true)
     }
 
     func testFailedIdentityVerificationWhenKeypairInvalid() {
@@ -46,12 +41,12 @@ class StartupInteractorTests: NetworkBaseTests {
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
 
-        let document = createIdentity()
-
         let identityNetworkOperationFactory = MockDecentralizedResolverOperationFactoryProtocol()
 
-        var settings = SettingsManager.shared
-        let keychain = Keychain()
+        var settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+
+        let document = createIdentity(with: keychain)
 
         let projectOperationFactory = ProjectOperationFactory()
 
@@ -59,16 +54,16 @@ class StartupInteractorTests: NetworkBaseTests {
                                            keystore: keychain,
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityNetworkOperationFactory,
-                                           identityLocalOperationFactory: IdentityOperationFactory.self,
+                                           identityLocalOperationFactory: IdentityOperationFactory(),
                                            accountOperationFactory: projectOperationFactory,
                                            informationOperationFactory: projectOperationFactory,
-                                           operationManager: OperationManager.shared,
+                                           operationManager: OperationManagerFacade.sharedManager,
                                            reachabilityManager: DummyReachabilityFactory.createMock())
 
         settings.decentralizedId = document.decentralizedId
         settings.publicKeyId = document.publicKey.first!.pubKeyId
 
-        guard let newPrivateKey = IREd25519KeyFactory().createRandomKeypair() else {
+        guard let newPrivateKey = try? IRIrohaKeyFactory().createRandomKeypair() else {
             XCTFail()
             return
         }
@@ -129,15 +124,15 @@ class StartupInteractorTests: NetworkBaseTests {
 
         let identityRequestFactory = DecentralizedResolverOperationFactory(url: URL(string: ApplicationConfig.shared.didResolverUrl)!)
 
-        let document = createIdentity()
+        let keychain = InMemoryKeychain()
 
-        var settings = SettingsManager.shared
+        let document = createIdentity(with: keychain)
+
+        var settings = InMemorySettingsManager()
         settings.decentralizedId = document.decentralizedId
         settings.publicKeyId = document.publicKey.first!.pubKeyId
 
-        let keychain = Keychain()
-
-        guard let newPrivateKey = IREd25519KeyFactory().createRandomKeypair() else {
+        guard let newPrivateKey = try? IRIrohaKeyFactory().createRandomKeypair() else {
             XCTFail()
             return
         }
@@ -150,10 +145,10 @@ class StartupInteractorTests: NetworkBaseTests {
                                            keystore: keychain,
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityRequestFactory,
-                                           identityLocalOperationFactory: IdentityOperationFactory.self,
+                                           identityLocalOperationFactory: IdentityOperationFactory(),
                                            accountOperationFactory: projectOperationFactory,
                                            informationOperationFactory: projectOperationFactory,
-                                           operationManager: OperationManager.shared,
+                                           operationManager: OperationManagerFacade.sharedManager,
                                            reachabilityManager: DummyReachabilityFactory.createMock())
 
         let wireframe = MockStartupWireframeProtocol()
@@ -196,12 +191,12 @@ class StartupInteractorTests: NetworkBaseTests {
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         DecentralizedDocumentFetchMock.register(mock: .notFound)
 
-        let document = createIdentity()
+        var settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+
+        let document = createIdentity(with: keychain)
 
         let identityRequestFactory = DecentralizedResolverOperationFactory(url: URL(string: ApplicationConfig.shared.didResolverUrl)!)
-
-        var settings = SettingsManager.shared
-        let keychain = Keychain()
 
         let projectOperationFactory = ProjectOperationFactory()
 
@@ -209,10 +204,10 @@ class StartupInteractorTests: NetworkBaseTests {
                                            keystore: keychain,
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityRequestFactory,
-                                           identityLocalOperationFactory: IdentityOperationFactory.self,
+                                           identityLocalOperationFactory: IdentityOperationFactory(),
                                            accountOperationFactory: projectOperationFactory,
                                            informationOperationFactory: projectOperationFactory,
-                                           operationManager: OperationManager.shared,
+                                           operationManager: OperationManagerFacade.sharedManager,
                                            reachabilityManager: DummyReachabilityFactory.createMock())
 
         settings.decentralizedId = document.decentralizedId
@@ -254,22 +249,22 @@ class StartupInteractorTests: NetworkBaseTests {
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         ProjectsCustomerMock.register(mock: .resourceNotFound, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
-        let document = createIdentity()
+        var settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+
+        let document = createIdentity(with: keychain)
 
         let identityNetworkOperationFactory = MockDecentralizedResolverOperationFactoryProtocol()
         let projectOperationFactory = ProjectOperationFactory()
-
-        var settings = SettingsManager.shared
-        let keychain = Keychain()
 
         let interactor = StartupInteractor(settings: settings,
                                            keystore: keychain,
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityNetworkOperationFactory,
-                                           identityLocalOperationFactory: IdentityOperationFactory.self,
+                                           identityLocalOperationFactory: IdentityOperationFactory(),
                                            accountOperationFactory: projectOperationFactory,
                                            informationOperationFactory: projectOperationFactory,
-                                           operationManager: OperationManager.shared,
+                                           operationManager: OperationManagerFacade.sharedManager,
                                            reachabilityManager: DummyReachabilityFactory.createMock(returnIsReachable: false))
 
         settings.decentralizedId = document.decentralizedId
@@ -326,7 +321,9 @@ class StartupInteractorTests: NetworkBaseTests {
 
     // MARK: Private
 
-    func performTestSuccessfullIdentityVerification(with keystore: KeystoreProtocol, settings: SettingsManagerProtocol) {
+    func performTestSuccessfullIdentityVerification(with keystore: KeystoreProtocol,
+                                                    settings: SettingsManagerProtocol,
+                                                    clearSecondaryIdentities: Bool) throws {
         // given
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
@@ -334,7 +331,17 @@ class StartupInteractorTests: NetworkBaseTests {
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
 
-        let document = createIdentity()
+        let document = createIdentity(with: keystore)
+
+        let secondaryIdentityRepository = SecondaryIdentityRepository(keystore: keystore)
+
+        var initialSecondaryKeys: [Data] = []
+
+        if clearSecondaryIdentities {
+            try secondaryIdentityRepository.clear()
+        } else {
+            initialSecondaryKeys = try secondaryIdentityRepository.fetchAll()
+        }
 
         let identityNetworkOperationFactory = MockDecentralizedResolverOperationFactoryProtocol()
 
@@ -344,20 +351,17 @@ class StartupInteractorTests: NetworkBaseTests {
                                            keystore: keystore,
                                            config: ApplicationConfig.shared,
                                            identityNetworkOperationFactory: identityNetworkOperationFactory,
-                                           identityLocalOperationFactory: IdentityOperationFactory.self,
+                                           identityLocalOperationFactory: IdentityOperationFactory(),
                                            accountOperationFactory: projectOperationFactory,
                                            informationOperationFactory: projectOperationFactory,
-                                           operationManager: OperationManager.shared,
+                                           operationManager: OperationManagerFacade.sharedManager,
                                            reachabilityManager: DummyReachabilityFactory.createMock())
 
         var settingsManager = settings
         settingsManager.decentralizedId = document.decentralizedId
         settingsManager.publicKeyId = document.publicKey.first!.pubKeyId
 
-        guard let pincodeExists = try? keystore.checkKey(for: KeystoreKey.pincode.rawValue) else {
-            XCTFail()
-            return
-        }
+        let pincodeExists = try keystore.checkKey(for: KeystoreKey.pincode.rawValue)
 
         stub(identityNetworkOperationFactory) { stub in
             when(stub).createDecentralizedDocumentFetchOperation(decentralizedId: document.decentralizedId).then { _ in
@@ -406,14 +410,16 @@ class StartupInteractorTests: NetworkBaseTests {
         XCTAssertEqual(interactor.settings.decentralizedId, document.decentralizedId)
         XCTAssertTrue(document.publicKey.contains(where: { $0.pubKeyId == interactor.settings.publicKeyId }))
 
-        if (try? keystore.checkKey(for: KeystoreKey.privateKey.rawValue)) != true {
-            XCTFail()
-            return
+        XCTAssertTrue(try keystore.checkKey(for: KeystoreKey.privateKey.rawValue))
+
+        if clearSecondaryIdentities {
+            XCTAssertTrue(try secondaryIdentityRepository.checkAllExist())
+        } else {
+            XCTAssertEqual(try secondaryIdentityRepository.fetchAll(),
+                           initialSecondaryKeys)
         }
 
-        guard (try? keystore.checkKey(for: KeystoreKey.pincode.rawValue)) == pincodeExists else {
-            XCTFail()
-            return
-        }
+        XCTAssertEqual(try keystore.checkKey(for: KeystoreKey.pincode.rawValue),
+                       pincodeExists)
     }
 }

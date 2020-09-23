@@ -114,5 +114,69 @@
         <string>%li friends voted</string>
       </dict>
     </dict>
+    <key>referendum.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li day</string>
+        <key>other</key>
+        <string>%li days</string>
+      </dict>
+    </dict>
+    <key>referendum.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li hour</string>
+        <key>other</key>
+        <string>%li hours</string>
+      </dict>
+    </dict>
+    <key>referendum.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li minute</string>
+        <key>other</key>
+        <string>%li minutes</string>
+      </dict>
+    </dict>
+    <key>referendum.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li second</string>
+        <key>other</key>
+        <string>%li seconds</string>
+      </dict>
+    </dict>
   </dict>
 </plist>

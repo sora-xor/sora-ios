@@ -22,8 +22,7 @@ class NotificationsInteractorFactory: NotificationsInteractorFactoryProtocol {
                                                  eventCenter: EventCenter.shared,
                                                  config: ApplicationConfig.shared,
                                                  notificationUnitService: notificationService,
-                                                 notificationsRegistrator: NotificationsRegistration(),
-                                                 notificationsLocalScheduler: NotificationsLocalScheduler())
+                                                 notificationsRegistrator: NotificationsRegistration())
 
         return interactor
     }

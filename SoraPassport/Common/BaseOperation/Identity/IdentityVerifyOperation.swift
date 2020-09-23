@@ -60,11 +60,11 @@ final class IdentityVerifyOperation: BaseOperation<String> {
                 throw IdentityVerifyOperationError.privateKeyFetchFailed
             }
 
-            guard let privateKey = IREd25519PrivateKey(rawData: privateKeyData) else {
+            guard let privateKey = try? IRIrohaPrivateKey(rawData: privateKeyData) else {
                 throw IdentityVerifyOperationError.privateKeyDataInvalid
             }
 
-            guard let keypair = IREd25519KeyFactory().derive(fromPrivateKey: privateKey) else {
+            guard let keypair = try? IRIrohaKeyFactory().derive(fromPrivateKey: privateKey) else {
                 throw IdentityVerifyOperationError.keypairDeriviationFailed
             }
 

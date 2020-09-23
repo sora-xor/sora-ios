@@ -5,7 +5,6 @@
 
 import Foundation
 import CommonWallet
-import IrohaCommunication
 
 class WalletCommandMock: WalletCommandProtocol {
     private(set) var executionCount: Int = 0
@@ -31,29 +30,31 @@ class AssetDetailsCommandMock: WalletPresentationCommandMock, AssetDetailsCommad
 
 final class WalletContextMock: CommonWalletContextProtocol {
     var closureCreateRootController: (() -> UINavigationController)?
-    var closurePrepareSendCommand: ((IRAssetId?) -> WalletPresentationCommandProtocol)?
-    var closurePrepareReceiveCommand: ((IRAssetId?) -> WalletPresentationCommandProtocol)?
-    var closurePrepareAssetDetailsCommand: ((IRAssetId) -> AssetDetailsCommadProtocol)?
+    var closurePrepareSendCommand: ((String?) -> WalletPresentationCommandProtocol)?
+    var closurePrepareReceiveCommand: ((String?) -> WalletPresentationCommandProtocol)?
+    var closurePrepareAssetDetailsCommand: ((String) -> AssetDetailsCommadProtocol)?
     var closurePrepareScanReceiverCommand: (() -> AssetDetailsCommadProtocol)?
-    var closurePrepareWithdrawCommand: ((IRAssetId, String) -> WalletPresentationCommandProtocol)?
+    var closurePrepareWithdrawCommand: ((String, String) -> WalletPresentationCommandProtocol)?
     var closurePreparePresentationCommand: ((UIViewController) -> WalletPresentationCommandProtocol)?
     var closurePrepareAccountUpdateCommand: (() -> WalletCommandProtocol)?
     var closurePrepareHideCommand: ((WalletHideActionType) -> WalletHideCommandProtocol)?
     var closurePrepareLanguageSwitch: ((WalletLanguage) -> WalletCommandProtocol)?
+    var closurePrepareTxDetailsCommand: ((AssetTransactionData) -> WalletPresentationCommandProtocol)?
+    var closurePrepareTransferCommand: ((TransferPayload) -> WalletPresentationCommandProtocol)?
 
     func createRootController() throws -> UINavigationController {
         return closureCreateRootController?() ?? UINavigationController()
     }
 
-    func prepareSendCommand(for assetId: IRAssetId?) -> WalletPresentationCommandProtocol {
+    func prepareSendCommand(for assetId: String?) -> WalletPresentationCommandProtocol {
         return closurePrepareSendCommand?(assetId) ?? WalletPresentationCommandMock()
     }
 
-    func prepareReceiveCommand(for assetId: IRAssetId?) -> WalletPresentationCommandProtocol {
+    func prepareReceiveCommand(for assetId: String?) -> WalletPresentationCommandProtocol {
         return closurePrepareReceiveCommand?(assetId) ?? WalletPresentationCommandMock()
     }
 
-    func prepareAssetDetailsCommand(for assetId: IRAssetId) -> AssetDetailsCommadProtocol {
+    func prepareAssetDetailsCommand(for assetId: String) -> AssetDetailsCommadProtocol {
         return closurePrepareAssetDetailsCommand?(assetId) ?? AssetDetailsCommandMock()
     }
 
@@ -61,7 +62,7 @@ final class WalletContextMock: CommonWalletContextProtocol {
         return closurePrepareScanReceiverCommand?() ?? WalletPresentationCommandMock()
     }
 
-    func prepareWithdrawCommand(for assetId: IRAssetId, optionId: String) -> WalletPresentationCommandProtocol {
+    func prepareWithdrawCommand(for assetId: String, optionId: String) -> WalletPresentationCommandProtocol {
         return closurePrepareWithdrawCommand?(assetId, optionId) ?? WalletPresentationCommandMock()
     }
 
@@ -79,5 +80,14 @@ final class WalletContextMock: CommonWalletContextProtocol {
 
     func prepareLanguageSwitchCommand(with newLanguage: WalletLanguage) -> WalletCommandProtocol {
         return closurePrepareLanguageSwitch?(newLanguage) ?? WalletCommandMock()
+    }
+
+    func prepareTransactionDetailsCommand(with transaction: AssetTransactionData)
+        -> WalletPresentationCommandProtocol {
+        return closurePrepareTxDetailsCommand?(transaction) ?? WalletPresentationCommandMock()
+    }
+
+    func prepareTransfer(with payload: TransferPayload) -> WalletPresentationCommandProtocol {
+        return closurePrepareTransferCommand?(payload) ?? WalletPresentationCommandMock()
     }
 }

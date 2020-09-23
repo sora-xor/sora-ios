@@ -10,6 +10,7 @@ enum KeystoreKey: String, CaseIterable {
     case privateKey
     case pincode
     case seedEntropy
+    case ethKey
 }
 
 extension KeystoreProtocol {

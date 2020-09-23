@@ -27,8 +27,8 @@ final class AccessBackupInteractor {
 extension AccessBackupInteractor: AccessBackupInteractorInputProtocol {
     func load() {
         do {
-            let phrase = try loadPhrase()
-            presenter?.didLoad(mnemonicPhrase: phrase)
+            let mnemonic = try loadPhrase()
+            presenter?.didLoad(mnemonic: mnemonic)
         } catch {
             presenter?.didReceive(error: AccessBackupInteractorError.loading)
         }

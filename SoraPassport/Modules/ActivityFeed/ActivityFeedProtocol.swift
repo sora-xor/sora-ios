@@ -29,15 +29,15 @@ protocol ActivityFeedPresenterProtocol: class {
 protocol ActivityFeedInteractorInputProtocol: class {
     func setup()
     func reload()
-    func loadNext(page: Pagination)
+    func loadNext(page: OffsetPagination)
 }
 
 protocol ActivityFeedInteractorOutputProtocol: class {
     func didReload(activity: ActivityData?)
     func didReceiveActivityFeedDataProvider(error: Error)
 
-    func didLoadNext(activity: ActivityData, for page: Pagination)
-    func didReceiveLoadNext(error: Error, for page: Pagination)
+    func didLoadNext(activity: ActivityData, for page: OffsetPagination)
+    func didReceiveLoadNext(error: Error, for page: OffsetPagination)
 
     func didReload(announcement: AnnouncementData?)
     func didReceiveAnnouncementDataProvider(error: Error)

@@ -77,61 +77,65 @@ final class ProjectDataProviderFacade: ProjectDataProviderFacadeProtocol {
 
     // MARK: Domain Operations
 
-    private func fetchAllProjectsByPageOperation(_ page: UInt) -> BaseOperation<[ProjectData]> {
+    private func fetchAllProjectsByPageOperation(_ page: UInt) -> CompoundOperationWrapper<[ProjectData]> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.fetch.rawValue) else {
             let operation = BaseOperation<[ProjectData]>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         return fetchProjectsOperation(service.serviceEndpoint, page: page)
     }
 
-    private func fetchFavoriteProjectsByPageOperation(_ page: UInt) -> BaseOperation<[ProjectData]> {
+    private func fetchFavoriteProjectsByPageOperation(_ page: UInt)
+        -> CompoundOperationWrapper<[ProjectData]> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.favorites.rawValue) else {
             let operation = BaseOperation<[ProjectData]>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         return fetchProjectsOperation(service.serviceEndpoint, page: page)
     }
 
-    private func fetchVotedProjectsByPageOperation(_ page: UInt) -> BaseOperation<[ProjectData]> {
+    private func fetchVotedProjectsByPageOperation(_ page: UInt)
+        -> CompoundOperationWrapper<[ProjectData]> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.voted.rawValue) else {
             let operation = BaseOperation<[ProjectData]>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         return fetchProjectsOperation(service.serviceEndpoint, page: page)
     }
 
-    private func fetchFinishedProjectsByPageOperation(_ page: UInt) -> BaseOperation<[ProjectData]> {
+    private func fetchFinishedProjectsByPageOperation(_ page: UInt)
+        -> CompoundOperationWrapper<[ProjectData]> {
         guard let service = self.config.defaultProjectUnit.service(for: ProjectServiceType.finished.rawValue) else {
             let operation = BaseOperation<[ProjectData]>()
             operation.result = .failure(NetworkUnitError.serviceUnavailable)
-            return operation
+            return CompoundOperationWrapper(targetOperation: operation)
         }
 
         return fetchProjectsOperation(service.serviceEndpoint, page: page)
     }
 
-    private func fetchProjectsOperation(_ endpoint: String, page: UInt) -> BaseOperation<[ProjectData]> {
-        let pagination = Pagination(offset: Int(page * pageSize),
-                                    count: Int(pageSize))
+    private func fetchProjectsOperation(_ endpoint: String, page: UInt)
+        -> CompoundOperationWrapper<[ProjectData]> {
+        let pagination = OffsetPagination(offset: Int(page * pageSize),
+                                          count: Int(pageSize))
 
         let operation = ProjectOperationFactory().fetchProjectsOperation(endpoint,
                                                                          pagination: pagination)
 
         operation.requestModifier = requestSigner
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
-    private func fetchProjectByIdOperation(_ identifier: String) -> BaseOperation<ProjectData?> {
+    private func fetchProjectByIdOperation(_ identifier: String) -> CompoundOperationWrapper<ProjectData?> {
         let operation = BaseOperation<ProjectData?>()
         operation.result = .success(nil)
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 }

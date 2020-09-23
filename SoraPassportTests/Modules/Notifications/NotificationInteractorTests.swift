@@ -118,8 +118,7 @@ class NotificationInteractorTests: NetworkBaseTests {
                                                  eventCenter: eventCenter,
                                                  config: ApplicationConfig.shared,
                                                  notificationUnitService: notificationService,
-                                                 notificationsRegistrator: NotificationsRegistration(),
-                                                 notificationsLocalScheduler: NotificationsLocalScheduler())
+                                                 notificationsRegistrator: NotificationsRegistration())
 
         return interactor
     }

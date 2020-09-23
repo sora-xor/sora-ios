@@ -23,6 +23,13 @@ protocol ProjectDataProviderFacadeProtocol: DataProviderFacadeProtocol {
     var allProjectsProvider: DataProvider<ProjectData> { get }
     var favoriteProjectsProvider: DataProvider<ProjectData> { get }
     var votedProjectsProvider: DataProvider<ProjectData> { get }
+    var finishedProjectsProvider: DataProvider<ProjectData> { get }
+}
+
+protocol ReferendumDataProviderFacadeProtocol: DataProviderFacadeProtocol {
+    var openReferendumsProvider: DataProvider<ReferendumData> { get }
+    var votedReferendumsProvider: DataProvider<ReferendumData> { get }
+    var finishedReferendumsProvider: DataProvider<ReferendumData> { get }
 }
 
 protocol InformationDataProviderFacadeProtocol: DataProviderFacadeProtocol {

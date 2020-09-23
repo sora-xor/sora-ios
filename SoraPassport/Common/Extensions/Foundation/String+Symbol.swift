@@ -13,4 +13,12 @@ extension String {
     static var eth: String {
         return "ETH"
     }
+
+    static var amountIncrease: String {
+        return "+"
+    }
+
+    static var amountDecrease: String {
+        return "−"
+    }
 }

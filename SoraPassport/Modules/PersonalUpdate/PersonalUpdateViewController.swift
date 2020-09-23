@@ -11,9 +11,11 @@ final class PersonalUpdateViewController: UIViewController {
 
     @IBOutlet private var tableView: UITableView!
 
-    private(set) var models: [PersonalInfoViewModelProtocol] = []
+    private(set) var models: [InputViewModelProtocol] = []
 
     private var keyboardHandler: KeyboardHandler?
+
+    private var hasChanges: Bool = false
 
     var locale: Locale?
 
@@ -24,7 +26,7 @@ final class PersonalUpdateViewController: UIViewController {
         configureSaveButton()
         setupLocalization()
 
-        resetChanges()
+        updateActionState()
 
         presenter.setup()
     }
@@ -103,43 +105,18 @@ final class PersonalUpdateViewController: UIViewController {
     // MARK: Actions
 
     @objc private func actionSave(sender: AnyObject) {
-        validateAndSave()
-    }
-
-    private func validateAndSave() {
         tableView.visibleCells.forEach { ($0 as? PersonalInfoCell)?.textField.resignFirstResponder() }
 
-        var isComplete = true
-        for (index, model) in models.enumerated() {
-            if let cell = tableView.cellForRow(at: IndexPath(row: index, section: 0)) as? PersonalInfoCell {
-                cell.isError = !model.isComplete
-            }
-
-            if !model.isComplete {
-                isComplete = false
-                break
-            }
-        }
-
-        if isComplete {
-            presenter.save()
-        }
+        presenter.save()
     }
 
-    private func resetChanges() {
+    private func updateActionState() {
         guard let rightBarButtonItem = navigationItem.rightBarButtonItem else {
             return
         }
 
-        rightBarButtonItem.isEnabled = false
-    }
-
-    private func displayChanges() {
-        guard let rightBarButtonItem = navigationItem.rightBarButtonItem else {
-            return
-        }
-
-        rightBarButtonItem.isEnabled = true
+        rightBarButtonItem.isEnabled = hasChanges &&
+            (models.first { $0.inputHandler.required && !$0.inputHandler.completed } == nil)
     }
 }
 
@@ -175,9 +152,9 @@ extension PersonalUpdateViewController: PersonalInfoCellDelegate {
             return
         }
 
-        cell.isError = !models[indexPath.row].isComplete
+        cell.isError = !models[indexPath.row].inputHandler.completed
 
-        let optionalNextIndex = ((indexPath.row + 1)..<models.count).first { models[$0].enabled }
+        let optionalNextIndex = ((indexPath.row + 1)..<models.count).first { models[$0].inputHandler.enabled }
 
         if let nextIndex = optionalNextIndex {
             let nextIndexPath = IndexPath(row: nextIndex, section: indexPath.section)
@@ -196,25 +173,27 @@ extension PersonalUpdateViewController: PersonalInfoCellDelegate {
     }
 
     func didChangeValue(in cell: PersonalInfoCell) {
-        displayChanges()
+        hasChanges = true
+
+        updateActionState()
     }
 }
 
 extension PersonalUpdateViewController: PersonalUpdateViewProtocol {
-    func didReceive(viewModels: [PersonalInfoViewModelProtocol]) {
+    func didReceive(viewModels: [InputViewModelProtocol]) {
         models = viewModels
         tableView.reloadData()
     }
 
     func didStartSaving() {
-        resetChanges()
+        hasChanges = false
+
+        updateActionState()
     }
 
     func didCompleteSaving(success: Bool) {
-        if success {
-            resetChanges()
-        } else {
-            displayChanges()
-        }
+        hasChanges = !success
+
+        updateActionState()
     }
 }

@@ -13,8 +13,11 @@ class ProjectsInteractorTests: NetworkBaseTests {
 
     func testMainSuccessfullSetup() {
         // given
-        ProjectsVotesCountMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-        CurrencyFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ProjectsVotesCountMock.register(mock: .success, projectUnit: projectUnit)
+        ProjectsFinishedFetchMock.register(mock: .success, projectUnit: projectUnit)
+        ReferendumsFinishedFetchMock.register(mock: .success, projectUnit: projectUnit)
+        CurrencyFetchMock.register(mock: .success, projectUnit: projectUnit)
 
         let eventCenter = MockEventCenterProtocol()
 
@@ -45,7 +48,9 @@ class ProjectsInteractorTests: NetworkBaseTests {
     }
 
     func testListSuccessfullSetupTest() {
-        ProjectsFinishedFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ProjectsFinishedFetchMock.register(mock: .success, projectUnit: projectUnit)
+        ReferendumsFinishedFetchMock.register(mock: .success, projectUnit: projectUnit)
 
         let eventCenter = MockEventCenterProtocol()
 
@@ -66,7 +71,9 @@ class ProjectsInteractorTests: NetworkBaseTests {
     func testDayChangeAfterListSetup() {
         // given
 
-        ProjectsFinishedFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
+        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ProjectsFinishedFetchMock.register(mock: .success, projectUnit: projectUnit)
+        ReferendumsFinishedFetchMock.register(mock: .success, projectUnit: projectUnit)
 
         let eventCenter = MockEventCenterProtocol()
 
@@ -107,7 +114,7 @@ class ProjectsInteractorTests: NetworkBaseTests {
         // given
 
         let expectation = XCTestExpectation()
-        expectation.expectedFulfillmentCount = 2
+        expectation.expectedFulfillmentCount = 4
 
         stub(view) { stub in
             when(stub).didEditProjects(using: any((() -> ViewModelUpdateResult).self)).then { _ in
@@ -119,7 +126,8 @@ class ProjectsInteractorTests: NetworkBaseTests {
 
         // when
 
-        presenter.setup(layoutMetadata: ProjectLayoutMetadata.createDefault())
+        presenter.setup(projectLayoutMetadata: ProjectLayoutMetadata.createDefault(),
+                        referendumLayoutMetadata: ReferendumLayoutMetadata())
 
         wait(for: [expectation], timeout: 2 * Constants.networkRequestTimeout)
 
@@ -160,12 +168,19 @@ class ProjectsInteractorTests: NetworkBaseTests {
         projectDataProviderFacade.coreDataCacheFacade = CoreDataCacheTestFacade()
         projectDataProviderFacade.requestSigner = mockedRequestSigner
 
+        let referendumsDataProviderFacade = ReferendumDataProviderFacade()
+        referendumsDataProviderFacade.coreDataCacheFacade = CoreDataCacheTestFacade()
+        referendumsDataProviderFacade.requestSigner = mockedRequestSigner
+
         return ProjectsListInteractor(projectsDataProvider: projectDataProviderFacade.finishedProjectsProvider,
+                                      referendumsDataProvider: referendumsDataProviderFacade.finishedReferendumsProvider,
                                       eventCenter: eventCenter)
     }
 
     func createListPresenter() -> ProjectsListPresenter {
         let projectViewModelFactory = ProjectViewModelFactory.createDefault()
-        return ProjectsListPresenter(viewModelFactory: projectViewModelFactory)
+        let referendumViewModelFactory = ReferendumViewModelFactory.createDefault()
+        return ProjectsListPresenter(projectsViewModelFactory: projectViewModelFactory,
+                                     referendumViewModelFactory: referendumViewModelFactory)
     }
 }

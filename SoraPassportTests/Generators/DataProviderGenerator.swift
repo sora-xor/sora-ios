@@ -17,18 +17,18 @@ func createDefaultCoreDataCache<T, U>() -> CoreDataRepository<T, U>
 }
 
 func createDataSourceMock<T>(returns items: [T]) -> AnyDataProviderSource<T> {
-    let fetchPageBlock: (UInt) -> BaseOperation<[T]> = { _ in
+    let fetchPageBlock: (UInt) -> CompoundOperationWrapper<[T]> = { _ in
         let pageOperation = BaseOperation<[T]>()
         pageOperation.result = .success(items)
 
-        return pageOperation
+        return CompoundOperationWrapper(targetOperation: pageOperation)
     }
 
-    let fetchByIdBlock: (String) -> BaseOperation<T?> = { _ in
+    let fetchByIdBlock: (String) -> CompoundOperationWrapper<T?> = { _ in
         let identifierOperation = BaseOperation<T?>()
         identifierOperation.result = .success(nil)
 
-        return identifierOperation
+        return CompoundOperationWrapper(targetOperation: identifierOperation)
     }
 
     return AnyDataProviderSource(fetchByPage: fetchPageBlock,
@@ -36,18 +36,18 @@ func createDataSourceMock<T>(returns items: [T]) -> AnyDataProviderSource<T> {
 }
 
 func createDataSourceMock<T>(returns error: Error) -> AnyDataProviderSource<T> {
-    let fetchPageBlock: (UInt) -> BaseOperation<[T]> = { _ in
+    let fetchPageBlock: (UInt) -> CompoundOperationWrapper<[T]> = { _ in
         let pageOperation = BaseOperation<[T]>()
         pageOperation.result = .failure(error)
 
-        return pageOperation
+        return CompoundOperationWrapper(targetOperation: pageOperation)
     }
 
-    let fetchByIdBlock: (String) -> BaseOperation<T?> = { _ in
+    let fetchByIdBlock: (String) -> CompoundOperationWrapper<T?> = { _ in
         let identifierOperation = BaseOperation<T?>()
         identifierOperation.result = .failure(error)
 
-        return identifierOperation
+        return CompoundOperationWrapper(targetOperation: identifierOperation)
     }
 
     return AnyDataProviderSource(fetchByPage: fetchPageBlock,
@@ -55,22 +55,22 @@ func createDataSourceMock<T>(returns error: Error) -> AnyDataProviderSource<T> {
 }
 
 func createSingleValueSourceMock<T>(returns item: T) -> AnySingleValueProviderSource<T> {
-    let fetch: () -> BaseOperation<T?> = {
+    let fetch: () -> CompoundOperationWrapper<T?> = {
         let operation = BaseOperation<T?>()
         operation.result = .success(item)
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
     return AnySingleValueProviderSource(fetch: fetch)
 }
 
 func createSingleValueSourceMock<T>(returns error: Error) -> AnySingleValueProviderSource<T> {
-    let fetch: () -> BaseOperation<T?> = {
+    let fetch: () -> CompoundOperationWrapper<T?> = {
         let operation = BaseOperation<T?>()
         operation.result = .failure(error)
 
-        return operation
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
     return AnySingleValueProviderSource(fetch: fetch)

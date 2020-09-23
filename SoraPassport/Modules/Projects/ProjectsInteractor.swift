@@ -78,6 +78,23 @@ extension ProjectsInteractor: ProjectsInteractorInputProtocol {
         }
     }
 
+    func vote(for referendum: ReferendumVote) {
+        do {
+            _ = try projectService.vote(with: referendum, runCompletionIn: .main) { (optionalResult) in
+                if let result = optionalResult {
+                    switch result {
+                    case .success:
+                        self.eventCenter.notify(with: ReferendumVoteEvent(vote: referendum))
+                    case .failure(let error):
+                        self.presenter?.didReceiveVote(error: error, for: referendum)
+                    }
+                }
+            }
+        } catch {
+            presenter?.didReceiveVote(error: error, for: referendum)
+        }
+    }
+
     func toggleFavorite(for projectId: String) {
         do {
             _ = try projectService.toggleFavorite(projectId: projectId, runCompletionIn: .main) { (optionalResult) in
@@ -103,5 +120,9 @@ extension ProjectsInteractor: EventVisitorProtocol {
 
     func processProjectFavoriteToggle(event: ProjectFavoriteToggleEvent) {
         presenter?.didToggleFavorite(for: event.projectId)
+    }
+
+    func processReferendumVote(event: ReferendumVoteEvent) {
+        presenter?.didVote(for: event.vote)
     }
 }

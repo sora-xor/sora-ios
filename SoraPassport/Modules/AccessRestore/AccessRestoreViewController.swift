@@ -17,13 +17,9 @@ final class AccessRestoreViewController: AccessoryViewController {
     @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var subtitleLabel: UILabel!
 
-    private var model: AccessRestoreViewModelProtocol? {
+    private var model: InputViewModelProtocol? {
         didSet {
-            if let existingModel = model {
-                phraseTextView.text = existingModel.phrase
-            } else {
-                phraseTextView.text = ""
-            }
+            phraseTextView.text = model?.inputHandler.value
 
             updatePlaceholder()
             updateNextButton()
@@ -98,6 +94,10 @@ final class AccessRestoreViewController: AccessoryViewController {
 
 extension AccessRestoreViewController: UITextViewDelegate {
     func textViewDidChange(_ textView: UITextView) {
+        if textView.text != model?.inputHandler.value {
+            textView.text = model?.inputHandler.value
+        }
+
         updatePlaceholder()
         updateNextButton()
     }
@@ -109,16 +109,22 @@ extension AccessRestoreViewController: UITextViewDelegate {
             return false
         }
 
-        if let model = model {
-            return model.didReceiveReplacement(text, for: range)
-        } else {
+        guard let model = model else {
             return false
         }
+
+        let shouldApply = model.inputHandler.didReceiveReplacement(text, for: range)
+
+        if !shouldApply, textView.text != model.inputHandler.value {
+            textView.text = model.inputHandler.value
+        }
+
+        return shouldApply
     }
 }
 
 extension AccessRestoreViewController: AccessRestoreViewProtocol {
-    func didReceiveView(model: AccessRestoreViewModelProtocol) {
+    func didReceiveView(model: InputViewModelProtocol) {
         self.model = model
     }
 }

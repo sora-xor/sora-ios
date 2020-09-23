@@ -1,0 +1,53 @@
+[
+    {
+        "event": "EthRegistrationStarted",
+        "timestamp": 1586526365,
+        "address": "b034cb8a659a82807ee656c1c3cb96fd83d45a2c",
+        "operationId": "71877c059b66d3ab16828cb4e56024490ca1b521e59b99b3cd9bcecdb1368527"
+    },
+    {
+        "event": "EthRegistrationCompleted",
+        "timestamp": 1586526365,
+        "operationId": "71877c059b66d3ab16828cb4e56024490ca1b521e59b99b3cd9bcecdb1368527"
+    },
+    {
+        "event": "EthRegistrationFailed",
+        "timestamp": 1586526365,
+        "operationId": "71877c059b66d3ab16828cb4e56024490ca1b521e59b99b3cd9bcecdb1368527",
+        "reason": "Something went wrong"
+    },
+    {
+        "event": "OperationStarted",
+        "timestamp": 1586526364,
+        "operationId": "d38dfc65fb65eec9f91223de90f50180e7ae9840543feade9d1aee57599ae987",
+        "type": "WITHDRAW",
+        "peerId": "did_sora_3ddc88245ab8a058442e@sora",
+        "peerName": "Peer",
+        "amount": "10.20",
+        "details": "Testing withdraw",
+        "fee": "0.1"
+    },
+    {
+        "event": "OperationCompleted",
+        "timestamp": 1586526364,
+        "operationId": "d38dfc65fb65eec9f91223de90f50180e7ae9840543feade9d1aee57599ae987",
+        "type": "WITHDRAW",
+        "peerId": "did_sora_3ddc88245ab8a058442e@sora",
+        "peerName": "Peer",
+        "amount": "10.20",
+        "details": "Testing withdraw",
+        "fee": "0.1"
+    },
+    {
+        "event": "OperationFailed",
+        "timestamp": 1586526364,
+        "operationId": "d38dfc65fb65eec9f91223de90f50180e7ae9840543feade9d1aee57599ae987",
+        "type": "WITHDRAW",
+        "peerId": "did_sora_3ddc88245ab8a058442e@sora",
+        "peerName": "Peer",
+        "amount": "10.20",
+        "details": "Testing withdraw",
+        "fee": "0.1",
+        "reason": "Something went wrong"
+    }
+]

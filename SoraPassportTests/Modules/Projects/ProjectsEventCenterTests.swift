@@ -14,6 +14,7 @@ class ProjectsEventCenterTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
         ProjectsFetchMock.register(mock: .success, projectUnit: projectUnit)
+        ReferendumsOpenFetchMock.register(mock: .success, projectUnit: projectUnit)
 
         let eventCenter = EventCenter()
         let interactor = prepareListInteractor(with: eventCenter)
@@ -45,6 +46,8 @@ class ProjectsEventCenterTests: NetworkBaseTests {
         // given
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ProjectsFetchMock.register(mock: .success, projectUnit: projectUnit)
+        ReferendumsOpenFetchMock.register(mock: .success, projectUnit: projectUnit)
         ProjectsVotesCountMock.register(mock: .success, projectUnit: projectUnit)
         ProjectsVoteMock.register(mock: .success, projectUnit: projectUnit)
 
@@ -99,6 +102,8 @@ class ProjectsEventCenterTests: NetworkBaseTests {
         // given
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
+        ProjectsFetchMock.register(mock: .success, projectUnit: projectUnit)
+        ReferendumsOpenFetchMock.register(mock: .success, projectUnit: projectUnit)
         ProjectsVotesCountMock.register(mock: .success, projectUnit: projectUnit)
         ProjectsToggleFavoriteMock.register(mock: .success, projectUnit: projectUnit)
 
@@ -158,7 +163,7 @@ class ProjectsEventCenterTests: NetworkBaseTests {
                 when(stub).numberOfProjects.get.thenReturn(1)
                 when(stub).setFavorite(value: any(), for: any()).thenDoNothing()
                 when(stub).refresh().thenDoNothing()
-                when(stub).setup(layoutMetadata: any()).thenDoNothing()
+                when(stub).setup(projectLayoutMetadata: any(), referendumLayoutMetadata: any()).thenDoNothing()
                 when(stub).view.set(any()).thenDoNothing()
             }
         }
@@ -183,7 +188,8 @@ class ProjectsEventCenterTests: NetworkBaseTests {
             }
         }
 
-        presenter.setup(layoutMetadata: ProjectLayoutMetadata.createDefault())
+        presenter.setup(projectLayoutMetadata: ProjectLayoutMetadata.createDefault(),
+                        referendumLayoutMetadata: ReferendumLayoutMetadata())
 
         wait(for: [votesExpectation], timeout: Constants.networkRequestTimeout)
 
@@ -199,7 +205,12 @@ class ProjectsEventCenterTests: NetworkBaseTests {
         projectDataProviderFacade.coreDataCacheFacade = coreDataCacheFacade
         projectDataProviderFacade.requestSigner = mockedRequestSigner
 
+        let referendumsDataProviderFacade = ReferendumDataProviderFacade()
+        referendumsDataProviderFacade.coreDataCacheFacade = CoreDataCacheTestFacade()
+        referendumsDataProviderFacade.requestSigner = mockedRequestSigner
+
         return ProjectsListInteractor(projectsDataProvider: projectDataProviderFacade.allProjectsProvider,
+                                      referendumsDataProvider: referendumsDataProviderFacade.openReferendumsProvider,
                                       eventCenter: eventCenter)
     }
 
@@ -211,10 +222,6 @@ class ProjectsEventCenterTests: NetworkBaseTests {
         let customerDataProviderFacade = CustomerDataProviderFacade()
         customerDataProviderFacade.coreDataCacheFacade = coreDataCacheFacade
         customerDataProviderFacade.requestSigner = mockedRequestSigner
-
-        let projectDataProviderFacade = ProjectDataProviderFacade()
-        projectDataProviderFacade.coreDataCacheFacade = coreDataCacheFacade
-        projectDataProviderFacade.requestSigner = mockedRequestSigner
 
         let informationFacade = InformationDataProviderFacade()
         informationFacade.coreDataCacheFacade = coreDataCacheFacade

@@ -24,11 +24,14 @@ enum IdentityCreationOperationError: Error {
 final class IdentityCreationOperation: BaseOperation<DecentralizedDocumentObject> {
     let keystore: KeystoreProtocol
 
+    let secondaryServices: [SecondaryIdentityServiceProtocol]
+
     var privateKeyStoreId: String = KeystoreKey.privateKey.rawValue
     var seedEntropyStoreId: String = KeystoreKey.seedEntropy.rawValue
 
-    init(keystore: KeystoreProtocol) {
+    init(keystore: KeystoreProtocol, secondaryServices: [SecondaryIdentityServiceProtocol]) {
         self.keystore = keystore
+        self.secondaryServices = secondaryServices
     }
 
     override func main() {
@@ -46,6 +49,8 @@ final class IdentityCreationOperation: BaseOperation<DecentralizedDocumentObject
             let (documentObject, keypairResult) = try createDocumentObject()
             try keystore.saveKey(keypairResult.keypair.privateKey().rawData(), with: privateKeyStoreId)
             try keystore.saveKey(keypairResult.mnemonic.entropy(), with: seedEntropyStoreId)
+
+            try secondaryServices.forEach { try $0.createIdentity(using: keystore, skipIfExists: false) }
 
             result = .success(documentObject)
 
@@ -69,14 +74,12 @@ final class IdentityCreationOperation: BaseOperation<DecentralizedDocumentObject
                                                                 domain: domain,
                                                                 ddoIndex: IdentityOperationConstants.ddoPublicKeyIndex)
 
-        guard let signatureCreator = IREd25519Sha512Signer(privateKey: result.keypair.privateKey()) else {
-            throw IdentityCreationOperationError.invalidKeypair
-        }
+        let signatureCreator = IRIrohaSigner(privateKey: result.keypair.privateKey())
 
         let publicKey = DDOPublicKey(pubKeyId: publicKeyId,
                                      type: .ed25519Sha3Verification,
                                      owner: decentralizedId,
-                                     publicKey: result.keypair.publicKey().rawData().toHexString())
+                                     publicKey: result.keypair.publicKey().rawData().soraHex)
 
         let auth = DDOAuthentication(type: .ed25519Sha3, publicKey: publicKeyId)
 

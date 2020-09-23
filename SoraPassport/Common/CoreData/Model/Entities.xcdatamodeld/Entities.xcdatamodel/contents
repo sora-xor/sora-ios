@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="15702" systemVersion="19C57" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="16119" systemVersion="19E287" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
     <entity name="CDProject" representedClassName="CDProject" syncable="YES" codeGenerationType="class">
         <attribute name="domain" optional="YES" attributeType="String"/>
         <attribute name="favorite" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
@@ -18,6 +18,21 @@
         <attribute name="votedFriendsCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="votes" optional="YES" attributeType="String"/>
     </entity>
+    <entity name="CDReferendum" representedClassName="CDReferendum" syncable="YES" codeGenerationType="class">
+        <attribute name="domain" optional="YES" attributeType="String"/>
+        <attribute name="fullDetails" optional="YES" attributeType="String"/>
+        <attribute name="fundingDeadline" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="identifier" optional="YES" attributeType="String"/>
+        <attribute name="imageLink" optional="YES" attributeType="String"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="opposeVotes" optional="YES" attributeType="String"/>
+        <attribute name="shortDetails" optional="YES" attributeType="String"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="statusUpdateTime" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="supportVotes" optional="YES" attributeType="String"/>
+        <attribute name="userOpposeVotes" optional="YES" attributeType="String"/>
+        <attribute name="userSupportVotes" optional="YES" attributeType="String"/>
+    </entity>
     <entity name="CDSingleValue" representedClassName="CDSingleValue" syncable="YES" codeGenerationType="class">
         <attribute name="identifier" attributeType="String"/>
         <attribute name="payload" attributeType="Binary"/>
@@ -25,5 +40,6 @@
     <elements>
         <element name="CDProject" positionX="-63" positionY="-18" width="128" height="285"/>
         <element name="CDSingleValue" positionX="-63" positionY="54" width="128" height="73"/>
+        <element name="CDReferendum" positionX="-63" positionY="99" width="128" height="28"/>
     </elements>
 </model>

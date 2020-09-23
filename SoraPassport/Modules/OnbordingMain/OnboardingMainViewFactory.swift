@@ -71,8 +71,8 @@ final class OnboardingMainViewFactory: OnboardingMainViewFactoryProtocol {
                                                   settings: settings,
                                                   keystore: keystore,
                                                   identityNetworkOperationFactory: identityNetworkOperationFactory,
-                                                  identityLocalOperationFactory: IdentityOperationFactory.self,
-                                                  operationManager: OperationManager.shared)
+                                                  identityLocalOperationFactory: IdentityOperationFactory(),
+                                                  operationManager: OperationManagerFacade.sharedManager)
         interactor.logger = Logger.shared
 
         return interactor

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="16119" systemVersion="19E287" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="CDDeposit" representedClassName="CDDeposit" syncable="YES" codeGenerationType="class">
+        <attribute name="assetId" optional="YES" attributeType="String"/>
+        <attribute name="depositAmount" optional="YES" attributeType="String"/>
+        <attribute name="fees" optional="YES" attributeType="Binary"/>
+        <attribute name="identifier" optional="YES" attributeType="String"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="receiver" optional="YES" attributeType="String"/>
+        <attribute name="receiverName" optional="YES" attributeType="String"/>
+        <attribute name="sender" optional="YES" attributeType="String"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="timestamp" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="transferAmount" optional="YES" attributeType="String"/>
+        <attribute name="transferTransactionId" optional="YES" attributeType="String"/>
+    </entity>
+    <entity name="CDSidechainInit" representedClassName="CDSidechainInit" syncable="YES" codeGenerationType="class">
+        <attribute name="identifier" optional="YES" attributeType="String"/>
+        <attribute name="state" optional="YES" attributeType="String"/>
+        <attribute name="userInfo" optional="YES" attributeType="Binary"/>
+    </entity>
+    <entity name="CDTransfer" representedClassName="CDTransfer" syncable="YES" codeGenerationType="class">
+        <attribute name="amount" optional="YES" attributeType="String"/>
+        <attribute name="assetId" optional="YES" attributeType="String"/>
+        <attribute name="category" optional="YES" attributeType="String"/>
+        <attribute name="fees" optional="YES" attributeType="Binary"/>
+        <attribute name="identifier" optional="YES" attributeType="String"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="receiver" optional="YES" attributeType="String"/>
+        <attribute name="receiverName" optional="YES" attributeType="String"/>
+        <attribute name="sender" optional="YES" attributeType="String"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="timestamp" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+    </entity>
+    <entity name="CDWithdraw" representedClassName="CDWithdraw" syncable="YES" codeGenerationType="class">
+        <attribute name="assetId" optional="YES" attributeType="String"/>
+        <attribute name="confirmationTransactionId" optional="YES" attributeType="String"/>
+        <attribute name="fees" optional="YES" attributeType="Binary"/>
+        <attribute name="identifier" optional="YES" attributeType="String"/>
+        <attribute name="receiver" optional="YES" attributeType="String"/>
+        <attribute name="receiverName" optional="YES" attributeType="String"/>
+        <attribute name="sender" optional="YES" attributeType="String"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="timestamp" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="transferAmount" optional="YES" attributeType="String"/>
+        <attribute name="transferTransactionId" optional="YES" attributeType="String"/>
+        <attribute name="withdrawAmount" optional="YES" attributeType="String"/>
+    </entity>
+    <elements>
+        <element name="CDDeposit" positionX="-54" positionY="45" width="128" height="223"/>
+        <element name="CDSidechainInit" positionX="-45" positionY="108" width="128" height="88"/>
+        <element name="CDTransfer" positionX="-36" positionY="81" width="128" height="208"/>
+        <element name="CDWithdraw" positionX="-63" positionY="-18" width="128" height="223"/>
+    </elements>
+</model>

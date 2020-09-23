@@ -22,7 +22,7 @@ final class ProjectHeaderView: UICollectionReusableView, Localizable {
     private func setupLocalization() {
         let languages = localizationManager?.preferredLocalizations
 
-        titleLabel.text = R.string.localizable.projectTitle(preferredLanguages: languages)
+        titleLabel.text = R.string.localizable.tabbarVotingTitle(preferredLanguages: languages)
     }
 
     func applyLocalization() {

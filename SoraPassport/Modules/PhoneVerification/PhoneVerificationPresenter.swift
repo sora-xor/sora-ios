@@ -30,7 +30,12 @@ final class PhoneVerificationPresenter {
     }()
 
     private func provideNewViewModel() {
-        let viewModel = CodeInputViewModel.phone
+        let inputHandler = InputHandler(maxLength: PersonalInfoSharedConstants.phoneCodeLength,
+                                        validCharacterSet: CharacterSet.decimalDigits,
+                                        predicate: NSPredicate.phoneCode)
+
+        let viewModel = InputViewModel(inputHandler: inputHandler)
+
         view?.didReceive(viewModel: viewModel)
     }
 
@@ -73,10 +78,10 @@ extension PhoneVerificationPresenter: PhoneVerificationPresenterProtocol {
         countdownTimer.stop()
     }
 
-    func process(viewModel: CodeInputViewModelProtocol) {
+    func process(viewModel: InputViewModelProtocol) {
         view?.didStartLoading()
 
-        let codeInfo = VerificationCodeInfo(code: viewModel.code)
+        let codeInfo = VerificationCodeInfo(code: viewModel.inputHandler.normalizedValue)
         interactor.verifyPhone(codeInfo: codeInfo)
     }
 

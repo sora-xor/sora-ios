@@ -25,7 +25,7 @@ class WalletTests: XCTestCase {
         settings.decentralizedId = Constants.dummyDid
         settings.publicKeyId = Constants.dummyPubKeyId
 
-        _ = createIdentity()
+        _ = createIdentity(with: keystore)
 
         let walletContext = WalletContextFactory.createContext()
         XCTAssertNotNil(walletContext)

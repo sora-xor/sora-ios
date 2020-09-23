@@ -4,11 +4,12 @@
 */
 
 import UIKit
+import SoraFoundation
 
 final class PersonalInfoViewController: AccessoryViewController, AdaptiveDesignable {
     var presenter: PersonalInfoPresenterProtocol!
 
-    private(set) var models: [PersonalInfoViewModelProtocol] = []
+    private(set) var models: [InputViewModelProtocol] = []
 
     @IBOutlet private var tableView: UITableView!
 
@@ -89,27 +90,14 @@ final class PersonalInfoViewController: AccessoryViewController, AdaptiveDesigna
     // MARK: Actions
 
     override func actionAccessory() {
-        validateAndRegister()
-    }
-
-    private func validateAndRegister() {
         tableView.visibleCells.forEach { ($0 as? PersonalInfoCell)?.textField.resignFirstResponder() }
 
-        var isComplete = true
-        for (index, model) in models.enumerated() {
-            if let cell = tableView.cellForRow(at: IndexPath(row: index, section: 0)) as? PersonalInfoCell {
-                cell.isError = !model.isComplete
-            }
+        presenter.register()
+    }
 
-            if !model.isComplete {
-                isComplete = false
-                break
-            }
-        }
-
-        if isComplete {
-            presenter.register()
-        }
+    private func updateAccessoryState() {
+        accessoryView?.isActionEnabled = models
+            .first(where: { $0.inputHandler.required && !$0.inputHandler.completed }) == nil
     }
 }
 
@@ -145,9 +133,9 @@ extension PersonalInfoViewController: PersonalInfoCellDelegate {
             return
         }
 
-        cell.isError = !models[indexPath.row].isComplete
+        cell.isError = !models[indexPath.row].inputHandler.completed
 
-        let optionalNextIndex = ((indexPath.row + 1)..<models.count).first { models[$0].enabled }
+        let optionalNextIndex = ((indexPath.row + 1)..<models.count).first { models[$0].inputHandler.enabled }
 
         if let nextIndex = optionalNextIndex {
             startEditing(at: nextIndex, section: indexPath.section)
@@ -156,13 +144,17 @@ extension PersonalInfoViewController: PersonalInfoCellDelegate {
         }
     }
 
-    func didChangeValue(in cell: PersonalInfoCell) {}
+    func didChangeValue(in cell: PersonalInfoCell) {
+        updateAccessoryState()
+    }
 }
 
 extension PersonalInfoViewController: PersonalInfoViewProtocol {
-    func didReceive(viewModels: [PersonalInfoViewModelProtocol]) {
+    func didReceive(viewModels: [InputViewModelProtocol]) {
         models = viewModels
         tableView.reloadData()
+
+        updateAccessoryState()
     }
 
     func didReceive(footerViewModel: PersonalInfoFooterViewModel?) {

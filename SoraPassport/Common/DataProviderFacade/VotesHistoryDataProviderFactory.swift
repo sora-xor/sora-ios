@@ -41,13 +41,13 @@ extension VotesHistoryDataProviderFactory: VotesHistoryDataProviderFactoryProtoc
         let cache: CoreDataRepository<SingleValueProviderObject, CDSingleValue> = coreDataCacheFacade
             .createCoreDataCache()
 
-        let info = Pagination(offset: 0, count: pageSize)
-        let fetchVotesHistoryBlock: () -> BaseOperation<[VotesHistoryEventData]?> = {
+        let info = OffsetPagination(offset: 0, count: pageSize)
+        let fetchVotesHistoryBlock: () -> CompoundOperationWrapper<[VotesHistoryEventData]?> = {
             let votesHistoryOperation = self.projectUnitOperationFactory
                 .fetchVotesHistory(service.serviceEndpoint, with: info)
             votesHistoryOperation.requestModifier = self.requestSigner
 
-            return votesHistoryOperation
+            return CompoundOperationWrapper(targetOperation: votesHistoryOperation)
         }
 
         let source = AnySingleValueProviderSource(fetch: fetchVotesHistoryBlock)

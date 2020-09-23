@@ -120,8 +120,8 @@ extension VotesHistoryPresenter: VotesHistoryPresenterProtocol {
         case .loaded(let lastPage, let canLoadMore):
             if canLoadMore {
                 let newPage = lastPage + 1
-                let page = Pagination(offset: newPage * VotesHistoryPresenter.eventsPerPage,
-                                      count: VotesHistoryPresenter.eventsPerPage)
+                let page = OffsetPagination(offset: newPage * VotesHistoryPresenter.eventsPerPage,
+                                            count: VotesHistoryPresenter.eventsPerPage)
 
                 dataLoadingState = .loading(page: newPage)
                 interactor.loadNext(page: page)
@@ -193,7 +193,7 @@ extension VotesHistoryPresenter: VotesHistoryInteractorOutputProtocol {
         }
     }
 
-    func didLoadNext(events: [VotesHistoryEventData], for page: Pagination) {
+    func didLoadNext(events: [VotesHistoryEventData], for page: OffsetPagination) {
         switch dataLoadingState {
         case .waitingCached:
             logger?.error("Unexpected page loading before cache")
@@ -214,7 +214,7 @@ extension VotesHistoryPresenter: VotesHistoryInteractorOutputProtocol {
         }
     }
 
-    func didReceiveLoadNext(error: Error, for page: Pagination) {
+    func didReceiveLoadNext(error: Error, for page: OffsetPagination) {
         switch dataLoadingState {
         case .waitingCached:
             logger?.error("Cached data expected but received page error \(error)")

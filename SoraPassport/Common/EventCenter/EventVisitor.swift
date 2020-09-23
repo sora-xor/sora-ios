@@ -12,6 +12,8 @@ protocol EventVisitorProtocol: class {
     func processProjectView(event: ProjectViewEvent)
     func processInvitationInput(event: InvitationInputEvent)
     func processInvitationApplied(event: InvitationAppliedEvent)
+    func processWalletUpdate(event: WalletUpdateEvent)
+    func processReferendumVote(event: ReferendumVoteEvent)
 }
 
 extension EventVisitorProtocol {
@@ -21,4 +23,6 @@ extension EventVisitorProtocol {
     func processProjectView(event: ProjectViewEvent) {}
     func processInvitationInput(event: InvitationInputEvent) {}
     func processInvitationApplied(event: InvitationAppliedEvent) {}
+    func processWalletUpdate(event: WalletUpdateEvent) {}
+    func processReferendumVote(event: ReferendumVoteEvent) {}
 }

@@ -4,9 +4,10 @@
 */
 
 import Foundation
+import SoraFoundation
 
 protocol PersonalInfoViewProtocol: LoadableViewProtocol, ControllerBackedProtocol {
-    func didReceive(viewModels: [PersonalInfoViewModelProtocol])
+    func didReceive(viewModels: [InputViewModelProtocol])
     func didReceive(footerViewModel: PersonalInfoFooterViewModel?)
     func didStartEditing(at index: Int)
 }

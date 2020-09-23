@@ -100,22 +100,21 @@ extension ProjectsPresenter: ProjectsPresenterProtocol {
             return false
         }
 
-        switch childPresenter.loadingState {
-        case .waitingCache:
-            return false
-        case .loading:
-            return false
-        case .loaded:
+        if childPresenter.loadingState == .loaded {
             return childPresenter.numberOfProjects == 0
+        } else {
+            return false
         }
     }
 
-    func setup(layoutMetadata: ProjectLayoutMetadata) {
+    func setup(projectLayoutMetadata: ProjectLayoutMetadata,
+               referendumLayoutMetadata: ReferendumLayoutMetadata) {
         children[displayType]?.view = view
 
         interactor.setup()
 
-        children.forEach { $0.value.setup(layoutMetadata: layoutMetadata) }
+        children.forEach { $0.value.setup(projectLayoutMetadata: projectLayoutMetadata,
+                                          referendumLayoutMetadata: referendumLayoutMetadata) }
     }
 
     func viewDidAppear() {
@@ -145,9 +144,14 @@ extension ProjectsPresenter: ProjectsPresenterProtocol {
             return
         }
 
-        let projectViewModel = child.viewModel(at: index)
+        let viewModel = child.viewModel(at: index)
 
-        wireframe.showProjectDetails(from: view, projectId: projectViewModel.identifier)
+        switch viewModel {
+        case .project:
+            wireframe.showProjectDetails(from: view, projectId: viewModel.identifier)
+        case .referendum:
+            wireframe.showReferendumDetails(from: view, referendumId: viewModel.identifier)
+        }
     }
 
     func activateVotesDetails() {
@@ -162,7 +166,7 @@ extension ProjectsPresenter: ProjectsPresenterProtocol {
         return children[displayType]?.numberOfProjects ?? 0
     }
 
-    func viewModel(at index: Int) -> ProjectOneOfViewModel {
+    func viewModel(at index: Int) -> VotingOneOfViewModel {
         return children[displayType]!.viewModel(at: index)
     }
 }
@@ -222,6 +226,52 @@ extension ProjectsPresenter: ProjectsInteractorOutputProtocol {
         }
     }
 
+    func didVote(for referendum: ReferendumVote) {
+        refreshProjects()
+
+        interactor.refreshVotes()
+    }
+
+    func didReceiveVote(error: Error, for referendum: ReferendumVote) {
+        let locale = localizationManager?.selectedLocale
+
+        if wireframe.present(error: error, from: view, locale: locale) {
+            return
+        }
+
+        if let votingError = error as? ReferendumVoteDataError {
+            let languages = localizationManager?.preferredLocalizations
+            switch votingError {
+            case .votesNotEnough:
+                wireframe.present(message: R.string.localizable
+                                    .votesNotEnoughErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
+                                  from: view)
+            case .referendumNotFound:
+                wireframe.present(message: R.string.localizable
+                                    .votesProjectNotFoundErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
+                                  from: view)
+
+                refreshProjects()
+            case .votingNotAllowed:
+                wireframe.present(message: R.string.localizable
+                                    .votesNotAllowedErrorMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
+                                  from: view)
+            case .userNotFound:
+                wireframe.present(message: R.string.localizable
+                                    .registrationUserNotFoundMessage(preferredLanguages: languages),
+                                  title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                                  closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
+                                  from: view)
+            }
+        }
+    }
+
     func didToggleFavorite(for projectId: String) {
         dropPendingFavorite(for: projectId)
 
@@ -267,8 +317,10 @@ extension ProjectsPresenter: ProjectsListPresenterDelegate {
             let viewModel = try voteViewModelFactory.createViewModel(with: project,
                                                                      votes: votes,
                                                                      locale: locale)
+            let style = VoteViewStyle.projectStyle(for: locale)
             wireframe.showVotingView(from: view,
                                      with: viewModel,
+                                     style: style,
                                      delegate: self)
 
             return true
@@ -304,6 +356,62 @@ extension ProjectsPresenter: ProjectsListPresenterDelegate {
         }
     }
 
+    func didSelectVoting(for referendum: ReferendumData,
+                         option: ReferendumVotingCase,
+                         in projectsList: ProjectsListPresenterProtocol) -> Bool {
+        guard let votes = votes else {
+            return false
+        }
+
+        do {
+            let locale = localizationManager?.selectedLocale ?? Locale.current
+            let viewModel = try voteViewModelFactory.createViewModel(with: referendum,
+                                                                     option: option,
+                                                                     votes: votes,
+                                                                     locale: locale)
+            let style = VoteViewStyle.referendumStyle(for: option, locale: locale)
+            wireframe.showVotingView(from: view,
+                                     with: viewModel,
+                                     style: style,
+                                     delegate: self)
+
+            return true
+        } catch VoteViewModelFactoryError.notEnoughVotes {
+            let languages = localizationManager?.preferredLocalizations
+            wireframe.present(message: R.string.localizable
+                .votesZeroErrorMessage(preferredLanguages: languages),
+                              title: "",
+                              closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
+                              from: view)
+
+            interactor.refreshVotes()
+
+            return false
+        } catch VoteViewModelFactoryError.noVotesNeeded {
+            let languages = localizationManager?.preferredLocalizations
+            wireframe.present(message: R.string.localizable
+                .votesNotAllowedErrorMessage(preferredLanguages: languages),
+                              title: "",
+                              closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
+                              from: view)
+
+            return false
+        } catch {
+            let languages = localizationManager?.preferredLocalizations
+            wireframe.present(message: R.string.localizable
+                .votesProjectParametersErrorMessage(preferredLanguages: languages),
+                              title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                              closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
+                              from: view)
+
+            return false
+        }
+    }
+
+    func didElapsedTime(for referendum: ReferendumData, in projectList: ProjectsListPresenterProtocol) {
+        refreshProjects()
+    }
+
     func didToggleFavorite(for project: ProjectData, in projectsList: ProjectsListPresenterProtocol) -> Bool {
         guard pushPendingFavorite(for: project, newValue: !project.favorite) else {
             return false
@@ -319,14 +427,22 @@ extension ProjectsPresenter: VoteViewDelegate {
     func didVote(on view: VoteView, amount: Decimal) {
         view.presenter?.hide(view: view, animated: true)
 
-        guard let projectId = view.model?.projectId else {
+        guard let target = view.model?.target else {
             return
         }
 
         let votes = amount.rounded(mode: .plain).stringWithPointSeparator
-        let projectVote = ProjectVote(projectId: projectId, votes: votes)
 
-        interactor.vote(for: projectVote)
+        switch target {
+        case .project(let identifier):
+            let projectVote = ProjectVote(projectId: identifier, votes: votes)
+            interactor.vote(for: projectVote)
+        case .referendum(let identifier, let option):
+            let referendumVote = ReferendumVote(referendumId: identifier,
+                                                votes: votes,
+                                                votingCase: option)
+            interactor.vote(for: referendumVote)
+        }
     }
 
     func didCancel(on view: VoteView) {

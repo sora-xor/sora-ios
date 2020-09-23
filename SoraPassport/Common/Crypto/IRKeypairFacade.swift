@@ -10,7 +10,7 @@ typealias IRKeypairFacadeResult = (keypair: IRCryptoKeypairProtocol, mnemonic: I
 
 protocol IRKeypairFacadeProtocol: class {
     func createKeypair(from password: String) throws -> IRKeypairFacadeResult
-    func deriveKeypair(from mnemonicPhrase: String, password: String) throws -> IRCryptoKeypairProtocol
+    func deriveKeypair(from mnemonic: String, password: String) throws -> IRCryptoKeypairProtocol
 }
 
 extension IRKeypairFacadeProtocol {
@@ -18,8 +18,8 @@ extension IRKeypairFacadeProtocol {
         return try createKeypair(from: "")
     }
 
-    func deriveKeypair(from mnemonicPhrase: String) throws -> IRCryptoKeypairProtocol {
-        return try deriveKeypair(from: mnemonicPhrase, password: "")
+    func deriveKeypair(from mnemonic: String) throws -> IRCryptoKeypairProtocol {
+        return try deriveKeypair(from: mnemonic, password: "")
     }
 }
 
@@ -36,11 +36,12 @@ final class IRKeypairFacade: IRKeypairFacadeProtocol {
     static let privateKeyLength: UInt = 32
 
     private lazy var seedFactory: IRSeedCreatorProtocol = {
-        let mnemonicFactory = IRBIP39MnemonicCreator(language: .english)
-        return IRBIP39ScryptSeedCreator(mnemonicCreator: mnemonicFactory)
+        let mnemonicFactory = IRMnemonicCreator(language: .english)
+        let keyDeriviation = IRScryptKeyDeriviation()
+        return IRSeedCreator(mnemonicCreator: mnemonicFactory, keyDeriviation: keyDeriviation)
     }()
 
-    private lazy var keyFactory: IRCryptoKeyFactoryProtocol = IREd25519KeyFactory()
+    private lazy var keyFactory: IRCryptoKeyFactoryProtocol = IRIrohaKeyFactory()
 
     func createKeypair(from password: String) throws -> IRKeypairFacadeResult {
         var optionalMnemonic: IRMnemonicProtocol?
@@ -56,29 +57,29 @@ final class IRKeypairFacade: IRKeypairFacadeProtocol {
             throw IRKeypairFacadeError.invalidGeneratedMnemonic
         }
 
-        guard let privateKey = IREd25519PrivateKey(rawData: seed) else {
+        guard let privateKey = try? IRIrohaPrivateKey(rawData: seed) else {
             throw IRKeypairFacadeError.privateKeyCreationFailed
         }
 
-        guard let keypair = keyFactory.derive(fromPrivateKey: privateKey) else {
+        guard let keypair = try? keyFactory.derive(fromPrivateKey: privateKey) else {
             throw IRKeypairFacadeError.keypairCreationFailed
         }
 
         return IRKeypairFacadeResult(keypair: keypair, mnemonic: mnemonic)
     }
 
-    func deriveKeypair(from mnemonicPhrase: String, password: String) throws -> IRCryptoKeypairProtocol {
-        let seed = try seedFactory.deriveSeed(fromMnemonicPhrase: mnemonicPhrase,
+    func deriveKeypair(from mnemonic: String, password: String) throws -> IRCryptoKeypairProtocol {
+        let seed = try seedFactory.deriveSeed(fromMnemonicPhrase: mnemonic,
                                               password: password,
                                               project: IRKeypairFacade.project,
                                               purpose: IRKeypairFacade.purpose,
                                               length: IRKeypairFacade.privateKeyLength)
 
-        guard let privateKey = IREd25519PrivateKey(rawData: seed) else {
+        guard let privateKey = try? IRIrohaPrivateKey(rawData: seed) else {
             throw IRKeypairFacadeError.privateKeyCreationFailed
         }
 
-        guard let keypair = keyFactory.derive(fromPrivateKey: privateKey) else {
+        guard let keypair = try? keyFactory.derive(fromPrivateKey: privateKey) else {
             throw IRKeypairFacadeError.keypairCreationFailed
         }
 

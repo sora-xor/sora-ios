@@ -4,9 +4,10 @@
 */
 
 import Foundation
+import SoraFoundation
 
 protocol PersonalUpdateViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
-	func didReceive(viewModels: [PersonalInfoViewModelProtocol])
+	func didReceive(viewModels: [InputViewModelProtocol])
     func didStartSaving()
     func didCompleteSaving(success: Bool)
 }

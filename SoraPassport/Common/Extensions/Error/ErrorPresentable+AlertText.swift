@@ -6,7 +6,10 @@
 import Foundation
 import RobinHood
 
-typealias ErrorContent = (title: String, message: String)
+struct ErrorContent {
+    let title: String
+    let message: String
+}
 
 protocol ErrorContentConvertible {
     func toErrorContent(for locale: Locale?) -> ErrorContent

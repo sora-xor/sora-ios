@@ -7,12 +7,17 @@ import Foundation
 import RobinHood
 
 protocol ProjectFundingOperationFactoryProtocol {
-    func fetchProjectsOperation(_ urlTemplate: String, pagination: Pagination) -> NetworkOperation<[ProjectData]>
+    func fetchProjectsOperation(_ urlTemplate: String, pagination: OffsetPagination) -> NetworkOperation<[ProjectData]>
+    func fetchReferendumsOperation(_ urlTemplate: String) -> NetworkOperation<[ReferendumData]>
     func fetchProjectDetailsOperation(_ urlTemplate: String, projectId: String) -> NetworkOperation<ProjectDetailsData?>
+    func fetchReferendumDetailsOperation(_ urlTemplate: String,
+                                         referendumId: String) -> NetworkOperation<ReferendumData?>
     func toggleFavoriteOperation(_ urlTemplate: String, projectId: String) -> NetworkOperation<Bool>
     func voteOperation(_ urlTemplate: String, vote: ProjectVote) -> NetworkOperation<Bool>
+    func voteInReferendumOperation(_ urlTemplate: String, vote: ReferendumVote) -> NetworkOperation<Void>
     func fetchVotesOperation(_ urlTemplate: String) -> NetworkOperation<VotesData?>
-    func fetchVotesHistory(_ urlTemplate: String, with info: Pagination) -> NetworkOperation<[VotesHistoryEventData]?>
+    func fetchVotesHistory(_ urlTemplate: String, with info: OffsetPagination)
+        -> NetworkOperation<[VotesHistoryEventData]?>
 }
 
 protocol ProjectAccountOperationFactoryProtocol {
@@ -26,7 +31,7 @@ protocol ProjectAccountOperationFactoryProtocol {
     func fetchActivatedInvitationsOperation(_ urlTemplate: String) -> NetworkOperation<ActivatedInvitationsData?>
     func fetchReputationOperation(_ urlTemplate: String) -> NetworkOperation<ReputationData?>
     func fetchActivityFeedOperation(_ urlTemplate: String,
-                                    with page: Pagination) -> NetworkOperation<ActivityData?>
+                                    with page: OffsetPagination) -> NetworkOperation<ActivityData?>
     func sendSmsCodeOperation(_ urlTemplate: String) -> NetworkOperation<VerificationCodeData>
     func verifySmsCodeOperation(_ urlTemplate: String, info: VerificationCodeInfo) -> NetworkOperation<Bool>
 }

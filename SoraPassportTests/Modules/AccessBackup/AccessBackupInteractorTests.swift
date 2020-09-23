@@ -16,7 +16,7 @@ class AccessBackupInteractorTests: XCTestCase {
         super.setUp()
 
         interactor = AccessBackupInteractor(keystore: Keychain(),
-                                            mnemonicCreator: IRBIP39MnemonicCreator(language: .english))
+                                            mnemonicCreator: IRMnemonicCreator(language: .english))
 
         clearStorage()
     }
@@ -30,7 +30,7 @@ class AccessBackupInteractorTests: XCTestCase {
 
         try? interactor.keystore.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreKey.pincode.rawValue)
 
-        let mnemonic = try! interactor.mnemonicCreator.mnemonic(fromList: Constants.dummyValidMnemonic.components(separatedBy: CharacterSet.wordsSeparator))
+        let mnemonic = try! interactor.mnemonicCreator.mnemonic(fromList: Constants.dummyValidMnemonic)
         try? interactor.keystore.saveKey(mnemonic.entropy(), with: KeystoreKey.seedEntropy.rawValue)
 
         let presenter = MockAccessBackupInteractorOutputProtocol()
@@ -39,7 +39,7 @@ class AccessBackupInteractorTests: XCTestCase {
         let expectation = XCTestExpectation()
 
         stub(presenter) { stub in
-            when(stub).didLoad(mnemonicPhrase: any(String.self)).then { _ in
+            when(stub).didLoad(mnemonic: any(String.self)).then { _ in
                 expectation.fulfill()
             }
         }
@@ -52,7 +52,7 @@ class AccessBackupInteractorTests: XCTestCase {
 
         // then
 
-        verify(presenter, times(1)).didLoad(mnemonicPhrase: Constants.dummyValidMnemonic)
+        verify(presenter, times(1)).didLoad(mnemonic: Constants.dummyValidMnemonic)
     }
 
     // MARK: Private

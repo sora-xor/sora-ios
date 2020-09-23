@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kamera se koristi za snimanje QR koda";
+"NSFaceIDUsageDescription" = "Prepoznavanje lica se koristi za autorizaciju u aplikaciji";
+"NSPhotoLibraryUsageDescription" = "Učitajte fotografije iz knjižnice";
+"NSPhotoLibraryAddUsageDescription" = "Spremite zahtjev za prijenos u obliku qr koda";

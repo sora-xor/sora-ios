@@ -11,6 +11,10 @@ class AnimatableCollectionView: UICollectionViewCell {
     lazy var highlitedOffAnimation: ViewAnimatorProtocol = TransformAnimator.highlightedOff
 
     override var isHighlighted: Bool {
+        get {
+            return super.isHighlighted
+        }
+
         set {
             let oldValue = super.isHighlighted
             super.isHighlighted = newValue
@@ -24,10 +28,6 @@ class AnimatableCollectionView: UICollectionViewCell {
                 layer.removeAllAnimations()
                 highlitedOffAnimation.animate(view: self, completionBlock: nil)
             }
-        }
-
-        get {
-            return super.isHighlighted
         }
     }
 }

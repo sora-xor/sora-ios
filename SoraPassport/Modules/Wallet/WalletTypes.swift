@@ -14,4 +14,6 @@ enum WalletServiceType: String {
     case contacts
     case withdraw
     case withdrawalMetadata
+    case ethereumRegistration
+    case ethereumState
 }

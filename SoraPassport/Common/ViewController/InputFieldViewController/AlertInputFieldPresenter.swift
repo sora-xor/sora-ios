@@ -55,7 +55,7 @@ final class AlertInputFieldPresenter: NSObject {
 
     @objc private func actionTextChanged(textField: UITextField) {
         if textField.text?.count != viewModel.value.count {
-            /**
+            /*
              * prevent app from crash if text field changes without
              * notifying delegate (like smart replacement)
             */

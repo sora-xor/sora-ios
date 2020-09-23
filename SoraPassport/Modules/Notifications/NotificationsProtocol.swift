@@ -27,10 +27,6 @@ protocol NotificationsRegistrationProtocol: class {
     func registerForRemoteNotifications()
 }
 
-protocol NotificationsLocalSchedulerProtocol: class {
-    func schedule(notification: SoraNotification, with identifier: String, on date: Date?)
-}
-
 protocol NotificationsServiceOutputProtocol: class {
     func didReceive(remoteToken: String)
     func didReceive(_ notification: SoraNotificationProtocol) -> Bool

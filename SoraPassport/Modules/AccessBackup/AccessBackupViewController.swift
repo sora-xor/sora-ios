@@ -74,7 +74,7 @@ final class AccessBackupViewController: AccessoryViewController {
 }
 
 extension AccessBackupViewController: AccessBackupViewProtocol {
-    func didReceiveBackup(phrase: String) {
-        phraseLabel.text = phrase
+    func didReceiveBackup(mnemonic: String) {
+        phraseLabel.text = mnemonic
     }
 }

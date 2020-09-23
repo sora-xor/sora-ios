@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>project.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string>%li hari yang tersisa</string>
+      </dict>
+    </dict>
+    <key>project.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string>%li jam yang tersisa</string>
+      </dict>
+    </dict>
+    <key>project.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string>%li menit yang tersisa</string>
+      </dict>
+    </dict>
+    <key>project.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string>%li detik yang tersisa</string>
+      </dict>
+    </dict>
+    <key>received.invitations</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>Anda telah menerima %#@invitation@</string>
+      <key>invitation</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string> %li undangan</string>
+      </dict>
+    </dict>
+    <key>favorite.users</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@favorite@</string>
+      <key>favorite</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string>%li favorit</string>
+      </dict>
+    </dict>
+    <key>voted.friends</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@voted@</string>
+      <key>voted</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string>%li teman memilih</string>
+      </dict>
+    </dict>
+    <key>referendum.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string>%li hari yang tersisa</string>
+      </dict>
+    </dict>
+    <key>referendum.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string> %li jam yang tersisa</string>
+      </dict>
+    </dict>
+    <key>referendum.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string>%li menit yang tersisa</string>
+      </dict>
+    </dict>
+    <key>referendum.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>other</key>
+        <string>[% i] detik yang tersisa</string>
+      </dict>
+    </dict>
+  </dict>
+</plist>

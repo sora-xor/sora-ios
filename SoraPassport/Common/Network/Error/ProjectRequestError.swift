@@ -27,6 +27,28 @@ enum VoteDataError: Error {
     }
 }
 
+enum ReferendumVoteDataError: Error {
+    case referendumNotFound
+    case votingNotAllowed
+    case votesNotEnough
+    case userNotFound
+
+    static func error(from status: StatusData) -> ReferendumVoteDataError? {
+        switch status.code {
+        case "REFERENDUM_NOT_FOUND":
+            return .referendumNotFound
+        case "VOTING_NOT_ALLOWED":
+            return .votingNotAllowed
+        case "VOTES_NOT_ENOUGH":
+            return .votesNotEnough
+        case "USER_NOT_FOUND":
+            return .userNotFound
+        default:
+            return nil
+        }
+    }
+}
+
 enum ProjectFavoriteToggleDataError: Error {
     case projectNotFound
     case userNotFound

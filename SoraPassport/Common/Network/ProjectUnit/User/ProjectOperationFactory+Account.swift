@@ -244,7 +244,7 @@ extension ProjectOperationFactory: ProjectAccountOperationFactoryProtocol {
     }
 
     func fetchActivityFeedOperation(_ urlTemplate: String,
-                                    with page: Pagination) -> NetworkOperation<ActivityData?> {
+                                    with page: OffsetPagination) -> NetworkOperation<ActivityData?> {
         let requestFactory = BlockNetworkRequestFactory {
             let serviceUrl = try EndpointBuilder(urlTemplate: urlTemplate).buildURL(with: page)
 

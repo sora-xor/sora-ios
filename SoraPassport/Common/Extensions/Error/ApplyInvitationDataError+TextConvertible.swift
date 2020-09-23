@@ -19,7 +19,7 @@ extension ApplyInvitationDataError: ErrorContentConvertible {
             message = R.string.localizable.userStatusInvalidMessage(preferredLanguages: locale?.rLanguages)
         case .codeNotFound:
             title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
-            message = R.string.localizable.inviteCodeNotFoundMessage(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.personalInfoInvitationIsInvalid(preferredLanguages: locale?.rLanguages)
         case .invitationAcceptingWindowClosed:
             title = R.string.localizable.commonErrorGeneralTitle(preferredLanguages: locale?.rLanguages)
             message = R.string.localizable.inviteEnterErrorTimeIsUp(preferredLanguages: locale?.rLanguages)

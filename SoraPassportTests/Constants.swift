@@ -28,6 +28,12 @@ final class Constants {
     static let dummyInvalidMnemonic = "sheriff firewall three cross tone smile element shop theme bring release artwork tunnel prepare myself"
     static let dummyWalletAccountId = "dummy@sora"
     static let dummyOtherWalletAccountId = "otherdummy@sora"
+    static let dummyEthAddress = Data(hex: "0xa129197a2FC51260d87B804a29A2aB31BC5B105d")
+    static let dummyOtherEthAddress = Data(hex: "0x5E6Fb707C4a469e983434173044d0508A18E47d6")
+    static let withdrawalHash =
+    Data(hex: "94282533eb24ba1445b9b606a416bbbfc444ab4b6de9fcd241af558e3a1585d5")
+    static let transactionHash =
+    Data(hex: "89422533eb24ba1445b9b606a416bbbfc444ab4b6de9fcd241af558e3a1585d5")
     static let englishLocalization = "en"
 }
 
@@ -51,8 +57,8 @@ func createDummyDecentralizedDocument() -> DecentralizedDocumentObject {
 func createDummyRequestSigner() -> DARequestSigner {
     var signer = DARequestSigner()
 
-    if let privateKey = IREd25519KeyFactory().createRandomKeypair()?.privateKey(),
-        let rawSigner = IREd25519Sha512Signer(privateKey: privateKey) {
+    if let privateKey = try? IRIrohaKeyFactory().createRandomKeypair().privateKey() {
+        let rawSigner = IRIrohaSigner(privateKey: privateKey)
         signer = signer.with(rawSigner: rawSigner)
     }
 

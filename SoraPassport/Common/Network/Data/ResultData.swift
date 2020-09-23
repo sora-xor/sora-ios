@@ -20,6 +20,10 @@ struct StatusData: Decodable {
     }
 }
 
+struct StatusResultData: Decodable {
+    var status: StatusData
+}
+
 struct ResultData<ResultType> where ResultType: Decodable {
     var status: StatusData
     var result: ResultType?
@@ -69,5 +73,32 @@ extension MultifieldResultData: Decodable {
         status = try container.decode(StatusData.self, forKey: statusKey)
 
         result = try ResultType(from: decoder)
+    }
+}
+
+struct OptionalMultifieldResultData<ResultType> where ResultType: Decodable {
+    var status: StatusData
+    var result: ResultType?
+}
+
+extension OptionalMultifieldResultData: Decodable {
+    enum CodingKeys: String, CodingKey {
+        case status
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: DocumentDynamicCodingKey.self)
+
+        guard let statusKey = DocumentDynamicCodingKey(stringValue: CodingKeys.status.rawValue) else {
+            throw ResultDataError.missingStatusField
+        }
+
+        status = try container.decode(StatusData.self, forKey: statusKey)
+
+        if status.isSuccess {
+            result = try ResultType(from: decoder)
+        } else {
+            result = nil
+        }
     }
 }

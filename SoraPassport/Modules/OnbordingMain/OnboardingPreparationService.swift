@@ -151,10 +151,10 @@ extension OnboardingPreparationService: OnboardingPreparationServiceProtocol {
             operationManager.enqueue(operations: [versionCheckOperation,
                                                   stateOperation,
                                                   invitationOperation],
-                                     in: .normal)
+                                     in: .transient)
         } else {
             operationManager.enqueue(operations: [versionCheckOperation, stateOperation],
-                                     in: .normal)
+                                     in: .transient)
         }
 
         return stateOperation

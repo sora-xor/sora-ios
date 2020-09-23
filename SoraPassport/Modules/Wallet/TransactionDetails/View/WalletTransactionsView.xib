@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="16097" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16097"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" insetsLayoutMarginsFromSafeArea="NO" id="iN0-l3-epB" customClass="WalletTransactionsView" customModule="SoraPassport" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="45"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="i20-r8-kX3" customClass="BorderedContainerView" customModule="SoraUI">
+                    <rect key="frame" x="0.0" y="0.0" width="414" height="45"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                            <color key="value" red="0.59999999999999998" green="0.59999999999999998" blue="0.59999999999999998" alpha="0.34999999999999998" colorSpace="calibratedRGB"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Yd2-0E-lno" customClass="RoundedButton" customModule="SoraUI">
+                    <rect key="frame" x="0.0" y="5" width="109" height="35"/>
+                    <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
+                            <real key="value" value="0.0"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconEthSmall"/>
+                        <userDefinedRuntimeAttribute type="string" keyPath="_title" value="Ethereum"/>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
+                            <real key="value" value="15"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_strokeColor">
+                            <color key="value" red="0.1764705882352941" green="0.16078431372549018" blue="0.14901960784313725" alpha="1" colorSpace="calibratedRGB"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_strokeWidth">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_titleColor">
+                            <color key="value" red="0.1764705882" green="0.16078431369999999" blue="0.14901960780000001" alpha="1" colorSpace="calibratedRGB"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Regular"/>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
+                            <real key="value" value="14"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_spacingBetweenItems">
+                            <real key="value" value="4"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_topInset">
+                            <real key="value" value="7"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_bottomInset">
+                            <real key="value" value="7"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_leftInset">
+                            <real key="value" value="10"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_rightInset">
+                            <real key="value" value="10"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_highlightedFillColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="YES"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_highlightedStrokeColor">
+                            <color key="value" red="0.1764705882352941" green="0.16078431372549018" blue="0.14901960784313725" alpha="1" colorSpace="calibratedRGB"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                    <connections>
+                        <action selector="actionEthereum" destination="iN0-l3-epB" eventType="touchUpInside" id="1Cm-N6-6ch"/>
+                    </connections>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="4xs-WH-S3Y" customClass="RoundedButton" customModule="SoraUI">
+                    <rect key="frame" x="115" y="5" width="96.5" height="35"/>
+                    <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
+                            <real key="value" value="0.0"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconXorSmall"/>
+                        <userDefinedRuntimeAttribute type="string" keyPath="_title" value="Soranet"/>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
+                            <real key="value" value="15"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_strokeColor">
+                            <color key="value" red="0.81568627449999997" green="0.0078431372550000003" blue="0.1058823529" alpha="1" colorSpace="calibratedRGB"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_strokeWidth">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_titleColor">
+                            <color key="value" red="0.81568627449999997" green="0.0078431372550000003" blue="0.1058823529" alpha="1" colorSpace="calibratedRGB"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Regular"/>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
+                            <real key="value" value="14"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_spacingBetweenItems">
+                            <real key="value" value="4"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_topInset">
+                            <real key="value" value="7"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_bottomInset">
+                            <real key="value" value="7"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_leftInset">
+                            <real key="value" value="10"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="_rightInset">
+                            <real key="value" value="10"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_highlightedFillColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="YES"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="_highlightedStrokeColor">
+                            <color key="value" red="0.81568627449999997" green="0.0078431372550000003" blue="0.1058823529" alpha="1" colorSpace="calibratedRGB"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                    <connections>
+                        <action selector="actionSoranet" destination="iN0-l3-epB" eventType="touchUpInside" id="mo0-F7-icJ"/>
+                    </connections>
+                </view>
+            </subviews>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <constraints>
+                <constraint firstItem="Yd2-0E-lno" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="7fc-M7-dJ2"/>
+                <constraint firstAttribute="trailing" secondItem="i20-r8-kX3" secondAttribute="trailing" id="EK6-Jg-ACR"/>
+                <constraint firstAttribute="bottom" secondItem="Yd2-0E-lno" secondAttribute="bottom" constant="5" id="Rlr-qf-dyZ"/>
+                <constraint firstItem="4xs-WH-S3Y" firstAttribute="top" secondItem="Yd2-0E-lno" secondAttribute="top" id="RmC-69-zyq"/>
+                <constraint firstItem="4xs-WH-S3Y" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="VDo-Tr-S3r"/>
+                <constraint firstAttribute="bottom" secondItem="i20-r8-kX3" secondAttribute="bottom" id="W4L-PE-6kS"/>
+                <constraint firstItem="4xs-WH-S3Y" firstAttribute="leading" secondItem="Yd2-0E-lno" secondAttribute="trailing" constant="6" id="Y6K-KS-pqJ"/>
+                <constraint firstItem="Yd2-0E-lno" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" constant="5" id="faY-Lf-aCK"/>
+                <constraint firstItem="4xs-WH-S3Y" firstAttribute="bottom" secondItem="Yd2-0E-lno" secondAttribute="bottom" id="fqm-zl-ZCS"/>
+                <constraint firstItem="i20-r8-kX3" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="vz5-Cb-Cmq"/>
+                <constraint firstItem="i20-r8-kX3" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="z4X-xm-mt0"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <variation key="default">
+                <mask key="constraints">
+                    <exclude reference="VDo-Tr-S3r"/>
+                </mask>
+            </variation>
+            <connections>
+                <outlet property="borderView" destination="i20-r8-kX3" id="79x-Mj-AtJ"/>
+                <outlet property="bottom" destination="Rlr-qf-dyZ" id="iEQ-V6-d6J"/>
+                <outlet property="ethereumButton" destination="Yd2-0E-lno" id="S8l-oo-SB2"/>
+                <outlet property="leadingWhenEthereumExists" destination="Y6K-KS-pqJ" id="Si0-T2-rhm"/>
+                <outlet property="leadingWhenOnlySoranet" destination="VDo-Tr-S3r" id="bB4-jj-Omx"/>
+                <outlet property="soranetButton" destination="4xs-WH-S3Y" id="kac-ai-7LZ"/>
+                <outlet property="top" destination="faY-Lf-aCK" id="G3V-EL-AnL"/>
+            </connections>
+            <point key="canvasLocation" x="139" y="153"/>
+        </view>
+    </objects>
+    <resources>
+        <image name="iconEthSmall" width="16" height="16"/>
+        <image name="iconXorSmall" width="16" height="16"/>
+    </resources>
+</document>

@@ -24,6 +24,10 @@ extension UIColor {
                        alpha: 1.0)
     }
 
+    static var silver: UIColor {
+        return UIColor(red: 0.459, green: 0.471, blue: 0.482, alpha: 1)
+    }
+
     static var darkRed: UIColor {
         return UIColor(red: 208.0 / 255.0, green: 2.0 / 255.0, blue: 27.0 / 255.0, alpha: 1.0)
     }

@@ -4,9 +4,10 @@
 */
 
 import Foundation
+import SoraFoundation
 
 protocol AccessRestoreViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
-    func didReceiveView(model: AccessRestoreViewModelProtocol)
+    func didReceiveView(model: InputViewModelProtocol)
 }
 
 protocol AccessRestorePresenterProtocol: class {
@@ -15,19 +16,12 @@ protocol AccessRestorePresenterProtocol: class {
 }
 
 protocol AccessRestoreInteractorInputProtocol: class {
-    func restoreAccess(phrase: [String])
+    func restoreAccess(mnemonic: String)
 }
 
 protocol AccessRestoreInteractorOutputProtocol: class {
-    func didRestoreAccess(from phrase: [String])
+    func didRestoreAccess(from mnemonic: String)
     func didReceiveRestoreAccess(error: Error)
-}
-
-enum AccessRestoreInteractorError: Error {
-    case userMissing
-    case documentMissing
-    case keystoreMissing
-    case invalidPassphrase
 }
 
 protocol AccessRestoreWireframeProtocol: AlertPresentable, ErrorPresentable {
@@ -39,7 +33,7 @@ protocol AccessRestoreViewFactoryProtocol: class {
 }
 
 protocol AccessRestoreViewModelProtocol: class {
-    var phrase: String { get }
+    var mnemonic: String { get }
 
     func didReceiveReplacement(_ string: String, for range: NSRange) -> Bool
 }

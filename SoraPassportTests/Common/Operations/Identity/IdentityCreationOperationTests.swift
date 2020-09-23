@@ -20,9 +20,9 @@ class IdentityCreationOperationTests: XCTestCase {
         try? keystore.deleteAll()
     }
 
-    func testSuccessfullIdentityCreation() {
+    func testSuccessfullIdentityCreation() throws {
         // given
-        let operation = IdentityOperationFactory.createNewIdentityOperation()
+        let operation = IdentityOperationFactory().createNewIdentityOperation(with: keystore)
 
         let expectation = XCTestExpectation()
 
@@ -34,7 +34,8 @@ class IdentityCreationOperationTests: XCTestCase {
         }
 
         // when
-        OperationManager.shared.enqueue(operations: [operation], in: .normal)
+        OperationManagerFacade.sharedManager.enqueue(operations: [operation],
+                                                     in: .transient)
 
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
@@ -45,14 +46,8 @@ class IdentityCreationOperationTests: XCTestCase {
             return
         }
 
-        guard (try? operation.keystore.checkKey(for: KeystoreKey.privateKey.rawValue)) == true else {
-            XCTFail()
-            return
-        }
-
-        guard (try? operation.keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue)) == true else {
-            XCTFail()
-            return
-        }
+        XCTAssertTrue(try operation.keystore.checkKey(for: KeystoreKey.privateKey.rawValue))
+        XCTAssertTrue(try operation.keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue))
+        XCTAssertTrue(try SecondaryIdentityRepository(keystore: operation.keystore).checkAllExist())
     }
 }

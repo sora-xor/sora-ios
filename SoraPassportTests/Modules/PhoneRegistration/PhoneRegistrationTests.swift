@@ -103,12 +103,12 @@ class PhoneRegistrationTests: NetworkBaseTests {
         // when
 
         let input = createRandomPhoneInput()
-        var phoneInputViewModel: PersonalInfoViewModelProtocol?
+        var phoneInputViewModel: InputViewModelProtocol?
 
         stub(view) { stub in
-            when(stub).didReceive(viewModel: any(PersonalInfoViewModelProtocol.self)).then { viewModel in
-                let range = NSRange(location: viewModel.value.count, length: 0)
-                _ = viewModel.didReceiveReplacement(input, for: range)
+            when(stub).didReceive(viewModel: any(InputViewModelProtocol.self)).then { viewModel in
+                let range = NSRange(location: viewModel.inputHandler.value.count, length: 0)
+                _ = viewModel.inputHandler.didReceiveReplacement(input, for: range)
                 phoneInputViewModel = viewModel
             }
 
@@ -120,7 +120,7 @@ class PhoneRegistrationTests: NetworkBaseTests {
 
         presenter.setup()
 
-        guard phoneInputViewModel?.value.hasSuffix(input) == true else {
+        guard phoneInputViewModel?.inputHandler.value.hasSuffix(input) == true else {
             XCTFail("Unexpected phone number input")
             return
         }

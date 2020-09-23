@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct Pagination: Codable {
+struct OffsetPagination: Codable {
     var offset: Int
     var count: Int
 }

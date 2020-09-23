@@ -21,8 +21,10 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return nil
         }
 
+        // TODO: use WalletContextFactory to enable ethereum features
+
         guard
-            let walletContext = WalletContextFactory.createContext(),
+            let walletContext = WalletContextFactoryV16.createContext(),
             let walletController = createWalletController(from: walletContext,
                                                           localizationManager: localizationManager) else {
             return nil
@@ -47,14 +49,18 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let children = preparePresenterChildren(for: view)
         let presenter = MainTabBarPresenter(children: children)
 
-        let notificationRegistrator = NotificationsService.sharedNotificationsInteractor.notificationsRegistrator
+        let notificationRegistrator = NotificationService.sharedNotificationsInteractor.notificationsRegistrator
+
+        let userServices = createUserServices()
+
         let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
                                               settings: SettingsManager.shared,
                                               applicationConfig: ApplicationConfig.shared,
                                               applicationHandler: ApplicationHandler(),
                                               notificationRegistrator: notificationRegistrator,
                                               invitationLinkService: invitationLinkService,
-                                              walletContext: walletContext)
+                                              walletContext: walletContext,
+                                              userServices: userServices)
 
         let wireframe = MainTabBarWireframe()
 
@@ -66,6 +72,23 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 
         return view
 	}
+
+    static func createUserServices() -> [UserApplicationServiceProtocol] {
+        // TODO: ethereum services disabled until v1.7
+        /*
+        let dataStreamService = DataStreamService()
+        let pollingServices = PollingServiceFactory().createServices()
+        let walletServices = WalletOperationFinalizationFactory().createServices()
+        let registrationServices = EthereumUserServiceFactory().createServices()
+        let historyUpdateServices = HistoryListeningServiceFactory().createServices()
+        return [dataStreamService] + registrationServices +
+            walletServices + pollingServices + historyUpdateServices
+        */
+
+        let eventProcessor = EventCenterProcessor(eventCenter: EventCenter.shared)
+        let dataStreamService = DataStreamService(processors: [eventProcessor])
+        return [dataStreamService]
+    }
 
     static func createActivityController(for localizationManager: LocalizationManagerProtocol)
         -> UIViewController? {
@@ -113,7 +136,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let navigationController = SoraNavigationController()
 
         let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.tabbarProjectsTitle(preferredLanguages: locale.rLanguages)
+            R.string.localizable.tabbarVotingTitle(preferredLanguages: locale.rLanguages)
         }
 
         let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)

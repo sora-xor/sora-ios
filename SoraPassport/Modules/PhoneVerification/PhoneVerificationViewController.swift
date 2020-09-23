@@ -10,7 +10,7 @@ import SoraFoundation
 final class PhoneVerificationViewController: AccessoryViewController, AdaptiveDesignable {
 	var presenter: PhoneVerificationPresenterProtocol!
 
-    var viewModel: CodeInputViewModelProtocol?
+    var viewModel: InputViewModelProtocol?
 
     @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var textField: UITextField!
@@ -40,9 +40,9 @@ final class PhoneVerificationViewController: AccessoryViewController, AdaptiveDe
             return
         }
 
-        textField.text = viewModel.code
+        textField.text = viewModel.inputHandler.value
 
-        accessoryView?.isActionEnabled = viewModel.isComplete
+        accessoryView?.isActionEnabled = viewModel.inputHandler.completed
     }
 
     override func setupLocalization() {
@@ -78,6 +78,12 @@ final class PhoneVerificationViewController: AccessoryViewController, AdaptiveDe
         presenter.process(viewModel: viewModel)
     }
 
+    @IBAction func actionTextFieldDidChange() {
+        if textField.text != viewModel?.inputHandler.value {
+            textField.text = viewModel?.inputHandler.value
+        }
+    }
+
     @objc func actionResend() {
         endCodeEditing()
         presenter.resendCode()
@@ -88,15 +94,20 @@ extension PhoneVerificationViewController: UITextFieldDelegate {
     func textField(_ textField: UITextField,
                    shouldChangeCharactersIn range: NSRange,
                    replacementString string: String) -> Bool {
+
         guard let viewModel = viewModel else {
             return true
         }
 
-        let result = viewModel.didReceiveReplacement(string, for: range)
+        let shouldApply = viewModel.inputHandler.didReceiveReplacement(string, for: range)
 
-        accessoryView?.isActionEnabled = viewModel.isComplete
+        if !shouldApply, textField.text != viewModel.inputHandler.value {
+            textField.text = viewModel.inputHandler.value
+        }
 
-        return result
+        accessoryView?.isActionEnabled = viewModel.inputHandler.completed
+
+        return shouldApply
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -107,7 +118,7 @@ extension PhoneVerificationViewController: UITextFieldDelegate {
 }
 
 extension PhoneVerificationViewController: PhoneVerificationViewProtocol {
-    func didReceive(viewModel: CodeInputViewModelProtocol) {
+    func didReceive(viewModel: InputViewModelProtocol) {
         self.viewModel = viewModel
 
         updateCodeDisplay()

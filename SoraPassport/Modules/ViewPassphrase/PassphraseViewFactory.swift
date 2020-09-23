@@ -17,7 +17,7 @@ final class PassphraseViewFactory: AccessBackupViewFactoryProtocol {
 
         let presenter = AccessBackupPresenter()
         let interactor = AccessBackupInteractor(keystore: Keychain(),
-                                                mnemonicCreator: IRBIP39MnemonicCreator(language: .english))
+                                                mnemonicCreator: IRMnemonicCreator(language: .english))
         let wireframe = AccessBackupWireframe()
 
         view.presenter = presenter

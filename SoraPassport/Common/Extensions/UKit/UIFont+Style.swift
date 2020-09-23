@@ -130,6 +130,22 @@ extension UIFont {
         return R.font.soraRc0040417Regular(size: 13)!
     }
 
+    static var referendumRegular: UIFont {
+        return R.font.soraRc0040417Regular(size: 15)!
+    }
+
+    static var referendumTitle: UIFont {
+        return R.font.soraRc0040417Bold(size: 20)!
+    }
+
+    static var referendumDetails: UIFont {
+        return R.font.soraRc0040417SemiBold(size: 13)!
+    }
+
+    static var referendumVoting: UIFont {
+        return R.font.soraRc0040417Bold(size: 14.0)!
+    }
+
     static var accessoryTitle: UIFont {
         return R.font.soraRc0040417Regular(size: 14.0)!
     }

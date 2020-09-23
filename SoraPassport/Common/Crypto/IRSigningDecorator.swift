@@ -20,19 +20,13 @@ class IRSigningDecorator {
 }
 
 extension IRSigningDecorator: IRSignatureCreatorProtocol {
-    func sign(_ originalData: Data) -> IRSignatureProtocol? {
-        guard let rawKey = try? keystore.fetchKey(for: identifier) else {
-            logger?.error("Can't find private key for signing")
-            return nil
-        }
+    func sign(_ originalData: Data) throws -> IRSignatureProtocol {
+        let rawKey = try keystore.fetchKey(for: identifier)
 
-        guard let privateKey = IREd25519PrivateKey(rawData: rawKey) else {
-            logger?.error("Invalid private key for signing fetched")
-            return nil
-        }
+        let privateKey = try IRIrohaPrivateKey(rawData: rawKey)
 
-        let rawSigner = IREd25519Sha512Signer(privateKey: privateKey)
+        let rawSigner = IRIrohaSigner(privateKey: privateKey)
 
-        return rawSigner?.sign(originalData)
+        return try rawSigner.sign(originalData)
     }
 }

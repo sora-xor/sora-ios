@@ -44,6 +44,7 @@ protocol ProjectDetailsWireframeProtocol: AlertPresentable, ErrorPresentable,
 WebPresentable, EmailPresentable, MediaGalleryPresentable, OutboundUrlPresentable {
     func showVotingView(from view: ProjectDetailsViewProtocol?,
                         with model: VoteViewModelProtocol,
+                        style: VoteViewStyle,
                         delegate: VoteViewDelegate?)
 
     func close(view: ProjectDetailsViewProtocol?)
