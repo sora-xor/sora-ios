@@ -8,7 +8,7 @@ import RobinHood
 
 extension WalletNetworkFacade {
     func createXORBalanceOperationWrapper() -> CompoundOperationWrapper<TokenBalancesData> {
-        let soranetWrapper = soranetOperationFactory.fetchBalanceOperation([xorAssetId])
+        let soranetWrapper = soranetOperationFactory.fetchBalanceOperation([valAssetId])
 
         let contractAddressOperation = ethereumOperationFactory
             .createXORAddressFetchOperation(from: masterContractAddress)

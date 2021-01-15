@@ -21,10 +21,8 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return nil
         }
 
-        // TODO: use WalletContextFactory to enable ethereum features
-
         guard
-            let walletContext = WalletContextFactoryV16.createContext(),
+            let walletContext = WalletContextFactory.createContext(),
             let walletController = createWalletController(from: walletContext,
                                                           localizationManager: localizationManager) else {
             return nil
@@ -74,8 +72,6 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 	}
 
     static func createUserServices() -> [UserApplicationServiceProtocol] {
-        // TODO: ethereum services disabled until v1.7
-        /*
         let dataStreamService = DataStreamService()
         let pollingServices = PollingServiceFactory().createServices()
         let walletServices = WalletOperationFinalizationFactory().createServices()
@@ -83,11 +79,6 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let historyUpdateServices = HistoryListeningServiceFactory().createServices()
         return [dataStreamService] + registrationServices +
             walletServices + pollingServices + historyUpdateServices
-        */
-
-        let eventProcessor = EventCenterProcessor(eventCenter: EventCenter.shared)
-        let dataStreamService = DataStreamService(processors: [eventProcessor])
-        return [dataStreamService]
     }
 
     static func createActivityController(for localizationManager: LocalizationManagerProtocol)

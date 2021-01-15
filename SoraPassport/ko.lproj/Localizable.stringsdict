@@ -61,7 +61,7 @@
     <key>received.invitations</key>
     <dict>
       <key>NSStringLocalizedFormatKey</key>
-      <string>귀하는 %#@초대장@을 수신하였습니다.</string>
+      <string>귀하는 %#@invitation@을 수신하였습니다.</string>
       <key>invitation</key>
       <dict>
         <key>NSStringFormatSpecTypeKey</key>

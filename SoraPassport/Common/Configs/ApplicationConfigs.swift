@@ -32,9 +32,12 @@ protocol ApplicationConfigProtocol {
     var faqURL: URL { get }
     var ethereumMasterContract: Data { get }
     var ethereumNodeUrl: URL { get }
+    var ethereumNodeAuth: String { get }
     var ethereumChainId: EthereumChain { get }
     var ethereumPollingTimeInterval: TimeInterval { get }
+    var pendingFailureDelay: TimeInterval { get }
     var combinedTransfersHandlingDelay: TimeInterval { get }
+    func applyExternalConfig(_ config: EthNodeData)
 }
 
 private struct InternalConfig: Codable {
@@ -69,6 +72,17 @@ private struct InternalConfig: Codable {
     var defaultCurrency: CurrencyItemData
     var soranetExplorerTemplate: String
     var ethereumExplorerTemplate: String
+}
+
+enum ConfigError: Error {
+    case ethConfigFailed
+}
+
+extension ConfigError: ErrorContentConvertible {
+    func toErrorContent(for locale: Locale?) -> ErrorContent {
+        return ErrorContent(title: R.string.localizable.connectionErrorTitle(),
+                            message: R.string.localizable.ethereumConfigUnavailable())
+    }
 }
 
 final class ApplicationConfig {
@@ -122,9 +136,22 @@ final class ApplicationConfig {
 
         self.config = config
     }
+
+    var extEthereumMasterContract: String?
+    var extEthereumNodeUrl: String?
+    var extEthereumNodeAuth: String?
+    var extEtherscan: String?
 }
 
 extension ApplicationConfig: ApplicationConfigProtocol {
+    func applyExternalConfig(_ config: EthNodeData) {
+        extEthereumNodeUrl = config.ethereumURL
+        extEthereumMasterContract = try? Data(hexString: config.masterContractAddress).toHex(includePrefix: false)
+        extEthereumNodeAuth = config.ethereumUsername + ":" + config.ethereumPassword
+        extEtherscan = config.etherscanBaseUrl + "tx/{hash}"
+        ApplicationConfig.logger.info("external config applied, node: \(extEthereumNodeUrl ?? "no node??"), contract: \(config.masterContractAddress)" )
+    }
+
     var projectDecentralizedId: String {
         config.projectDecentralizedId
     }
@@ -178,7 +205,7 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var ethereumExplorerTemplate: String {
-        config.ethereumExplorerTemplate
+        extEtherscan ?? config.ethereumExplorerTemplate
     }
 
     var supportEmail: String {
@@ -217,34 +244,46 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var ethereumMasterContract: Data {
-        #if F_RELEASE
-        fatalError("No master contract address")
-        #elseif F_STAGING
-        return Data(hexString: "c228f9fe8857b0ad13605bd9c212f3efc7e1ad70")!
-        #elseif F_TEST
-        return Data(hexString: "942a57bc7112f4db2996b5cda7c378c21871676e")!
-        #else
-        return Data(hexString: "2C506b0f693A26dA3CC3eFD515224e31B0a96f69")!
-        #endif
+        if let external = extEthereumMasterContract {
+            return Data(hexString: external)!
+        } else {
+            return Data()
+        }
+    }
+
+    var ethereumNodeAuth: String {
+        if let external = extEthereumNodeAuth {
+            return "Basic " + (external.data(using: .utf8)?.base64EncodedString())!
+        }
+        return ""
     }
 
     var ethereumNodeUrl: URL {
-        #if F_RELEASE
-        fatalError("No mainnet url address")
-        #else
-        return URL(string: "https://ropsten.infura.io/v3/6b7733290b9a4156bf62a4ba105b76ec")!
-        #endif
+        if let external = extEthereumNodeUrl {
+            return URL(string: external)!
+        } else {
+            return faqURL
+        }
     }
 
     var ethereumChainId: EthereumChain {
-        #if F_RELEASE
+        if let external = extEthereumNodeUrl {
+            if external.contains("rinkeby") {
+                return .rinkeby
+            } else
+            if external.contains("ropsten") {
+                return .ropsten
+            } else
+            if external.contains("mainnet") {
+                return .mainnet
+            }
+        }
         return .mainnet
-        #else
-        return .ropsten
-        #endif
     }
 
     var ethereumPollingTimeInterval: TimeInterval { 5.0 }
 
     var combinedTransfersHandlingDelay: TimeInterval { 1800 }
+
+    var pendingFailureDelay: TimeInterval { 86400 }
 }

@@ -10,6 +10,7 @@ struct WalletAccountViewModel {
     enum AccountType {
         case soranet
         case ethereum
+        case val
     }
 
     let title: String

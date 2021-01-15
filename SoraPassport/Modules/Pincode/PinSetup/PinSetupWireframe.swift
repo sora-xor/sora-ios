@@ -5,7 +5,7 @@
 
 import UIKit
 
-class PinSetupWireframe: PinSetupWireframeProtocol {
+class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPresentable {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
 
     func showMain(from view: PinSetupViewProtocol?) {
@@ -13,7 +13,7 @@ class PinSetupWireframe: PinSetupWireframeProtocol {
             return
         }
 
-        rootAnimator.animateTransition(to: mainViewController)
+        self.rootAnimator.animateTransition(to: mainViewController)
     }
 
     func showAuthVerification(from view: PinSetupViewProtocol?) {

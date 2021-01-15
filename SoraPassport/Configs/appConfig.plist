@@ -24,6 +24,8 @@
 		<dict>
 			<key>typeMapping</key>
 			<dict>
+				<key>ethConfig</key>
+				<string>EthConfigService</string>
 				<key>reputation</key>
 				<string>ReputationFetchService</string>
 				<key>reputationDetails</key>
@@ -117,6 +119,14 @@
 				<string>2018-10-12T06:12:38.905Z</string>
 				<key>service</key>
 				<array>
+					<dict>
+						<key>type</key>
+						<string>EthConfigService</string>
+						<key>id</key>
+						<string>did:sora:passport#eth-config-fetch</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.sora.soramitsu.co.jp/information/v1/discovery</string>
+					</dict>
 					<dict>
 						<key>type</key>
 						<string>ProjectsFetchService</string>
@@ -764,11 +774,13 @@
 		<key>soranetExplorer</key>
 		<string>https://explorer.s1.tst.soranet.soramitsu.co.jp/#/transactions/transaction/{transaction}</string>
 		<key>ethereumExplorer</key>
-		<string>https://ropsten.etherscan.io/tx/{hash}</string>
+		<string>https://rinkeby.etherscan.io/tx/{hash}</string>
 		<key>projectUnit</key>
 		<dict>
 			<key>typeMapping</key>
 			<dict>
+				<key>ethConfig</key>
+				<string>EthConfigService</string>
 				<key>reputation</key>
 				<string>ReputationFetchService</string>
 				<key>reputationDetails</key>
@@ -860,6 +872,14 @@
 				</array>
 				<key>service</key>
 				<array>
+					<dict>
+						<key>type</key>
+						<string>EthConfigService</string>
+						<key>id</key>
+						<string>did:sora:passport#eth-config-fetch</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.tst.sora.soramitsu.co.jp/information/v1/discovery</string>
+					</dict>
 					<dict>
 						<key>type</key>
 						<string>ProjectsFetchService</string>
@@ -1509,11 +1529,13 @@
 		<key>soranetExplorer</key>
 		<string>https://explorer.s1.stg1.soranet.soramitsu.co.jp/#/transactions/transaction/{transaction}</string>
 		<key>ethereumExplorer</key>
-		<string>https://ropsten.etherscan.io/tx/{hash}</string>
+		<string>https://rinkeby.etherscan.io/tx/{hash}</string>
 		<key>projectUnit</key>
 		<dict>
 			<key>typeMapping</key>
 			<dict>
+				<key>ethConfig</key>
+				<string>EthConfigService</string>
 				<key>reputation</key>
 				<string>ReputationFetchService</string>
 				<key>reputationDetails</key>
@@ -1607,6 +1629,14 @@
 				<string>2018-10-12T06:12:38.905Z</string>
 				<key>service</key>
 				<array>
+					<dict>
+						<key>type</key>
+						<string>EthConfigService</string>
+						<key>id</key>
+						<string>did:sora:passport#eth-config-fetch</string>
+						<key>serviceEndpoint</key>
+						<string>https://s4.stg1.sora.soramitsu.co.jp/information/v1/discovery</string>
+					</dict>
 					<dict>
 						<key>type</key>
 						<string>ProjectsFetchService</string>
@@ -2254,7 +2284,7 @@
 		<key>soranetExplorer</key>
 		<string>https://explorer.s1.dev.soranet.soramitsu.co.jp/#/transactions/transaction/{transaction}</string>
 		<key>ethereumExplorer</key>
-		<string>https://ropsten.etherscan.io/tx/{hash}</string>
+		<string>https://rinkeby.etherscan.io/tx/{hash}</string>
 		<key>projectUnit</key>
 		<dict>
 			<key>typeMapping</key>
@@ -2323,6 +2353,8 @@
 				<string>SupportedVersionService</string>
 				<key>country</key>
 				<string>CountryService</string>
+				<key>ethConfig</key>
+				<string>EthConfigService</string>
 			</dict>
 			<key>ddo</key>
 			<dict>
@@ -2567,6 +2599,14 @@
 						<string>did:sora:passport#supported-version-fetch</string>
 						<key>serviceEndpoint</key>
 						<string>https://s1.dev.sora.soramitsu.co.jp/information/v1/supported/ios?version={version}</string>
+					</dict>
+					<dict>
+						<key>type</key>
+						<string>EthConfigService</string>
+						<key>id</key>
+						<string>did:sora:passport#eth-config-fetch</string>
+						<key>serviceEndpoint</key>
+						<string>https://s1.dev.sora.soramitsu.co.jp/information/v1/discovery</string>
 					</dict>
 					<dict>
 						<key>type</key>

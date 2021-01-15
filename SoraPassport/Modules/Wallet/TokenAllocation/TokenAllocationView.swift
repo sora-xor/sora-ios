@@ -20,9 +20,9 @@ class TokenAllocationView: UIView {
         super.awakeFromNib()
 
         self.headerIcon.image = R.image.iconWalletInfo()
-        self.ethIcon.image = R.image.iconXorErc()
-        self.soraIcon.image = R.image.iconSoraXor()
-        self.ethTitleLabel.text = "Erc20"
-        self.soraTitleLabel.text = "SoraNet"
+        self.ethIcon.image = R.image.iconValErc()
+        self.soraIcon.image = R.image.iconVal()
+        self.ethTitleLabel.text = "Ethereum"
+        self.soraTitleLabel.text = "SORA NET"
     }
 }

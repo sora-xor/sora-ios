@@ -38,6 +38,7 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
             let accountSettings = try primitiveFactory.createAccountSettings(for: accountId)
 
             let xorAsset = try primitiveFactory.createXORAsset()
+            let valAsset = try primitiveFactory.createVALAsset()
             let ethAsset = try primitiveFactory.createETHAsset()
 
             let amountFormatterFactory = WalletAmountFormatterFactory(ethAssetId: ethAsset.identifier)
@@ -62,14 +63,16 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
                                                  logger: logger)
 
             let commandDecorator = WalletCommandDecoratorFactory(xorAssetId: xorAsset.identifier,
+                                                                 valAssetId: valAsset.identifier,
                                                                  ethereumAssetId: ethAsset.identifier,
                                                                  ethereumAddress: ethereumAddress,
                                                                  xorAddress: accountId,
+                                                                 valAddress: accountId,
                                                                  dataProvider: ethInitProvider,
                                                                  repository: ethInitRepository,
                                                                  localizationManager: localizationManager,
                                                                  operationManager: sharedOperationManager,
-                                                                 amountFormatter: amountFormatterFactory.createTokenFormatter(for: xorAsset),
+                                                                 amountFormatter: amountFormatterFactory.createTokenFormatter(for: valAsset),
                                                                  logger: logger)
 
             let builder = try configureBuilder(for: accountSettings,
@@ -89,6 +92,7 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
                                                               commandDecorator: commandDecorator,
                                                               amountFormatterFactory: amountFormatterFactory,
                                                               xorAsset: xorAsset,
+                                                              valAsset: valAsset,
                                                               ethAsset: ethAsset,
                                                               headerViewModel: headerViewModel,
                                                               logger: logger)
@@ -126,20 +130,23 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
 
             transactionDetails.configure(using: builder.transactionDetailsModuleBuilder)
 
-            WalletTransferConfigurator(localizationManager: localizationManager,
+            var transferConfigurator = WalletTransferConfigurator(localizationManager: localizationManager,
                                        amountFormatterFactory: amountFormatterFactory,
+                                       commandDecorator: commandDecorator,
+                                       commandFactory: nil,
                                        xorAsset: xorAsset,
+                                       valAsset: valAsset,
                                        ethAsset: ethAsset)
-                .configure(using: builder.transferModuleBuilder)
+            transferConfigurator.configure(using: builder.transferModuleBuilder)
 
             WalletConfirmationConfigurator(amountFormatterFactory: amountFormatterFactory,
                                            feeDisplayFactory: WalletFeeDisplaySettingsFactory(),
                                            xorAsset: xorAsset,
+                                           valAsset: valAsset,
                                            ethAsset: ethAsset)
                 .configure(using: builder.transferConfirmationBuilder)
 
             let walletContext = try builder.build()
-
             subscribeContextToLanguageSwitch(walletContext, localizationManager: localizationManager, logger: logger)
 
             headerViewModel.walletContext = walletContext
@@ -148,6 +155,7 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
             contactsActionFactory.commandFactory = walletContext
             historyConfigurator.commandFactory = walletContext
             transactionDetails.commandFactory = walletContext
+            transferConfigurator.commandFactory = walletContext
 
             return walletContext
         } catch {
@@ -175,6 +183,7 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
                                                                   networkResolver: networkResolver)
 
         let xorAsset = try primitiveFactory.createXORAsset()
+        let valAsset = try primitiveFactory.createVALAsset()
         let ethAsset = try primitiveFactory.createETHAsset()
 
         let feeCalcutionFactory = WalletFeeCalculatorFactory(xorPrecision: xorAsset.precision,
@@ -209,6 +218,7 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
                                 ethereumAddress: ethereumAddress,
                                 masterContractAddress: ethereumMasterContract,
                                 xorAssetId: xorAsset.identifier,
+                                valAssetId: valAsset.identifier,
                                 ethAssetId: ethAsset.identifier)
 
         let language = WalletLanguage(rawValue: localizationManager.selectedLocalization)
@@ -318,7 +328,7 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
                                                 amountFormatterFactory: NumberFormatterFactoryProtocol) {
 
         let receiveTitle = LocalizableResource { locale in
-            R.string.localizable.walletReceiveXor(preferredLanguages: locale.rLanguages)
+            R.string.localizable.walletReceiveVal(preferredLanguages: locale.rLanguages)
         }
 
         let sharingFactory = WalletAccountSharingFactory(assets: assets,

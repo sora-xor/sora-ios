@@ -223,6 +223,7 @@ class WalletNetworkFacadeTransferEthereumTests: XCTestCase {
                                                       localizationManager: LocalizationManager.shared)
 
         let xorAsset = try primitiveFactory.createXORAsset()
+        let valAsset = try primitiveFactory.createVALAsset()
         let ethAsset = try primitiveFactory.createETHAsset()
 
         let storeFacade = UserStoreTestFacade()
@@ -249,6 +250,7 @@ class WalletNetworkFacadeTransferEthereumTests: XCTestCase {
                                                 ethereumAddress: myEthereumAddress,
                                                 masterContractAddress: EthereumConstants.masterContractOnRopsten,
                                                 xorAssetId: xorAsset.identifier,
+                                                valAssetId: valAsset.identifier,
                                                 ethAssetId: ethAsset.identifier)
 
         let wrapper = networkFacade.transferOperation(transferInfo)

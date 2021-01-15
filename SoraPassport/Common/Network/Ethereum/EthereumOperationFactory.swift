@@ -35,6 +35,7 @@ enum EthereumBlock: String {
 enum EthereumChain: UInt8 {
     case mainnet = 1
     case ropsten = 3
+    case rinkeby = 4
 }
 
 final class EthereumOperationFactory {
@@ -146,7 +147,7 @@ final class EthereumOperationFactory {
             request.httpMethod = HttpMethod.post.rawValue
             request.httpBody = try JSONEncoder().encode(jsonRequest)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
-
+            request.setValue(ApplicationConfig.shared.ethereumNodeAuth, forHTTPHeaderField: HttpHeaderKey.authorization.rawValue)
             return request
         }
     }
@@ -189,7 +190,7 @@ final class EthereumOperationFactory {
             request.httpMethod = HttpMethod.post.rawValue
             request.httpBody = try JSONEncoder().encode(jsonRequest)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
-
+            request.setValue(ApplicationConfig.shared.ethereumNodeAuth, forHTTPHeaderField: HttpHeaderKey.authorization.rawValue)
             return request
         }
     }

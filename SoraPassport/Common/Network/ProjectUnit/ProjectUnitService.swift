@@ -39,6 +39,7 @@ enum ProjectServiceType: String {
     case currency
     case supportedVersion
     case country
+    case ethConfig
 }
 
 final class ProjectUnitService: BaseService, ProjectUnitServiceProtocol {

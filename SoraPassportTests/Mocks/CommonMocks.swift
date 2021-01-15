@@ -1267,6 +1267,20 @@ import os
     
     
     
+     var ethereumNodeAuth: String {
+        get {
+            return cuckoo_manager.getter("ethereumNodeAuth",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.ethereumNodeAuth)
+        }
+        
+    }
+    
+    
+    
      var ethereumChainId: EthereumChain {
         get {
             return cuckoo_manager.getter("ethereumChainId",
@@ -1295,6 +1309,20 @@ import os
     
     
     
+     var pendingFailureDelay: TimeInterval {
+        get {
+            return cuckoo_manager.getter("pendingFailureDelay",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.pendingFailureDelay)
+        }
+        
+    }
+    
+    
+    
      var combinedTransfersHandlingDelay: TimeInterval {
         get {
             return cuckoo_manager.getter("combinedTransfersHandlingDelay",
@@ -1310,6 +1338,21 @@ import os
 
     
 
+    
+    
+    
+     func applyExternalConfig(_ config: EthNodeData)  {
+        
+    return cuckoo_manager.call("applyExternalConfig(_: EthNodeData)",
+            parameters: (config),
+            escapingParameters: (config),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.applyExternalConfig(config))
+        
+    }
     
 
 	 struct __StubbingProxy_ApplicationConfigProtocol: Cuckoo.StubbingProxy {
@@ -1435,6 +1478,11 @@ import os
 	    }
 	    
 	    
+	    var ethereumNodeAuth: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+	        return .init(manager: cuckoo_manager, name: "ethereumNodeAuth")
+	    }
+	    
+	    
 	    var ethereumChainId: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, EthereumChain> {
 	        return .init(manager: cuckoo_manager, name: "ethereumChainId")
 	    }
@@ -1445,10 +1493,20 @@ import os
 	    }
 	    
 	    
+	    var pendingFailureDelay: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, TimeInterval> {
+	        return .init(manager: cuckoo_manager, name: "pendingFailureDelay")
+	    }
+	    
+	    
 	    var combinedTransfersHandlingDelay: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, TimeInterval> {
 	        return .init(manager: cuckoo_manager, name: "combinedTransfersHandlingDelay")
 	    }
 	    
+	    
+	    func applyExternalConfig<M1: Cuckoo.Matchable>(_ config: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(EthNodeData)> where M1.MatchedType == EthNodeData {
+	        let matchers: [Cuckoo.ParameterMatcher<(EthNodeData)>] = [wrap(matchable: config) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationConfigProtocol.self, method: "applyExternalConfig(_: EthNodeData)", parameterMatchers: matchers))
+	    }
 	    
 	}
 
@@ -1580,6 +1638,11 @@ import os
 	    }
 	    
 	    
+	    var ethereumNodeAuth: Cuckoo.VerifyReadOnlyProperty<String> {
+	        return .init(manager: cuckoo_manager, name: "ethereumNodeAuth", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
 	    var ethereumChainId: Cuckoo.VerifyReadOnlyProperty<EthereumChain> {
 	        return .init(manager: cuckoo_manager, name: "ethereumChainId", callMatcher: callMatcher, sourceLocation: sourceLocation)
 	    }
@@ -1590,11 +1653,22 @@ import os
 	    }
 	    
 	    
+	    var pendingFailureDelay: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
+	        return .init(manager: cuckoo_manager, name: "pendingFailureDelay", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
 	    var combinedTransfersHandlingDelay: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
 	        return .init(manager: cuckoo_manager, name: "combinedTransfersHandlingDelay", callMatcher: callMatcher, sourceLocation: sourceLocation)
 	    }
 	    
 	
+	    
+	    @discardableResult
+	    func applyExternalConfig<M1: Cuckoo.Matchable>(_ config: M1) -> Cuckoo.__DoNotUse<(EthNodeData), Void> where M1.MatchedType == EthNodeData {
+	        let matchers: [Cuckoo.ParameterMatcher<(EthNodeData)>] = [wrap(matchable: config) { $0 }]
+	        return cuckoo_manager.verify("applyExternalConfig(_: EthNodeData)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
 	    
 	}
 }
@@ -1786,6 +1860,14 @@ import os
     }
     
     
+     var ethereumNodeAuth: String {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (String).self)
+        }
+        
+    }
+    
+    
      var ethereumChainId: EthereumChain {
         get {
             return DefaultValueRegistry.defaultValue(for: (EthereumChain).self)
@@ -1795,6 +1877,14 @@ import os
     
     
      var ethereumPollingTimeInterval: TimeInterval {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (TimeInterval).self)
+        }
+        
+    }
+    
+    
+     var pendingFailureDelay: TimeInterval {
         get {
             return DefaultValueRegistry.defaultValue(for: (TimeInterval).self)
         }
@@ -1812,6 +1902,10 @@ import os
 
     
 
+    
+     func applyExternalConfig(_ config: EthNodeData)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
     
 }
 
@@ -2513,6 +2607,21 @@ import web3swift
     
     
     
+     func createBridgeCheckOperation(for hashConfig: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Data> {
+        
+    return cuckoo_manager.call("createBridgeCheckOperation(for: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Data>",
+            parameters: (hashConfig, masterContractAddress),
+            escapingParameters: (hashConfig, masterContractAddress),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.createBridgeCheckOperation(for: hashConfig, masterContractAddress: masterContractAddress))
+        
+    }
+    
+    
+    
      func createWithdrawalCheckOperation(for hashConfig: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Bool> {
         
     return cuckoo_manager.call("createWithdrawalCheckOperation(for: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Bool>",
@@ -2625,6 +2734,11 @@ import web3swift
 	        return .init(stub: cuckoo_manager.createStub(for: MockEthereumOperationFactoryProtocol.self, method: "createTransactionsCountOperation(for: Data?, block: EthereumBlock) -> BaseOperation<BigUInt>", parameterMatchers: matchers))
 	    }
 	    
+	    func createBridgeCheckOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(for hashConfig: M1, masterContractAddress: M2) -> Cuckoo.ProtocolStubFunction<(EthWithdrawHashConfig, Data), BaseOperation<Data>> where M1.MatchedType == EthWithdrawHashConfig, M2.MatchedType == Data {
+	        let matchers: [Cuckoo.ParameterMatcher<(EthWithdrawHashConfig, Data)>] = [wrap(matchable: hashConfig) { $0.0 }, wrap(matchable: masterContractAddress) { $0.1 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockEthereumOperationFactoryProtocol.self, method: "createBridgeCheckOperation(for: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Data>", parameterMatchers: matchers))
+	    }
+	    
 	    func createWithdrawalCheckOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(for hashConfig: M1, masterContractAddress: M2) -> Cuckoo.ProtocolStubFunction<(EthWithdrawHashConfig, Data), BaseOperation<Bool>> where M1.MatchedType == EthWithdrawHashConfig, M2.MatchedType == Data {
 	        let matchers: [Cuckoo.ParameterMatcher<(EthWithdrawHashConfig, Data)>] = [wrap(matchable: hashConfig) { $0.0 }, wrap(matchable: masterContractAddress) { $0.1 }]
 	        return .init(stub: cuckoo_manager.createStub(for: MockEthereumOperationFactoryProtocol.self, method: "createWithdrawalCheckOperation(for: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Bool>", parameterMatchers: matchers))
@@ -2703,6 +2817,12 @@ import web3swift
 	    }
 	    
 	    @discardableResult
+	    func createBridgeCheckOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(for hashConfig: M1, masterContractAddress: M2) -> Cuckoo.__DoNotUse<(EthWithdrawHashConfig, Data), BaseOperation<Data>> where M1.MatchedType == EthWithdrawHashConfig, M2.MatchedType == Data {
+	        let matchers: [Cuckoo.ParameterMatcher<(EthWithdrawHashConfig, Data)>] = [wrap(matchable: hashConfig) { $0.0 }, wrap(matchable: masterContractAddress) { $0.1 }]
+	        return cuckoo_manager.verify("createBridgeCheckOperation(for: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Data>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
 	    func createWithdrawalCheckOperation<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(for hashConfig: M1, masterContractAddress: M2) -> Cuckoo.__DoNotUse<(EthWithdrawHashConfig, Data), BaseOperation<Bool>> where M1.MatchedType == EthWithdrawHashConfig, M2.MatchedType == Data {
 	        let matchers: [Cuckoo.ParameterMatcher<(EthWithdrawHashConfig, Data)>] = [wrap(matchable: hashConfig) { $0.0 }, wrap(matchable: masterContractAddress) { $0.1 }]
 	        return cuckoo_manager.verify("createWithdrawalCheckOperation(for: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Bool>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
@@ -2763,6 +2883,10 @@ import web3swift
     
      func createTransactionsCountOperation(for accountAddress: Data?, block: EthereumBlock) -> BaseOperation<BigUInt>  {
         return DefaultValueRegistry.defaultValue(for: (BaseOperation<BigUInt>).self)
+    }
+    
+     func createBridgeCheckOperation(for hashConfig: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Data>  {
+        return DefaultValueRegistry.defaultValue(for: (BaseOperation<Data>).self)
     }
     
      func createWithdrawalCheckOperation(for hashConfig: @escaping EthWithdrawHashConfig, masterContractAddress: Data) -> BaseOperation<Bool>  {
@@ -3631,6 +3755,21 @@ import RobinHood
         
     }
     
+    
+    
+     func fetchEthConfigOperation(_ urlTemplate: String) -> NetworkOperation<EthNodeData?> {
+        
+    return cuckoo_manager.call("fetchEthConfigOperation(_: String) -> NetworkOperation<EthNodeData?>",
+            parameters: (urlTemplate),
+            escapingParameters: (urlTemplate),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.fetchEthConfigOperation(urlTemplate))
+        
+    }
+    
 
 	 struct __StubbingProxy_ProjectInformationOperationFactoryProtocol: Cuckoo.StubbingProxy {
 	    private let cuckoo_manager: Cuckoo.MockManager
@@ -3668,6 +3807,11 @@ import RobinHood
 	    func fetchCountryOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<CountryData?>> where M1.MatchedType == String {
 	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
 	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchCountryOperation(_: String) -> NetworkOperation<CountryData?>", parameterMatchers: matchers))
+	    }
+	    
+	    func fetchEthConfigOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.ProtocolStubFunction<(String), NetworkOperation<EthNodeData?>> where M1.MatchedType == String {
+	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockProjectInformationOperationFactoryProtocol.self, method: "fetchEthConfigOperation(_: String) -> NetworkOperation<EthNodeData?>", parameterMatchers: matchers))
 	    }
 	    
 	}
@@ -3722,6 +3866,12 @@ import RobinHood
 	        return cuckoo_manager.verify("fetchCountryOperation(_: String) -> NetworkOperation<CountryData?>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
 	    }
 	    
+	    @discardableResult
+	    func fetchEthConfigOperation<M1: Cuckoo.Matchable>(_ urlTemplate: M1) -> Cuckoo.__DoNotUse<(String), NetworkOperation<EthNodeData?>> where M1.MatchedType == String {
+	        let matchers: [Cuckoo.ParameterMatcher<(String)>] = [wrap(matchable: urlTemplate) { $0 }]
+	        return cuckoo_manager.verify("fetchEthConfigOperation(_: String) -> NetworkOperation<EthNodeData?>", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
 	}
 }
 
@@ -3753,6 +3903,10 @@ import RobinHood
     
      func fetchCountryOperation(_ urlTemplate: String) -> NetworkOperation<CountryData?>  {
         return DefaultValueRegistry.defaultValue(for: (NetworkOperation<CountryData?>).self)
+    }
+    
+     func fetchEthConfigOperation(_ urlTemplate: String) -> NetworkOperation<EthNodeData?>  {
+        return DefaultValueRegistry.defaultValue(for: (NetworkOperation<EthNodeData?>).self)
     }
     
 }

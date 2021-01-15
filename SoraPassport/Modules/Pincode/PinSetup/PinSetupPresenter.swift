@@ -40,5 +40,12 @@ extension PinSetupPresenter: PinSetupInteractorOutputProtocol {
         }
     }
 
+    func didReceiveConfigError(_ error: Error) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            _ = self.wireframe.present(error: error, from: nil, locale: Locale.current)
+        }
+
+    }
+
     func didChangeState(from: PinSetupInteractor.PinSetupState) {}
 }

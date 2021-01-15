@@ -14,6 +14,7 @@ final class AccountListViewModelFactory {
     let assetCellStyleFactory: AssetCellStyleFactoryProtocol
     let amountFormatterFactory: NumberFormatterFactoryProtocol
     let ethAssetId: String
+    let valAssetId: String
 
     weak var commandFactory: WalletCommandFactoryProtocol?
 
@@ -21,17 +22,19 @@ final class AccountListViewModelFactory {
          commandDecorator: WalletCommandDecoratorFactoryProtocol,
          assetCellStyleFactory: AssetCellStyleFactoryProtocol,
          amountFormatterFactory: NumberFormatterFactoryProtocol,
+         valAssetId: String,
          ethAssetId: String) {
         self.dataProvider = dataProvider
         self.commandDecorator = commandDecorator
         self.assetCellStyleFactory = assetCellStyleFactory
         self.amountFormatterFactory = amountFormatterFactory
         self.ethAssetId = ethAssetId
+        self.valAssetId = valAssetId
     }
 
-    private func createEthAssetViewModel(for asset: WalletAsset,
-                                         balanceData: BalanceData,
-                                         locale: Locale) -> AssetViewModelProtocol? {
+    private func createCustomAssetViewModel(for asset: WalletAsset,
+                                            balanceData: BalanceData,
+                                            locale: Locale) -> AssetViewModelProtocol? {
         let amountFormatter = amountFormatterFactory.createDisplayFormatter(for: asset)
 
         let decimalBalance = balanceData.balance.decimalValue
@@ -46,19 +49,15 @@ final class AccountListViewModelFactory {
         let name = asset.name.value(for: locale)
         let details: String
 
-        if let platform = asset.platform?.value(for: locale) {
+        if asset.identifier == valAssetId {
+            details = R.string.localizable.assetValFullname()
+        } else if let platform = asset.platform?.value(for: locale) {
             details = "\(platform) \(name)"
         } else {
             details = name
         }
 
-        let symbolViewModel: WalletImageViewModelProtocol?
-
-        if let icon = R.image.iconEth() {
-            symbolViewModel = WalletStaticImageViewModel(staticImage: icon)
-        } else {
-            symbolViewModel = nil
-        }
+        let symbolViewModel: WalletImageViewModelProtocol? = createAssetIconViewModel(for: asset)
 
         let style = assetCellStyleFactory.createCellStyle(for: asset)
 
@@ -91,11 +90,31 @@ extension AccountListViewModelFactory: AccountListViewModelFactoryProtocol {
     func createAssetViewModel(for asset: WalletAsset,
                               balance: BalanceData,
                               commandFactory: WalletCommandFactoryProtocol,
-                              locale: Locale) -> AssetViewModelProtocol? {
-        if asset.identifier == ethAssetId {
-            return createEthAssetViewModel(for: asset, balanceData: balance, locale: locale)
+                              locale: Locale) -> WalletViewModelProtocol? {
+        if asset.identifier == ethAssetId || asset.identifier == valAssetId {
+            return createCustomAssetViewModel(for: asset, balanceData: balance, locale: locale)
         } else {
             return nil
         }
     }
+
+    func createAssetIconViewModel(for asset: WalletAsset) -> WalletImageViewModelProtocol? {
+        let symbolViewModel: WalletImageViewModelProtocol?
+
+        if asset.identifier == ethAssetId {
+            if let icon = R.image.iconEth() {
+                symbolViewModel = WalletStaticImageViewModel(staticImage: icon)
+            } else {
+                symbolViewModel = nil
+            }
+        } else {
+            if let icon = R.image.iconVal() {
+                symbolViewModel = WalletStaticImageViewModel(staticImage: icon)
+            } else {
+                symbolViewModel = nil
+            }
+        }
+        return symbolViewModel
+    }
+
 }

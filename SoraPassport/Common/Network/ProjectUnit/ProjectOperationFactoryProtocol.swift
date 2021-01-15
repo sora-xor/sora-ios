@@ -44,6 +44,7 @@ protocol ProjectInformationOperationFactoryProtocol {
     func checkSupportedVersionOperation(_ urlTemplate: String,
                                         version: String) -> NetworkOperation<SupportedVersionData>
     func fetchCountryOperation(_ urlTemplate: String) -> NetworkOperation<CountryData?>
+    func fetchEthConfigOperation(_ urlTemplate: String) -> NetworkOperation<EthNodeData?>
 }
 
 final class ProjectOperationFactory {}

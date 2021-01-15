@@ -8,6 +8,7 @@ import CommonWallet
 
 struct AssetStyleFactory: AssetCellStyleFactoryProtocol {
     let xorAssetId: String
+    let valAssetId: String
     let ethAssetId: String
 
     func createCellStyle(for asset: WalletAsset) -> AssetCellStyle {
@@ -21,12 +22,12 @@ struct AssetStyleFactory: AssetCellStyleFactoryProtocol {
     // MARK: Private
 
     private func createEthAssetStyle() -> AssetCellStyle {
-        let color = UIColor(red: 0.961, green: 0.969, blue: 0.973, alpha: 1)
+        let color = UIColor.white//(red: 0.961, green: 0.969, blue: 0.973, alpha: 1)
         return commonStyleForLeftBackgroundColor(color)
     }
 
     private func createXorAssetStyle() -> AssetCellStyle {
-        let color = UIColor(red: 0.816, green: 0.008, blue: 0.107, alpha: 1)
+        let color = UIColor.white//(red: 0.961, green: 0.969, blue: 0.973, alpha: 1)//UIColor(red: 0.816, green: 0.008, blue: 0.107, alpha: 1)
         return commonStyleForLeftBackgroundColor(color)
     }
 

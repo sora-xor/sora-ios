@@ -26,14 +26,6 @@ final class WalletTransactionsView: UIView {
         ethereumButton.isHidden = viewModel.ethereumCommand == nil
         soranetButton.isHidden = viewModel.soranetCommand == nil
 
-        if ethereumButton.isHidden, !soranetButton.isHidden {
-            leadingWhenOnlySoranet.isActive = true
-            leadingWhenEthereumExists.isActive = false
-        } else {
-            leadingWhenOnlySoranet.isActive = false
-            leadingWhenEthereumExists.isActive = true
-        }
-
         setNeedsLayout()
     }
 

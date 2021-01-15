@@ -50,29 +50,27 @@ final class XorAssetDetailsCommand: WalletCommandDecoratorProtocol {
                                           message: nil,
                                           preferredStyle: .actionSheet)
 
-        let copyXorTitle = R.string.localizable.copyXorTitle(preferredLanguages: locale.rLanguages)
+        let copyXorTitle = R.string.localizable.copyValTitle(preferredLanguages: locale.rLanguages)
         let copyXorAction = UIAlertAction(title: copyXorTitle, style: .default) { [weak self] _ in
             UIPasteboard.general.string = self?.xorAddress
         }
 
         alertView.addAction(copyXorAction)
 
-// TODO: Temporary disabled until v1.7
-//        let copyTitle = R.string.localizable.copy_eth_title(preferredLanguages: locale.rLanguages)
-//        let copyAction = UIAlertAction(title: copyTitle, style: .default) { [weak self] _ in
-//            UIPasteboard.general.string = self?.address
-//        }
-//
-//        alertView.addAction(copyAction)
+        let copyTitle = R.string.localizable.copyEthTitle(preferredLanguages: locale.rLanguages)
+        let copyAction = UIAlertAction(title: copyTitle, style: .default) { [weak self] _ in
+            UIPasteboard.general.string = self?.address
+        }
 
-        // TODO: Temporary disabled until v1.7
-        /*let viewBalanceTitle = R.string.localizable.view_balance(preferredLanguages: locale.rLanguages)
+        alertView.addAction(copyAction)
+
+        let viewBalanceTitle = R.string.localizable.viewBalanceVal(preferredLanguages: locale.rLanguages)
 
         let viewBalanceAction = UIAlertAction(title: viewBalanceTitle, style: .default) { [weak self] _ in
            try? self?.showBalance()
         }
 
-        alertView.addAction(viewBalanceAction)*/
+        alertView.addAction(viewBalanceAction)
 
         let cancelTitle = R.string.localizable.commonCancel(preferredLanguages: locale.rLanguages)
         let cancelAction = UIAlertAction(title: cancelTitle, style: .cancel)
@@ -88,13 +86,13 @@ final class XorAssetDetailsCommand: WalletCommandDecoratorProtocol {
             let context = balance.context,
             let ercBalance = context[WalletOperationContextKey.Balance.erc20],
             let xorBalance = context[WalletOperationContextKey.Balance.soranet] {
-            let xorPart = R.string.localizable.assetDetails(preferredLanguages: locale.rLanguages)
+            let xorPart = R.string.localizable.assetDetailsVal(preferredLanguages: locale.rLanguages)
             allocationView.headerLabel.text = R.string.localizable
-                .xorBalanceTitle(preferredLanguages: locale.rLanguages)
-            allocationView.ethTitleLabel.text = xorPart + " " + R.string.localizable
-                .walletErc20(preferredLanguages: locale.rLanguages)
-            allocationView.soraTitleLabel.text = xorPart + " " + R.string.localizable
-                .walletSoranet(preferredLanguages: locale.rLanguages)
+                .valBalanceTitle(preferredLanguages: locale.rLanguages)
+            allocationView.ethTitleLabel.text = R.string.localizable
+                .assetEthPlaform(preferredLanguages: locale.rLanguages)  + " " +  xorPart
+            allocationView.soraTitleLabel.text = R.string.localizable
+                .assetXorPlatform(preferredLanguages: locale.rLanguages) + " " + xorPart
             allocationView.ethValueLabel.text = tokenFormatter.value(for: locale)
                 .string(from: Decimal(string: ercBalance) ?? 0)
             allocationView.soraValueLabel.text = tokenFormatter.value(for: locale)
@@ -107,7 +105,7 @@ final class XorAssetDetailsCommand: WalletCommandDecoratorProtocol {
         viewController.preferredContentSize = CGSize(width: 0.0, height: view.frame.height)
         viewController.view = view
 
-        let factory = ModalInputPresentationFactory(configuration: ModalInputPresentationConfiguration.sora)
+        let factory = ModalSheetPresentationFactory(configuration: ModalSheetPresentationConfiguration.sora)
         viewController.modalTransitioningFactory = factory
         viewController.modalPresentationStyle = .custom
 

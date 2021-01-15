@@ -41,6 +41,7 @@ final class EthereumWithdrawConfirmationPoll: EthereumBasePoll<WithdrawOperation
         localTransactionOperation.addDependency(remoteTransactionOperation)
 
         let saveClosure: () throws -> [WithdrawOperationData] = {
+            self.logger.debug("poll \(identifier)")
             guard
                 let localTransaction = try localTransactionOperation
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled),
@@ -53,14 +54,21 @@ final class EthereumWithdrawConfirmationPoll: EthereumBasePoll<WithdrawOperation
 
             if let remoteTransaction = optionalRemoteTransaction {
                 if remoteTransaction.blockHash != nil {
+                    self.logger.debug("confirmationCompleted in confirmationPoll \(identifier)")
                     let changed = localTransaction.changingStatus(.confirmationCompleted)
                     return [changed]
                 } else {
+                    guard Date().timeIntervalSince1970 - TimeInterval(localTransaction.timestamp) <= self.pendingFailureDelay  else {
+                        let changed = localTransaction.changingStatus(.confirmationFailed)
+                        self.logger.debug("confirmationFailed, pending timeout in confirmationPoll")
+                        return [changed]
+                    }
+                    self.logger.debug("transaction got no hash yet \(identifier)")
                     return []
                 }
             } else {
-                let changed = localTransaction.changingStatus(.confirmationFailed)
-                return [changed]
+                self.logger.debug("should be confirmationFailed, no remote transaction in confirmationPoll \(identifier)")
+                return []
             }
         }
 

@@ -15,8 +15,15 @@ extension WalletNetworkFacade {
         let soranetWithdraw = soranetOperationFactory.withdrawalMetadataOperation(withdrawInfo)
         let ethFee = createEthMetadataOperation()
         let xorBalance = createXORBalanceOperationWrapper()
+        let bridgeCheck = createBridgeCheckOperation()
 
         let combiningOperation: BaseOperation<TransferMetaData?> = ClosureOperation {
+            let bridgeProof = try bridgeCheck.extractResultData()
+            guard let proof = bridgeProof,
+                (!proof.allSatisfy { $0 == 0 }) else {
+                throw WalletNetworkFacadeError.ethBridgeDisabled
+            }
+
             let xorBalances = try xorBalance.targetOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 
@@ -26,7 +33,7 @@ extension WalletNetworkFacade {
             }
 
             let mappedSoranetDescriptions: [FeeDescription] = withdrawMetadata.feeDescriptions.map { feeDesc in
-                guard feeDesc.assetId == self.xorAssetId else {
+                guard feeDesc.assetId == self.valAssetId else {
                     return feeDesc
                 }
 
@@ -58,7 +65,7 @@ extension WalletNetworkFacade {
                                     context: context)
         }
 
-        let dependencies = soranetWithdraw.allOperations + ethFee.allOperations + xorBalance.allOperations
+        let dependencies = [bridgeCheck] + soranetWithdraw.allOperations + ethFee.allOperations + xorBalance.allOperations
 
         dependencies.forEach { combiningOperation.addDependency($0) }
 
@@ -81,7 +88,7 @@ extension WalletNetworkFacade {
             }
 
             let mappedSoranetDescriptions: [FeeDescription] = transferMetadata.feeDescriptions.map { feeDesc in
-                guard feeDesc.assetId == self.xorAssetId else {
+                guard feeDesc.assetId == self.valAssetId else {
                     return feeDesc
                 }
 

@@ -37,8 +37,8 @@ struct WalletAmountFormatterFactory: NumberFormatterFactoryProtocol {
         } else {
             return TokenAmountFormatter(numberFormatter: numberFormatter,
                                         tokenSymbol: asset?.symbol ?? "",
-                                        separator: "",
-                                        position: .prefix).localizableResource()
+                                        separator: " ",
+                                        position: .suffix).localizableResource()
         }
     }
 

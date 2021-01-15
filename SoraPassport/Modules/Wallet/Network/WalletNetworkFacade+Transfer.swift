@@ -28,6 +28,14 @@ extension WalletNetworkFacade {
         let erc20Amount = transferInfo.context?[WalletOperationContextKey.ERC20Transfer.balance]
 
         if soranetAmount != nil {
+            if let historyContext = transferInfo.context {
+                if let ethTx = historyContext.ethereumTxId {
+                    return retryWithdrawWithConfirmationOperation(transferInfo, txId: ethTx)
+                }
+                if let soraTx = historyContext.soranetTxId {
+                    return retryWithdrawWithIntentOperation(transferInfo, txId: soraTx)
+                }
+            }
             return combinedTransferToEthereumOperation(transferInfo)
         } else if erc20Amount != nil {
             return simpleTransferInEthereumOperation(transferInfo)
@@ -39,6 +47,65 @@ extension WalletNetworkFacade {
     }
 
     // MARK: Private
+
+    private func retryWithdrawWithIntentOperation(_ transferInfo: TransferInfo, txId: String) -> CompoundOperationWrapper<Data> {
+
+        let saveClosure: () -> [WithdrawOperationData] = {
+            do {
+                let selected = try WithdrawOperationData.createForEthereumFromInfo(transferInfo, transactionId: txId)
+                let changed = selected.changingStatus(.intentCompleted)
+                return [changed]
+            } catch {
+                return []
+            }
+        }
+
+        let saveOperation = withdrawRepository.saveOperation(saveClosure, { [] })
+
+        let combiningOperation = ClosureOperation<Data> {
+            do {
+                try saveOperation.extractResultData()
+            } catch {
+                throw error
+            }
+            return Data(hex: txId)
+        }
+        combiningOperation.addDependency(saveOperation)
+
+        return CompoundOperationWrapper(targetOperation: combiningOperation, dependencies: [saveOperation])
+    }
+
+    private func retryWithdrawWithConfirmationOperation(_ transferInfo: TransferInfo, txId: String) -> CompoundOperationWrapper<Data> {
+        let withdraws = withdrawRepository.fetchAllOperation(with: RepositoryFetchOptions.none)
+        let saveClosure: () -> [WithdrawOperationData] = {
+            do {
+                let transactions = try withdraws.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+                if let selected = transactions.first(where: { $0.confirmationTransactionId == txId || $0.transferTransactionId == txId }) {
+                    let changed = selected.changingStatus(.intentCompleted).updatingTimestamp()
+                    return [changed]
+                }
+                return []
+            } catch {
+                return []
+            }
+        }
+
+        let saveOperation = withdrawRepository.saveOperation(saveClosure, { [] })
+        saveOperation.addDependency(withdraws)
+
+        let combiningOperation = ClosureOperation<Data> {
+            do {
+                try saveOperation.extractResultData()
+            } catch {
+                throw error
+            }
+            return Data(hex: txId)
+        }
+
+        combiningOperation.addDependency(saveOperation)
+
+        return CompoundOperationWrapper(targetOperation: combiningOperation, dependencies: [withdraws, saveOperation])
+    }
 
     private func combinedTransferToSoranetOperation(_ transferInfo: TransferInfo)
         -> CompoundOperationWrapper<Data> {

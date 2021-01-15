@@ -37,25 +37,25 @@ struct WalletTransferViewModelFactory {
         if feeDescriptions
             .first(where: { $0.context?[WalletOperationContextKey.Receiver.isMine] != nil }) != nil {
             if NSPredicate.ethereumAddress.evaluate(with: receiver) {
-                return R.image.iconSoraXor()
+                return R.image.iconVal()
             } else {
-                return R.image.iconXorErc()
+                return R.image.iconValErc()
             }
         }
 
         if NSPredicate.ethereumAddress.evaluate(with: receiver) {
              if totalAmount <= tokens.ethereum {
-                return R.image.iconXorErc()
+                return R.image.iconValErc()
             } else if totalAmount <= tokens.soranet {
-                return  R.image.iconSoraXor()
+                return  R.image.iconVal()
             } else {
                 return R.image.iconCrossChain()
             }
         } else {
             if totalAmount <= tokens.soranet {
-                return R.image.iconSoraXor()
+                return R.image.iconVal()
             } else if tokens.soranet == 0.0 && totalAmount <= tokens.ethereum {
-                return R.image.iconXorErc()
+                return R.image.iconValErc()
             } else {
                 return R.image.iconCrossChain()
             }
@@ -69,10 +69,10 @@ extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
                                  locale: Locale) throws ->  MultilineTitleIconViewModelProtocol? {
         if NSPredicate.ethereumAddress.evaluate(with: payload.receiveInfo.accountId) {
             return MultilineTitleIconViewModel(text: payload.receiveInfo.accountId,
-                                               icon: R.image.iconXorErc())
+                                               icon: R.image.iconValErc())
         } else if payload.receiverName.isEmpty {
             return MultilineTitleIconViewModel(text: payload.receiveInfo.accountId,
-                                               icon: R.image.iconSoraXor())
+                                               icon: R.image.iconVal())
         } else {
             return nil
         }
@@ -101,12 +101,12 @@ extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
         if let balanceData = inputState.balance,
             let formattedBalance = amountFormatter.value(for: locale)
                 .string(from: balanceData.balance.decimalValue as NSNumber) {
-            details = "\(asset.symbol)\(formattedBalance)"
+            details = "\(asset.symbol) \(formattedBalance)"
         } else {
             details = ""
         }
 
-        var icon: UIImage? = R.image.iconSoraXor()
+        var icon: UIImage? = R.image.iconVal()
         let tokens = TokenBalancesData(balanceContext: inputState.balance?.context ?? [:])
 
         if

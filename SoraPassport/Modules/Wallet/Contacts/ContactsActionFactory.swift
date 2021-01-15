@@ -45,8 +45,8 @@ final class ContactsActionFactory: ContactsActionFactoryWrapperProtocol {
         command.presentationStyle = .push(hidesBottomBar: true)
 
         let title = R.string.localizable
-            .walletXorToMyEth(preferredLanguages: locale?.rLanguages)
-        let icon = R.image.iconXorErc()
+            .walletValToMyEth(preferredLanguages: locale?.rLanguages)
+        let icon = R.image.iconValErc()
 
         let sendAction = SendOptionViewModel(command: command,
                                              title: title,

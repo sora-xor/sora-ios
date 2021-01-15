@@ -40,7 +40,8 @@ struct PollingServiceFactory {
                                         repository: AnyDataProviderRepository(repository),
                                         repositoryObservable: contextObservable,
                                         operationManager: operationManager,
-                                        logger: logger)
+                                        logger: logger,
+                                        pendingFailureDelay: config.pendingFailureDelay)
         } catch {
             logger.error("Can't create ethereum transfer poll: \(error)")
             return nil
@@ -77,7 +78,8 @@ struct PollingServiceFactory {
                                                     repository: AnyDataProviderRepository(repository),
                                                     repositoryObservable: contextObservable,
                                                     operationManager: operationManager,
-                                                    logger: logger)
+                                                    logger: logger,
+                                                    pendingFailureDelay: config.pendingFailureDelay)
         } catch {
             logger.error("Can't create ethereum withdraw confirmation poll: \(error)")
             return nil
@@ -114,7 +116,8 @@ struct PollingServiceFactory {
                                        repository: AnyDataProviderRepository(repository),
                                        repositoryObservable: contextObservable,
                                        operationManager: operationManager,
-                                       logger: logger)
+                                       logger: logger,
+                                       pendingFailureDelay: config.pendingFailureDelay)
         } catch {
             logger.error("Can't create ethereum deposit poll: \(error)")
             return nil
@@ -151,7 +154,8 @@ struct PollingServiceFactory {
                                                 repository: AnyDataProviderRepository(repository),
                                                 repositoryObservable: contextObservable,
                                                 operationManager: operationManager,
-                                                logger: logger)
+                                                logger: logger,
+                                                pendingFailureDelay: config.pendingFailureDelay)
         } catch {
             logger.error("Can't create ethereum deposit poll: \(error)")
             return nil

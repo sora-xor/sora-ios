@@ -69,6 +69,7 @@ final class EthereumRegistrationFactory: EthereumRegistrationFactoryProtocol {
             request.httpMethod = HttpMethod.post.rawValue
             request.httpBody = try self.encoder.encode(transactionInfo)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
+            request.setValue(ApplicationConfig.shared.ethereumNodeAuth, forHTTPHeaderField: HttpHeaderKey.authorization.rawValue)
             return request
         }
 

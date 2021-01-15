@@ -24,6 +24,7 @@ typealias NetworkHelpCompletionBlock = (Result<HelpData?, Error>?) -> Void
 typealias NetworkCurrencyCompletionBlock = (Result<CurrencyData?, Error>?) -> Void
 typealias NetworkSupportedVersionBlock = (Result<SupportedVersionData, Error>?) -> Void
 typealias NetworkVerificationCodeCompletionBlock = (Result<VerificationCodeData, Error>?) -> Void
+typealias NetworkExternalConfigCompletionBlock = (Result<EthNodeData?, Error>?) -> Void
 typealias NetworkCountryCompletionBlock = (Result<CountryData?, Error>?) -> Void
 typealias NetworkEmptyCompletionBlock = (Result<Void, Error>?) -> Void
 
@@ -118,6 +119,9 @@ protocol ProjectUnitFundingProtocol {
 protocol ProjectUnitInformationProtocol {
     func fetchAnnouncement(runCompletionIn queue: DispatchQueue,
                            completionBlock: @escaping NetworkAnnouncementCompletionBlock) throws -> Operation
+
+    func fetchEthConfigOperation(runCompletionIn queue: DispatchQueue,
+                                 completionBlock: @escaping NetworkExternalConfigCompletionBlock) throws -> Operation
 
     func fetchHelp(runCompletionIn queue: DispatchQueue,
                    completionBlock: @escaping NetworkHelpCompletionBlock) throws -> Operation

@@ -35,15 +35,17 @@ struct WalletAccountSharingFactory: AccountShareFactoryProtocol {
             optionalAmountTitle = formattedAmount
         }
 
+        let platform = R.string.localizable.assetXorPlatform()
+
         if let assetTitle = optionalAssetTitle, let amountTitle = optionalAmountTitle {
             title = R.string.localizable
-                .walletAccountShareAssetAmountMessage(amountTitle, assetTitle, preferredLanguages: languages)
+                .walletAccountShareAssetAmountMessage(platform, amountTitle, assetTitle, preferredLanguages: languages)
         } else if let assetTitle = optionalAssetTitle {
             title = R.string.localizable
-                .walletAccountShareAssetOrAmountMessage(assetTitle, preferredLanguages: languages)
+                .walletAccountShareAssetOrAmountMessage(platform, assetTitle, preferredLanguages: languages)
         } else if let amountTitle = optionalAmountTitle {
             title = R.string.localizable
-                .walletAccountShareAssetOrAmountMessage(amountTitle, preferredLanguages: languages)
+                .walletAccountShareAssetOrAmountMessage(platform, amountTitle, preferredLanguages: languages)
         } else {
             title = R.string.localizable
                 .walletAccountShareMessage(preferredLanguages: languages)

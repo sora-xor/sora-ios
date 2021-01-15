@@ -14,9 +14,13 @@ class PinViewFactory: PinViewFactoryProtocol {
         pinSetupView.mode = .create
 
         let presenter = PinSetupPresenter()
+        let config = ApplicationConfig.shared!
+        let projectService = ProjectUnitService(unit: config.defaultProjectUnit)
         let interactor = PinSetupInteractor(secretManager: KeychainManager.shared,
                                             settingsManager: SettingsManager.shared,
-                                            biometryAuth: BiometryAuth())
+                                            biometryAuth: BiometryAuth(),
+                                            config: config as ApplicationConfigProtocol,
+                                            projectService: projectService)
         let wireframe = PinSetupWireframe()
 
         pinSetupView.presenter = presenter

@@ -308,6 +308,10 @@ final class WithdrawProofsFinalizationService {
                 if let cancellingError = error as? CancellingError, cancellingError == .intentAlreadyUsed {
                     let changed = fetched.changingStatus(.confirmationCompleted)
                     return [changed]
+                } else if let ethError = error as? NSError, ethError.domain == EthereumServiceConstants.errorDomain {
+                    let changed = fetched.changingStatus(.confirmationFailed)
+                    self.logger.debug("confirmationFailed, eth error in proof finalization")
+                    return [changed]
                 } else {
                     throw error
                 }

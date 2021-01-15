@@ -109,6 +109,23 @@ final class EthereumService: BaseService, EthereumServiceProtocol {
         return [operation]
     }
 
+    func checkBridge(for hash: Data,
+                     runCompletionIn queue: DispatchQueue,
+                     completionClosure: @escaping EthDataResultClosure) -> [Operation] {
+        let operation = operationFactory.createBridgeCheckOperation(for: { hash },
+                                                                        masterContractAddress: masterContractAddress)
+
+        operation.completionBlock = {
+            queue.async {
+                completionClosure(operation.result)
+            }
+        }
+
+        operationManager.enqueue(operations: [operation], in: executionMode)
+
+        return [operation]
+    }
+
     func checkWithdrawal(for hash: Data,
                          runCompletionIn queue: DispatchQueue,
                          completionClosure: @escaping EthBoolResultClosure) -> [Operation] {

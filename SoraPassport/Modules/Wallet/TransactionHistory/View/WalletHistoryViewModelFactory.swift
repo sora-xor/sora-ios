@@ -39,13 +39,12 @@ final class WalletHistoryViewModelFactory {
             return R.image.iconTxFailed()
         case .commited:
             if NSPredicate.ethereumAddress.evaluate(with: data.peerId) {
-                return R.image.iconXorErc()
+                return R.image.iconValErc()
             } else if data.type == WalletTransactionTypeValue.deposit.rawValue {
-                return R.image.iconSoraXor()
-            } else if let peerName = data.peerName {
-                return UIImage.createAvatar(fullName: peerName, style: nameIconStyle)
+                return R.image.iconVal()
             } else {
-                return R.image.iconSoraXor()
+                let asset = assets.first { data.assetId == $0.identifier }
+                return asset?.icon
             }
         }
     }
@@ -187,13 +186,13 @@ final class WalletHistoryViewModelFactory {
 }
 
 extension WalletHistoryViewModelFactory: HistoryItemViewModelFactoryProtocol {
-    func createItemFromData(_ data: AssetTransactionData, locale: Locale) throws -> WalletViewModelProtocol {
+    func createItemFromData(_ data: AssetTransactionData, commandFactory: WalletCommandFactoryProtocol, locale: Locale) throws -> WalletViewModelProtocol {
         let icon = createIconFromData(data, locale: locale)
         let title = createTitleFromData(data, locale: locale)
         let details = createDetailsFromData(data, locale: locale)
         let amount = createAmountFromData(data, locale: locale)
         let date = createDateFromData(data, locale: locale)
-        let command = commandFactory?.prepareTransactionDetailsCommand(with: data)
+        let command = commandFactory.prepareTransactionDetailsCommand(with: data)
 
         let isIncome: Bool
 

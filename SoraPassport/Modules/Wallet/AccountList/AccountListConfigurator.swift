@@ -14,6 +14,7 @@ final class AccountListConfigurator {
     let commandDecorator: WalletCommandDecoratorFactoryProtocol
     let amountFormatterFactory: NumberFormatterFactoryProtocol
     let xorAsset: WalletAsset
+    let valAsset: WalletAsset
     let ethAsset: WalletAsset
     let headerViewModel: WalletHeaderViewModel
     let logger: LoggerProtocol
@@ -35,6 +36,7 @@ final class AccountListConfigurator {
          commandDecorator: WalletCommandDecoratorFactoryProtocol,
          amountFormatterFactory: NumberFormatterFactoryProtocol,
          xorAsset: WalletAsset,
+         valAsset: WalletAsset,
          ethAsset: WalletAsset,
          headerViewModel: WalletHeaderViewModel,
          logger: LoggerProtocol) {
@@ -42,17 +44,20 @@ final class AccountListConfigurator {
         self.commandDecorator = commandDecorator
         self.amountFormatterFactory = amountFormatterFactory
         self.xorAsset = xorAsset
+        self.valAsset = valAsset
         self.ethAsset = ethAsset
         self.headerViewModel = headerViewModel
         self.logger = logger
 
         assetStyleFactory = AssetStyleFactory(xorAssetId: xorAsset.identifier,
+                                              valAssetId: valAsset.identifier,
                                               ethAssetId: ethAsset.identifier)
 
         viewModelFactory = AccountListViewModelFactory(dataProvider: dataProvider,
                                                        commandDecorator: commandDecorator,
                                                        assetCellStyleFactory: assetStyleFactory,
                                                        amountFormatterFactory: amountFormatterFactory,
+                                                       valAssetId: valAsset.identifier,
                                                        ethAssetId: ethAsset.identifier)
     }
 

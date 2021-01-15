@@ -1,0 +1,11 @@
+{
+    "ethereumPassword": "string",
+    "ethereumUrl": "string",
+    "ethereumUsername": "string",
+    "masterContractAddress": "string",
+    "etherscanBaseUrl": "string",
+    "status": {
+        "code": "OK",
+        "message": "Success"
+    }
+}

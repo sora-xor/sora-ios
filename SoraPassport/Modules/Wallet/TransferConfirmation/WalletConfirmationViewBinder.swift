@@ -103,7 +103,7 @@ struct WalletConfirmationViewBinder {
     }
 }
 
-extension WalletConfirmationViewBinder: WalletFormViewModelBinderProtocol {
+extension WalletConfirmationViewBinder: WalletFormViewModelBinderProtocol, WalletFormViewModelBinderOverriding {
     func bind(viewModel: WalletNewFormDetailsViewModel, to view: WalletFormDetailsViewProtocol) {
         view.style = formDetailsViewStyle
         view.bind(viewModel: viewModel)

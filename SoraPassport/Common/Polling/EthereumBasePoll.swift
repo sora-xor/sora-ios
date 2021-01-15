@@ -13,6 +13,7 @@ class EthereumBasePoll<T: Identifiable, C: NSManagedObject>: Pollable {
     let repositoryObservable: CoreDataContextObservable<T, C>
     let operationManager: OperationManagerProtocol
     let logger: LoggerProtocol
+    let pendingFailureDelay: TimeInterval
 
     var state: PollableState = .initial {
         didSet {
@@ -31,12 +32,14 @@ class EthereumBasePoll<T: Identifiable, C: NSManagedObject>: Pollable {
          repository: AnyDataProviderRepository<T>,
          repositoryObservable: CoreDataContextObservable<T, C>,
          operationManager: OperationManagerProtocol,
-         logger: LoggerProtocol) {
+         logger: LoggerProtocol,
+         pendingFailureDelay: TimeInterval) {
         self.operationFactory = operationFactory
         self.repository = repository
         self.repositoryObservable = repositoryObservable
         self.operationManager = operationManager
         self.logger = logger
+        self.pendingFailureDelay = pendingFailureDelay
     }
 
     func setup() {

@@ -315,7 +315,7 @@ final class WalletTransactionDetailsFactory {
         var note: String = ""
 
         switch type {
-        case .incoming, .outgoing:
+        case .incoming, .outgoing, .reward:
             if !NSPredicate.ethereumAddress.evaluate(with: data.peerId) {
                 note = data.details
             }
@@ -358,6 +358,7 @@ final class WalletTransactionDetailsFactory {
             }
 
             populatePeerId(data.peerId,
+                           asset: data.assetId,
                            title: title,
                            into: &viewModels,
                            locale: locale)
@@ -372,7 +373,8 @@ final class WalletTransactionDetailsFactory {
                     .walletHistoryFromSoranetAddressTitle(preferredLanguages: locale.rLanguages)
             }
 
-            populatePeerId(self.accountId,
+            populatePeerId(data.peerEthereumAddress != nil ? self.ethereumAddress : self.accountId,
+                           asset: data.assetId,
                            title: title,
                            into: &viewModels,
                            locale: locale)
@@ -389,6 +391,7 @@ final class WalletTransactionDetailsFactory {
                     .walletHistoryFromEthereumAddressTitle(preferredLanguages: locale.rLanguages)
 
             populatePeerId(address,
+                           asset: data.assetId,
                            title: title,
                            into: &viewModels,
                            locale: locale)
@@ -397,6 +400,7 @@ final class WalletTransactionDetailsFactory {
                 .walletHistoryFromSoranetAddressTitle(preferredLanguages: locale.rLanguages)
 
             populatePeerId(self.accountId,
+                           asset: data.assetId,
                            title: title,
                            into: &viewModels,
                            locale: locale)
@@ -407,8 +411,8 @@ final class WalletTransactionDetailsFactory {
     }
 
     private func populateTo(into viewModels: inout [WalletFormViewBindingProtocol],
-                              data: AssetTransactionData,
-                              locale: Locale) {
+                            data: AssetTransactionData,
+                            locale: Locale) {
         guard let type = WalletTransactionTypeValue(rawValue: data.type) else {
             return
         }
@@ -422,10 +426,11 @@ final class WalletTransactionDetailsFactory {
                     .walletHistoryToEthereumAddress(preferredLanguages: locale.rLanguages)
             } else {
                 title = R.string.localizable
-                    .walletHistoryToMySoranetTitle(preferredLanguages: locale.rLanguages)
+                    .walletHistoryToSoranetAccount(preferredLanguages: locale.rLanguages)
             }
 
             populatePeerId(self.accountId,
+                           asset: data.assetId,
                            title: title,
                            into: &viewModels,
                            locale: locale)
@@ -441,6 +446,7 @@ final class WalletTransactionDetailsFactory {
             }
 
             populatePeerId(data.peerId,
+                           asset: data.assetId,
                            title: title,
                            into: &viewModels,
                            locale: locale)
@@ -449,6 +455,7 @@ final class WalletTransactionDetailsFactory {
                 .walletHistoryToMySoranetTitle(preferredLanguages: locale.rLanguages)
 
             populatePeerId(accountId,
+                           asset: data.assetId,
                            title: title,
                            into: &viewModels,
                            locale: locale)
@@ -464,6 +471,7 @@ final class WalletTransactionDetailsFactory {
                     .walletHistoryToEthereumAddress(preferredLanguages: locale.rLanguages)
 
             populatePeerId(address,
+                           asset: data.assetId,
                            title: title,
                            into: &viewModels,
                            locale: locale)
@@ -472,7 +480,7 @@ final class WalletTransactionDetailsFactory {
         }
     }
 
-    private func populatePeerId(_ peerId: String,
+    private func populatePeerId(_ peerId: String, asset assetId: String,
                                 title: String,
                                 into viewModels: inout [WalletFormViewBindingProtocol],
                                 locale: Locale) {
@@ -491,7 +499,7 @@ final class WalletTransactionDetailsFactory {
         if NSPredicate.ethereumAddress.evaluate(with: peerId) {
             accountType = .ethereum
         } else {
-            accountType = .soranet
+            accountType = assetId.contains(String.xor.lowercased()) ? .soranet : .val
         }
 
         let accountViewModel = WalletAccountViewModel(title: peerId,
@@ -530,6 +538,7 @@ final class WalletTransactionDetailsFactory {
 
 extension WalletTransactionDetailsFactory: WalletTransactionDetailsFactoryOverriding {
     func createViewModelsFromTransaction(data: AssetTransactionData,
+                                         commandFactory: WalletCommandFactoryProtocol,
                                          locale: Locale) -> [WalletFormViewBindingProtocol]? {
         var viewModels: [WalletFormViewBindingProtocol] = []
 
@@ -548,6 +557,7 @@ extension WalletTransactionDetailsFactory: WalletTransactionDetailsFactoryOverri
     }
 
     func createAccessoryViewModelFromTransaction(data: AssetTransactionData,
+                                                 commandFactory: WalletCommandFactoryProtocol,
                                                  locale: Locale) -> AccessoryViewModelProtocol? {
         let supported: [WalletTransactionTypeValue] = [.incoming, .outgoing, .deposit, .withdraw]
         guard
@@ -556,34 +566,44 @@ extension WalletTransactionDetailsFactory: WalletTransactionDetailsFactoryOverri
             return nil
         }
 
+        guard
+            let asset = self.assets.first(where: { $0.identifier == data.assetId}),
+            asset.modes.contains(.transfer) else { //xor no resend
+            return nil
+        }
+
         let title: String
         let icon: UIImage?
 
         if let ethereumAddress = data.peerEthereumAddress {
             title = ethereumAddress
-            icon = R.image.iconXorErc()
+            icon = R.image.iconValErc()
         } else if type == .deposit {
             title = accountId
-            icon = R.image.iconSoraXor()
+            icon = R.image.iconXor()
         } else if let peerName = data.peerName {
             title = peerName
             icon = UIImage.createAvatar(fullName: peerName, style: nameIconStyle)
         } else {
             title = data.peerId
-            icon = R.image.iconSoraXor()
+            icon = R.image.iconXor()
         }
 
         let action: String
 
-        switch type {
-        case .outgoing, .withdraw, .deposit:
-            action = R.string.localizable
-                .walletTxDetailsSendAgain(preferredLanguages: locale.rLanguages)
-        case .incoming:
-            action = R.string.localizable
-                .walletTxDetailsSendBack(preferredLanguages: locale.rLanguages)
-        default:
-            return nil
+        if data.status == .rejected {
+            action = R.string.localizable.commonRetry()
+        } else {
+            switch type {
+            case .outgoing, .withdraw, .deposit:
+                action = R.string.localizable
+                    .walletTxDetailsSendAgain(preferredLanguages: locale.rLanguages)
+            case .incoming:
+                action = R.string.localizable
+                    .walletTxDetailsSendBack(preferredLanguages: locale.rLanguages)
+            default:
+                return nil
+            }
         }
 
         return AccessoryViewModel(title: title, action: action, icon: icon)

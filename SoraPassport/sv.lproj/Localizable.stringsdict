@@ -69,7 +69,7 @@
     <key>received.invitations</key>
     <dict>
       <key>NSStringLocalizedFormatKey</key>
-      <string>Du har mottagit %#@inbjudning@</string>
+      <string>Du har mottagit %#@invitation@</string>
       <key>invitation</key>
       <dict>
         <key>NSStringFormatSpecTypeKey</key>

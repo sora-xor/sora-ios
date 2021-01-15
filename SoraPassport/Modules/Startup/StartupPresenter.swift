@@ -24,12 +24,20 @@ extension StartupPresenter: StartupPresenterProtocol {
 }
 
 extension StartupPresenter: StartupInteractorOutputProtocol {
+    func didGetError(_ error: Error) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            _ = self.wireframe.present(error: error, from: nil, locale: Locale.current)
+        }
+    }
+
     func didDecideOnboarding() {
         wireframe.showOnboarding(from: view)
     }
 
     func didDecideMain() {
-        wireframe.showMain(from: view)
+        DispatchQueue.main.async {
+            self.wireframe.showMain(from: self.view)
+        }
     }
 
     func didDecidePincodeSetup() {
@@ -38,6 +46,12 @@ extension StartupPresenter: StartupInteractorOutputProtocol {
 
     func didDecideUnsupportedVersion(data: SupportedVersionData) {
         wireframe.presentUnsupportedVersion(for: data, on: view?.controller.view.window, animated: true)
+    }
+
+    func didReceiveConfigError(_ error: Error) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { //easiest way to overcome rootAnimator magic
+           _ =  self.wireframe.present(error: error, from: nil, locale: self.locale)
+        }
     }
 
     func didChangeState() {

@@ -5,7 +5,7 @@
 
 import Foundation
 
-final class StartupWireframe: StartupWireframeProtocol {
+final class StartupWireframe: StartupWireframeProtocol, ErrorPresentable, AlertPresentable {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
 
     func showOnboarding(from view: StartupViewProtocol?) {
@@ -24,7 +24,7 @@ final class StartupWireframe: StartupWireframeProtocol {
             return
         }
 
-        rootAnimator.animateTransition(to: controller)
+        self.rootAnimator.animateTransition(to: controller)
     }
 
     func showPincodeSetup(from view: StartupViewProtocol?) {

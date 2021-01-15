@@ -11,6 +11,7 @@ struct WalletConfirmationViewModelFactory {
     let feeDisplayFactory: FeeDisplaySettingsFactoryProtocol
     let generatingIconStyle: WalletNameIconStyleProtocol
     let xorAsset: WalletAsset
+    let valAsset: WalletAsset
     let ethAsset: WalletAsset
 
     func calculateTotalAmount(from payload: ConfirmationPayload) -> Decimal {
@@ -28,9 +29,9 @@ struct WalletConfirmationViewModelFactory {
         if tokens.soranet > 0, tokens.ethereum > 0 {
             return R.image.iconCrossChain()
         } else if tokens.ethereum > 0 {
-            return R.image.iconXorErc()
+            return R.image.iconValErc()
         } else {
-            return R.image.iconSoraXor()
+            return R.image.iconVal()
         }
     }
 
@@ -47,11 +48,11 @@ struct WalletConfirmationViewModelFactory {
         let title: String
         let subtitle: String
 
-        if let platform = xorAsset.platform?.value(for: locale) {
+        if let platform = valAsset.platform?.value(for: locale) {
             title = platform
-            subtitle = xorAsset.name.value(for: locale)
+            subtitle = valAsset.name.value(for: locale)
         } else {
-            title = xorAsset.name.value(for: locale)
+            title = valAsset.name.value(for: locale)
             subtitle = ""
         }
 
@@ -70,11 +71,11 @@ struct WalletConfirmationViewModelFactory {
 
         if NSPredicate.ethereumAddress.evaluate(with: payload.transferInfo.destination) {
             headerTitle = R.string.localizable.walletTransferToEthereum(preferredLanguages: locale.rLanguages)
-            icon = R.image.iconXorErc()
+            icon = R.image.iconValErc()
             title = payload.transferInfo.destination
         } else if payload.receiverName.isEmpty {
             headerTitle = R.string.localizable.transactionReceiverTitle(preferredLanguages: locale.rLanguages)
-            icon = R.image.iconSoraXor()
+            icon = R.image.iconVal()
             title = payload.transferInfo.destination
         } else {
             title = payload.receiverName
@@ -93,7 +94,7 @@ struct WalletConfirmationViewModelFactory {
     func populateSendingAmount(in viewModelList: inout [WalletFormViewBindingProtocol],
                                payload: ConfirmationPayload,
                                locale: Locale) {
-        let formatter = amountFormatterFactory.createTokenFormatter(for: xorAsset)
+        let formatter = amountFormatterFactory.createTokenFormatter(for: valAsset)
 
         let decimalAmount = payload.transferInfo.amount.decimalValue
 
@@ -112,7 +113,7 @@ struct WalletConfirmationViewModelFactory {
     func populateMainFeeAmount(in viewModelList: inout [WalletFormViewBindingProtocol],
                                payload: ConfirmationPayload,
                                locale: Locale) {
-        let formatter = amountFormatterFactory.createTokenFormatter(for: xorAsset).value(for: locale)
+        let formatter = amountFormatterFactory.createTokenFormatter(for: valAsset).value(for: locale)
 
         for fee in payload.transferInfo.fees
             where fee.feeDescription.assetId == payload.transferInfo.asset {
@@ -175,7 +176,7 @@ struct WalletConfirmationViewModelFactory {
                              payload: ConfirmationPayload,
                              locale: Locale) {
 
-        let formatter = amountFormatterFactory.createTokenFormatter(for: xorAsset).value(for: locale)
+        let formatter = amountFormatterFactory.createTokenFormatter(for: valAsset).value(for: locale)
 
         let totalAmountDecimal = calculateTotalAmount(from: payload)
 

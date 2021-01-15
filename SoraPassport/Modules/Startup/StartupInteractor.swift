@@ -13,6 +13,7 @@ private enum StartupInteractorError: Error {
     case verificationFailed
 }
 
+
 private typealias RegistrationCompletionBlock = (Result<UserData?, Error>?) -> Void
 
 final class StartupInteractor {
@@ -325,7 +326,18 @@ final class StartupInteractor {
         case .success:
             logger?.info("Successfully verified identity")
 
-            completeVerification(success: true)
+            let service = ProjectUnitService(unit: config.defaultProjectUnit)
+            try? service.fetchEthConfigOperation(runCompletionIn: .main) {[weak self] (result) in
+                switch result {
+                case .success(let data):
+                    self?.config.applyExternalConfig(data!)
+                case .none, .failure:
+                    let configError = ConfigError.ethConfigFailed
+                    self?.presenter?.didReceiveConfigError(configError)
+                }
+                self?.completeVerification(success: true)
+            }
+
         case .failure(let error):
             self.logger?.warning("Identity verification completed with \(error)")
 
