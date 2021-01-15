@@ -33,6 +33,31 @@ extension WithdrawOperationData {
             transferAmount = nil
         }
 
+        var fees = info.fees
+        #if !F_RELEASE
+        if
+        let index = fees.firstIndex(where: { $0.feeDescription.identifier == WalletNetworkConstants.ethFeeIdentifier }),
+        let multiplier = Decimal(string: info.details) {
+            let fee = info.fees[index]
+            let params = fee.feeDescription.parameters
+            let result = AmountDecimal(value: params.mintGas.decimalValue * multiplier)
+
+            let updatedFee = Fee(value: fee.value,
+                                 feeDescription: FeeDescription(identifier: fee.feeDescription.identifier,
+                                                                assetId: fee.feeDescription.assetId,
+                                                                type: fee.feeDescription.type,
+                                                                parameters: EthFeeParameters(transferGas: params.transferGas,
+                                                                                             mintGas: result,
+                                                                                             gasPrice: params.gasPrice,
+                                                                                             balance: params.balance),
+                                                                accountId: fee.feeDescription.accountId,
+                                                                minValue: fee.feeDescription.minValue,
+                                                                maxValue: fee.feeDescription.maxValue,
+                                                                context: fee.feeDescription.context))
+            fees[index] = updatedFee
+
+        }
+        #endif
         return WithdrawOperationData(intentTransactionId: transactionId,
                                      confirmationTransactionId: nil,
                                      transferTransactionId: nil,
@@ -44,6 +69,6 @@ extension WithdrawOperationData {
                                      receiverName: nil,
                                      withdrawAmount: withdrawAmount,
                                      transferAmount: transferAmount,
-                                     fees: info.fees)
+                                     fees: fees)
     }
 }

@@ -33,7 +33,7 @@ final class ContactsLocalSearchEngine: ContactsLocalSearchEngineProtocol {
 
     weak var commandFactory: WalletCommandFactoryProtocol?
 
-    func search(query: String, assetId: String) -> [ContactViewModelProtocol]? {
+    func search(query: String, accountId:String, assetId: String, delegate:ContactViewModelDelegate?) -> [ContactViewModelProtocol]? {
         guard NSPredicate.ethereumAddress.evaluate(with: query) else {
             return nil
         }

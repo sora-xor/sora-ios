@@ -5,11 +5,11 @@
 
 import SoraUI
 
-extension ModalInputPresentationHeaderStyle {
+extension ModalSheetPresentationHeaderStyle {
 
-    static var modalHeaderStyle: ModalInputPresentationHeaderStyle {
+    static var modalHeaderStyle: ModalSheetPresentationHeaderStyle {
         let indicatorColor = UIColor(white: 208.0 / 255.0, alpha: 1.0)
-        return ModalInputPresentationHeaderStyle(preferredHeight: 20.0,
+        return ModalSheetPresentationHeaderStyle(preferredHeight: 20.0,
                                                  backgroundColor: .white,
                                                  cornerRadius: 10.0,
                                                  indicatorVerticalOffset: 3.0,
@@ -18,8 +18,8 @@ extension ModalInputPresentationHeaderStyle {
     }
 }
 
-extension ModalInputPresentationConfiguration {
-    static var sora: ModalInputPresentationConfiguration {
+extension ModalSheetPresentationConfiguration {
+    static var sora: ModalSheetPresentationConfiguration {
         let appearanceAnimator = BlockViewAnimator(duration: 0.25,
                                                    delay: 0.0,
                                                    options: [.curveEaseOut])
@@ -27,10 +27,10 @@ extension ModalInputPresentationConfiguration {
                                                   delay: 0.0,
                                                   options: [.curveLinear])
 
-        let style = ModalInputPresentationStyle(backdropColor: UIColor.black.withAlphaComponent(0.19),
-                                                headerStyle: ModalInputPresentationHeaderStyle.modalHeaderStyle)
+        let style = ModalSheetPresentationStyle(backdropColor: UIColor.black.withAlphaComponent(0.19),
+                                                headerStyle: ModalSheetPresentationHeaderStyle.modalHeaderStyle)
 
-        return ModalInputPresentationConfiguration(contentAppearanceAnimator: appearanceAnimator,
+        return ModalSheetPresentationConfiguration(contentAppearanceAnimator: appearanceAnimator,
                                                                 contentDissmisalAnimator: dismissalAnimator,
                                                                 style: style,
                                                                 extendUnderSafeArea: true,

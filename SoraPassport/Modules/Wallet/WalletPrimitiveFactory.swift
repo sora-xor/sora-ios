@@ -16,6 +16,7 @@ protocol WalletPrimitiveFactoryProtocol {
     func createTransactionTypes() -> [WalletTransactionType]
     func createAccountId() throws -> String
     func createXORAsset() throws -> WalletAsset
+    func createVALAsset() throws -> WalletAsset 
     func createETHAsset() throws -> WalletAsset
     func createAccountSettings(for accountId: String) throws -> WalletAccountSettingsProtocol
     func createOperationSettings() throws -> MiddlewareOperationSettingsProtocol
@@ -37,9 +38,11 @@ final class WalletPrimitiveFactory {
     private struct Constants {
         static let transactionQuorum: UInt = 2
         static let xorAssetName: String = "xor"
+        static let valAssetName: String = "val"
         static let ethAssetName: String = "eth"
         static let domain: String = "sora"
         static let xorPrecision: Int16 = 2
+        static let valPrecision: Int16 = 2
         static let ethPrecision: Int16 = 18
     }
 
@@ -133,7 +136,22 @@ extension WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
                            name: name,
                            platform: platform,
                            symbol: String.xor,
-                           precision: Constants.xorPrecision)
+                           precision: Constants.xorPrecision,
+                           modes: [])
+    }
+
+    func createVALAsset() throws -> WalletAsset {
+        let name = LocalizableResource { R.string.localizable.assetDetailsVal(preferredLanguages: $0.rLanguages) }
+        let platform = LocalizableResource { R.string.localizable.assetXorPlatform(preferredLanguages: $0.rLanguages) }
+
+        let domain = try IRDomainFactory.domain(withIdentitifer: Constants.domain)
+        let valAssetId = try IRAssetIdFactory.assetId(withName: Constants.valAssetName, domain: domain).identifier()
+
+        return WalletAsset(identifier: valAssetId,
+                           name: name,
+                           platform: platform,
+                           symbol: String.val,
+                           precision: Constants.valPrecision)
     }
 
     func createETHAsset() throws -> WalletAsset {
@@ -157,8 +175,9 @@ extension WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
 
     func createAccountSettings(for accountId: String) throws -> WalletAccountSettingsProtocol {
         let xor = try createXORAsset()
+        let val = try createVALAsset()
         let eth = try createETHAsset()
-        return WalletAccountSettings(accountId: accountId, assets: [xor, eth])
+        return WalletAccountSettings(accountId: accountId, assets: [xor, val, eth])
     }
 
     func createOperationSettings() throws -> MiddlewareOperationSettingsProtocol {

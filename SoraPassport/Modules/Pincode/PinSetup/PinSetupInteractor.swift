@@ -17,16 +17,22 @@ class PinSetupInteractor {
 
     weak var presenter: PinSetupInteractorOutputProtocol?
 
+    private(set) var config: ApplicationConfigProtocol
+    private(set) var projectService: ProjectUnitInformationProtocol
     private(set) var secretManager: SecretStoreManagerProtocol
     private(set) var settingsManager: SettingsManagerProtocol
     private(set) var biometryAuth: BiometryAuthProtocol
 
     init(secretManager: SecretStoreManagerProtocol,
          settingsManager: SettingsManagerProtocol,
-         biometryAuth: BiometryAuthProtocol) {
+         biometryAuth: BiometryAuthProtocol,
+         config: ApplicationConfigProtocol,
+         projectService: ProjectUnitServiceProtocol) {
         self.secretManager = secretManager
         self.settingsManager = settingsManager
         self.biometryAuth = biometryAuth
+        self.config = config
+        self.projectService = projectService
     }
 
     private(set) var pincode: String?
@@ -61,7 +67,18 @@ class PinSetupInteractor {
     private func completeSetup() {
         state = .submitedPincode
         pincode = nil
-        presenter?.didSavePin()
+
+        _ = try? projectService.fetchEthConfigOperation(runCompletionIn: .main) {[weak self] (result) in
+            switch result {
+            case .success(let data):
+                self?.config.applyExternalConfig(data!)
+            case .none, .failure:
+                let configError = ConfigError.ethConfigFailed
+                self?.presenter?.didReceiveConfigError(configError)
+            }
+            self?.presenter?.didSavePin()
+        }
+
     }
 }
 

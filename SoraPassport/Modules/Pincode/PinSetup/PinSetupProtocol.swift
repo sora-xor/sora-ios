@@ -32,9 +32,10 @@ protocol PinSetupInteractorOutputProtocol: class {
         type: AvailableBiometryType,
         completionBlock: @escaping (Bool) -> Void)
     func didChangeState(from: PinSetupInteractor.PinSetupState)
+    func didReceiveConfigError(_ error: Error)
 }
 
-protocol PinSetupWireframeProtocol: class {
+protocol PinSetupWireframeProtocol: AlertPresentable, ErrorPresentable {
     func showMain(from view: PinSetupViewProtocol?)
     func showAuthVerification(from view: PinSetupViewProtocol?)
     func showSignup(from view: PinSetupViewProtocol?)

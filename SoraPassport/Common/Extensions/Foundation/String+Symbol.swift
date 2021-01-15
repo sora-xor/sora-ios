@@ -7,7 +7,11 @@ import Foundation
 
 extension String {
     static var xor: String {
-        return String(Character("\u{E000}"))
+        return "XOR"//String(Character("\u{E000}"))
+    }
+
+    static var val: String {
+        return "VAL"//String(Character("\u{225A}"))
     }
 
     static var eth: String {

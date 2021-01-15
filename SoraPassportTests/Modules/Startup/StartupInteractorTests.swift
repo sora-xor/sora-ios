@@ -38,6 +38,7 @@ class StartupInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
+        EthConfigMock.register(mock: .available, projectUnit: projectUnit)
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
 
@@ -121,6 +122,7 @@ class StartupInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
         SupportedVersionCheckMock.register(mock: .unsupported, projectUnit: projectUnit)
+        EthConfigMock.register(mock: .available, projectUnit: projectUnit)
 
         let identityRequestFactory = DecentralizedResolverOperationFactory(url: URL(string: ApplicationConfig.shared.didResolverUrl)!)
 
@@ -162,14 +164,15 @@ class StartupInteractorTests: NetworkBaseTests {
         let expectation = XCTestExpectation()
 
         stub(wireframe) { stub in
+
             when(stub).presentUnsupportedVersion(for: any(), on: any(), animated: any()).then { _ in
                 expectation.fulfill()
             }
+
         }
 
         // when
         presenter.setup()
-
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
         // then
@@ -187,6 +190,7 @@ class StartupInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
+        EthConfigMock.register(mock: .available, projectUnit: projectUnit)
         ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         DecentralizedDocumentFetchMock.register(mock: .notFound)
@@ -246,6 +250,7 @@ class StartupInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
+        EthConfigMock.register(mock: .available, projectUnit: projectUnit)
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         ProjectsCustomerMock.register(mock: .resourceNotFound, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
@@ -328,6 +333,7 @@ class StartupInteractorTests: NetworkBaseTests {
 
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
 
+        EthConfigMock.register(mock: .available, projectUnit: projectUnit)
         SupportedVersionCheckMock.register(mock: .supported, projectUnit: projectUnit)
         ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: projectUnit)
 

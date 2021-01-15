@@ -30,7 +30,14 @@ struct WalletTransferValidator: TransferValidating {
             throw TransferValidatingError.missingBalance(assetId: info.asset)
         }
 
-        let totalFee: Decimal = info.fees.reduce(Decimal(0)) { (result, fee) in
+        let isRetry = info.context?.soranetTxId != nil
+
+        var fees = info.fees
+        if isRetry {
+            fees = fees.filter { $0.feeDescription.identifier != SoranetFeeId.withdraw.rawValue }
+        }
+
+        let totalFee: Decimal = fees.reduce(Decimal(0)) { (result, fee) in
             if fee.feeDescription.assetId == info.asset {
                 return result + fee.value.decimalValue
             } else {
@@ -57,9 +64,11 @@ struct WalletTransferValidator: TransferValidating {
             availableBalance = totalBalance.soranet + totalBalance.ethereum
         }
 
-        guard totalAmount <= availableBalance else {
-            throw TransferValidatingError.unsufficientFunds(assetId: info.asset,
-                                                            available: availableBalance)
+        if !isRetry {
+            guard totalAmount <= availableBalance else {
+                throw TransferValidatingError.unsufficientFunds(assetId: info.asset,
+                                                                available: availableBalance)
+            }
         }
 
         if

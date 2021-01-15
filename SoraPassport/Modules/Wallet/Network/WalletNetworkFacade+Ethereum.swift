@@ -9,6 +9,12 @@ import RobinHood
 import BigInt
 
 extension WalletNetworkFacade {
+    func createBridgeCheckOperation() -> BaseOperation<Data> {
+        let bridgeCheckOperation = ethereumOperationFactory.createBridgeCheckOperation(for: { Data() },
+                                                                                       masterContractAddress: masterContractAddress)
+        return bridgeCheckOperation
+    }
+
     func createEthMetadataOperation() -> CompoundOperationWrapper<FeeDescription> {
         let gasPriceOperation = ethereumOperationFactory.createGasPriceOperation()
         let ethBalanceOperation = ethereumOperationFactory.createEthBalanceFetchOperation()
@@ -16,6 +22,7 @@ extension WalletNetworkFacade {
         let assetId = ethAssetId
 
         let combiningOperation: BaseOperation<FeeDescription> = ClosureOperation {
+
             let priceValue = try gasPriceOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 

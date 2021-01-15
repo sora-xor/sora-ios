@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraCrypto
 
 extension ProjectUnitService {
     func fetchAnnouncement(runCompletionIn queue: DispatchQueue,
@@ -85,6 +86,25 @@ extension ProjectUnitService {
         execute(operations: [operation])
 
         return operation
+    }
+
+    func fetchEthConfigOperation(runCompletionIn queue: DispatchQueue,
+                                 completionBlock: @escaping NetworkExternalConfigCompletionBlock) throws -> Operation {
+        guard let service = unit.service(for: ProjectServiceType.ethConfig.rawValue) else {
+            throw NetworkUnitError.serviceUnavailable
+        }
+        let configOperation = operationFactory.fetchEthConfigOperation(service.serviceEndpoint)
+        configOperation.requestModifier = DARequestSigner.createDefault()
+
+        configOperation.completionBlock = {
+            queue.async {
+                completionBlock(configOperation.result)
+            }
+        }
+
+        execute(operations: [configOperation])
+
+        return configOperation
     }
 
     func checkSupported(version: String,

@@ -11,15 +11,18 @@ struct WalletConfirmationConfigurator {
     let amountFormatterFactory: NumberFormatterFactoryProtocol
     let feeDisplayFactory: FeeDisplaySettingsFactoryProtocol
     let xorAsset: WalletAsset
+    let valAsset: WalletAsset
     let ethAsset: WalletAsset
 
     init(amountFormatterFactory: NumberFormatterFactoryProtocol,
          feeDisplayFactory: FeeDisplaySettingsFactoryProtocol,
          xorAsset: WalletAsset,
+         valAsset: WalletAsset,
          ethAsset: WalletAsset) {
         self.amountFormatterFactory = amountFormatterFactory
         self.feeDisplayFactory = feeDisplayFactory
         self.xorAsset = xorAsset
+        self.valAsset = valAsset
         self.ethAsset = ethAsset
     }
 
@@ -36,6 +39,7 @@ struct WalletConfirmationConfigurator {
                                                                   feeDisplayFactory: feeDisplayFactory,
                                                                   generatingIconStyle: generatingIconStyle,
                                                                   xorAsset: xorAsset,
+                                                                  valAsset: valAsset,
                                                                   ethAsset: ethAsset)
 
         let localizableTitle: LocalizableResource<String> = LocalizableResource { locale in

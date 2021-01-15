@@ -43,6 +43,11 @@ protocol EthereumServiceProtocol: BaseServiceProtocol {
                               completionClosure: @escaping EthBigUIntResultClosure) -> [Operation]
 
     @discardableResult
+    func checkBridge(for hash: Data,
+                     runCompletionIn queue: DispatchQueue,
+                     completionClosure: @escaping EthDataResultClosure) -> [Operation]
+
+    @discardableResult
     func checkWithdrawal(for hash: Data,
                          runCompletionIn queue: DispatchQueue,
                          completionClosure: @escaping EthBoolResultClosure) -> [Operation]
@@ -92,6 +97,9 @@ protocol EthereumOperationFactoryProtocol {
     func createGasPriceOperation() -> BaseOperation<BigUInt>
 
     func createTransactionsCountOperation(for accountAddress: Data?, block: EthereumBlock) -> BaseOperation<BigUInt>
+
+    func createBridgeCheckOperation(for hashConfig: @escaping EthWithdrawHashConfig,
+                                    masterContractAddress: Data) -> BaseOperation<Data>
 
     func createWithdrawalCheckOperation(for hashConfig: @escaping EthWithdrawHashConfig,
                                         masterContractAddress: Data) -> BaseOperation<Bool>

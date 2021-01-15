@@ -6,10 +6,24 @@
 import Foundation
 import CommonWallet
 
-struct WalletTransferErrorHandler: OperationDefinitionErrorHandling {
+class WalletTransferErrorHandler: OperationDefinitionErrorHandling {
     let xorAsset: WalletAsset
     let ethAsset: WalletAsset
     let formatterFactory: NumberFormatterFactoryProtocol
+    let commandDecorator: WalletCommandDecoratorFactory
+    weak var commandFactory: WalletCommandFactoryProtocol?
+
+    init(xorAsset: WalletAsset,
+         ethAsset: WalletAsset,
+         formatterFactory: NumberFormatterFactoryProtocol,
+         commandDecorator: WalletCommandDecoratorFactory,
+         commandFactory: WalletCommandFactoryProtocol?) {
+        self.xorAsset = xorAsset
+        self.ethAsset = ethAsset
+        self.formatterFactory = formatterFactory
+        self.commandFactory = commandFactory
+        self.commandDecorator = commandDecorator
+    }
 
     func mapError(_ error: Error, locale: Locale) -> OperationDefinitionErrorMapping? {
         if
@@ -32,6 +46,14 @@ struct WalletTransferErrorHandler: OperationDefinitionErrorHandling {
                 return OperationDefinitionErrorMapping(type: .amount, message: message)
             }
 
+        }
+
+        if let bridgeError = error as? WalletNetworkFacadeError,
+            case .ethBridgeDisabled  = bridgeError {
+            let command = EthBridgeErrorCommand(commandFactory: commandFactory!, locale: locale)
+            return OperationDefinitionErrorMapping(type: .receiver,
+                                                   message: R.string.localizable.transactionBridgeNotActiveError(preferredLanguages: locale.rLanguages),
+                                                   command: command)
         }
 
         return nil

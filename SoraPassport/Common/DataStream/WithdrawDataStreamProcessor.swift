@@ -39,6 +39,7 @@ final class WithdrawDataStreamProcessor {
             switch fetched.status {
             case .intentSent, .intentPending:
                 let changed = fetched.changingStatus(.intentFailed)
+                self.logger.debug("datastream:intentFailed")
                 return [changed]
             default:
                 return []

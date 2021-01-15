@@ -33,9 +33,10 @@ protocol StartupInteractorOutputProtocol: class {
     func didDecideMain()
     func didDecideUnsupportedVersion(data: SupportedVersionData)
     func didChangeState()
+    func didReceiveConfigError(_ error: Error)
 }
 
-protocol StartupWireframeProtocol: UnsupportedVersionPresentable {
+protocol StartupWireframeProtocol: UnsupportedVersionPresentable, ErrorPresentable, AlertPresentable {
     func showOnboarding(from view: StartupViewProtocol?)
     func showMain(from view: StartupViewProtocol?)
     func showPincodeSetup(from view: StartupViewProtocol?)

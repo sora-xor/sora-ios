@@ -13,4 +13,5 @@ enum WalletNetworkFacadeError: Error {
     case transferMetadataMissing
     case withdrawMetadataMissing
     case missingTransferData
+    case ethBridgeDisabled
 }

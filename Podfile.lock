@@ -14,7 +14,7 @@ PODS:
     - SoraFoundation/DateProcessing (~> 0.8.0)
     - SoraFoundation/Localization (~> 0.8.0)
     - SoraFoundation/NotificationHandlers (~> 0.8.0)
-    - SoraUI (~> 1.8.7)
+    - SoraUI (~> 1.9.3)
   - CommonWallet/IrohaMiddleware (1.14.0):
     - CommonWallet/Core
     - IrohaCommunication (~> 4.0.0)
@@ -164,13 +164,13 @@ PODS:
     - PromiseKit/CorePromise
   - PromiseKit/UIKit (6.8.5):
     - PromiseKit/CorePromise
-  - PromisesObjC (1.2.10)
+  - PromisesObjC (1.2.11)
   - Protobuf (3.5.0)
-  - R.swift (5.2.2):
-    - R.swift.Library (~> 5.2.0)
-  - R.swift.Library (5.2.0)
+  - R.swift (5.3.0):
+    - R.swift.Library (~> 5.3.0)
+  - R.swift.Library (5.3.0)
   - ReachabilitySwift (5.0.0)
-  - RobinHood (2.5.0)
+  - RobinHood (2.5.1)
   - scrypt.c (0.1.1)
   - secp256k1.c (0.1.2)
   - SKPhotoBrowser (6.1.0)
@@ -195,39 +195,42 @@ PODS:
     - SoraFoundation/NotificationHandlers
   - SoraFoundation/ViewModel (0.8.0)
   - SoraKeystore (0.1.5)
-  - SoraUI (1.8.11):
-    - SoraUI/AdaptiveDesign (= 1.8.11)
-    - SoraUI/Animator (= 1.8.11)
-    - SoraUI/Camera (= 1.8.11)
-    - SoraUI/Controls (= 1.8.11)
-    - SoraUI/DetailsView (= 1.8.11)
-    - SoraUI/EmptyState (= 1.8.11)
-    - SoraUI/LoadingView (= 1.8.11)
-    - SoraUI/ModalInputPresentation (= 1.8.11)
-    - SoraUI/PageLoader (= 1.8.11)
-    - SoraUI/PinView (= 1.8.11)
-    - SoraUI/Skrull (= 1.8.11)
-  - SoraUI/AdaptiveDesign (1.8.11)
-  - SoraUI/Animator (1.8.11)
-  - SoraUI/Camera (1.8.11)
-  - SoraUI/Controls (1.8.11)
-  - SoraUI/DetailsView (1.8.11):
-    - SoraUI/Controls
-  - SoraUI/EmptyState (1.8.11):
+  - SoraUI (1.9.4):
+    - SoraUI/AdaptiveDesign (= 1.9.4)
+    - SoraUI/Animator (= 1.9.4)
+    - SoraUI/Camera (= 1.9.4)
+    - SoraUI/Controls (= 1.9.4)
+    - SoraUI/DetailsView (= 1.9.4)
+    - SoraUI/EmptyState (= 1.9.4)
+    - SoraUI/Helpers (= 1.9.4)
+    - SoraUI/LoadingView (= 1.9.4)
+    - SoraUI/ModalPresentation (= 1.9.4)
+    - SoraUI/PageLoader (= 1.9.4)
+    - SoraUI/PinView (= 1.9.4)
+    - SoraUI/Skrull (= 1.9.4)
+  - SoraUI/AdaptiveDesign (1.9.4)
+  - SoraUI/Animator (1.9.4)
+  - SoraUI/Camera (1.9.4)
+  - SoraUI/Controls (1.9.4):
     - SoraUI/Animator
-  - SoraUI/LoadingView (1.8.11):
+  - SoraUI/DetailsView (1.9.4):
     - SoraUI/Controls
-  - SoraUI/ModalInputPresentation (1.8.11):
+  - SoraUI/EmptyState (1.9.4):
+    - SoraUI/Animator
+  - SoraUI/Helpers (1.9.4)
+  - SoraUI/LoadingView (1.9.4):
+    - SoraUI/Controls
+  - SoraUI/ModalPresentation (1.9.4):
     - SoraUI/Animator
     - SoraUI/Controls
-  - SoraUI/PageLoader (1.8.11)
-  - SoraUI/PinView (1.8.11):
+  - SoraUI/PageLoader (1.9.4)
+  - SoraUI/PinView (1.9.4):
     - SoraUI/Controls
-  - SoraUI/Skrull (1.8.11)
+  - SoraUI/Skrull (1.9.4)
   - Starscream (3.1.1)
-  - SwiftLint (0.40.2)
-  - SwiftyBeaver (1.9.1)
-  - web3swift (2.2.1):
+  - SwiftLint (0.41.0)
+  - SwiftyBeaver (1.9.3)
+  - web3swift (2.3.0):
     - BigInt (~> 4.0)
     - CryptoSwift (~> 1.0.0)
     - PromiseKit (~> 6.8.4)
@@ -235,7 +238,7 @@ PODS:
     - Starscream (~> 3.1.0)
 
 DEPENDENCIES:
-  - CommonWallet (from `https://github.com/soramitsu/Capital-iOS.git`, commit `ef5c8a1bcc8437df1cff196b8698752476471d3a`)
+  - CommonWallet (from `https://github.com/soramitsu/Capital-iOS.git`, commit `e9801f64b9434f4a032c5896e87547476a0274c6`)
   - Cuckoo
   - Firebase/Crashlytics
   - FirebaseAnalytics
@@ -311,18 +314,18 @@ SPEC REPOS:
 
 EXTERNAL SOURCES:
   CommonWallet:
-    :commit: ef5c8a1bcc8437df1cff196b8698752476471d3a
+    :commit: e9801f64b9434f4a032c5896e87547476a0274c6
     :git: https://github.com/soramitsu/Capital-iOS.git
 
 CHECKOUT OPTIONS:
   CommonWallet:
-    :commit: ef5c8a1bcc8437df1cff196b8698752476471d3a
+    :commit: e9801f64b9434f4a032c5896e87547476a0274c6
     :git: https://github.com/soramitsu/Capital-iOS.git
 
 SPEC CHECKSUMS:
   BigInt: 2aad1a9942dc932ec8b84290d2c564a3d76f97ab
   BoringSSL: e10f92a27043805c01071fe815a5cd98ae8212e7
-  CommonWallet: cdfe1cf798e942df6c93cf579650169e698dfb2e
+  CommonWallet: aff931b1371471e6bd06e5c43028b67d5ab60d5a
   CryptoSwift: d81eeaa59dc5a8d03720fe919a6fd07b51f7439f
   Cuckoo: 4625f7f54d9bb880123270e8969898d6c1d036b5
   Firebase: 585ae467b3edda6a5444e788fda6888f024d8d6f
@@ -351,12 +354,12 @@ SPEC CHECKSUMS:
   Kingfisher: c148cd7b47ebde9989f6bc7c27dcaa79d81279a0
   nanopb: 18003b5e52dab79db540fe93fe9579f399bd1ccd
   PromiseKit: 9616b0afef31eae56ab9ce044c8ec2b8612a15cd
-  PromisesObjC: b14b1c6b68e306650688599de8a45e49fae81151
+  PromisesObjC: 8c196f5a328c2cba3e74624585467a557dcb482f
   Protobuf: 8a9838fba8dae3389230e1b7f8c104aa32389c03
-  R.swift: 7c52cdc57a66840ffe6cbd8a823d732059d42a32
-  R.swift.Library: 5ba4f1631300caf9a4d890186930da85d540769d
+  R.swift: 4170fb7161c67be3bc1a847040b79367d69c419f
+  R.swift.Library: 0fc583cb55a99e28901299cc451614cad1161962
   ReachabilitySwift: 985039c6f7b23a1da463388634119492ff86c825
-  RobinHood: 67b02df481d03c460396df6e78e9156a97deffc6
+  RobinHood: 0ccabe29316ad308b691535e43367cf702a2205a
   scrypt.c: b42ae06183251329d2b2c620c226fb541a4a3592
   secp256k1.c: db47b726585d80f027423682eb369729e61b3b20
   SKPhotoBrowser: 343de95d89dc7913763c5dda243cc6e606e4a168
@@ -364,12 +367,12 @@ SPEC CHECKSUMS:
   SoraDocuments: c927a79974f73672a8f39d8c2bb143afca5d3561
   SoraFoundation: 191f65cb04fd82f32c8e4e00156a7c979dd2c7e2
   SoraKeystore: 408a26aafda780fc3005b20ab336791832b5419e
-  SoraUI: 842707652cba50c3ed19672bcd72106892a0ff37
+  SoraUI: cf9681c377dfcdad2f121b3629ea45e698a5d7a3
   Starscream: 4bb2f9942274833f7b4d296a55504dcfc7edb7b0
-  SwiftLint: 1216c910d27c2633ade33b4f071bb6b930982e62
-  SwiftyBeaver: a1f5691458561414bcfab51874b2b7445451602b
-  web3swift: d79140b9d5fdd06a377072936b086bb7ae187157
+  SwiftLint: c585ebd615d9520d7fbdbe151f527977b0534f1e
+  SwiftyBeaver: 2e8acd6fc90c6d0a27055867a290794926d57c02
+  web3swift: 0f097eafe1d08f478694b882581b85a01afb6633
 
-PODFILE CHECKSUM: 1db3cd6d9214b864993120bb2efdaeaa1398de32
+PODFILE CHECKSUM: 429565f78b8f1cf77b94d87e69e8a88355dc2117
 
 COCOAPODS: 1.9.3

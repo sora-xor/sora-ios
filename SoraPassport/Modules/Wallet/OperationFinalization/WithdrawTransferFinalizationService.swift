@@ -267,6 +267,7 @@ final class WithdrawTransferFinalizationService {
                     return []
                 } else {
                     let changed = fetched.changingStatus(.transferFailed)
+                    self.logger.debug("transferFailed, \(error) in completionSaving, transferFinalization")
                     return [changed]
                 }
             }

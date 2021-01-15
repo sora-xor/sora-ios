@@ -29,7 +29,7 @@ extension EthereumOperationFactory: EthereumOperationFactoryProtocol {
             let jsonRequest = JSONRPCRequestFabric.prepareRequest(.getBalance, parameters: parameters)
             request.httpBody = try JSONEncoder().encode(jsonRequest)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
-
+            request.setValue(ApplicationConfig.shared.ethereumNodeAuth, forHTTPHeaderField: HttpHeaderKey.authorization.rawValue)
             return request
         }
 
@@ -105,7 +105,7 @@ extension EthereumOperationFactory: EthereumOperationFactoryProtocol {
             let jsonRequest = JSONRPCRequestFabric.prepareRequest(.estimateGas, parameters: parameters)
             request.httpBody = try JSONEncoder().encode(jsonRequest)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
-
+            request.setValue(ApplicationConfig.shared.ethereumNodeAuth, forHTTPHeaderField: HttpHeaderKey.authorization.rawValue)
             return request
         }
 
@@ -124,7 +124,7 @@ extension EthereumOperationFactory: EthereumOperationFactoryProtocol {
             let jsonRequest = JSONRPCRequestFabric.prepareRequest(.gasPrice, parameters: [])
             request.httpBody = try JSONEncoder().encode(jsonRequest)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
-
+            request.setValue(ApplicationConfig.shared.ethereumNodeAuth, forHTTPHeaderField: HttpHeaderKey.authorization.rawValue)
             return request
         }
 
@@ -153,7 +153,7 @@ extension EthereumOperationFactory: EthereumOperationFactoryProtocol {
             let jsonRequest = JSONRPCRequestFabric.prepareRequest(.getTransactionCount, parameters: parameters)
             request.httpBody = try JSONEncoder().encode(jsonRequest)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
-
+            request.setValue(ApplicationConfig.shared.ethereumNodeAuth, forHTTPHeaderField: HttpHeaderKey.authorization.rawValue)
             return request
         }
 
@@ -182,6 +182,27 @@ extension EthereumOperationFactory: EthereumOperationFactoryProtocol {
                                                  callClosure: callClosure)
 
         let resultFactory: AnyNetworkResultFactory<Bool> = createBoolResultFactory()
+
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
+    }
+
+    func createBridgeCheckOperation(for hashConfig: @escaping EthWithdrawHashConfig,
+                                    masterContractAddress: Data) -> BaseOperation<Data> {
+        let output = ABI.Element.InOut(name: "", type: .bytes(length: 32))
+        let function = ABI.Element.Function(name: "proof",
+                                            inputs:  [],
+                                            outputs: [output],
+                                            constant: false,
+                                            payable: false)
+
+        let callClosure: EthContractCallConfig = {
+            EthContractCallInfo(contractAddress: masterContractAddress, parameters: [])
+        }
+
+        let requestFactory = createContractQuery(function,
+                                                 callClosure: callClosure)
+
+        let resultFactory: AnyNetworkResultFactory<Data> = createResultFactory()
 
         return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
@@ -306,7 +327,7 @@ extension EthereumOperationFactory: EthereumOperationFactoryProtocol {
                                                                   parameters: [transactionData.soraHexWithPrefix])
             request.httpBody = try JSONEncoder().encode(jsonRequest)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
-
+            request.setValue(ApplicationConfig.shared.ethereumNodeAuth, forHTTPHeaderField: HttpHeaderKey.authorization.rawValue)
             return request
         }
 
@@ -329,7 +350,7 @@ extension EthereumOperationFactory: EthereumOperationFactoryProtocol {
                                                                   parameters: parameters)
             request.httpBody = try JSONEncoder().encode(jsonRequest)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
-
+            request.setValue(ApplicationConfig.shared.ethereumNodeAuth, forHTTPHeaderField: HttpHeaderKey.authorization.rawValue)
             return request
         }
 

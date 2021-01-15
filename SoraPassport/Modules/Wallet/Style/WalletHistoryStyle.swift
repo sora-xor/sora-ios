@@ -19,7 +19,9 @@ extension HistoryViewStyle {
                                 titleStyle: titleStyle,
                                 filterIcon: nil,
                                 closeIcon: nil,
-                                panIndicatorStyle: UIColor(white: 221.0 / 255.0, alpha: 1.0))
+                                panIndicatorStyle: UIColor(white: 221.0 / 255.0, alpha: 1.0),
+                                shadow: nil,
+                                separatorStyle: nil)
     }
 }
 
@@ -45,7 +47,7 @@ extension TransactionHeaderStyle {
     static var sora: TransactionHeaderStyle {
         let text = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
                                    color: UIColor(white: 120.0 / 255.0, alpha: 1.0))
-        return TransactionHeaderStyle(background: .clear,
+        return TransactionHeaderStyle(background: .white,
                                       title: text,
                                       separatorColor: .clear)
     }

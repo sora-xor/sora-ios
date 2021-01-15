@@ -57,6 +57,21 @@ extension WithdrawOperationData {
                               fees: fees)
     }
 
+    func updatingTimestamp() -> WithdrawOperationData {
+        WithdrawOperationData(intentTransactionId: intentTransactionId,
+                              confirmationTransactionId: confirmationTransactionId,
+                              transferTransactionId: transferTransactionId,
+                              timestamp: Int64(Date().timeIntervalSince1970),
+                              status: status,
+                              assetId: assetId,
+                              sender: sender,
+                              receiver: receiver,
+                              receiverName: receiverName,
+                              withdrawAmount: withdrawAmount,
+                              transferAmount: transferAmount,
+                              fees: fees)
+    }
+
     func changing(newConfirmationId: String) -> WithdrawOperationData {
         WithdrawOperationData(intentTransactionId: intentTransactionId,
                               confirmationTransactionId: newConfirmationId,

@@ -19,6 +19,7 @@ final class WalletNetworkFacade {
     let ethereumAddress: Data
     let masterContractAddress: Data
     let xorAssetId: String
+    let valAssetId: String
     let ethAssetId: String
 
     init(soranetOperationFactory: WalletNetworkOperationFactoryProtocol,
@@ -31,6 +32,7 @@ final class WalletNetworkFacade {
          ethereumAddress: Data,
          masterContractAddress: Data,
          xorAssetId: String,
+         valAssetId: String,
          ethAssetId: String) {
         self.soranetOperationFactory = soranetOperationFactory
         self.ethereumOperationFactory = ethereumOperationFactory
@@ -42,6 +44,7 @@ final class WalletNetworkFacade {
         self.ethereumAddress = ethereumAddress
         self.masterContractAddress = masterContractAddress
         self.xorAssetId = xorAssetId
+        self.valAssetId = valAssetId
         self.ethAssetId = ethAssetId
     }
 }
@@ -91,7 +94,7 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
 
         var dependencies: [Operation] = []
 
-        if assets.contains(xorAssetId) {
+        if assets.contains(valAssetId) {
             let wrapper = createXORBalanceOperationWrapper()
             dependencies.append(contentsOf: wrapper.allOperations)
             balanceWrapper = wrapper
@@ -123,7 +126,7 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
                     WalletOperationContextKey.Balance.erc20: tokens.ethereum.stringWithPointSeparator
                 ]
 
-                let balance = BalanceData(identifier: self.xorAssetId,
+                let balance = BalanceData(identifier: self.valAssetId,
                                           balance: AmountDecimal(value: totalValue),
                                           context: context)
 

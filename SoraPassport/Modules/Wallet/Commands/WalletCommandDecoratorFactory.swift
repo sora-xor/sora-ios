@@ -14,6 +14,8 @@ final class WalletCommandDecoratorFactory: WalletCommandDecoratorFactoryProtocol
     let xorAssetId: String
     let ethereumAddress: String
     let xorAddress: String
+    let valAssetId: String
+    let valAddress: String
     let dataProvider: StreamableProvider<EthereumInit>
     let repository: AnyDataProviderRepository<EthereumInit>
     let localizationManager: LocalizationManagerProtocol
@@ -22,9 +24,11 @@ final class WalletCommandDecoratorFactory: WalletCommandDecoratorFactoryProtocol
     let logger: LoggerProtocol
 
     init(xorAssetId: String,
+         valAssetId: String,
          ethereumAssetId: String,
          ethereumAddress: String,
          xorAddress: String,
+         valAddress: String,
          dataProvider: StreamableProvider<EthereumInit>,
          repository: AnyDataProviderRepository<EthereumInit>,
          localizationManager: LocalizationManagerProtocol,
@@ -35,6 +39,8 @@ final class WalletCommandDecoratorFactory: WalletCommandDecoratorFactoryProtocol
         self.ethereumAssetId = ethereumAssetId
         self.ethereumAddress = ethereumAddress
         self.xorAddress = xorAddress
+        self.valAssetId = valAssetId
+        self.valAddress = valAddress
         self.dataProvider = dataProvider
         self.repository = repository
         self.localizationManager = localizationManager
@@ -81,14 +87,14 @@ final class WalletCommandDecoratorFactory: WalletCommandDecoratorFactoryProtocol
         guard let balanceData = balanceData else {
             return nil
         }
-
+        
         return XorAssetDetailsCommand(commandFactory: commandFactory,
                                         dataProvider: dataProvider,
                                         repository: repository,
                                         operationManager: operationManager,
                                         localizationManager: localizationManager,
                                         address: ethereumAddress,
-                                        xorAddress: xorAddress,
+                                        xorAddress: valAddress,
                                         balance: balanceData,
                                         tokenFormatter: amountFormatter)
     }

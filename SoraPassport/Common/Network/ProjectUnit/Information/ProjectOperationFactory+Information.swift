@@ -155,6 +155,34 @@ extension ProjectOperationFactory: ProjectInformationOperationFactoryProtocol {
         return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
     }
 
+    func fetchEthConfigOperation(_ urlTemplate: String) -> NetworkOperation<EthNodeData?> {
+        let requestFactory = BlockNetworkRequestFactory {
+            guard let serviceUrl = URL(string: urlTemplate) else {
+                throw NetworkBaseError.invalidUrl
+            }
+
+            var request = URLRequest(url: serviceUrl)
+            request.httpMethod = HttpMethod.get.rawValue
+            return request
+        }
+
+        let resultFactory = AnyNetworkResultFactory<EthNodeData?> { data in
+            let resultData = try JSONDecoder().decode(OptionalMultifieldResultData<EthNodeData?>.self, from: data)
+
+            guard resultData.status.isSuccess else {
+                throw ResultStatusError(statusData: resultData.status)
+            }
+
+            guard let result = resultData.result else {
+                throw NetworkBaseError.unexpectedResponseObject
+            }
+
+            return result
+        }
+
+        return NetworkOperation(requestFactory: requestFactory, resultFactory: resultFactory)
+    }
+
     func fetchCountryOperation(_ urlTemplate: String) -> NetworkOperation<CountryData?> {
         let requestFactory = BlockNetworkRequestFactory {
             guard let serviceUrl = URL(string: urlTemplate) else {
