@@ -1,12 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
+import Then
+import Anchorage
 import SoraFoundation
 
-final class PersonalUpdateViewController: UIViewController {
+final class PersonalUpdateViewController: UIViewController, AdaptiveDesignable {
 	var presenter: PersonalUpdatePresenterProtocol!
 
     @IBOutlet private var tableView: UITableView!
@@ -17,14 +14,17 @@ final class PersonalUpdateViewController: UIViewController {
 
     private var hasChanges: Bool = false
 
-    var locale: Locale?
+    private lazy var contentWidth: CGFloat = baseDesignSize.width
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        navigationItem.largeTitleDisplayMode = .never
+
+        adjustLayout()
         configureTableView()
         configureSaveButton()
-        setupLocalization()
+        applyLocalization()
 
         updateActionState()
 
@@ -43,39 +43,70 @@ final class PersonalUpdateViewController: UIViewController {
         clearKeyboardHandler()
     }
 
+    private func adjustLayout() {
+        contentWidth *= designScaleRatio.width
+    }
+
     private func configureTableView() {
         tableView.register(R.nib.personalInfoCell)
+
+        let footerText = R.string.localizable.personalDetailsInfo(preferredLanguages: languages)
+        let footerViewModel = PersonalInfoFooterViewModel(text: footerText)
+        setupTableFooter(for: footerViewModel)
+    }
+
+    private func setupTableFooter(for viewModel: PersonalInfoFooterViewModel?) {
+        guard let viewModel = viewModel else {
+            tableView.tableFooterView = nil
+            return
+        }
+
+        var footerView = tableView.tableFooterView as? PersonalInfoFooterView
+
+        if footerView == nil {
+            footerView = R.nib.personalInfoFooterView(owner: nil)
+        }
+
+        footerView?.titleLabel.font = UIFont.styled(for: .paragraph3)
+        footerView?.titleLabel.textColor = R.color.baseContentQuaternary()
+
+        footerView?.bind(viewModel: viewModel)
+
+        if let footerView = footerView {
+            let size = footerView.sizeThatFits(CGSize(width: contentWidth,
+                                                      height: CGFloat.greatestFiniteMagnitude))
+            footerView.frame = CGRect(origin: .zero, size: size)
+        }
+
+        tableView.tableFooterView = footerView
     }
 
     private func configureSaveButton() {
-        let saveButton = UIBarButtonItem(title: R.string.localizable
-            .commonSave(preferredLanguages: locale?.rLanguages),
-                                         style: .plain,
-                                         target: self,
-                                         action: #selector(actionSave(sender:)))
+        let saveButton = UIBarButtonItem(
+            title: R.string.localizable.commonDone(preferredLanguages: languages),
+            style: .plain,
+            target: self,
+            action: #selector(actionSave(sender:))
+        )
 
         var normalTextAttributes = [NSAttributedString.Key: Any]()
-        normalTextAttributes[.foregroundColor] = UIColor.barButtonTitle
-        normalTextAttributes[.font] = UIFont.barButtonTitle
+        normalTextAttributes[.foregroundColor] = R.color.baseContentPrimary()
+        normalTextAttributes[.font] = UIFont.styled(for: .paragraph1)
 
         saveButton.setTitleTextAttributes(normalTextAttributes, for: .normal)
 
         var disabledTextAttributes = [NSAttributedString.Key: Any]()
-        disabledTextAttributes[.foregroundColor] = UIColor.barButtonTitle.withAlphaComponent(0.5)
-        disabledTextAttributes[.font] = UIFont.barButtonTitle
+        disabledTextAttributes[.foregroundColor] = R.color.baseOnDisabled()
+        disabledTextAttributes[.font] = UIFont.styled(for: .paragraph1)
 
         saveButton.setTitleTextAttributes(disabledTextAttributes, for: .disabled)
 
         navigationItem.rightBarButtonItem = saveButton
     }
 
-    private func setupLocalization() {
-        title = R.string.localizable.personalUpdateTitle(preferredLanguages: locale?.rLanguages)
-    }
-
     // MARK: Keyboard
 
-    func setupKeyboardHandler() {
+    private func setupKeyboardHandler() {
         keyboardHandler = KeyboardHandler()
         keyboardHandler?.animateOnFrameChange = animateKeyboardChange
     }
@@ -98,7 +129,7 @@ final class PersonalUpdateViewController: UIViewController {
         tableView.contentInset = contentInset
     }
 
-    func clearKeyboardHandler() {
+    private func clearKeyboardHandler() {
         keyboardHandler = nil
     }
 
@@ -126,9 +157,12 @@ extension PersonalUpdateViewController: UITableViewDataSource {
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: R.reuseIdentifier.personalInfoCellId,
-                                                 for: indexPath)!
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: R.reuseIdentifier.personalInfoCellId, for: indexPath)!
 
+        cell.titleLabel.font = UIFont.styled(for: .paragraph2)
+        cell.textField.font = UIFont.styled(for: .paragraph2)
+        cell.normalColor = R.color.baseContentTertiary()!
         cell.bind(model: models[indexPath.row])
         cell.delegate = self
 
@@ -164,9 +198,7 @@ extension PersonalUpdateViewController: PersonalInfoCellDelegate {
 
             nextCell.textField.becomeFirstResponder()
 
-            tableView.scrollToRow(at: nextIndexPath,
-                                  at: .bottom,
-                                  animated: true)
+            tableView.scrollToRow(at: nextIndexPath, at: .bottom, animated: true)
         } else {
             cell.textField.resignFirstResponder()
         }
@@ -195,5 +227,18 @@ extension PersonalUpdateViewController: PersonalUpdateViewProtocol {
         hasChanges = !success
 
         updateActionState()
+    }
+}
+
+// MARK: - Localizable
+
+extension PersonalUpdateViewController: Localizable {
+    private var languages: [String]? {
+        localizationManager?.preferredLocalizations
+    }
+
+    func applyLocalization() {
+        navigationItem.title = R.string.localizable
+            .personalInfoUsernameV1(preferredLanguages: languages)
     }
 }

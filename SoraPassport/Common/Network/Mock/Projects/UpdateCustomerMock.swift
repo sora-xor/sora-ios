@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FireMock
 
@@ -33,18 +28,18 @@ enum UpdateCustomerMock: FireMockProtocol {
     }
 }
 
-extension UpdateCustomerMock {
-    static func register(mock: UpdateCustomerMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.customerUpdate.rawValue) else {
-            Logger.shared.warning("Can't find customer update service endpoint to mock")
-            return
-        }
-
-        guard let url = URL(string: service.serviceEndpoint) else {
-            Logger.shared.warning("Can't create customer update regex")
-            return
-        }
-
-        FireMock.register(mock: mock, forURL: url, httpMethod: .put)
-    }
-}
+//extension UpdateCustomerMock {
+//    static func register(mock: UpdateCustomerMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.customerUpdate.rawValue) else {
+//            Logger.shared.warning("Can't find customer update service endpoint to mock")
+//            return
+//        }
+//
+//        guard let url = URL(string: service.serviceEndpoint) else {
+//            Logger.shared.warning("Can't create customer update regex")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, forURL: url, httpMethod: .put)
+//    }
+//}

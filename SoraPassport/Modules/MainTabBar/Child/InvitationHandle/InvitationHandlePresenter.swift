@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraFoundation
 
@@ -53,11 +48,11 @@ final class InvitationHandlePresenter {
                 let applyAction = AlertPresentableAction(title: applyTitle) { [weak self] in
                     self?.interactor.apply(invitationCode: invitationCode)
                 }
-
-                wireframe.present(message: message,
-                                  title: nil,
-                                  actions: [cancelAction, applyAction],
-                                  from: view)
+//
+//                wireframe.present(message: message,
+//                                  title: nil,
+//                                  actions: [cancelAction, applyAction],
+//                                  from: view)
             }
         } catch {
             let locale = localizationManager.selectedLocale

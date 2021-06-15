@@ -1,121 +1,59 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
+import SoraKeystore
 
 final class ProfileInteractor {
 	weak var presenter: ProfileInteractorOutputProtocol?
 
-    private(set) var customerDataProviderFacade: CustomerDataProviderFacadeProtocol
+    private(set) var keystore: KeystoreProtocol
+    private(set) var settings: SettingsManagerProtocol
+    private(set) var cacheFacade: CoreDataCacheFacadeProtocol
+    private(set) var userDataFacade: StorageFacadeProtocol
+    private(set) var substrateDataFacade: StorageFacadeProtocol
 
-    init(customerDataProviderFacade: CustomerDataProviderFacadeProtocol) {
-        self.customerDataProviderFacade = customerDataProviderFacade
-    }
+    init(keystore: KeystoreProtocol,
+         settings: SettingsManagerProtocol,
+         cacheFacade: CoreDataCacheFacadeProtocol,
+         substrateDataFacade: StorageFacadeProtocol,
+         userDataFacade: StorageFacadeProtocol) {
 
-    private func setupUserDataProvider() {
-        let changesBlock = { [weak self] (changes: [DataProviderChange<UserData>]) -> Void in
-            if let change = changes.first {
-                switch change {
-                case .insert(let user):
-                    self?.presenter?.didReceive(userData: user)
-                case .update(let user):
-                    self?.presenter?.didReceive(userData: user)
-                case .delete:
-                    break
-                }
-            }
-        }
-
-        let failBlock = { [weak self] (error: Error) -> Void in
-            self?.presenter?.didReceiveUserDataProvider(error: error)
-        }
-
-        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
-                                                  waitsInProgressSyncOnAdd: false)
-
-        customerDataProviderFacade.userProvider.addObserver(self,
-                                                            deliverOn: .main,
-                                                            executing: changesBlock,
-                                                            failing: failBlock,
-                                                            options: options)
-    }
-
-    private func setupVotesDataProvider() {
-        let changesBlock = { [weak self] (changes: [DataProviderChange<VotesData>]) -> Void in
-            if let change = changes.first {
-                switch change {
-                case .insert(let votes):
-                    self?.presenter?.didReceive(votesData: votes)
-                case .update(let votes):
-                    self?.presenter?.didReceive(votesData: votes)
-                case .delete:
-                    break
-                }
-            }
-        }
-
-        let failBlock = { [weak self] (error: Error) -> Void in
-            self?.presenter?.didReceiveVotesDataProvider(error: error)
-        }
-
-        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
-                                                  waitsInProgressSyncOnAdd: false)
-
-        customerDataProviderFacade.votesProvider.addObserver(self,
-                                                             deliverOn: .main,
-                                                             executing: changesBlock,
-                                                             failing: failBlock,
-                                                             options: options)
-    }
-
-    private func setupReputationDataProvider() {
-        let changesBlock = { [weak self] (changes: [DataProviderChange<ReputationData>]) -> Void in
-            if let change = changes.first {
-                switch change {
-                case .insert(let reputation):
-                    self?.presenter?.didReceive(reputationData: reputation)
-                case .update(let reputation):
-                    self?.presenter?.didReceive(reputationData: reputation)
-                case .delete:
-                    break
-                }
-            }
-        }
-
-        let failBlock = { [weak self] (error: Error) -> Void in
-            self?.presenter?.didReceiveReputationDataProvider(error: error)
-        }
-
-        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: false,
-                                                  waitsInProgressSyncOnAdd: false)
-
-        customerDataProviderFacade.reputationDataProvider.addObserver(self,
-                                                                      deliverOn: .main,
-                                                                      executing: changesBlock,
-                                                                      failing: failBlock,
-                                                                      options: options)
+        self.keystore = keystore
+        self.settings = settings
+        self.cacheFacade = cacheFacade
+        self.substrateDataFacade = substrateDataFacade
+        self.userDataFacade = userDataFacade
     }
 }
 
 extension ProfileInteractor: ProfileInteractorInputProtocol {
-    func setup() {
-        setupUserDataProvider()
-        setupVotesDataProvider()
-        setupReputationDataProvider()
+
+    func logoutAndClean() {
+        cleanKeystore()
+        cleanSettings()
+        cleanCoreData()
+        // TODO: [SN-377] Clean Capital cache
+        presenter?.restart()
+    }
+}
+
+private extension ProfileInteractor {
+
+    func cleanKeystore() {
+        try? keystore.deleteAll()
     }
 
-    func refreshUser() {
-        customerDataProviderFacade.userProvider.refresh()
+    func cleanSettings() {
+        settings.removeAll()
     }
 
-    func refreshVotes() {
-        customerDataProviderFacade.votesProvider.refresh()
-    }
+    func cleanCoreData() {
+        try? cacheFacade.databaseService.close()
+        try? cacheFacade.databaseService.drop()
 
-    func refreshReputation() {
-        customerDataProviderFacade.reputationDataProvider.refresh()
+        try? substrateDataFacade.databaseService.close()
+        try? substrateDataFacade.databaseService.drop()
+
+        try? userDataFacade.databaseService.close()
+        try? userDataFacade.databaseService.drop()
     }
 }

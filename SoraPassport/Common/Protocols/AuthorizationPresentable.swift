@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 typealias AuthorizationCompletionBlock = (Bool) -> Void
@@ -13,11 +8,25 @@ protocol AuthorizationPresentable: ScreenAuthorizationWireframeProtocol {
                    with completionBlock: @escaping AuthorizationCompletionBlock)
 }
 
+protocol AuthorizationAccessible {
+    var isAuthorizing: Bool { get }
+}
+
 private let authorization = UUID().uuidString
 
 private struct AuthorizationConstants {
     static var completionBlockKey: String = "co.jp.sora.auth.delegate"
     static var authorizationViewKey: String = "co.jp.sora.auth.view"
+}
+
+extension AuthorizationAccessible {
+    var isAuthorizing: Bool {
+        let view = objc_getAssociatedObject(authorization,
+                                            &AuthorizationConstants.authorizationViewKey)
+            as? PinSetupViewProtocol
+
+        return view != nil
+    }
 }
 
 extension AuthorizationPresentable {

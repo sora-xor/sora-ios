@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import Cuckoo
 import RobinHood
@@ -10,7 +5,7 @@ import RobinHood
 
 
 class ProjectsInteractorTests: NetworkBaseTests {
-
+/*
     func testMainSuccessfullSetup() {
         // given
         let projectUnit = ApplicationConfig.shared.defaultProjectUnit
@@ -183,4 +178,5 @@ class ProjectsInteractorTests: NetworkBaseTests {
         return ProjectsListPresenter(projectsViewModelFactory: projectViewModelFactory,
                                      referendumViewModelFactory: referendumViewModelFactory)
     }
+ */
 }

@@ -1,15 +1,10 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import Cuckoo
 import SoraFoundation
 
 class InvitationHandlePresenterTests: NetworkBaseTests {
-
+/*
     func testDeepLinkHandlingSuccess() {
         // given
 
@@ -175,4 +170,5 @@ class InvitationHandlePresenterTests: NetworkBaseTests {
 
         return presenter
     }
+ */
 }

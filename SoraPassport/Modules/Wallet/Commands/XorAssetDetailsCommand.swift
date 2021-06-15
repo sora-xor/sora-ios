@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -17,15 +12,11 @@ final class XorAssetDetailsCommand: WalletCommandDecoratorProtocol {
     let commandFactory: WalletCommandFactoryProtocol
     let address: String
     let xorAddress: String
-    let dataProvider: StreamableProvider<EthereumInit>
-    let repository: AnyDataProviderRepository<EthereumInit>
     let operationManager: OperationManagerProtocol
     let localizationManager: LocalizationManagerProtocol
     let tokenFormatter: LocalizableResource<TokenAmountFormatter>
 
     init(commandFactory: WalletCommandFactoryProtocol,
-         dataProvider: StreamableProvider<EthereumInit>,
-         repository: AnyDataProviderRepository<EthereumInit>,
          operationManager: OperationManagerProtocol,
          localizationManager: LocalizationManagerProtocol,
          address: String,
@@ -33,8 +24,6 @@ final class XorAssetDetailsCommand: WalletCommandDecoratorProtocol {
          balance: BalanceData,
          tokenFormatter: LocalizableResource<TokenAmountFormatter>) {
         self.commandFactory = commandFactory
-        self.dataProvider = dataProvider
-        self.repository = repository
         self.operationManager = operationManager
         self.localizationManager = localizationManager
         self.address = address
@@ -46,9 +35,10 @@ final class XorAssetDetailsCommand: WalletCommandDecoratorProtocol {
     func execute() throws {
         let locale = localizationManager.selectedLocale
 
-        let alertView = UIAlertController(title: R.string.localizable.commonSelectOption(preferredLanguages: locale.rLanguages),
-                                          message: nil,
-                                          preferredStyle: .actionSheet)
+        let alertView = UIAlertController(
+            title: R.string.localizable.commonSelectOption(preferredLanguages: locale.rLanguages),
+            message: nil, preferredStyle: .actionSheet
+        )
 
         let copyXorTitle = R.string.localizable.copyValTitle(preferredLanguages: locale.rLanguages)
         let copyXorAction = UIAlertAction(title: copyXorTitle, style: .default) { [weak self] _ in

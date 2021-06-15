@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import IrohaCrypto
@@ -21,7 +16,7 @@ class IdentityLocalRemoveOperationTests: XCTestCase {
         try? keystore.deleteAll()
         settings.removeAll()
     }
-
+/*
     func testSuccessfullRemoval() throws {
         // given
         settings.decentralizedId = Constants.dummyDid
@@ -96,4 +91,5 @@ class IdentityLocalRemoveOperationTests: XCTestCase {
         XCTAssertFalse(try keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue))
         XCTAssertTrue(try SecondaryIdentityRepository(keystore: keystore).checkAllEmpty())
     }
+ */
 }

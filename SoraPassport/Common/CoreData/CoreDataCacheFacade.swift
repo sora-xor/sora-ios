@@ -1,14 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import CoreData
 
 protocol CoreDataCacheFacadeProtocol: class {
-    var databaseService: CoreDataServiceProtocol { get }
+    var databaseService: CoreDataServiceProtocol {  get }
 
     func createCoreDataCache<T, U>(filter: NSPredicate?, mapper: AnyCoreDataMapper<T, U>) -> CoreDataRepository<T, U>
         where T: Identifiable & Codable, U: NSManagedObject

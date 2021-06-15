@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 extension UIColor {
@@ -33,7 +28,7 @@ extension UIColor {
     }
 
     static var background: UIColor {
-        return UIColor(red: 242.0 / 255.0, green: 247.0 / 255.0, blue: 247.0 / 255.0, alpha: 1.0)
+        return UIColor.white//(red: 242.0 / 255.0, green: 247.0 / 255.0, blue: 247.0 / 255.0, alpha: 1.0)
     }
 
     static var navigationBarTitleColor: UIColor {
@@ -96,12 +91,14 @@ extension UIColor {
         return UIColor(red: 96.0 / 255.0, green: 96.0 / 255.0, blue: 96.0 / 255.0, alpha: 0.38)
     }
 
+    @available(*, deprecated, message: "Will be removed")
     static var tabBarItemNormal: UIColor {
-        return UIColor(red: 115.0 / 255.0, green: 168.0 / 255.0, blue: 166.0 / 255.0, alpha: 1.0)
+        return UIColor(red: 0.459, green: 0.471, blue: 0.482, alpha: 1)
     }
 
+    @available(*, deprecated, message: "Will be removed")
     static var tabBarItemSelected: UIColor {
-        return UIColor(red: 208.0 / 255.0, green: 2.0 / 255.0, blue: 27.0 / 255.0, alpha: 1.0)
+        return UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1)
     }
 
     static var barVotes: UIColor {

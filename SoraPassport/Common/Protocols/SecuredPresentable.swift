@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
@@ -44,14 +39,8 @@ extension SecuredPresentable {
             return
         }
 
-        var blurStyle: UIBlurEffect.Style = .light
-
-        if #available(iOS 10.0, *) {
-            blurStyle = .regular
-        }
-
         let blurView = UIVisualEffectView()
-        blurView.effect = UIBlurEffect(style: blurStyle)
+        blurView.effect = UIBlurEffect(style: .regular)
         blurView.translatesAutoresizingMaskIntoConstraints = false
         presentationView.addSubview(blurView)
 

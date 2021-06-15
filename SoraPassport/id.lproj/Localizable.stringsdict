@@ -97,7 +97,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li teman memilih</string>
+        <string>%li voted teman</string>
       </dict>
     </dict>
     <key>referendum.date.day.plurals</key>

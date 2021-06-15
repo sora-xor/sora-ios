@@ -1,40 +1,41 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
-protocol PersonalUpdateViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
-	func didReceive(viewModels: [InputViewModelProtocol])
+// MARK: - View
+
+protocol PersonalUpdateViewProtocol: ControllerBackedProtocol {
+    func didReceive(viewModels: [InputViewModelProtocol])
     func didStartSaving()
     func didCompleteSaving(success: Bool)
 }
 
+// MARK: - Presenter
+
 protocol PersonalUpdatePresenterProtocol: class {
-	func setup()
+    func setup()
     func save()
 }
 
+// MARK: - Interactor
+
 protocol PersonalUpdateInteractorInputProtocol: class {
-	func setup()
-    func refresh()
-    func update(with info: PersonalInfo)
+    func setup()
+    func update(username: String?)
 }
 
 protocol PersonalUpdateInteractorOutputProtocol: class {
-    func didReceive(user: UserData?)
-    func didReceiveUserDataProvider(error: Error)
-
-    func didUpdateUser(with info: PersonalInfo)
-    func didReceiveUserUpdate(error: Error)
+    func didReceive(username: String?)
+    func didUpdate(username: String?)
 }
+
+// MARK: - Wireframe
 
 protocol PersonalUpdateWireframeProtocol: ErrorPresentable, AlertPresentable {
     func close(view: PersonalUpdateViewProtocol?)
 }
 
+// MARK: - Factory
+
 protocol PersonalUpdateViewFactoryProtocol: class {
-	static func createView() -> PersonalUpdateViewProtocol?
+    static func createView() -> PersonalUpdateViewProtocol?
 }

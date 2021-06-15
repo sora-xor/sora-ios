@@ -77,9 +77,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>invitación</string>
+        <string>%li  invitación</string>
         <key>other</key>
-        <string>invitaciones</string>
+        <string>%li  invitaciones</string>
       </dict>
     </dict>
     <key>favorite.users</key>
@@ -93,9 +93,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>favorito</string>
+        <string>%li  favorito</string>
         <key>other</key>
-        <string>favoritos</string>
+        <string>%li  favoritos</string>
       </dict>
     </dict>
     <key>voted.friends</key>
@@ -109,9 +109,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li voto amigo</string>
+        <string>%li amigo votó</string>
         <key>other</key>
-        <string>%li votos amigos</string>
+        <string>%li amigos votaron</string>
       </dict>
     </dict>
     <key>referendum.date.day.plurals</key>

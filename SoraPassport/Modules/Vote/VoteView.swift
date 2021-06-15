@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
@@ -26,22 +21,22 @@ class VoteView: UIView, AdaptiveDesignable, ModalInputViewProtocol {
     }
 
     var minimumTrackImage: UIImage? {
-        set(newValue) {
-            sliderView.setMinimumTrackImage(newValue, for: .normal)
-        }
-
         get {
             return sliderView.minimumTrackImage(for: .normal)
+        }
+
+        set(newValue) {
+            sliderView.setMinimumTrackImage(newValue, for: .normal)
         }
     }
 
     var maximumTrackImage: UIImage? {
-        set(newValue) {
-            sliderView.setMaximumTrackImage(newValue, for: .normal)
-        }
-
         get {
             return sliderView.maximumTrackImage(for: .normal)
+        }
+
+        set(newValue) {
+            sliderView.setMaximumTrackImage(newValue, for: .normal)
         }
     }
 

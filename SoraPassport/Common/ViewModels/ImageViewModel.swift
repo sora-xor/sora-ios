@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Kingfisher
 
@@ -20,7 +15,7 @@ protocol ImageViewModelProtocol: class {
 final class ImageViewModel: NSObject {
     private var url: URL
 
-    private var imageTask: RetrieveImageTask?
+    private var imageTask: DownloadTask?
 
     var targetSize: CGSize?
 
@@ -34,7 +29,7 @@ final class ImageViewModel: NSObject {
 extension ImageViewModel: ImageViewModelProtocol {
     var image: UIImage? {
 
-        let options: KingfisherOptionsInfo = [.callbackDispatchQueue(DispatchQueue.main),
+        let options: KingfisherOptionsInfo = [.callbackQueue(.mainCurrentOrAsync),
                                               .processor(self)]
 
         if let currentImage = KingfisherManager.shared.cache
@@ -42,10 +37,18 @@ extension ImageViewModel: ImageViewModelProtocol {
             return currentImage
         }
 
-        if let currentImage = KingfisherManager.shared.cache
-            .retrieveImageInDiskCache(forKey: url.absoluteString, options: options) {
-            return currentImage
-        }
+//TODO: disk cache?
+//        if let currentImage = KingfisherManager.shared.cache
+//            .retrieveImageInDiskCache(forKey: url.absoluteString, options: options, completionHandler: { result in
+//                switch result {
+//                case .success(let image):
+//                return image
+//                default:
+//                    print("no image")
+//                }
+//            })
+
+
 
         return nil
     }
@@ -53,7 +56,7 @@ extension ImageViewModel: ImageViewModelProtocol {
     func loadImage(with completionBlock: @escaping (UIImage?, Error?) -> Void) {
         let imageResource = ImageResource(downloadURL: url)
 
-        let options: KingfisherOptionsInfo = [.callbackDispatchQueue(DispatchQueue.main),
+        let options: KingfisherOptionsInfo = [.callbackQueue(.mainCurrentOrAsync),
                                               .cacheSerializer(FormatIndicatedCacheSerializer.png),
                                               .processor(self)]
 
@@ -61,13 +64,17 @@ extension ImageViewModel: ImageViewModelProtocol {
 
         imageTask = KingfisherManager.shared.retrieveImage(with: imageResource,
                                                            options: options,
-                                                           progressBlock: nil) { [weak self] (image, error, _, _) in
-
-                                                            if error?.code != NSURLErrorCancelled {
-                                                                self?.imageTask = nil
-                                                            }
-
-                                                            completionBlock(image, error)
+                                                           progressBlock: nil) { [weak self] result in
+            switch result {
+            case .success(let value):
+                completionBlock(value.image, nil)
+            case .failure(let error):
+                //TODO: cancelling error?
+//                if error != KingfisherError.requestError(reason: .taskCancelled(task: self?.imageTask, token: self?.imageTask?.cancelToken)) {
+//                    self?.imageTask = nil
+//                }
+                completionBlock(nil, error)
+            }
         }
     }
 
@@ -93,21 +100,22 @@ extension ImageViewModel: ImageProcessor {
         return ProcessorIdentifier.identifier(from: targetSize, cornerRadius: cornerRadius)
     }
 
-    func process(item: ImageProcessItem, options: KingfisherOptionsInfo) -> Image? {
+    func process(item: ImageProcessItem, options: KingfisherParsedOptionsInfo) -> KFCrossPlatformImage? {
         var resultItem = item
         let scaleFactor = UIScreen.main.scale
 
         if let size = targetSize {
             let resizeProcessor = ResizingImageProcessor(referenceSize: size, mode: .aspectFill)
+//            let options: KingfisherParsedOptionsInfo = [.scaleFactor(scaleFactor)]
 
-            guard let resizedImage = resizeProcessor.process(item: item, options: [.scaleFactor(scaleFactor)]) else {
+            guard let resizedImage = resizeProcessor.process(item: item, options: options) else {
                 return nil
             }
 
             let cropProcessor = CroppingImageProcessor(size: size, anchor: CGPoint(x: 0.5, y: 0.5))
 
             guard let cropedImage = cropProcessor.process(item: .image(resizedImage),
-                                                          options: [.scaleFactor(scaleFactor)]) else {
+                                                          options: options) else {
                 return nil
             }
 
@@ -121,7 +129,7 @@ extension ImageViewModel: ImageProcessor {
                                                              backgroundColor: nil)
 
             guard let roundedImage = cornerProccessor.process(item: resultItem,
-                                                              options: [.scaleFactor(scaleFactor)]) else {
+                                                              options: options) else {
                 return nil
             }
 
@@ -132,7 +140,7 @@ extension ImageViewModel: ImageProcessor {
         case .image(let image):
             return image
         case .data(let data):
-            return Image(data: data)
+            return KFCrossPlatformImage(data: data)
         }
     }
 }

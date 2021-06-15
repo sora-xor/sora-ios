@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FireMock
 import SoraFoundation
@@ -26,18 +21,18 @@ enum WithdrawProofFetchMock: FireMockProtocol {
     }
 }
 
-extension WithdrawProofFetchMock {
-    static func register(mock: WithdrawProofFetchMock, soranetUnit: ServiceUnit) {
-        guard let service = soranetUnit.service(for: SoranetServiceType.withdrawProof.rawValue) else {
-            Logger.shared.warning("Can't find soranet withdraw proof service endpoint to mock")
-            return
-        }
-
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create withdraw fetch regex")
-            return
-        }
-
-        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
-    }
-}
+//extension WithdrawProofFetchMock {
+//    static func register(mock: WithdrawProofFetchMock, soranetUnit: ServiceUnit) {
+//        guard let service = soranetUnit.service(for: SoranetServiceType.withdrawProof.rawValue) else {
+//            Logger.shared.warning("Can't find soranet withdraw proof service endpoint to mock")
+//            return
+//        }
+//
+//        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
+//            Logger.shared.warning("Can't create withdraw fetch regex")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
+//    }
+//}

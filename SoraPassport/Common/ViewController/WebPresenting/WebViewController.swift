@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import WebKit
 
@@ -40,17 +35,10 @@ final class WebViewController: UIViewController {
         webView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(webView)
 
-        if #available(iOS 11.0, *) {
-            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor).isActive = true
-            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
-            webView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor).isActive = true
-            webView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor).isActive = true
-        } else {
-            webView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
-            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
-            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
-            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
-        }
+        webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor).isActive = true
+        webView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+        webView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor).isActive = true
+        webView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor).isActive = true
 
         self.webView = webView
     }

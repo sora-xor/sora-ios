@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 struct UserData: Codable, Equatable {
@@ -10,6 +5,7 @@ struct UserData: Codable, Equatable {
         case userId
         case firstName
         case lastName
+        case username
         case inviteAcceptExpirationMoment
         case country
         case phone
@@ -22,6 +18,7 @@ struct UserData: Codable, Equatable {
     var userId: String
     var firstName: String
     var lastName: String
+    var username: String?
     var country: String?
     var phone: String?
     var inviteAcceptExpirationMoment: Int64?

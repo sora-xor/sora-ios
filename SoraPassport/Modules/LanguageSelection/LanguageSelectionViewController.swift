@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Rswift
 import SoraFoundation
@@ -20,6 +15,8 @@ final class LanguageSelectionViewController: SelectionListViewController<Selecti
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        navigationItem.largeTitleDisplayMode = .never
 
         applyLocalization()
 

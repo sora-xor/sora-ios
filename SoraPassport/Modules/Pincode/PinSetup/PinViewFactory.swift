@@ -1,27 +1,55 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
 
 class PinViewFactory: PinViewFactoryProtocol {
+
+    static func createPinEditView() -> PinSetupViewProtocol? {
+        let pinSetupView = PinSetupViewController(nib: R.nib.pinSetupViewController)
+
+        pinSetupView.mode = .create
+
+        let presenter = PinChangePresenter()
+        let wireframe = PinSetupWireframe(
+            localizationManager: LocalizationManager.shared
+        )
+        let config = ApplicationConfig.shared!
+
+        let interactor = PinSetupInteractor(
+            secretManager: KeychainManager.shared,
+            settingsManager: SettingsManager.shared,
+            biometryAuth: BiometryAuth(),
+            config: config as ApplicationConfigProtocol
+        )
+
+        pinSetupView.presenter = presenter
+        presenter.view = pinSetupView
+        presenter.interactor = interactor
+        presenter.wireframe = wireframe
+
+        interactor.presenter = presenter
+
+        pinSetupView.localizationManager = LocalizationManager.shared
+
+        return pinSetupView
+    }
+
     static func createPinSetupView() -> PinSetupViewProtocol? {
         let pinSetupView = PinSetupViewController(nib: R.nib.pinSetupViewController)
 
         pinSetupView.mode = .create
 
         let presenter = PinSetupPresenter()
+        let wireframe = PinSetupWireframe(
+            localizationManager: LocalizationManager.shared
+        )
+
         let config = ApplicationConfig.shared!
-        let projectService = ProjectUnitService(unit: config.defaultProjectUnit)
         let interactor = PinSetupInteractor(secretManager: KeychainManager.shared,
                                             settingsManager: SettingsManager.shared,
                                             biometryAuth: BiometryAuth(),
-                                            config: config as ApplicationConfigProtocol,
-                                            projectService: projectService)
-        let wireframe = PinSetupWireframe()
+                                            config: config as ApplicationConfigProtocol
+        )
 
         pinSetupView.presenter = presenter
         presenter.view = pinSetupView
@@ -41,11 +69,15 @@ class PinViewFactory: PinViewFactoryProtocol {
         pinVerifyView.mode = .securedInput
 
         let presenter = LocalAuthPresenter()
-        let interactor = LocalAuthInteractor(secretManager: KeychainManager.shared,
-                                             settingsManager: SettingsManager.shared,
-                                             biometryAuth: BiometryAuth(),
-                                             locale: LocalizationManager.shared.selectedLocale)
-        let wireframe = PinSetupWireframe()
+        let wireframe = PinSetupWireframe(
+            localizationManager: LocalizationManager.shared
+        )
+        let interactor = LocalAuthInteractor(
+            secretManager: KeychainManager.shared,
+            settingsManager: SettingsManager.shared,
+            biometryAuth: BiometryAuth(),
+            locale: LocalizationManager.shared.selectedLocale
+        )
 
         pinVerifyView.presenter = presenter
         presenter.interactor = interactor
@@ -67,10 +99,12 @@ class PinViewFactory: PinViewFactoryProtocol {
         pinVerifyView.mode = .securedInput
 
         let presenter = ScreenAuthorizationPresenter()
-        let interactor = LocalAuthInteractor(secretManager: KeychainManager.shared,
-                                             settingsManager: SettingsManager.shared,
-                                             biometryAuth: BiometryAuth(),
-                                             locale: LocalizationManager.shared.selectedLocale)
+        let interactor = LocalAuthInteractor(
+            secretManager: KeychainManager.shared,
+            settingsManager: SettingsManager.shared,
+            biometryAuth: BiometryAuth(),
+            locale: LocalizationManager.shared.selectedLocale
+        )
 
         pinVerifyView.presenter = presenter
         presenter.interactor = interactor

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 protocol HiddableBarWhenPushed: class {}
@@ -23,11 +18,13 @@ final class SoraNavigationController: UINavigationController, UINavigationContro
 
         view.backgroundColor = .background
 
+        navigationBar.prefersLargeTitles = true
+
         navigationBar.tintColor = SoraNavigationBarStyle.tintColor
 
         navigationBar.setBackgroundImage(SoraNavigationBarStyle.background,
                                          for: UIBarMetrics.default)
-        navigationBar.shadowImage = SoraNavigationBarStyle.darkShadow
+        navigationBar.shadowImage = SoraNavigationBarStyle.noShadow
 
         navigationBar.titleTextAttributes = SoraNavigationBarStyle.titleAttributes
     }

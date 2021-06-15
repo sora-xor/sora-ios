@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 extension ProfileButton {
@@ -96,6 +91,10 @@ extension ProfileButton {
 
     @IBInspectable
     private var _titleFontName: String? {
+        get {
+            return self.titleLabel.font.fontName
+        }
+
         set(newValue) {
             guard let fontName = newValue else {
                 self.titleLabel.font = nil
@@ -105,21 +104,17 @@ extension ProfileButton {
             let pointSize = self.titleLabel.font.pointSize
             self.titleLabel.font = UIFont(name: fontName, size: pointSize)
         }
-
-        get {
-            return self.titleLabel.font.fontName
-        }
     }
 
     @IBInspectable
     private var _titleFontSize: CGFloat {
+        get {
+            return self.titleLabel.font.pointSize
+        }
+
         set(newValue) {
             let fontName = self.titleLabel.font.fontName
             self.titleLabel.font = UIFont(name: fontName, size: newValue)
-        }
-
-        get {
-            return self.titleLabel.font.pointSize
         }
     }
 
@@ -158,6 +153,10 @@ extension ProfileButton {
 
     @IBInspectable
     private var _subtitleFontName: String? {
+        get {
+            return self.subtitleLabel.font.fontName
+        }
+
         set(newValue) {
             guard let fontName = newValue else {
                 self.subtitleLabel.font = nil
@@ -167,21 +166,17 @@ extension ProfileButton {
             let pointSize = self.subtitleLabel.font.pointSize
             self.subtitleLabel.font = UIFont(name: fontName, size: pointSize)
         }
-
-        get {
-            return self.subtitleLabel.font.fontName
-        }
     }
 
     @IBInspectable
     private var _subtitleFontSize: CGFloat {
+        get {
+            return self.subtitleLabel.font.pointSize
+        }
+
         set(newValue) {
             let fontName = self.subtitleLabel.font.fontName
             self.subtitleLabel.font = UIFont(name: fontName, size: newValue)
-        }
-
-        get {
-            return self.subtitleLabel.font.pointSize
         }
     }
 

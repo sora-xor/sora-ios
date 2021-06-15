@@ -1,64 +1,51 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
-
-private final class ContactViewModel: ContactsLocalSearchResultProtocol {
-    let firstName: String
-    let lastName: String
-    let accountId: String
-    let image: UIImage?
-    let name: String
-    let command: WalletCommandProtocol?
-
-    init(firstName: String,
-         lastName: String,
-         accountId: String,
-         image: UIImage?,
-         name: String,
-         command: WalletCommandProtocol?) {
-        self.firstName = firstName
-        self.lastName = lastName
-        self.accountId = accountId
-        self.image = image
-        self.name = name
-        self.command = command
-    }
-}
+import IrohaCrypto
+import FearlessUtils
+import RobinHood
+import SoraFoundation
 
 final class ContactsLocalSearchEngine: ContactsLocalSearchEngineProtocol {
+    let contactViewModelFactory: ContactsFactoryWrapperProtocol
+    let networkType: SNAddressType
 
-    weak var commandFactory: WalletCommandFactoryProtocol?
+    private lazy var addressFactory = SS58AddressFactory()
 
-    func search(query: String, accountId:String, assetId: String, delegate:ContactViewModelDelegate?) -> [ContactViewModelProtocol]? {
-        guard NSPredicate.ethereumAddress.evaluate(with: query) else {
+    init(networkType: SNAddressType, contactViewModelFactory: ContactsFactoryWrapperProtocol) {
+        self.contactViewModelFactory = contactViewModelFactory
+        self.networkType = networkType
+    }
+
+    func search(query: String,
+                parameters: ContactModuleParameters,
+                locale: Locale,
+                delegate: ContactViewModelDelegate?,
+                commandFactory: WalletCommandFactoryProtocol) -> [ContactViewModelProtocol]? {
+        do {
+            let peerId = try addressFactory.accountId(fromAddress: query, type: networkType)
+            let accountIdData = try Data(hexString: parameters.accountId)
+
+            guard peerId != accountIdData  else {
+                return []
+            }
+
+            let searchData = SearchData(accountId: peerId.toHex(),
+                                        firstName: query,
+                                        lastName: "")
+
+            guard let viewModel = contactViewModelFactory
+                .createContactViewModelFromContact(searchData,
+                                                   parameters: parameters,
+                                                   locale: locale,
+                                                   delegate: delegate,
+                                                   commandFactory: commandFactory) else {
+                return nil
+            }
+
+            return [viewModel]
+        } catch {
             return nil
         }
 
-        let receiver = ReceiveInfo(accountId: query,
-                                   assetId: nil,
-                                   amount: nil,
-                                   details: nil)
-
-        let payload = TransferPayload(receiveInfo: receiver,
-                                      receiverName: query)
-
-        guard let command = commandFactory?.prepareTransfer(with: payload) else {
-            return nil
-        }
-
-        command.presentationStyle = .push(hidesBottomBar: true)
-
-        let result = ContactViewModel(firstName: query,
-                                      lastName: "",
-                                      accountId: query,
-                                      image: R.image.iconEth(),
-                                      name: query,
-                                      command: command)
-
-        return [result]
     }
 }

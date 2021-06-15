@@ -1,15 +1,10 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import Cuckoo
 import RobinHood
 @testable import SoraPassport
 
 class ReferendumDetailsTests: NetworkBaseTests {
-
+/*
     func testSuccessfullSetup() {
         // given
         ProjectsVotesCountMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
@@ -74,5 +69,5 @@ class ReferendumDetailsTests: NetworkBaseTests {
                                            projectService: ProjectUnitService(unit: projectUnit),
                                            eventCenter: eventCenter)
     }
-
+*/
 }

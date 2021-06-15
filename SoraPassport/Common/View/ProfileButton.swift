@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraUI
 
@@ -20,6 +15,10 @@ final class ProfileButton: BackgroundedContentControl {
     lazy var highlitedOffAnimation: ViewAnimatorProtocol = TransformAnimator.highlightedOff
 
     override var isHighlighted: Bool {
+        get {
+            return super.isHighlighted
+        }
+
         set {
             let oldValue = super.isHighlighted
             super.isHighlighted = newValue
@@ -33,10 +32,6 @@ final class ProfileButton: BackgroundedContentControl {
                 layer.removeAllAnimations()
                 highlitedOffAnimation.animate(view: self, completionBlock: nil)
             }
-        }
-
-        get {
-            return super.isHighlighted
         }
     }
 

@@ -1,11 +1,5 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import os
-import SoraCrypto
 
 protocol ApplicationConfigProtocol {
     var projectDecentralizedId: String { get }
@@ -14,14 +8,8 @@ protocol ApplicationConfigProtocol {
     var walletDecentralizedId: String { get }
     var didResolverUrl: String { get }
     var decentralizedDomain: String { get }
-    var defaultProjectUnit: ServiceUnit { get }
-    var defaultNotificationUnit: ServiceUnit { get }
-    var defaultWalletUnit: ServiceUnit { get }
-    var defaultSoranetUnit: ServiceUnit { get }
-    var defaultStreamUnit: ServiceUnit { get }
     var defaultCurrency: CurrencyItemData { get }
     var soranetExplorerTemplate: String { get }
-    var ethereumExplorerTemplate: String { get }
 
     var supportEmail: String { get }
     var termsURL: URL { get }
@@ -29,15 +17,15 @@ protocol ApplicationConfigProtocol {
     var version: String { get }
     var invitationHostURL: URL { get }
     var opensourceURL: URL { get }
+    var telegramURL: URL { get }
+    var siteURL: URL { get }
     var faqURL: URL { get }
-    var ethereumMasterContract: Data { get }
-    var ethereumNodeUrl: URL { get }
-    var ethereumNodeAuth: String { get }
-    var ethereumChainId: EthereumChain { get }
-    var ethereumPollingTimeInterval: TimeInterval { get }
     var pendingFailureDelay: TimeInterval { get }
     var combinedTransfersHandlingDelay: TimeInterval { get }
-    func applyExternalConfig(_ config: EthNodeData)
+    var polkaswapURL: URL { get }
+    var rewardsURL: URL { get }
+    var phishingListURL: URL { get }
+    var shareURL: URL { get }
 }
 
 private struct InternalConfig: Codable {
@@ -47,11 +35,6 @@ private struct InternalConfig: Codable {
         case notificationOptions = "notificationOptions"
         case walletDecentralizedId = "walletDID"
         case didResolverUrl = "didResolverUrl"
-        case defaultProjectUnit = "projectUnit"
-        case defaultNotificationUnit = "notificationUnit"
-        case defaultWalletUnit = "walletUnit"
-        case defaultSoranetUnit = "soranetUnit"
-        case defaultStreamUnit = "streamUnit"
         case decentralizedDomain = "decentralizedDomain"
         case defaultCurrency = "currency"
         case soranetExplorerTemplate = "soranetExplorer"
@@ -64,11 +47,6 @@ private struct InternalConfig: Codable {
     var walletDecentralizedId: String
     var didResolverUrl: String
     var decentralizedDomain: String
-    var defaultProjectUnit: ServiceUnit
-    var defaultNotificationUnit: ServiceUnit
-    var defaultWalletUnit: ServiceUnit
-    var defaultSoranetUnit: ServiceUnit
-    var defaultStreamUnit: ServiceUnit
     var defaultCurrency: CurrencyItemData
     var soranetExplorerTemplate: String
     var ethereumExplorerTemplate: String
@@ -136,21 +114,9 @@ final class ApplicationConfig {
 
         self.config = config
     }
-
-    var extEthereumMasterContract: String?
-    var extEthereumNodeUrl: String?
-    var extEthereumNodeAuth: String?
-    var extEtherscan: String?
 }
 
 extension ApplicationConfig: ApplicationConfigProtocol {
-    func applyExternalConfig(_ config: EthNodeData) {
-        extEthereumNodeUrl = config.ethereumURL
-        extEthereumMasterContract = try? Data(hexString: config.masterContractAddress).toHex(includePrefix: false)
-        extEthereumNodeAuth = config.ethereumUsername + ":" + config.ethereumPassword
-        extEtherscan = config.etherscanBaseUrl + "tx/{hash}"
-        ApplicationConfig.logger.info("external config applied, node: \(extEthereumNodeUrl ?? "no node??"), contract: \(config.masterContractAddress)" )
-    }
 
     var projectDecentralizedId: String {
         config.projectDecentralizedId
@@ -172,26 +138,6 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         config.didResolverUrl
     }
 
-    var defaultProjectUnit: ServiceUnit {
-        config.defaultProjectUnit
-    }
-
-    var defaultNotificationUnit: ServiceUnit {
-        config.defaultNotificationUnit
-    }
-
-    var defaultWalletUnit: ServiceUnit {
-        config.defaultWalletUnit
-    }
-
-    var defaultSoranetUnit: ServiceUnit {
-        config.defaultSoranetUnit
-    }
-
-    var defaultStreamUnit: ServiceUnit {
-        config.defaultStreamUnit
-    }
-
     var decentralizedDomain: String {
         config.decentralizedDomain
     }
@@ -202,10 +148,6 @@ extension ApplicationConfig: ApplicationConfigProtocol {
 
     var soranetExplorerTemplate: String {
         config.soranetExplorerTemplate
-    }
-
-    var ethereumExplorerTemplate: String {
-        extEtherscan ?? config.ethereumExplorerTemplate
     }
 
     var supportEmail: String {
@@ -235,55 +177,38 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         URL(string: "https://ref.sora.org")!
     }
 
+    var telegramURL: URL {
+        URL(string: "https://t.me/sora_xor")!
+    }
+
+    var siteURL: URL {
+        URL(string: "https://sora.org")!
+    }
+
     var opensourceURL: URL {
-        URL(string: "https://github.com/sora-xor")!
+        URL(string: "https://github.com/sora-xor/Sora-iOS")!
     }
 
     var faqURL: URL {
-        URL(string: "https://sora.org/faq")!
+        URL(string: "https://wiki.sora.org/sora-faq")!
     }
 
-    var ethereumMasterContract: Data {
-        if let external = extEthereumMasterContract {
-            return Data(hexString: external)!
-        } else {
-            return Data()
-        }
+    var shareURL: URL {
+        URL(string: "https://sora.org/#rec229853503")!
     }
-
-    var ethereumNodeAuth: String {
-        if let external = extEthereumNodeAuth {
-            return "Basic " + (external.data(using: .utf8)?.base64EncodedString())!
-        }
-        return ""
-    }
-
-    var ethereumNodeUrl: URL {
-        if let external = extEthereumNodeUrl {
-            return URL(string: external)!
-        } else {
-            return faqURL
-        }
-    }
-
-    var ethereumChainId: EthereumChain {
-        if let external = extEthereumNodeUrl {
-            if external.contains("rinkeby") {
-                return .rinkeby
-            } else
-            if external.contains("ropsten") {
-                return .ropsten
-            } else
-            if external.contains("mainnet") {
-                return .mainnet
-            }
-        }
-        return .mainnet
-    }
-
-    var ethereumPollingTimeInterval: TimeInterval { 5.0 }
 
     var combinedTransfersHandlingDelay: TimeInterval { 1800 }
 
+    var polkaswapURL: URL {
+        URL(string: "https://polkaswap.io")!
+    }
+
+    var rewardsURL: URL {
+        URL(string: "https://sora-xor.medium.com/sora-validator-rewards-419320e22df8")!
+    }
     var pendingFailureDelay: TimeInterval { 86400 }
+
+    var phishingListURL: URL {
+        return URL(string: "https://polkadot.js.org/phishing/address.json")!
+    }
 }

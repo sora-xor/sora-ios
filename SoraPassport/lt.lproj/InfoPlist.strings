@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kamera naudojama QR kodui užfiksuoti";
+"NSFaceIDUsageDescription" = "\"Face ID\" naudojamas autorizuoti veiksmus programoje";
+"NSPhotoLibraryUsageDescription" = "Įkelti nuotraukas iš bibliotekos";
+"NSPhotoLibraryAddUsageDescription" = "Išsaugoti pavedimo užklausą kaip QR kodą";

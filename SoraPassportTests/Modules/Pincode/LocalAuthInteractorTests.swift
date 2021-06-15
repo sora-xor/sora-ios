@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import Cuckoo
@@ -24,7 +19,7 @@ class LocalAuthInteractorTests: XCTestCase {
         let completionExpectation = XCTestExpectation()
 
         stub(wireframe) { stub in
-            when(stub).showAuthVerification(from: any()).then { _ in
+            when(stub).showMain(from: any()).then { _ in
                 completionExpectation.fulfill()
             }
         }
@@ -73,7 +68,7 @@ class LocalAuthInteractorTests: XCTestCase {
         let completionExpectation = XCTestExpectation()
 
         stub(wireframe) { stub in
-            when(stub).showAuthVerification(from: any()).then { _ in
+            when(stub).showMain(from: any()).then { _ in
                 completionExpectation.fulfill()
             }
         }
@@ -122,7 +117,7 @@ class LocalAuthInteractorTests: XCTestCase {
         let completionExpectation = XCTestExpectation()
 
         stub(wireframe) { stub in
-            when(stub).showAuthVerification(from: any()).then { _ in
+            when(stub).showMain(from: any()).then { _ in
                 completionExpectation.fulfill()
             }
         }
@@ -169,7 +164,7 @@ class LocalAuthInteractorTests: XCTestCase {
         let settingsManager = InMemorySettingsManager()
 
         try? keystoreManager.keychain.saveKey(Constants.dummyPincode.data(using: .utf8)!,
-                                              with: KeystoreKey.pincode.rawValue)
+                                              with: KeystoreTag.pincode.rawValue)
 
         settingsManager.set(value: true, for: SettingsKey.biometryEnabled.rawValue)
 

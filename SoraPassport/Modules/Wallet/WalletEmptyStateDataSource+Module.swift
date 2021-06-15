@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -12,10 +7,10 @@ extension WalletEmptyStateDataSource {
             R.string.localizable.walletEmptyDescription(preferredLanguages: locale.rLanguages)
         }
 
-        let image = R.image.transactionsEmptyState()
+        let image = R.image.emptyStateIcon()
         let dataSource = WalletEmptyStateDataSource(titleResource: title, image: image)
         dataSource.localizationManager = LocalizationManager.shared
-
+        dataSource.verticalSpacingForEmptyState = 18
         return dataSource
     }
 

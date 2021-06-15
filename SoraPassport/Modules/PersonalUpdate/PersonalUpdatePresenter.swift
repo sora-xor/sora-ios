@@ -1,156 +1,83 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
-final class PersonalUpdatePresenter {
+extension PersonalUpdatePresenter {
     enum ViewModelIndex: Int {
-        case firstName
-        case lastName
-        case phone
+        case userName
     }
+}
 
-    enum DataLoadingState {
-        case waitingCached
-        case waitingRefresh
-        case refreshed
-    }
-
+final class PersonalUpdatePresenter {
 	weak var view: PersonalUpdateViewProtocol?
 	var interactor: PersonalUpdateInteractorInputProtocol!
 	var wireframe: PersonalUpdateWireframeProtocol!
 
-    var logger: LoggerProtocol?
-
     private(set) var viewModelFactory: PersonalInfoViewModelFactoryProtocol
 
-    private(set) var userData: UserData?
+    private(set) var username: String?
     private(set) var models: [InputViewModelProtocol]?
 
-    private(set) var dataLoadingState: DataLoadingState = .waitingCached
-
-    let locale: Locale
-
-    init(locale: Locale, viewModelFactory: PersonalInfoViewModelFactoryProtocol) {
-        self.locale = locale
+    init(viewModelFactory: PersonalInfoViewModelFactoryProtocol) {
         self.viewModelFactory = viewModelFactory
     }
 
-    private func updateViewModel() {
-        let models = viewModelFactory.createViewModels(from: userData, locale: locale)
-        self.models = models
-
-        view?.didReceive(viewModels: models)
-    }
-
-    private func prepareUpdateInfo() -> PersonalInfo? {
+    private func prepareUpdateInfo() -> String? {
         guard let models = models else {
             return nil
         }
 
-        guard let userData = userData else {
-            return nil
-        }
-
-        var info = PersonalInfo()
         var hasChanges: Bool = false
 
-        let newFirstName = models[ViewModelIndex.firstName.rawValue].inputHandler.normalizedValue
-        if newFirstName != userData.firstName {
-            info.firstName = newFirstName
+        let newUserName = models[ViewModelIndex.userName.rawValue].inputHandler.normalizedValue
+        if newUserName != username {
+            username = newUserName
             hasChanges = true
         }
 
-        let newLastName = models[ViewModelIndex.lastName.rawValue].inputHandler.normalizedValue
-        if newLastName != userData.lastName {
-            info.lastName = newLastName
-            hasChanges = true
-        }
-
-        return hasChanges ? info : nil
+        return hasChanges ? username : nil
     }
 
-    private func handleDataProvider(error: Error) {
-        if wireframe.present(error: error, from: view, locale: locale) {
-            return
-        }
+    private func updateViewModel() {
+        let models = viewModelFactory.createViewModels(from: username, locale: locale)
+        self.models = models
+
+        view?.didReceive(viewModels: models)
     }
 }
 
 extension PersonalUpdatePresenter: PersonalUpdatePresenterProtocol {
     func setup() {
-        view?.didStartLoading()
-
         interactor.setup()
     }
 
     func save() {
-        guard case .refreshed = dataLoadingState else {
-            return
-        }
-
-        if let info = prepareUpdateInfo() {
-            view?.didStartLoading()
-
-            interactor.update(with: info)
+        if let username = prepareUpdateInfo() {
+            interactor.update(username: username)
         } else {
-            view?.didStopLoading()
             view?.didCompleteSaving(success: true)
-
             wireframe.close(view: view)
         }
     }
 }
 
 extension PersonalUpdatePresenter: PersonalUpdateInteractorOutputProtocol {
-    func didReceive(user: UserData?) {
-        switch dataLoadingState {
-        case .waitingCached:
-            self.userData = user
-            updateViewModel()
-
-            dataLoadingState = .waitingRefresh
-            interactor.refresh()
-        case .waitingRefresh, .refreshed:
-            if let user = user {
-                self.userData = user
-                updateViewModel()
-            }
-
-            dataLoadingState = .refreshed
-            view?.didStopLoading()
-        }
+    func didReceive(username: String?) {
+        self.username = username
+        updateViewModel()
     }
 
-    func didReceiveUserDataProvider(error: Error) {
-        view?.didStopLoading()
-
-        switch dataLoadingState {
-        case .waitingCached:
-            logger?.error("Unexpected data provider fail while waiting cached data")
-        case .waitingRefresh:
-            handleDataProvider(error: error)
-        case .refreshed:
-            logger?.debug("Data provider failed but already refreshed")
-        }
-    }
-
-    func didUpdateUser(with info: PersonalInfo) {
-        view?.didStopLoading()
+    func didUpdate(username: String?) {
         view?.didCompleteSaving(success: true)
-
         wireframe.close(view: view)
     }
+}
 
-    func didReceiveUserUpdate(error: Error) {
-        view?.didStopLoading()
-        view?.didCompleteSaving(success: false)
+extension PersonalUpdatePresenter: Localizable {
+    private var locale: Locale {
+        localizationManager?.selectedLocale ?? Locale.current
+    }
 
-        if wireframe.present(error: error, from: view, locale: locale) {
-            return
-        }
+    private var languages: [String]? {
+        localizationManager?.preferredLocalizations
     }
 }

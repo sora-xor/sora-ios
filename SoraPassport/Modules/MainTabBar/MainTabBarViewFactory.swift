@@ -1,66 +1,65 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
-import SoraCrypto
 import SoraKeystore
 import CommonWallet
 import SoraFoundation
+import Then
 
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
-	static func createView() -> MainTabBarViewProtocol? {
+    static let walletIndex: Int = 0
+
+    static func createView() -> MainTabBarViewProtocol? {
+
+        guard let keystoreImportService: KeystoreImportServiceProtocol = URLHandlingService.shared
+                .findService() else {
+            Logger.shared.error("Can't find required keystore import service")
+            return nil
+        }
+
         let localizationManager = LocalizationManager.shared
 
-        guard let activityController = createActivityController(for: localizationManager) else {
-            return nil
-        }
+        let serviceCoordinator = ServiceCoordinator.createDefault()
 
-        guard let projectsController = createProjectsController(for: localizationManager) else {
-            return nil
-        }
+        let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
+                                              settings: SettingsManager.shared,
+                                              serviceCoordinator: serviceCoordinator,
+                                              keystoreImportService: keystoreImportService)
 
         guard
-            let walletContext = WalletContextFactory.createContext(),
-            let walletController = createWalletController(from: walletContext,
-                                                          localizationManager: localizationManager) else {
+            let walletContext = try? WalletContextFactory().createContext(),
+            let walletController = createWalletController(walletContext: walletContext,
+                                                          localizationManager: localizationManager)
+            else {
             return nil
         }
 
-        guard let profileController = createProfileController(for: localizationManager) else {
+        guard let stakingController = createStakingController(for: localizationManager) else {
             return nil
         }
 
-        guard let friendsController = createFriendsController(for: localizationManager) else {
+        guard let polkaswapController = createPolkaswapController(for: localizationManager) else {
             return nil
         }
 
-        guard let invitationLinkService: InvitationLinkServiceProtocol = DeepLinkService.shared.findService() else {
+        guard let settingsController = createProfileController(for: localizationManager) else {
+            return nil
+        }
+
+        guard let parliamentController = createParliamentController(for: localizationManager) else {
             return nil
         }
 
         let view = MainTabBarViewController()
-        view.viewControllers = [activityController, projectsController, walletController,
-                                profileController, friendsController]
+        view.viewControllers = [
+            walletController,
+            polkaswapController,
+            parliamentController,
+            stakingController,
+            settingsController
+        ]
 
-        let children = preparePresenterChildren(for: view)
-        let presenter = MainTabBarPresenter(children: children)
+        let presenter = MainTabBarPresenter()
 
-        let notificationRegistrator = NotificationService.sharedNotificationsInteractor.notificationsRegistrator
-
-        let userServices = createUserServices()
-
-        let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
-                                              settings: SettingsManager.shared,
-                                              applicationConfig: ApplicationConfig.shared,
-                                              applicationHandler: ApplicationHandler(),
-                                              notificationRegistrator: notificationRegistrator,
-                                              invitationLinkService: invitationLinkService,
-                                              walletContext: walletContext,
-                                              userServices: userServices)
-
-        let wireframe = MainTabBarWireframe()
+        let wireframe = MainTabBarWireframe(walletContext: walletContext)
 
         view.presenter = presenter
         presenter.view = view
@@ -69,44 +68,26 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         interactor.presenter = presenter
 
         return view
-	}
-
-    static func createUserServices() -> [UserApplicationServiceProtocol] {
-        let dataStreamService = DataStreamService()
-        let pollingServices = PollingServiceFactory().createServices()
-        let walletServices = WalletOperationFinalizationFactory().createServices()
-        let registrationServices = EthereumUserServiceFactory().createServices()
-        let historyUpdateServices = HistoryListeningServiceFactory().createServices()
-        return [dataStreamService] + registrationServices +
-            walletServices + pollingServices + historyUpdateServices
     }
 
-    static func createActivityController(for localizationManager: LocalizationManagerProtocol)
-        -> UIViewController? {
-        guard let activityView = ActivityFeedViewFactory.createView() else {
-            return nil
+    static func reloadWalletView(on view: MainTabBarViewProtocol,
+                                 wireframe: MainTabBarWireframeProtocol) {
+        let localizationManager = LocalizationManager.shared
+
+        guard
+            let walletContext = try? WalletContextFactory().createContext(),
+            let walletController = createWalletController(walletContext: walletContext,
+                                                          localizationManager: localizationManager)
+            else {
+            return
         }
 
-        let navigationController = SoraNavigationController()
-
-        let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.tabbarActivityTitle(preferredLanguages: locale.rLanguages)
-        }
-
-        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-        navigationController.tabBarItem = createTabBarItem(title: currentTitle,
-                                                           normalImage: R.image.tabActivity(),
-                                                           selectedImage: R.image.tabActivitySel())
-
-        navigationController.viewControllers = [activityView.controller]
-
-        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
-            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-            navigationController?.tabBarItem.title = currentTitle
-        }
-
-        return navigationController
+        wireframe.walletContext = walletContext
+        view.didReplaceView(for: walletController, for: Self.walletIndex)
     }
+}
+
+private extension MainTabBarViewFactory {
 
     static func preparePresenterChildren(for view: ControllerBackedProtocol) -> [ChildPresenterProtocol] {
         var children: [ChildPresenterProtocol] = []
@@ -118,38 +99,33 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return children
     }
 
-    static func createProjectsController(for localizationManager: LocalizationManagerProtocol)
-        -> UIViewController? {
-        guard let projectsView = ProjectsViewFactory.createView() else {
-            return nil
+    static func createTabBarItem(title: String, image: UIImage?, selectedImage: UIImage? = nil) -> UITabBarItem {
+
+        let tabBarItem = UITabBarItem(title: title, image: image, selectedImage: selectedImage)
+
+        // Style is set here for compatibility reasons for iOS 12.x and less.
+        // For iOS 13 styling see MainTabBarViewController's 'configure' method.
+
+        if #available(iOS 13.0, *) {
+            return tabBarItem
         }
 
-        let navigationController = SoraNavigationController()
+        let normalAttributes = [NSAttributedString.Key.foregroundColor: R.color.baseContentTertiary()!]
+        let selectedAttributes = [NSAttributedString.Key.foregroundColor: R.color.baseContentPrimary()!]
 
-        let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.tabbarVotingTitle(preferredLanguages: locale.rLanguages)
-        }
+        tabBarItem.setTitleTextAttributes(normalAttributes, for: .normal)
+        tabBarItem.setTitleTextAttributes(selectedAttributes, for: .selected)
 
-        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-
-        navigationController.tabBarItem = createTabBarItem(title: currentTitle,
-                                                           normalImage: R.image.tabProjects(),
-                                                           selectedImage: R.image.tabProjectsSel())
-
-        navigationController.viewControllers = [projectsView.controller]
-
-        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
-            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-            navigationController?.tabBarItem.title = currentTitle
-        }
-
-        return navigationController
+        return tabBarItem
     }
+}
 
-    static func createWalletController(from context: CommonWalletContextProtocol,
-                                       localizationManager: LocalizationManagerProtocol)
-        -> UIViewController? {
-        guard let walletController = try? context.createRootController() else {
+private extension MainTabBarViewFactory {
+
+    static func createWalletController(walletContext: CommonWalletContextProtocol,
+                                       localizationManager: LocalizationManagerProtocol) -> UIViewController? {
+
+        guard let walletController = try? walletContext.createRootController() else {
             return nil
         }
 
@@ -159,9 +135,8 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 
         let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
 
-        walletController.tabBarItem = createTabBarItem(title: currentTitle,
-                                                       normalImage: R.image.tabWallet(),
-                                                       selectedImage: R.image.tabWalletSel())
+        walletController.navigationItem.largeTitleDisplayMode = .never
+        walletController.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.wallet())
 
         localizationManager.addObserver(with: walletController) { [weak walletController] (_, _) in
             let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
@@ -171,13 +146,90 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return walletController
     }
 
-    static func createProfileController(for localizationManager: LocalizationManagerProtocol)
-        -> UIViewController? {
-        guard let profileView = ProfileViewFactory.createView() else {
+    static func createPolkaswapController(for localizationManager: LocalizationManagerProtocol) -> UIViewController? {
+        guard let view = PolkaswapViewFactory.createView() else {
             return nil
         }
 
-        let navigationController = SoraNavigationController()
+        let localizableTitle = LocalizableResource { locale in
+            R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: locale.rLanguages)
+        }
+
+        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+
+        let navigationController = SoraNavigationController().then {
+            $0.navigationBar.topItem?.title = currentTitle
+            $0.navigationBar.layoutMargins.left = 16
+            $0.navigationBar.layoutMargins.right = 16
+            $0.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.polkaswap())
+            $0.viewControllers = [view.controller]
+        }
+
+        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
+            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+            navigationController?.tabBarItem.title = currentTitle
+        }
+
+        return navigationController
+    }
+
+    static func createParliamentController(for localizationManager: LocalizationManagerProtocol) -> UIViewController? {
+        guard let view = ParliamentViewFactory.createView() else {
+            return nil
+        }
+
+        let localizableTitle = LocalizableResource { locale in
+            R.string.localizable.tabbarParliamentTitle(preferredLanguages: locale.rLanguages)
+        }
+
+        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+
+        let navigationController = ExtensibleBarNavigationController().then {
+            $0.navigationBar.topItem?.title = currentTitle
+            $0.navigationBar.prefersLargeTitles = true
+            $0.navigationBar.layoutMargins.left = 16
+            $0.navigationBar.layoutMargins.right = 16
+            $0.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.parliament())
+            $0.viewControllers = [view.controller]
+        }
+
+        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
+            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+            navigationController?.tabBarItem.title = currentTitle
+        }
+
+        return navigationController
+    }
+
+    static func createStakingController(for localizationManager: LocalizationManagerProtocol) -> UIViewController? {
+        guard let view = StakingViewFactory.createView() else {
+            return nil
+        }
+
+        let localizableTitle = LocalizableResource { locale in
+            R.string.localizable.tabbarStakingTitle(preferredLanguages: locale.rLanguages)
+        }
+
+        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+
+        let navigationController = SoraNavigationController().then {
+            $0.navigationBar.topItem?.title = currentTitle
+            $0.navigationBar.layoutMargins.left = 16
+            $0.navigationBar.layoutMargins.right = 16
+            $0.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.staking())
+            $0.viewControllers = [view.controller]
+        }
+
+        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
+            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+            navigationController?.tabBarItem.title = currentTitle
+        }
+
+        return navigationController
+    }
+
+    static func createProfileController(for localizationManager: LocalizationManagerProtocol) -> UIViewController? {
+        guard let view = ProfileViewFactory.createView() else { return nil }
 
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.tabbarProfileTitle(preferredLanguages: locale.rLanguages)
@@ -185,11 +237,13 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 
         let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
 
-        navigationController.tabBarItem = createTabBarItem(title: currentTitle,
-                                                           normalImage: R.image.tabProfile(),
-                                                           selectedImage: R.image.tabProfileSel())
-
-        navigationController.viewControllers = [profileView.controller]
+        let navigationController = SoraNavigationController().then {
+            $0.navigationBar.topItem?.title = currentTitle
+            $0.navigationBar.layoutMargins.left = 16
+            $0.navigationBar.layoutMargins.right = 16
+            $0.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.profile())
+            $0.viewControllers = [view.controller]
+        }
 
         localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
             let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
@@ -199,54 +253,16 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return navigationController
     }
 
-    static func createFriendsController(for localizationManager: LocalizationManagerProtocol)
-        -> UIViewController? {
-        guard let friendsView = InvitationViewFactory.createView() else {
+    static func createNetworkStatusPresenter(localizationManager: LocalizationManagerProtocol)
+        -> NetworkAvailabilityLayerInteractorOutputProtocol? {
+        guard let window = UIApplication.shared.keyWindow as? ApplicationStatusPresentable else {
             return nil
         }
 
-        let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.tabbarFriendsTitle(preferredLanguages: locale.rLanguages)
-        }
+        let prenseter = NetworkAvailabilityLayerPresenter()
+        prenseter.localizationManager = localizationManager
+        prenseter.view = window
 
-        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-
-        friendsView.controller.tabBarItem = createTabBarItem(title: currentTitle,
-                                                             normalImage: R.image.tabFriends(),
-                                                             selectedImage: R.image.tabFriendsSel())
-
-        let navigationController = SoraNavigationController()
-        navigationController.viewControllers = [friendsView.controller]
-
-        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
-            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-            navigationController?.tabBarItem.title = currentTitle
-        }
-
-        return navigationController
-    }
-
-    static func createTabBarItem(title: String,
-                                 normalImage: UIImage?,
-                                 selectedImage: UIImage?) -> UITabBarItem {
-
-        let tabBarItem = UITabBarItem(title: title,
-                                      image: normalImage,
-                                      selectedImage: selectedImage)
-
-        // Style is set here for compatibility reasons for iOS 12.x and less.
-        // For iOS 13 styling see MainTabBarViewController's 'configure' method.
-
-        if #available(iOS 13.0, *) {
-            return tabBarItem
-        }
-
-        let normalAttributes = [NSAttributedString.Key.foregroundColor: UIColor.tabBarItemNormal]
-        let selectedAttributes = [NSAttributedString.Key.foregroundColor: UIColor.tabBarItemSelected]
-
-        tabBarItem.setTitleTextAttributes(normalAttributes, for: .normal)
-        tabBarItem.setTitleTextAttributes(selectedAttributes, for: .selected)
-
-        return tabBarItem
+        return prenseter
     }
 }

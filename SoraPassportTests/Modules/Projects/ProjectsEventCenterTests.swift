@@ -1,14 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import Cuckoo
 
 class ProjectsEventCenterTests: NetworkBaseTests {
-
+    /*
     func testViewEventDelivered() {
         // given
 
@@ -40,118 +35,6 @@ class ProjectsEventCenterTests: NetworkBaseTests {
         // then
 
         wait(for: [expectation], timeout: Constants.networkRequestTimeout)
-    }
-
-    func testVoteEventDelivered() {
-        // given
-
-        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
-        ProjectsFetchMock.register(mock: .success, projectUnit: projectUnit)
-        ReferendumsOpenFetchMock.register(mock: .success, projectUnit: projectUnit)
-        ProjectsVotesCountMock.register(mock: .success, projectUnit: projectUnit)
-        ProjectsVoteMock.register(mock: .success, projectUnit: projectUnit)
-
-        let eventCenter = EventCenter()
-
-        let interactor = prepareInteractor(with: eventCenter)
-
-        let childPresenter = MockProjectsListPresenterProtocol()
-        mockChildren(presenters: [childPresenter])
-
-        let view = MockProjectsViewProtocol()
-        let presenter = performPresenterSetup(for: interactor,
-                                              view: view,
-                                              children: [.all: childPresenter])
-
-        // when
-
-        stub(view) { stub in
-            when(stub).didLoad(votes: any()).thenDoNothing()
-            when(stub).didEditProjects(using: any((() -> ViewModelUpdateResult).self)).thenDoNothing()
-        }
-
-        let refreshExpectation = XCTestExpectation()
-
-        stub(childPresenter) { stub in
-            when(stub).refresh().then { _ in
-                refreshExpectation.fulfill()
-            }
-        }
-
-        let observer = MockEventVisitorProtocol()
-        eventCenter.add(observer: observer)
-
-        let observerExpectation = XCTestExpectation()
-
-        stub(observer) { stub in
-            when(stub).processProjectVote(event: any()).then { _ in
-                observerExpectation.fulfill()
-            }
-        }
-
-        interactor.vote(for: ProjectVote(projectId: UUID().uuidString, votes: "1.0"))
-
-        // then
-
-        wait(for: [refreshExpectation, observerExpectation], timeout: Constants.networkRequestTimeout)
-
-        XCTAssertEqual(presenter.displayType, .all)
-    }
-
-    func testFavoriteToggleEventDelivered() {
-        // given
-
-        let projectUnit = ApplicationConfig.shared.defaultProjectUnit
-        ProjectsFetchMock.register(mock: .success, projectUnit: projectUnit)
-        ReferendumsOpenFetchMock.register(mock: .success, projectUnit: projectUnit)
-        ProjectsVotesCountMock.register(mock: .success, projectUnit: projectUnit)
-        ProjectsToggleFavoriteMock.register(mock: .success, projectUnit: projectUnit)
-
-        let eventCenter = EventCenter()
-
-        let interactor = prepareInteractor(with: eventCenter)
-
-        let childPresenter = MockProjectsListPresenterProtocol()
-        mockChildren(presenters: [childPresenter])
-
-        let view = MockProjectsViewProtocol()
-        let presenter = performPresenterSetup(for: interactor,
-                                              view: view,
-                                              children: [.all: childPresenter])
-
-        // when
-
-        stub(view) { stub in
-            when(stub).didLoad(votes: any()).thenDoNothing()
-            when(stub).didEditProjects(using: any((() -> ViewModelUpdateResult).self)).thenDoNothing()
-        }
-
-        let refreshExpectation = XCTestExpectation()
-
-        stub(childPresenter) { stub in
-            when(stub).refresh().then { _ in
-                refreshExpectation.fulfill()
-            }
-        }
-
-        let observer = MockEventVisitorProtocol()
-        eventCenter.add(observer: observer)
-
-        let observerExpectation = XCTestExpectation()
-
-        stub(observer) { stub in
-            when(stub).processProjectFavoriteToggle(event: any()).then { _ in
-                observerExpectation.fulfill()
-            }
-        }
-
-        interactor.toggleFavorite(for: UUID().uuidString)
-
-        // then
-
-        wait(for: [refreshExpectation, observerExpectation], timeout: Constants.networkRequestTimeout)
-
-        XCTAssertEqual(presenter.displayType, .all)
     }
 
     // MARK: Private
@@ -234,4 +117,5 @@ class ProjectsEventCenterTests: NetworkBaseTests {
                                   projectService: projectUnitService,
                                   eventCenter: eventCenter)
     }
+ */
 }

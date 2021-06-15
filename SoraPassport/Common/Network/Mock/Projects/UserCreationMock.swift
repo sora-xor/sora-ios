@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FireMock
 import SoraFoundation
@@ -32,18 +27,18 @@ enum UserCreationMock: FireMockProtocol {
     }
 }
 
-extension UserCreationMock {
-    static func register(mock: UserCreationMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.createUser.rawValue) else {
-            Logger.shared.warning("Can't find project user creation service endpoint to mock")
-            return
-        }
-
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create user creation regex")
-            return
-        }
-
-        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
-    }
-}
+//extension UserCreationMock {
+//    static func register(mock: UserCreationMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.createUser.rawValue) else {
+//            Logger.shared.warning("Can't find project user creation service endpoint to mock")
+//            return
+//        }
+//
+//        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
+//            Logger.shared.warning("Can't create user creation regex")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
+//    }
+//}

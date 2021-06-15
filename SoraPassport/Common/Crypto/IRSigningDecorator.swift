@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import IrohaCrypto
@@ -25,6 +20,12 @@ extension IRSigningDecorator: IRSignatureCreatorProtocol {
 
         let privateKey = try IRIrohaPrivateKey(rawData: rawKey)
 
+        let rawSigner = IRIrohaSigner(privateKey: privateKey)
+
+        return try rawSigner.sign(originalData)
+    }
+
+    func sign(_ originalData: Data, privateKey: IRPrivateKeyProtocol) throws -> IRSignatureProtocol {
         let rawSigner = IRIrohaSigner(privateKey: privateKey)
 
         return try rawSigner.sign(originalData)

@@ -1,11 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import SoraKeystore
-import SoraCrypto
+//import SoraCrypto
 import IrohaCrypto
 import RobinHood
 @testable import SoraPassport
@@ -20,7 +15,7 @@ class IdentityRestorationOperationTests: XCTestCase {
     override func tearDown() {
         try? keystore.deleteAll()
     }
-
+/*
     func testSuccessfullRestoration() throws {
         try runRestorationTest(for: Constants.dummyValidMnemonic, expectsSuccess: true)
     }
@@ -70,4 +65,5 @@ class IdentityRestorationOperationTests: XCTestCase {
             }
         }
     }
+ */
 }

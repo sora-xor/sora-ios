@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import Cuckoo
 @testable import SoraPassport
@@ -56,6 +51,9 @@ class RootInteractorTests: XCTestCase {
             when(stub.showOnboarding(on: viewMatcher)).then { view in
                 expectation.fulfill()
             }
+            when(stub.showSplash(on: viewMatcher, completion: anyClosure())).then { (_, completion) in
+                completion()
+            }   
         }
 
         // when
@@ -75,7 +73,10 @@ class RootInteractorTests: XCTestCase {
         let expectation = XCTestExpectation()
 
         stub(wireframe) { stub in
-            when(stub.showAuthVerification(on: viewMatcher)).then { view in
+            when(stub.showSplash(on: viewMatcher, completion: anyClosure())).then { (_, completion) in
+                completion()
+            }
+            when(stub.showOnboarding(on: viewMatcher)).then { view in
                 expectation.fulfill()
             }
         }
@@ -97,12 +98,18 @@ class RootInteractorTests: XCTestCase {
         settings.decentralizedId = Constants.dummyDid
         settings.publicKeyId = Constants.dummyPubKeyId
 
-        try? keystore.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreKey.pincode.rawValue)
+        try? keystore.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreTag.pincode.rawValue)
 
         let expectation = XCTestExpectation()
 
         stub(wireframe) { stub in
             when(stub.showLocalAuthentication(on: viewMatcher)).then { view in
+                expectation.fulfill()
+            }
+            when(stub.showSplash(on: viewMatcher, completion: anyClosure())).then { (_, completion) in
+                completion()
+            }
+            when(stub.showOnboarding(on: viewMatcher)).then { view in
                 expectation.fulfill()
             }
         }

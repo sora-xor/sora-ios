@@ -1,60 +1,72 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import SoraFoundation
 
 final class AboutPresenter {
     weak var view: AboutViewProtocol?
     var wireframe: AboutWireframeProtocol!
 
-    let about: AboutData
-    let locale: Locale
+    private(set) var viewModelFactory: AboutViewModelFactoryProtocol
 
-    init(locale: Locale, about: AboutData) {
-        self.locale = locale
-        self.about = about
-    }
-
-    private func show(url: URL) {
-        if let view = view {
-            wireframe.showWeb(url: url, from: view, style: .automatic)
-        }
+    init(viewModelFactory: AboutViewModelFactory) {
+        self.viewModelFactory = viewModelFactory
     }
 }
 
 extension AboutPresenter: AboutPresenterProtocol {
+
     func setup() {
-        view?.didReceive(version: about.version)
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+        let optionViewModels = viewModelFactory.createAboutViewModels(locale: locale)
+
+        view?.didReceive(optionViewModels: optionViewModels)
     }
 
-    func activateOpensource() {
-        show(url: about.opensourceUrl)
-    }
+    func activateOption(_ option: AboutOption) {
+        switch option {
+        case .website, .opensource, .telegram, .terms, .privacy:
+            show(url: option.address())
 
-    func activateTerms() {
-        show(url: about.legal.termsUrl)
-    }
-
-    func activatePrivacyPolicy() {
-        show(url: about.legal.privacyPolicyUrl)
-    }
-
-    func activateWriteUs() {
-        if let view = view {
-            let message = SocialMessage(body: nil,
-                                        subject: about.writeUs.subject,
-                                        recepients: [about.writeUs.email])
-            if !wireframe.writeEmail(with: message, from: view, completionHandler: nil) {
-                wireframe.present(message: R.string.localizable
-                    .noEmailBoundErrorMessage(preferredLanguages: locale.rLanguages),
-                                  title: R.string.localizable
-                                    .commonErrorGeneralTitle(preferredLanguages: locale.rLanguages),
-                                  closeAction: R.string.localizable
-                                    .commonClose(preferredLanguages: locale.rLanguages),
-                                  from: view)
-            }
+        case .writeUs(let email):
+            activateWriteUs(to: email)
         }
+    }
+}
+
+private extension AboutPresenter {
+
+    func show(url: URL?) {
+        if let view = view, let url = url {
+            wireframe.showWeb(url: url, from: view, style: .automatic)
+        }
+    }
+
+    func activateWriteUs(to email: String) {
+        guard let view = view else {
+            return
+        }
+
+        let message = SocialMessage(
+            body: nil, subject: nil,
+            recepients: [email]
+        )
+
+        if !wireframe.writeEmail(with: message, from: view, completionHandler: nil) {
+            wireframe.present(
+                message: R.string.localizable.noEmailBoundErrorMessage(preferredLanguages: languages),
+                title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
+                closeAction: R.string.localizable.commonClose(preferredLanguages: languages),
+                from: view
+            )
+        }
+    }
+}
+
+extension AboutPresenter: Localizable {
+    private var languages: [String]? {
+        localizationManager?.preferredLocalizations
+    }
+
+    func applyLocalization() {
+
     }
 }

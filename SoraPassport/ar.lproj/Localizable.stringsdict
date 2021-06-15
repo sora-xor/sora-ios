@@ -13,17 +13,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li يوما باقيا</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li يوما باقيا</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li باقي يومان</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li باقي ايام</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li باقي ايام</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li باقي ايام</string>
       </dict>
     </dict>
     <key>project.date.hour.plurals</key>
@@ -37,17 +37,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li ساعة باقية</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li ساعة باقية</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li باقي ساعتان</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li باقي ساعات</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li باقي ساعات</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li باقي ساعات</string>
       </dict>
     </dict>
     <key>project.date.minute.plurals</key>
@@ -61,17 +61,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li دقيقة باقية</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li دقيقة باقية</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li باقي دقيقتان</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li باقي دقائق</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li باقي دقائق</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li باقي دقائق</string>
       </dict>
     </dict>
     <key>project.date.second.plurals</key>
@@ -85,17 +85,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li ثانية باقية</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li ثانية باقية</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li باقي ثانيتان</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li باقي ثواني</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li باقي ثواني</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li باقي ثواني</string>
       </dict>
     </dict>
     <key>received.invitations</key>
@@ -109,17 +109,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li دعوة</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li دعوة</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li دعوتان</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li دعوات</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li دعوات</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li دعوة</string>
       </dict>
     </dict>
     <key>favorite.users</key>
@@ -133,17 +133,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li مفضل</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li مفضل</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li مفضل</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li مفضل</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li مفضل</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li مفضل</string>
       </dict>
     </dict>
     <key>voted.friends</key>
@@ -157,17 +157,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li صديق صوّت</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li صديق صوّت</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li صديقان صوّتا</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li أصدقاء صوتو</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li صديقا صوت</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li صديقا صوت</string>
       </dict>
     </dict>
     <key>referendum.date.day.plurals</key>
@@ -181,17 +181,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>%li صفر</string>
+        <string>%li يوم</string>
         <key>one</key>
-        <string>%li واحد</string>
+        <string>%li يوم</string>
         <key>two</key>
-        <string>%li اثنان</string>
+        <string>%li يومان</string>
         <key>few</key>
-        <string>%li قليل</string>
+        <string>%li أيام</string>
         <key>many</key>
-        <string>%li كثير</string>
+        <string>%li أيام</string>
         <key>other</key>
-        <string>%li اخر</string>
+        <string>%li أيام</string>
       </dict>
     </dict>
     <key>referendum.date.hour.plurals</key>
@@ -205,17 +205,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li ساعة</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li ساعة</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li ساعتان</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li ساعات</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li ساعات</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li ساعات</string>
       </dict>
     </dict>
     <key>referendum.date.minute.plurals</key>
@@ -229,17 +229,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li دقيقة</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li دقيقة</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li دقيقتان</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li دقائق</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li دقائق</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li دقائق</string>
       </dict>
     </dict>
     <key>referendum.date.second.plurals</key>
@@ -253,17 +253,17 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>zero</key>
-        <string>صفر</string>
+        <string>%li ثانية</string>
         <key>one</key>
-        <string>واحد</string>
+        <string>%li ثانية</string>
         <key>two</key>
-        <string>اثنان</string>
+        <string>%li ثانيتان</string>
         <key>few</key>
-        <string>قليل</string>
+        <string>%li ثوان</string>
         <key>many</key>
-        <string>كثير</string>
+        <string>%li ثوان</string>
         <key>other</key>
-        <string>اخر</string>
+        <string>%li ثوان</string>
       </dict>
     </dict>
   </dict>

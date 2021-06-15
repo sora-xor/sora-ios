@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kameraet bruges til at indlæse QR-koder";
+"NSFaceIDUsageDescription" = "Face ID bruges til at godkende i app'en";
+"NSPhotoLibraryUsageDescription" = "Indlæs fotos fra dit bibliotek";
+"NSPhotoLibraryAddUsageDescription" = "Gem transaktionsanmodning som en QR-kode";

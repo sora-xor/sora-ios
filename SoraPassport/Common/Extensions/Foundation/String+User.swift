@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 extension String {
@@ -28,5 +23,12 @@ extension String {
         }
 
         return components[components.count - 1]
+    }
+
+    var soraConcat: String {
+        if self.count < 11 {return self}
+        let prefix = self.prefix(5)
+        let suffix = self.suffix(5)
+        return "\(prefix)…\(suffix)"
     }
 }

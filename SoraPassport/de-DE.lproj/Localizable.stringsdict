@@ -13,9 +13,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li day left</string>
+        <string>Tag verbleibt</string>
         <key>other</key>
-        <string>%li days left</string>
+        <string>Tage verbleiben</string>
       </dict>
     </dict>
     <key>project.date.hour.plurals</key>
@@ -29,9 +29,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li hour left</string>
+        <string>Stunde verbleibt</string>
         <key>other</key>
-        <string>%li hours left</string>
+        <string>Stunden verbleiben</string>
       </dict>
     </dict>
     <key>project.date.minute.plurals</key>
@@ -45,9 +45,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li minute left</string>
+        <string>Minute verbleibt</string>
         <key>other</key>
-        <string>%li minutes left</string>
+        <string>Minuten verbleiben</string>
       </dict>
     </dict>
     <key>project.date.second.plurals</key>
@@ -61,15 +61,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li second left</string>
+        <string>Sekunde verbleiben</string>
         <key>other</key>
-        <string>%li seconds left</string>
+        <string>Sekunden verbleiben</string>
       </dict>
     </dict>
     <key>received.invitations</key>
     <dict>
       <key>NSStringLocalizedFormatKey</key>
-      <string>You have received %#@invitation@</string>
+      <string>Du hast eine %#@invitation@ erhalten.</string>
       <key>invitation</key>
       <dict>
         <key>NSStringFormatSpecTypeKey</key>
@@ -77,9 +77,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li invitation</string>
+        <string>Einladung</string>
         <key>other</key>
-        <string>%li invitations</string>
+        <string>Einladungen</string>
       </dict>
     </dict>
     <key>favorite.users</key>
@@ -93,9 +93,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li favourite</string>
+        <string>Favorit</string>
         <key>other</key>
-        <string>%li favourites</string>
+        <string>Favoriten</string>
       </dict>
     </dict>
     <key>voted.friends</key>
@@ -109,9 +109,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li friend voted</string>
+        <string>Freund hat abgestimmt</string>
         <key>other</key>
-        <string>%li friends voted</string>
+        <string>Freunde haben abgestimmt</string>
       </dict>
     </dict>
     <key>referendum.date.day.plurals</key>
@@ -125,9 +125,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li day</string>
+        <string>Tag</string>
         <key>other</key>
-        <string>%li days</string>
+        <string>Tage</string>
       </dict>
     </dict>
     <key>referendum.date.hour.plurals</key>
@@ -141,9 +141,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li</string>
+        <string>%li Stunde</string>
         <key>other</key>
-        <string>%li</string>
+        <string>%li Stunden</string>
       </dict>
     </dict>
     <key>referendum.date.minute.plurals</key>
@@ -157,9 +157,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li minute</string>
+        <string>Minute</string>
         <key>other</key>
-        <string>%li minutes</string>
+        <string>Minuten</string>
       </dict>
     </dict>
     <key>referendum.date.second.plurals</key>
@@ -173,9 +173,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li</string>
+        <string>%li Sekunde</string>
         <key>other</key>
-        <string>%li</string>
+        <string>%li Sekunden</string>
       </dict>
     </dict>
   </dict>

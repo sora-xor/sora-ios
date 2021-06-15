@@ -1,11 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import SoraKeystore
-import SoraCrypto
+//import SoraCrypto
 import RobinHood
 @testable import SoraPassport
 
@@ -19,7 +14,7 @@ class IdentityCopyOperationTests: XCTestCase {
     override func tearDown() {
         try? keystore.deleteAll()
     }
-
+/*
     func testSuccessfullIdentityCopy() throws {
         // given
 
@@ -57,4 +52,5 @@ class IdentityCopyOperationTests: XCTestCase {
         XCTAssertTrue(try keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue))
         XCTAssertTrue(try SecondaryIdentityRepository(keystore: keystore).checkAllExist())
     }
+ */
 }

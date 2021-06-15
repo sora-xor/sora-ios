@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FireMock
 
@@ -28,18 +23,18 @@ enum WalletEthereumStateMock: FireMockProtocol {
     }
 }
 
-extension WalletEthereumStateMock {
-    static func register(mock: WalletEthereumStateMock, walletUnit: ServiceUnit) {
-        guard let service = walletUnit.service(for: WalletServiceType.ethereumState.rawValue) else {
-            Logger.shared.warning("Can't find wallet ethereum state service endpoint to mock")
-            return
-        }
-
-        guard let url = URL(string: service.serviceEndpoint) else {
-            Logger.shared.warning("Can't create transfer url")
-            return
-        }
-
-        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
-    }
-}
+//extension WalletEthereumStateMock {
+//    static func register(mock: WalletEthereumStateMock, walletUnit: ServiceUnit) {
+//        guard let service = walletUnit.service(for: WalletServiceType.ethereumState.rawValue) else {
+//            Logger.shared.warning("Can't find wallet ethereum state service endpoint to mock")
+//            return
+//        }
+//
+//        guard let url = URL(string: service.serviceEndpoint) else {
+//            Logger.shared.warning("Can't create transfer url")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
+//    }
+//}

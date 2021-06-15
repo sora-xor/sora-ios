@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -10,13 +5,13 @@ final class InvitationHandleInteractor {
     weak var presenter: InvitationHandleInteractorOutputProtocol?
 
     let userDataProvider: SingleValueProvider<UserData>
-    let projectService: ProjectUnitServiceProtocol
+//    let projectService: ProjectUnitServiceProtocol
     let eventCenter: EventCenterProtocol
 
-    init(projectService: ProjectUnitServiceProtocol,
+    init(//projectService: ProjectUnitServiceProtocol,
          userDataProvider: SingleValueProvider<UserData>,
          eventCenter: EventCenterProtocol) {
-        self.projectService = projectService
+//        self.projectService = projectService
         self.userDataProvider = userDataProvider
         self.eventCenter = eventCenter
     }
@@ -54,7 +49,7 @@ extension InvitationHandleInteractor: InvitationHandleInteractorInputProtocol {
     func setup() {
         setupUserDataProvider()
 
-        eventCenter.add(observer: self)
+//        eventCenter.add(observer: self)
     }
 
     func refresh() {
@@ -62,29 +57,29 @@ extension InvitationHandleInteractor: InvitationHandleInteractorInputProtocol {
     }
 
     func apply(invitationCode: String) {
-        do {
-            _ = try projectService.applyInvitation(code: invitationCode,
-                                                   runCompletionIn: .main) { [weak self] (result) in
-                if let result = result {
-                    switch result {
-                    case .success:
-                        self?.presenter?.didApply(invitationCode: invitationCode)
-                        self?.eventCenter.notify(with: InvitationAppliedEvent(code: invitationCode))
-                    case .failure(let error):
-                        self?.presenter?.didReceiveInvitationApplication(error: error,
-                                                                         of: invitationCode)
-
-                    }
-                }
-            }
-        } catch {
-            presenter?.didReceiveInvitationApplication(error: error, of: invitationCode)
-        }
+//        do {
+//            _ = try projectService.applyInvitation(code: invitationCode,
+//                                                   runCompletionIn: .main) { [weak self] (result) in
+//                if let result = result {
+//                    switch result {
+//                    case .success:
+//                        self?.presenter?.didApply(invitationCode: invitationCode)
+//                        self?.eventCenter.notify(with: InvitationAppliedEvent(code: invitationCode))
+//                    case .failure(let error):
+//                        self?.presenter?.didReceiveInvitationApplication(error: error,
+//                                                                         of: invitationCode)
+//
+//                    }
+//                }
+//            }
+//        } catch {
+//            presenter?.didReceiveInvitationApplication(error: error, of: invitationCode)
+//        }
     }
 }
-
-extension InvitationHandleInteractor: EventVisitorProtocol {
-    func processInvitationInput(event: InvitationInputEvent) {
-        apply(invitationCode: event.code)
-    }
-}
+//
+//extension InvitationHandleInteractor: EventVisitorProtocol {
+//    func processInvitationInput(event: InvitationInputEvent) {
+//        apply(invitationCode: event.code)
+//    }
+//}

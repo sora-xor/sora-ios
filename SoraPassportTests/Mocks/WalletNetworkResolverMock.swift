@@ -1,12 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
-
+/*
 final class WalletNetworkResolverMock: MiddlewareNetworkResolverProtocol {
     var closureUrlResolver: ((MiddlewareRequestType) -> String)?
     var closureAdapter: ((MiddlewareRequestType) -> NetworkRequestModifierProtocol?)?
@@ -28,3 +23,4 @@ final class WalletNetworkResolverMock: MiddlewareNetworkResolverProtocol {
         return closureErrorFactory?(type)
     }
 }
+*/

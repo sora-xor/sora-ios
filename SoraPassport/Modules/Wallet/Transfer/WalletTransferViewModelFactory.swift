@@ -1,33 +1,19 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
+import FearlessUtils
 
 struct WalletTransferViewModelFactory {
+
+    weak var commandFactory: WalletCommandFactoryProtocol?
+
+    private let iconGenerator = PolkadotIconGenerator()
+    let assets: [WalletAsset]
     let amountFormatterFactory: NumberFormatterFactoryProtocol
-    let feeCalculationFactory: FeeCalculationFactoryProtocol
-    let xorAsset: WalletAsset
 
-    init(amountFormatterFactory: NumberFormatterFactoryProtocol,
-         feeCalculationFactory: FeeCalculationFactoryProtocol,
-         xorAsset: WalletAsset) {
+    init(assets: [WalletAsset],
+         amountFormatterFactory: NumberFormatterFactoryProtocol) {
+        self.assets = assets
         self.amountFormatterFactory = amountFormatterFactory
-        self.feeCalculationFactory = feeCalculationFactory
-        self.xorAsset = xorAsset
-    }
-
-    func calculateTotalXORRequiredForInput(amount: Decimal, feeDescriptions: [FeeDescription]) throws -> Decimal {
-        let transferStrategy = try feeCalculationFactory
-            .createTransferFeeStrategyForDescriptions(feeDescriptions,
-                                                      assetId: xorAsset.identifier,
-                                                      precision: xorAsset.precision)
-
-        let results = try transferStrategy.calculate(for: amount)
-
-        return results.total
     }
 
     func createAssetTransferStateIconFromAmount(_ totalAmount: Decimal,
@@ -37,25 +23,25 @@ struct WalletTransferViewModelFactory {
         if feeDescriptions
             .first(where: { $0.context?[WalletOperationContextKey.Receiver.isMine] != nil }) != nil {
             if NSPredicate.ethereumAddress.evaluate(with: receiver) {
-                return R.image.iconVal()
+                return R.image.assetVal()
             } else {
-                return R.image.iconValErc()
+                return R.image.assetValErc()
             }
         }
 
         if NSPredicate.ethereumAddress.evaluate(with: receiver) {
              if totalAmount <= tokens.ethereum {
-                return R.image.iconValErc()
+                return R.image.assetValErc()
             } else if totalAmount <= tokens.soranet {
-                return  R.image.iconVal()
+                return  R.image.assetVal()
             } else {
                 return R.image.iconCrossChain()
             }
         } else {
             if totalAmount <= tokens.soranet {
-                return R.image.iconVal()
+                return R.image.assetVal()
             } else if tokens.soranet == 0.0 && totalAmount <= tokens.ethereum {
-                return R.image.iconValErc()
+                return R.image.assetValErc()
             } else {
                 return R.image.iconCrossChain()
             }
@@ -64,18 +50,27 @@ struct WalletTransferViewModelFactory {
 }
 
 extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
+
     func createReceiverViewModel(_ inputState: TransferInputState,
                                  payload: TransferPayload,
                                  locale: Locale) throws ->  MultilineTitleIconViewModelProtocol? {
-        if NSPredicate.ethereumAddress.evaluate(with: payload.receiveInfo.accountId) {
-            return MultilineTitleIconViewModel(text: payload.receiveInfo.accountId,
-                                               icon: R.image.iconValErc())
-        } else if payload.receiverName.isEmpty {
-            return MultilineTitleIconViewModel(text: payload.receiveInfo.accountId,
-                                               icon: R.image.iconVal())
-        } else {
-            return nil
-        }
+
+        let icon = try iconGenerator.generateFromAddress(payload.receiverName)
+            .imageWithFillColor(.white,
+                                size: CGSize(width: 24.0, height: 24.0),
+                                contentScale: UIScreen.main.scale)
+
+        let command = SendToContactCommand(nextAction: {
+            UIPasteboard.general.string = payload.receiverName
+            let success = ModalAlertFactory.createSuccessAlert(R.string.localizable.commonCopied(preferredLanguages: locale.rLanguages))
+            try? commandFactory?.preparePresentationCommand(for: success).execute()
+        })
+
+        return WalletSoraReceiverViewModel(text: payload.receiverName,
+                                           icon: icon,
+                                           title: R.string.localizable.transactionReceiverTitle(preferredLanguages: locale.rLanguages),
+                                           command: command)
+
     }
 
     func createSelectedAssetViewModel(_ inputState: TransferInputState,
@@ -86,43 +81,30 @@ extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
         let subtitle: String
         let details: String
 
-        let asset = inputState.selectedAsset
-
-        if let platform = asset.platform?.value(for: locale) {
-            title = platform
-            subtitle = asset.name.value(for: locale)
-        } else {
-            title = asset.name.value(for: locale)
-            subtitle = ""
+        guard
+            let asset = assets
+                .first(where: { $0.identifier == payload.receiveInfo.assetId }),
+            let assetId = WalletAssetId(rawValue: asset.identifier) else {
+            return nil
         }
+
+        title =  "\(asset.symbol)"
+        subtitle = assetId.chainId
 
         let amountFormatter = amountFormatterFactory.createDisplayFormatter(for: asset)
 
         if let balanceData = inputState.balance,
             let formattedBalance = amountFormatter.value(for: locale)
                 .string(from: balanceData.balance.decimalValue as NSNumber) {
-            details = "\(asset.symbol) \(formattedBalance)"
+            details = "\(formattedBalance)"
         } else {
             details = ""
-        }
-
-        var icon: UIImage? = R.image.iconVal()
-        let tokens = TokenBalancesData(balanceContext: inputState.balance?.context ?? [:])
-
-        if
-            let feeDescriptions = inputState.metadata?.feeDescriptions,
-            let totalAmount = try? calculateTotalXORRequiredForInput(amount: inputState.amount ?? 0,
-                                                                     feeDescriptions: feeDescriptions) {
-            icon = createAssetTransferStateIconFromAmount(totalAmount,
-                                                          tokens: tokens,
-                                                          receiver: payload.receiveInfo.accountId,
-                                                          feeDescriptions: feeDescriptions)
         }
 
         return AssetSelectionViewModel(title: title,
                                        subtitle: subtitle,
                                        details: details,
-                                       icon: icon,
+                                       icon: assetId.icon,
                                        state: selectedAssetState)
     }
 

@@ -1,14 +1,12 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraKeystore
 import SoraFoundation
 
 final class RootPresenterFactory: RootPresenterFactoryProtocol {
     static func createPresenter(with view: SoraWindow) -> RootPresenterProtocol {
+
+        AppearanceFactory.applyGlobalAppearance()
+
         let presenter = RootPresenter()
         let wireframe = RootWireframe()
 

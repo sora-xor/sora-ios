@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import Cuckoo
@@ -10,7 +5,7 @@ import RobinHood
 import SoraFoundation
 
 class ActivityFeedInteractorTests: NetworkBaseTests {
-
+/*
     func testSuccessfullSetupAndFirstPageLoading() {
         ActivityFeedMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         AnnouncementFetchMock.register(mock: .successNotEmpty, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
@@ -227,4 +222,5 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
         return ActivityFeedPresenter(itemViewModelFactory: activityFeedViewModelFactory,
                                      announcementViewModelFactory: announcementViewModelFactory)
     }
+ */
 }

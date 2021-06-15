@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
@@ -20,7 +15,7 @@ final class SecurityLayerInteractor {
 
     private var canEnterPincode: Bool {
         do {
-            let hasPincode = try keystore.checkKey(for: KeystoreKey.pincode.rawValue)
+            let hasPincode = try keystore.checkKey(for: KeystoreTag.pincode.rawValue)
             let isRegistered = settings.isRegistered
 
             return isRegistered && hasPincode

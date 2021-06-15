@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
@@ -11,7 +6,7 @@ protocol AccessoryViewFactoryProtocol: class {
                                     completionSelector: Selector?) -> AccessoryViewProtocol
     static func createActionTitleView(with title: String,
                                       target: Any?,
-                                      actionHandler: Selector?) -> RoundedButton
+                                      actionHandler: Selector?) -> SoraButton
 }
 
 final class AccessoryViewFactory: AccessoryViewFactoryProtocol {
@@ -31,8 +26,8 @@ final class AccessoryViewFactory: AccessoryViewFactoryProtocol {
 
     static func createActionTitleView(with title: String,
                                       target: Any?,
-                                      actionHandler: Selector?) -> RoundedButton {
-        let actionButton = RoundedButton()
+                                      actionHandler: Selector?) -> SoraButton {
+        let actionButton = SoraButton()
         actionButton.imageWithTitleView?.titleColor = UIColor.actionTitle
         actionButton.imageWithTitleView?.titleFont = UIFont.accessoryTitle
         actionButton.imageWithTitleView?.title = title

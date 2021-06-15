@@ -1,51 +1,110 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 import SoraFoundation
+import Anchorage
+import Then
 
-class PinSetupViewController: UIViewController, AdaptiveDesignable {
-    private struct Constants {
-        static var cancelBottomMargin: CGFloat = 30.0
+private extension PinSetupViewController {
+    struct Constants {
+        static let navigationBarMargin: CGFloat = 44
+        static let pinViewMargin: CGFloat = 40
+        static let logoBottomMargin: CGFloat = 40
+        static let logoHeight: CGFloat = 88
+        static let logoWidth: CGFloat = 66
     }
 
+    struct AccessibilityId {
+        static let mainView     = "MainViewAccessibilityId"
+        static let bgView       = "BgViewAccessibilityId"
+        static let inputField   = "InputFieldAccessibilityId"
+        static let keyPrefix    = "KeyPrefixAccessibilityId"
+        static let backspace    = "BackspaceAccessibilityId"
+    }
+}
+
+class PinSetupViewController: UIViewController, AdaptiveDesignable {
+
     var presenter: PinSetupPresenterProtocol!
-    var mode = PinView.Mode.create
+
+    var mode: PinView.Mode = .create
 
     var cancellable: Bool = false
 
-    var mainViewAccessibilityId: String? = "MainViewAccessibilityId"
-    var bgViewAccessibilityId: String? = "BgViewAccessibilityId"
-    var inputFieldAccessibilityId: String? = "InputFieldAccessibilityId"
-    var keyPrefixAccessibilityId: String? = "KeyPrefixAccessibilityId"
-    var backspaceAccessibilityId: String? = "BackspaceAccessibilityId"
+    var logoPresentable: Bool {
+        return mode == .securedInput && !cancellable
+    }
 
-    @IBOutlet private var titleLabel: UILabel!
+    var barTitle: String {
+        if mode == .securedInput { return "" }
+        return mode == .create ? "" : R.string.localizable
+            .profileChangePinTitle(preferredLanguages: languages)
+    }
+
+    var barButtonImage: UIImage? {
+        return mode == .create ? R.image.arrowLeft() : R.image.close()
+    }
+
+    var baseDesignSize: CGSize {
+        return CGSize(width: 375, height: 812)
+    }
+
+    // MARK: - Controls
+
+    private lazy var navigationBar: UINavigationBar = {
+        UINavigationBar().then {
+            $0.delegate = self
+            $0.shadowImage = UIImage()
+            $0.setBackgroundImage(UIImage(), for: .default)
+            $0.tintColor = R.color.brandPMSBlack()
+        }
+    }()
+
+    private lazy var cancelButtonItem: UINavigationItem = {
+        UINavigationItem(title: barTitle).then {
+            let barButton = UIBarButtonItem(
+                image: barButtonImage, style: .plain,
+                target: self, action: #selector(actionCancel)
+            )
+
+            $0.leftBarButtonItem = barButton
+        }
+    }()
+
+    private lazy var backButtonItem: UINavigationItem = {
+        UINavigationItem(title: barTitle).then {
+            let barButton = UIBarButtonItem(
+                image: barButtonImage, style: .plain,
+                target: self, action: #selector(actionBack)
+            )
+
+            $0.leftBarButtonItem = barButton
+        }
+    }()
+
+    private var titleLabel: UILabel = {
+        UILabel().then {
+            $0.font = UIFont.styled(for: .uppercase2, isBold: true)
+            $0.textColor = R.color.brandPMSBlack()
+        }
+    }()
+
     @IBOutlet private var pinView: PinView!
 
-    @IBOutlet private var navigationBar: UINavigationBar!
+    // MARK: - Constraints
 
-    @IBOutlet private var navigationBarTop: NSLayoutConstraint!
-    @IBOutlet private var titleTopConstraint: NSLayoutConstraint!
-    @IBOutlet private var pinViewTopConstraint: NSLayoutConstraint!
-    @IBOutlet private var pinViewBottomConstraint: NSLayoutConstraint!
+    private var pinViewTopConstraint: NSLayoutConstraint!
+    private var pinViewBottomConstraint: NSLayoutConstraint!
 
-    private var cancelButton: UIButton?
+    private var logoBottomConstraint: NSLayoutConstraint!
+    private var logoHeightConstraint: NSLayoutConstraint!
+    private var logoWidthConstraint: NSLayoutConstraint!
 
-    // MARK: View Setup
+    // MARK: - View Setup
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        configureNavigationBar()
-        configurePinView()
-
-        if cancellable {
-            configureCancelButton()
-        }
+        configure()
 
         setupLocalization()
         adjustLayoutConstraints()
@@ -53,146 +112,132 @@ class PinSetupViewController: UIViewController, AdaptiveDesignable {
 
         presenter.start()
     }
+}
 
-    // MARK: Configure
+private extension PinSetupViewController {
 
-    private func configureNavigationBar() {
-        navigationBarTop.constant = UIApplication.shared.statusBarFrame.size.height
+    // MARK: - Configure
 
-        navigationBar.setBackgroundImage(UIImage(), for: UIBarMetrics.default)
-        navigationBar.shadowImage = UIImage()
-        navigationBar.tintColor = UIColor.navigationBarBackTintColor
-        navigationBar.delegate = self
-    }
+    func configure() {
 
-    private func configureCancelButton() {
-        let cancelButton = UIButton()
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(cancelButton)
-
-        let bottomMargin = -Constants.cancelBottomMargin * designScaleRatio.height
-
-        if #available(iOS 11.0, *) {
-            cancelButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor,
-                                                 constant: bottomMargin).isActive = true
-        } else {
-            cancelButton.bottomAnchor.constraint(equalTo: view.bottomAnchor,
-                                                 constant: bottomMargin).isActive = true
+        pinView.do {
+            $0.mode = mode
+            $0.delegate = self
+            $0.centerXAnchor == view.centerXAnchor
+            pinViewBottomConstraint = (
+                $0.bottomAnchor == view.bottomAnchor - Constants.pinViewMargin
+            )
         }
 
-        cancelButton.trailingAnchor.constraint(equalTo: pinView.trailingAnchor).isActive = true
+        titleLabel.do {
+            view.addSubview($0)
+            $0.centerXAnchor == view.centerXAnchor
+            pinViewTopConstraint = (
+                pinView.topAnchor == $0.bottomAnchor + Constants.pinViewMargin
+            )
+        }
 
-        cancelButton.setTitleColor(UIColor.navigationBarBackTintColor, for: .normal)
-        cancelButton.titleLabel?.font = UIFont.accessoryTitle
+        navigationBar.do {
+            view.addSubview($0)
+            $0.prefersLargeTitles = false
+            $0.horizontalAnchors == view.horizontalAnchors
+            $0.bottomAnchor == view.layoutMarginsGuide.topAnchor + Constants.navigationBarMargin
+            $0.topAnchor == view.topAnchor + UIApplication.shared.statusBarFrame.size.height
+        }
 
-        cancelButton.addTarget(self,
-                               action: #selector(actionCancel),
-                               for: .touchUpInside)
+        if cancellable || presenter.isChangeMode {
+            configureCancelButton()
+        }
 
-        self.cancelButton = cancelButton
+        if logoPresentable {
+            configureLogoImageView()
+        }
     }
 
-    private func updateTitleLabelState() {
-        let languages = localizationManager?.preferredLocalizations
+    func configureCancelButton() {
+        navigationBar.isHidden = false
+        navigationBar.pushItem(cancelButtonItem, animated: false)
+    }
 
+    func configureLogoImageView() {
+        let imageView = UIImageView(
+            image: R.image.pin.soraVertical()
+        )
+
+        imageView.do {
+            view.addSubview($0)
+            $0.centerXAnchor == view.centerXAnchor
+
+            logoBottomConstraint = (
+                $0.bottomAnchor == titleLabel.topAnchor - Constants.logoBottomMargin
+            )
+
+            logoHeightConstraint = (
+                $0.heightAnchor == Constants.logoHeight
+            )
+
+            logoWidthConstraint = (
+                $0.widthAnchor == Constants.logoWidth
+            )
+        }
+    }
+
+    func updateTitleLabelState() {
         if pinView.mode == .create {
             if  pinView.creationState == .normal {
                 titleLabel.text = R.string.localizable
                     .pincodeSetYourPinCode(preferredLanguages: languages)
+                    .uppercased()
             } else {
                 titleLabel.text = R.string.localizable
                     .pincodeConfirmYourPinCode(preferredLanguages: languages)
+                    .uppercased()
             }
         } else {
             titleLabel.text = R.string.localizable
                 .pincodeEnterPinCode(preferredLanguages: languages)
+                .uppercased()
         }
 
     }
 
-    private func configurePinView() {
-        pinView.mode = mode
-        pinView.delegate = self
-    }
-
-    private func setupLocalization() {
-        let languages = localizationManager?.preferredLocalizations
-        cancelButton?.setTitle(R.string.localizable.commonCancel(preferredLanguages: languages),
-                               for: .normal)
-
+    func setupLocalization() {
         updateTitleLabelState()
     }
 
-    // MARK: Accessibility
+    // MARK: - Accessibility
 
-    private func setupAccessibilityIdentifiers() {
-        view.accessibilityIdentifier = mainViewAccessibilityId
-        pinView.setupInputField(accessibilityId: inputFieldAccessibilityId)
-        pinView.numpadView?.setupKeysAccessibilityIdWith(format: keyPrefixAccessibilityId)
-        pinView.numpadView?.setupBackspace(accessibilityId: backspaceAccessibilityId)
+    func setupAccessibilityIdentifiers() {
+        view.accessibilityIdentifier = AccessibilityId.mainView
+        pinView.setupInputField(accessibilityId: AccessibilityId.inputField)
+        pinView.numpadView?.setupKeysAccessibilityIdWith(format: AccessibilityId.keyPrefix)
+        pinView.numpadView?.setupBackspace(accessibilityId: AccessibilityId.backspace)
     }
 
-    // MARK: Layout
+    // MARK: - Layout
 
-    private func adjustLayoutConstraints() {
-        let designScaleRatio = self.designScaleRatio
+    func adjustLayoutConstraints() {
+        pinView.adjustLayout()
 
-        if isAdaptiveHeightDecreased || isAdaptiveWidthDecreased {
-            let scale = min(designScaleRatio.width, designScaleRatio.height)
-
-            if let numpadView = pinView.numpadView {
-                pinView.numpadView?.keyRadius *= scale
-
-                if let titleFont = numpadView.titleFont {
-                    numpadView.titleFont = UIFont(name: titleFont.fontName, size: scale * titleFont.pointSize)
-                }
-            }
-
-            if let currentFieldsView = pinView.characterFieldsView {
-                let font = currentFieldsView.fieldFont
-
-                if let newFont = UIFont(name: font.fontName, size: scale * font.pointSize) {
-                    currentFieldsView.fieldFont = newFont
-                }
-            }
-
-            pinView.securedCharacterFieldsView?.fieldRadius *= scale
-        }
-
-        if isAdaptiveHeightDecreased {
-            pinView.verticalSpacing *= designScaleRatio.height
-
-            if let cancelButton = cancelButton {
-                pinView.verticalSpacing -= cancelButton.intrinsicContentSize.height
-            }
-
-            pinView.numpadView?.verticalSpacing *= designScaleRatio.height
-            pinView.characterFieldsView?.fieldSize.height *= designScaleRatio.height
-            pinView.securedCharacterFieldsView?.fieldSize.height *= designScaleRatio.height
-        }
-
-        if isAdaptiveWidthDecreased {
-            pinView.numpadView?.horizontalSpacing *= designScaleRatio.width
-            pinView.characterFieldsView?.fieldSize.width *= designScaleRatio.width
-            pinView.securedCharacterFieldsView?.fieldSize.width *= designScaleRatio.width
-        }
-
-        titleTopConstraint.constant *= designScaleRatio.height
         pinViewTopConstraint.constant *= designScaleRatio.height
-
         pinViewBottomConstraint.constant *= designScaleRatio.height
 
-        if cancellable {
-            let cancelMargin = Constants.cancelBottomMargin * designScaleRatio.height
-            titleTopConstraint.constant -= cancelMargin
-            pinViewBottomConstraint.constant += cancelMargin
+        if logoPresentable {
+            let koef: CGFloat = isAdaptiveHeightDecreased ? 1.5 : 1.0
+            logoBottomConstraint.constant *= designScaleRatio.height * koef
+            logoHeightConstraint.constant *= designScaleRatio.height
+            logoWidthConstraint.constant *= designScaleRatio.height
         }
     }
 
-    // MARK: Action
+    // MARK: - Action
 
     @objc func actionCancel() {
         presenter.cancel()
+    }
+
+    @objc func actionBack() {
+        navigationBar.popItem(animated: false)
     }
 }
 
@@ -217,13 +262,15 @@ extension PinSetupViewController: PinSetupViewProtocol {
 
         let alertView = UIAlertController(title: title, message: message, preferredStyle: .alert)
 
-        let useAction = UIAlertAction(title: R.string.localizable.commonUse(preferredLanguages: languages),
-                                      style: .default) { (_: UIAlertAction) -> Void in
+        let useAction = UIAlertAction(
+            title: R.string.localizable.commonOk(preferredLanguages: languages),
+            style: .default) { (_: UIAlertAction) -> Void in
             completionBlock(true)
         }
 
-        let skipAction = UIAlertAction(title: R.string.localizable.commonSkip(preferredLanguages: languages),
-                                       style: .cancel) { (_: UIAlertAction) -> Void in
+        let skipAction = UIAlertAction(
+            title: R.string.localizable.commonDonotallow(preferredLanguages: languages),
+            style: .cancel) { (_: UIAlertAction) -> Void in
             completionBlock(false)
         }
 
@@ -245,9 +292,6 @@ extension PinSetupViewController: PinSetupViewProtocol {
 }
 
 extension PinSetupViewController: PinViewDelegate {
-    func didFailConfirmation(pinView: PinView) {
-    }
-
     func didCompleteInput(pinView: PinView, result: String) {
         presenter.submit(pin: result)
     }
@@ -255,14 +299,18 @@ extension PinSetupViewController: PinViewDelegate {
     func didChange(pinView: PinView, from state: PinView.CreationState) {
         updateTitleLabelState()
         if pinView.creationState == .confirm {
-            navigationBar.pushItem(UINavigationItem(), animated: true)
+            navigationBar.pushItem(backButtonItem, animated: false)
         } else {
-            navigationBar.popItem(animated: true)
+            navigationBar.popItem(animated: false)
         }
     }
 
     func didSelectAccessoryControl(pinView: PinView) {
         presenter.activateBiometricAuth()
+    }
+
+    func didFailConfirmation(pinView: PinView) {
+        // can return to the previous screen
     }
 }
 
@@ -275,10 +323,61 @@ extension PinSetupViewController: UINavigationBarDelegate {
 }
 
 extension PinSetupViewController: Localizable {
+    private var languages: [String]? {
+        localizationManager?.preferredLocalizations
+    }
+
     func applyLocalization() {
         if isViewLoaded {
             setupLocalization()
             view.setNeedsLayout()
+        }
+    }
+}
+
+extension PinView: AdaptiveDesignable {
+
+    public var baseDesignSize: CGSize {
+        return CGSize(width: 375, height: 812)
+    }
+
+    func adjustLayout() {
+        if isAdaptiveHeightDecreased || isAdaptiveWidthDecreased {
+            let scale = min(designScaleRatio.width, designScaleRatio.height)
+
+            if let numpadView = self.numpadView {
+                numpadView.keyRadius *= scale
+
+                if let titleFont = numpadView.titleFont {
+                    numpadView.titleFont = UIFont(
+                        name: titleFont.fontName,
+                        size: scale * titleFont.pointSize
+                    )
+                }
+            }
+
+            if let currentFieldsView = self.characterFieldsView {
+                let font = currentFieldsView.fieldFont
+
+                if let newFont = UIFont(name: font.fontName, size: scale * font.pointSize) {
+                    currentFieldsView.fieldFont = newFont
+                }
+            }
+
+            securedCharacterFieldsView?.fieldRadius *= scale
+        }
+
+        if isAdaptiveHeightDecreased {
+            verticalSpacing *= designScaleRatio.height * 0.5
+            numpadView?.verticalSpacing *= designScaleRatio.height
+            characterFieldsView?.fieldSize.height *= designScaleRatio.height
+            securedCharacterFieldsView?.fieldSize.height *= designScaleRatio.height
+        }
+
+        if isAdaptiveWidthDecreased {
+            numpadView?.horizontalSpacing *= designScaleRatio.width
+            characterFieldsView?.fieldSize.width *= designScaleRatio.width
+            securedCharacterFieldsView?.fieldSize.width *= designScaleRatio.width
         }
     }
 }

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 extension RoundedCellControlView {
@@ -121,6 +116,10 @@ extension RoundedCellControlView {
 
     @IBInspectable
     private var _titleFontName: String? {
+        get {
+            return titleAccessoryView.titleView.titleFont?.fontName
+        }
+
         set(newValue) {
             guard let fontName = newValue else {
                 titleAccessoryView.titleView.titleFont = nil
@@ -132,14 +131,14 @@ extension RoundedCellControlView {
 
             invalidateLayout()
         }
-
-        get {
-            return titleAccessoryView.titleView.titleFont?.fontName
-        }
     }
 
     @IBInspectable
     private var _titleFontSize: CGFloat {
+        get {
+            return titleAccessoryView.titleView.titleFont?.pointSize ?? UIFont.labelFontSize
+        }
+
         set(newValue) {
             let fontName = titleAccessoryView.titleView.titleFont?.fontName ?? UIFont
                 .systemFont(ofSize: UIFont.labelFontSize).fontName
@@ -147,20 +146,16 @@ extension RoundedCellControlView {
 
             invalidateLayout()
         }
-
-        get {
-            return titleAccessoryView.titleView.titleFont?.pointSize ?? UIFont.labelFontSize
-        }
     }
 
     @IBInspectable
     private var _spacingBetweenLabelAndIcon: CGFloat {
-        set {
-            titleAccessoryView.titleView.spacingBetweenLabelAndIcon = newValue
-        }
-
         get {
             return titleAccessoryView.titleView.spacingBetweenLabelAndIcon
+        }
+
+        set {
+            titleAccessoryView.titleView.spacingBetweenLabelAndIcon = newValue
         }
     }
 
@@ -200,6 +195,10 @@ extension RoundedCellControlView {
 
     @IBInspectable
     private var _subtitleFontName: String? {
+        get {
+            return titleAccessoryView.accessoryLabel.font.fontName
+        }
+
         set(newValue) {
             guard let fontName = newValue else {
                 titleAccessoryView.accessoryLabel.font = nil
@@ -211,23 +210,19 @@ extension RoundedCellControlView {
 
             invalidateLayout()
         }
-
-        get {
-            return titleAccessoryView.accessoryLabel.font.fontName
-        }
     }
 
     @IBInspectable
     private var _subtitleFontSize: CGFloat {
+        get {
+            return titleAccessoryView.accessoryLabel.font.pointSize
+        }
+
         set(newValue) {
             let fontName = titleAccessoryView.accessoryLabel.font.fontName
             titleAccessoryView.accessoryLabel.font = UIFont(name: fontName, size: newValue)
 
             invalidateLayout()
-        }
-
-        get {
-            return titleAccessoryView.accessoryLabel.font.pointSize
         }
     }
 
@@ -311,23 +306,23 @@ extension RoundedCellControlView {
 
     @IBInspectable
     private var _separatorColor: UIColor {
-        set {
-            borderView.strokeColor = newValue
-        }
-
         get {
             return borderView.strokeColor
+        }
+
+        set {
+            borderView.strokeColor = newValue
         }
     }
 
     @IBInspectable
     private var _separatorWidth: CGFloat {
-        set {
-            borderView.strokeWidth = newValue
-        }
-
         get {
             return borderView.strokeWidth
+        }
+
+        set {
+            borderView.strokeWidth = newValue
         }
     }
 }

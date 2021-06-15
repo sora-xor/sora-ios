@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import CommonWallet
 import SoraUI
@@ -10,7 +5,8 @@ import SoraFoundation
 
 final class WalletAccountHeaderView: UICollectionViewCell {
     @IBOutlet private(set) var titleLabel: UILabel!
-    @IBOutlet private(set) var helpButton: RoundedButton!
+    @IBOutlet weak var scanButton: RoundedButton!
+    @IBOutlet weak var moreButton: RoundedButton!
 
     var viewModel: WalletViewModelProtocol?
 
@@ -18,6 +14,13 @@ final class WalletAccountHeaderView: UICollectionViewCell {
         super.awakeFromNib()
 
         localizationManager = LocalizationManager.shared
+        titleLabel.font = UIFont.styled(for: .display1)
+
+        scanButton.addTarget(self, action: #selector(scanTouch), for: .touchUpInside)
+    }
+
+    @objc func scanTouch() {
+        try? viewModel?.command?.execute()
     }
 
     override func prepareForReuse() {
@@ -29,12 +32,6 @@ final class WalletAccountHeaderView: UICollectionViewCell {
     private func setupLocalization() {
         let languages = localizationManager?.preferredLocalizations
         titleLabel.text = R.string.localizable.walletTitle(preferredLanguages: languages)
-    }
-
-    @IBAction private func actionHelp() {
-        if let headerViewModel = viewModel as? WalletHeaderViewModel {
-            headerViewModel.presentHelp()
-        }
     }
 }
 

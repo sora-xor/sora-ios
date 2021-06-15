@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 final class MainTabBarViewController: UITabBarController {
@@ -30,14 +25,16 @@ final class MainTabBarViewController: UITabBarController {
     }
 
     private func configureTabBar() {
+        tabBar.tintColor = R.color.baseContentPrimary()
+
         if #available(iOS 13.0, *) {
             let appearance = UITabBarAppearance()
 
             appearance.backgroundImage = UIImage.background(from: UIColor.tabBarBackground)
             appearance.shadowImage = UIImage.background(from: UIColor.tabBarShadow)
 
-            let normalAttributes = [NSAttributedString.Key.foregroundColor: UIColor.tabBarItemNormal]
-            let selectedAttributes = [NSAttributedString.Key.foregroundColor: UIColor.tabBarItemSelected]
+            let normalAttributes = [NSAttributedString.Key.foregroundColor: R.color.baseContentTertiary()!]
+            let selectedAttributes = [NSAttributedString.Key.foregroundColor: R.color.baseContentPrimary()!]
 
             appearance.stackedLayoutAppearance.normal.titleTextAttributes = normalAttributes
             appearance.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttributes
@@ -53,8 +50,7 @@ final class MainTabBarViewController: UITabBarController {
 extension MainTabBarViewController: UITabBarControllerDelegate {
     func tabBarController(_ tabBarController: UITabBarController,
                           shouldSelect viewController: UIViewController) -> Bool {
-        if viewController == viewControllers?[selectedIndex],
-            let scrollableController = viewController as? ScrollsToTop {
+        if let scrollableController = viewController as? ScrollsToTop {
             scrollableController.scrollToTop()
         }
 

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -35,7 +30,7 @@ struct WalletAccountSharingFactory: AccountShareFactoryProtocol {
             optionalAmountTitle = formattedAmount
         }
 
-        let platform = R.string.localizable.assetXorPlatform()
+        let platform = R.string.localizable.assetXorPlatform(preferredLanguages: languages)
 
         if let assetTitle = optionalAssetTitle, let amountTitle = optionalAmountTitle {
             title = R.string.localizable

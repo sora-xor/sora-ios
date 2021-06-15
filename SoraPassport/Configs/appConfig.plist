@@ -269,7 +269,7 @@
 						<key>id</key>
 						<string>did:sora:passport#invited-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s1.sora.soramitsu.co.jp/account/v1/user/invited</string>
+						<string>https://s1.sora.soramitsu.co.jp/wallet/v1/user/invited</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -1022,7 +1022,7 @@
 						<key>id</key>
 						<string>did:sora:passport#invited-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s1.tst.sora.soramitsu.co.jp/account/v1/user/invited</string>
+						<string>https://s1.tst.sora.soramitsu.co.jp/wallet/v1/user/invited</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -1779,7 +1779,7 @@
 						<key>id</key>
 						<string>did:sora:passport#invited-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s4.stg1.sora.soramitsu.co.jp/account/v1/user/invited</string>
+						<string>https://s4.stg1.sora.soramitsu.co.jp/wallet/v1/user/invited</string>
 					</dict>
 					<dict>
 						<key>type</key>
@@ -2534,7 +2534,7 @@
 						<key>id</key>
 						<string>did:sora:passport#invited-fetch</string>
 						<key>serviceEndpoint</key>
-						<string>https://s1.dev.sora.soramitsu.co.jp/account/v1/user/invited</string>
+						<string>https://s1.dev.sora.soramitsu.co.jp/wallet/v1/user/invited</string>
 					</dict>
 					<dict>
 						<key>type</key>

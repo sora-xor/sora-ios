@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -52,8 +47,10 @@ class WalletTransferErrorHandler: OperationDefinitionErrorHandling {
             case .ethBridgeDisabled  = bridgeError {
             let command = EthBridgeErrorCommand(commandFactory: commandFactory!, locale: locale)
             return OperationDefinitionErrorMapping(type: .receiver,
-                                                   message: R.string.localizable.transactionBridgeNotActiveError(preferredLanguages: locale.rLanguages),
-                                                   command: command)
+                                                   message: R.string.localizable.transactionBridgeNotActiveError(
+                                                            preferredLanguages: locale.rLanguages)//,
+//                                                   command: command
+            )
         }
 
         return nil

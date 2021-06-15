@@ -1,0 +1,7 @@
+#include "../../Pods/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"
+
+OTHER_SWIFT_FLAGS = $(inherited) "-DF_STAGING"
+
+SORA_APPLICATION_CONFIG = Staging
+FIREBASE_CONFIG = GoogleService-Info-Staging.plist
+SORA_NAME = Sora Staging

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import CommonWallet
@@ -10,7 +5,7 @@ import SoraKeystore
 import SoraFoundation
 
 class WalletEthereumTransferValidatorTests: XCTestCase {
-
+/*
     func testTransferValidationFromERC20toERC20() throws {
         // given
 
@@ -264,4 +259,5 @@ class WalletEthereumTransferValidatorTests: XCTestCase {
 
         return try strategy.calculate(for: amount)
     }
+ */
 }

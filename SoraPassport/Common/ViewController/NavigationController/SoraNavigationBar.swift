@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 struct SoraNavigationBarStyle {
@@ -18,8 +13,13 @@ struct SoraNavigationBarStyle {
         return UIImage.background(from: UIColor.lightNavigationShadowColor)
     }()
 
+    static let noShadow: UIImage? = {
+        return UIImage.background(from: UIColor.navigationBarColor)
+    }()
+
+
     static let tintColor: UIColor? = {
-        return UIColor.navigationBarBackTintColor
+        return R.color.baseContentPrimary()!
     }()
 
     static let titleAttributes: [NSAttributedString.Key: Any]? = {

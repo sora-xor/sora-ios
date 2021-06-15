@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import Cuckoo
@@ -10,6 +5,7 @@ import RobinHood
 import SoraFoundation
 
 class VotesHistoryInteractorTests: NetworkBaseTests {
+    /*
     func testSuccessfullSetupAndFirstPageLoading() {
         VotesHistoryFetchMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
 
@@ -118,4 +114,5 @@ class VotesHistoryInteractorTests: NetworkBaseTests {
         return VotesHistoryPresenter(locale: Locale.current,
                                      viewModelFactory: votesHistoryViewModelFactory)
     }
+ */
 }

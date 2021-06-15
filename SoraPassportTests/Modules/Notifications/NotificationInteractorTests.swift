@@ -1,15 +1,10 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
-import SoraCrypto
+//import SoraCrypto
 import Cuckoo
 
 class NotificationInteractorTests: NetworkBaseTests {
-
+/*
     func testNotificationsSetupSuccessWhenUserRegistered() {
         // given
         NotificationTokenExchangeMock.register(mock: .success, notificationUnit: ApplicationConfig.shared.defaultNotificationUnit)
@@ -122,4 +117,5 @@ class NotificationInteractorTests: NetworkBaseTests {
 
         return interactor
     }
+ */
 }

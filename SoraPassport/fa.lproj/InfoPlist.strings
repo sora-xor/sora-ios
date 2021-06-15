@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "از دوربین برای گرفتن کد QR استفاده می شود";
+"NSFaceIDUsageDescription" = "از Face ID برای مجوز در برنامه استفاده می شود";
+"NSPhotoLibraryUsageDescription" = "عکسها را از کتابخانه بارگیری کنید";
+"NSPhotoLibraryAddUsageDescription" = "درخواست انتقال را به عنوان کد qr ذخیره کنید";

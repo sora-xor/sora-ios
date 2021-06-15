@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FireMock
 
@@ -44,18 +39,18 @@ enum ProjectsCustomerMock: FireMockProtocol {
     }
 }
 
-extension ProjectsCustomerMock {
-    static func register(mock: ProjectsCustomerMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.customer.rawValue) else {
-            Logger.shared.warning("Can't find customer fetch service endpoint to mock")
-            return
-        }
-
-        guard let url = URL(string: service.serviceEndpoint) else {
-            Logger.shared.warning("Can't create customer fetch url")
-            return
-        }
-
-        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
-    }
-}
+//extension ProjectsCustomerMock {
+//    static func register(mock: ProjectsCustomerMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.customer.rawValue) else {
+//            Logger.shared.warning("Can't find customer fetch service endpoint to mock")
+//            return
+//        }
+//
+//        guard let url = URL(string: service.serviceEndpoint) else {
+//            Logger.shared.warning("Can't create customer fetch url")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
+//    }
+//}

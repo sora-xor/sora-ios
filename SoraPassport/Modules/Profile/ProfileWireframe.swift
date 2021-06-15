@@ -1,48 +1,45 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import SoraKeystore
+import SoraFoundation
 
 final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable {
-    func showReputationView(from view: ProfileViewProtocol?) {
-        guard let reputationView = ReputationViewFactory.createView() else {
-            return
-        }
 
-        if let navigationController = view?.controller.navigationController {
-            reputationView.controller.hidesBottomBarWhenPushed = true
-            navigationController.pushViewController(reputationView.controller, animated: true)
-        }
-    }
+    private(set) var settingsManager: SettingsManagerProtocol
 
-    func showVotesHistoryView(from view: ProfileViewProtocol?) {
-        guard let votesHistoryView = VotesHistoryViewFactory.createView() else {
-            return
-        }
+    private(set) var localizationManager: LocalizationManagerProtocol
 
-        if let navigationController = view?.controller.navigationController {
-            votesHistoryView.controller.hidesBottomBarWhenPushed = true
-            navigationController.pushViewController(votesHistoryView.controller, animated: true)
-        }
+    init(settingsManager: SettingsManagerProtocol,
+         localizationManager: LocalizationManagerProtocol) {
+        self.settingsManager = settingsManager
+        self.localizationManager = localizationManager
     }
 
     func showPersonalDetailsView(from view: ProfileViewProtocol?) {
-        guard let personalUpdateView = PersonalUpdateViewFactory.createView() else {
+        guard let personalView = PersonalUpdateViewFactory.createView() else {
             return
         }
 
         if let navigationController = view?.controller.navigationController {
-            personalUpdateView.controller.hidesBottomBarWhenPushed = true
-            navigationController.pushViewController(personalUpdateView.controller, animated: true)
+            personalView.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(personalView.controller, animated: true)
+        }
+    }
+
+    func showFriendsView(from view: ProfileViewProtocol?) {
+        guard let friendsView = FriendsViewFactory.createView() else {
+            return
+        }
+
+        if let navigationController = view?.controller.navigationController {
+            friendsView.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(friendsView.controller, animated: true)
         }
     }
 
     func showPassphraseView(from view: ProfileViewProtocol?) {
         authorize(animated: true, cancellable: true) { (isAuthorized) in
             if isAuthorized {
-                guard let passphraseView = PassphraseViewFactory.createView() else {
+                guard let passphraseView = AccountCreateViewFactory.createViewForBackup() else {
                     return
                 }
 
@@ -51,6 +48,35 @@ final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable
                     navigationController.pushViewController(passphraseView.controller, animated: true)
                 }
             }
+        }
+    }
+
+    func showChangePin(from view: ProfileViewProtocol?) {
+        authorize(animated: true, cancellable: true) { (isAuthorized) in
+            if isAuthorized {
+                guard let pinView = PinViewFactory.createPinEditView() else {
+                    return
+                }
+
+                pinView.controller.hidesBottomBarWhenPushed = true
+                pinView.controller.modalTransitionStyle = .crossDissolve
+                pinView.controller.modalPresentationStyle = .overFullScreen
+                view?.controller.present(pinView.controller, animated: true, completion: nil)
+            }
+        }
+    }
+
+    func switchBiometry(
+        toValue: Bool,
+        from view: ProfileViewProtocol?,
+        successBlock: @escaping (Bool) -> Void) {
+
+        authorize(animated: true, cancellable: true) { (isAuthorized) in
+            if isAuthorized {
+                self.settingsManager.biometryEnabled = toValue
+            }
+
+            successBlock(isAuthorized)
         }
     }
 
@@ -65,6 +91,10 @@ final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable
         }
     }
 
+    func showFaq(from view: ProfileViewProtocol?) {
+        presentHelp(from: view)
+    }
+
     func showAbout(from view: ProfileViewProtocol?) {
         guard let aboutView = AboutViewFactory.createView() else {
             return
@@ -74,5 +104,39 @@ final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable
             aboutView.controller.hidesBottomBarWhenPushed = true
             navigationController.pushViewController(aboutView.controller, animated: true)
         }
+    }
+
+    func showLogout(from view: ProfileViewProtocol?, completionBlock: (() -> Void)?) {
+        let languages = localizationManager.preferredLocalizations
+
+        let alertTitle = R.string.localizable.profileLogoutTitle(preferredLanguages: languages)
+        let alertMessage = R.string.localizable.logoutDialogBody(preferredLanguages: languages)
+        let cancelActionTitle = R.string.localizable.commonCancel(preferredLanguages: languages)
+        let logoutActionTitle = R.string.localizable.profileLogoutTitle(preferredLanguages: languages)
+
+        authorize(animated: true, cancellable: true) { (isAuthorized) in
+            if isAuthorized {
+                let alertView = UIAlertController(title: alertTitle, message: alertMessage, preferredStyle: .alert)
+
+                let cancelAction = UIAlertAction(title: cancelActionTitle, style: .cancel, handler: nil)
+                let logoutAction = UIAlertAction(title: logoutActionTitle, style: .destructive) { (_) in
+                    completionBlock?()
+                }
+
+                alertView.addAction(cancelAction)
+                alertView.addAction(logoutAction)
+
+                view?.controller.present(alertView, animated: true, completion: nil)
+            }
+        }
+    }
+
+    func showRoot() {
+        guard let rootWindow = UIApplication.shared.delegate?.window as? SoraWindow else {
+            fatalError()
+        }
+
+        let presenter = RootPresenterFactory.createPresenter(with: rootWindow)
+        presenter.loadOnLaunch()
     }
 }

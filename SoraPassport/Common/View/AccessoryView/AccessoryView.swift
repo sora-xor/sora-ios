@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
@@ -21,7 +16,7 @@ final class AccessoryView: UIView, AccessoryViewProtocol {
         static let titleTrallingMargin: CGFloat = 20.0
     }
 
-    @IBOutlet private(set) var actionButton: RoundedButton!
+    @IBOutlet private(set) var actionButton: SoraButton!
 
     var contentView: UIView {
         return self
@@ -38,15 +33,15 @@ final class AccessoryView: UIView, AccessoryViewProtocol {
     }
 
     var actionTitle: String? {
+        get {
+            return actionButton.imageWithTitleView?.title
+        }
+
         set {
             actionButton.imageWithTitleView?.title = newValue
             actionButton.invalidateLayout()
 
             setNeedsLayout()
-        }
-
-        get {
-            return actionButton.imageWithTitleView?.title
         }
     }
 
@@ -75,19 +70,19 @@ final class AccessoryView: UIView, AccessoryViewProtocol {
     }
 
     var title: String? {
-        set {
-            if let titleLabel = titleView as? UILabel {
-                titleLabel.text = newValue
-            } else if let newTitle = newValue {
-                setupTitleLabel(for: newTitle)
-            }
-        }
-
         get {
             if let titleLabel = titleView as? UILabel {
                 return titleLabel.text
             } else {
                 return nil
+            }
+        }
+
+        set {
+            if let titleLabel = titleView as? UILabel {
+                titleLabel.text = newValue
+            } else if let newTitle = newValue {
+                setupTitleLabel(for: newTitle)
             }
         }
     }

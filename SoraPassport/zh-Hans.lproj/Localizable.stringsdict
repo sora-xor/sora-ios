@@ -13,7 +13,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li 天剩余</string>
+        <string>%li 剩余几天</string>
       </dict>
     </dict>
     <key>project.date.hour.plurals</key>
@@ -111,7 +111,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li 天剩余</string>
+        <string>%li 天</string>
       </dict>
     </dict>
     <key>referendum.date.hour.plurals</key>
@@ -125,7 +125,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li 小时剩余</string>
+        <string>%li 小时</string>
       </dict>
     </dict>
     <key>referendum.date.minute.plurals</key>
@@ -139,7 +139,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li 分钟剩余</string>
+        <string>%li 分钟</string>
       </dict>
     </dict>
     <key>referendum.date.second.plurals</key>
@@ -153,7 +153,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li 秒剩余</string>
+        <string>%li 秒</string>
       </dict>
     </dict>
   </dict>

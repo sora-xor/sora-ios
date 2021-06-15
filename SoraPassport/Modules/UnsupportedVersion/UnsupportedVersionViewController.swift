@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
@@ -17,7 +12,7 @@ final class UnsupportedVersionViewController: UIViewController, AdaptiveDesignab
     @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var messageLabel: UILabel!
     @IBOutlet private var iconImageView: UIImageView!
-    @IBOutlet private var actionButton: RoundedButton!
+    @IBOutlet private var actionButton: SoraButton!
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -44,7 +39,7 @@ extension UnsupportedVersionViewController: UnsupportedVersionViewProtocol {
         titleLabel.text = viewModel.title
         messageLabel.text = viewModel.message
         iconImageView.image = viewModel.icon
-        actionButton.imageWithTitleView?.title = viewModel.actionTitle
+        actionButton.title = viewModel.actionTitle
         actionButton.invalidateLayout()
     }
 }

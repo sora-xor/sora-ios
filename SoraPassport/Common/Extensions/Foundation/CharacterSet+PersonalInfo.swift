@@ -1,13 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 extension CharacterSet {
     static var personName: CharacterSet {
-        CharacterSet.letters.union(CharacterSet.personNameSeparators)
+        CharacterSet.letters.union(CharacterSet.personNameSeparators).union(CharacterSet.emojiSet)
     }
 
     static var personNameSeparators: CharacterSet {
@@ -21,4 +16,21 @@ extension CharacterSet {
     static var phone: CharacterSet {
         CharacterSet.decimalDigits.union(CharacterSet(charactersIn: "+"))
     }
+
+    static var emojiSet: CharacterSet {
+        var emoji = CharacterSet()
+
+        for codePoint in 0x0000...0x2F0000 {
+            guard let scalarValue = Unicode.Scalar(codePoint) else {
+                continue
+            }
+
+            if scalarValue.properties.isEmojiPresentation {
+                emoji.insert(scalarValue)
+//                print(scalarValue, " ", codePoint)
+            }
+        }
+        return emoji
+    }
+
 }

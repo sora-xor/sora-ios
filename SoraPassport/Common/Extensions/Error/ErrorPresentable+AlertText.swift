@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -41,7 +36,7 @@ extension ErrorPresentable where Self: AlertPresentable {
             return false
         }
 
-        let closeAction = R.string.localizable.commonClose(preferredLanguages: locale?.rLanguages)
+        let closeAction = R.string.localizable.commonOk(preferredLanguages: locale?.rLanguages)
 
         present(message: content.message, title: content.title, closeAction: closeAction, from: view)
 

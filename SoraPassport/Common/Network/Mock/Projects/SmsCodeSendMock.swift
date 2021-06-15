@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FireMock
 
@@ -32,18 +27,18 @@ enum SmsCodeSendMock: FireMockProtocol {
     }
 }
 
-extension SmsCodeSendMock {
-    static func register(mock: SmsCodeSendMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.smsSend.rawValue) else {
-            Logger.shared.warning("Can't find sms sending service endpoint to mock")
-            return
-        }
-
-        guard let url = URL(string: service.serviceEndpoint) else {
-            Logger.shared.warning("Can't create sms send regex")
-            return
-        }
-
-        FireMock.register(mock: mock, forURL: url, httpMethod: .post)
-    }
-}
+//extension SmsCodeSendMock {
+//    static func register(mock: SmsCodeSendMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.smsSend.rawValue) else {
+//            Logger.shared.warning("Can't find sms sending service endpoint to mock")
+//            return
+//        }
+//
+//        guard let url = URL(string: service.serviceEndpoint) else {
+//            Logger.shared.warning("Can't create sms send regex")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, forURL: url, httpMethod: .post)
+//    }
+//}

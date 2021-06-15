@@ -1,184 +1,91 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
+import Then
+import Anchorage
+import SoraFoundation
 
 final class AboutViewController: UIViewController {
-    private enum Row {
-        static let height: CGFloat = 55.0
-
-        case version
-        case writeUs
-        case opensource
-        case terms
-        case privacy
-    }
-
-    private enum Section: Int, CaseIterable {
-        static let height: CGFloat = 55.0
-
-        case software
-        case legal
-
-        var rows: [Row] {
-            switch self {
-            case .software:
-                return [.version, .writeUs, .opensource]
-            case .legal:
-                return [.terms, .privacy]
-            }
-        }
-    }
 
     var presenter: AboutPresenterProtocol!
 
-    var locale: Locale?
+    private lazy var scrollView: UIScrollView = {
+        UIScrollView().then {
+            view.addSubview($0)
+            $0.edgeAnchors == view.safeAreaLayoutGuide.edgeAnchors
+        }
+    }()
 
-    @IBOutlet private var tableView: UITableView!
+    private lazy var containerView: UIView = {
+        UIView().then {
+            scrollView.addSubview($0)
+            $0.edgeAnchors == scrollView.edgeAnchors
+            $0.widthAnchor == scrollView.widthAnchor
+        }
+    }()
 
-    private var version: String = ""
+    private lazy var linkViewButtons: [LinkView] = {
+        optionViewModels.enumerated().map { (index, option) in
+            LinkView().then {
+                $0.tag = index
+                $0.iconImage = option.image
+                $0.titleAttributedText = option.title
+                $0.linkTitleAttributedText = option.subtitle
+                $0.iconTintColor = R.color.baseContentQuaternary()
+                $0.addTarget(
+                    self, action: #selector(linkViewAction(_:)),
+                    for: .touchUpInside
+                )
+            }
+        }
+    }()
+
+    private(set) var optionViewModels: [AboutOptionViewModelProtocol] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        configureTableView()
-        setupLocalization()
-
         presenter.setup()
-    }
 
-    // MARK: UITableView
-
-    private func title(for section: Section) -> String {
-        switch section {
-        case .software:
-            return R.string.localizable.aboutSoftware(preferredLanguages: locale?.rLanguages)
-        case .legal:
-            return R.string.localizable.aboutLegal(preferredLanguages: locale?.rLanguages)
-        }
-    }
-
-    private func configureTableView() {
-        tableView.register(R.nib.aboutAccessoryTitleCell)
-        tableView.register(R.nib.aboutNavigationCell)
-
-        let hiddableFooterSize = CGSize(width: tableView.bounds.width, height: 1.0)
-        tableView.tableFooterView = UIView(frame: CGRect(origin: .zero,
-                                                         size: hiddableFooterSize))
-    }
-
-    private func setupLocalization() {
-        title = R.string.localizable.aboutTitle(preferredLanguages: locale?.rLanguages)
-    }
-
-    private func prepareAccessoryCell(for tableView: UITableView,
-                                      indexPath: IndexPath,
-                                      title: String,
-                                      subtitle: String) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: R.reuseIdentifier.aboutAccessoryTitleCellId,
-                                                 for: indexPath)!
-
-        cell.bind(title: title, subtitle: subtitle)
-
-        return cell
-    }
-
-    private func prepareNavigationCell(for tableView: UITableView,
-                                       indexPath: IndexPath,
-                                       title: String) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: R.reuseIdentifier.aboutNavigationCellId,
-                                                 for: indexPath)!
-
-        cell.bind(title: title)
-
-        return cell
+        configure()
     }
 }
 
-extension AboutViewController: UITableViewDataSource {
-    func numberOfSections(in tableView: UITableView) -> Int {
-        return Section.allCases.count
-    }
+private extension AboutViewController {
 
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return Section(rawValue: section)!.rows.count
-    }
+    func configure() {
+        navigationItem.title = R.string.localizable.aboutTitle(preferredLanguages: languages)
 
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        switch Section(rawValue: indexPath.section)!.rows[indexPath.row] {
-        case .version:
-            return prepareAccessoryCell(for: tableView,
-                                        indexPath: indexPath,
-                                        title: R.string.localizable
-                                            .aboutVersion(preferredLanguages: locale?.rLanguages),
-                                        subtitle: version)
-        case .writeUs:
-            return prepareNavigationCell(for: tableView,
-                                         indexPath: indexPath,
-                                         title: R.string.localizable
-                                            .aboutContactUs(preferredLanguages: locale?.rLanguages))
-        case .opensource:
-            return prepareNavigationCell(for: tableView,
-                                         indexPath: indexPath,
-                                         title: R.string.localizable
-                                            .aboutSourceCode(preferredLanguages: locale?.rLanguages))
-        case .terms:
-            return prepareNavigationCell(for: tableView,
-                                         indexPath: indexPath,
-                                         title: R.string.localizable
-                                            .aboutTerms(preferredLanguages: locale?.rLanguages))
-        case .privacy:
-            return prepareNavigationCell(for: tableView,
-                                         indexPath: indexPath,
-                                         title: R.string.localizable
-                                            .aboutPrivacy(preferredLanguages: locale?.rLanguages))
-        }
-    }
-}
-
-extension AboutViewController: UITableViewDelegate {
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return Row.height
-    }
-
-    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        return Section.height
-    }
-
-    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        guard let view = UINib(resource: R.nib.aboutHeaderView)
-            .instantiate(withOwner: nil, options: nil).first as? AboutHeaderView else {
-                return nil
+        let stackView = UIStackView(
+            arrangedSubviews: linkViewButtons
+        ).then {
+            $0.axis = .vertical
+            $0.spacing = 0
         }
 
-        view.bind(title: title(for: Section(rawValue: section)!))
-
-        return view
+        stackView.do {
+            containerView.addSubview($0)
+            $0.edgeAnchors.verticalAnchors == containerView.edgeAnchors.verticalAnchors + 24
+            $0.edgeAnchors.horizontalAnchors == containerView.edgeAnchors.horizontalAnchors + 16
+        }
     }
 
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-
-        switch Section(rawValue: indexPath.section)!.rows[indexPath.row] {
-        case .version:
-            return
-        case .writeUs:
-            presenter.activateWriteUs()
-        case .opensource:
-            presenter.activateOpensource()
-        case .terms:
-            presenter.activateTerms()
-        case .privacy:
-            presenter.activatePrivacyPolicy()
-        }
+    @objc private func linkViewAction(_ sender: LinkView) {
+        let model = optionViewModels[sender.tag]
+        presenter.activateOption(model.option)
     }
 }
 
 extension AboutViewController: AboutViewProtocol {
-    func didReceive(version: String) {
-        self.version = version
-        tableView.reloadData()
+    func didReceive(optionViewModels: [AboutOptionViewModelProtocol]) {
+        self.optionViewModels = optionViewModels
+    }
+}
+
+extension AboutViewController: Localizable {
+    private var languages: [String]? {
+        localizationManager?.preferredLocalizations
+    }
+
+    func applyLocalization() {
+
     }
 }

@@ -13,7 +13,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>残り%li日です</string>
+        <string>残り%li日</string>
       </dict>
     </dict>
     <key>project.date.hour.plurals</key>
@@ -97,7 +97,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>投票した友達%li人</string>
+        <string>投票した友達は%li人</string>
       </dict>
     </dict>
     <key>referendum.date.day.plurals</key>
@@ -111,7 +111,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>残り%li日です</string>
+        <string>残り%li日</string>
       </dict>
     </dict>
     <key>referendum.date.hour.plurals</key>
