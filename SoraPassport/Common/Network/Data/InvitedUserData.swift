@@ -8,11 +8,17 @@ import Foundation
 struct InvitedUserData: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case userId
-        case firstName
-        case lastName
+        case walletAccountId
+        case timestamp = "registrationDate"
     }
 
     var userId: String
-    var firstName: String
-    var lastName: String
+    var walletAccountId: String
+    var timestamp: Int64
+}
+
+extension InvitedUserData {
+    var registrationDate: Date {
+        Date(timeIntervalSince1970: TimeInterval(timestamp))
+    }
 }

@@ -9,7 +9,7 @@ import Cuckoo
 import SoraFoundation
 
 class InvitationHandlePresenterTests: NetworkBaseTests {
-
+/*
     func testDeepLinkHandlingSuccess() {
         // given
 
@@ -175,4 +175,5 @@ class InvitationHandlePresenterTests: NetworkBaseTests {
 
         return presenter
     }
+ */
 }

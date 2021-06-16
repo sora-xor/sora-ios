@@ -14,7 +14,9 @@ final class RootPresenter {
 extension RootPresenter: RootPresenterProtocol {
     func loadOnLaunch() {
         interactor.setup()
-        interactor.decideModuleSynchroniously()
+        wireframe.showSplash(on: view) {
+            self.interactor.decideModuleSynchroniously()
+        }
     }
 }
 
@@ -27,8 +29,8 @@ extension RootPresenter: RootInteractorOutputProtocol {
         wireframe.showLocalAuthentication(on: view)
     }
 
-    func didDecideAuthVerification() {
-        wireframe.showAuthVerification(on: view)
+    func didDecidePincodeSetup() {
+        wireframe.showPincodeSetup(on: view)
     }
 
     func didDecideBroken() {

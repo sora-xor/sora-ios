@@ -11,7 +11,7 @@ protocol AccessoryViewFactoryProtocol: class {
                                     completionSelector: Selector?) -> AccessoryViewProtocol
     static func createActionTitleView(with title: String,
                                       target: Any?,
-                                      actionHandler: Selector?) -> RoundedButton
+                                      actionHandler: Selector?) -> SoraButton
 }
 
 final class AccessoryViewFactory: AccessoryViewFactoryProtocol {
@@ -31,8 +31,8 @@ final class AccessoryViewFactory: AccessoryViewFactoryProtocol {
 
     static func createActionTitleView(with title: String,
                                       target: Any?,
-                                      actionHandler: Selector?) -> RoundedButton {
-        let actionButton = RoundedButton()
+                                      actionHandler: Selector?) -> SoraButton {
+        let actionButton = SoraButton()
         actionButton.imageWithTitleView?.titleColor = UIColor.actionTitle
         actionButton.imageWithTitleView?.titleFont = UIFont.accessoryTitle
         actionButton.imageWithTitleView?.title = title

@@ -25,4 +25,6 @@ extension String {
     static var amountDecrease: String {
         return "−"
     }
+
+    static var returnKey: String { "\n" }
 }

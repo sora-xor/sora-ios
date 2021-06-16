@@ -23,18 +23,18 @@ enum ProjectsVotedFetchMock: FireMockProtocol {
     }
 }
 
-extension ProjectsVotedFetchMock {
-    static func register(mock: ProjectsVotedFetchMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.voted.rawValue) else {
-            Logger.shared.warning("Can't find voted projects fetch service endpoint to mock")
-            return
-        }
-
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create voted projects fetch regex")
-            return
-        }
-
-        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
-    }
-}
+//extension ProjectsVotedFetchMock {
+//    static func register(mock: ProjectsVotedFetchMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.voted.rawValue) else {
+//            Logger.shared.warning("Can't find voted projects fetch service endpoint to mock")
+//            return
+//        }
+//
+//        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
+//            Logger.shared.warning("Can't create voted projects fetch regex")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
+//    }
+//}

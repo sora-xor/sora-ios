@@ -6,6 +6,7 @@
 import XCTest
 import Cuckoo
 import RobinHood
+import SoraKeystore
 import SoraFoundation
 @testable import SoraPassport
 
@@ -13,9 +14,6 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
     func testSuccessfullSetupAndUpdate() {
         // given
-        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-        UpdateCustomerMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-
         let presenter = createPresenter()
         let interactor = createInteractor()
         interactor.presenter = presenter
@@ -37,8 +35,6 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
                 setupExpectation.fulfill()
             }
 
-            when(stub).didStartLoading().thenDoNothing()
-            when(stub).didStopLoading().thenDoNothing()
             when(stub).didStartSaving().thenDoNothing()
 
             when(stub).didCompleteSaving(success: true).then { _ in
@@ -53,25 +49,15 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
         // when
         presenter.setup()
 
-        // then
-        XCTAssertTrue(presenter.dataLoadingState == .waitingCached)
-
-        wait(for: [setupExpectation], timeout: Constants.networkRequestTimeout)
-
-        XCTAssertNotNil(presenter.userData)
-        XCTAssertTrue(presenter.dataLoadingState == .refreshed)
+        XCTAssertNotNil(presenter.username)
 
         // when
-        let personalUpdateInfo = createRandomPersonalUpdateInfo()
+        let randomUser = createRandomUser()
 
-        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.firstName.rawValue].inputHandler
-            .changeValue(to: personalUpdateInfo.firstName ?? "")
-        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.lastName.rawValue].inputHandler
-            .changeValue(to: personalUpdateInfo.lastName ?? "")
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.userName.rawValue].inputHandler
+            .changeValue(to: randomUser.username ?? "")
 
         presenter.save()
-
-        wait(for: [updateExpectation], timeout: Constants.networkRequestTimeout)
 
         // then
 
@@ -80,9 +66,6 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
     func testSetupFailed() {
         // given
-        ProjectsCustomerMock.register(mock: .resourceNotFound,
-                                      projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-
         let presenter = createPresenter()
         let interactor = createInteractor()
         interactor.presenter = presenter
@@ -98,8 +81,6 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
         stub(mockView) { stub in
             when(stub).didReceive(viewModels: any([InputViewModelProtocol].self)).thenDoNothing()
-            when(stub).didStartLoading().thenDoNothing()
-            when(stub).didStopLoading().thenDoNothing()
         }
 
         mockWireframe.errorPresentationCalledBlock = {
@@ -112,19 +93,13 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
         // then
 
-        wait(for: [setupExpectation], timeout: Constants.networkRequestTimeout)
-
-        XCTAssertTrue(presenter.dataLoadingState == .waitingRefresh)
         XCTAssertEqual(mockWireframe.numberOfCloseCalled, 0)
         XCTAssertEqual(mockWireframe.numberOfAlertPresentationCalled, 0)
-        XCTAssertEqual(mockWireframe.numberOfErrorPresentationCalled, 1)
+        XCTAssertEqual(mockWireframe.numberOfErrorPresentationCalled, 0)
     }
 
     func testUpdateFailed() {
         // given
-        ProjectsCustomerMock.register(mock: .successWithParent, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-        UpdateCustomerMock.register(mock: .resourceNotFound, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
-
         let presenter = createPresenter()
         let interactor = createInteractor()
         interactor.presenter = presenter
@@ -146,11 +121,9 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
                 setupExpectation.fulfill()
             }
 
-            when(stub).didStartLoading().thenDoNothing()
-            when(stub).didStopLoading().thenDoNothing()
             when(stub).didStartSaving().thenDoNothing()
 
-            when(stub).didCompleteSaving(success: false).then { _ in
+            when(stub).didCompleteSaving(success: true).then { _ in
                 updateExpectation.fulfill()
             }
         }
@@ -159,45 +132,34 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
         presenter.setup()
 
-        wait(for: [setupExpectation], timeout: Constants.networkRequestTimeout)
+        XCTAssertNotNil(presenter.username)
 
-        let personalUpdateInfo = createRandomPersonalUpdateInfo()
+        let randomUser = createRandomUser()
 
-        XCTAssertNotNil(presenter.userData)
-
-        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.firstName.rawValue].inputHandler
-            .changeValue(to: personalUpdateInfo.firstName ?? "")
-        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.lastName.rawValue].inputHandler
-            .changeValue(to: personalUpdateInfo.lastName ?? "")
+        presenter.models?[PersonalUpdatePresenter.ViewModelIndex.userName.rawValue].inputHandler
+            .changeValue(to: randomUser.username ?? "")
 
         presenter.save()
 
-        wait(for: [updateExpectation], timeout: Constants.networkRequestTimeout)
-
         // then
 
-        XCTAssertEqual(mockWireframe.numberOfCloseCalled, 0)
+        XCTAssertEqual(mockWireframe.numberOfCloseCalled, 1)
         XCTAssertEqual(mockWireframe.numberOfAlertPresentationCalled, 0)
-        XCTAssertEqual(mockWireframe.numberOfErrorPresentationCalled, 1)
+        XCTAssertEqual(mockWireframe.numberOfErrorPresentationCalled, 0)
     }
 
     // MARK: Private
     private func createPresenter() -> PersonalUpdatePresenter {
         let factory = PersonalInfoViewModelFactory()
-        return PersonalUpdatePresenter(locale: Locale.current, viewModelFactory: factory)
+        return PersonalUpdatePresenter(viewModelFactory: factory)
     }
 
     private func createInteractor() -> PersonalUpdateInteractor {
-        let requestSigner = createDummyRequestSigner()
-
-        let projectService = ProjectUnitService(unit: ApplicationConfig.shared.defaultProjectUnit)
-        projectService.requestSigner = requestSigner
-
-        let customerFacade = CustomerDataProviderFacade()
-        customerFacade.coreDataCacheFacade = CoreDataCacheTestFacade()
-        customerFacade.requestSigner = requestSigner
-
-        return PersonalUpdateInteractor(customerFacade: customerFacade,
-                                        projectService: projectService)
+        var inMemorySettingsManager = InMemorySettingsManager()
+        inMemorySettingsManager.selectedAccount = AccountItem(address: "5G71rM4RwZehaHsGNXc6FMjZoWJRCooMWARHY6YU2WDpNgpA",
+                                                               cryptoType: .sr25519,
+                                                               username: "test user",
+                                                               publicKeyData: Data())
+        return PersonalUpdateInteractor(settingsManager: inMemorySettingsManager)
     }
 }

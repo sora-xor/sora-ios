@@ -35,18 +35,18 @@ enum EthConfigMock: FireMockProtocol {
     }
 }
 
-extension EthConfigMock {
-    static func register(mock: EthConfigMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.ethConfig.rawValue) else {
-            Logger.shared.warning("Can't find eth config service endpoint to mock")
-            return
-        }
-
-        guard let url = URL(string: service.serviceEndpoint) else {
-            Logger.shared.warning("Can't create eth config fetch url")
-            return
-        }
-
-        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
-    }
-}
+//extension EthConfigMock {
+//    static func register(mock: EthConfigMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.ethConfig.rawValue) else {
+//            Logger.shared.warning("Can't find eth config service endpoint to mock")
+//            return
+//        }
+//
+//        guard let url = URL(string: service.serviceEndpoint) else {
+//            Logger.shared.warning("Can't create eth config fetch url")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
+//    }
+//}

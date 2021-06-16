@@ -21,7 +21,7 @@ class IdentityLocalRemoveOperationTests: XCTestCase {
         try? keystore.deleteAll()
         settings.removeAll()
     }
-
+/*
     func testSuccessfullRemoval() throws {
         // given
         settings.decentralizedId = Constants.dummyDid
@@ -96,4 +96,5 @@ class IdentityLocalRemoveOperationTests: XCTestCase {
         XCTAssertFalse(try keystore.checkKey(for: KeystoreKey.seedEntropy.rawValue))
         XCTAssertTrue(try SecondaryIdentityRepository(keystore: keystore).checkAllEmpty())
     }
+ */
 }

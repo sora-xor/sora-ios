@@ -7,105 +7,137 @@ import Foundation
 import SoraKeystore
 import CommonWallet
 import SoraFoundation
+import FearlessUtils
 
 final class MainTabBarInteractor {
 	weak var presenter: MainTabBarInteractorOutputProtocol?
 
     let eventCenter: EventCenterProtocol
-    let applicationConfig: ApplicationConfigProtocol
-    let notificationRegistrator: NotificationsRegistrationProtocol
     let settings: SettingsManagerProtocol
-    let invitationLinkService: InvitationLinkServiceProtocol
-    let walletContext: CommonWalletContextProtocol
-    let applicationHandler: ApplicationHandlerProtocol
-    let userServices: [UserApplicationServiceProtocol]
+    let serviceCoordinator: ServiceCoordinatorProtocol
+    let keystoreImportService: KeystoreImportServiceProtocol
 
-    var logger: LoggerProtocol?
+    private var currentAccount: AccountItem?
+    private var currentConnection: ConnectionItem?
 
     deinit {
-        userServices.forEach { $0.throttle() }
+        stopServices()
     }
 
     init(eventCenter: EventCenterProtocol,
          settings: SettingsManagerProtocol,
-         applicationConfig: ApplicationConfigProtocol,
-         applicationHandler: ApplicationHandlerProtocol,
-         notificationRegistrator: NotificationsRegistrationProtocol,
-         invitationLinkService: InvitationLinkServiceProtocol,
-         walletContext: CommonWalletContextProtocol,
-         userServices: [UserApplicationServiceProtocol]) {
-
+         serviceCoordinator: ServiceCoordinatorProtocol,
+         keystoreImportService: KeystoreImportServiceProtocol) {
         self.eventCenter = eventCenter
         self.settings = settings
-        self.applicationConfig = applicationConfig
-        self.notificationRegistrator = notificationRegistrator
-        self.invitationLinkService = invitationLinkService
-        self.walletContext = walletContext
-        self.applicationHandler = applicationHandler
-        self.userServices = userServices
+        self.keystoreImportService = keystoreImportService
+        self.serviceCoordinator = serviceCoordinator
 
-        setup()
+        updateSelectedItems()
+
+        startServices()
     }
 
-    private func setup() {
-        eventCenter.add(observer: self)
-        applicationHandler.delegate = self
-
-        userServices.forEach { $0.setup() }
+    private func updateSelectedItems() {
+        self.currentAccount = settings.selectedAccount
+        self.currentConnection = settings.selectedConnection
     }
 
-    private func updateWalletAccount() {
-        do {
-            try walletContext.prepareAccountUpdateCommand().execute()
-        } catch {
-            logger?.error("Can't update wallet account due to error \(error)")
-        }
+    private func startServices() {
+        serviceCoordinator.setup()
+    }
+
+    private func stopServices() {
+        serviceCoordinator.throttle()
     }
 }
 
 extension MainTabBarInteractor: MainTabBarInteractorInputProtocol {
-
     func configureNotifications() {
-        let options = NotificationsOptions(rawValue: applicationConfig.notificationOptions)
-        notificationRegistrator.registerNotifications(options: options)
-        notificationRegistrator.registerForRemoteNotifications()
+
     }
 
     func configureDeepLink() {
-        invitationLinkService.add(observer: self)
+
     }
 
     func searchPendingDeepLink() {
-        if let link = invitationLinkService.link {
-            presenter?.didReceive(deepLink: link)
-        }
+
     }
 
     func resolvePendingDeepLink() {
-        invitationLinkService.clear()
+
+    }
+
+    func setup() {
+        eventCenter.add(observer: self, dispatchIn: .main)
+        keystoreImportService.add(observer: self)
+
+        if keystoreImportService.definition != nil {
+            presenter?.didRequestImportAccount()
+        }
+        serviceCoordinator.checkMigration()
     }
 }
 
-extension MainTabBarInteractor: InvitationLinkObserver {
-    func didUpdateInvitationLink(from oldLink: InvitationDeepLink?) {
-        if let link = invitationLinkService.link {
-            presenter?.didReceive(deepLink: link)
+extension MainTabBarInteractor: KeystoreImportObserver {
+    func didUpdateDefinition(from oldDefinition: KeystoreDefinition?) {
+        guard keystoreImportService.definition != nil else {
+            return
         }
+
+        presenter?.didRequestImportAccount()
     }
 }
 
 extension MainTabBarInteractor: EventVisitorProtocol {
-    func processPushNotification(event: PushNotificationEvent) {
-        updateWalletAccount()
+//    func processPushNotification(event: PushNotificationEvent) {
+//        updateWalletAccount()
+//    }
+
+    func processMigration(event: MigrationEvent) {
+        presenter?.didRequestMigration(with: event.service)
+    }
+
+    func processSuccsessMigration(event: MigrationSuccsessEvent) {
+        presenter?.didEndMigration()
     }
 
     func processWalletUpdate(event: WalletUpdateEvent) {
-        updateWalletAccount()
+//        updateWalletAccount()
+    }
+    func processSelectedAccountChanged(event: SelectedAccountChanged) {
+//        if currentAccount != settings.selectedAccount {
+//            updateWebSocketSettings()
+//            updateSelectedItems()
+//            presenter?.didReloadSelectedAccount()
+//        }
+    }
+
+    func processSelectedConnectionChanged(event: SelectedConnectionChanged) {
+//        if currentConnection != settings.selectedConnection {
+//            updateWebSocketSettings()
+//            updateSelectedItems()
+//            presenter?.didReloadSelectedNetwork()
+//        }
+    }
+
+    func processBalanceChanged(event: WalletBalanceChanged) {
+        presenter?.didUpdateWalletInfo()
+    }
+
+    func processStakingChanged(event: WalletStakingInfoChanged) {
+        presenter?.didUpdateWalletInfo()
+    }
+
+    func processNewTransaction(event: WalletNewTransactionInserted) {
+        presenter?.didUpdateWalletInfo()
     }
 }
 
 extension MainTabBarInteractor: ApplicationHandlerDelegate {
     func didReceiveWillEnterForeground(notification: Notification) {
-        updateWalletAccount()
+//        updateWalletAccount()
+        presenter?.didUpdateWalletInfo()
     }
 }

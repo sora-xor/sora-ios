@@ -35,7 +35,7 @@ struct WalletAccountSharingFactory: AccountShareFactoryProtocol {
             optionalAmountTitle = formattedAmount
         }
 
-        let platform = R.string.localizable.assetXorPlatform()
+        let platform = R.string.localizable.assetXorPlatform(preferredLanguages: languages)
 
         if let assetTitle = optionalAssetTitle, let amountTitle = optionalAmountTitle {
             title = R.string.localizable

@@ -116,11 +116,7 @@ extension CompactBarFloating where Self: UIViewController {
     }
 
     var shouldHandleFloatingBar: Bool {
-        var contentInsets = compactBarSupportScrollView.contentInset
-
-        if #available(iOS 11.0, *) {
-            contentInsets = compactBarSupportScrollView.adjustedContentInset
-        }
+        let contentInsets = compactBarSupportScrollView.adjustedContentInset
 
         let remainedContentHeight = compactBarSupportScrollView.contentSize.height
             - compactBar.bounds.size.height
@@ -245,11 +241,7 @@ extension CompactBarFloating where Self: UIViewController {
         let scrollingFraction = targetContentOffset.y / compactBar.bounds.size.height
 
         if scrollingFraction < 1.0 {
-            var contentInsets = compactBarSupportScrollView.contentInset
-
-            if #available(iOS 11.0, *) {
-                contentInsets = compactBarSupportScrollView.adjustedContentInset
-            }
+            let contentInsets = compactBarSupportScrollView.adjustedContentInset
 
             let remainedContentHeight = compactBarSupportScrollView.contentSize.height
                 - compactBar.bounds.size.height

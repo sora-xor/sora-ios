@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="15505" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina4_7" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="15510"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <customFonts key="customFonts">
@@ -23,87 +25,96 @@
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="749" text="Wallet" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.5" translatesAutoresizingMaskIntoConstraints="NO" id="y8J-gX-rEP">
-                        <rect key="frame" x="20" y="20" width="77" height="29"/>
+                        <rect key="frame" x="20" y="20" width="63" height="27"/>
                         <fontDescription key="fontDescription" name="sora-rc004-0417-Bold" family="sora-rc004-0417" pointSize="23"/>
-                        <color key="textColor" red="0.01176470588" green="0.36078431370000003" blue="0.35294117650000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="textColor" name="Base ContentPrimary"/>
                         <nil key="highlightedColor"/>
                     </label>
-                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WdM-n9-Sj6" customClass="RoundedButton" customModule="SoraUI">
-                        <rect key="frame" x="321" y="17.5" width="34" height="34"/>
-                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                        <constraints>
-                            <constraint firstAttribute="width" constant="34" id="GaL-fR-BKK"/>
-                            <constraint firstAttribute="height" constant="34" id="hGg-XL-KUX"/>
-                        </constraints>
-                        <userDefinedRuntimeAttributes>
-                            <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
-                                <color key="value" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="color" keyPath="_highlightedFillColor">
-                                <color key="value" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="color" keyPath="_titleColor">
-                                <color key="value" red="0.81568627449999997" green="0.031372549020000001" blue="0.1058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
-                                <real key="value" value="14"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="Helvetica-Bold"/>
-                            <userDefinedRuntimeAttribute type="color" keyPath="_shadowColor">
-                                <color key="value" red="0.0" green="0.54117647059999996" blue="0.41960784309999999" alpha="0.26000000000000001" colorSpace="custom" customColorSpace="sRGB"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="size" keyPath="_shadowOffset">
-                                <size key="value" width="0.0" height="1"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
-                                <real key="value" value="1"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
-                                <real key="value" value="1"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
-                                <real key="value" value="17"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="number" keyPath="_topInset">
-                                <real key="value" value="0.0"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="number" keyPath="_leftInset">
-                                <real key="value" value="0.0"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="number" keyPath="_bottomInset">
-                                <real key="value" value="0.0"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="number" keyPath="_rightInset">
-                                <real key="value" value="0.0"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="helpIcon"/>
-                            <userDefinedRuntimeAttribute type="number" keyPath="_spacingBetweenItems">
-                                <real key="value" value="0.0"/>
-                            </userDefinedRuntimeAttribute>
-                            <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="YES"/>
-                        </userDefinedRuntimeAttributes>
-                        <connections>
-                            <action selector="actionHelp" destination="xaL-8I-yQ7" eventType="touchUpInside" id="ioa-zK-VzR"/>
-                        </connections>
-                    </view>
+                    <stackView opaque="NO" contentMode="scaleToFill" distribution="equalCentering" alignment="center" spacing="8" translatesAutoresizingMaskIntoConstraints="NO" id="usG-bf-rXf">
+                        <rect key="frame" x="331" y="17.5" width="32" height="32"/>
+                        <subviews>
+                            <view hidden="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="GGZ-NL-sPT" customClass="RoundedButton" customModule="SoraUI">
+                                <rect key="frame" x="0.0" y="0.0" width="32" height="32"/>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="32" id="6SR-hH-BuX"/>
+                                    <constraint firstAttribute="width" secondItem="GGZ-NL-sPT" secondAttribute="height" multiplier="1:1" id="L1o-00-ZJM"/>
+                                </constraints>
+                                <userDefinedRuntimeAttributes>
+                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletMore"/>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
+                                        <real key="value" value="16"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="size" keyPath="_shadowOffset">
+                                        <size key="value" width="0.0" height="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
+                                        <real key="value" value="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
+                                        <real key="value" value="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                </userDefinedRuntimeAttributes>
+                            </view>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="p8c-4X-5Sv" customClass="RoundedButton" customModule="SoraUI">
+                                <rect key="frame" x="0.0" y="0.0" width="32" height="32"/>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="32" id="VPH-QI-RkW"/>
+                                    <constraint firstAttribute="width" secondItem="p8c-4X-5Sv" secondAttribute="height" multiplier="1:1" id="tXo-pw-YB2"/>
+                                </constraints>
+                                <userDefinedRuntimeAttributes>
+                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletScan"/>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
+                                        <real key="value" value="16"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="size" keyPath="_shadowOffset">
+                                        <size key="value" width="0.0" height="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
+                                        <real key="value" value="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
+                                        <real key="value" value="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                </userDefinedRuntimeAttributes>
+                            </view>
+                        </subviews>
+                    </stackView>
                 </subviews>
             </view>
+            <viewLayoutGuide key="safeArea" id="QmK-rt-AD4"/>
             <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
             <constraints>
                 <constraint firstItem="y8J-gX-rEP" firstAttribute="leading" secondItem="QmK-rt-AD4" secondAttribute="leading" constant="20" id="19g-0J-z6K"/>
-                <constraint firstItem="QmK-rt-AD4" firstAttribute="trailing" secondItem="WdM-n9-Sj6" secondAttribute="trailing" constant="20" id="6IF-Ga-6HW"/>
                 <constraint firstItem="y8J-gX-rEP" firstAttribute="top" secondItem="QmK-rt-AD4" secondAttribute="top" constant="20" id="ZJL-mr-u7F"/>
-                <constraint firstItem="WdM-n9-Sj6" firstAttribute="centerY" secondItem="y8J-gX-rEP" secondAttribute="centerY" id="pEW-kn-p8m"/>
+                <constraint firstItem="usG-bf-rXf" firstAttribute="centerY" secondItem="y8J-gX-rEP" secondAttribute="centerY" id="itc-tH-lnW"/>
+                <constraint firstAttribute="trailing" secondItem="usG-bf-rXf" secondAttribute="trailing" constant="12" id="uYk-cX-Cr5"/>
             </constraints>
-            <viewLayoutGuide key="safeArea" id="QmK-rt-AD4"/>
             <connections>
-                <outlet property="helpButton" destination="WdM-n9-Sj6" id="5vu-81-wx4"/>
+                <outlet property="moreButton" destination="GGZ-NL-sPT" id="dfB-66-aH2"/>
+                <outlet property="scanButton" destination="p8c-4X-5Sv" id="SOW-fU-YIu"/>
                 <outlet property="titleLabel" destination="y8J-gX-rEP" id="tZv-ym-XLL"/>
             </connections>
             <point key="canvasLocation" x="-198" y="3"/>
         </collectionViewCell>
     </objects>
+    <designables>
+        <designable name="GGZ-NL-sPT">
+            <size key="intrinsicContentSize" width="48" height="48"/>
+        </designable>
+        <designable name="p8c-4X-5Sv">
+            <size key="intrinsicContentSize" width="48" height="48"/>
+        </designable>
+    </designables>
     <resources>
-        <image name="helpIcon" width="7" height="11"/>
+        <image name="iconWalletMore" width="32" height="32"/>
+        <image name="iconWalletScan" width="32" height="32"/>
+        <namedColor name="Base ContentPrimary">
+            <color red="0.17647058823529413" green="0.16078431372549021" blue="0.14901960784313725" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
     </resources>
 </document>

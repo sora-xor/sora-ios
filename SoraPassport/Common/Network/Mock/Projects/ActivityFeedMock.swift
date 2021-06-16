@@ -37,18 +37,18 @@ enum ActivityFeedMock: FireMockProtocol {
     }
 }
 
-extension ActivityFeedMock {
-    static func register(mock: ActivityFeedMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.activityFeed.rawValue) else {
-            Logger.shared.warning("Can't find activity feed fetch endpoint to mock")
-            return
-        }
-
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create activity feed regex")
-            return
-        }
-
-        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
-    }
-}
+//extension ActivityFeedMock {
+//    static func register(mock: ActivityFeedMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.activityFeed.rawValue) else {
+//            Logger.shared.warning("Can't find activity feed fetch endpoint to mock")
+//            return
+//        }
+//
+//        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
+//            Logger.shared.warning("Can't create activity feed regex")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
+//    }
+//}

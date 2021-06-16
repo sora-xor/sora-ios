@@ -10,15 +10,24 @@ import SoraKeystore
 import Cuckoo
 
 class AccessBackupInteractorTests: XCTestCase {
-    var interactor: AccessBackupInteractor!
+    var interactor: AccountBackupInteractor!
+    let settings = InMemorySettingsManager()
 
     override func setUp() {
         super.setUp()
 
-        interactor = AccessBackupInteractor(keystore: Keychain(),
-                                            mnemonicCreator: IRMnemonicCreator(language: .english))
+        let keystore = InMemoryKeychain()
 
-        clearStorage()
+
+        try? AccountCreationHelper.createAccountFromMnemonic(Constants.dummyValidMnemonic,
+                                                            cryptoType: .sr25519,
+                                                            networkType: .sora,
+                                                            keychain: keystore,
+                                                            settings: settings)
+
+        interactor = AccountBackupInteractor(keystore: keystore,
+                                            mnemonicCreator: IRMnemonicCreator(language: .english),
+                                            settings: settings)
     }
 
     override func tearDown() {
@@ -28,31 +37,31 @@ class AccessBackupInteractorTests: XCTestCase {
     func testSuccessfullPassphraseLoading() {
         // given
 
-        try? interactor.keystore.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreKey.pincode.rawValue)
+        try? interactor.keystore.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreTag.pincode.rawValue)
 
         let mnemonic = try! interactor.mnemonicCreator.mnemonic(fromList: Constants.dummyValidMnemonic)
-        try? interactor.keystore.saveKey(mnemonic.entropy(), with: KeystoreKey.seedEntropy.rawValue)
+        try? interactor.keystore.saveEntropy(mnemonic.entropy(), address: settings.selectedAccount!.address)
 
-        let presenter = MockAccessBackupInteractorOutputProtocol()
+        let presenter = MockAccountCreateInteractorOutputProtocol()// MockAccessBackupInteractorOutputProtocol()
         interactor.presenter = presenter
 
         let expectation = XCTestExpectation()
 
         stub(presenter) { stub in
-            when(stub).didLoad(mnemonic: any(String.self)).then { _ in
+            when(stub).didReceive(metadata: any(AccountCreationMetadata.self)).then { _ in
                 expectation.fulfill()
             }
         }
 
         // when
 
-        interactor.load()
+        interactor.setup()
 
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
         // then
 
-        verify(presenter, times(1)).didLoad(mnemonic: Constants.dummyValidMnemonic)
+        verify(presenter, times(1)).didReceive(metadata: any(AccountCreationMetadata.self))
     }
 
     // MARK: Private

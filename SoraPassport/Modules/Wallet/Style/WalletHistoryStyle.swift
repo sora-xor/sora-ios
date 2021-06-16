@@ -7,11 +7,18 @@ import Foundation
 import CommonWallet
 
 extension HistoryViewStyle {
-    static var sora: HistoryViewStyleProtocol {
-        let borderStyle = WalletStrokeStyle(color: .clear, lineWidth: 0.0)
+    static var sora: HistoryViewStyleProtocol { //Header
+        let borderStyle = WalletStrokeStyle(color: .clear, lineWidth: 0)
         let cornerRadius: CGFloat = 10.0
-        let titleStyle = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 15.0)!,
-                                         color: UIColor(white: 44.0 / 255.0, alpha: 1.0))
+        let titleStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph2, isBold: true),
+                                         color: R.color.baseContentTertiary()!)
+        let shadow = WalletShadowStyle(offset: CGSize(width: 0.0, height: 1.0),
+//                               color: UIColor(red: 0, green: 0, blue: 0, alpha: 0.1),
+//                               opacity: 0.5, //1.0,
+//                               blurRadius: 25.0)
+                                   color: UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 0.35),
+                                   opacity: 1.0,
+                                   blurRadius: 4.0)
 
         return HistoryViewStyle(fillColor: .white,
                                 borderStyle: borderStyle,
@@ -20,8 +27,9 @@ extension HistoryViewStyle {
                                 filterIcon: nil,
                                 closeIcon: nil,
                                 panIndicatorStyle: UIColor(white: 221.0 / 255.0, alpha: 1.0),
-                                shadow: nil,
-                                separatorStyle: nil)
+                                shouldInsertFullscreenShadow: true,
+                                shadow: shadow,
+                                separatorStyle: UIColor(white: 221.0 / 255.0, alpha: 0.5))
     }
 }
 
@@ -44,9 +52,9 @@ extension TransactionCellStyle {
 }
 
 extension TransactionHeaderStyle {
-    static var sora: TransactionHeaderStyle {
-        let text = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
-                                   color: UIColor(white: 120.0 / 255.0, alpha: 1.0))
+    static var sora: TransactionHeaderStyle { // date section
+        let text = WalletTextStyle(font: UIFont.styled(for: .paragraph2, isBold: false),
+                                   color: R.color.baseContentTertiary()!)
         return TransactionHeaderStyle(background: .white,
                                       title: text,
                                       separatorColor: .clear)

@@ -79,11 +79,11 @@ final class WalletAccountView: UIControl {
 
         switch viewModel.type {
         case .soranet:
-            iconImageView.image = R.image.iconXor()
+            iconImageView.image = R.image.assetXor()
         case .ethereum:
-            iconImageView.image = R.image.iconValErc()
+            iconImageView.image = R.image.assetValErc()
         case .val:
-            iconImageView.image = R.image.iconVal()
+            iconImageView.image = R.image.assetVal()
         }
 
         invalidateIntrinsicContentSize()

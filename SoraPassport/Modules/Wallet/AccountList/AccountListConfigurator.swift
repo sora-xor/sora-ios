@@ -10,68 +10,48 @@ import SoraFoundation
 import CoreData
 
 final class AccountListConfigurator {
-    let dataProvider: StreamableProvider<EthereumInit>
-    let commandDecorator: WalletCommandDecoratorFactoryProtocol
-    let amountFormatterFactory: NumberFormatterFactoryProtocol
-    let xorAsset: WalletAsset
-    let valAsset: WalletAsset
-    let ethAsset: WalletAsset
-    let headerViewModel: WalletHeaderViewModel
     let logger: LoggerProtocol
-
-    let assetStyleFactory: AssetCellStyleFactoryProtocol
     let viewModelFactory: AccountListViewModelFactory
+    let assetStyleFactory: AssetStyleFactory
+    let headerViewModel: WalletHeaderViewModel
 
-    var commandFactory: WalletCommandFactoryProtocol? {
-        get {
-            viewModelFactory.commandFactory
-        }
-
-        set {
-            viewModelFactory.commandFactory = newValue
-        }
-    }
-
-    init(dataProvider: StreamableProvider<EthereumInit>,
+    init(address: String,
+         chain: Chain,
          commandDecorator: WalletCommandDecoratorFactoryProtocol,
-         amountFormatterFactory: NumberFormatterFactoryProtocol,
-         xorAsset: WalletAsset,
-         valAsset: WalletAsset,
-         ethAsset: WalletAsset,
          headerViewModel: WalletHeaderViewModel,
          logger: LoggerProtocol) {
-        self.dataProvider = dataProvider
-        self.commandDecorator = commandDecorator
-        self.amountFormatterFactory = amountFormatterFactory
-        self.xorAsset = xorAsset
-        self.valAsset = valAsset
-        self.ethAsset = ethAsset
-        self.headerViewModel = headerViewModel
+
         self.logger = logger
+        self.headerViewModel = headerViewModel
+        assetStyleFactory = AssetStyleFactory()
 
-        assetStyleFactory = AssetStyleFactory(xorAssetId: xorAsset.identifier,
-                                              valAssetId: valAsset.identifier,
-                                              ethAssetId: ethAsset.identifier)
+        let amountFormatterFactory = AmountFormatterFactory()
+//        let accountCommandFactory = WalletSelectAccountCommandFactory()
 
-        viewModelFactory = AccountListViewModelFactory(dataProvider: dataProvider,
-                                                       commandDecorator: commandDecorator,
+        viewModelFactory = AccountListViewModelFactory(address: address,
+                                                       chain: chain,
                                                        assetCellStyleFactory: assetStyleFactory,
-                                                       amountFormatterFactory: amountFormatterFactory,
-                                                       valAssetId: valAsset.identifier,
-                                                       ethAssetId: ethAsset.identifier)
+                                                       commandDecorator: commandDecorator,
+                                                       amountFormatterFactory: amountFormatterFactory/*,
+                                                       priceAsset: priceAsset,
+                                                       accountCommandFactory: accountCommandFactory,
+                                                       purchaseProvider: purchaseProvider*/)
     }
 
-    func configure(using builder: AccountListModuleBuilderProtocol) {
+
+    func configure(builder: AccountListModuleBuilderProtocol) {
         do {
             let localHeaderViewModel = headerViewModel
 
             try builder
             .with(minimumContentHeight: localHeaderViewModel.itemHeight)
+            .with(minimumVisibleAssets: 3)
             .inserting(viewModelFactory: { localHeaderViewModel }, at: 0)
             .with(cellNib: UINib(resource: R.nib.walletAccountHeaderView),
                   for: localHeaderViewModel.cellReuseIdentifier)
             .with(cellNib: UINib(resource: R.nib.assetCollectionViewCell),
                   for: ConfigurableAssetConstants.cellReuseIdentifier)
+            .withActions(cellNib: UINib(resource: R.nib.actionsViewCell))
             .with(assetCellStyleFactory: assetStyleFactory)
             .with(listViewModelFactory: viewModelFactory)
         } catch {

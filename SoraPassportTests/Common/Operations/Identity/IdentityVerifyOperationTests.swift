@@ -6,11 +6,11 @@
 import XCTest
 @testable import SoraPassport
 import SoraKeystore
-import SoraCrypto
+//import SoraCrypto
 import RobinHood
 
-private typealias ModificationBlock = (DecentralizedDocumentObject) -> DecentralizedDocumentObject
-private typealias ExpectationBlock = (DecentralizedDocumentObject, Result<String, Error>) -> Bool
+//private typealias ModificationBlock = (DecentralizedDocumentObject) -> DecentralizedDocumentObject
+//private typealias ExpectationBlock = (DecentralizedDocumentObject, Result<String, Error>) -> Bool
 
 class IdentityVerifyOperationTests: XCTestCase {
     private let keystore = Keychain()
@@ -25,7 +25,7 @@ class IdentityVerifyOperationTests: XCTestCase {
         try? keystore.deleteAll()
         settings.removeAll()
     }
-
+/*
     func testSuccessfullVerification() {
         let modificationBlock: ModificationBlock  = { ddo in
             return ddo
@@ -128,4 +128,5 @@ class IdentityVerifyOperationTests: XCTestCase {
 
         XCTAssertTrue(expectedBlock(ddo, result))
     }
+ */
 }

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <customFonts key="customFonts">
+        <array key="sora-Regular.otf">
+            <string>sora-rc004-0417-Regular</string>
+        </array>
+    </customFonts>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" reuseIdentifier="personalInfoCellId" rowHeight="59" id="fO7-6k-9Ms" customClass="PersonalInfoCell" customModule="SoraPassport" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="375" height="59"/>
+            <autoresizingMask key="autoresizingMask"/>
+            <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="fO7-6k-9Ms" id="jhc-Wf-JXQ">
+                <rect key="frame" x="0.0" y="0.0" width="375" height="59"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
+                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="37e-E0-9Oi" customClass="BorderedContainerView" customModule="SoraUI">
+                        <rect key="frame" x="20" y="0.0" width="335" height="59"/>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <userDefinedRuntimeAttributes>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                            <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                                <real key="value" value="1"/>
+                            </userDefinedRuntimeAttribute>
+                            <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                                <color key="value" red="0.59999999999999998" green="0.59999999999999998" blue="0.59999999999999998" alpha="0.25" colorSpace="calibratedRGB"/>
+                            </userDefinedRuntimeAttribute>
+                        </userDefinedRuntimeAttributes>
+                    </view>
+                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="First Name" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="ych-cv-RMs">
+                        <rect key="frame" x="20" y="21.5" width="68.5" height="16.5"/>
+                        <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="14"/>
+                        <color key="textColor" red="0.17254901959999999" green="0.17254901959999999" blue="0.17254901959999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <nil key="highlightedColor"/>
+                    </label>
+                    <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="249" horizontalCompressionResistancePriority="749" contentHorizontalAlignment="left" contentVerticalAlignment="center" text="John Gold" textAlignment="right" minimumFontSize="11" translatesAutoresizingMaskIntoConstraints="NO" id="ET5-rw-Fee">
+                        <rect key="frame" x="96.5" y="20.5" width="258.5" height="18"/>
+                        <color key="tintColor" name="Theme Accent"/>
+                        <color key="textColor" name="Base ContentPrimary"/>
+                        <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="14"/>
+                        <textInputTraits key="textInputTraits" returnKeyType="next"/>
+                        <connections>
+                            <action selector="actionTextFieldChangeWithSender:" destination="fO7-6k-9Ms" eventType="editingChanged" id="RiV-Of-nsr"/>
+                            <outlet property="delegate" destination="fO7-6k-9Ms" id="36F-p9-zIW"/>
+                        </connections>
+                    </textField>
+                </subviews>
+                <constraints>
+                    <constraint firstItem="ET5-rw-Fee" firstAttribute="leading" secondItem="ych-cv-RMs" secondAttribute="trailing" constant="8" id="H72-45-EoO"/>
+                    <constraint firstItem="ET5-rw-Fee" firstAttribute="centerY" secondItem="jhc-Wf-JXQ" secondAttribute="centerY" id="IKk-CS-CKT"/>
+                    <constraint firstAttribute="trailing" secondItem="ET5-rw-Fee" secondAttribute="trailing" constant="20" id="IvM-ST-bJL"/>
+                    <constraint firstAttribute="bottom" secondItem="37e-E0-9Oi" secondAttribute="bottom" id="dH6-VX-Tp5"/>
+                    <constraint firstItem="ych-cv-RMs" firstAttribute="centerY" secondItem="jhc-Wf-JXQ" secondAttribute="centerY" id="dnJ-co-864"/>
+                    <constraint firstItem="37e-E0-9Oi" firstAttribute="leading" secondItem="jhc-Wf-JXQ" secondAttribute="leading" constant="20" id="gV6-iz-TOp"/>
+                    <constraint firstAttribute="trailing" secondItem="37e-E0-9Oi" secondAttribute="trailing" constant="20" id="hbd-St-un9"/>
+                    <constraint firstItem="37e-E0-9Oi" firstAttribute="top" secondItem="jhc-Wf-JXQ" secondAttribute="top" id="igw-Np-Jh1"/>
+                    <constraint firstItem="ych-cv-RMs" firstAttribute="leading" secondItem="jhc-Wf-JXQ" secondAttribute="leading" constant="20" id="yXm-yb-m0T"/>
+                </constraints>
+            </tableViewCellContentView>
+            <userDefinedRuntimeAttributes>
+                <userDefinedRuntimeAttribute type="color" keyPath="normalColor">
+                    <color key="value" name="Base ContentQuaternary"/>
+                </userDefinedRuntimeAttribute>
+                <userDefinedRuntimeAttribute type="color" keyPath="errorColor">
+                    <color key="value" name="Status Error"/>
+                </userDefinedRuntimeAttribute>
+                <userDefinedRuntimeAttribute type="number" keyPath="disabledAlpha">
+                    <real key="value" value="0.59999999999999998"/>
+                </userDefinedRuntimeAttribute>
+            </userDefinedRuntimeAttributes>
+            <connections>
+                <outlet property="borderView" destination="37e-E0-9Oi" id="DMw-X1-1RA"/>
+                <outlet property="textField" destination="ET5-rw-Fee" id="XNM-lV-gA7"/>
+                <outlet property="titleLabel" destination="ych-cv-RMs" id="yqU-p9-j41"/>
+            </connections>
+            <point key="canvasLocation" x="-194" y="107"/>
+        </tableViewCell>
+    </objects>
+    <resources>
+        <namedColor name="Base ContentPrimary">
+            <color red="0.17647058823529413" green="0.16078431372549021" blue="0.14901960784313725" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Base ContentQuaternary">
+            <color red="0.63921568627450975" green="0.64313725490196083" blue="0.6588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Status Error">
+            <color red="1" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Theme Accent">
+            <color red="0.81568627450980391" green="0.0078431372549019607" blue="0.10588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
+</document>

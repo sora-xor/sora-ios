@@ -27,7 +27,7 @@ extension ModalSheetPresentationConfiguration {
                                                   delay: 0.0,
                                                   options: [.curveLinear])
 
-        let style = ModalSheetPresentationStyle(backdropColor: UIColor.black.withAlphaComponent(0.19),
+        let style = ModalSheetPresentationStyle(backdropColor: UIColor.white.withAlphaComponent(0.19),
                                                 headerStyle: ModalSheetPresentationHeaderStyle.modalHeaderStyle)
 
         return ModalSheetPresentationConfiguration(contentAppearanceAnimator: appearanceAnimator,

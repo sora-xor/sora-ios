@@ -17,6 +17,10 @@ final class RoundedCellControlView: BackgroundedContentControl {
     var highlitedOffAnimation: ViewAnimatorProtocol?
 
     override var isHighlighted: Bool {
+        get {
+            return super.isHighlighted
+        }
+
         set {
             let oldValue = super.isHighlighted
             super.isHighlighted = newValue
@@ -30,10 +34,6 @@ final class RoundedCellControlView: BackgroundedContentControl {
                 layer.removeAllAnimations()
                 animation.animate(view: self, completionBlock: nil)
             }
-        }
-
-        get {
-            return super.isHighlighted
         }
     }
 

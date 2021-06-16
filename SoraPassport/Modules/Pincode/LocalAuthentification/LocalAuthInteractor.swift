@@ -97,7 +97,7 @@ class LocalAuthInteractor {
 
 extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
     var allowManualBiometryAuth: Bool {
-        return settingsManager.biometryEnabled == true && biometryAuth.availableBiometryType == .touchId
+        return settingsManager.biometryEnabled == true
     }
 
     func startAuth() {
@@ -114,7 +114,7 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
 
         state = .checkingPincode
 
-        secretManager.loadSecret(for: KeystoreKey.pincode.rawValue,
+        secretManager.loadSecret(for: KeystoreTag.pincode.rawValue,
                                  completionQueue: DispatchQueue.main
         ) { [weak self] (secret: SecretDataRepresentable?) -> Void in
             self?.processStored(pin: secret?.toUTF8String())

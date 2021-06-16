@@ -31,18 +31,18 @@ enum CheckInvitationMock: FireMockProtocol {
     }
 }
 
-extension CheckInvitationMock {
-    static func register(mock: CheckInvitationMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.checkInvitation.rawValue) else {
-            Logger.shared.warning("Can't find invitation check service endpoint to mock")
-            return
-        }
-
-        guard let url = URL(string: service.serviceEndpoint) else {
-            Logger.shared.warning("Can't create invitation check url")
-            return
-        }
-
-        FireMock.register(mock: mock, forURL: url, httpMethod: .post)
-    }
-}
+//extension CheckInvitationMock {
+//    static func register(mock: CheckInvitationMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.checkInvitation.rawValue) else {
+//            Logger.shared.warning("Can't find invitation check service endpoint to mock")
+//            return
+//        }
+//
+//        guard let url = URL(string: service.serviceEndpoint) else {
+//            Logger.shared.warning("Can't create invitation check url")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, forURL: url, httpMethod: .post)
+//    }
+//}

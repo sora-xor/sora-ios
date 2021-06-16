@@ -29,18 +29,18 @@ enum ApplyInvitationMock: FireMockProtocol {
     }
 }
 
-extension ApplyInvitationMock {
-    static func register(mock: ApplyInvitationMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.applyInvitation.rawValue) else {
-            Logger.shared.warning("Can't find invitation apply service endpoint to mock")
-            return
-        }
-
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create invitation apply regex")
-            return
-        }
-
-        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
-    }
-}
+//extension ApplyInvitationMock {
+//    static func register(mock: ApplyInvitationMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.applyInvitation.rawValue) else {
+//            Logger.shared.warning("Can't find invitation apply service endpoint to mock")
+//            return
+//        }
+//
+//        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
+//            Logger.shared.warning("Can't create invitation apply regex")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
+//    }
+//}

@@ -25,19 +25,15 @@ public class BiometryAuth: BiometryAuthProtocol {
         let available = context.canEvaluatePolicy(LAPolicy.deviceOwnerAuthenticationWithBiometrics, error: nil)
         guard available else { return .none }
 
-        if #available(iOS 11, *) {
-            switch context.biometryType {
-            case .touchID:
-                return .touchId
-            case .faceID:
-                return .faceId
-            case .none:
-                return .none
-            @unknown default:
-                return .none
-            }
-        } else {
+        switch context.biometryType {
+        case .touchID:
             return .touchId
+        case .faceID:
+            return .faceId
+        case .none:
+            return .none
+        @unknown default:
+            return .none
         }
     }
 

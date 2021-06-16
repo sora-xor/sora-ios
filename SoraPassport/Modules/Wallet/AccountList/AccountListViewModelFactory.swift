@@ -9,31 +9,27 @@ import RobinHood
 import SoraFoundation
 
 final class AccountListViewModelFactory {
-    let dataProvider: StreamableProvider<EthereumInit>
     let commandDecorator: WalletCommandDecoratorFactoryProtocol
+//    weak var commandFactory: WalletCommandFactoryProtocol?
+
     let assetCellStyleFactory: AssetCellStyleFactoryProtocol
     let amountFormatterFactory: NumberFormatterFactoryProtocol
-    let ethAssetId: String
-    let valAssetId: String
+//    let priceAsset: WalletAsset
+//    let accountCommandFactory: WalletSelectAccountCommandFactoryProtocol
 
-    weak var commandFactory: WalletCommandFactoryProtocol?
-
-    init(dataProvider: StreamableProvider<EthereumInit>,
-         commandDecorator: WalletCommandDecoratorFactoryProtocol,
+    init(address: String,
+         chain: Chain,
          assetCellStyleFactory: AssetCellStyleFactoryProtocol,
-         amountFormatterFactory: NumberFormatterFactoryProtocol,
-         valAssetId: String,
-         ethAssetId: String) {
-        self.dataProvider = dataProvider
-        self.commandDecorator = commandDecorator
+         commandDecorator: WalletCommandDecoratorFactoryProtocol,
+         amountFormatterFactory: NumberFormatterFactoryProtocol) {
         self.assetCellStyleFactory = assetCellStyleFactory
         self.amountFormatterFactory = amountFormatterFactory
-        self.ethAssetId = ethAssetId
-        self.valAssetId = valAssetId
+        self.commandDecorator = commandDecorator
     }
 
     private func createCustomAssetViewModel(for asset: WalletAsset,
                                             balanceData: BalanceData,
+                                            commandFactory: WalletCommandFactoryProtocol,
                                             locale: Locale) -> AssetViewModelProtocol? {
         let amountFormatter = amountFormatterFactory.createDisplayFormatter(for: asset)
 
@@ -49,10 +45,8 @@ final class AccountListViewModelFactory {
         let name = asset.name.value(for: locale)
         let details: String
 
-        if asset.identifier == valAssetId {
-            details = R.string.localizable.assetValFullname()
-        } else if let platform = asset.platform?.value(for: locale) {
-            details = "\(platform) \(name)"
+        if let platform = asset.platform?.value(for: locale) {
+            details = platform
         } else {
             details = name
         }
@@ -61,60 +55,109 @@ final class AccountListViewModelFactory {
 
         let style = assetCellStyleFactory.createCellStyle(for: asset)
 
-        let detailsFactory = AssetDetailsStatusFactory(completedDetails: details,
-                                                       locale: locale)
-
-        let command: WalletCommandProtocol?
-
-        if let factory = commandFactory {
-            command = commandDecorator.createAssetDetailsDecorator(with: factory,
-                                                                   asset: asset,
-                                                                   balanceData: balanceData)
-        } else {
-            command = nil
-        }
+        let assetDetailsCommand = commandDecorator.createAssetDetailsDecorator(with: commandFactory, asset: asset, balanceData: nil)
 
         return ConfigurableAssetViewModel(assetId: asset.identifier,
-                                          dataProvider: dataProvider,
                                           amount: amount,
                                           symbol: nil,
-                                          detailsFactory: detailsFactory,
-                                          accessoryDetails: nil,
+                                          details: details,
+                                          accessoryDetails: name,
                                           imageViewModel: symbolViewModel,
                                           style: style,
-                                          command: command)
+                                          command: assetDetailsCommand)
     }
 }
 
 extension AccountListViewModelFactory: AccountListViewModelFactoryProtocol {
+    struct AccountModuleConstants {
+        static let actionsCellIdentifier: String = "co.jp.capital.asset.actions.cell.identifier"
+        static let actionsCellHeight: CGFloat = 100.0
+    }
+
     func createAssetViewModel(for asset: WalletAsset,
                               balance: BalanceData,
                               commandFactory: WalletCommandFactoryProtocol,
                               locale: Locale) -> WalletViewModelProtocol? {
-        if asset.identifier == ethAssetId || asset.identifier == valAssetId {
-            return createCustomAssetViewModel(for: asset, balanceData: balance, locale: locale)
-        } else {
-            return nil
+            return createCustomAssetViewModel(for: asset, balanceData: balance, commandFactory: commandFactory, locale: locale)
+    }
+
+    func createActionsViewModel(for assetId: String?,
+                                commandFactory: WalletCommandFactoryProtocol,
+                                locale: Locale) -> WalletViewModelProtocol? {
+
+        let style = WalletTextStyle(font: UIFont.styled(for: .paragraph2), color: R.color.baseContentPrimary()!)
+        let actionsStyle = ActionsCellStyle.init(sendText: style, receiveText: style)
+
+        var sendCommand: WalletCommandProtocol = commandFactory.prepareSendCommand(for: assetId)
+
+        if let sendDecorator = commandDecorator.createSendCommandDecorator(with: commandFactory) {
+            sendDecorator.undelyingCommand = sendCommand
+            sendCommand = sendDecorator
         }
+
+        let sendViewModel = ActionViewModel(title: R.string.localizable.commonSend(preferredLanguages: locale.rLanguages),
+                                            style: actionsStyle.sendText,
+                                            command: sendCommand)
+
+        var receiveCommand: WalletCommandProtocol = commandFactory.prepareReceiveCommand(for: assetId)
+
+        if let receiveDecorator = commandDecorator.createReceiveCommandDecorator(with: commandFactory) {
+            receiveDecorator.undelyingCommand = receiveCommand
+            receiveCommand = receiveDecorator
+        }
+
+        let receiveViewModel = ActionViewModel(title: R.string.localizable.commonReceive(preferredLanguages: locale.rLanguages),
+                                               style: actionsStyle.receiveText,
+                                               command: receiveCommand)
+
+        return ActionsViewModel(cellReuseIdentifier: AccountModuleConstants.actionsCellIdentifier,
+                                itemHeight: AccountModuleConstants.actionsCellHeight,
+                                sendViewModel: sendViewModel,
+                                receiveViewModel: receiveViewModel)
     }
 
     func createAssetIconViewModel(for asset: WalletAsset) -> WalletImageViewModelProtocol? {
         let symbolViewModel: WalletImageViewModelProtocol?
 
-        if asset.identifier == ethAssetId {
-            if let icon = R.image.iconEth() {
-                symbolViewModel = WalletStaticImageViewModel(staticImage: icon)
-            } else {
-                symbolViewModel = nil
-            }
+        if let icon = WalletAssetId(rawValue: asset.identifier)?.assetIcon {
+            symbolViewModel = WalletStaticImageViewModel(staticImage: icon)
         } else {
-            if let icon = R.image.iconVal() {
-                symbolViewModel = WalletStaticImageViewModel(staticImage: icon)
-            } else {
-                symbolViewModel = nil
-            }
+            symbolViewModel = nil
         }
+
         return symbolViewModel
+    }
+}
+
+final class ActionViewModel: ActionViewModelProtocol {
+    var title: String
+    var style: WalletTextStyleProtocol
+    var command: WalletCommandProtocol
+
+    init(title: String, style: WalletTextStyleProtocol, command: WalletCommandProtocol) {
+        self.title = title
+        self.style = style
+        self.command = command
+    }
+}
+
+final class ActionsViewModel: ActionsViewModelProtocol {
+    var cellReuseIdentifier: String
+    var itemHeight: CGFloat
+
+    var command: WalletCommandProtocol? { return nil }
+
+    var send: ActionViewModelProtocol
+    var receive: ActionViewModelProtocol
+
+    init(cellReuseIdentifier: String,
+         itemHeight: CGFloat,
+         sendViewModel: ActionViewModelProtocol,
+         receiveViewModel: ActionViewModelProtocol) {
+        self.cellReuseIdentifier = cellReuseIdentifier
+        self.itemHeight = itemHeight
+        self.send = sendViewModel
+        self.receive = receiveViewModel
     }
 
 }

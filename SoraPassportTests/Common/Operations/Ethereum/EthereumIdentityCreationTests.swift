@@ -18,7 +18,7 @@ class EthereumIdentityCreationTests: XCTestCase {
     override func tearDown() {
         try? keystore.deleteAll()
     }
-
+/*
     func testIdentityCreationSuccess() throws {
         // given
 
@@ -83,4 +83,5 @@ class EthereumIdentityCreationTests: XCTestCase {
 
         return privateKey
     }
+ */
 }

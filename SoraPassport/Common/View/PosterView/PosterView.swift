@@ -41,6 +41,13 @@ final class PosterView: UIView {
     var viewModel: PosterViewModelProtocol?
 
     var contentInsets: UIEdgeInsets {
+        get {
+            return UIEdgeInsets(top: topConstraint.constant,
+                                left: leadingConstraint.constant,
+                                bottom: -bottomConstraint.constant,
+                                right: -trallingConstraint.constant)
+        }
+
         set {
             topConstraint.constant = newValue.top
             bottomConstraint.constant = -newValue.bottom
@@ -49,16 +56,16 @@ final class PosterView: UIView {
 
             setNeedsLayout()
         }
-
-        get {
-            return UIEdgeInsets(top: topConstraint.constant,
-                                left: leadingConstraint.constant,
-                                bottom: -bottomConstraint.constant,
-                                right: -trallingConstraint.constant)
-        }
     }
 
     var titleInsets: UIEdgeInsets {
+        get {
+            return UIEdgeInsets(top: titleTopConstraint.constant,
+                                left: titleLeadingConstraint.constant,
+                                bottom: -titleBottomConstraint.constant,
+                                right: -titleTrallingConstraint.constant)
+        }
+
         set {
             titleLeadingConstraint.constant = newValue.left
             titleTrallingConstraint.constant = -newValue.right
@@ -67,29 +74,22 @@ final class PosterView: UIView {
 
             setNeedsLayout()
         }
-
-        get {
-            return UIEdgeInsets(top: titleTopConstraint.constant,
-                                left: titleLeadingConstraint.constant,
-                                bottom: -titleBottomConstraint.constant,
-                                right: -titleTrallingConstraint.constant)
-        }
     }
 
     var detailsInsets: UIEdgeInsets {
+        get {
+            return UIEdgeInsets(top: detailsTopConstraint.constant,
+                                left: detailsLeadingConstraint.constant,
+                                bottom: 0.0,
+                                right: -detailsTrallingConstraint.constant)
+        }
+
         set {
             detailsTopConstraint.constant = newValue.top
             detailsLeadingConstraint.constant = newValue.left
             detailsTrallingConstraint.constant = -newValue.right
 
             setNeedsLayout()
-        }
-
-        get {
-            return UIEdgeInsets(top: detailsTopConstraint.constant,
-                                left: detailsLeadingConstraint.constant,
-                                bottom: 0.0,
-                                right: -detailsTrallingConstraint.constant)
         }
     }
 

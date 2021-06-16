@@ -5,4 +5,6 @@
 
 import Foundation
 
-final class AboutWireframe: AboutWireframeProtocol {}
+final class AboutWireframe: AboutWireframeProtocol {
+
+}

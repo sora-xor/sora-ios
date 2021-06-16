@@ -12,10 +12,10 @@ extension WalletEmptyStateDataSource {
             R.string.localizable.walletEmptyDescription(preferredLanguages: locale.rLanguages)
         }
 
-        let image = R.image.transactionsEmptyState()
+        let image = R.image.emptyStateIcon()
         let dataSource = WalletEmptyStateDataSource(titleResource: title, image: image)
         dataSource.localizationManager = LocalizationManager.shared
-
+        dataSource.verticalSpacingForEmptyState = 18
         return dataSource
     }
 

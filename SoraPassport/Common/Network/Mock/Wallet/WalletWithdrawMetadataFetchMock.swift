@@ -23,18 +23,18 @@ enum WalletWithdrawMetadataFetchMock: FireMockProtocol {
     }
 }
 
-extension WalletWithdrawMetadataFetchMock {
-    static func register(mock: WalletWithdrawMetadataFetchMock, walletUnit: ServiceUnit) {
-        guard let service = walletUnit.service(for: WalletServiceType.withdrawalMetadata.rawValue) else {
-            Logger.shared.warning("Can't find wallet withdraw metadata service endpoint to mock")
-            return
-        }
-
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create withdraw metadata fetch url")
-            return
-        }
-
-        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
-    }
-}
+//extension WalletWithdrawMetadataFetchMock {
+//    static func register(mock: WalletWithdrawMetadataFetchMock, walletUnit: ServiceUnit) {
+//        guard let service = walletUnit.service(for: WalletServiceType.withdrawalMetadata.rawValue) else {
+//            Logger.shared.warning("Can't find wallet withdraw metadata service endpoint to mock")
+//            return
+//        }
+//
+//        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
+//            Logger.shared.warning("Can't create withdraw metadata fetch url")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, regex: regex, httpMethod: .get)
+//    }
+//}

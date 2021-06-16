@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="16097.3" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16087"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -30,11 +31,11 @@
                     </userDefinedRuntimeAttributes>
                 </view>
                 <stackView opaque="NO" contentMode="scaleToFill" alignment="center" spacing="6" translatesAutoresizingMaskIntoConstraints="NO" id="REh-Jz-xue">
-                    <rect key="frame" x="0.0" y="5" width="229" height="35"/>
+                    <rect key="frame" x="0.0" y="5" width="208" height="35"/>
                     <subviews>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Yd2-0E-lno" customClass="RoundedButton" customModule="SoraUI">
-                            <rect key="frame" x="0.0" y="1.5" width="109" height="32"/>
-                            <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                            <rect key="frame" x="0.0" y="2.5" width="94.5" height="30"/>
+                            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                             <userDefinedRuntimeAttributes>
                                 <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
                                     <real key="value" value="0.0"/>
@@ -88,8 +89,8 @@
                             </connections>
                         </view>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="4xs-WH-S3Y" customClass="RoundedButton" customModule="SoraUI">
-                            <rect key="frame" x="115" y="1.5" width="114" height="32"/>
-                            <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                            <rect key="frame" x="100.5" y="2.5" width="107.5" height="30"/>
+                            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                             <userDefinedRuntimeAttributes>
                                 <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
                                     <real key="value" value="0.0"/>
@@ -164,8 +165,19 @@
             <point key="canvasLocation" x="139" y="153"/>
         </view>
     </objects>
+    <designables>
+        <designable name="4xs-WH-S3Y">
+            <size key="intrinsicContentSize" width="107.5" height="30"/>
+        </designable>
+        <designable name="Yd2-0E-lno">
+            <size key="intrinsicContentSize" width="94.5" height="30"/>
+        </designable>
+    </designables>
     <resources>
         <image name="iconEthSmall" width="16" height="16"/>
         <image name="iconXorSmall" width="16" height="16"/>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
     </resources>
 </document>

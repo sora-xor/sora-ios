@@ -9,7 +9,7 @@ import RobinHood
 @testable import SoraPassport
 
 class ReferendumDetailsTests: NetworkBaseTests {
-
+/*
     func testSuccessfullSetup() {
         // given
         ProjectsVotesCountMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
@@ -74,5 +74,5 @@ class ReferendumDetailsTests: NetworkBaseTests {
                                            projectService: ProjectUnitService(unit: projectUnit),
                                            eventCenter: eventCenter)
     }
-
+*/
 }

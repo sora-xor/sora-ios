@@ -125,9 +125,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li jour restant</string>
+        <string>%li jour </string>
         <key>other</key>
-        <string>%li jours restants</string>
+        <string>%li jours </string>
       </dict>
     </dict>
     <key>referendum.date.hour.plurals</key>
@@ -141,9 +141,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li heure restante</string>
+        <string>%li heure </string>
         <key>other</key>
-        <string>%li heures restantes</string>
+        <string>%li heures </string>
       </dict>
     </dict>
     <key>referendum.date.minute.plurals</key>
@@ -157,9 +157,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li minute restante</string>
+        <string>%li minute </string>
         <key>other</key>
-        <string>%li minutes restantes</string>
+        <string>%li minutes </string>
       </dict>
     </dict>
     <key>referendum.date.second.plurals</key>

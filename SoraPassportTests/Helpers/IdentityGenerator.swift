@@ -5,11 +5,11 @@
 
 import Foundation
 @testable import SoraPassport
-import SoraCrypto
+//import SoraCrypto
 import SoraKeystore
 import IrohaCrypto
 import RobinHood
-
+/*
 @discardableResult
 func createIdentity(with keystore: KeystoreProtocol) -> DecentralizedDocumentObject {
     let identityOperation = IdentityOperationFactory().createNewIdentityOperation(with: keystore)
@@ -70,3 +70,4 @@ func setupKeystoreAndDdo(for mnemonicString: String, keystore: KeystoreProtocol)
         throw error
     }
 }
+*/

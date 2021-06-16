@@ -29,7 +29,7 @@ final class AssetCollectionViewCell: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
-
+        activityIndicator.hidesWhenStopped = true
         prepareViewModelReplacement()
 
         assetViewModel = nil
@@ -74,43 +74,12 @@ final class AssetCollectionViewCell: UICollectionViewCell {
             }
 
             titleLabel.text = assetViewModel.amount
+            subtitleLabel.text = assetViewModel.details
             accessoryLabel.text = assetViewModel.accessoryDetails
-
-            updateSubtitleForDetails(assetViewModel.details, status: assetViewModel.status)
         }
-    }
-
-    private func updateSubtitleForDetails(_ details: String, status: ConfigurableAssetStatus) {
-        subtitleLabel.text = details
-
-        if status == .failed, let errorIcon = R.image.iconFailure() {
-            detailIconWidth.constant = errorIcon.size.width
-            detailIconHeight.constant = errorIcon.size.height
-            detailIconView.image = errorIcon
-        } else {
-            detailIconWidth.constant = 0.0
-            detailIconHeight.constant = 0.0
-            detailIconView.image = nil
-        }
-
-        var leadingOffset: CGFloat = detailIconWidth.constant
-
-        if status == .inProgress {
-            activityIndicator.startAnimating()
-            leadingOffset = activityIndicator.intrinsicContentSize.width
-        } else {
-            activityIndicator.stopAnimating()
-        }
-
-        if leadingOffset > 0.0 {
-            leadingOffset += Constants.detailsSpacing
-        }
-
-        subtitleLabelLeading.constant = leadingOffset
     }
 
     private func prepareViewModelReplacement() {
-        assetViewModel?.delegate = nil
         assetViewModel?.imageViewModel?.cancel()
     }
 }
@@ -129,8 +98,6 @@ extension AssetCollectionViewCell: WalletViewProtocol {
 
         self.assetViewModel = assetViewModel
 
-        assetViewModel.delegate = self
-
         applyStyle()
         applyContent()
 
@@ -138,9 +105,3 @@ extension AssetCollectionViewCell: WalletViewProtocol {
     }
 }
 
-extension AssetCollectionViewCell: ConfigurableAssetViewModelDelegate {
-    func viewModelDidChangeStatus(_ viewModel: ConfigurableAssetViewModelProtocol,
-                                  oldStatus: ConfigurableAssetStatus) {
-        updateSubtitleForDetails(viewModel.details, status: viewModel.status)
-    }
-}

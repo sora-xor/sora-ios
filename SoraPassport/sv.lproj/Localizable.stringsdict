@@ -29,7 +29,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li timma kvar</string>
+        <string>%li timme kvar</string>
         <key>other</key>
         <string>%li timmar kvar</string>
       </dict>
@@ -125,9 +125,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li dag kvar</string>
+        <string>%li dag</string>
         <key>other</key>
-        <string>%li dagar kvar</string>
+        <string>%li dagar</string>
       </dict>
     </dict>
     <key>referendum.date.hour.plurals</key>
@@ -141,9 +141,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li timma kvar</string>
+        <string>%li timme</string>
         <key>other</key>
-        <string>%li timmar kvar</string>
+        <string>%li timmar</string>
       </dict>
     </dict>
     <key>referendum.date.minute.plurals</key>
@@ -157,9 +157,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li minut kvar</string>
+        <string>%li minut</string>
         <key>other</key>
-        <string>%li minuter kvar</string>
+        <string>%li minuter</string>
       </dict>
     </dict>
     <key>referendum.date.second.plurals</key>
@@ -175,7 +175,7 @@
         <key>one</key>
         <string>%li sekund</string>
         <key>other</key>
-        <string>sekunder kvar</string>
+        <string>sekunder</string>
       </dict>
     </dict>
   </dict>

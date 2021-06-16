@@ -4,31 +4,45 @@
 */
 
 import UIKit
+import RobinHood
+import SoraKeystore
 import SoraFoundation
 
 final class ProfileViewFactory: ProfileViewFactoryProtocol {
 	static func createView() -> ProfileViewProtocol? {
-        let localizationManager = LocalizationManager.shared
 
-        let profileViewModelFactory = ProfileViewModelFactory(votesFormatter: NumberFormatter.vote
-                                                                .localizableResource(),
-                                                              integerFormatter: NumberFormatter.anyInteger
-                                                                .localizableResource())
+        let profileViewModelFactory = ProfileViewModelFactory()
+
+        let presenter = ProfilePresenter(
+            viewModelFactory: profileViewModelFactory,
+            settingsManager: SettingsManager.shared
+        )
+
+        presenter.localizationManager = LocalizationManager.shared
 
         let view = ProfileViewController(nib: R.nib.profileViewController)
-        let presenter = ProfilePresenter(viewModelFactory: profileViewModelFactory)
-        let interactor = ProfileInteractor(customerDataProviderFacade: CustomerDataProviderFacade.shared)
-        let wireframe = ProfileWireframe()
-
+        view.localizationManager = LocalizationManager.shared
         view.presenter = presenter
-        presenter.view = view
-        presenter.interactor = interactor
-        presenter.wireframe = wireframe
-        interactor.presenter = presenter
 
-        view.localizationManager = localizationManager
-        presenter.localizationManager = localizationManager
-        presenter.logger = Logger.shared
+        presenter.view = view
+
+        let wireframe = ProfileWireframe(
+            settingsManager: SettingsManager.shared,
+            localizationManager: LocalizationManager.shared
+        )
+
+        presenter.wireframe = wireframe
+
+        let interactor = ProfileInteractor(
+            keystore: Keychain(),
+            settings: SettingsManager.shared,
+            cacheFacade: CoreDataCacheFacade.shared,
+            substrateDataFacade: SubstrateDataStorageFacade.shared,
+            userDataFacade: UserDataStorageFacade.shared
+        )
+
+        interactor.presenter = presenter
+        presenter.interactor = interactor
 
         return view
 	}

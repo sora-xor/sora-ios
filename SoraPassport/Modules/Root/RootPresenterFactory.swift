@@ -9,6 +9,9 @@ import SoraFoundation
 
 final class RootPresenterFactory: RootPresenterFactoryProtocol {
     static func createPresenter(with view: SoraWindow) -> RootPresenterProtocol {
+
+        AppearanceFactory.applyGlobalAppearance()
+
         let presenter = RootPresenter()
         let wireframe = RootWireframe()
 

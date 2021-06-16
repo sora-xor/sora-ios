@@ -5,174 +5,219 @@
 
 import UIKit
 import SoraUI
+import SoraFoundation
+import Anchorage
+import Then
+
+private extension OnboardingMainViewController {
+    struct Constants {
+        static let logoWidth: CGFloat = 87
+        static let logoHeight: CGFloat = 116
+        static let logoFriction: CGFloat = 0.9
+    }
+}
 
 final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, HiddableBarWhenPushed {
-    private struct Constants {
-        static let tutorialItemSizeWidth: CGFloat = 375.0
-        static let restoreBottomFriction: CGFloat = 0.9
-        static let signupBottomFriction: CGFloat = 0.9
-        static let tutorialDecreasingFriction: CGFloat = 0.95
-        static let tutorialIncreasingFriction: CGFloat = 0.95
-    }
-
     var presenter: OnboardingMainPresenterProtocol!
-
-    @IBOutlet private var tutorialCollectionView: UICollectionView!
-    @IBOutlet private var pageControl: UIPageControl!
-    @IBOutlet private var termsLabel: UILabel!
-    @IBOutlet private var signUpButton: RoundedButton!
-    @IBOutlet private var restoreButton: RoundedButton!
-
-    @IBOutlet private var collectionViewTopConstraint: NSLayoutConstraint!
-    @IBOutlet private var collectionViewHeightConstraint: NSLayoutConstraint!
-    @IBOutlet private var restoreBottomConstraint: NSLayoutConstraint!
-    @IBOutlet private var signupBottomConstraint: NSLayoutConstraint!
-    @IBOutlet private var termsBottomConstraint: NSLayoutConstraint!
-
-    var locale: Locale?
 
     var termDecorator: AttributedStringDecoratorProtocol?
 
-    private(set) var viewModels: [TutorialViewModelProtocol] = [] {
-        didSet {
-            pageControl.numberOfPages = viewModels.count
-            pageControl.currentPage = 0
+    var locale: Locale?
 
-            tutorialCollectionView.reloadData()
+    private var logoWidthConstraint: NSLayoutConstraint!
+    private var logoHeightConstraint: NSLayoutConstraint!
+
+    private lazy var logoImageView: UIImageView = {
+        UIImageView(image: R.image.pin.soraVertical()).then {
+            logoWidthConstraint = ($0.widthAnchor == Constants.logoWidth)
+            logoHeightConstraint = ($0.heightAnchor == Constants.logoHeight)
         }
-    }
+    }()
 
-    // MARK: Appearance
+    private lazy var titleLabel: UILabel = {
+        UILabel().then {
+            $0.numberOfLines = 2
+            $0.textAlignment = .center
+            $0.font = UIFont.styled(for: .display1)
+            $0.textColor = R.color.baseContentPrimary()
+            $0.text = titleTitle
+        }
+    }()
+
+    private lazy var detailLabel: UILabel = {
+        UILabel().then {
+            $0.numberOfLines = 0
+            $0.textAlignment = .center
+            $0.font = UIFont.styled(for: .paragraph1)
+            $0.textColor = R.color.baseContentPrimary()
+            $0.text = detailTitle
+        }
+    }()
+
+    private lazy var signUpButton: SoraButton = {
+        SoraButton().then {
+            $0.heightAnchor == 48
+            $0.tintColor = R.color.brandWhite()
+            $0.roundedBackgroundView?.fillColor = R.color.themeAccent()!
+            $0.roundedBackgroundView?.highlightedFillColor = R.color.themeAccentPressed()!
+            $0.roundedBackgroundView?.shadowColor = .clear
+            $0.changesContentOpacityWhenHighlighted = true
+            $0.title = signUpTitle
+            $0.imageWithTitleView?.titleColor = R.color.brandWhite()
+            $0.imageWithTitleView?.displacementBetweenLabelAndIcon = 1
+            $0.addTarget(self, action: #selector(actionSignup), for: .touchUpInside)
+        }
+    }()
+
+    private lazy var restoreButton: SoraButton = {
+        SoraButton().then {
+            $0.heightAnchor == 48
+            $0.tintColor = R.color.baseContentPrimary()
+            $0.roundedBackgroundView?.fillColor = R.color.brandWhite()!
+            $0.roundedBackgroundView?.highlightedFillColor = R.color.baseBackgroundHover()!
+            $0.roundedBackgroundView?.shadowColor = .clear
+            $0.changesContentOpacityWhenHighlighted = true
+            $0.title = restoreTitle
+            $0.imageWithTitleView?.titleColor = R.color.themeAccent()
+            $0.imageWithTitleView?.displacementBetweenLabelAndIcon = 1
+            $0.addTarget(self, action: #selector(actionRestoreAccess), for: .touchUpInside)
+        }
+    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        configurePageControl()
-        configureCollectionView()
-        setupLocalization()
-        configureTermsLabel()
+        configure()
         adjustLayout()
 
         presenter.setup()
     }
+}
 
-    private func configureCollectionView() {
-        tutorialCollectionView.register(R.nib.tutorialCollectionViewCell)
+// MARK: - Texts
 
-        automaticallyAdjustsScrollViewInsets = false
+private extension OnboardingMainViewController {
+    var languages: [String]? {
+        return locale?.rLanguages
     }
 
-    private func configurePageControl() {
-        pageControl.numberOfPages = 0
+    var titleTitle: String {
+        return R.string.localizable
+            .tutorialOneWorld(preferredLanguages: languages)
     }
 
-    private func configureTermsLabel() {
-        if let attributedText = termsLabel.attributedText {
-            termsLabel.attributedText = termDecorator?.decorate(attributedString: attributedText)
+    var detailTitle: String {
+        return R.string.localizable
+            .tutorialOneWorldDesc(preferredLanguages: languages)
+    }
+
+    var signUpTitle: String {
+        return R.string.localizable
+            .create_account_title(preferredLanguages: languages)
+    }
+
+    var restoreTitle: String {
+        return R.string.localizable
+            .recoveryTitleV2(preferredLanguages: languages)
+    }
+}
+
+// MARK: - Configure
+
+private extension OnboardingMainViewController {
+    func configure() {
+        createContainerView().do {
+            view.addSubview($0)
+            $0.edgeAnchors.verticalAnchors == view.safeAreaLayoutGuide.edgeAnchors.verticalAnchors + 8
+            $0.edgeAnchors.horizontalAnchors == view.safeAreaLayoutGuide.edgeAnchors.horizontalAnchors
         }
     }
 
-    private func setupLocalization() {
-        signUpButton.imageWithTitleView?.title = R.string.localizable
-            .tutorialSignUp(preferredLanguages: locale?.rLanguages)
-        restoreButton.imageWithTitleView?.title = R.string.localizable
-            .tutorialRestoreAccount(preferredLanguages: locale?.rLanguages)
-
-        let text = NSAttributedString(string: R.string.localizable
-            .tutorialTermsAndConditions1(preferredLanguages: locale?.rLanguages))
-        termsLabel.attributedText = text
+    func createContainerView() -> UIView {
+        UIStackView(arrangedSubviews: [
+            createContentContainerView(),
+            createButtonsContainerView()
+        ]).then {
+            $0.axis = .vertical
+            $0.spacing = 16
+        }
     }
 
-    private func adjustLayout() {
-        collectionViewTopConstraint.constant = UIApplication.shared.statusBarFrame.size.height
+    func createContentContainerView() -> UIView {
+        let container = UIView().then {
+            $0.addSubview(logoImageView)
+            logoImageView.topAnchor == $0.topAnchor
+            logoImageView.centerXAnchor == $0.centerXAnchor
 
-        if isAdaptiveHeightDecreased {
-            collectionViewHeightConstraint.constant *= designScaleRatio.height *
-                Constants.tutorialDecreasingFriction
-            restoreBottomConstraint.constant *= designScaleRatio.height
-            signupBottomConstraint.constant *= designScaleRatio.height
+            $0.addSubview(titleLabel)
+            titleLabel.topAnchor == logoImageView.bottomAnchor + 24
+            titleLabel.horizontalAnchors == $0.horizontalAnchors
+
+            $0.addSubview(detailLabel)
+            detailLabel.topAnchor == titleLabel.bottomAnchor + 8
+            detailLabel.bottomAnchor == $0.bottomAnchor
+            detailLabel.horizontalAnchors == $0.horizontalAnchors + 8
         }
 
-        if isAdaptiveHeightIncreased {
-            collectionViewHeightConstraint.constant *= designScaleRatio.height *
-                Constants.tutorialIncreasingFriction
-            restoreBottomConstraint.constant *= designScaleRatio.height * Constants.restoreBottomFriction
-            signupBottomConstraint.constant *= designScaleRatio.height * Constants.signupBottomFriction
+        return UIView().then {
+            $0.addSubview(container)
+            container.centerAnchors == $0.centerAnchors
+            container.horizontalAnchors == $0.horizontalAnchors + 16
         }
-
-        termsBottomConstraint.constant *= designScaleRatio.height
     }
 
-    // MARK: Action
+    func createButtonsContainerView() -> UIView {
+        let container = UIStackView(arrangedSubviews: [
+            signUpButton,
+            restoreButton
+        ]).then {
+            $0.axis = .vertical
+            $0.spacing = 8
+        }
 
-    @IBAction private func actionSignup(sender: AnyObject) {
+        return UIView().then {
+            $0.addSubview(container)
+            container.verticalAnchors == $0.verticalAnchors
+            container.horizontalAnchors == $0.horizontalAnchors + 8
+        }
+    }
+
+    func adjustLayout() {
+        logoWidthConstraint.constant *= designScaleRatio.height * Constants.logoFriction
+        logoHeightConstraint.constant *= designScaleRatio.height * Constants.logoFriction
+    }
+}
+
+// MARK: - Actions
+
+private extension OnboardingMainViewController {
+    @IBAction func actionSignup(sender: AnyObject) {
         presenter.activateSignup()
     }
 
-    @IBAction private func actionRestoreAccess(sender: AnyObject) {
+    @IBAction func actionRestoreAccess(sender: AnyObject) {
         presenter.activateAccountRestore()
     }
 
-    @IBAction private func actionPageControlChange(sender: AnyObject) {
-        let newContentOffset = CGPoint(x: CGFloat(pageControl.currentPage) * tutorialCollectionView.frame.size.width,
-                                       y: tutorialCollectionView.contentOffset.y)
-        tutorialCollectionView.setContentOffset(newContentOffset, animated: true)
-    }
-
-    @IBAction private func actionTerms(gestureRecognizer: UITapGestureRecognizer) {
-        if gestureRecognizer.state == .ended {
-            let location = gestureRecognizer.location(in: termsLabel.superview)
-
-            if location.x < termsLabel.center.x {
-                presenter.activateTerms()
-            } else {
-                presenter.activatePrivacy()
-            }
-
-        }
-    }
-}
-
-extension OnboardingMainViewController: UIScrollViewDelegate {
-    func scrollViewWillEndDragging(_ scrollView: UIScrollView,
-                                   withVelocity velocity: CGPoint,
-                                   targetContentOffset: UnsafeMutablePointer<CGPoint>) {
-        guard pageControl.numberOfPages > 0 else {
-            return
-        }
-
-        let newPage = Int(floor(targetContentOffset.pointee.x / scrollView.frame.size.width))
-        pageControl.currentPage = max(min(newPage, pageControl.numberOfPages), 0)
-    }
-}
-
-extension OnboardingMainViewController: UICollectionViewDataSource {
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return viewModels.count
-    }
-
-    func collectionView(_ collectionView: UICollectionView,
-                        cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: R.reuseIdentifier.tutorialCellId,
-                                                      for: indexPath)!
-
-        cell.bind(viewModel: viewModels[indexPath.row])
-
-        return cell
-    }
-}
-
-extension OnboardingMainViewController: UICollectionViewDelegateFlowLayout {
-    func collectionView(_ collectionView: UICollectionView,
-                        layout collectionViewLayout: UICollectionViewLayout,
-                        sizeForItemAt indexPath: IndexPath) -> CGSize {
-        return CGSize(width: collectionView.frame.size.width,
-                      height: floor(collectionViewHeightConstraint.constant))
-    }
 }
 
 extension OnboardingMainViewController: OnboardingMainViewProtocol {
-    func didReceive(viewModels: [TutorialViewModelProtocol]) {
-        self.viewModels = viewModels
+
+}
+
+extension UIView {
+    func padding(vertical: CGFloat = 0, horizontal: CGFloat = 0) -> UIView {
+        UIView().then {
+            $0.backgroundColor = .clear
+
+            $0.addSubview(self)
+            $0.edgeAnchors.verticalAnchors == edgeAnchors.verticalAnchors + vertical
+            $0.edgeAnchors.horizontalAnchors == edgeAnchors.horizontalAnchors + horizontal
+        }
+    }
+
+    func colored(_ color: UIColor?) -> UIView {
+        backgroundColor = color
+        return self
     }
 }

@@ -9,22 +9,32 @@ final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
 
     func showSignup(from view: OnboardingMainViewProtocol?) {
-        guard let selectCountryView = SelectCountryViewFactory.createView() else {
+        guard let usernameSetup = UsernameSetupViewFactory.createViewForOnboarding() else {
             return
         }
 
         if let navigationController = view?.controller.navigationController {
-            navigationController.pushViewController(selectCountryView.controller, animated: true)
+            navigationController.pushViewController(usernameSetup.controller, animated: true)
         }
     }
 
     func showAccountRestore(from view: OnboardingMainViewProtocol?) {
-        guard let restorationController = AccessRestoreViewFactory.createView()?.controller else {
+        guard let restorationController = AccountImportViewFactory
+            .createViewForOnboarding()?.controller else {
             return
         }
 
         if let navigationController = view?.controller.navigationController {
             navigationController.pushViewController(restorationController, animated: true)
+        }
+    }
+
+    func showKeystoreImport(from view: OnboardingMainViewProtocol?) {
+        if
+            let navigationController = view?.controller.navigationController,
+            navigationController.viewControllers.count == 1,
+            navigationController.presentedViewController == nil {
+            showAccountRestore(from: view)
         }
     }
 }

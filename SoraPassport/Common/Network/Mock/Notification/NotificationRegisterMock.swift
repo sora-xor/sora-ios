@@ -23,18 +23,18 @@ enum NotificationRegisterMock: FireMockProtocol {
     }
 }
 
-extension NotificationRegisterMock {
-    static func register(mock: NotificationRegisterMock, notificationUnit: ServiceUnit) {
-        guard let service = notificationUnit.service(for: NotificationServiceType.register.rawValue) else {
-            Logger.shared.warning("Can't find notification register service endpoint to mock")
-            return
-        }
-
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create notification token submit regex")
-            return
-        }
-
-        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
-    }
-}
+//extension NotificationRegisterMock {
+//    static func register(mock: NotificationRegisterMock, notificationUnit: ServiceUnit) {
+//        guard let service = notificationUnit.service(for: NotificationServiceType.register.rawValue) else {
+//            Logger.shared.warning("Can't find notification register service endpoint to mock")
+//            return
+//        }
+//
+//        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
+//            Logger.shared.warning("Can't create notification token submit regex")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
+//    }
+//}

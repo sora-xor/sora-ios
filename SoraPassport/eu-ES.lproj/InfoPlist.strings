@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kamera QR kodea harrapatzeko erabiltzen da";
+"NSFaceIDUsageDescription" = "Aurpegi IDa aplikazioan baimentzeko erabiltzen da";
+"NSPhotoLibraryUsageDescription" = "Liburutegitik kargatu argazkiak";
+"NSPhotoLibraryAddUsageDescription" = "Gorde transferentzia eskaera qr kode gisa";

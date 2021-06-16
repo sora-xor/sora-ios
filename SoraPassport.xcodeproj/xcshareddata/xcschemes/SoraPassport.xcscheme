@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1010"
+   LastUpgradeVersion = "1230"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -52,6 +52,23 @@
                BlueprintName = "SoraPassportTests"
                ReferencedContainer = "container:SoraPassport.xcodeproj">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "EthereumIdentityCreationTests">
+               </Test>
+               <Test
+                  Identifier = "EthereumInitSourceTests">
+               </Test>
+               <Test
+                  Identifier = "EthereumKeypairFactoryTests">
+               </Test>
+               <Test
+                  Identifier = "EthereumOperationFactoryTests">
+               </Test>
+               <Test
+                  Identifier = "EthereumRegistrationServiceTests">
+               </Test>
+            </SkippedTests>
          </TestableReference>
          <TestableReference
             skipped = "YES">
@@ -72,6 +89,23 @@
                BlueprintName = "SoraPassportIntegrationTests"
                ReferencedContainer = "container:SoraPassport.xcodeproj">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "EthereumRegistrationServiceTests">
+               </Test>
+               <Test
+                  Identifier = "EthereumServiceIntegrationTests">
+               </Test>
+               <Test
+                  Identifier = "EthereumWithdrawTests">
+               </Test>
+               <Test
+                  Identifier = "SoranetServiceTests">
+               </Test>
+               <Test
+                  Identifier = "WalletNetworkFacadeTests">
+               </Test>
+            </SkippedTests>
          </TestableReference>
       </Testables>
    </TestAction>

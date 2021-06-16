@@ -11,7 +11,7 @@ import IrohaCrypto
 import SoraFoundation
 
 class MainTabBarInteractorTests: NetworkBaseTests {
-
+    /*
     func testNotificationRegistrationWhenViewBecomesReady() {
         // given
         let view = MockMainTabBarViewProtocol()
@@ -290,4 +290,5 @@ class MainTabBarInteractorTests: NetworkBaseTests {
 
         wait(for: [finishExpectation], timeout: Constants.networkRequestTimeout)
     }
+ */
 }

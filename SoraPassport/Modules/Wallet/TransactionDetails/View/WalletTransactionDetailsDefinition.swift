@@ -9,6 +9,11 @@ import CommonWallet
 protocol WalletTransactionDetailsDefining: WalletFormDefining {
     func defineViewForAccountViewModel(_ viewModel: WalletAccountViewModel) -> WalletFormItemView?
     func defineViewForTransactionsViewModel(_ viewModel: WalletTransactionsViewModel) -> WalletFormItemView?
+    func defineViewForHeader(_ viewModel: SoraTransactionHeaderViewModel) -> WalletFormItemView?
+    func defineViewForStatus(_ viewModel: SoraTransactionStatusViewModel) -> WalletFormItemView?
+    func defineViewForSoraReceiverViewModel(_ model: WalletSoraReceiverViewModel) -> WalletFormItemView?
+    func defineViewForFeeViewModel(_ model: FeeViewModelProtocol) -> WalletFormItemView?
+    func defineViewForAmountModel(_ model: SoraTransactionAmountViewModel) -> WalletFormItemView?
 }
 
 final class WalletTransactionDetailsDefinition {
@@ -39,6 +44,44 @@ extension WalletTransactionDetailsDefinition: WalletTransactionDetailsDefining {
 
         transactionsView.bind(viewModel: viewModel)
         return transactionsView
+    }
+
+    func defineViewForHeader(_ viewModel: SoraTransactionHeaderViewModel) -> WalletFormItemView? {
+        let view = R.nib.transactionDetailsHeaderView.firstView(owner: nil)!
+
+        view.bind(viewModel: viewModel)
+
+        return view
+    }
+
+    func defineViewForStatus(_ viewModel: SoraTransactionStatusViewModel) -> WalletFormItemView? {
+        let view = R.nib.transactionDetailsStatusView.firstView(owner: nil)!
+
+        view.bind(viewModel: viewModel)
+
+        return view
+    }
+
+    func defineViewForSoraReceiverViewModel(_ model: WalletSoraReceiverViewModel) -> WalletFormItemView? {
+        let view = R.nib.soraReceiverView.firstView(owner: nil)!
+        view.bind(viewModel: model)
+        return view
+    }
+
+    func defineViewForAmountModel(_ model: SoraTransactionAmountViewModel) -> WalletFormItemView? {
+        let view = R.nib.soraAmountInputView.firstView(owner: nil)!
+
+        view.bind(viewModel: model)
+
+        return view
+    }
+
+    func defineViewForFeeViewModel(_ model: FeeViewModelProtocol) -> WalletFormItemView? {
+        let view = R.nib.soraFeeView.firstView(owner: nil)!
+
+        view.bind(viewModel: model)
+
+        return view
     }
 }
 

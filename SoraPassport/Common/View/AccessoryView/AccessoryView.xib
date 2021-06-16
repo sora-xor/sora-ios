@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="14490.70" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
-    <device id="retina4_7" orientation="portrait">
-        <adaptation id="fullscreen"/>
-    </device>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14490.49"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -15,7 +14,7 @@
         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="g3U-Cn-rYu" customClass="AccessoryView" customModule="SoraPassport" customModuleProvider="target">
             <rect key="frame" x="0.0" y="0.0" width="375" height="60"/>
             <subviews>
-                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="gAG-oT-ecZ" customClass="RoundedButton" customModule="SoraUI">
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="gAG-oT-ecZ" customClass="SoraButton" customModule="SoraPassport" customModuleProvider="target">
                     <rect key="frame" x="252" y="12.5" width="103" height="35"/>
                     <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <constraints>
@@ -62,16 +61,28 @@
                     </userDefinedRuntimeAttributes>
                 </view>
             </subviews>
-            <color key="backgroundColor" red="0.94901960780000005" green="0.96862745100000003" blue="0.96862745100000003" alpha="1" colorSpace="calibratedRGB"/>
+            <viewLayoutGuide key="safeArea" id="wV0-so-jE4"/>
+            <color key="backgroundColor" name="Brand White"/>
+
             <constraints>
                 <constraint firstAttribute="trailing" secondItem="gAG-oT-ecZ" secondAttribute="trailing" constant="20" id="KwR-5A-nh2"/>
                 <constraint firstItem="gAG-oT-ecZ" firstAttribute="centerY" secondItem="g3U-Cn-rYu" secondAttribute="centerY" id="WUT-vC-1hH"/>
             </constraints>
             <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
-            <viewLayoutGuide key="safeArea" id="wV0-so-jE4"/>
             <connections>
                 <outlet property="actionButton" destination="gAG-oT-ecZ" id="IkD-8Z-YAA"/>
             </connections>
+            <point key="canvasLocation" x="140" y="155"/>
         </view>
     </objects>
+    <designables>
+        <designable name="gAG-oT-ecZ">
+            <size key="intrinsicContentSize" width="27.5" height="16"/>
+        </designable>
+    </designables>
+    <resources>
+        <namedColor name="Brand White">
+            <color red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
 </document>

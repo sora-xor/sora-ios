@@ -10,7 +10,7 @@ import RobinHood
 import SoraFoundation
 
 class ActivityFeedInteractorTests: NetworkBaseTests {
-
+/*
     func testSuccessfullSetupAndFirstPageLoading() {
         ActivityFeedMock.register(mock: .success, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
         AnnouncementFetchMock.register(mock: .successNotEmpty, projectUnit: ApplicationConfig.shared.defaultProjectUnit)
@@ -227,4 +227,5 @@ class ActivityFeedInteractorTests: NetworkBaseTests {
         return ActivityFeedPresenter(itemViewModelFactory: activityFeedViewModelFactory,
                                      announcementViewModelFactory: announcementViewModelFactory)
     }
+ */
 }

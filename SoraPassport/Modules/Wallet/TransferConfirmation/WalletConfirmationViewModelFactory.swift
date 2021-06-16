@@ -5,88 +5,70 @@
 
 import Foundation
 import CommonWallet
+import FearlessUtils
 
-struct WalletConfirmationViewModelFactory {
+final class WalletConfirmationViewModelFactory {
+    private let iconGenerator = PolkadotIconGenerator()
+    weak var commandFactory: WalletCommandFactoryProtocol?
+
+    let assets: [WalletAsset]
     let amountFormatterFactory: NumberFormatterFactoryProtocol
-    let feeDisplayFactory: FeeDisplaySettingsFactoryProtocol
-    let generatingIconStyle: WalletNameIconStyleProtocol
-    let xorAsset: WalletAsset
-    let valAsset: WalletAsset
-    let ethAsset: WalletAsset
 
-    func calculateTotalAmount(from payload: ConfirmationPayload) -> Decimal {
-        return payload.transferInfo.fees
-            .reduce(payload.transferInfo.amount.decimalValue) { (result, fee) in
-            if fee.feeDescription.assetId == payload.transferInfo.asset {
-                return result + fee.value.decimalValue
-            } else {
-                return result
-            }
-        }
-    }
-
-    func createAssetTransferStateIconFromTokens(_ tokens: TokenBalancesData) -> UIImage? {
-        if tokens.soranet > 0, tokens.ethereum > 0 {
-            return R.image.iconCrossChain()
-        } else if tokens.ethereum > 0 {
-            return R.image.iconValErc()
-        } else {
-            return R.image.iconVal()
-        }
+    init(assets: [WalletAsset], amountFormatterFactory: NumberFormatterFactoryProtocol) {
+        self.assets = assets
+        self.amountFormatterFactory = amountFormatterFactory
     }
 
     func populateAsset(in viewModelList: inout [WalletFormViewBindingProtocol],
                        payload: ConfirmationPayload,
                        locale: Locale) {
         let headerTitle = R.string.localizable.transactionToken(preferredLanguages: locale.rLanguages)
-        let headerViewModel = WalletFormDetailsHeaderModel(title: headerTitle)
-        viewModelList.append(headerViewModel)
 
-        let tokens = TokenBalancesData(sendingContext: payload.transferInfo.context ?? [:])
-        let icon = createAssetTransferStateIconFromTokens(tokens)
-
-        let title: String
-        let subtitle: String
-
-        if let platform = valAsset.platform?.value(for: locale) {
-            title = platform
-            subtitle = valAsset.name.value(for: locale)
-        } else {
-            title = valAsset.name.value(for: locale)
-            subtitle = ""
+        guard let asset = self.assets.first(where: {$0.identifier == payload.transferInfo.asset}),
+            let assetId = WalletAssetId(rawValue: asset.identifier),
+            let context = payload.transferInfo.context else {
+            return
         }
+        let balanceData = BalanceContext(context: context)
+        let icon = assetId.icon
+        let title: String =  asset.name.value(for: locale)
+        let subtitle: String = assetId.chainId
 
-        let tokenViewModel = WalletFormTokenViewModel(title: title,
-                                                      subtitle: subtitle,
-                                                      icon: icon)
+        let formatter = amountFormatterFactory.createDisplayFormatter(for: asset)
+
+        let details = formatter.value(for: locale).string(from: balanceData.available as NSNumber) ?? ""
+
+        let selectedState = SelectedAssetState(isSelecting: false, canSelect: false)
+
+        let tokenViewModel = WalletTokenViewModel(
+            state: selectedState,
+            header: headerTitle,
+            title: title,
+            subtitle: subtitle,
+            details: details,
+            icon: icon
+        )
+
         viewModelList.append(WalletFormSeparatedViewModel(content: tokenViewModel, borderType: [.bottom]))
     }
 
     func populateReceiver(in viewModelList: inout [WalletFormViewBindingProtocol],
                           payload: ConfirmationPayload,
                           locale: Locale) {
-        let headerTitle: String
-        let icon: UIImage?
-        let title: String
 
-        if NSPredicate.ethereumAddress.evaluate(with: payload.transferInfo.destination) {
-            headerTitle = R.string.localizable.walletTransferToEthereum(preferredLanguages: locale.rLanguages)
-            icon = R.image.iconValErc()
-            title = payload.transferInfo.destination
-        } else if payload.receiverName.isEmpty {
-            headerTitle = R.string.localizable.transactionReceiverTitle(preferredLanguages: locale.rLanguages)
-            icon = R.image.iconVal()
-            title = payload.transferInfo.destination
-        } else {
-            title = payload.receiverName
-            headerTitle = R.string.localizable.transactionReceiverTitle(preferredLanguages: locale.rLanguages)
-            icon = generateReceiverIconForName(payload.receiverName, style: generatingIconStyle)
-        }
+        let name = payload.receiverName
+        let title = R.string.localizable.transactionReceiverTitle(preferredLanguages: locale.rLanguages)
+        let icon = try? iconGenerator.generateFromAddress(payload.receiverName)
+                .imageWithFillColor(.white,
+                                    size: CGSize(width: 24.0, height: 24.0),
+                                    contentScale: UIScreen.main.scale)
+        let command = SendToContactCommand(nextAction: {
+            UIPasteboard.general.string = name
+            let success = ModalAlertFactory.createSuccessAlert(R.string.localizable.commonCopied(preferredLanguages: locale.rLanguages))
+            try? self.commandFactory?.preparePresentationCommand(for: success).execute()
+        })
 
-        let headerViewModel = WalletFormDetailsHeaderModel(title: headerTitle)
-        viewModelList.append(headerViewModel)
-
-        let viewModel = WalletFormSingleHeaderModel(title: title, icon: icon)
+        let viewModel = WalletSoraReceiverViewModel(text: name, icon: icon, title: title, command: command)
 
         viewModelList.append(WalletFormSeparatedViewModel(content: viewModel, borderType: [.bottom]))
     }
@@ -94,119 +76,48 @@ struct WalletConfirmationViewModelFactory {
     func populateSendingAmount(in viewModelList: inout [WalletFormViewBindingProtocol],
                                payload: ConfirmationPayload,
                                locale: Locale) {
-        let formatter = amountFormatterFactory.createTokenFormatter(for: valAsset)
+        guard let asset = assets.first(where: { $0.identifier == payload.transferInfo.asset }) else {
+            return
+        }
+
+        let formatter = amountFormatterFactory.createDisplayFormatter(for: asset)
 
         let decimalAmount = payload.transferInfo.amount.decimalValue
 
-        guard let amount = formatter.value(for: locale).string(from: decimalAmount) else {
+        guard let amount = formatter.value(for: locale).string(from: decimalAmount as NSNumber) else {
             return
         }
 
         let title = R.string.localizable.transactionAmountTitle(preferredLanguages: locale.rLanguages)
-        let viewModel = WalletNewFormDetailsViewModel(title: title,
-                                                      titleIcon: nil,
-                                                      details: amount,
-                                                      detailsIcon: nil)
+        let viewModel = WalletFormSpentAmountModel(title: title,
+                                                   amount: amount)
         viewModelList.append(viewModel)
     }
 
     func populateMainFeeAmount(in viewModelList: inout [WalletFormViewBindingProtocol],
                                payload: ConfirmationPayload,
                                locale: Locale) {
-        let formatter = amountFormatterFactory.createTokenFormatter(for: valAsset).value(for: locale)
-
-        for fee in payload.transferInfo.fees
-            where fee.feeDescription.assetId == payload.transferInfo.asset {
-
-            let feeDisplaySettings = feeDisplayFactory
-                .createFeeSettingsForId(fee.feeDescription.identifier)
-
-            guard let decimalAmount = feeDisplaySettings
-                .displayStrategy.decimalValue(from: fee.value.decimalValue) else {
-                continue
-            }
-
-            guard let amount = formatter.string(from: decimalAmount) else {
-                continue
-            }
-
-            let title = feeDisplaySettings.displayName.value(for: locale)
-
-            let viewModel = WalletNewFormDetailsViewModel(title: title,
-                                                          titleIcon: nil,
-                                                          details: amount,
-                                                          detailsIcon: nil)
-
-            viewModelList.append(viewModel)
-        }
-    }
-
-    func populateSecondaryFees(in viewModelList: inout [WalletFormViewBindingProtocol],
-                               payload: ConfirmationPayload,
-                               locale: Locale) {
-        for fee in payload.transferInfo.fees
-            where fee.feeDescription.assetId != payload.transferInfo.asset {
-
-            let formatter = amountFormatterFactory.createTokenFormatter(for: ethAsset).value(for: locale)
-
-            let feeDisplaySettings = feeDisplayFactory
-                .createFeeSettingsForId(fee.feeDescription.identifier)
-
-            guard let decimalAmount = feeDisplaySettings
-                .displayStrategy.decimalValue(from: fee.value.decimalValue) else {
-                continue
-            }
-
-            guard let amount = formatter.string(from: decimalAmount) else {
-                continue
-            }
-
-            let title = feeDisplaySettings.displayName.value(for: locale)
-
-            let viewModel = WalletNewFormDetailsViewModel(title: title,
-                                                          titleIcon: nil,
-                                                          details: amount,
-                                                          detailsIcon: nil)
-
-            viewModelList.append(viewModel)
-        }
-    }
-
-    func populateTotalAmount(in viewModelList: inout [WalletFormViewBindingProtocol],
-                             payload: ConfirmationPayload,
-                             locale: Locale) {
-
-        let formatter = amountFormatterFactory.createTokenFormatter(for: valAsset).value(for: locale)
-
-        let totalAmountDecimal = calculateTotalAmount(from: payload)
-
-        guard let totalAmount = formatter.string(from: totalAmountDecimal) else {
+        guard let asset = assets.first(where: { $0.type.isFeeAsset }) else {
             return
         }
 
-        let title = R.string.localizable.transactionTotal(preferredLanguages: locale.rLanguages)
-        let viewModel = WalletFormSpentAmountModel(title: title,
-                                                   amount: totalAmount)
+        let formatter = amountFormatterFactory.createTokenFormatter(for: asset).value(for: locale)
 
-        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel, borderType: [.top]))
-    }
+        for fee in payload.transferInfo.fees
+        where fee.feeDescription.identifier == asset.identifier {
 
-    func populateNote(in viewModelList: inout [WalletFormViewBindingProtocol],
-                      payload: ConfirmationPayload,
-                      locale: Locale) {
-        let note = payload.transferInfo.details
+            let decimalAmount = fee.value.decimalValue
 
-        guard !note.isEmpty else {
-            return
+            guard let amount = formatter.string(from: decimalAmount) else {
+                return
+            }
+
+            let title = R.string.localizable.transactionSoranetFeeTitle(preferredLanguages: locale.rLanguages)
+
+            let viewModel = FeeViewModel(title: title, details: amount, isLoading: false, allowsEditing: false)
+
+            viewModelList.append(viewModel)
         }
-
-        let title = R.string.localizable.transactionNote(preferredLanguages: locale.rLanguages)
-        let headerViewModel = WalletFormDetailsHeaderModel(title: title,
-                                                           icon: R.image.iconNote())
-        viewModelList.append(headerViewModel)
-
-        let viewModel = MultilineTitleIconViewModel(text: note)
-        viewModelList.append(viewModel)
     }
 }
 
@@ -219,9 +130,6 @@ extension WalletConfirmationViewModelFactory: TransferConfirmationViewModelFacto
         populateReceiver(in: &viewModelList, payload: payload, locale: locale)
         populateSendingAmount(in: &viewModelList, payload: payload, locale: locale)
         populateMainFeeAmount(in: &viewModelList, payload: payload, locale: locale)
-        populateNote(in: &viewModelList, payload: payload, locale: locale)
-        populateTotalAmount(in: &viewModelList, payload: payload, locale: locale)
-        populateSecondaryFees(in: &viewModelList, payload: payload, locale: locale)
 
         return viewModelList
     }

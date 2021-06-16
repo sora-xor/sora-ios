@@ -10,7 +10,7 @@ import SoraKeystore
 import RobinHood
 
 class OnboardingServiceTests: NetworkBaseTests {
-
+/*
     func testOnboardingPreparationWhenInvitationChecked() {
         do {
             // given
@@ -60,5 +60,5 @@ class OnboardingServiceTests: NetworkBaseTests {
             XCTFail("Unexpected error \(error)")
         }
     }
-
+*/
 }

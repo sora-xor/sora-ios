@@ -19,22 +19,22 @@ final class CompactBarView: UIView {
     }
 
     var backgroundImage: UIImage? {
-        set {
-            backgroundImageView.image = newValue
-        }
-
         get {
             return backgroundImageView.image
+        }
+
+        set {
+            backgroundImageView.image = newValue
         }
     }
 
     var shadowImage: UIImage? {
-        set {
-            shadowImageView.image = newValue
-        }
-
         get {
             return shadowImageView.image
+        }
+
+        set {
+            shadowImageView.image = newValue
         }
     }
 
@@ -113,13 +113,6 @@ public protocol CompactNavigationBarFloating: CompactBarFloating {
 
 extension CompactNavigationBarFloating where Self: UIViewController {
     public var compactBar: UIView {
-        set {
-            objc_setAssociatedObject(self,
-                                     &CompactNavigationBarFloatingConstants.compactBarKey,
-                                     newValue,
-                                     .OBJC_ASSOCIATION_RETAIN)
-        }
-
         get {
             let optionalBarView = objc_getAssociatedObject(self,
                                                            &CompactNavigationBarFloatingConstants.compactBarKey)
@@ -142,6 +135,13 @@ extension CompactNavigationBarFloating where Self: UIViewController {
             self.compactBar = navigationBar
 
             return navigationBar
+        }
+
+        set {
+            objc_setAssociatedObject(self,
+                                     &CompactNavigationBarFloatingConstants.compactBarKey,
+                                     newValue,
+                                     .OBJC_ASSOCIATION_RETAIN)
         }
     }
 

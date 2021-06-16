@@ -1,0 +1,25 @@
+/**
+* Copyright Soramitsu Co., Ltd. All Rights Reserved.
+* SPDX-License-Identifier: Apache 2.0
+*/
+
+import Foundation
+import RobinHood
+
+extension BaseOperation {
+    static func createWithError(_ error: Error) -> BaseOperation<ResultType> {
+        let operation = BaseOperation<ResultType>()
+        operation.result = .failure(error)
+        return operation
+    }
+
+    static func createWithResult(_ result: ResultType) -> BaseOperation<ResultType> {
+        let operation = BaseOperation<ResultType>()
+        operation.result = .success(result)
+        return operation
+    }
+
+    func extractNoCancellableResultData() throws -> ResultType {
+         try extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+     }
+}

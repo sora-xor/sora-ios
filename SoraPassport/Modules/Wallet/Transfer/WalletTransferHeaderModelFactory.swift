@@ -42,19 +42,12 @@ struct WalletTransferHeaderModelFactory: OperationDefinitionHeaderModelFactoryPr
                                       receiverId: String?,
                                       feeDescription: Fee,
                                       locale: Locale) -> MultilineTitleIconViewModelProtocol? {
-        if feeDescription.feeDescription.identifier == WalletNetworkConstants.ethFeeIdentifier {
-            let text = R.string.localizable.transactionMinerHelp(preferredLanguages: locale.rLanguages)
-            return MultilineTitleIconViewModel(text: text,
-                                               icon: R.image.iconWalletInfo())
-        } else {
             return nil
-        }
     }
 
     func createDescriptionTitle(assetId: String,
                                 receiverId: String?,
                                 locale: Locale) -> MultilineTitleIconViewModelProtocol? {
-        let text = R.string.localizable.transactionNote(preferredLanguages: locale.rLanguages)
-        return MultilineTitleIconViewModel(text: text, icon: R.image.iconNote())
+        return nil
     }
 }

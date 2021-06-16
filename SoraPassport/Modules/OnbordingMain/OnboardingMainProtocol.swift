@@ -6,41 +6,30 @@
 import Foundation
 
 protocol OnboardingMainViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
-    func didReceive(viewModels: [TutorialViewModelProtocol])
+
 }
 
 protocol OnboardingMainPresenterProtocol: class {
     func setup()
     func activateSignup()
     func activateAccountRestore()
-    func activateTerms()
-    func activatePrivacy()
 }
 
-protocol OnboardingMainInputInteractorProtocol: class {
+protocol OnboardingMainInteractorInputProtocol: class {
     func setup()
-    func prepareSignup()
-    func prepareRestore()
 }
 
-protocol OnboardingMainOutputInteractorProtocol: class {
-    func didStartSignupPreparation()
-    func didFinishSignupPreparation()
-    func didReceiveSignupPreparation(error: Error)
-
-    func didStartRestorePreparation()
-    func didFinishRestorePreparation()
-    func didReceiveRestorePreparation(error: Error)
-
-    func didReceiveVersion(data: SupportedVersionData)
+protocol OnboardingMainInteractorOutputProtocol: class {
+    func didSuggestKeystoreImport()
 }
 
 protocol OnboardingMainWireframeProtocol: WebPresentable, ErrorPresentable,
 AlertPresentable, UnsupportedVersionPresentable {
     func showSignup(from view: OnboardingMainViewProtocol?)
     func showAccountRestore(from view: OnboardingMainViewProtocol?)
+    func showKeystoreImport(from view: OnboardingMainViewProtocol?)
 }
 
 protocol OnboardingMainViewFactoryProtocol: WebPresentable {
-    static func createView() -> OnboardingMainViewProtocol?
+    static func createViewForOnboarding() -> OnboardingMainViewProtocol?
 }

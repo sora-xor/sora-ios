@@ -35,7 +35,7 @@ extension ApplicationSettingsPresentable {
         let settingsTitle = R.string.localizable.goSettings(preferredLanguages: locale?.rLanguages)
         let settingsAction = UIAlertAction(title: settingsTitle, style: .default) { _ in
             if let url = URL(string: UIApplication.openSettingsURLString), UIApplication.shared.canOpenURL(url) {
-                UIApplication.shared.openURL(url)
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
             }
         }
 

@@ -29,4 +29,10 @@ extension IRSigningDecorator: IRSignatureCreatorProtocol {
 
         return try rawSigner.sign(originalData)
     }
+
+    func sign(_ originalData: Data, privateKey: IRPrivateKeyProtocol) throws -> IRSignatureProtocol {
+        let rawSigner = IRIrohaSigner(privateKey: privateKey)
+
+        return try rawSigner.sign(originalData)
+    }
 }

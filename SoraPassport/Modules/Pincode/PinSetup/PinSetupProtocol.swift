@@ -20,10 +20,24 @@ protocol PinSetupPresenterProtocol: class {
     func cancel()
     func activateBiometricAuth()
     func submit(pin: String)
+    var isChangeMode: Bool { get }
+}
+
+extension PinSetupPresenterProtocol {
+    var isChangeMode: Bool {
+        return false
+    }
 }
 
 protocol PinSetupInteractorInputProtocol: class {
     func process(pin: String)
+    func change(pin: String)
+}
+
+extension PinSetupInteractorInputProtocol {
+    func change(pin: String) {
+        process(pin: pin)
+    }
 }
 
 protocol PinSetupInteractorOutputProtocol: class {
@@ -35,13 +49,22 @@ protocol PinSetupInteractorOutputProtocol: class {
     func didReceiveConfigError(_ error: Error)
 }
 
+extension PinSetupInteractorOutputProtocol {
+    func didReceiveConfigError(_ error: Error) { }
+}
+
 protocol PinSetupWireframeProtocol: AlertPresentable, ErrorPresentable {
+    func dismiss(from view: PinSetupViewProtocol?)
     func showMain(from view: PinSetupViewProtocol?)
-    func showAuthVerification(from view: PinSetupViewProtocol?)
+//    func showAuthVerification(from view: PinSetupViewProtocol?)
     func showSignup(from view: PinSetupViewProtocol?)
+    func showPinUpdatedNotify(
+        from view: PinSetupViewProtocol?,
+        completionBlock: @escaping () -> Void)
 }
 
 protocol PinViewFactoryProtocol: class {
+    static func createPinEditView() -> PinSetupViewProtocol?
     static func createPinSetupView() -> PinSetupViewProtocol?
     static func createSecuredPinView() -> PinSetupViewProtocol?
     static func createScreenAuthorizationView(with wireframe: ScreenAuthorizationWireframeProtocol, cancellable: Bool)

@@ -6,43 +6,37 @@
 import Foundation
 
 protocol ProfileViewProtocol: ControllerBackedProtocol {
-    func didLoad(userViewModel: ProfileUserViewModelProtocol)
     func didLoad(optionViewModels: [ProfileOptionViewModelProtocol])
 }
 
-protocol ProfilePresenterProtocol: class {
+protocol ProfilePresenterProtocol: AlertPresentable {
     func setup()
-    func viewDidAppear()
-    func activateUserDetails()
     func activateOption(at index: UInt)
-    func activateHelp()
 }
 
 protocol ProfileInteractorInputProtocol: class {
-    func setup()
-    func refreshUser()
-    func refreshVotes()
-    func refreshReputation()
+    func logoutAndClean()
 }
 
 protocol ProfileInteractorOutputProtocol: class {
-    func didReceive(userData: UserData)
-    func didReceiveUserDataProvider(error: Error)
-
-    func didReceive(votesData: VotesData)
-    func didReceiveVotesDataProvider(error: Error)
-
-    func didReceive(reputationData: ReputationData)
-    func didReceiveReputationDataProvider(error: Error)
+    func restart()
 }
 
 protocol ProfileWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPresentable, WebPresentable {
-    func showReputationView(from view: ProfileViewProtocol?)
-    func showVotesHistoryView(from view: ProfileViewProtocol?)
     func showPersonalDetailsView(from view: ProfileViewProtocol?)
+    func showFriendsView(from view: ProfileViewProtocol?)
     func showPassphraseView(from view: ProfileViewProtocol?)
+    func showChangePin(from view: ProfileViewProtocol?)
     func showLanguageSelection(from view: ProfileViewProtocol?)
+    func showFaq(from view: ProfileViewProtocol?)
     func showAbout(from view: ProfileViewProtocol?)
+    func showLogout(from view: ProfileViewProtocol?, completionBlock: (() -> Void)?)
+    func switchBiometry(
+        toValue: Bool,
+        from view: ProfileViewProtocol?,
+        successBlock: @escaping (Bool) -> Void
+    )
+    func showRoot()
 }
 
 protocol ProfileViewFactoryProtocol: class {

@@ -44,14 +44,8 @@ extension SecuredPresentable {
             return
         }
 
-        var blurStyle: UIBlurEffect.Style = .light
-
-        if #available(iOS 10.0, *) {
-            blurStyle = .regular
-        }
-
         let blurView = UIVisualEffectView()
-        blurView.effect = UIBlurEffect(style: blurStyle)
+        blurView.effect = UIBlurEffect(style: .regular)
         blurView.translatesAutoresizingMaskIntoConstraints = false
         presentationView.addSubview(blurView)
 

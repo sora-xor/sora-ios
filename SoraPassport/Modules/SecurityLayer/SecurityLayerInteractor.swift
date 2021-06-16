@@ -20,7 +20,7 @@ final class SecurityLayerInteractor {
 
     private var canEnterPincode: Bool {
         do {
-            let hasPincode = try keystore.checkKey(for: KeystoreKey.pincode.rawValue)
+            let hasPincode = try keystore.checkKey(for: KeystoreTag.pincode.rawValue)
             let isRegistered = settings.isRegistered
 
             return isRegistered && hasPincode

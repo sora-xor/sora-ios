@@ -8,50 +8,54 @@ import UIKit
 extension StepContainerView {
     @IBInspectable
     private var _horizontalSpacing: CGFloat {
-        set {
-            horizontalSpacing = newValue
-        }
-
         get {
             return horizontalSpacing
+        }
+
+        set {
+            horizontalSpacing = newValue
         }
     }
 
     @IBInspectable
     private var _verticalSpacing: CGFloat {
-        set {
-            verticalSpacing = newValue
-        }
-
         get {
             return verticalSpacing
+        }
+
+        set {
+            verticalSpacing = newValue
         }
     }
 
     @IBInspectable
     private var _stepIndexFillColor: UIColor {
-        set {
-            stepIndexFillColor = newValue
-        }
-
         get {
             return stepIndexFillColor
+        }
+
+        set {
+            stepIndexFillColor = newValue
         }
     }
 
     @IBInspectable
     private var _stepIndexTitleColor: UIColor {
-        set {
-            stepIndexTitleColor = newValue
-        }
-
         get {
             return stepIndexTitleColor
+        }
+
+        set {
+            stepIndexTitleColor = newValue
         }
     }
 
     @IBInspectable
     private var _stepIndexFontName: String {
+        get {
+            return stepIndexFont.fontName
+        }
+
         set {
             let pointSize = stepIndexFont.pointSize
 
@@ -61,14 +65,14 @@ extension StepContainerView {
 
             stepIndexFont = font
         }
-
-        get {
-            return stepIndexFont.fontName
-        }
     }
 
     @IBInspectable
     private var _stepIndexFontSize: CGFloat {
+        get {
+            return stepIndexFont.pointSize
+        }
+
         set {
             let fontName = stepIndexFont.fontName
             guard let font = UIFont(name: fontName, size: newValue) else {
@@ -77,25 +81,25 @@ extension StepContainerView {
 
             stepIndexFont = font
         }
-
-        get {
-            return stepIndexFont.pointSize
-        }
     }
 
     @IBInspectable
     private var _stepTitleColor: UIColor {
-        set {
-            stepTitleColor = newValue
-        }
-
         get {
             return stepTitleColor
+        }
+
+        set {
+            stepTitleColor = newValue
         }
     }
 
     @IBInspectable
     private var _stepTitleFontName: String {
+        get {
+            return stepTitleFont.fontName
+        }
+
         set {
             let pointSize = stepTitleFont.pointSize
 
@@ -105,14 +109,14 @@ extension StepContainerView {
 
             stepTitleFont = font
         }
-
-        get {
-            return stepTitleFont.fontName
-        }
     }
 
     @IBInspectable
     private var _stepTitleFontSize: CGFloat {
+        get {
+            return stepTitleFont.pointSize
+        }
+
         set {
             let fontName = stepTitleFont.fontName
             guard let font = UIFont(name: fontName, size: newValue) else {
@@ -121,61 +125,57 @@ extension StepContainerView {
 
             stepTitleFont = font
         }
-
-        get {
-            return stepTitleFont.pointSize
-        }
     }
 
     @IBInspectable
     private var _topStepIndexTitleInset: CGFloat {
+        get {
+            return stepIndexTitleInsets.top
+        }
+
         set {
             var insets = stepIndexTitleInsets
             insets.top = newValue
             stepIndexTitleInsets = insets
         }
-
-        get {
-            return stepIndexTitleInsets.top
-        }
     }
 
     @IBInspectable
     private var _bottomStepIndexTitleInset: CGFloat {
+        get {
+            return stepIndexTitleInsets.bottom
+        }
+
         set {
             var insets = stepIndexTitleInsets
             insets.bottom = newValue
             stepIndexTitleInsets = insets
         }
-
-        get {
-            return stepIndexTitleInsets.bottom
-        }
     }
 
     @IBInspectable
     private var _leftStepIndexTitleInset: CGFloat {
+        get {
+            return stepIndexTitleInsets.left
+        }
+
         set {
             var insets = stepIndexTitleInsets
             insets.left = newValue
             stepIndexTitleInsets = insets
         }
-
-        get {
-            return stepIndexTitleInsets.left
-        }
     }
 
     @IBInspectable
     private var _rightStepIndexTitleInset: CGFloat {
+        get {
+            return stepIndexTitleInsets.right
+        }
+
         set {
             var insets = stepIndexTitleInsets
             insets.right = newValue
             stepIndexTitleInsets = insets
-        }
-
-        get {
-            return stepIndexTitleInsets.right
         }
     }
 }

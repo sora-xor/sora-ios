@@ -7,7 +7,7 @@ import UIKit
 
 final class RootWireframe: RootWireframeProtocol {
     func showOnboarding(on view: UIWindow) {
-        let onboardingView = OnboardingMainViewFactory.createView()
+        let onboardingView = OnboardingMainViewFactory.createViewForOnboarding()
         let onboardingController = onboardingView?.controller ?? UIViewController()
 
         let navigationController = SoraNavigationController()
@@ -23,15 +23,23 @@ final class RootWireframe: RootWireframeProtocol {
         view.rootViewController = pincodeController
     }
 
-    func showAuthVerification(on view: UIWindow) {
-        let authVerificationView = StartupViewFactory.createView()
-        let authVerificationController = authVerificationView?.controller ?? UIViewController()
+    func showPincodeSetup(on view: UIWindow) {
+        guard let controller = PinViewFactory.createPinSetupView()?.controller else {
+            return
+        }
 
-        view.rootViewController = authVerificationController
+        view.rootViewController = controller
     }
 
     func showBroken(on view: UIWindow) {
         // normally user must not see this but on malicious devices it is possible
         view.backgroundColor = .red
+    }
+
+    func showSplash(on view: UIWindow, completion: @escaping () -> Void) {
+        view.rootViewController = UIViewController()
+        SplashPresenter().present(in: view, duration: 2.0, completion: {
+            completion()
+        })
     }
 }

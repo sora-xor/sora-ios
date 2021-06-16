@@ -67,7 +67,7 @@ class SecurityLayerInteractorTests: XCTestCase {
         settings.decentralizedId = Constants.dummyDid
 
         let keystore = InMemoryKeychain()
-        try! keystore.addKey(Data(), with: KeystoreKey.pincode.rawValue)
+        try! keystore.addKey(Data(), with: KeystoreTag.pincode.rawValue)
 
         let pincodeDelay: TimeInterval = 0.25
 

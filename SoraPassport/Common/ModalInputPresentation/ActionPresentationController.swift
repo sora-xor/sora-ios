@@ -68,11 +68,7 @@ class ActionPresentationController: UIPresentationController {
 
         let keyboardBounds = containerView.convert(newBounds, to: nil)
 
-        var layoutFrame = containerView.bounds
-
-        if #available(iOS 11.0, *) {
-            layoutFrame = containerView.safeAreaLayoutGuide.layoutFrame
-        }
+        let layoutFrame = containerView.safeAreaLayoutGuide.layoutFrame
 
         var originY = keyboardBounds.minY - presentedView.frame.size.height
         originY = max(originY, layoutFrame.minY)
@@ -110,11 +106,7 @@ class ActionPresentationController: UIPresentationController {
             return CGRect.zero
         }
 
-        var layoutFrame = containerView.bounds
-
-        if #available(iOS 11.0, *) {
-            layoutFrame = containerView.safeAreaLayoutGuide.layoutFrame
-        }
+        let layoutFrame = containerView.safeAreaLayoutGuide.layoutFrame
 
         return CGRect(x: layoutFrame.minX,
                       y: layoutFrame.maxY - presentedView.frame.size.height,

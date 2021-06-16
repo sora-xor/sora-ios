@@ -23,11 +23,13 @@ final class SoraNavigationController: UINavigationController, UINavigationContro
 
         view.backgroundColor = .background
 
+        navigationBar.prefersLargeTitles = true
+
         navigationBar.tintColor = SoraNavigationBarStyle.tintColor
 
         navigationBar.setBackgroundImage(SoraNavigationBarStyle.background,
                                          for: UIBarMetrics.default)
-        navigationBar.shadowImage = SoraNavigationBarStyle.darkShadow
+        navigationBar.shadowImage = SoraNavigationBarStyle.noShadow
 
         navigationBar.titleTextAttributes = SoraNavigationBarStyle.titleAttributes
     }

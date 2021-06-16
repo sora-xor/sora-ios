@@ -22,18 +22,18 @@ enum ReputationDetailsFetchMock: FireMockProtocol {
     }
 }
 
-extension ReputationDetailsFetchMock {
-    static func register(mock: ReputationDetailsFetchMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.reputationDetails.rawValue) else {
-            Logger.shared.warning("Can't find reputation details fetch service endpoint to mock")
-            return
-        }
-
-        guard let url = URL(string: service.serviceEndpoint) else {
-            Logger.shared.warning("Can't create reputation details fetch url")
-            return
-        }
-
-        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
-    }
-}
+//extension ReputationDetailsFetchMock {
+//    static func register(mock: ReputationDetailsFetchMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.reputationDetails.rawValue) else {
+//            Logger.shared.warning("Can't find reputation details fetch service endpoint to mock")
+//            return
+//        }
+//
+//        guard let url = URL(string: service.serviceEndpoint) else {
+//            Logger.shared.warning("Can't create reputation details fetch url")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, forURL: url, httpMethod: .get)
+//    }
+//}

@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Camera este utilizată pentru a captura codul QR";
+"NSFaceIDUsageDescription" = "Identificarea faciala este utilizata pentru a autoriza în aplicație";
+"NSPhotoLibraryUsageDescription" = "Încărcați fotografii din bibliotecă";
+"NSPhotoLibraryAddUsageDescription" = "Salvați cererea de transfer ca un cod qr";

@@ -4,7 +4,7 @@
 */
 
 import Foundation
-import SoraCrypto
+//import SoraCrypto
 import IrohaCrypto
 
 final class Constants {
@@ -28,43 +28,14 @@ final class Constants {
     static let dummyInvalidMnemonic = "sheriff firewall three cross tone smile element shop theme bring release artwork tunnel prepare myself"
     static let dummyWalletAccountId = "dummy@sora"
     static let dummyOtherWalletAccountId = "otherdummy@sora"
-    static let dummyEthAddress = Data(hex: "0xa129197a2FC51260d87B804a29A2aB31BC5B105d")
-    static let dummyOtherEthAddress = Data(hex: "0x5E6Fb707C4a469e983434173044d0508A18E47d6")
-    static let withdrawalHash =
-    Data(hex: "94282533eb24ba1445b9b606a416bbbfc444ab4b6de9fcd241af558e3a1585d5")
-    static let transactionHash =
-    Data(hex: "89422533eb24ba1445b9b606a416bbbfc444ab4b6de9fcd241af558e3a1585d5")
+
     static let englishLocalization = "en"
+    static let defaultExpectationDuration: TimeInterval = 1.0
+    static let validSrKeystoreName: String = "validSrKeystore"
+    static let validSrKeystorePassword: String = "test5"
+    static let validEd25519KeystoreName = "validEd25519Keystore"
+    static let validEd25519KeystorePassword: String = "test2"
+    static let validEcdsaKeystoreName = "validEcdsaKeystore"
+    static let validEcdsaKeystorePassword: String = "test3"
 }
 
-func createDummyDecentralizedDocument() -> DecentralizedDocumentObject {
-    let proof = DDOProof(type: .ed25519Sha3,
-                         created: "",
-                         creator: "",
-                         signatureValue: "",
-                         nonce: "")
-
-    return DecentralizedDocumentObject(decentralizedId: Constants.dummyDid,
-                                       created: nil,
-                                       updated: nil,
-                                       publicKey: [],
-                                       authentication: [],
-                                       guardian: nil,
-                                       service: nil,
-                                       proof: proof)
-}
-
-func createDummyRequestSigner() -> DARequestSigner {
-    var signer = DARequestSigner()
-
-    if let privateKey = try? IRIrohaKeyFactory().createRandomKeypair().privateKey() {
-        let rawSigner = IRIrohaSigner(privateKey: privateKey)
-        signer = signer.with(rawSigner: rawSigner)
-    }
-
-    signer = signer.with(decentralizedId: Constants.dummyDid)
-        .with(publicKeyId: Constants.dummyPubKeyId)
-        .with(timestamp: Int64(Date().timeIntervalSince1970 * 1000))
-    
-    return signer
-}

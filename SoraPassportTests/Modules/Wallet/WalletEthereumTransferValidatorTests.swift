@@ -10,7 +10,7 @@ import SoraKeystore
 import SoraFoundation
 
 class WalletEthereumTransferValidatorTests: XCTestCase {
-
+/*
     func testTransferValidationFromERC20toERC20() throws {
         // given
 
@@ -264,4 +264,5 @@ class WalletEthereumTransferValidatorTests: XCTestCase {
 
         return try strategy.calculate(for: amount)
     }
+ */
 }

@@ -41,7 +41,7 @@ extension ErrorPresentable where Self: AlertPresentable {
             return false
         }
 
-        let closeAction = R.string.localizable.commonClose(preferredLanguages: locale?.rLanguages)
+        let closeAction = R.string.localizable.commonOk(preferredLanguages: locale?.rLanguages)
 
         present(message: content.message, title: content.title, closeAction: closeAction, from: view)
 

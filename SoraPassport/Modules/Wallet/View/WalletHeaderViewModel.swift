@@ -16,6 +16,7 @@ final class WalletHeaderViewModel {
 
     public func presentHelp() {
         if let context = walletContext {
+
             walletWireframe.presentHelp(in: context)
         }
     }
@@ -30,5 +31,10 @@ extension WalletHeaderViewModel: WalletViewModelProtocol {
         return 73.0
     }
 
-    var command: WalletCommandProtocol? { return nil }
+    var command: WalletCommandProtocol? {
+        let command = walletContext?.prepareScanReceiverCommand()
+        command?.presentationStyle = .modal(inNavigation: true)
+        return command
+        
+    }
 }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="16119" systemVersion="19E287" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="17709" systemVersion="19H524" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
     <entity name="CDProject" representedClassName="CDProject" syncable="YES" codeGenerationType="class">
         <attribute name="domain" optional="YES" attributeType="String"/>
         <attribute name="favorite" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
@@ -33,13 +33,13 @@
         <attribute name="userOpposeVotes" optional="YES" attributeType="String"/>
         <attribute name="userSupportVotes" optional="YES" attributeType="String"/>
     </entity>
-    <entity name="CDSingleValue" representedClassName="CDSingleValue" syncable="YES" codeGenerationType="class">
+    <entity name="CDSingleValue" representedClassName="CDSingleValue" syncable="YES">
         <attribute name="identifier" attributeType="String"/>
         <attribute name="payload" attributeType="Binary"/>
     </entity>
     <elements>
         <element name="CDProject" positionX="-63" positionY="-18" width="128" height="285"/>
-        <element name="CDSingleValue" positionX="-63" positionY="54" width="128" height="73"/>
         <element name="CDReferendum" positionX="-63" positionY="99" width="128" height="28"/>
+        <element name="CDSingleValue" positionX="-63" positionY="54" width="128" height="73"/>
     </elements>
 </model>

@@ -18,7 +18,6 @@ class PinSetupInteractor {
     weak var presenter: PinSetupInteractorOutputProtocol?
 
     private(set) var config: ApplicationConfigProtocol
-    private(set) var projectService: ProjectUnitInformationProtocol
     private(set) var secretManager: SecretStoreManagerProtocol
     private(set) var settingsManager: SettingsManagerProtocol
     private(set) var biometryAuth: BiometryAuthProtocol
@@ -26,13 +25,12 @@ class PinSetupInteractor {
     init(secretManager: SecretStoreManagerProtocol,
          settingsManager: SettingsManagerProtocol,
          biometryAuth: BiometryAuthProtocol,
-         config: ApplicationConfigProtocol,
-         projectService: ProjectUnitServiceProtocol) {
+         config: ApplicationConfigProtocol
+    ) {
         self.secretManager = secretManager
         self.settingsManager = settingsManager
         self.biometryAuth = biometryAuth
         self.config = config
-        self.projectService = projectService
     }
 
     private(set) var pincode: String?
@@ -58,7 +56,7 @@ class PinSetupInteractor {
         guard state == .submitingPincode, let currentPincode = pincode else { return }
 
         secretManager.saveSecret(currentPincode,
-                                 for: KeystoreKey.pincode.rawValue,
+                                 for: KeystoreTag.pincode.rawValue,
                                  completionQueue: DispatchQueue.main) { _ -> Void in
                                     self.completeSetup()
         }
@@ -67,18 +65,7 @@ class PinSetupInteractor {
     private func completeSetup() {
         state = .submitedPincode
         pincode = nil
-
-        _ = try? projectService.fetchEthConfigOperation(runCompletionIn: .main) {[weak self] (result) in
-            switch result {
-            case .success(let data):
-                self?.config.applyExternalConfig(data!)
-            case .none, .failure:
-                let configError = ConfigError.ethConfigFailed
-                self?.presenter?.didReceiveConfigError(configError)
-            }
-            self?.presenter?.didSavePin()
-        }
-
+        self.presenter?.didSavePin()
     }
 }
 
@@ -101,5 +88,15 @@ extension PinSetupInteractor: PinSetupInteractorInputProtocol {
             state = .submitingPincode
             submitPincode()
         }
+    }
+
+    func change(pin: String) {
+        guard state == .waitingPincode else { return }
+
+        self.pincode = pin
+
+        state = .submitingPincode
+
+        submitPincode()
     }
 }

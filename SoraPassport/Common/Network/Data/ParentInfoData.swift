@@ -6,12 +6,19 @@
 import Foundation
 
 struct ParentInfoData: Codable, Equatable {
-    var firstName: String
-    var lastName: String
+    enum CodingKeys: String, CodingKey {
+        case userId
+        case walletAccountId
+        case timestamp = "registrationDate"
+    }
+
+    var userId: String
+    var walletAccountId: String
+    var timestamp: Int64
 }
 
 extension ParentInfoData {
-    var fullName: String {
-        return "\(firstName) \(lastName)"
+    var registrationDate: Date {
+        Date(timeIntervalSince1970: TimeInterval(timestamp))
     }
 }

@@ -23,18 +23,18 @@ enum ProjectsVoteMock: FireMockProtocol {
     }
 }
 
-extension ProjectsVoteMock {
-    static func register(mock: ProjectsVoteMock, projectUnit: ServiceUnit) {
-        guard let service = projectUnit.service(for: ProjectServiceType.vote.rawValue) else {
-            Logger.shared.warning("Can't find project fetch service endpoint to mock")
-            return
-        }
-
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create vote regex")
-            return
-        }
-
-        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
-    }
-}
+//extension ProjectsVoteMock {
+//    static func register(mock: ProjectsVoteMock, projectUnit: ServiceUnit) {
+//        guard let service = projectUnit.service(for: ProjectServiceType.vote.rawValue) else {
+//            Logger.shared.warning("Can't find project fetch service endpoint to mock")
+//            return
+//        }
+//
+//        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
+//            Logger.shared.warning("Can't create vote regex")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
+//    }
+//}

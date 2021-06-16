@@ -29,7 +29,9 @@ final class ContactsActionFactory: ContactsActionFactoryWrapperProtocol {
 
     func createOptionListForAccountId(_ accountId: String,
                                       assetId: String,
-                                      locale: Locale?) -> [SendOptionViewModelProtocol]? {
+                                      locale: Locale?,
+                                      commandFactory: WalletCommandFactoryProtocol)
+    -> [SendOptionViewModelProtocol]? {
         let receiver = ReceiveInfo(accountId: ethAddress,
                                    assetId: assetId,
                                    amount: nil,
@@ -38,15 +40,13 @@ final class ContactsActionFactory: ContactsActionFactoryWrapperProtocol {
         let payload = TransferPayload(receiveInfo: receiver,
                                       receiverName: ethAddress)
 
-        guard let command = commandFactory?.prepareTransfer(with: payload) else {
-            return nil
-        }
+        let command = commandFactory.prepareTransfer(with: payload)
 
         command.presentationStyle = .push(hidesBottomBar: true)
 
         let title = R.string.localizable
             .walletValToMyEth(preferredLanguages: locale?.rLanguages)
-        let icon = R.image.iconValErc()
+        let icon = R.image.assetValErc()
 
         let sendAction = SendOptionViewModel(command: command,
                                              title: title,

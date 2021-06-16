@@ -7,237 +7,44 @@ import Foundation
 import CoreData
 import CommonWallet
 import SoraKeystore
-import SoraCrypto
 import SoraFoundation
 import RobinHood
 
 protocol WalletContextFactoryProtocol: class {
-    static func createContext() -> CommonWalletContextProtocol?
+    func createContext() throws -> CommonWalletContextProtocol
 }
 
 enum WalletContextFactoryError: Error {
     case missingEnpoint
     case requestSignerInitFailed
+    case missingAccount
+    case missingPriceAsset
+    case missingConnection
 }
 
-final class WalletContextFactory: WalletContextFactoryProtocol {
-    //swiftlint:disable:next function_body_length
-    static func createContext() -> CommonWalletContextProtocol? {
-        let logger = Logger.shared
+final class WalletContextFactory {
+    let keychain: KeystoreProtocol
+    let settings: SettingsManagerProtocol
+    let applicationConfig: ApplicationConfigProtocol
+    let logger: LoggerProtocol
+    let primitiveFactory: WalletPrimitiveFactoryProtocol
 
-        do {
-            let localizationManager = LocalizationManager.shared
-            let userStoreFacade = UserStoreFacade.shared
+    init(keychain: KeystoreProtocol = Keychain(),
+         settings: SettingsManagerProtocol = SettingsManager.shared,
+         applicationConfig: ApplicationConfigProtocol = ApplicationConfig.shared,
+         logger: LoggerProtocol = Logger.shared) {
+        self.keychain = keychain
+        self.settings = settings
+        self.applicationConfig = applicationConfig
+        self.logger = logger
 
-            let primitiveFactory = WalletPrimitiveFactory(keychain: Keychain(),
-                                                          settings: SettingsManager.shared,
-                                                          localizationManager: localizationManager)
-
-            let accountId = try primitiveFactory.createAccountId()
-
-            let accountSettings = try primitiveFactory.createAccountSettings(for: accountId)
-
-            let xorAsset = try primitiveFactory.createXORAsset()
-            let valAsset = try primitiveFactory.createVALAsset()
-            let ethAsset = try primitiveFactory.createETHAsset()
-
-            let amountFormatterFactory = WalletAmountFormatterFactory(ethAssetId: ethAsset.identifier)
-
-            let applicationConfig: ApplicationConfigProtocol = ApplicationConfig.shared
-            let ethereumOperationFactory =
-                try EthereumOperationFactory(node: applicationConfig.ethereumNodeUrl,
-                                             keystore: Keychain(),
-                                             chain: applicationConfig.ethereumChainId)
-
-            let ethereumAddress = ethereumOperationFactory.addressEntity.address
-
-            let sharedOperationManager = OperationManagerFacade.sharedManager
-            let ethInitId = SidechainId.eth.rawValue
-            let ethInitRepository: AnyDataProviderRepository<EthereumInit> =
-                    try createRepository(ethInitId, facade: userStoreFacade)
-            let ethInitProvider: StreamableProvider<EthereumInit> =
-                try createAssetDataProviderForId(ethInitId,
-                                                 repository: ethInitRepository,
-                                                 facade: userStoreFacade,
-                                                 operationManager: sharedOperationManager,
-                                                 logger: logger)
-
-            let commandDecorator = WalletCommandDecoratorFactory(xorAssetId: xorAsset.identifier,
-                                                                 valAssetId: valAsset.identifier,
-                                                                 ethereumAssetId: ethAsset.identifier,
-                                                                 ethereumAddress: ethereumAddress,
-                                                                 xorAddress: accountId,
-                                                                 valAddress: accountId,
-                                                                 dataProvider: ethInitProvider,
-                                                                 repository: ethInitRepository,
-                                                                 localizationManager: localizationManager,
-                                                                 operationManager: sharedOperationManager,
-                                                                 amountFormatter: amountFormatterFactory.createTokenFormatter(for: valAsset),
-                                                                 logger: logger)
-
-            let builder = try configureBuilder(for: accountSettings,
-                                               primitiveFactory: primitiveFactory,
-                                               localizationManager: localizationManager,
-                                               amountFormatterFactory: amountFormatterFactory,
-                                               ethereumOperationFactory: ethereumOperationFactory)
-
-            builder.with(commandDecoratorFactory: commandDecorator)
-
-            configureStyle(builder: builder.styleBuilder)
-
-            let walletWireframe = WalletWireframe(applicationConfig: ApplicationConfig.shared)
-            let headerViewModel = WalletHeaderViewModel(walletWireframe: walletWireframe)
-
-            let accountConfigurator = AccountListConfigurator(dataProvider: ethInitProvider,
-                                                              commandDecorator: commandDecorator,
-                                                              amountFormatterFactory: amountFormatterFactory,
-                                                              xorAsset: xorAsset,
-                                                              valAsset: valAsset,
-                                                              ethAsset: ethAsset,
-                                                              headerViewModel: headerViewModel,
-                                                              logger: logger)
-            accountConfigurator.configure(using: builder.accountListModuleBuilder)
-
-            let historyConfigurator =
-                TransactionHistoryConfigurator(amountFormatterFactory: amountFormatterFactory,
-                                               assets: accountSettings.assets,
-                                               accountId: accountId,
-                                               ethereumAddress: ethereumAddress)
-            historyConfigurator.configure(using: builder.historyModuleBuilder)
-
-            let contactsLocalSearchEngine = ContactsLocalSearchEngine()
-            let contactsActionFactory = ContactsActionFactory(ethAddress: ethereumAddress)
-
-            configureContactsModule(with: builder.contactsModuleBuilder,
-                                    localSearchEngine: contactsLocalSearchEngine,
-                                    actionsFactory: contactsActionFactory)
-
-            configureReceiverModule(with: builder.receiveModuleBuilder,
-                                    assets: accountSettings.assets,
-                                    localizationManager: localizationManager,
-                                    amountFormatterFactory: amountFormatterFactory)
-
-            let soranetExplorerTemplate = applicationConfig.soranetExplorerTemplate
-            let ethereumExplorerTemplate = applicationConfig.ethereumExplorerTemplate
-            let transactionDetails =
-                WalletTransactionDetailsConfigurator(feeDisplayFactory: WalletFeeDisplaySettingsFactory(),
-                                                     amountFormatterFactory: amountFormatterFactory,
-                                                     assets: accountSettings.assets,
-                                                     accountId: accountId,
-                                                     ethereumAddress: ethereumAddress,
-                                                     soranetExplorerTemplate: soranetExplorerTemplate,
-                                                     ethereumExplorerTemplate: ethereumExplorerTemplate)
-
-            transactionDetails.configure(using: builder.transactionDetailsModuleBuilder)
-
-            var transferConfigurator = WalletTransferConfigurator(localizationManager: localizationManager,
-                                       amountFormatterFactory: amountFormatterFactory,
-                                       commandDecorator: commandDecorator,
-                                       commandFactory: nil,
-                                       xorAsset: xorAsset,
-                                       valAsset: valAsset,
-                                       ethAsset: ethAsset)
-            transferConfigurator.configure(using: builder.transferModuleBuilder)
-
-            WalletConfirmationConfigurator(amountFormatterFactory: amountFormatterFactory,
-                                           feeDisplayFactory: WalletFeeDisplaySettingsFactory(),
-                                           xorAsset: xorAsset,
-                                           valAsset: valAsset,
-                                           ethAsset: ethAsset)
-                .configure(using: builder.transferConfirmationBuilder)
-
-            let walletContext = try builder.build()
-            subscribeContextToLanguageSwitch(walletContext, localizationManager: localizationManager, logger: logger)
-
-            headerViewModel.walletContext = walletContext
-            accountConfigurator.commandFactory = walletContext
-            contactsLocalSearchEngine.commandFactory = walletContext
-            contactsActionFactory.commandFactory = walletContext
-            historyConfigurator.commandFactory = walletContext
-            transactionDetails.commandFactory = walletContext
-            transferConfigurator.commandFactory = walletContext
-
-            return walletContext
-        } catch {
-            logger.error("Wallet initialization error \(error)")
-            return nil
-        }
+        primitiveFactory = WalletPrimitiveFactory(keystore: keychain,
+                                                  settings: settings)
     }
 
-    static private func configureBuilder(for account: WalletAccountSettingsProtocol,
-                                         primitiveFactory: WalletPrimitiveFactoryProtocol,
-                                         localizationManager: LocalizationManagerProtocol,
-                                         amountFormatterFactory: NumberFormatterFactoryProtocol,
-                                         ethereumOperationFactory: EthereumOperationFactory)
-        throws -> CommonWalletBuilderProtocol {
-
-        let applicationConfig: ApplicationConfigProtocol = ApplicationConfig.shared
-        let networkResolver = try createNetworkResolver(with: Logger.shared)
-
-        let inputValidFactory = WalletDescriptionInputValidatorFactory(localizationManager: localizationManager)
-
-        let operationSettings = try primitiveFactory.createOperationSettings()
-
-        let soranetOperationFactory = SoraNetworkOperationFactory(accountSettings: account,
-                                                                  operationSettings: operationSettings,
-                                                                  networkResolver: networkResolver)
-
-        let xorAsset = try primitiveFactory.createXORAsset()
-        let valAsset = try primitiveFactory.createVALAsset()
-        let ethAsset = try primitiveFactory.createETHAsset()
-
-        let feeCalcutionFactory = WalletFeeCalculatorFactory(xorPrecision: xorAsset.precision,
-                                                             ethPrecision: ethAsset.precision)
-
-        let ethereumMasterContract = applicationConfig.ethereumMasterContract
-        let ethereumAddress = ethereumOperationFactory.addressEntity.addressData
-
-        let transferRepository: CoreDataRepository<TransferOperationData, CDTransfer> =
-            UserStoreFacade.shared.createCoreDataCache(sortDescriptors: [NSSortDescriptor.transfer])
-
-        let depositRepository: CoreDataRepository<DepositOperationData, CDDeposit> =
-            UserStoreFacade.shared.createCoreDataCache(sortDescriptors: [NSSortDescriptor.deposit])
-
-        let withdrawRepository: CoreDataRepository<WithdrawOperationData, CDWithdraw> =
-            UserStoreFacade.shared.createCoreDataCache(sortDescriptors: [NSSortDescriptor.withdraw])
-
-        let historyOperationFactory =
-            WalletHistoryOperationFactory(networkOperationFactory: soranetOperationFactory,
-                                          transferRepository: AnyDataProviderRepository(transferRepository),
-                                          withdrawRepository: AnyDataProviderRepository(withdrawRepository),
-                                          depositRepository: AnyDataProviderRepository(depositRepository))
-
-        let networkOperationFacade =
-            WalletNetworkFacade(soranetOperationFactory: soranetOperationFactory,
-                                ethereumOperationFactory: ethereumOperationFactory,
-                                transferRepository: AnyDataProviderRepository(transferRepository),
-                                withdrawRepository: AnyDataProviderRepository(withdrawRepository),
-                                depositRepository: AnyDataProviderRepository(depositRepository),
-                                historyOperationFactory: historyOperationFactory,
-                                soranetAccountId: account.accountId,
-                                ethereumAddress: ethereumAddress,
-                                masterContractAddress: ethereumMasterContract,
-                                xorAssetId: xorAsset.identifier,
-                                valAssetId: valAsset.identifier,
-                                ethAssetId: ethAsset.identifier)
-
-        let language = WalletLanguage(rawValue: localizationManager.selectedLocalization)
-            ?? WalletLanguage.defaultLanguage
-
-        return CommonWalletBuilder.builder(with: account, networkOperationFactory: networkOperationFacade)
-            .with(language: language)
-            .with(logger: Logger.shared)
-            .with(amountFormatterFactory: amountFormatterFactory)
-            .with(transactionTypeList: primitiveFactory.createTransactionTypes())
-            .with(inputValidatorFactory: inputValidFactory)
-            .with(feeCalculationFactory: feeCalcutionFactory)
-            .with(feeDisplaySettingsFactory: WalletFeeDisplaySettingsFactory())
-            .with(singleProviderIdentifierFactory: WalletSingleProviderIdFactory())
-    }
-
-    static private func subscribeContextToLanguageSwitch(_ context: CommonWalletContextProtocol,
-                                                         localizationManager: LocalizationManagerProtocol,
-                                                         logger: LoggerProtocol) {
+    private func subscribeContextToLanguageSwitch(_ context: CommonWalletContextProtocol,
+                                                  localizationManager: LocalizationManagerProtocol,
+                                                  logger: LoggerProtocol) {
         localizationManager.addObserver(with: context) { [weak context] (_, newLocalization) in
             if let newLanguage = WalletLanguage(rawValue: newLocalization) {
                 do {
@@ -250,172 +57,144 @@ final class WalletContextFactory: WalletContextFactoryProtocol {
             }
         }
     }
+}
 
-    static func createNetworkResolver(with logger: LoggerProtocol) throws -> MiddlewareNetworkResolverProtocol {
-        let walletUnit = ApplicationConfig.shared.defaultWalletUnit
-        guard let balance = walletUnit.service(for: WalletServiceType.balance.rawValue) else {
-            throw WalletContextFactoryError.missingEnpoint
+extension WalletContextFactory: WalletContextFactoryProtocol {
+    //swiftlint:disable:next function_body_length
+    func createContext() throws -> CommonWalletContextProtocol {
+        guard let selectedAccount = SettingsManager.shared.selectedAccount else {
+            throw WalletContextFactoryError.missingAccount
         }
 
-        guard let history = walletUnit.service(for: WalletServiceType.history.rawValue) else {
-            throw WalletContextFactoryError.missingEnpoint
+        guard let connection = WebSocketService.shared.connection else {
+            throw WalletContextFactoryError.missingConnection
         }
 
-        guard let search = walletUnit.service(for: WalletServiceType.search.rawValue) else {
-            throw WalletContextFactoryError.missingEnpoint
-        }
+        let accountSettings = try primitiveFactory.createAccountSettings()
 
-        guard let contacts = walletUnit.service(for: WalletServiceType.contacts.rawValue) else {
-            throw WalletContextFactoryError.missingEnpoint
-        }
+        let amountFormatterFactory = AmountFormatterFactory()
 
-        guard let transfer = walletUnit.service(for: WalletServiceType.transfer.rawValue) else {
-            throw WalletContextFactoryError.missingEnpoint
-        }
+        logger.debug("Loading wallet account: \(selectedAccount.address)")
 
-        guard let transferMetadata = walletUnit.service(for: WalletServiceType.transferMetadata.rawValue) else {
-            throw WalletContextFactoryError.missingEnpoint
-        }
+        let networkType = SettingsManager.shared.selectedConnection.type
 
-        guard let withdraw = walletUnit.service(for: WalletServiceType.withdraw.rawValue) else {
-            throw WalletContextFactoryError.missingEnpoint
-        }
+        let accountSigner = SigningWrapper(keystore: Keychain(), settings: SettingsManager.shared)
+        let dummySigner = try DummySigner(cryptoType: selectedAccount.cryptoType)
 
-        guard let withdrawalMetadata = walletUnit.service(for: WalletServiceType.withdrawalMetadata.rawValue) else {
-            throw WalletContextFactoryError.missingEnpoint
-        }
+        let substrateStorageFacade = SubstrateDataStorageFacade.shared
+        let chainStorage: CoreDataRepository<ChainStorageItem, CDChainStorageItem> =
+            substrateStorageFacade.createRepository()
+        let localStorageIdFactory = try ChainStorageIdFactory(chain: networkType.chain)
 
-        guard let requestSigner = DARequestSigner.createDefault(with: logger) else {
-            throw WalletContextFactoryError.requestSignerInitFailed
-        }
+        let nodeOperationFactory = WalletNetworkOperationFactory(engine: connection,
+                                                                 accountSettings: accountSettings,
+                                                                 cryptoType: selectedAccount.cryptoType,
+                                                                 accountSigner: accountSigner,
+                                                                 dummySigner: dummySigner,
+                                                                 chainStorage:
+                                                                    AnyDataProviderRepository(chainStorage),
+                                                                 localStorageIdFactory: localStorageIdFactory)
 
-        let endpointMapping = WalletEndpointMapping(balance: balance.serviceEndpoint,
-                                                    history: history.serviceEndpoint,
-                                                    search: search.serviceEndpoint,
-                                                    transfer: transfer.serviceEndpoint,
-                                                    transferMetadata: transferMetadata.serviceEndpoint,
-                                                    contacts: contacts.serviceEndpoint,
-                                                    withdraw: withdraw.serviceEndpoint,
-                                                    withdrawalMetadata: withdrawalMetadata.serviceEndpoint)
+        let subscanOperationFactory = SubscanOperationFactory()
 
-        return WalletNetworkResolver(endpointMapping: endpointMapping,
-                                     requestSigner: requestSigner)
-    }
+        let txFilter = NSPredicate.filterTransactionsBy(address: selectedAccount.address)
+        let txStorage: CoreDataRepository<TransactionHistoryItem, CDTransactionHistoryItem> =
+            SubstrateDataStorageFacade.shared.createRepository(filter: txFilter)
 
-    static private func configureContactsModule(with builder: ContactsModuleBuilderProtocol,
-                                                localSearchEngine: ContactsLocalSearchEngineProtocol,
-                                                actionsFactory: ContactsActionFactoryWrapperProtocol) {
+        let contactOperationFactory = WalletContactOperationFactory(storageFacade: substrateStorageFacade,
+                                                                    targetAddress: selectedAccount.address)
 
-        let searchPlaceholder = LocalizableResource { locale in
-            R.string.localizable.contactsSearchHintV1(preferredLanguages: locale.rLanguages)
-        }
+        let accountStorage: CoreDataRepository<ManagedAccountItem, CDAccountItem> =
+            UserDataStorageFacade.shared
+            .createRepository(filter: NSPredicate.filterAccountBy(networkType: networkType),
+                              sortDescriptors: [NSSortDescriptor.accountsByOrder],
+                              mapper: AnyCoreDataMapper(ManagedAccountItemMapper()))
 
-        builder
-            .with(actionFactoryWrapper: actionsFactory)
-            .with(searchPlaceholder: searchPlaceholder)
-            .with(searchEmptyStateDataSource: WalletEmptyStateDataSource.search)
-            .with(contactsEmptyStateDataSource: WalletEmptyStateDataSource.contacts)
-            .with(scanPosition: .barButton)
-            .with(withdrawOptionsPosition: .notInclude)
-            .with(localSearchEngine: localSearchEngine)
-            .with(supportsLiveSearch: false)
-            .with(canFindItself: true)
-    }
+        let networkFacade = WalletNetworkFacade(accountSettings: accountSettings,
+                                                nodeOperationFactory: nodeOperationFactory,
+                                                subscanOperationFactory: subscanOperationFactory,
+                                                chainStorage: AnyDataProviderRepository(chainStorage),
+                                                localStorageIdFactory: localStorageIdFactory,
+                                                txStorage: AnyDataProviderRepository(txStorage),
+                                                contactsOperationFactory: contactOperationFactory,
+                                                accountsRepository: AnyDataProviderRepository(accountStorage),
+                                                address: selectedAccount.address,
+                                                networkType: networkType,
+                                                totalPriceAssetId: nil)
 
-    static private func configureReceiverModule(with builder: ReceiveAmountModuleBuilderProtocol,
-                                                assets: [WalletAsset],
-                                                localizationManager: LocalizationManagerProtocol,
-                                                amountFormatterFactory: NumberFormatterFactoryProtocol) {
+        let builder = CommonWalletBuilder.builder(with: accountSettings,
+                                                  networkOperationFactory: networkFacade)
 
-        let receiveTitle = LocalizableResource { locale in
-            R.string.localizable.walletReceiveVal(preferredLanguages: locale.rLanguages)
-        }
+        let localizationManager = LocalizationManager.shared
 
-        let sharingFactory = WalletAccountSharingFactory(assets: assets,
-                                                         numberFactory: amountFormatterFactory,
-                                                         localizationManager: localizationManager)
+        let tokenAssets = accountSettings.assets
+        let decoratorFactory = WalletCommandDecoratorFactory(localizationManager: localizationManager,
+                                                             assets: tokenAssets,
+                                                             address: selectedAccount.address)
 
-        builder.with(accountShareFactory: sharingFactory).with(title: receiveTitle)
-    }
+        WalletCommonConfigurator(localizationManager: localizationManager,
+                                 networkType: networkType,
+                                 account: selectedAccount,
+                                 assets: tokenAssets).configure(builder: builder)
+        WalletCommonStyleConfigurator().configure(builder: builder.styleBuilder)
 
-    static private func configureStyle(builder: WalletStyleBuilderProtocol) {
-        let errorStyle = WalletInlineErrorStyle(titleColor: UIColor(red: 0.942, green: 0, blue: 0.044, alpha: 1),
-                                                titleFont: R.font.soraRc0040417Regular(size: 12)!,
-                                                icon: R.image.iconWarning()!)
-        builder
-            .with(background: .background)
-            .with(navigationBarStyle: createNavigationBarStyle())
-            .with(header1: R.font.soraRc0040417Bold(size: 30.0)!)
-            .with(header2: R.font.soraRc0040417SemiBold(size: 18.0)!)
-            .with(header3: R.font.soraRc0040417Bold(size: 16.0)!)
-            .with(header4: R.font.soraRc0040417Bold(size: 15.0)!)
-            .with(bodyBold: R.font.soraRc0040417Bold(size: 14.0)!)
-            .with(bodyRegular: R.font.soraRc0040417Regular(size: 14.0)!)
-            .with(small: R.font.soraRc0040417Regular(size: 14.0)!)
-            .with(keyboardIcon: R.image.iconKeyboardOff()!)
-            .with(caretColor: UIColor.inputIndicator)
-            .with(inlineErrorStyle: errorStyle)
-    }
+        let walletWireframe = WalletWireframe(applicationConfig: ApplicationConfig.shared)
+        let headerViewModel = WalletHeaderViewModel(walletWireframe: walletWireframe)
 
-    static private func createNavigationBarStyle() -> WalletNavigationBarStyleProtocol {
-        var navigationBarStyle = WalletNavigationBarStyle(barColor: UIColor.navigationBarColor,
-                                                          shadowColor: UIColor.darkNavigationShadowColor,
-                                                          itemTintColor: UIColor.navigationBarBackTintColor,
-                                                          titleColor: UIColor.navigationBarTitleColor,
-                                                          titleFont: UIFont.navigationTitleFont)
-        navigationBarStyle.titleFont = .navigationTitleFont
-        navigationBarStyle.titleColor = .navigationBarTitleColor
-        return navigationBarStyle
-    }
+        let accountListConfigurator = AccountListConfigurator(address: selectedAccount.address,
+                                                                    chain: networkType.chain,
+                                                                    commandDecorator: decoratorFactory,
+                                                                    headerViewModel: headerViewModel,
+                                                                    logger: logger)
 
-    static private func createRepository<T: Codable>(_ identifier: String,
-                                                     facade: UserStoreFacadeProtocol) throws
-        -> AnyDataProviderRepository<SidechainInit<T>> {
-        let mapper = SidechainInitDataMapper<T>()
+        accountListConfigurator.configure(builder: builder.accountListModuleBuilder)
+//will be needed soon
+//        let assetDetailsConfigurator = AssetDetailsConfigurator(address: selectedAccount.address,
+//                                                                chain: networkType.chain,
+//                                                                purchaseProvider: purchaseProvider,
+//                                                                priceAsset: priceAsset)
+//        assetDetailsConfigurator.configure(builder: builder.accountDetailsModuleBuilder)
 
-        let filter = NSPredicate(format: "%K == %@",
-                                 #keyPath(CDSidechainInit.identifier),
-                                 identifier)
+        TransactionHistoryConfigurator(amountFormatterFactory: amountFormatterFactory,
+                                       assets: accountSettings.assets)
+            .configure(builder: builder.historyModuleBuilder)
 
-        let repository = facade.createCoreDataCache(filter: filter,
-                                                    mapper: AnyCoreDataMapper(mapper))
+        TransactionDetailsConfigurator(account: selectedAccount,
+                                       amountFormatterFactory: amountFormatterFactory,
+                                       assets: accountSettings.assets)
+            .configure(builder: builder.transactionDetailsModuleBuilder)
 
-        return AnyDataProviderRepository(repository)
-    }
+        let transferConfigurator = WalletTransferConfigurator(assets: accountSettings.assets,
+                                                        amountFormatterFactory: amountFormatterFactory,
+                                                        localizationManager: localizationManager)
+        transferConfigurator.configure(builder: builder.transferModuleBuilder)
 
-    static private func createAssetDataProviderForId<T: Codable>(_ identifier: String,
-                                                                 repository: AnyDataProviderRepository<SidechainInit<T>>,
-                                                                 facade: UserStoreFacadeProtocol,
-                                                                 operationManager: OperationManagerProtocol,
-                                                                 logger: LoggerProtocol) throws
-        -> StreamableProvider<SidechainInit<T>> {
+        let confirmConfigurator = WalletConfirmationConfigurator(assets: accountSettings.assets,
+                                                              amountFormatterFactory: amountFormatterFactory)
+        confirmConfigurator.configure(builder: builder.transferConfirmationBuilder)
 
-        let source = EmptyStreamableDataSource<SidechainInit<T>>()
+        let contactsConfigurator = ContactsConfigurator(networkType: networkType)
+        contactsConfigurator.configure(builder: builder.contactsModuleBuilder)
 
-        let predicate: (NSManagedObject) -> Bool = { item in
-            if let sideChainInit = item as? CDSidechainInit, sideChainInit.identifier == identifier {
-                return true
-            } else {
-                return false
-            }
-        }
+        let receiveConfigurator = ReceiveConfigurator(account: selectedAccount,
+                                                      chain: networkType.chain,
+                                                      assets: tokenAssets,
+                                                      localizationManager: localizationManager)
+        receiveConfigurator.configure(builder: builder.receiveModuleBuilder)
 
-        let mapper = SidechainInitDataMapper<T>()
+        let invoiceScanConfigurator = InvoiceScanConfigurator(networkType: networkType)
+        invoiceScanConfigurator.configure(builder: builder.invoiceScanModuleBuilder)
 
-        let observable: CoreDataContextObservable<SidechainInit<T>, CDSidechainInit> =
-            CoreDataContextObservable(service: facade.databaseService,
-                                      mapper: AnyCoreDataMapper(mapper),
-                                      predicate: predicate)
+        let context = try builder.build()
 
-        observable.start { error in
-            if let error = error {
-                logger.error("Can't start observable: \(error)")
-            }
-        }
+        subscribeContextToLanguageSwitch(context,
+                                         localizationManager: localizationManager,
+                                         logger: logger)
+        headerViewModel.walletContext = context
+        transferConfigurator.commandFactory = context
+        confirmConfigurator.commandFactory = context
+        receiveConfigurator.commandFactory = context
 
-        return StreamableProvider(source: AnyStreamableSource(source),
-                                  repository: repository,
-                                  observable: AnyDataProviderRepositoryObservable(observable),
-                                  operationManager: operationManager)
+        return context
     }
 }

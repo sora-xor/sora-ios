@@ -8,7 +8,7 @@ import Foundation
 import CommonWallet
 import RobinHood
 
-final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFactoryProtocol, WalletRemoteHistoryOperationFactoryProtocol {
+final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFactoryProtocol/*, WalletRemoteHistoryOperationFactoryProtocol*/ {
 
     var balanceClosure: (([String]) -> CompoundOperationWrapper<[BalanceData]?>)?
 
@@ -27,7 +27,7 @@ final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFac
 
     var withdrawClosure: ((WithdrawInfo) -> CompoundOperationWrapper<Data>)?
 
-    var remoteHistoryClosure: ((OffsetPagination) -> CompoundOperationWrapper<MiddlewareTransactionPageData>)?
+//    var remoteHistoryClosure: ((OffsetPagination) -> CompoundOperationWrapper<MiddlewareTransactionPageData>)?
 
     func fetchBalanceOperation(_ assets: [String]) -> CompoundOperationWrapper<[BalanceData]?> {
         if let closure = balanceClosure {
@@ -104,14 +104,14 @@ final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFac
         }
     }
 
-    func fetchRemoteHistoryOperationForPagination(_ pagination: OffsetPagination)
-        -> CompoundOperationWrapper<MiddlewareTransactionPageData> {
-        if let closure = remoteHistoryClosure {
-            return closure(pagination)
-        } else {
-            let page = MiddlewareTransactionPageData(transactions: [])
-            let operation = ClosureOperation<MiddlewareTransactionPageData> { page }
-            return CompoundOperationWrapper(targetOperation: operation)
-        }
-    }
+//    func fetchRemoteHistoryOperationForPagination(_ pagination: OffsetPagination)
+//        -> CompoundOperationWrapper<MiddlewareTransactionPageData> {
+//        if let closure = remoteHistoryClosure {
+//            return closure(pagination)
+//        } else {
+//            let page = MiddlewareTransactionPageData(transactions: [])
+//            let operation = ClosureOperation<MiddlewareTransactionPageData> { page }
+//            return CompoundOperationWrapper(targetOperation: operation)
+//        }
+//    }
 }

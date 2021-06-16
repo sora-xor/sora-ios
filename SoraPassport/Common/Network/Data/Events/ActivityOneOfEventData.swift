@@ -29,7 +29,7 @@ enum ActivityEventType: String, Codable {
     case pushTokensDeleted = "PushTokensDeleted"
 }
 
-// swiftlint:disable cyclomatic_complexity
+// swiftlint:disable cyclomatic_complexity function_body_length
 enum ActivityOneOfEventData: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case type
@@ -217,4 +217,4 @@ enum ActivityOneOfEventData: Codable, Equatable {
         }
     }
 }
-// swiftlint:enable cyclomatic_complexity
+// swiftlint:enable cyclomatic_complexity function_body_length

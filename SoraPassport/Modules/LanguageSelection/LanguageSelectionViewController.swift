@@ -21,6 +21,8 @@ final class LanguageSelectionViewController: SelectionListViewController<Selecti
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        navigationItem.largeTitleDisplayMode = .never
+
         applyLocalization()
 
         presenter.setup()

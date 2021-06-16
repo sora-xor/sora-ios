@@ -66,13 +66,8 @@ class AccessoryViewController: UIViewController {
         let height = accessoryView.contentView.frame.height
         accessoryView.contentView.heightAnchor.constraint(equalToConstant: height).isActive = true
 
-        if #available(iOS 11.0, *) {
-            bottomConstraint = accessoryView.contentView.bottomAnchor
-                .constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 0.0)
-        } else {
-            bottomConstraint = accessoryView.contentView.bottomAnchor
-                .constraint(equalTo: view.bottomAnchor, constant: 0.0)
-        }
+        bottomConstraint = accessoryView.contentView.bottomAnchor
+            .constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 0.0)
 
         bottomConstraint?.isActive = true
     }
@@ -108,11 +103,7 @@ class AccessoryViewController: UIViewController {
     private func apply(keyboardFrame: CGRect) {
         let localKeyboardFrame = view.convert(keyboardFrame, from: nil)
         var bottomInset = view.bounds.height - localKeyboardFrame.minY
-
-        if #available(iOS 11.0, *) {
-            bottomInset -= view.safeAreaInsets.bottom
-        }
-
+        bottomInset -= view.safeAreaInsets.bottom
         bottomInset = max(bottomInset, 0.0)
         bottomConstraint?.constant = -bottomInset
 

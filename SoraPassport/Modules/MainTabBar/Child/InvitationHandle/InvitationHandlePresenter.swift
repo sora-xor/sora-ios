@@ -53,11 +53,11 @@ final class InvitationHandlePresenter {
                 let applyAction = AlertPresentableAction(title: applyTitle) { [weak self] in
                     self?.interactor.apply(invitationCode: invitationCode)
                 }
-
-                wireframe.present(message: message,
-                                  title: nil,
-                                  actions: [cancelAction, applyAction],
-                                  from: view)
+//
+//                wireframe.present(message: message,
+//                                  title: nil,
+//                                  actions: [cancelAction, applyAction],
+//                                  from: view)
             }
         } catch {
             let locale = localizationManager.selectedLocale

@@ -34,6 +34,7 @@ func createRandomUser() -> UserData {
     return UserData(userId: userId,
                     firstName: UUID().uuidString,
                     lastName: UUID().uuidString,
+                    username: UUID().uuidString,
                     country: UUID().uuidString,
                     phone: createRandomPhoneNumber(),
                     inviteAcceptExpirationMoment: Int64(Date().timeIntervalSince1970),
@@ -44,14 +45,19 @@ func createRandomUser() -> UserData {
 }
 
 func createRandomInvitedUserData() -> InvitedUserData {
-    return InvitedUserData(userId: createRandomUserId(),
-                           firstName: UUID().uuidString,
-                           lastName: UUID().uuidString)
+    return InvitedUserData(
+        userId: createRandomUserId(),
+        walletAccountId: UUID().uuidString,
+        timestamp: Int64(Date().timeIntervalSince1970)
+    )
 }
 
 func createRandomParentInfo() -> ParentInfoData {
-    return ParentInfoData(firstName: UUID().uuidString,
-                          lastName: UUID().uuidString)
+    return ParentInfoData(
+        userId: createRandomUserId(),
+        walletAccountId: UUID().uuidString,
+        timestamp: Int64(Date().timeIntervalSince1970)
+    )
 }
 
 func createRandomActivatedInvitationsData() -> ActivatedInvitationsData {

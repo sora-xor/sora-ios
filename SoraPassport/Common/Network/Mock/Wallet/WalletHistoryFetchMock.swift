@@ -22,19 +22,19 @@ enum WalletHistoryFetchMock: FireMockProtocol {
         return R.file.walletHistoryResponseJson.fullName
     }
 }
-
-extension WalletHistoryFetchMock {
-    static func register(mock: WalletHistoryFetchMock, walletUnit: ServiceUnit) {
-        guard let service = walletUnit.service(for: WalletServiceType.history.rawValue) else {
-            Logger.shared.warning("Can't find wallet history service endpoint to mock")
-            return
-        }
-
-        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
-            Logger.shared.warning("Can't create history fetch url")
-            return
-        }
-
-        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
-    }
-}
+//
+//extension WalletHistoryFetchMock {
+//    static func register(mock: WalletHistoryFetchMock, walletUnit: ServiceUnit) {
+//        guard let service = walletUnit.service(for: WalletServiceType.history.rawValue) else {
+//            Logger.shared.warning("Can't find wallet history service endpoint to mock")
+//            return
+//        }
+//
+//        guard let regex = try? EndpointBuilder(urlTemplate: service.serviceEndpoint).buildRegex() else {
+//            Logger.shared.warning("Can't create history fetch url")
+//            return
+//        }
+//
+//        FireMock.register(mock: mock, regex: regex, httpMethod: .post)
+//    }
+//}

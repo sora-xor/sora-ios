@@ -38,7 +38,7 @@ extension LocalAuthPresenter: LocalAuthInteractorOutputProtocol {
 
     func didCompleteAuth() {
         DispatchQueue.main.async { [weak self] in
-            self?.wireframe.showAuthVerification(from: self?.view)
+            self?.wireframe.showMain(from: self?.view)
         }
     }
 
