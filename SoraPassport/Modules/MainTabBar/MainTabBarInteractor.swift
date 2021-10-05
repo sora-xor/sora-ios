@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import CommonWallet
@@ -19,10 +14,6 @@ final class MainTabBarInteractor {
 
     private var currentAccount: AccountItem?
     private var currentConnection: ConnectionItem?
-
-    deinit {
-        stopServices()
-    }
 
     init(eventCenter: EventCenterProtocol,
          settings: SettingsManagerProtocol,

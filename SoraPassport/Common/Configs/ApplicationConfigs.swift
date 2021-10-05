@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import os
 
@@ -156,7 +151,7 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var supportEmail: String {
-        "sora@soramitsu.co.jp"
+        "support@sora.org"
     }
 
     var termsURL: URL {

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 enum RPCMethod {
@@ -24,5 +19,6 @@ enum RPCMethod {
     static let helthCheck = "system_health"
     static let runtimeVersionSubscribe = "state_subscribeRuntimeVersion"
     static let freeBalance = "assets_freeBalance"
+    static let assetInfo = "assets_listAssetInfos"
     static let needsMigration = "irohaMigration_needsMigration"
 }

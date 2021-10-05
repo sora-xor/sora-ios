@@ -1,12 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
 import SoraFoundation
+import SoraKeystore
 
 final class AccountListViewModelFactory {
     let commandDecorator: WalletCommandDecoratorFactoryProtocol
@@ -14,17 +10,23 @@ final class AccountListViewModelFactory {
 
     let assetCellStyleFactory: AssetCellStyleFactoryProtocol
     let amountFormatterFactory: NumberFormatterFactoryProtocol
+    let assetManager: AssetManagerProtocol
 //    let priceAsset: WalletAsset
-//    let accountCommandFactory: WalletSelectAccountCommandFactoryProtocol
 
     init(address: String,
          chain: Chain,
          assetCellStyleFactory: AssetCellStyleFactoryProtocol,
+         assetManager: AssetManagerProtocol,
          commandDecorator: WalletCommandDecoratorFactoryProtocol,
          amountFormatterFactory: NumberFormatterFactoryProtocol) {
         self.assetCellStyleFactory = assetCellStyleFactory
         self.amountFormatterFactory = amountFormatterFactory
         self.commandDecorator = commandDecorator
+        self.assetManager = assetManager
+    }
+
+    var visibleAssets: UInt {
+        assetManager.visibleCount()
     }
 
     private func createCustomAssetViewModel(for asset: WalletAsset,
@@ -33,10 +35,17 @@ final class AccountListViewModelFactory {
                                             locale: Locale) -> AssetViewModelProtocol? {
         let amountFormatter = amountFormatterFactory.createDisplayFormatter(for: asset)
 
+        guard let assetInfo = assetManager.assetInfo(for: asset.identifier) else {return nil}
+
         let decimalBalance = balanceData.balance.decimalValue
         let amount: String
 
-        if let balanceString = amountFormatter.value(for: locale).string(from: decimalBalance as NSNumber) {
+        var toggleImage = R.image.iconVisibleOff()
+
+        if asset.isFeeAsset && !assetInfo.visible {
+            amount = ""
+            toggleImage =  R.image.iconVisibleOn()
+        } else if let balanceString = amountFormatter.value(for: locale).stringFromDecimal(decimalBalance) {
             amount = balanceString
         } else {
             amount = balanceData.balance.stringValue
@@ -57,6 +66,14 @@ final class AccountListViewModelFactory {
 
         let assetDetailsCommand = commandDecorator.createAssetDetailsDecorator(with: commandFactory, asset: asset, balanceData: nil)
 
+        let toggleCommand: WalletCommandDecoratorProtocol?
+
+        if let factory = commandDecorator as? WalletCommandDecoratorFactory {
+            toggleCommand = factory.createVisibilityToggleCommand(with: commandFactory, for: asset)
+        } else {
+            toggleCommand = nil
+        }
+
         return ConfigurableAssetViewModel(assetId: asset.identifier,
                                           amount: amount,
                                           symbol: nil,
@@ -64,15 +81,13 @@ final class AccountListViewModelFactory {
                                           accessoryDetails: name,
                                           imageViewModel: symbolViewModel,
                                           style: style,
-                                          command: assetDetailsCommand)
+                                          command: assetDetailsCommand,
+                                          toggleCommand: toggleCommand,
+                                          toggleIcon: toggleImage)
     }
 }
 
 extension AccountListViewModelFactory: AccountListViewModelFactoryProtocol {
-    struct AccountModuleConstants {
-        static let actionsCellIdentifier: String = "co.jp.capital.asset.actions.cell.identifier"
-        static let actionsCellHeight: CGFloat = 100.0
-    }
 
     func createAssetViewModel(for asset: WalletAsset,
                               balance: BalanceData,
@@ -84,80 +99,26 @@ extension AccountListViewModelFactory: AccountListViewModelFactoryProtocol {
     func createActionsViewModel(for assetId: String?,
                                 commandFactory: WalletCommandFactoryProtocol,
                                 locale: Locale) -> WalletViewModelProtocol? {
-
-        let style = WalletTextStyle(font: UIFont.styled(for: .paragraph2), color: R.color.baseContentPrimary()!)
-        let actionsStyle = ActionsCellStyle.init(sendText: style, receiveText: style)
-
-        var sendCommand: WalletCommandProtocol = commandFactory.prepareSendCommand(for: assetId)
-
-        if let sendDecorator = commandDecorator.createSendCommandDecorator(with: commandFactory) {
-            sendDecorator.undelyingCommand = sendCommand
-            sendCommand = sendDecorator
-        }
-
-        let sendViewModel = ActionViewModel(title: R.string.localizable.commonSend(preferredLanguages: locale.rLanguages),
-                                            style: actionsStyle.sendText,
-                                            command: sendCommand)
-
-        var receiveCommand: WalletCommandProtocol = commandFactory.prepareReceiveCommand(for: assetId)
-
-        if let receiveDecorator = commandDecorator.createReceiveCommandDecorator(with: commandFactory) {
-            receiveDecorator.undelyingCommand = receiveCommand
-            receiveCommand = receiveDecorator
-        }
-
-        let receiveViewModel = ActionViewModel(title: R.string.localizable.commonReceive(preferredLanguages: locale.rLanguages),
-                                               style: actionsStyle.receiveText,
-                                               command: receiveCommand)
-
-        return ActionsViewModel(cellReuseIdentifier: AccountModuleConstants.actionsCellIdentifier,
-                                itemHeight: AccountModuleConstants.actionsCellHeight,
-                                sendViewModel: sendViewModel,
-                                receiveViewModel: receiveViewModel)
+        return EmptyActionsViewModel()
     }
 
     func createAssetIconViewModel(for asset: WalletAsset) -> WalletImageViewModelProtocol? {
         let symbolViewModel: WalletImageViewModelProtocol?
 
-        if let icon = WalletAssetId(rawValue: asset.identifier)?.assetIcon {
-            symbolViewModel = WalletStaticImageViewModel(staticImage: icon)
+        if  let assetInfo = assetManager.assetInfo(for: asset.identifier),
+            let iconString = assetInfo.icon {
+            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
         } else {
             symbolViewModel = nil
         }
-
         return symbolViewModel
     }
 }
 
-final class ActionViewModel: ActionViewModelProtocol {
-    var title: String
-    var style: WalletTextStyleProtocol
-    var command: WalletCommandProtocol
+class EmptyActionsViewModel: WalletViewModelProtocol {
+    var cellReuseIdentifier: String = "co.jp.capital.asset.actions.cell.identifier"
 
-    init(title: String, style: WalletTextStyleProtocol, command: WalletCommandProtocol) {
-        self.title = title
-        self.style = style
-        self.command = command
-    }
-}
+    var itemHeight: CGFloat = 0
 
-final class ActionsViewModel: ActionsViewModelProtocol {
-    var cellReuseIdentifier: String
-    var itemHeight: CGFloat
-
-    var command: WalletCommandProtocol? { return nil }
-
-    var send: ActionViewModelProtocol
-    var receive: ActionViewModelProtocol
-
-    init(cellReuseIdentifier: String,
-         itemHeight: CGFloat,
-         sendViewModel: ActionViewModelProtocol,
-         receiveViewModel: ActionViewModelProtocol) {
-        self.cellReuseIdentifier = cellReuseIdentifier
-        self.itemHeight = itemHeight
-        self.send = sendViewModel
-        self.receive = receiveViewModel
-    }
-
+    var command: WalletCommandProtocol?
 }

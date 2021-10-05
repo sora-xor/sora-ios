@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import IrohaCrypto
 
@@ -25,7 +20,6 @@ extension SS58AddressFactory {
     }
 
     func addressFromAccountId(data: Data, type: SNAddressType) throws -> String {
-        let accountId = try AccountIdWrapper(rawData: data)
-        return try address(fromPublicKey: accountId, type: type)
+        return try address(fromAccountId: data, type: type)
     }
 }

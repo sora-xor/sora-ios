@@ -1,16 +1,11 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
 final class AccountInfoSubscription: BaseStorageChildSubscription {
-    let transferSubscription: TransferSubscription
+    let transferSubscription: TransactionSubscription
     let eventCenter: EventCenterProtocol
 
-    init(transferSubscription: TransferSubscription,
+    init(transferSubscription: TransactionSubscription,
          remoteStorageKey: Data,
          localStorageKey: String,
          storage: AnyDataProviderRepository<ChainStorageItem>,

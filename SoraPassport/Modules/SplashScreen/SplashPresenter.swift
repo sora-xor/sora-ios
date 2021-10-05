@@ -1,36 +1,28 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
-
-protocol SplashPresenterProtocol: class {
-    func present(in window: UIWindow, duration: Double, completion: @escaping () -> Void)
-}
+import SoraKeystore
 
 final class SplashPresenter: SplashPresenterProtocol {
+    weak var view: SplashViewProtocol?
+    var interactor: SplashInteractorProtocol!
+    var window: SoraWindow!
+    var wireframe: SplashWireframe?
 
-    private lazy var view: SplashView = {
-        return R.nib.launchScreen(owner: nil)!
-    }()
-
-    private func add(view: UIView, to parentView: UIView) {
-        parentView.addSubview(view)
-        view.frame = parentView.bounds
-        view.center = parentView.center
+    init(window: SoraWindow) {
+        self.window = window
     }
 
-    func present(in window: UIWindow, duration: Double, completion: @escaping () -> Void) {
-        if let root = window.rootViewController,
-           let rootView = root.view {
-            add(view: view, to: rootView)
-            view.animate(duration: duration, completion: {
-                self.view.removeFromSuperview()
-                completion()
+    func setupComplete() {
+        DispatchQueue.main.async {
+            self.view?.animate(duration: 2, completion: {
+                self.wireframe?.showRoot(on: self.window)
             })
-        } else {
-            completion()
         }
+    }
+}
+
+final class SplashWireframe {
+    func showRoot(on view: SoraWindow) {
+        let presenter = RootPresenterFactory.createPresenter(with: view)
+        presenter.loadOnLaunch()
     }
 }

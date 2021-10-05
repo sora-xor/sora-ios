@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -11,7 +6,8 @@ final class UsernameSetupPresenter {
     var wireframe: UsernameSetupWireframeProtocol!
 
     private var viewModel: InputViewModelProtocol = {
-        let inputHandling = InputHandler(predicate: NSPredicate.notEmpty,
+        let inputHandling = InputHandler(required: false,
+                                         predicate: NSPredicate.notEmpty,
                                          processor: ByteLengthProcessor.username)
         return InputViewModel(inputHandler: inputHandling)
     }()

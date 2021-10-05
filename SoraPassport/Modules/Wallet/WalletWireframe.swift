@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import CommonWallet
 import SoraFoundation
@@ -12,6 +7,7 @@ protocol WalletWireframeProtocol {
 }
 
 final class WalletWireframe: WalletWireframeProtocol {
+    
     let applicationConfig: ApplicationConfigProtocol
 
     var logger: LoggerProtocol?

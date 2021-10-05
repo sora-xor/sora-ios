@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -31,7 +26,7 @@ struct WalletAccountSharingFactory: AccountShareFactoryProtocol {
 
         if let amountDecimal = receiveInfo.amount?.decimalValue,
             let formattedAmount = amountFormatter.value(for: locale)
-                .string(from: amountDecimal as NSNumber) {
+                .stringFromDecimal(amountDecimal) {
             optionalAmountTitle = formattedAmount
         }
 

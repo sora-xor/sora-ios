@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 //import SoraCrypto
@@ -12,6 +7,7 @@ private enum StartupInteractorError: Error {
     case unsupportedVersion(data: SupportedVersionData)
     case verificationFailed
 }
+
 
 private typealias RegistrationCompletionBlock = (Result<UserData?, Error>?) -> Void
 

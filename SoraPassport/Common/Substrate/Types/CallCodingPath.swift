@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 struct CallCodingPath: Equatable {
@@ -17,5 +12,9 @@ extension CallCodingPath {
 
     static var transferKeepAlive: CallCodingPath {
         CallCodingPath(moduleName: "Assets", callName: "transfer_keep_alive")
+    }
+
+    var isTransfer: Bool {
+        [.transfer, .transferKeepAlive].contains(self)
     }
 }

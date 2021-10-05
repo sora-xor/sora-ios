@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import IrohaCrypto
@@ -50,7 +45,7 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                                                                    chaincodeList: chaincodes)
 
             let addressFactory = SS58AddressFactory()
-            let address = try addressFactory.address(fromPublicKey: keypair.publicKey(),
+            let address = try addressFactory.address(fromAccountId: keypair.publicKey().rawData(),
                                                      type: SNAddressType(chain: request.type))
 
             let secretKey: Data
@@ -104,7 +99,7 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
                                                                    chaincodeList: chaincodes)
 
             let addressFactory = SS58AddressFactory()
-            let address = try addressFactory.address(fromPublicKey: keypair.publicKey(),
+            let address = try addressFactory.address(fromAccountId: keypair.publicKey().rawData(),
                                                      type: SNAddressType(chain: request.networkType))
 
             let secretKey: Data
@@ -166,7 +161,7 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
             }
 
             let addressFactory = SS58AddressFactory()
-            let address = try addressFactory.address(fromPublicKey: publicKey,
+            let address = try addressFactory.address(fromAccountId: publicKey.rawData(),
                                                      type: SNAddressType(chain: request.networkType))
 
             try self.keystore.saveSecretKey(keystore.secretKeyData, address: address)

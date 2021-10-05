@@ -31,17 +31,40 @@
                         <nil key="highlightedColor"/>
                     </label>
                     <stackView opaque="NO" contentMode="scaleToFill" distribution="equalCentering" alignment="center" spacing="8" translatesAutoresizingMaskIntoConstraints="NO" id="usG-bf-rXf">
-                        <rect key="frame" x="331" y="17.5" width="32" height="32"/>
+                        <rect key="frame" x="211" y="17.5" width="152" height="32"/>
                         <subviews>
-                            <view hidden="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="GGZ-NL-sPT" customClass="RoundedButton" customModule="SoraUI">
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Qiu-ij-5bK" userLabel="Send Button" customClass="RoundedButton" customModule="SoraUI">
                                 <rect key="frame" x="0.0" y="0.0" width="32" height="32"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" constant="32" id="6SR-hH-BuX"/>
-                                    <constraint firstAttribute="width" secondItem="GGZ-NL-sPT" secondAttribute="height" multiplier="1:1" id="L1o-00-ZJM"/>
+                                    <constraint firstAttribute="width" constant="32" id="V15-zP-T87"/>
+                                    <constraint firstAttribute="width" secondItem="Qiu-ij-5bK" secondAttribute="height" multiplier="1:1" id="V96-6J-Cu7"/>
                                 </constraints>
                                 <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletMore"/>
+                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletSend"/>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
+                                        <real key="value" value="16"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="size" keyPath="_shadowOffset">
+                                        <size key="value" width="0.0" height="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
+                                        <real key="value" value="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
+                                        <real key="value" value="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                </userDefinedRuntimeAttributes>
+                            </view>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="MNr-UY-PtB" userLabel="Receive Button" customClass="RoundedButton" customModule="SoraUI">
+                                <rect key="frame" x="40" y="0.0" width="32" height="32"/>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" secondItem="MNr-UY-PtB" secondAttribute="height" multiplier="1:1" id="Rt4-le-mmJ"/>
+                                    <constraint firstAttribute="width" constant="32" id="bQn-O9-vtB"/>
+                                </constraints>
+                                <userDefinedRuntimeAttributes>
+                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletReceive"/>
                                     <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
                                         <real key="value" value="16"/>
                                     </userDefinedRuntimeAttribute>
@@ -57,7 +80,7 @@
                                 </userDefinedRuntimeAttributes>
                             </view>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="p8c-4X-5Sv" customClass="RoundedButton" customModule="SoraUI">
-                                <rect key="frame" x="0.0" y="0.0" width="32" height="32"/>
+                                <rect key="frame" x="80" y="0.0" width="32" height="32"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="32" id="VPH-QI-RkW"/>
@@ -79,7 +102,34 @@
                                     </userDefinedRuntimeAttribute>
                                 </userDefinedRuntimeAttributes>
                             </view>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="GGZ-NL-sPT" customClass="RoundedButton" customModule="SoraUI">
+                                <rect key="frame" x="120" y="0.0" width="32" height="32"/>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="32" id="6SR-hH-BuX"/>
+                                    <constraint firstAttribute="width" secondItem="GGZ-NL-sPT" secondAttribute="height" multiplier="1:1" id="L1o-00-ZJM"/>
+                                </constraints>
+                                <userDefinedRuntimeAttributes>
+                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletMore"/>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
+                                        <real key="value" value="16"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="size" keyPath="_shadowOffset">
+                                        <size key="value" width="0.0" height="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
+                                        <real key="value" value="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
+                                        <real key="value" value="0.0"/>
+                                    </userDefinedRuntimeAttribute>
+                                </userDefinedRuntimeAttributes>
+                            </view>
                         </subviews>
+                        <constraints>
+                            <constraint firstItem="MNr-UY-PtB" firstAttribute="width" secondItem="MNr-UY-PtB" secondAttribute="height" multiplier="1:1" id="4Ym-zS-Rsa"/>
+                            <constraint firstItem="Qiu-ij-5bK" firstAttribute="width" secondItem="Qiu-ij-5bK" secondAttribute="height" multiplier="1:1" id="fpo-7V-TJR"/>
+                        </constraints>
                     </stackView>
                 </subviews>
             </view>
@@ -93,7 +143,9 @@
             </constraints>
             <connections>
                 <outlet property="moreButton" destination="GGZ-NL-sPT" id="dfB-66-aH2"/>
+                <outlet property="receiveButton" destination="MNr-UY-PtB" id="Euk-1o-K9o"/>
                 <outlet property="scanButton" destination="p8c-4X-5Sv" id="SOW-fU-YIu"/>
+                <outlet property="sendButton" destination="Qiu-ij-5bK" id="YsZ-Og-ElD"/>
                 <outlet property="titleLabel" destination="y8J-gX-rEP" id="tZv-ym-XLL"/>
             </connections>
             <point key="canvasLocation" x="-198" y="3"/>
@@ -103,13 +155,21 @@
         <designable name="GGZ-NL-sPT">
             <size key="intrinsicContentSize" width="48" height="48"/>
         </designable>
+        <designable name="MNr-UY-PtB">
+            <size key="intrinsicContentSize" width="40" height="40"/>
+        </designable>
+        <designable name="Qiu-ij-5bK">
+            <size key="intrinsicContentSize" width="40" height="40"/>
+        </designable>
         <designable name="p8c-4X-5Sv">
             <size key="intrinsicContentSize" width="48" height="48"/>
         </designable>
     </designables>
     <resources>
         <image name="iconWalletMore" width="32" height="32"/>
+        <image name="iconWalletReceive" width="24" height="24"/>
         <image name="iconWalletScan" width="32" height="32"/>
+        <image name="iconWalletSend" width="24" height="24"/>
         <namedColor name="Base ContentPrimary">
             <color red="0.17647058823529413" green="0.16078431372549021" blue="0.14901960784313725" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>

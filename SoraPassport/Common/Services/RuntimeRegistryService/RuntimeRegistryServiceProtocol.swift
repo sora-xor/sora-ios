@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import FearlessUtils
@@ -10,7 +5,7 @@ import FearlessUtils
 typealias RuntimeMetadataClosure = () throws -> RuntimeMetadata
 
 protocol RuntimeRegistryServiceProtocol: ApplicationServiceProtocol {
-    func update(to chain: Chain)
+    func update(to chain: Chain, forced: Bool)
 }
 
 protocol RuntimeCodingServiceProtocol {
@@ -24,6 +19,6 @@ extension RuntimeCodingServiceProtocol {
     }
 
     func fetchCoderFactoryOperation() -> BaseOperation<RuntimeCoderFactoryProtocol> {
-        fetchCoderFactoryOperation(with: 20, closure: nil)
+        fetchCoderFactoryOperation(with: 120, closure: nil)
     }
 }

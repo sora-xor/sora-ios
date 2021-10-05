@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -119,7 +114,7 @@ final class WalletNetworkOperationFactory {
             let identifier = try (accountId ?? Data(hexString: accountSettings.accountId))
 
             let address = try SS58AddressFactory()
-                .address(fromPublicKey: AccountIdWrapper(rawData: identifier),
+                .address(fromAccountId: identifier,
                          type: SNAddressType(chain: chain))
 
             return JSONRPCListOperation<UInt32>(engine: engine,
@@ -141,7 +136,7 @@ final class WalletNetworkOperationFactory {
         do {
             let identifier = try Data(hexString: accountSettings.accountId)
             let address = try SS58AddressFactory()
-                .address(fromPublicKey: AccountIdWrapper(rawData: identifier),
+                .address(fromAccountId: identifier,
                          type: SNAddressType(chain: chain))
             //swiftlint:disable force_cast
             let signer = accountSigner as! SigningWrapperProtocol
@@ -199,7 +194,7 @@ final class WalletNetworkOperationFactory {
         do {
             let identifier = try Data(hexString: accountSettings.accountId)
             let address = try SS58AddressFactory()
-                .address(fromPublicKey: AccountIdWrapper(rawData: identifier),
+                .address(fromAccountId: identifier,
                          type: SNAddressType(chain: chain))
 
             let receiverAccountId = receiver

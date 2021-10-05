@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 
@@ -46,5 +41,9 @@ extension StorageKeyFactoryProtocol {
     func totalIssuance() throws -> Data {
         try createStorageKey(moduleName: "Balances",
                              storageName: "TotalIssuance")
+    }
+
+    func key(from codingPath: StorageCodingPath) throws -> Data {
+        try createStorageKey(moduleName: codingPath.moduleName, storageName: codingPath.itemName)
     }
  }

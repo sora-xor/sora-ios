@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraKeystore
 import SoraFoundation
@@ -64,7 +59,7 @@ final class AccountImportViewController: UIViewController {
 
         if keyboardHandler == nil {
             setupKeyboardHandler()
-            usernameTextField.textField.becomeFirstResponder()
+            textView.becomeFirstResponder()
         }
 
     }

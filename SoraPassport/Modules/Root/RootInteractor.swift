@@ -1,13 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import IrohaCrypto
-import FearlessUtils
-import RobinHood
 
 final class RootInteractor {
     weak var presenter: RootInteractorOutputProtocol?
@@ -68,58 +61,6 @@ final class RootInteractor {
             importInteractor.importAccountWithMnemonic(request: request)
         }
     }
-
-    private func setupChainData() {
-        let connectionItem = settings.selectedConnection
-        let engine = WebSocketEngine(url: connectionItem.url, logger: Logger.shared)
-        let genesisOperation = createGenesisOperation(engine: engine)
-        genesisOperation.completionBlock = {
-            if let genesis = try? genesisOperation.extractResultData() {
-                self.settings.set(value: genesis, for: SettingsKey.externalGenesis.rawValue)
-            }
-        }
-        let metadataOperation = createMetadataOperation(engine: engine)
-        metadataOperation.completionBlock = {
-            if let metadata = try? metadataOperation.extractResultData()?.underlyingValue {
-                let prefixCoding = ConstantCodingPath.chainPrefix
-                let depositCoding = ConstantCodingPath.existentialDeposit
-                let assetsCoding = ConstantCodingPath.assetInfos
-
-                let prefixData = metadata.getConstant(in: prefixCoding.moduleName, constantName: prefixCoding.constantName)
-                let existentialDepositData = metadata.getConstant(in: depositCoding.moduleName, constantName: depositCoding.constantName)
-                let assetInfo = metadata.getStorageMetadata(in: assetsCoding.moduleName, storageName: assetsCoding.constantName)
-
-                let prefix = try? UInt8(scaleDecoder: ScaleDecoder(data: prefixData!.value))
-                let deposit = try? UInt16(scaleDecoder: ScaleDecoder(data: existentialDepositData!.value))
-//                let assets = try? MapEntry(scaleDecoder: ScaleDecoder(data: assetInfo!.defaultValue))
-
-                self.settings.set(value: prefix, for: SettingsKey.externalPrefix.rawValue)
-                self.settings.set(value: deposit, for: SettingsKey.externalExistentialDeposit.rawValue)
-                //should've saved metadata, but dont' want to bring all the file operations here
-            }
-        }
-        metadataOperation.addDependency(genesisOperation)
-        OperationQueue().addOperations([ genesisOperation, metadataOperation], waitUntilFinished: true)
-
-    }
-
-    private func createGenesisOperation(engine: JSONRPCEngine) -> BaseOperation<String> {
-        var currentBlock = 0
-        let param = Data(Data(bytes: &currentBlock, count: MemoryLayout<UInt32>.size).reversed())
-            .toHex(includePrefix: true)
-
-        return JSONRPCListOperation<String>(engine: engine,
-                                            method: RPCMethod.getBlockHash,
-                                            parameters: [param])
-    }
-
-    private func createMetadataOperation(engine: JSONRPCEngine) -> BaseOperation<JSONScaleDecodable<RuntimeMetadata>> {
-        let method = RPCMethod.getRuntimeMetadata
-
-        let metaOperation = JSONRPCListOperation<JSONScaleDecodable<RuntimeMetadata>>(engine: engine,
-                                                               method: method)
-        return metaOperation
-    }
 }
 
 extension RootInteractor: RootInteractorInputProtocol {
@@ -152,6 +93,5 @@ extension RootInteractor: RootInteractorInputProtocol {
         configureSecurityService()
         configureNetworkAvailabilityService()
         configureDeepLinkService()
-        setupChainData()
     }
 }

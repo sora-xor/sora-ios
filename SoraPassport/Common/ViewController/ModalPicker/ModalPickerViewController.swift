@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 import SoraFoundation
@@ -11,11 +6,18 @@ protocol ModalPickerViewControllerDelegate: class {
     func modalPickerDidSelectModelAtIndex(_ index: Int, context: AnyObject?)
     func modalPickerDidCancel(context: AnyObject?)
     func modalPickerDidSelectAction(context: AnyObject?)
+    func modalPickerDidMoveItem(from: Int, to index: Int)
+    func modalPickerDidToggle(itemIndex: Int)
+    func modalPickerDone(context: AnyObject?)
 }
 
 extension ModalPickerViewControllerDelegate {
     func modalPickerDidCancel(context: AnyObject?) {}
     func modalPickerDidSelectAction(context: AnyObject?) {}
+    func modalPickerDone(context: AnyObject?) {}
+    func modalPickerDidMoveItem(from: Int, to index: Int) {}
+    func modalPickerDidToggle(itemIndex: Int) {}
+    func modalPickerDidSelectModelAtIndex(_ index: Int, context: AnyObject?) {}
 }
 
 enum ModalPickerViewAction {
@@ -38,11 +40,12 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
     var cellNib: UINib?
     var cellHeight: CGFloat = 55.0
     var footerHeight: CGFloat = 24.0
-    var headerHeight: CGFloat = 40.0
+    var headerHeight: CGFloat = 0.0
     var cellIdentifier: String = "modalPickerCellId"
     var selectedIndex: Int = 0
 
     var hasCloseItem: Bool = false
+    var hasDoneItem: Bool = false
     var allowsSelection: Bool = true
 
     var viewModels: [LocalizableResource<T>] = []
@@ -65,9 +68,9 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
         } else {
             tableView.register(C.self, forCellReuseIdentifier: cellIdentifier)
         }
-
+        tableView.isScrollEnabled = true
         tableView.allowsSelection = allowsSelection
-
+        tableView.isEditing = self.isEditing
         headerHeightConstraint.constant = headerHeight
 
         if let icon = icon {
@@ -86,6 +89,9 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
         if hasCloseItem {
             centerHeader()
             configureCloseItem()
+        }
+        if self.isEditing {
+            configureDoneItem()
         }
     }
 
@@ -137,37 +143,65 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
         closeButton.addTarget(self, action: #selector(handleClose), for: .touchUpInside)
     }
 
+    private func configureDoneItem() {
+        let closeButtonItem = UIBarButtonItem(title: R.string.localizable.commonDone(preferredLanguages: localizationManager?.selectedLocale.rLanguages),
+                                              style: .plain,
+                                              target: self,
+                                              action: #selector(handleDone))
+
+        self.navigationItem.rightBarButtonItem = closeButtonItem
+
+    }
     // MARK: Table View Delegate
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
 
-//        if indexPath.row != selectedIndex {
-            if var oldCell = tableView.cellForRow(at: IndexPath(row: selectedIndex, section: 0)) as? C {
-                oldCell.checkmarked = false
-            }
+        if var oldCell = tableView.cellForRow(at: IndexPath(row: selectedIndex, section: 0)) as? C {
+            oldCell.checkmarked = false
+        }
 
-            if var newCell = tableView.cellForRow(at: indexPath) as? C {
-                newCell.checkmarked = true
-            }
+        if var newCell = tableView.cellForRow(at: indexPath) as? C {
+            newCell.checkmarked = true
+        }
 
-            selectedIndex = indexPath.row
-            if let presenter = presenter {
-                presenter.hide(view: self, animated: true)
-                delegate?.modalPickerDidSelectModelAtIndex(indexPath.row, context: context)
-            } else {
-                self.presentingViewController?.dismiss(animated: true, completion: {
-                    self.delegate?.modalPickerDidSelectModelAtIndex(indexPath.row, context: self.context)
-                })
-            }
-//        }
+        selectedIndex = indexPath.row
+
+        self.dismiss(animated: true) { [weak self] in
+            self?.delegate?.modalPickerDidSelectModelAtIndex(indexPath.row, context: self?.context)
+        }
     }
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return cellHeight
     }
 
+    func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+        return .none
+    }
+
+    func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
+        return indexPath.row != 0
+    }
+
+    func tableView(_ tableView: UITableView,
+                   targetIndexPathForMoveFromRowAt sourceIndexPath: IndexPath,
+                   toProposedIndexPath proposedDestinationIndexPath: IndexPath) -> IndexPath {
+        if proposedDestinationIndexPath.row == 0 {
+            return IndexPath(row: 1, section: proposedDestinationIndexPath.section)
+        }
+        return proposedDestinationIndexPath
+    }
+
     // MARK: Table View Data Source
+
+    func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
+        delegate?.modalPickerDidMoveItem(from: sourceIndexPath.row, to: destinationIndexPath.row)
+    }
+
+    func tableView(_ tableView: UITableView, shouldIndentWhileEditingRowAt indexPath: IndexPath) -> Bool {
+        false
+    }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return viewModels.count
@@ -178,13 +212,31 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
         var cell = tableView.dequeueReusableCell(withIdentifier: cellIdentifier, for: indexPath) as! C
 
         let locale = localizationManager?.selectedLocale ?? Locale.current
-
-        cell.bind(model: viewModels[indexPath.row].value(for: locale))
+        let model = viewModels[indexPath.row].value(for: locale)
+        cell.bind(model: model)
         cell.checkmarked = (selectedIndex == indexPath.row)
-
+        cell.showsReorderControl = true
+        cell.shouldIndentWhileEditing = false
+        if let toggle = cell.toggle {
+            toggle.tag = indexPath.row
+            toggle.addTarget(self, action: #selector(handleToggle), for: .valueChanged)
+        }
         return cell
     }
     // swiftlint:enable force_cast
+
+    override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
+        if let presenter = presenter {
+            presenter.hide(view: self, animated: flag)
+            completion?()
+        } else {
+            self.presentingViewController?.dismiss(animated: true, completion: completion)
+        }
+    }
+
+    @objc private func handleToggle(sender: UISwitch) {
+        delegate?.modalPickerDidToggle(itemIndex: sender.tag)
+    }
 
     @objc private func handleAction() {
         delegate?.modalPickerDidSelectAction(context: context)
@@ -193,6 +245,12 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
 
     @objc private func handleClose() {
         presenter?.hide(view: self, animated: true)
+    }
+    
+    @objc private func handleDone() {
+        self.dismiss(animated: true, completion: {[weak self] in
+            self?.delegate?.modalPickerDone(context: nil)
+        })
     }
 }
 

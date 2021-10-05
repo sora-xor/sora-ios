@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import IrohaCrypto
 
@@ -15,6 +10,19 @@ extension WalletAssetId {
             return .sora
         case .pswap:
             return .sora
+        }
+    }
+
+    var defaultSort: Int? {
+        switch self {
+        case .xor:
+            return 0
+        case .val:
+            return 1
+        case .pswap:
+            return 2
+        default:
+            return nil
         }
     }
 

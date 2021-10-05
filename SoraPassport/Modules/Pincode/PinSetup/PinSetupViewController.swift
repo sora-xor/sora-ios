@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 import SoraFoundation
@@ -297,6 +292,7 @@ extension PinSetupViewController: PinSetupViewProtocol {
 }
 
 extension PinSetupViewController: PinViewDelegate {
+
     func didCompleteInput(pinView: PinView, result: String) {
         presenter.submit(pin: result)
     }

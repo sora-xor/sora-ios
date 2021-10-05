@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
@@ -43,7 +38,7 @@ final class ServiceCoordinator {
 
     private func updateRuntimeService() {
         let connectionItem = settings.selectedConnection
-        runtimeService.update(to: connectionItem.type.chain)
+        runtimeService.update(to: connectionItem.type.chain, forced: false)
     }
 
     private func updateValidatorService() {

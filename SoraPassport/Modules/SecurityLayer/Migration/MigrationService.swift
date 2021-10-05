@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import RobinHood
@@ -117,6 +112,9 @@ class MigrationService: MigrationServiceProtocol {
                                                 engine: engine,
                                                 operationManager: operationManager)
 
+        let accountId = try? SS58AddressFactory().accountId(from: account.address).toHex(includePrefix: true)
+        let extrinsicProcessor = ExtrinsicProcessor(accountId: accountId!)
+
         let irohaKey = irohaKeyPair.publicKey().rawData().toHex()
         let message = (self.did + irohaKey).data(using: .utf8)
         let data = try? NSData.init(data: message!).sha3(IRSha3Variant.variant256) //sha3 per backend request
@@ -149,6 +147,7 @@ class MigrationService: MigrationServiceProtocol {
                             DispatchQueue.main.async {
                                 self.getBlockEvents(block,
                                                     extrinsicHash: extrinsicHash!,
+                                                    extrinsicProcessor: extrinsicProcessor,
                                                     engine: engine,
                                                     coderOperation: self.runtimeRegistry.fetchCoderFactoryOperation(),
                                                     completion: completionClosure)
@@ -175,6 +174,7 @@ class MigrationService: MigrationServiceProtocol {
 
     private func getBlockEvents(_ hash: String,
                                 extrinsicHash: String,
+                                extrinsicProcessor: ExtrinsicProcessing,
                                 engine: JSONRPCEngine,
                                 coderOperation: BaseOperation<RuntimeCoderFactoryProtocol>,
                                 completion completionClosure: @escaping MigrationResultClosure) {
@@ -182,14 +182,16 @@ class MigrationService: MigrationServiceProtocol {
         let operationQueue = OperationQueue()
         let path = StorageCodingPath.events
         let remoteKey = try? storageFactory.createStorageKey(moduleName: path.moduleName, storageName: path.itemName)
+        let operationManager = OperationManagerFacade.sharedManager
+        let requestFactory = StorageRequestFactory(remoteFactory: storageFactory, operationManager: operationManager)
 
-        let requestFactory = StorageRequestFactory(remoteFactory: storageFactory)
+        let block = try? Data(hex: hash)
         let wrapper: CompoundOperationWrapper<[StorageResponse<[EventRecord]>]> =
             requestFactory.queryItems(engine: engine,
                                       keys: { [remoteKey!] },
                                       factory: { try coderOperation.extractNoCancellableResultData() },
                                       storagePath: path,
-                                      blockHash: hash)
+                                      at: block)
         wrapper.allOperations.forEach { $0.addDependency(coderOperation) }
 
         let fetchBlockOperation: JSONRPCOperation<[String], SignedBlock> =
@@ -206,47 +208,25 @@ class MigrationService: MigrationServiceProtocol {
         operationQueue.addOperations(operations, waitUntilFinished: true)
         do {
             if let records = try wrapper.targetOperation.extractNoCancellableResultData().first?.value {
-                // here we get list of event records as json objects, we can try to map to target event we are searching
-                let metadata = try coderOperation.extractNoCancellableResultData().metadata
+                let coderFactory = try coderOperation.extractNoCancellableResultData()
+                let metadata = coderFactory.metadata
 
                 let blockExtrinsics = try parseOperation.extractResultData()
 
                 let eventIndex = blockExtrinsics?.firstIndex(of: extrinsicHash)!
+                let extrinsicData = try Data(hex: extrinsicHash)
 
-                let record = records[eventIndex!]
-
-                if let errorInfo = record.event.errorInfo,
-                   let module = metadata.modules
-                                        .first(where: { $0.index == errorInfo.index}),
-                   errorInfo.error < module.errors.count {
-                    let error = module.errors[errorInfo.error]
-                    logger.error("Extrinsic error: \(error)")
-                    completionClosure(.failure(MigrationServiceError.confirmMigrationFail))
-                    return
-                }
-
-                guard let module = metadata.modules
-                        .first(where: { $0.index == Int(record.event.module) }) else {
-                    logger.error("Module not found: \(record.event.index)")
-                    completionClosure(.failure(MigrationServiceError.confirmMigrationFail))
-                    return
-                }
-
-                guard let events = module.events, Int(record.event.index) < events.count else {
-                    logger.error("Event not found: \(record.event.index)")
-                    completionClosure(.failure(MigrationServiceError.confirmMigrationFail))
-                    return
-                }
-
-                let event = events[Int(record.event.index)]
-
-                if case .applyExtrinsic(let index) = record.phase {
-                    logger.info("Recieved event: \(module.name) \(event.name)")
-                    logger.info("For transaction index: \(index)")
-                    if record.event.errorInfo == nil {
-                        self.migrationSuccess()
-                        completionClosure(.success(event.name))
-                    }
+                if let processingResult = extrinsicProcessor.process(
+                    extrinsicIndex: UInt32(eventIndex!),
+                    extrinsicData: extrinsicData,
+                    eventRecords: records,
+                    coderFactory: coderFactory
+                    ),
+                    processingResult.isSuccess {
+                    self.migrationSuccess()
+                    completionClosure(.success(""))
+                } else {
+                    throw MigrationServiceError.confirmMigrationFail
                 }
             } else {
                 logger.info("No events found")

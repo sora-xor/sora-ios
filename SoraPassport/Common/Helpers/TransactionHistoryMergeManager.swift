@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import IrohaCrypto
@@ -142,7 +137,7 @@ final class TransactionHistoryMergeManager {
                 let asset: WalletAsset?
                 switch item {
                 case .local(let local):
-                    asset = assets.first(where: {$0.type.chainId == local.assetId})
+                    asset = assets.first(where: {$0.identifier == local.assetId})
                 case .remote(let remote):
                     //TODO fix for remote, hardcode now
                     asset = assets.first

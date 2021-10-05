@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import FearlessUtils
@@ -62,6 +57,7 @@ final class RuntimeRegistryService {
          logger: LoggerProtocol) {
         self.chain = chain
         self.metadataProviderFactory = metadataProviderFactory
+        logger.info("Runtime init gen: \(chain.genesisHash())" )
         self.metadataProvider = metadataProviderFactory.createRuntimeMetadataItemProvider(for: chain)
         self.dataOperationFactory = dataOperationFactory
         self.filesOperationFacade = filesOperationFacade
@@ -400,9 +396,9 @@ extension RuntimeRegistryService {
 }
 
 extension RuntimeRegistryService: RuntimeRegistryServiceProtocol {
-    func update(to chain: Chain) {
+    func update(to chain: Chain, forced: Bool = false) {
         syncQueue.async {
-            if chain != self.chain {
+            if forced || chain != self.chain {
                 self.chain = chain
 
                 if self.isActive {
@@ -410,7 +406,7 @@ extension RuntimeRegistryService: RuntimeRegistryServiceProtocol {
                 }
 
                 self.clear()
-
+                self.logger.info("Runtime update gen: \(chain.genesisHash())" )
                 self.metadataProvider = self.metadataProviderFactory
                     .createRuntimeMetadataItemProvider(for: chain)
 
@@ -447,7 +443,7 @@ extension RuntimeRegistryService: RuntimeCodingServiceProtocol {
     -> BaseOperation<RuntimeCoderFactoryProtocol> {
         ClosureOperation {
             var fetchedFactory: RuntimeCoderFactoryProtocol?
-
+            self.logger.info("factory call")
             let runtimeMetadata: RuntimeMetadata?
 
             if let closure = closure {
@@ -459,6 +455,7 @@ extension RuntimeRegistryService: RuntimeCodingServiceProtocol {
             let semaphore = DispatchSemaphore(value: 0)
 
             self.syncQueue.async {
+                self.logger.info("factory start")
                 self.fetchCoderFactory(for: runtimeMetadata, runCompletionIn: nil) { [weak semaphore] factory in
                     fetchedFactory = factory
                     semaphore?.signal()

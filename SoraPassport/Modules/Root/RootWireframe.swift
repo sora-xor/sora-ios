@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 final class RootWireframe: RootWireframeProtocol {
@@ -34,12 +29,5 @@ final class RootWireframe: RootWireframeProtocol {
     func showBroken(on view: UIWindow) {
         // normally user must not see this but on malicious devices it is possible
         view.backgroundColor = .red
-    }
-
-    func showSplash(on view: UIWindow, completion: @escaping () -> Void) {
-        view.rootViewController = UIViewController()
-        SplashPresenter().present(in: view, duration: 2.0, completion: {
-            completion()
-        })
     }
 }

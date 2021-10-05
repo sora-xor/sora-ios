@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -15,11 +10,15 @@ class WalletCommandMock: WalletCommandProtocol {
 }
 
 class WalletPresentationCommandMock: WalletCommandMock, WalletPresentationCommandProtocol {
+    var completionBlock: (() -> Void)?
+    
     var presentationStyle: WalletPresentationStyle = .modal(inNavigation: true)
     var animated: Bool = true
 }
 
 class WalletHideCommandMock: WalletCommandMock, WalletHideCommandProtocol {
+    var completionBlock: (() -> Void)?
+    
     var actionType: WalletHideActionType = .dismiss
     var animated: Bool = true
 }

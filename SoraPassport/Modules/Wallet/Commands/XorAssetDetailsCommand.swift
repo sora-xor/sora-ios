@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -19,7 +14,7 @@ final class XorAssetDetailsCommand: WalletCommandDecoratorProtocol {
     let xorAddress: String
     let operationManager: OperationManagerProtocol
     let localizationManager: LocalizationManagerProtocol
-    let tokenFormatter: LocalizableResource<TokenAmountFormatter>
+    let tokenFormatter: LocalizableResource<TokenFormatter>
 
     init(commandFactory: WalletCommandFactoryProtocol,
          operationManager: OperationManagerProtocol,
@@ -27,7 +22,7 @@ final class XorAssetDetailsCommand: WalletCommandDecoratorProtocol {
          address: String,
          xorAddress: String,
          balance: BalanceData,
-         tokenFormatter: LocalizableResource<TokenAmountFormatter>) {
+         tokenFormatter: LocalizableResource<TokenFormatter>) {
         self.commandFactory = commandFactory
         self.operationManager = operationManager
         self.localizationManager = localizationManager
@@ -89,9 +84,9 @@ final class XorAssetDetailsCommand: WalletCommandDecoratorProtocol {
             allocationView.soraTitleLabel.text = R.string.localizable
                 .assetXorPlatform(preferredLanguages: locale.rLanguages) + " " + xorPart
             allocationView.ethValueLabel.text = tokenFormatter.value(for: locale)
-                .string(from: Decimal(string: ercBalance) ?? 0)
+                .stringFromDecimal(Decimal(string: ercBalance) ?? 0)
             allocationView.soraValueLabel.text = tokenFormatter.value(for: locale)
-                .string(from: Decimal(string: xorBalance) ?? 0)
+                .stringFromDecimal(Decimal(string: xorBalance) ?? 0)
 
             view = allocationView
         }

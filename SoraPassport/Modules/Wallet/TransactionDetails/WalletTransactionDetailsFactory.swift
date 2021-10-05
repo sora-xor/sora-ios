@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -73,7 +68,7 @@ final class TransactionDetailsViewModelFactory {
 
         let formatter = amountFormatterFactory.createTokenFormatter(for: asset)
 
-        guard let displayAmount = formatter.value(for: locale).string(from: amount) else {
+        guard let displayAmount = formatter.value(for: locale).stringFromDecimal(amount) else {
             return
         }
 
@@ -98,13 +93,13 @@ final class TransactionDetailsViewModelFactory {
     private func populateFeeAmount(in viewModelList: inout [WalletFormViewBindingProtocol],
                                    data: AssetTransactionData,
                                    locale: Locale) {
-        let asset = assets.first(where: { $0.type.isFeeAsset })
+        let asset = assets.first { $0.isFeeAsset }
 
         let formatter = amountFormatterFactory.createTokenFormatter(for: asset).value(for: locale)
 
         for fee in data.fees {
 
-            guard let amount = formatter.string(from: fee.amount.decimalValue) else {
+            guard let amount = formatter.stringFromDecimal(fee.amount.decimalValue) else {
                 continue
             }
 
@@ -200,7 +195,7 @@ final class TransactionDetailsViewModelFactory {
 
         let formatter = (amountFormatterFactory as? AmountFormatterFactory)!.createShortFormatter(for: asset)
 
-        guard var displayAmount = formatter.value(for: locale).string(from: amount) else {
+        guard var displayAmount = formatter.value(for: locale).stringFromDecimal(amount) else {
             return
         }
 
@@ -226,10 +221,8 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
     func createViewModelsFromTransaction(data: AssetTransactionData,
                                          commandFactory: WalletCommandFactoryProtocol,
                                          locale: Locale) -> [WalletFormViewBindingProtocol]? {
-        guard let chain = WalletAssetId(rawValue: data.assetId)?.chain else {
-            return nil
-        }
 
+        let chain: Chain = .sora
         var viewModels: [WalletFormViewBindingProtocol] = []
         populateHeader(into: &viewModels, data: data, locale: locale)
         populateStatus(into: &viewModels, data: data, locale: locale)
@@ -243,7 +236,7 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
             return viewModels
         }
 
-        let name = !account.username.isEmpty ? account.username : account.address
+        let name = account.address
 
         if type == .incoming {
             populateSender(in: &viewModels,
@@ -284,35 +277,10 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
         guard let asset = assets.first(where: { $0.identifier == data.assetId }) else {
             return nil
         }
-//TBD in redesign procedure
-        let title = data.peerName?.soraConcat ?? ""
-
-        var decimalAmount = data.amount.decimalValue
-
-        for fee in data.fees {
-            decimalAmount += fee.amount.decimalValue
-        }
-
-        let formatter = amountFormatterFactory.createTokenFormatter(for: asset)
-
-        guard let amount = formatter.value(for: locale).string(from: decimalAmount) else {
-            return nil
-        }
-
-        let icon: UIImage?
-
-        if let address = data.peerName {
-            icon = try? iconGenerator.generateFromAddress(address)
-                .imageWithFillColor(R.color.baseBackground()!,
-                                    size: CGSize(width: 32.0, height: 32.0),
-                                    contentScale: UIScreen.main.scale)
-        } else {
-            icon = nil
-        }
 
         let receiverInfo = ReceiveInfo(accountId: data.peerId,
                                        assetId: asset.identifier,
-                                       amount: nil,
+                                       amount: data.amount,
                                        details: nil)
 
         let transferPayload = TransferPayload(receiveInfo: receiverInfo,
@@ -323,10 +291,17 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
         let action: String
 
         if data.status == .rejected {
-            action = R.string.localizable.commonRetry()
+            action = R.string.localizable.commonRetry(preferredLanguages: locale.rLanguages)
         } else {
-            action = R.string.localizable
-                    .walletTxDetailsSendAgain(preferredLanguages: locale.rLanguages)
+            switch data.direction {
+            case .incoming :
+                action = R.string.localizable
+                        .walletTxDetailsSendBack(preferredLanguages: locale.rLanguages)
+            case .outgoing :
+                action = R.string.localizable
+                        .walletTxDetailsSendAgain(preferredLanguages: locale.rLanguages)
+            }
+
         }
         return AccessoryViewModel(title: "",
                            action: action)

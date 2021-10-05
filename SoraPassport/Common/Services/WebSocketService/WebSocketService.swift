@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 import SoraKeystore
@@ -88,6 +83,13 @@ final class WebSocketService: WebSocketServiceProtocol {
         if !isThrottled {
             clearConnection()
             setupConnection()
+        }
+    }
+
+    func performPrelaunchSusbscriptions() {
+        if let type = settings.addressType, subscriptions == nil {
+            subscriptions = try? subscriptionsFactory.createStartSubscriptions(type: type,
+                                                                               engine: self.engine!)
         }
     }
 

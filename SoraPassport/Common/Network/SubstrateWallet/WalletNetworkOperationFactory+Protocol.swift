@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -35,16 +30,12 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     }
 
     func transferMetadataOperation(_ info: TransferMetadataInfo) -> CompoundOperationWrapper<TransferMetaData?> {
-        guard let asset = accountSettings.assets.first(where: { $0.identifier == info.assetId }),
-            let assetId = WalletAssetId(rawValue: asset.identifier) else {
+        guard let asset = accountSettings.assets.first(where: { $0.identifier == info.assetId }) else {
             let error = WalletNetworkOperationFactoryError.invalidAsset
             return createCompoundOperation(result: .failure(error))
         }
 
-        guard let chain = assetId.chain else {
-            let error = WalletNetworkOperationFactoryError.invalidChain
-            return createCompoundOperation(result: .failure(error))
-        }
+        let chain = asset.chain
 
         guard let amount = Decimal(1.0).toSubstrateAmount(precision: asset.precision) else {
             let error = WalletNetworkOperationFactoryError.invalidAmount
@@ -56,11 +47,11 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             return createCompoundOperation(result: .failure(error))
         }
 
-        let feeAsset = accountSettings.assets.first(where: { $0.type.isFeeAsset }) ?? asset
+        let feeAsset = accountSettings.assets.first(where: { $0.isFeeAsset }) ?? asset
 
         let compoundReceiver = createAccountInfoFetchOperation(receiver)
 
-        let feeOperation = createExtrinsicFeeServiceOperation(asset: asset.type.chainId,
+        let feeOperation = createExtrinsicFeeServiceOperation(asset: asset.identifier,
                                                               amount: amount,
                                                               receiver: info.receiver,
                                                               chain: chain)
@@ -99,8 +90,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
 
     func transferOperation(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
         guard
-            let asset = accountSettings.assets.first(where: { $0.identifier == info.asset }),
-            let assetId = WalletAssetId(rawValue: asset.identifier) else {
+            let asset = accountSettings.assets.first(where: { $0.identifier == info.asset }) else {
             let error = WalletNetworkOperationFactoryError.invalidAsset
             return createCompoundOperation(result: .failure(error))
         }
@@ -110,12 +100,9 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             return createCompoundOperation(result: .failure(error))
         }
 
-        guard let chain = assetId.chain else {
-            let error = WalletNetworkOperationFactoryError.invalidChain
-            return createCompoundOperation(result: .failure(error))
-        }
+        let chain = asset.chain
 
-        let transferOperation = createExtrinsicServiceOperation(asset: asset.type.chainId,
+        let transferOperation = createExtrinsicServiceOperation(asset: asset.identifier,
                                                                 amount: amount,
                                                                 receiver: info.destination,
                                                                 chain: chain)

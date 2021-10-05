@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -21,8 +16,9 @@ final class WalletConfirmationConfigurator {
 
     let viewModelFactory: WalletConfirmationViewModelFactory
 
-    init(assets: [WalletAsset], amountFormatterFactory: NumberFormatterFactoryProtocol) {
+    init(assets: [WalletAsset],assetManager: AssetManagerProtocol, amountFormatterFactory: NumberFormatterFactoryProtocol) {
         viewModelFactory = WalletConfirmationViewModelFactory(assets: assets,
+                                                              assetManager: assetManager,
                                                            amountFormatterFactory: amountFormatterFactory)
     }
 

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Firebase
 
@@ -23,8 +18,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             let rootWindow = SoraWindow()
             window = rootWindow
 
-            let presenter = RootPresenterFactory.createPresenter(with: rootWindow)
-            presenter.loadOnLaunch()
+            SplashPresenterFactory.createSplashPresenter(with: rootWindow)
 
             rootWindow.makeKeyAndVisible()
         }

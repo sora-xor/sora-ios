@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -100,6 +95,7 @@ final class AccountImportPresenter {
         let processedUsername = processor.process(text: username)
 
         let inputHandler = InputHandler(value: processedUsername,
+                                        required: false,
                                         predicate: NSPredicate.notEmpty,
                                         processor: processor)
 

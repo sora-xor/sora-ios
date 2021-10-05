@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import IrohaCrypto
@@ -16,19 +11,15 @@ extension TransactionHistoryItem {
         let senderAccountId = try Data(hexString: info.source)
         let receiverAccountId = try Data(hexString: info.destination)
 
-        let sender = try addressFactory.address(fromPublicKey: AccountIdWrapper(rawData: senderAccountId),
+        let sender = try addressFactory.address(fromAccountId: senderAccountId,
                                                 type: networkType)
 
-        let receiver = try addressFactory.address(fromPublicKey: AccountIdWrapper(rawData: receiverAccountId),
+        let receiver = try addressFactory.address(fromAccountId: receiverAccountId,
                                                   type: networkType)
 
         let totalFee = info.fees.reduce(Decimal(0)) { (total, fee) in total + fee.value.decimalValue }
 
         let timestamp = Int64(Date().timeIntervalSince1970)
-
-        guard let assetId = WalletAssetId(rawValue: info.asset) else {
-            throw TransactionHistoryViewModelFactoryError.missingAsset
-        }
 
         return TransactionHistoryItem(sender: sender,
                                       receiver: receiver,
@@ -36,7 +27,7 @@ extension TransactionHistoryItem {
                                       txHash: transactionHash.toHex(includePrefix: true),
                                       timestamp: timestamp,
                                       amount: info.amount.stringValue,
-                                      assetId: assetId.chainId,
+                                      assetId: info.asset,
                                       fee: totalFee.stringWithPointSeparator,
                                       blockNumber: nil,
                                       txIndex: nil)

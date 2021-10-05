@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import IrohaCrypto
@@ -25,6 +20,7 @@ enum SettingsKey: String {
     case externalGenesis
     case externalExistentialDeposit
     case externalPrefix
+    case assetList
 }
 
 extension SettingsManagerProtocol {

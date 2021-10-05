@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraKeystore
@@ -16,6 +11,7 @@ protocol WalletPrimitiveFactoryProtocol {
 enum WalletPrimitiveFactoryError: Error {
     case missingAccountId
     case undefinedConnection
+    case undefinedAssets
 }
 
 final class WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
@@ -28,35 +24,13 @@ final class WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
         self.settings = settings
     }
 
-    private func createAssetForId(_ id: WalletAssetId) -> WalletAsset {
-        let localizableName: LocalizableResource<String>
-        let platformName: LocalizableResource<String>
-        let symbol: String
-        let identifier: String
-//TODO: asset name online
-        switch id {
-        case .xor:
-            identifier = WalletAssetId.xor.rawValue
-            localizableName = LocalizableResource<String> { _ in "XOR" }
-            platformName = LocalizableResource<String> { _ in "SORA" }
-            symbol = "XOR"
-        case .val:
-            identifier = WalletAssetId.val.rawValue
-            localizableName = LocalizableResource<String> { _ in "VAL" }
-            platformName = LocalizableResource<String> { _ in "SORA Validator Token" }
-            symbol = "VAL"
-        case .pswap:
-            identifier = WalletAssetId.pswap.rawValue
-            localizableName = LocalizableResource<String> { _ in "PSWAP" }
-            platformName = LocalizableResource<String> { _ in "Polkaswap" }
-            symbol = "PSWAP"
-        }
+    private func createAssetForInfo(_ info: AssetInfo) -> WalletAsset {
 
-        return WalletAsset(identifier: identifier,
-                           name: localizableName,
-                           platform: platformName,
-                           symbol: symbol,
-                           precision: 18,
+        return WalletAsset(identifier: info.assetId,
+                           name: LocalizableResource<String> { _ in info.symbol },
+                           platform: LocalizableResource<String> { _ in info.name },
+                           symbol: info.symbol,
+                           precision: Int16(info.precision),
                            modes: .all)
     }
 
@@ -65,11 +39,14 @@ final class WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
             throw WalletPrimitiveFactoryError.missingAccountId
         }
 
-        let selectedConnectionType = settings.selectedConnection.type
+        let assets = AssetManager.shared.getAssetList()?
+            .map {createAssetForInfo($0)}
 
-        let xorAsset = createAssetForId(.xor)
-        let valAsset = createAssetForId(.val)
-        let pswapAsset = createAssetForId(.pswap)
+        guard let assetList = assets else {
+            throw WalletPrimitiveFactoryError.undefinedAssets
+        }
+
+        let selectedConnectionType = settings.selectedConnection.type
 
 //        let totalPriceAsset = WalletAsset(identifier: WalletAssetId.usd.rawValue,
 //                                          name: LocalizableResource { _ in "" },
@@ -82,6 +59,6 @@ final class WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
                                                            type: selectedConnectionType)
 
         return WalletAccountSettings(accountId: accountId.toHex(),
-                                     assets: [xorAsset, valAsset, pswapAsset])
+                                     assets: assetList)
     }
 }

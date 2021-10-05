@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
@@ -141,7 +136,6 @@ final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable
             fatalError()
         }
 
-        let presenter = RootPresenterFactory.createPresenter(with: rootWindow)
-        presenter.loadOnLaunch()
+        _ = SplashPresenterFactory.createSplashPresenter(with: rootWindow)
     }
 }

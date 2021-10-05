@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -16,7 +11,7 @@ struct ConfigurableAssetConstants {
     static let cellHeight: CGFloat = 90.0
 }
 
-final class ConfigurableAssetViewModel/*<T: Codable>*/: ConfigurableAssetViewModelProtocol {
+final class ConfigurableAssetViewModel: ConfigurableAssetViewModelProtocol {
     var details: String
     var cellReuseIdentifier: String { ConfigurableAssetConstants.cellReuseIdentifier }
     var itemHeight: CGFloat { ConfigurableAssetConstants.cellHeight }
@@ -28,6 +23,8 @@ final class ConfigurableAssetViewModel/*<T: Codable>*/: ConfigurableAssetViewMod
     let imageViewModel: WalletImageViewModelProtocol?
     let style: AssetCellStyle
     let command: WalletCommandProtocol?
+    let toggleCommand: WalletCommandProtocol?
+    let toggleIcon: UIImage?
 
     init(assetId: String,
          amount: String,
@@ -36,7 +33,9 @@ final class ConfigurableAssetViewModel/*<T: Codable>*/: ConfigurableAssetViewMod
          accessoryDetails: String?,
          imageViewModel: WalletImageViewModelProtocol?,
          style: AssetCellStyle,
-         command: WalletCommandProtocol?) {
+         command: WalletCommandProtocol?,
+         toggleCommand: WalletCommandProtocol?,
+         toggleIcon: UIImage?) {
         self.assetId = assetId
         self.amount = amount
         self.symbol = symbol
@@ -45,5 +44,7 @@ final class ConfigurableAssetViewModel/*<T: Codable>*/: ConfigurableAssetViewMod
         self.imageViewModel = imageViewModel
         self.style = style
         self.command = command
+        self.toggleCommand = toggleCommand
+        self.toggleIcon = toggleIcon
     }
 }

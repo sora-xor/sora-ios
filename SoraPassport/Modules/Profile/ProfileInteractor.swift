@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import SoraKeystore
@@ -36,6 +31,7 @@ extension ProfileInteractor: ProfileInteractorInputProtocol {
         cleanKeystore()
         cleanSettings()
         cleanCoreData()
+        stopServices()
         // TODO: [SN-377] Clean Capital cache
         presenter?.restart()
     }
@@ -45,6 +41,11 @@ private extension ProfileInteractor {
 
     func cleanKeystore() {
         try? keystore.deleteAll()
+    }
+
+    func stopServices() {
+        WebSocketService.shared.throttle()
+        RuntimeRegistryFacade.sharedService.throttle()
     }
 
     func cleanSettings() {

@@ -1,18 +1,18 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraUI
 import CommonWallet
+import Anchorage
 
 final class AssetCollectionViewCell: UICollectionViewCell {
     private struct Constants {
         static let detailsSpacing: CGFloat = 8.0
     }
 
-    @IBOutlet private var backgroundRoundedView: RoundedView!
+    @IBOutlet private var backgroundRoundedView: RoundedView! {
+        didSet{
+            setupSwipe()
+        }
+    }
     @IBOutlet private var leftRoundedView: RoundedView!
     @IBOutlet private var symbolLabel: UILabel!
     @IBOutlet private var symbolImageView: UIImageView!
@@ -33,6 +33,81 @@ final class AssetCollectionViewCell: UICollectionViewCell {
         prepareViewModelReplacement()
 
         assetViewModel = nil
+        scrollView.contentOffset = .zero
+    }
+
+    private let scrollView: UIScrollView = {
+        let scrollView = UIScrollView(frame: .zero)
+        scrollView.isPagingEnabled = true
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.alwaysBounceHorizontal = true
+        return scrollView
+    }()
+
+    private let toggleImageView: UIImageView = {
+        UIImageView()
+    }()
+
+    private let hiddenContainerView: UIView = {
+        return UIView()
+    }()
+
+    private let stackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.distribution = .fillEqually
+        stackView.alignment = .top
+        return stackView
+    }()
+
+    private func setupSwipe() {
+        let containerView = UIView()
+        containerView.addSubview(backgroundRoundedView)
+        let insets = UIEdgeInsets(top: 1, left: 20, bottom: 10, right: 20)
+        backgroundRoundedView.edgeAnchors == containerView.edgeAnchors + insets
+
+        hiddenContainerView.addSubview(toggleImageView)
+        toggleImageView.centerAnchors == hiddenContainerView.centerAnchors
+
+        stackView.addArrangedSubview(containerView)
+        stackView.addArrangedSubview(hiddenContainerView)
+
+        containerView.heightAnchor == stackView.heightAnchor
+        hiddenContainerView.heightAnchor == stackView.heightAnchor
+
+        addSubview(scrollView)
+        scrollView.horizontalAnchors == scrollView.superview!.horizontalAnchors
+        scrollView.verticalAnchors == scrollView.superview!.verticalAnchors
+        scrollView.delegate = self
+        scrollView.addSubview(stackView)
+        stackView.horizontalAnchors == stackView.superview!.horizontalAnchors
+        stackView.verticalAnchors == stackView.superview!.verticalAnchors
+        stackView.heightAnchor == scrollView.heightAnchor
+        stackView.widthAnchor == scrollView.widthAnchor * 2
+
+        setupGestureRecognizer()
+    }
+
+    private func setupGestureRecognizer() {
+        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(hiddenContainerViewTapped))
+        hiddenContainerView.addGestureRecognizer(tapGestureRecognizer)
+        let visibleTap = UITapGestureRecognizer(target: self, action: #selector(visibleContainerViewTapped))
+        backgroundRoundedView.addGestureRecognizer(visibleTap)
+    }
+
+    @objc private func hiddenContainerViewTapped() {
+        if let viewModel = assetViewModel as? ConfigurableAssetViewModel {
+            try? viewModel.toggleCommand?.execute()
+        } else {
+            scrollView.contentOffset = .zero
+        }
+    }
+
+    @objc private func visibleContainerViewTapped() {
+        if let viewModel = assetViewModel as? ConfigurableAssetViewModel {
+            try? viewModel.command?.execute()
+        }
     }
 
     private func applyStyle() {
@@ -72,6 +147,9 @@ final class AssetCollectionViewCell: UICollectionViewCell {
             } else {
                 symbolLabel.text = assetViewModel.symbol
             }
+            if let viewModel = assetViewModel as? ConfigurableAssetViewModel {
+                toggleImageView.image = viewModel.toggleIcon
+            }
 
             titleLabel.text = assetViewModel.amount
             subtitleLabel.text = assetViewModel.details
@@ -81,6 +159,14 @@ final class AssetCollectionViewCell: UICollectionViewCell {
 
     private func prepareViewModelReplacement() {
         assetViewModel?.imageViewModel?.cancel()
+    }
+}
+
+extension AssetCollectionViewCell: UIScrollViewDelegate {
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        if(scrollView.contentOffset.x >= scrollView.contentSize.width/2 - 10){
+            hiddenContainerViewTapped()
+        }
     }
 }
 

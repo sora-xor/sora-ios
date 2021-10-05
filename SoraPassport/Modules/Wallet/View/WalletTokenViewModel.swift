@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -19,6 +14,7 @@ struct WalletTokenViewModel: AssetSelectionViewModelProtocol {
 
     let icon: UIImage?
 
+    let iconViewModel: WalletImageViewModelProtocol?
 }
 
 extension WalletTokenViewModel: WalletFormViewBindingProtocol {

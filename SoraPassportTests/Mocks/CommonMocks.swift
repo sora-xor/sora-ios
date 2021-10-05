@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Cuckoo
 @testable import SoraPassport
 @testable import SoraFoundation
@@ -595,16 +590,16 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
     
     
     
-    public func start(with interval: TimeInterval)  {
+    public func start(with interval: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)  {
         
-    return cuckoo_manager.call("start(with: TimeInterval)",
-            parameters: (interval),
-            escapingParameters: (interval),
+    return cuckoo_manager.call("start(with: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)",
+            parameters: (interval, runLoop, mode),
+            escapingParameters: (interval, runLoop, mode),
             superclassCall:
                 
                 Cuckoo.MockManager.crashOnProtocolSuperclassCall()
                 ,
-            defaultCall: __defaultImplStub!.start(with: interval))
+            defaultCall: __defaultImplStub!.start(with: interval, runLoop: runLoop, mode: mode))
         
     }
     
@@ -652,9 +647,9 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
 	    }
 	    
 	    
-	    func start<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method: "start(with: TimeInterval)", parameterMatchers: matchers))
+	    func start<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable, M3: Cuckoo.Matchable>(with interval: M1, runLoop: M2, mode: M3) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval, RunLoop, RunLoop.Mode)> where M1.MatchedType == TimeInterval, M2.MatchedType == RunLoop, M3.MatchedType == RunLoop.Mode {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval, RunLoop, RunLoop.Mode)>] = [wrap(matchable: interval) { $0.0 }, wrap(matchable: runLoop) { $0.1 }, wrap(matchable: mode) { $0.2 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method: "start(with: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)", parameterMatchers: matchers))
 	    }
 	    
 	    func stop() -> Cuckoo.ProtocolStubNoReturnFunction<()> {
@@ -699,9 +694,9 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
 	
 	    
 	    @discardableResult
-	    func start<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
-	        return cuckoo_manager.verify("start(with: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    func start<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable, M3: Cuckoo.Matchable>(with interval: M1, runLoop: M2, mode: M3) -> Cuckoo.__DoNotUse<(TimeInterval, RunLoop, RunLoop.Mode), Void> where M1.MatchedType == TimeInterval, M2.MatchedType == RunLoop, M3.MatchedType == RunLoop.Mode {
+	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval, RunLoop, RunLoop.Mode)>] = [wrap(matchable: interval) { $0.0 }, wrap(matchable: runLoop) { $0.1 }, wrap(matchable: mode) { $0.2 }]
+	        return cuckoo_manager.verify("start(with: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
 	    }
 	    
 	    @discardableResult
@@ -753,7 +748,7 @@ public class CountdownTimerProtocolStub: CountdownTimerProtocol {
     
 
     
-    public func start(with interval: TimeInterval)   {
+    public func start(with interval: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     

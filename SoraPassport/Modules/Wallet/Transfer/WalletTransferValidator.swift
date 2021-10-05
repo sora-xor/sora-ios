@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -59,9 +54,8 @@ struct WalletTransferValidator: TransferValidating {
         let transferMetadataContext = TransferMetadataContext(context: metadata.context ?? [:])
 
         let receiverTotalAfterTransfer = transferMetadataContext.receiverBalance + sendingAmount
-        guard
-            let chain = WalletAssetId(rawValue: info.asset)?.chain,
-            receiverTotalAfterTransfer >= chain.existentialDeposit() else {
+        let chain: Chain = .sora
+        guard receiverTotalAfterTransfer >= chain.existentialDeposit() else {
             throw TransferValidatingError.unsufficientFunds(assetId: info.asset,
                                                                   available: availableBalance)
         }

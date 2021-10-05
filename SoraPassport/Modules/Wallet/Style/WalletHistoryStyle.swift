@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -13,9 +8,6 @@ extension HistoryViewStyle {
         let titleStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph2, isBold: true),
                                          color: R.color.baseContentTertiary()!)
         let shadow = WalletShadowStyle(offset: CGSize(width: 0.0, height: 1.0),
-//                               color: UIColor(red: 0, green: 0, blue: 0, alpha: 0.1),
-//                               opacity: 0.5, //1.0,
-//                               blurRadius: 25.0)
                                    color: UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 0.35),
                                    opacity: 1.0,
                                    blurRadius: 4.0)
@@ -29,7 +21,8 @@ extension HistoryViewStyle {
                                 panIndicatorStyle: UIColor(white: 221.0 / 255.0, alpha: 1.0),
                                 shouldInsertFullscreenShadow: true,
                                 shadow: shadow,
-                                separatorStyle: UIColor(white: 221.0 / 255.0, alpha: 0.5))
+                                separatorStyle: UIColor(white: 221.0 / 255.0, alpha: 0.5),
+                                pageLoadingIndicatorColor: UIColor(white: 221.0 / 255.0, alpha: 1.0))
     }
 }
 

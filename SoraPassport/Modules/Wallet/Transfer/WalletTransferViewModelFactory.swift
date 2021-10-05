@@ -1,11 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import FearlessUtils
+import SoraKeystore
 
 struct WalletTransferViewModelFactory {
 
@@ -13,45 +9,17 @@ struct WalletTransferViewModelFactory {
 
     private let iconGenerator = PolkadotIconGenerator()
     let assets: [WalletAsset]
+    let assetManager: AssetManagerProtocol
     let amountFormatterFactory: NumberFormatterFactoryProtocol
 
     init(assets: [WalletAsset],
+         assetManager: AssetManagerProtocol,
          amountFormatterFactory: NumberFormatterFactoryProtocol) {
         self.assets = assets
+        self.assetManager = assetManager
         self.amountFormatterFactory = amountFormatterFactory
     }
 
-    func createAssetTransferStateIconFromAmount(_ totalAmount: Decimal,
-                                                tokens: TokenBalancesData,
-                                                receiver: String,
-                                                feeDescriptions: [FeeDescription]) -> UIImage? {
-        if feeDescriptions
-            .first(where: { $0.context?[WalletOperationContextKey.Receiver.isMine] != nil }) != nil {
-            if NSPredicate.ethereumAddress.evaluate(with: receiver) {
-                return R.image.assetVal()
-            } else {
-                return R.image.assetValErc()
-            }
-        }
-
-        if NSPredicate.ethereumAddress.evaluate(with: receiver) {
-             if totalAmount <= tokens.ethereum {
-                return R.image.assetValErc()
-            } else if totalAmount <= tokens.soranet {
-                return  R.image.assetVal()
-            } else {
-                return R.image.iconCrossChain()
-            }
-        } else {
-            if totalAmount <= tokens.soranet {
-                return R.image.assetVal()
-            } else if tokens.soranet == 0.0 && totalAmount <= tokens.ethereum {
-                return R.image.assetValErc()
-            } else {
-                return R.image.iconCrossChain()
-            }
-        }
-    }
 }
 
 extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
@@ -87,30 +55,39 @@ extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
         let details: String
 
         guard
-            let asset = assets
-                .first(where: { $0.identifier == payload.receiveInfo.assetId }),
-            let assetId = WalletAssetId(rawValue: asset.identifier) else {
+            let asset = assets.first(where: { $0.identifier == payload.receiveInfo.assetId })
+        else {
             return nil
         }
 
         title =  "\(asset.symbol)"
-        subtitle = assetId.chainId
+        subtitle = asset.identifier
 
         let amountFormatter = amountFormatterFactory.createDisplayFormatter(for: asset)
 
         if let balanceData = inputState.balance,
-            let formattedBalance = amountFormatter.value(for: locale)
-                .string(from: balanceData.balance.decimalValue as NSNumber) {
+           let formattedBalance = amountFormatter.value(for: locale)
+                .stringFromDecimal(balanceData.balance.decimalValue) {
             details = "\(formattedBalance)"
         } else {
             details = ""
         }
 
-        return AssetSelectionViewModel(title: title,
-                                       subtitle: subtitle,
-                                       details: details,
-                                       icon: assetId.icon,
-                                       state: selectedAssetState)
+        let symbolViewModel: WalletImageViewModelProtocol?
+        if  let assetInfo = assetManager.assetInfo(for: asset.identifier),
+            let iconString = assetInfo.icon {
+            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        } else {
+            symbolViewModel = nil
+        }
+
+        return WalletTokenViewModel(state: selectedAssetState,
+                                    header: "",
+                                    title: title,
+                                    subtitle: subtitle,
+                                    details: details,
+                                    icon: nil,
+                                    iconViewModel: symbolViewModel)
     }
 
     func createAssetSelectionTitle(_ inputState: TransferInputState,

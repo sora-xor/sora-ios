@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 final class RootPresenter {
@@ -14,13 +9,12 @@ final class RootPresenter {
 extension RootPresenter: RootPresenterProtocol {
     func loadOnLaunch() {
         interactor.setup()
-        wireframe.showSplash(on: view) {
-            self.interactor.decideModuleSynchroniously()
-        }
+        interactor.decideModuleSynchroniously()
     }
 }
 
 extension RootPresenter: RootInteractorOutputProtocol {
+
     func didDecideOnboarding() {
         wireframe.showOnboarding(on: view)
     }
