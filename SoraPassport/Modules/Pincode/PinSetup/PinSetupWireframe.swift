@@ -16,7 +16,7 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
     }
 
     func dismiss(from view: PinSetupViewProtocol?) {
-        view?.controller.dismiss(animated: true, completion: nil)
+        view?.controller.presentingViewController?.dismiss(animated: true, completion: nil)
     }
 
     func showMain(from view: PinSetupViewProtocol?) {

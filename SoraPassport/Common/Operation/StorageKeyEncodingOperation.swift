@@ -59,6 +59,15 @@ final class MapKeyEncodingOperation<T: Encodable>: BaseOperation<[Data]> {
             case .doubleMap(let doubleMapEntry):
                 keyType = doubleMapEntry.key1
                 hasher = doubleMapEntry.hasher
+            case let .nMap(nMapEntry):
+                guard
+                    let firstKey = nMapEntry.keyVec.first,
+                    let firstHasher = nMapEntry.hashers.first else {
+                    throw StorageKeyEncodingOperationError.missingRequiredParams
+                }
+
+                keyType = firstKey
+                hasher = firstHasher
             case .plain:
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }

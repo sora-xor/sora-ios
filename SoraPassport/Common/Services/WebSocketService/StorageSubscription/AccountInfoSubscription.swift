@@ -7,10 +7,10 @@ import Foundation
 import RobinHood
 
 final class AccountInfoSubscription: BaseStorageChildSubscription {
-    let transferSubscription: TransferSubscription
+    let transferSubscription: TransactionSubscription
     let eventCenter: EventCenterProtocol
 
-    init(transferSubscription: TransferSubscription,
+    init(transferSubscription: TransactionSubscription,
          remoteStorageKey: Data,
          localStorageKey: String,
          storage: AnyDataProviderRepository<ChainStorageItem>,

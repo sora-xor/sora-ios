@@ -29,6 +29,17 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
         )
     }
 
+    func createStartSubscriptions(
+        type: SNAddressType,
+        engine: JSONRPCEngine
+    ) throws -> [WebSocketSubscribing] {
+        let runtimeSubscription = createRuntimeVersionSubscription(
+            engine: engine,
+            networkType: type
+        )
+        return [runtimeSubscription]
+    }
+
     func createSubscriptions(
         address: String,
         type: SNAddressType,
@@ -135,7 +146,7 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
     }
 
     private func createAccountInfoSubscription(
-        transferSubscription: TransferSubscription,
+        transferSubscription: TransactionSubscription,
         accountId: Data,
         localStorageIdFactory: ChainStorageIdFactoryProtocol
     )
@@ -207,7 +218,7 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
         address: String,
         engine: JSONRPCEngine,
         networkType: SNAddressType
-    ) -> TransferSubscription {
+    ) -> TransactionSubscription {
         let filter = NSPredicate.filterTransactionsBy(address: address)
         let txStorage: CoreDataRepository<TransactionHistoryItem, CDTransactionHistoryItem> =
             storageFacade.createRepository(filter: filter)
@@ -217,7 +228,12 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
             targetAddress: address
         )
 
-        return TransferSubscription(
+        let storageRequestFactory = StorageRequestFactory(
+            remoteFactory: storageKeyFactory,
+            operationManager: operationManager
+        )
+
+        return TransactionSubscription(
             engine: engine,
             address: address,
             chain: networkType.chain,
@@ -225,6 +241,7 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
             runtimeService: runtimeService,
             txStorage: AnyDataProviderRepository(txStorage),
             contactOperationFactory: contactOperationFactory,
+            storageRequestFactory: storageRequestFactory,
             operationManager: OperationManagerFacade.sharedManager,
             eventCenter: EventCenter.shared,
             logger: Logger.shared
@@ -236,7 +253,7 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
         networkType: SNAddressType
     ) -> RuntimeVersionSubscription {
         let chain = networkType.chain
-
+        logger.info("Runtime subscription gen: \(chain.genesisHash())" )
         let filter = NSPredicate.filterRuntimeMetadataItemsBy(identifier: chain.genesisHash())
         let storage: CoreDataRepository<RuntimeMetadataItem, CDRuntimeMetadataItem> =
             storageFacade.createRepository(filter: filter)

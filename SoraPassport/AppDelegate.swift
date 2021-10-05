@@ -23,8 +23,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             let rootWindow = SoraWindow()
             window = rootWindow
 
-            let presenter = RootPresenterFactory.createPresenter(with: rootWindow)
-            presenter.loadOnLaunch()
+            SplashPresenterFactory.createSplashPresenter(with: rootWindow)
 
             rootWindow.makeKeyAndVisible()
         }

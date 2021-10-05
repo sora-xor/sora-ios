@@ -13,6 +13,7 @@ private enum StartupInteractorError: Error {
     case verificationFailed
 }
 
+
 private typealias RegistrationCompletionBlock = (Result<UserData?, Error>?) -> Void
 
 final class StartupInteractor {

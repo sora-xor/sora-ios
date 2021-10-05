@@ -31,7 +31,7 @@ struct WalletAccountSharingFactory: AccountShareFactoryProtocol {
 
         if let amountDecimal = receiveInfo.amount?.decimalValue,
             let formattedAmount = amountFormatter.value(for: locale)
-                .string(from: amountDecimal as NSNumber) {
+                .stringFromDecimal(amountDecimal) {
             optionalAmountTitle = formattedAmount
         }
 

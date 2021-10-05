@@ -156,7 +156,7 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var supportEmail: String {
-        "sora@soramitsu.co.jp"
+        "support@sora.org"
     }
 
     var termsURL: URL {

@@ -24,5 +24,6 @@ enum RPCMethod {
     static let helthCheck = "system_health"
     static let runtimeVersionSubscribe = "state_subscribeRuntimeVersion"
     static let freeBalance = "assets_freeBalance"
+    static let assetInfo = "assets_listAssetInfos"
     static let needsMigration = "irohaMigration_needsMigration"
 }

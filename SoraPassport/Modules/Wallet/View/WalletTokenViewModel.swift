@@ -19,6 +19,7 @@ struct WalletTokenViewModel: AssetSelectionViewModelProtocol {
 
     let icon: UIImage?
 
+    let iconViewModel: WalletImageViewModelProtocol?
 }
 
 extension WalletTokenViewModel: WalletFormViewBindingProtocol {

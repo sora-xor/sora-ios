@@ -12,6 +12,7 @@ protocol WalletWireframeProtocol {
 }
 
 final class WalletWireframe: WalletWireframeProtocol {
+    
     let applicationConfig: ApplicationConfigProtocol
 
     var logger: LoggerProtocol?

@@ -199,14 +199,6 @@ Write it down, we will not be able to recover your account without it!</string>
             <point key="canvasLocation" x="137.68115942028987" y="132.88043478260872"/>
         </view>
     </objects>
-    <designables>
-        <designable name="H2v-G1-sfG">
-            <size key="intrinsicContentSize" width="48" height="40"/>
-        </designable>
-        <designable name="YBP-AM-Ejm">
-            <size key="intrinsicContentSize" width="43.333333333333329" height="31.666666666666664"/>
-        </designable>
-    </designables>
     <resources>
         <image name="iconAlert" width="24" height="24"/>
         <image name="share-arrow" width="24" height="24"/>

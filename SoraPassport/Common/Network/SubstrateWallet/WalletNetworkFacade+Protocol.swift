@@ -18,9 +18,12 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
 
             return accountSettings.assets.first { $0.identifier == identifier }
         }
+//hack while Capital can't change order
+        let sortedAssets = AssetManager.shared.sortedAssets(userAssets, onlyVisible: true)
 
-        let balanceOperation = fetchBalanceInfoForAssets(userAssets)
-        let priceOperations: [CompoundOperationWrapper<Price?>] = userAssets.compactMap {
+        let balanceOperation = fetchBalanceInfoForAssets(sortedAssets)
+        let priceOperations: [CompoundOperationWrapper<Price?>] = sortedAssets.compactMap {
+            //TODO: rawValue is nil now
             if let assetId = WalletAssetId(rawValue: $0.identifier) {
                 return fetchPriceOperation(assetId)
             } else {
@@ -156,7 +159,7 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
 
             let destinationId = try Data(hexString: info.destination)
             let destinationAddress = try addressFactory
-                .address(fromPublicKey: AccountIdWrapper(rawData: destinationId),
+                .address(fromAccountId: destinationId,
                          type: currentNetworkType)
             let contactSaveWrapper = contactsOperationFactory.saveByAddressOperation(destinationAddress)
 

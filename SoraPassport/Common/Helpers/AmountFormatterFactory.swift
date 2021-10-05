@@ -33,22 +33,30 @@ struct AmountFormatterFactory: NumberFormatterFactoryProtocol {
         return createAssetNumberFormatter(for: precision).localizableResource()
     }
 
-    func createTokenFormatter(for asset: WalletAsset?) -> LocalizableResource<TokenAmountFormatter> {
+    func createTokenFormatter(for asset: WalletAsset?) -> LocalizableResource<TokenFormatter> {
         let precision = asset != nil  ? Int(asset!.precision) : assetPrecision
         let numberFormatter = createTokenNumberFormatter(for: precision)
-            return TokenAmountFormatter(numberFormatter: numberFormatter,
+        let tokenFormatter = TokenFormatter(decimalFormatter: numberFormatter,
                                         tokenSymbol: asset?.symbol ?? "",
                                         separator: " ",
-                                        position: .suffix).localizableResource()
+                                        position: .suffix)
+        return LocalizableResource { locale in
+            tokenFormatter.locale = locale
+            return tokenFormatter
+        }
     }
 
-    func createShortFormatter(for asset: WalletAsset?)  -> LocalizableResource<TokenAmountFormatter> {
+    func createShortFormatter(for asset: WalletAsset?)  -> LocalizableResource<TokenFormatter> {
         let precision = 4
         let numberFormatter = createTokenNumberFormatter(for: precision)
-            return TokenAmountFormatter(numberFormatter: numberFormatter,
+        let tokenFormatter = TokenFormatter(decimalFormatter: numberFormatter,
                                         tokenSymbol: asset?.symbol ?? "",
                                         separator: " ",
-                                        position: .suffix).localizableResource()
+                                        position: .suffix)
+        return LocalizableResource { locale in
+            tokenFormatter.locale = locale
+            return tokenFormatter
+        }
     }
 
     private func createUsdNumberFormatter(for precision: Int) -> NumberFormatter {

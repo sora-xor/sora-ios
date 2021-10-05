@@ -35,11 +35,4 @@ final class RootWireframe: RootWireframeProtocol {
         // normally user must not see this but on malicious devices it is possible
         view.backgroundColor = .red
     }
-
-    func showSplash(on view: UIWindow, completion: @escaping () -> Void) {
-        view.rootViewController = UIViewController()
-        SplashPresenter().present(in: view, duration: 2.0, completion: {
-            completion()
-        })
-    }
 }

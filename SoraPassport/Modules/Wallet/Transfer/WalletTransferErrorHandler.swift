@@ -32,14 +32,14 @@ class WalletTransferErrorHandler: OperationDefinitionErrorHandling {
 
             if ethAsset.identifier == assetId {
                 let formatter = formatterFactory.createTokenFormatter(for: ethAsset).value(for: locale)
-                let formattedAmount = formatter.string(from: balance) ?? balance.stringWithPointSeparator
+                let formattedAmount = formatter.stringFromDecimal(balance) ?? balance.stringWithPointSeparator
                 let message = R.string.localizable.transferUnsuffientFundsFormat(ethAsset.name.value(for: locale),
                                                                                  formattedAmount,
                                                                                  preferredLanguages: locale.rLanguages)
                 return OperationDefinitionErrorMapping(type: .fee, message: message)
             } else {
                 let formatter = formatterFactory.createTokenFormatter(for: xorAsset).value(for: locale)
-                let formattedAmount = formatter.string(from: balance) ?? balance.stringWithPointSeparator
+                let formattedAmount = formatter.stringFromDecimal(balance) ?? balance.stringWithPointSeparator
                 let message = R.string.localizable.transferUnsuffientFundsFormat(xorAsset.name.value(for: locale),
                                                                                  formattedAmount,
                                                                                  preferredLanguages: locale.rLanguages)

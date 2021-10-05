@@ -14600,21 +14600,6 @@ import UIKit
         
     }
     
-    
-    
-     func showSplash(on view: UIWindow, completion: @escaping () -> Void)  {
-        
-    return cuckoo_manager.call("showSplash(on: UIWindow, completion: @escaping () -> Void)",
-            parameters: (view, completion),
-            escapingParameters: (view, completion),
-            superclassCall:
-                
-                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
-                ,
-            defaultCall: __defaultImplStub!.showSplash(on: view, completion: completion))
-        
-    }
-    
 
 	 struct __StubbingProxy_RootWireframeProtocol: Cuckoo.StubbingProxy {
 	    private let cuckoo_manager: Cuckoo.MockManager
@@ -14642,11 +14627,6 @@ import UIKit
 	    func showPincodeSetup<M1: Cuckoo.Matchable>(on view: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(UIWindow)> where M1.MatchedType == UIWindow {
 	        let matchers: [Cuckoo.ParameterMatcher<(UIWindow)>] = [wrap(matchable: view) { $0 }]
 	        return .init(stub: cuckoo_manager.createStub(for: MockRootWireframeProtocol.self, method: "showPincodeSetup(on: UIWindow)", parameterMatchers: matchers))
-	    }
-	    
-	    func showSplash<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(on view: M1, completion: M2) -> Cuckoo.ProtocolStubNoReturnFunction<(UIWindow, () -> Void)> where M1.MatchedType == UIWindow, M2.MatchedType == () -> Void {
-	        let matchers: [Cuckoo.ParameterMatcher<(UIWindow, () -> Void)>] = [wrap(matchable: view) { $0.0 }, wrap(matchable: completion) { $0.1 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockRootWireframeProtocol.self, method: "showSplash(on: UIWindow, completion: @escaping () -> Void)", parameterMatchers: matchers))
 	    }
 	    
 	}
@@ -14689,12 +14669,6 @@ import UIKit
 	        return cuckoo_manager.verify("showPincodeSetup(on: UIWindow)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
 	    }
 	    
-	    @discardableResult
-	    func showSplash<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(on view: M1, completion: M2) -> Cuckoo.__DoNotUse<(UIWindow, () -> Void), Void> where M1.MatchedType == UIWindow, M2.MatchedType == () -> Void {
-	        let matchers: [Cuckoo.ParameterMatcher<(UIWindow, () -> Void)>] = [wrap(matchable: view) { $0.0 }, wrap(matchable: completion) { $0.1 }]
-	        return cuckoo_manager.verify("showSplash(on: UIWindow, completion: @escaping () -> Void)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
 	}
 }
 
@@ -14717,10 +14691,6 @@ import UIKit
     }
     
      func showPincodeSetup(on view: UIWindow)   {
-        return DefaultValueRegistry.defaultValue(for: (Void).self)
-    }
-    
-     func showSplash(on view: UIWindow, completion: @escaping () -> Void)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     

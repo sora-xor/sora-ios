@@ -56,7 +56,6 @@ extension PinSetupInteractorOutputProtocol {
 protocol PinSetupWireframeProtocol: AlertPresentable, ErrorPresentable {
     func dismiss(from view: PinSetupViewProtocol?)
     func showMain(from view: PinSetupViewProtocol?)
-//    func showAuthVerification(from view: PinSetupViewProtocol?)
     func showSignup(from view: PinSetupViewProtocol?)
     func showPinUpdatedNotify(
         from view: PinSetupViewProtocol?,

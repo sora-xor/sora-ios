@@ -43,7 +43,7 @@ final class ServiceCoordinator {
 
     private func updateRuntimeService() {
         let connectionItem = settings.selectedConnection
-        runtimeService.update(to: connectionItem.type.chain)
+        runtimeService.update(to: connectionItem.type.chain, forced: false)
     }
 
     private func updateValidatorService() {

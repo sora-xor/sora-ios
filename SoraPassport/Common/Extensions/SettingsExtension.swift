@@ -25,6 +25,7 @@ enum SettingsKey: String {
     case externalGenesis
     case externalExistentialDeposit
     case externalPrefix
+    case assetList
 }
 
 extension SettingsManagerProtocol {

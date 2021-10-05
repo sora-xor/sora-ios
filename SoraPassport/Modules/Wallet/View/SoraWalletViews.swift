@@ -47,7 +47,14 @@ final class SoraAssetView: BaseSelectedAssetView, WalletFormBordering {
     }
 
     func bind(viewModel: AssetSelectionViewModelProtocol) {
-        self.assetIcon.image = viewModel.icon
+        if let concreteViewModel = viewModel as? WalletTokenViewModel,
+           let iconViewModel = concreteViewModel.iconViewModel {
+            iconViewModel.loadImage { [weak self] (icon, _) in
+                self?.assetIcon.image = icon
+            }
+        } else {
+            self.assetIcon.image = viewModel.icon
+        }
         self.assetLabel.text = viewModel.title
         self.assetIdLabel.title = viewModel.subtitle
         self.fullText = viewModel.subtitle

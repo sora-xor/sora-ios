@@ -31,13 +31,15 @@ final class TransactionHistoryViewModelFactory: HistoryItemViewModelFactoryProto
     func createItemFromData(_ data: AssetTransactionData,
                             commandFactory: WalletCommandFactoryProtocol,
                             locale: Locale) throws -> WalletViewModelProtocol {
-        guard let asset = assets.first(where: { $0.identifier == data.assetId }) else {
+                                                            //legacy conversion
+        let assetId = data.assetId.count > 5 ? data.assetId : WalletAssetId(rawValue: data.assetId)?.chainId
+        guard let asset = assets.first(where: { $0.identifier == assetId }) else {
             throw TransactionHistoryViewModelFactoryError.missingAsset
         }
 
         var amount = amountFormatterFactory.createTokenFormatter(for: asset)
             .value(for: locale)
-            .string(from: data.amount.decimalValue)
+            .stringFromDecimal(data.amount.decimalValue)
             ?? ""
 
         switch data.direction {

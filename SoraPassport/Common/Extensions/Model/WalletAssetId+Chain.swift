@@ -18,6 +18,19 @@ extension WalletAssetId {
         }
     }
 
+    var defaultSort: Int? {
+        switch self {
+        case .xor:
+            return 0
+        case .val:
+            return 1
+        case .pswap:
+            return 2
+        default:
+            return nil
+        }
+    }
+
     var chainId: String {
         switch self {
         case .pswap:

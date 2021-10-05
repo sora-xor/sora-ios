@@ -25,15 +25,12 @@ final class WalletQREncoder: WalletQREncoderProtocol {
     func encode(receiverInfo: ReceiveInfo) throws -> Data {
         let accountId = try Data(hexString: receiverInfo.accountId)
 
-        let address = try addressFactory.address(fromPublicKey: AccountIdWrapper(rawData: accountId),
-                                                 type: networkType)
-
-        let asset = WalletAssetId(rawValue: receiverInfo.assetId!)
+        let address = try addressFactory.address(fromAccountId: accountId, type: networkType)
 
         let info = SoraSubstrateQRInfo(address: address,
                                    rawPublicKey: publicKey,
                                    username: username,
-                                   assetId: asset!.chainId)
+                                   assetId: receiverInfo.assetId!)
         return try substrateEncoder.encode(info: info)
     }
 }
@@ -44,7 +41,7 @@ final class WalletQRDecoder: WalletQRDecoderProtocol {
     private let assets: [WalletAsset]
 
     init(networkType: SNAddressType, assets: [WalletAsset]) {
-        substrateDecoder = SubstrateQRDecoder(networkType: networkType)
+        substrateDecoder = SubstrateQRDecoder(chainType: networkType)
         self.assets = assets
     }
 
@@ -52,8 +49,8 @@ final class WalletQRDecoder: WalletQRDecoderProtocol {
         let info: SoraSubstrateQRInfo = try substrateDecoder.decode(data: data)
 
         let accountId = try addressFactory.accountId(fromAddress: info.address,
-                                                     type: substrateDecoder.networkType)
-        let asset = assets.first(where: { WalletAssetId(rawValue: $0.identifier)?.chainId == info.assetId })
+                                                     type: substrateDecoder.chainType)
+        let asset = assets.first(where: { $0.identifier == info.assetId })
         return ReceiveInfo(accountId: accountId.toHex(),
                            assetId: asset?.identifier,
                            amount: nil,

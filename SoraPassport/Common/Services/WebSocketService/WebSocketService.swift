@@ -91,6 +91,13 @@ final class WebSocketService: WebSocketServiceProtocol {
         }
     }
 
+    func performPrelaunchSusbscriptions() {
+        if let type = settings.addressType, subscriptions == nil {
+            subscriptions = try? subscriptionsFactory.createStartSubscriptions(type: type,
+                                                                               engine: self.engine!)
+        }
+    }
+
     private func clearConnection() {
         engine?.delegate = nil
         engine?.disconnectIfNeeded()

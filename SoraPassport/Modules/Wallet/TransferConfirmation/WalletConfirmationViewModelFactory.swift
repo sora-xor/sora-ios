@@ -6,16 +6,19 @@
 import Foundation
 import CommonWallet
 import FearlessUtils
+import SoraKeystore
 
 final class WalletConfirmationViewModelFactory {
     private let iconGenerator = PolkadotIconGenerator()
     weak var commandFactory: WalletCommandFactoryProtocol?
 
     let assets: [WalletAsset]
+    let assetManager: AssetManagerProtocol
     let amountFormatterFactory: NumberFormatterFactoryProtocol
 
-    init(assets: [WalletAsset], amountFormatterFactory: NumberFormatterFactoryProtocol) {
+    init(assets: [WalletAsset], assetManager: AssetManagerProtocol, amountFormatterFactory: NumberFormatterFactoryProtocol) {
         self.assets = assets
+        self.assetManager = assetManager
         self.amountFormatterFactory = amountFormatterFactory
     }
 
@@ -25,18 +28,25 @@ final class WalletConfirmationViewModelFactory {
         let headerTitle = R.string.localizable.transactionToken(preferredLanguages: locale.rLanguages)
 
         guard let asset = self.assets.first(where: {$0.identifier == payload.transferInfo.asset}),
-            let assetId = WalletAssetId(rawValue: asset.identifier),
             let context = payload.transferInfo.context else {
             return
         }
+        let symbolViewModel: WalletImageViewModelProtocol?
+
+        if  let assetInfo = assetManager.assetInfo(for: asset.identifier),
+            let iconString = assetInfo.icon {
+            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        } else {
+            symbolViewModel = nil
+        }
+
         let balanceData = BalanceContext(context: context)
-        let icon = assetId.icon
         let title: String =  asset.name.value(for: locale)
-        let subtitle: String = assetId.chainId
+        let subtitle: String = asset.identifier
 
         let formatter = amountFormatterFactory.createDisplayFormatter(for: asset)
 
-        let details = formatter.value(for: locale).string(from: balanceData.available as NSNumber) ?? ""
+        let details = formatter.value(for: locale).stringFromDecimal(balanceData.available) ?? ""
 
         let selectedState = SelectedAssetState(isSelecting: false, canSelect: false)
 
@@ -46,7 +56,8 @@ final class WalletConfirmationViewModelFactory {
             title: title,
             subtitle: subtitle,
             details: details,
-            icon: icon
+            icon: nil,
+            iconViewModel: symbolViewModel
         )
 
         viewModelList.append(WalletFormSeparatedViewModel(content: tokenViewModel, borderType: [.bottom]))
@@ -84,7 +95,7 @@ final class WalletConfirmationViewModelFactory {
 
         let decimalAmount = payload.transferInfo.amount.decimalValue
 
-        guard let amount = formatter.value(for: locale).string(from: decimalAmount as NSNumber) else {
+        guard let amount = formatter.value(for: locale).stringFromDecimal(decimalAmount) else {
             return
         }
 
@@ -97,7 +108,7 @@ final class WalletConfirmationViewModelFactory {
     func populateMainFeeAmount(in viewModelList: inout [WalletFormViewBindingProtocol],
                                payload: ConfirmationPayload,
                                locale: Locale) {
-        guard let asset = assets.first(where: { $0.type.isFeeAsset }) else {
+        guard let asset = assets.first(where: { $0.isFeeAsset }) else {
             return
         }
 
@@ -108,7 +119,7 @@ final class WalletConfirmationViewModelFactory {
 
             let decimalAmount = fee.value.decimalValue
 
-            guard let amount = formatter.string(from: decimalAmount) else {
+            guard let amount = formatter.stringFromDecimal(decimalAmount) else {
                 return
             }
 

@@ -66,7 +66,7 @@ extension  SubstrateQRDecoder {
         let addressFactory = SS58AddressFactory()
 
         let address = fields[1]
-        let accountId = try addressFactory.accountId(fromAddress: address, type: networkType)
+        let accountId = try addressFactory.accountId(fromAddress: address, type: chainType)
         let publicKey = try Data(hexString: fields[2])
 
         guard publicKey.matchPublicKeyToAccountId(accountId) else {

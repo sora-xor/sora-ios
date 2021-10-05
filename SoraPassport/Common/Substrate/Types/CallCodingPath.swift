@@ -18,4 +18,8 @@ extension CallCodingPath {
     static var transferKeepAlive: CallCodingPath {
         CallCodingPath(moduleName: "Assets", callName: "transfer_keep_alive")
     }
+
+    var isTransfer: Bool {
+        [.transfer, .transferKeepAlive].contains(self)
+    }
 }

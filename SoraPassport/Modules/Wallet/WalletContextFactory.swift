@@ -126,20 +126,23 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
                                                   networkOperationFactory: networkFacade)
 
         let localizationManager = LocalizationManager.shared
-
+        let assetManager = AssetManager.shared
         let tokenAssets = accountSettings.assets
         let decoratorFactory = WalletCommandDecoratorFactory(localizationManager: localizationManager,
                                                              assets: tokenAssets,
+                                                             assetManager: assetManager,
                                                              address: selectedAccount.address)
 
         WalletCommonConfigurator(localizationManager: localizationManager,
                                  networkType: networkType,
                                  account: selectedAccount,
+                                 decoratorFactory: decoratorFactory,
                                  assets: tokenAssets).configure(builder: builder)
         WalletCommonStyleConfigurator().configure(builder: builder.styleBuilder)
 
         let walletWireframe = WalletWireframe(applicationConfig: ApplicationConfig.shared)
-        let headerViewModel = WalletHeaderViewModel(walletWireframe: walletWireframe)
+        let headerViewModel = WalletHeaderViewModel(walletWireframe: walletWireframe,
+                                                    commandDecorator: decoratorFactory)
 
         let accountListConfigurator = AccountListConfigurator(address: selectedAccount.address,
                                                                     chain: networkType.chain,
@@ -164,12 +167,12 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
                                        assets: accountSettings.assets)
             .configure(builder: builder.transactionDetailsModuleBuilder)
 
-        let transferConfigurator = WalletTransferConfigurator(assets: accountSettings.assets,
+        let transferConfigurator = WalletTransferConfigurator(assets: accountSettings.assets, assetManager: assetManager,
                                                         amountFormatterFactory: amountFormatterFactory,
                                                         localizationManager: localizationManager)
         transferConfigurator.configure(builder: builder.transferModuleBuilder)
 
-        let confirmConfigurator = WalletConfirmationConfigurator(assets: accountSettings.assets,
+        let confirmConfigurator = WalletConfirmationConfigurator(assets: accountSettings.assets, assetManager: assetManager,
                                                               amountFormatterFactory: amountFormatterFactory)
         confirmConfigurator.configure(builder: builder.transferConfirmationBuilder)
 

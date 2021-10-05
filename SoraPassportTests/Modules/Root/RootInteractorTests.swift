@@ -14,8 +14,8 @@ class RootInteractorTests: XCTestCase {
     var interactor: RootInteractor!
     var wireframe: MockRootWireframeProtocol!
 
-    private(set) var keystore = Keychain()
-    private(set) var settings = SettingsManager.shared
+    private(set) var keystore =  InMemoryKeychain()
+    private(set) var settings = InMemorySettingsManager()
 
     override func setUp() {
         try? keystore.deleteAll()
@@ -33,18 +33,6 @@ class RootInteractorTests: XCTestCase {
         performTestDecidedOnboarding()
     }
 
-    func testDecidedOnboardingWhenDecentralizedIdAndVerificationStateExists() {
-        settings.decentralizedId = Constants.dummyDid
-
-        var verificationState = VerificationState()
-        verificationState.didPerformAttempt(with: Constants.networkRequestTimeout)
-        settings.verificationState = verificationState
-
-        performTestDecidedOnboarding()
-
-        XCTAssertEqual(settings.verificationState, verificationState)
-        XCTAssertEqual(settings.decentralizedId, Constants.dummyDid)
-    }
 
     private func performTestDecidedOnboarding() {
         // given
@@ -56,9 +44,6 @@ class RootInteractorTests: XCTestCase {
             when(stub.showOnboarding(on: viewMatcher)).then { view in
                 expectation.fulfill()
             }
-            when(stub.showSplash(on: viewMatcher, completion: anyClosure())).then { (_, completion) in
-                completion()
-            }   
         }
 
         // when
@@ -66,39 +51,17 @@ class RootInteractorTests: XCTestCase {
 
         // then
         wait(for: [expectation], timeout: Constants.expectationDuration)
-    }
-
-    func testDecideAuthVerification() {
-        // given
-        let viewMatcher = ParameterMatcher<UIWindow> { $0 === self.view }
-
-        settings.decentralizedId = Constants.dummyDid
-        settings.publicKeyId = Constants.dummyPubKeyId
-
-        let expectation = XCTestExpectation()
-
-        stub(wireframe) { stub in
-            when(stub.showSplash(on: viewMatcher, completion: anyClosure())).then { (_, completion) in
-                completion()
-            }
-            when(stub.showOnboarding(on: viewMatcher)).then { view in
-                expectation.fulfill()
-            }
-        }
-
-        // when
-        presenter.loadOnLaunch()
-
-        // then
-        wait(for: [expectation], timeout: Constants.expectationDuration)
-
-        XCTAssertEqual(settings.decentralizedId, Constants.dummyDid)
-        XCTAssertNil(settings.verificationState)
     }
 
     func testDecideLocalAuth() {
         // given
         let viewMatcher = ParameterMatcher<UIWindow> { $0 === self.view }
+
+        try? AccountCreationHelper.createAccountFromMnemonic(
+                                                            cryptoType: .sr25519,
+                                                            networkType: .sora,
+                                                            keychain: keystore,
+                                                            settings: settings)
 
         settings.decentralizedId = Constants.dummyDid
         settings.publicKeyId = Constants.dummyPubKeyId
@@ -111,12 +74,6 @@ class RootInteractorTests: XCTestCase {
             when(stub.showLocalAuthentication(on: viewMatcher)).then { view in
                 expectation.fulfill()
             }
-            when(stub.showSplash(on: viewMatcher, completion: anyClosure())).then { (_, completion) in
-                completion()
-            }
-            when(stub.showOnboarding(on: viewMatcher)).then { view in
-                expectation.fulfill()
-            }
         }
 
         // when
@@ -126,7 +83,6 @@ class RootInteractorTests: XCTestCase {
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
         XCTAssertEqual(settings.decentralizedId, Constants.dummyDid)
-        XCTAssertNil(settings.verificationState)
     }
 
     // MARK: Private
@@ -146,8 +102,8 @@ class RootInteractorTests: XCTestCase {
             when(stub).setup().thenDoNothing()
         }
 
-        interactor = RootInteractor(settings: SettingsManager.shared,
-                                    keystore: Keychain(),
+        interactor = RootInteractor(settings: settings,
+                                    keystore: keystore,
                                     securityLayerInteractor: securityLayerInteractor,
                                     networkAvailabilityLayerInteractor: networkAvailabilityLayer)
 

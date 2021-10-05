@@ -36,6 +36,7 @@ extension ProfileInteractor: ProfileInteractorInputProtocol {
         cleanKeystore()
         cleanSettings()
         cleanCoreData()
+        stopServices()
         // TODO: [SN-377] Clean Capital cache
         presenter?.restart()
     }
@@ -45,6 +46,11 @@ private extension ProfileInteractor {
 
     func cleanKeystore() {
         try? keystore.deleteAll()
+    }
+
+    func stopServices() {
+        WebSocketService.shared.throttle()
+        RuntimeRegistryFacade.sharedService.throttle()
     }
 
     func cleanSettings() {

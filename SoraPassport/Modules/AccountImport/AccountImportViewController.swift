@@ -64,7 +64,7 @@ final class AccountImportViewController: UIViewController {
 
         if keyboardHandler == nil {
             setupKeyboardHandler()
-            usernameTextField.textField.becomeFirstResponder()
+            textView.becomeFirstResponder()
         }
 
     }

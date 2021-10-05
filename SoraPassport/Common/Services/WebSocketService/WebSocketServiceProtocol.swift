@@ -10,6 +10,7 @@ protocol WebSocketServiceProtocol: ApplicationServiceProtocol {
     var connection: JSONRPCEngine? { get }
 
     func update(settings: WebSocketServiceSettings)
+    func performPrelaunchSusbscriptions()
 }
 
 struct WebSocketServiceSettings: Equatable {

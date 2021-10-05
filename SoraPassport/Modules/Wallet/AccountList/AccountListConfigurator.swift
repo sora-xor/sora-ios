@@ -26,15 +26,14 @@ final class AccountListConfigurator {
         assetStyleFactory = AssetStyleFactory()
 
         let amountFormatterFactory = AmountFormatterFactory()
-//        let accountCommandFactory = WalletSelectAccountCommandFactory()
 
         viewModelFactory = AccountListViewModelFactory(address: address,
                                                        chain: chain,
                                                        assetCellStyleFactory: assetStyleFactory,
+                                                       assetManager: AssetManager.shared,
                                                        commandDecorator: commandDecorator,
                                                        amountFormatterFactory: amountFormatterFactory/*,
                                                        priceAsset: priceAsset,
-                                                       accountCommandFactory: accountCommandFactory,
                                                        purchaseProvider: purchaseProvider*/)
     }
 
@@ -45,13 +44,13 @@ final class AccountListConfigurator {
 
             try builder
             .with(minimumContentHeight: localHeaderViewModel.itemHeight)
-            .with(minimumVisibleAssets: 3)
+            .with(minimumVisibleAssets: viewModelFactory.visibleAssets)
             .inserting(viewModelFactory: { localHeaderViewModel }, at: 0)
             .with(cellNib: UINib(resource: R.nib.walletAccountHeaderView),
                   for: localHeaderViewModel.cellReuseIdentifier)
             .with(cellNib: UINib(resource: R.nib.assetCollectionViewCell),
                   for: ConfigurableAssetConstants.cellReuseIdentifier)
-            .withActions(cellNib: UINib(resource: R.nib.actionsViewCell))
+            .withActions(cellClass: EmptyUICollectionViewCell.self)
             .with(assetCellStyleFactory: assetStyleFactory)
             .with(listViewModelFactory: viewModelFactory)
         } catch {

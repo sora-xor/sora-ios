@@ -9,19 +9,17 @@ import IrohaCrypto
 import RobinHood
 import BigInt
 
-struct TransferSubscriptionResult {
-    let extrinsic: Extrinsic
-    let encodedExtrinsic: String
-    let call: SoraTransferCall
+struct TransactionSubscriptionResult {
+    let processingResult: ExtrinsicProcessingResult
     let extrinsicHash: Data
     let blockNumber: UInt64
     let txIndex: UInt16
 }
 
 private typealias ResultAndFeeOperationWrapper =
-    CompoundOperationWrapper<(TransferSubscriptionResult, Decimal)>
+    CompoundOperationWrapper<(TransactionSubscriptionResult, Decimal)>
 
-final class TransferSubscription {
+final class TransactionSubscription {
     let engine: JSONRPCEngine
     let address: String
     let chain: Chain
@@ -29,6 +27,7 @@ final class TransferSubscription {
     let addressFactory: SS58AddressFactoryProtocol
     let txStorage: AnyDataProviderRepository<TransactionHistoryItem>
     let contactOperationFactory: WalletContactOperationFactoryProtocol
+    let storageRequestFactory: StorageRequestFactoryProtocol
     let operationManager: OperationManagerProtocol
     let eventCenter: EventCenterProtocol
     let logger: LoggerProtocol
@@ -41,6 +40,7 @@ final class TransferSubscription {
         runtimeService: RuntimeCodingServiceProtocol,
         txStorage: AnyDataProviderRepository<TransactionHistoryItem>,
         contactOperationFactory: WalletContactOperationFactoryProtocol,
+        storageRequestFactory: StorageRequestFactoryProtocol,
         operationManager: OperationManagerProtocol,
         eventCenter: EventCenterProtocol,
         logger: LoggerProtocol
@@ -48,238 +48,206 @@ final class TransferSubscription {
         self.engine = engine
         self.address = address
         self.chain = chain
-        self.addressFactory = addressFactory
         self.runtimeService = runtimeService
         self.contactOperationFactory = contactOperationFactory
+        self.storageRequestFactory = storageRequestFactory
         self.txStorage = txStorage
         self.operationManager = operationManager
         self.eventCenter = eventCenter
         self.logger = logger
+        self.addressFactory = addressFactory
     }
 
     func process(blockHash: Data) {
-        logger.debug("Did start fetching block: \(blockHash.toHex(includePrefix: true))")
+        do {
+            logger.debug("Did start fetching block: \(blockHash.toHex(includePrefix: true))")
 
-        let fetchBlockOperation: JSONRPCOperation<[String], SignedBlock> =
-            JSONRPCOperation(
-                engine: engine,
-                method: RPCMethod.getChainBlock,
-                parameters: [blockHash.toHex(includePrefix: true)]
+            let fetchBlockOperation: JSONRPCOperation<[String], SignedBlock> =
+                JSONRPCOperation(
+                    engine: engine,
+                    method: RPCMethod.getChainBlock,
+                    parameters: [blockHash.toHex(includePrefix: true)]
+                )
+
+            let coderFactoryOperation = runtimeService.fetchCoderFactoryOperation()
+
+            let eventsKey = try StorageKeyFactory().key(from: .events)
+            let eventsWrapper: CompoundOperationWrapper<[StorageResponse<[EventRecord]>]> =
+                storageRequestFactory.queryItems(
+                    engine: engine,
+                    keys: { [eventsKey] },
+                    factory: { try coderFactoryOperation.extractNoCancellableResultData() },
+                    storagePath: .events,
+                    at: blockHash
+                )
+
+            eventsWrapper.allOperations.forEach { $0.addDependency(coderFactoryOperation) }
+
+            let parseOperation = createParseOperation(
+                for: address,
+                dependingOn: fetchBlockOperation,
+                eventsOperation: eventsWrapper.targetOperation,
+                coderOperation: coderFactoryOperation
             )
 
-        let parseWrapper = createParseOperation(dependingOn: fetchBlockOperation)
+            parseOperation.addDependency(fetchBlockOperation)
+            parseOperation.addDependency(eventsWrapper.targetOperation)
 
-        parseWrapper.allOperations.forEach { $0.addDependency(fetchBlockOperation) }
+            let txSaveOperation = createTxSaveOperation(
+                for: address,
+                dependingOn: parseOperation
+            )
 
-        parseWrapper.targetOperation.completionBlock = {
-            do {
-                let results = try parseWrapper.targetOperation
-                    .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+            let contactSaveWrapper = createContactSaveWrapper(
+                dependingOn: parseOperation,
+                contactOperationFactory: contactOperationFactory,
+                chain: chain
+            )
 
-                self.logger.debug("Did start handling: \(results)")
-                self.handle(results: results)
-            } catch {
-                self.logger.error("Did receive transfer subscription error: \(error)")
-            }
-        }
+            txSaveOperation.addDependency(parseOperation)
+            contactSaveWrapper.allOperations.forEach { $0.addDependency(parseOperation) }
 
-        let operations = [fetchBlockOperation] + parseWrapper.allOperations
-
-        operationManager.enqueue(operations: operations, in: .transient)
-    }
-
-    private func handle(results: [TransferSubscriptionResult]) {
-        guard !results.isEmpty else {
-            return
-        }
-
-        let feeWrappers = createFeeWrappersFromResults(results)
-
-        let contactWrappers = createContactSaveForResults(results)
-
-        let contactDependencies = contactWrappers.reduce([]) { result, wrapper in
-            result + wrapper.allOperations
-        }
-
-        let saveOperation = createTxSaveDependingOnFee(wrappers: feeWrappers)
-
-        let txDependencies: [Operation] = feeWrappers.reduce([]) { result, wrapper in
-            result + wrapper.allOperations
-        }
-
-        txDependencies.forEach { saveOperation.addDependency($0) }
-
-        saveOperation.completionBlock = {
-            switch saveOperation.result {
-            case .success:
-                self.logger.debug("Did complete block processing")
-                DispatchQueue.main.async {
-                    self.eventCenter.notify(with: WalletNewTransactionInserted())
+            txSaveOperation.completionBlock = {
+                switch parseOperation.result {
+                case let .success(items):
+                    self.logger.debug("Did complete block processing")
+                    if !items.isEmpty {
+                        DispatchQueue.main.async {
+                            self.eventCenter.notify(with: WalletNewTransactionInserted())
+                        }
+                    }
+                case let .failure(error):
+                    self.logger.error("Did fail block processing: \(error)")
+                case .none:
+                    self.logger.error("Block processing cancelled")
                 }
-            case let .failure(error):
-                self.logger.error("Did fail block processing: \(error)")
-            case .none:
-                self.logger.error("Block processing cancelled")
             }
+
+            let operations: [Operation] = {
+                var array = [Operation]()
+                array.append(contentsOf: eventsWrapper.allOperations)
+                array.append(contentsOf: contactSaveWrapper.allOperations)
+                array.append(fetchBlockOperation)
+                array.append(coderFactoryOperation)
+                array.append(parseOperation)
+                array.append(txSaveOperation)
+                return array
+            }()
+
+            operationManager.enqueue(operations: operations, in: .transient)
+        } catch {
+            logger.error("Block processing failed: \(error)")
         }
-
-        let allOperations = contactDependencies + txDependencies + [saveOperation]
-
-        operationManager.enqueue(operations: allOperations, in: .transient)
     }
 }
 
-extension TransferSubscription {
-    private func createFeeWrappersFromResults(
-        _ results: [TransferSubscriptionResult]
-    ) -> [ResultAndFeeOperationWrapper] {
-        let networkType = SNAddressType(chain: chain)
-
-        return results.map { result in
-            let feeOperation: BaseOperation<RuntimeDispatchInfo> =
-                JSONRPCOperation(
-                    engine: engine,
-                    method: RPCMethod.paymentInfo,
-                    parameters: [result.encodedExtrinsic]
-                )
-
-            let mapOperation: BaseOperation<(TransferSubscriptionResult, Decimal)> = ClosureOperation {
-                do {
-                    let feeString = try feeOperation
-                        .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-                        .fee
-//TODO: asset precision?
-                    let fee = Decimal.fromSubstrateAmount(
-                        BigUInt(feeString) ?? BigUInt(0),
-                        precision: 18
-                    ) ?? .zero
-
-                    self.logger.debug("Did receive fee: \(result.extrinsicHash) \(fee)")
-                    return (result, fee)
-                } catch {
-                    self.logger.warning("Failed to receive fee: \(result.extrinsicHash) \(error)")
-                    return (result, .zero)
-                }
-            }
-
-            mapOperation.addDependency(feeOperation)
-
-            return CompoundOperationWrapper(
-                targetOperation: mapOperation,
-                dependencies: [feeOperation]
-            )
-        }
-    }
-
-    private func createTxSaveDependingOnFee(
-        wrappers: [ResultAndFeeOperationWrapper]
+extension TransactionSubscription {
+    private func createTxSaveOperation(
+        for address: String,
+        dependingOn processingOperaton: BaseOperation<[TransactionSubscriptionResult]>
     ) -> BaseOperation<Void> {
         txStorage.saveOperation({
-            wrappers.compactMap { wrapper in
-                do {
-                    let feeResult = try wrapper.targetOperation
-                        .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-
-                    return TransactionHistoryItem.createFromSubscriptionResult(
-                        feeResult.0,
-                        fee: feeResult.1,
-                        address: self.address,
-                        addressFactory: self.addressFactory
-                    )
-                } catch {
-                    self.logger.error("Failed to save received extrinsic")
-                    return nil
-                }
+            let addressFactory = SS58AddressFactory()
+            return try processingOperaton.extractNoCancellableResultData().compactMap { result in
+                let fee = Decimal.fromSubstrateAmount(
+                    result.processingResult.fee ?? BigUInt(0),
+                    precision: 18
+                ) ?? .zero
+                return TransactionHistoryItem.createFromSubscriptionResult(
+                    result, fee: fee,
+                    address: address,
+                    addressFactory: addressFactory
+                )
             }
         }, { [] })
     }
 
-    private func createContactSaveForResults(
-        _ results: [TransferSubscriptionResult]
-    ) -> [CompoundOperationWrapper<Void>] {
-        do {
-            let networkType = SNAddressType(chain: chain)
-            let accountId = try addressFactory.accountId(
-                fromAddress: address,
-                type: networkType
-            )
-            let contacts: Set<Data> = Set(
-                results.compactMap { result in
-                    guard let signature = result.extrinsic.signature,
-                          let address = signature.address.stringValue,
-                          let origin = try? Data(hexString: address)  else {
-                        return nil
-                    }
+    private func createContactSaveWrapper(
+        dependingOn processingOperaton: BaseOperation<[TransactionSubscriptionResult]>,
+        contactOperationFactory: WalletContactOperationFactoryProtocol,
+        chain: Chain
+    ) -> CompoundOperationWrapper<Void> {
+        let addressFactory = SS58AddressFactory()
+        let networkType = SNAddressType(chain: chain)
+        let extractionOperation = ClosureOperation<Set<Data>> {
+            try processingOperaton.extractNoCancellableResultData()
+                .reduce(into: Set<Data>()) { result, item in
+                    if let peerId = item.processingResult.peerId {
 
-                    if origin != accountId {
-                        return origin
-                    } else {
-                        return try? Data(hexString: result.call.receiver)
+                        let address = try addressFactory.accountId(
+                            fromAddress: peerId,
+                            type: networkType
+                        )
+
+                        result.insert(address)
                     }
                 }
-            )
+        }
 
-            return try contacts.map { accountId in
-                let address = try addressFactory
-                    .address(
-                        fromPublicKey: AccountIdWrapper(rawData: accountId),
-                        type: networkType
-                    )
-
+        let saveOperation = OperationCombiningService<Void>(operationManager: operationManager) {
+            try extractionOperation.extractNoCancellableResultData().map { peerId in
+                let address = try addressFactory.addressFromAccountId(data: peerId, type: networkType)
                 return contactOperationFactory.saveByAddressOperation(address)
             }
-        } catch {
-            return [CompoundOperationWrapper<Void>.createWithError(error)]
+        }.longrunOperation()
+
+        saveOperation.addDependency(extractionOperation)
+
+        let mapOperation = ClosureOperation<Void> {
+            _ = try saveOperation.extractNoCancellableResultData()
+            return
         }
+
+        mapOperation.addDependency(saveOperation)
+
+        let dependencies = [extractionOperation, saveOperation]
+
+        return CompoundOperationWrapper(
+            targetOperation: mapOperation,
+            dependencies: dependencies
+        )
     }
 
     private func createParseOperation(
-        dependingOn fetchOperation: BaseOperation<SignedBlock>
-    ) -> CompoundOperationWrapper<[TransferSubscriptionResult]> {
-        let coderOperation = runtimeService.fetchCoderFactoryOperation()
-
-        let decodingOperation = ClosureOperation<[TransferSubscriptionResult]> {
+        for address: AccountAddress,
+        dependingOn fetchOperation: BaseOperation<SignedBlock>,
+        eventsOperation: BaseOperation<[StorageResponse<[EventRecord]>]>,
+        coderOperation: BaseOperation<RuntimeCoderFactoryProtocol>
+    ) -> BaseOperation<[TransactionSubscriptionResult]> {
+        ClosureOperation<[TransactionSubscriptionResult]> {
             let block = try fetchOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
                 .block
 
-            guard let blockNumberData = BigUInt(hexString: block.header.number, radix: 16) else {
+            let eventRecords = try eventsOperation.extractNoCancellableResultData().first?.value ?? []
+
+            guard let blockNumberData = BigUInt.fromHexString(block.header.number) else {
                 throw BaseOperationError.unexpectedDependentResult
             }
 
-            let blockNumber = UInt32(blockNumberData)
-
             let coderFactory = try coderOperation.extractNoCancellableResultData()
+
+            let accountId = try SS58AddressFactory().accountId(from: address).toHex(includePrefix: true)
+            let extrinsicProcessor = ExtrinsicProcessor(accountId: accountId)
 
             return block.extrinsics.enumerated().compactMap { index, hexExtrinsic in
                 do {
                     let data = try Data(hexString: hexExtrinsic)
                     let extrinsicHash = try data.blake2b32()
 
-                    let decoder = try coderFactory.createDecoder(from: data)
-
-                    let extrinsic: Extrinsic = try decoder.read(of: GenericType.extrinsic.name)
-                    let genericCall = try extrinsic.call.map(to: RuntimeCall<SoraTransferCall>.self)
-                    let callPath = CallCodingPath(
-                        moduleName: genericCall.moduleName,
-                        callName: genericCall.callName
-                    )
-
-                    let isValidTransfer = [
-                        CallCodingPath.transfer,
-                        CallCodingPath.transferKeepAlive
-                    ].contains(callPath)
-
-                    guard isValidTransfer else {
+                    guard let processingResult = extrinsicProcessor.process(
+                        extrinsicIndex: UInt32(index),
+                        extrinsicData: data,
+                        eventRecords: eventRecords,
+                        coderFactory: coderFactory
+                    ) else {
                         return nil
                     }
 
-                    return TransferSubscriptionResult(
-                        extrinsic: extrinsic,
-                        encodedExtrinsic: hexExtrinsic,
-                        call: genericCall.args,
+                    return TransactionSubscriptionResult(
+                        processingResult: processingResult,
                         extrinsicHash: extrinsicHash,
-                        blockNumber: UInt64(blockNumber),
+                        blockNumber: UInt64(blockNumberData),
                         txIndex: UInt16(index)
                     )
                 } catch {
@@ -287,9 +255,5 @@ extension TransferSubscription {
                 }
             }
         }
-
-        decodingOperation.addDependency(coderOperation)
-
-        return CompoundOperationWrapper(targetOperation: decodingOperation, dependencies: [coderOperation])
     }
 }

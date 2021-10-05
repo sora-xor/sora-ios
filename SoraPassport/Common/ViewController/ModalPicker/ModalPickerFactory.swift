@@ -9,6 +9,7 @@ import SoraFoundation
 import IrohaCrypto
 import FearlessUtils
 import CommonWallet
+import SoraKeystore
 
 enum AccountHeaderType {
     case title(_ title: LocalizableResource<String>)
@@ -25,24 +26,34 @@ struct ModalPickerFactory {
             return nil
         }
 
-        let viewController: ModalPickerViewController<IconWithTitleTableViewCell, IconWithTitleViewModel>
+        let viewController: ModalPickerViewController<LoadingIconWithTitleTableViewCell, LoadingIconWithTitleViewModel>
             = ModalPickerViewController(nib: R.nib.modalPickerViewController)
-
+        viewController.navigationItem.largeTitleDisplayMode = .never
         viewController.localizedTitle = LocalizableResource { locale in
             R.string.localizable.commonChooseAsset(preferredLanguages: locale.rLanguages)
         }
         viewController.title =  R.string.localizable.commonChooseAsset(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages)
-        viewController.cellNib = UINib(resource: R.nib.iconWithTitleTableViewCell)
+        viewController.cellNib = UINib(resource: R.nib.loadingIconWithTitleTableViewCell)
         viewController.delegate = delegate
         viewController.modalPresentationStyle = .pageSheet
         viewController.context = context
-
         viewController.selectedIndex = -1
 
         viewController.viewModels = types.map { type in
-            LocalizableResource { locale in
-                IconWithTitleViewModel(icon: type.type.assetIcon,
-                                       title: type.name.value(for: locale))
+            let symbolViewModel: WalletImageViewModelProtocol?
+            var visible = false
+            if  let assetManager = context as? AssetManagerProtocol,
+                let assetInfo = assetManager.assetInfo(for: type.identifier),
+                let iconString = assetInfo.icon {
+                symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+                visible = assetInfo.visible ?? false
+            } else {
+                symbolViewModel = nil
+            }
+            return LocalizableResource { locale in
+                LoadingIconWithTitleViewModel(iconViewModel: symbolViewModel,
+                                              title: type.name.value(for: locale),
+                                              toggle: visible)
             }
         }
 

@@ -14,23 +14,24 @@ struct WalletCommonConfigurator {
     let networkType: SNAddressType
     let account: AccountItem
     let assets: [WalletAsset]
+    let decoratorFactory: WalletCommandDecoratorFactoryProtocol
 
     init(localizationManager: LocalizationManagerProtocol,
          networkType: SNAddressType,
          account: AccountItem,
+         decoratorFactory: WalletCommandDecoratorFactoryProtocol,
          assets: [WalletAsset]) {
         self.localizationManager = localizationManager
         self.networkType = networkType
         self.account = account
         self.assets = assets
+        self.decoratorFactory = decoratorFactory
     }
 
     func configure(builder: CommonWalletBuilderProtocol) {
         let language = WalletLanguage(rawValue: localizationManager.selectedLocalization)
             ?? WalletLanguage.defaultLanguage
-
-        let decoratorFactory = WalletCommandDecoratorFactory(localizationManager: localizationManager, assets: assets, address: account.address)
-
+        
         let qrCoderFactory = WalletQRCoderFactory(networkType: networkType,
                                                   publicKey: account.publicKeyData,
                                                   username: account.username,

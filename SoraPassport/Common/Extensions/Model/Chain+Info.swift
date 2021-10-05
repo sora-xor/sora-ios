@@ -15,7 +15,7 @@ extension Chain {
         case .polkadot:
             return "91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3"
         case .sora:
-            return "fb589ecdc56362972e05d1bf4e74210a17319af53c9e1cc8f62d4e64f5dac6f8" //<- dev || stg -> "addfb88ccb44d6777c5a09c428c438f57367111bd03ce60e5104e9e0c1726850"
+            return "0x7e4e32d0feafd4f9c9414b0be86373f9a1efa904809b683453a9af6856d38ad5" //<- PROD
         }
     }
 
@@ -27,13 +27,13 @@ extension Chain {
         case .polkadot:
             return Decimal(string: "1")!
         case .sora:
-            return Decimal(string: "1")!
+            return Decimal(string: "0")!
         }
     }
 
     func addressType() -> SNAddressType {
         if let external = SettingsManager.shared.externalAddressPrefix {
-            return UInt8(external)
+            return UInt16(external)
         }
         switch self {
         case .sora:
@@ -77,6 +77,10 @@ extension Chain {
         case .sora:
             return nil
         }
+    }
+
+    func preparedWhiteListPath() -> String? {
+        return R.file.whitelistJson.path()
     }
 
     func preparedDefaultTypeDefPath() -> String? {

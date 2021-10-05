@@ -14,13 +14,12 @@ final class RootPresenter {
 extension RootPresenter: RootPresenterProtocol {
     func loadOnLaunch() {
         interactor.setup()
-        wireframe.showSplash(on: view) {
-            self.interactor.decideModuleSynchroniously()
-        }
+        interactor.decideModuleSynchroniously()
     }
 }
 
 extension RootPresenter: RootInteractorOutputProtocol {
+
     func didDecideOnboarding() {
         wireframe.showOnboarding(on: view)
     }

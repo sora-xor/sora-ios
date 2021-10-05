@@ -100,6 +100,7 @@ final class AccountImportPresenter {
         let processedUsername = processor.process(text: username)
 
         let inputHandler = InputHandler(value: processedUsername,
+                                        required: false,
                                         predicate: NSPredicate.notEmpty,
                                         processor: processor)
 

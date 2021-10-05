@@ -20,10 +20,6 @@ final class MainTabBarInteractor {
     private var currentAccount: AccountItem?
     private var currentConnection: ConnectionItem?
 
-    deinit {
-        stopServices()
-    }
-
     init(eventCenter: EventCenterProtocol,
          settings: SettingsManagerProtocol,
          serviceCoordinator: ServiceCoordinatorProtocol,

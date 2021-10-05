@@ -154,16 +154,18 @@ final class  WalletTransferConfigurator {
     var viewModelFactory: WalletTransferViewModelFactory
 
     init(assets: [WalletAsset],
+         assetManager: AssetManagerProtocol,
          amountFormatterFactory: NumberFormatterFactoryProtocol,
          localizationManager: LocalizationManagerProtocol) {
         viewModelFactory = WalletTransferViewModelFactory(assets: assets,
+                                                          assetManager: assetManager,
                                                     amountFormatterFactory: amountFormatterFactory)
         self.localizationManager = localizationManager
     }
 
     func configure(builder: TransferModuleBuilderProtocol) {
         let title: LocalizableResource<String> = LocalizableResource { (locale: Locale) in
-            return R.string.localizable.commonSend()
+            return R.string.localizable.commonSend(preferredLanguages: locale.rLanguages)
         }
 
         let definitionFactory = TransferDefinitionFactory()

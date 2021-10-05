@@ -21,8 +21,9 @@ final class WalletConfirmationConfigurator {
 
     let viewModelFactory: WalletConfirmationViewModelFactory
 
-    init(assets: [WalletAsset], amountFormatterFactory: NumberFormatterFactoryProtocol) {
+    init(assets: [WalletAsset],assetManager: AssetManagerProtocol, amountFormatterFactory: NumberFormatterFactoryProtocol) {
         viewModelFactory = WalletConfirmationViewModelFactory(assets: assets,
+                                                              assetManager: assetManager,
                                                            amountFormatterFactory: amountFormatterFactory)
     }
 

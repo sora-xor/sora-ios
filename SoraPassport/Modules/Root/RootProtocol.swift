@@ -14,7 +14,6 @@ protocol RootWireframeProtocol: class {
     func showOnboarding(on view: UIWindow)
     func showBroken(on view: UIWindow)
     func showPincodeSetup(on view: UIWindow)
-    func showSplash(on view: UIWindow, completion: @escaping () -> Void)
 }
 
 protocol RootInteractorInputProtocol: class {

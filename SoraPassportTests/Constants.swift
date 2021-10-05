@@ -8,7 +8,7 @@ import Foundation
 import IrohaCrypto
 
 final class Constants {
-    static let expectationDuration: TimeInterval = 60.0
+    static let expectationDuration: TimeInterval = 120.0
     static let networkRequestTimeout: TimeInterval = 60.0
     static let dummyNetworkURL: URL = URL(string: "https://localhost:8888")!
     static let dummyPincode = "1234"

@@ -22,14 +22,14 @@ extension WalletNetworkFacade {
             let accountInfoKey = try storageKeyFactory.accountInfoKeyForId(accountId)
 
             let address = try? SS58AddressFactory()
-                .address(fromPublicKey: AccountIdWrapper(rawData: Data(hexString: accountSettings.accountId)),
+                .address(fromAccountId: Data(hexString: accountSettings.accountId),
                          type: SNAddressType(chain: .sora))
 
             let upgradeCheckOperation: CompoundOperationWrapper<Bool?> = CompoundOperationWrapper.createWithResult(true)
             let accountInfoOperation: CompoundOperationWrapper<AccountInfo?> =
                 queryAccountInfoByKey(accountInfoKey, dependingOn: upgradeCheckOperation)
 
-            let dependencies = assets.map({  factory.createBalanceOperation(accountId: address!, assetId: $0.type.chainId) })
+            let dependencies = assets.map({  factory.createBalanceOperation(accountId: address!, assetId: $0.identifier) })
 
             let mappingOperation = ClosureOperation<[BalanceData]?> {
 
@@ -37,11 +37,11 @@ extension WalletNetworkFacade {
 
                 let result = try dependencies.map { operation -> BalanceData in
                     let assetNetworkId = operation.parameters?.last
-                    let asset = assets.first { WalletAssetId(rawValue: $0.identifier)?.chainId == assetNetworkId }
-                    let balance = try operation.extractResultData()
+                    let asset = assets.first { $0.identifier == assetNetworkId }
+                    let balance = try? operation.extractResultData()
 
                     var context: BalanceContext = BalanceContext(context: [:])
-                    let accountData = AccountData(free: balance!.balance)
+                    let accountData = AccountData(free: balance?.balance ?? 0)
                     context = context.byChangingAccountInfo(accountData, precision: asset!.precision)
 
                     let balanceData = BalanceData(identifier: asset!.identifier,
