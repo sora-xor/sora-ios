@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import CommonWallet
@@ -59,7 +54,7 @@ final class AssetManager: AssetManagerProtocol {
     }
 
     func visibleCount() -> UInt {
-        UInt(assets?.filter { WalletAssetId(rawValue: $0.assetId)?.isFeeAsset ?? false ||  $0.visible }.count ?? 0)
+        UInt(assets?.count  ?? 0)
     }
 
     func updateWhitelisted(_ list: [AssetInfo]) {
@@ -87,22 +82,24 @@ final class AssetManager: AssetManagerProtocol {
                     item.visible = false
                 }
                 return item as AssetInfo
-            }.sorted(by: {
-                let defAssetA = WalletAssetId(rawValue: $0.assetId)
-                let defAssetB = WalletAssetId(rawValue: $1.assetId)
-                if let assetA = defAssetA?.defaultSort,
-                   let assetB = defAssetB?.defaultSort {
-                    return assetA < assetB
-                } else if let assetA = defAssetA {
-                    return true
-                } else if let assetB = defAssetB {
-                    return false
-                } else {
-                    return $0.symbol < $1.symbol
-                }
-            })
+            }.sorted(by: defaultSort)
         }
         updateAssetList(updated)
+    }
+
+    func defaultSort(_ a0: AssetInfo, _ a1: AssetInfo) -> Bool {
+        let defAssetA = WalletAssetId(rawValue: a0.assetId)
+        let defAssetB = WalletAssetId(rawValue: a1.assetId)
+        if let assetA = defAssetA?.defaultSort,
+           let assetB = defAssetB?.defaultSort {
+            return assetA < assetB
+        } else if let assetA = defAssetA {
+            return true
+        } else if let assetB = defAssetB {
+            return false
+        } else {
+            return a0.symbol < a1.symbol
+        }
     }
 
     func updateAssetList(_ list: [AssetInfo]) {
@@ -156,7 +153,7 @@ final class AssetManager: AssetManagerProtocol {
                     }
                 }
             } else {
-                self.assets = assets
+                self.assets = assets?.sorted(by: self.defaultSort)
             }
 
         }

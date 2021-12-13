@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import Cuckoo
 @testable import SoraPassport
@@ -104,6 +99,7 @@ class RootInteractorTests: XCTestCase {
 
         interactor = RootInteractor(settings: settings,
                                     keystore: keystore,
+                                    migrators: [],
                                     securityLayerInteractor: securityLayerInteractor,
                                     networkAvailabilityLayerInteractor: networkAvailabilityLayer)
 

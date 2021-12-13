@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 final class MainTabBarViewController: UITabBarController {
@@ -45,6 +40,13 @@ final class MainTabBarViewController: UITabBarController {
             appearance.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttributes
 
             tabBar.standardAppearance = appearance
+
+            // fix transparent background on iOS 15+
+            if #available(iOS 15.0, *) {
+                tabBar.setValue(tabBar.standardAppearance, forKey: "scrollEdgeAppearance")
+                //TODO: change this to more apropriate API
+                //tabBar.scrollEdgeAppearance = tabBar.standardAppearance
+            }
         } else {
             tabBar.backgroundImage = UIImage.background(from: UIColor.tabBarBackground)
             tabBar.shadowImage = UIImage.background(from: UIColor.tabBarShadow)

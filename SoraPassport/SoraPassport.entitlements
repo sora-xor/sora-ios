@@ -6,7 +6,7 @@
 	<string>development</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:ref.sora.org</string>
+		<string>applinks:sora-xor.github.io/sora-join-page/</string>
 	</array>
 </dict>
 </plist>

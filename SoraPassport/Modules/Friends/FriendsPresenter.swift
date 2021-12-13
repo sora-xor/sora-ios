@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
@@ -127,7 +122,7 @@ private extension FriendsPresenter {
             present(
                 message: R.string.localizable.inviteCodeWasntCopied(preferredLanguages: languages),
                 title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
-                closeAction: "Close", from: view
+                closeAction: R.string.localizable.commonClose(preferredLanguages: languages), from: view
             )
             return
         }

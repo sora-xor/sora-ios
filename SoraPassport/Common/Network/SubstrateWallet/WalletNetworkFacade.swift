@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import IrohaCrypto
@@ -11,7 +6,7 @@ import RobinHood
 final class WalletNetworkFacade {
     let accountSettings: WalletAccountSettingsProtocol
     let nodeOperationFactory: WalletNetworkOperationFactoryProtocol
-    let subscanOperationFactory: SubscanOperationFactoryProtocol
+    let coingeckoOperationFactory: CoingeckoOperationFactoryProtocol
     let address: String
     let networkType: SNAddressType
     let totalPriceAssetId: WalletAssetId?
@@ -20,10 +15,11 @@ final class WalletNetworkFacade {
     let txStorage: AnyDataProviderRepository<TransactionHistoryItem>
     let contactsOperationFactory: WalletContactOperationFactoryProtocol
     let accountsRepository: AnyDataProviderRepository<ManagedAccountItem>
+    let assetManager: AssetManagerProtocol
 
     init(accountSettings: WalletAccountSettingsProtocol,
          nodeOperationFactory: WalletNetworkOperationFactoryProtocol,
-         subscanOperationFactory: SubscanOperationFactoryProtocol,
+         coingeckoOperationFactory: CoingeckoOperationFactoryProtocol,
          chainStorage: AnyDataProviderRepository<ChainStorageItem>,
          localStorageIdFactory: ChainStorageIdFactoryProtocol,
          txStorage: AnyDataProviderRepository<TransactionHistoryItem>,
@@ -31,10 +27,11 @@ final class WalletNetworkFacade {
          accountsRepository: AnyDataProviderRepository<ManagedAccountItem>,
          address: String,
          networkType: SNAddressType,
+         assetManager: AssetManagerProtocol,
          totalPriceAssetId: WalletAssetId?) {
         self.accountSettings = accountSettings
         self.nodeOperationFactory = nodeOperationFactory
-        self.subscanOperationFactory = subscanOperationFactory
+        self.coingeckoOperationFactory = coingeckoOperationFactory
         self.address = address
         self.networkType = networkType
         self.totalPriceAssetId = totalPriceAssetId
@@ -43,5 +40,6 @@ final class WalletNetworkFacade {
         self.txStorage = txStorage
         self.contactsOperationFactory = contactsOperationFactory
         self.accountsRepository = accountsRepository
+        self.assetManager = assetManager
     }
 }

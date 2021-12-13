@@ -1,4 +1,0 @@
-"NSCameraUsageDescription" = "تستخدم الكاميرا لالتقاط رمز QR";
-"NSFaceIDUsageDescription" = "يتم استخدام معرف الوجه لتصريح الدخول الى التطبيق";
-"NSPhotoLibraryUsageDescription" = "تحميل الصور من المكتبة";
-"NSPhotoLibraryAddUsageDescription" = "حفظ طلب التحويل كرمز QR";

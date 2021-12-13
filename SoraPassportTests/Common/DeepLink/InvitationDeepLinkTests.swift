@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import SoraKeystore
 @testable import SoraPassport
@@ -10,7 +5,7 @@ import SoraFoundation
 
 class InvitationDeepLinkTests: XCTestCase {
 
-    func testValidJoinUrlHandled() {
+    func StoptestValidJoinUrlHandled() {
         let codes = ["12345678", "asasadas", "asd23vnm", "aSd23vnM", "AsdvnM"]
 
         let invitationFactory = InvitationFactory(host: ApplicationConfig.shared.invitationHostURL)
@@ -22,7 +17,7 @@ class InvitationDeepLinkTests: XCTestCase {
         }
     }
 
-    func testInvalidCodesHandled() {
+    func StoptestInvalidCodesHandled() {
         let codes = ["", "asasadaaasasadaad", "asd23vnm1asd23vnm1", "12привет", "ASпривет", "12-12345"]
 
         let invitationFactory = InvitationFactory(host: ApplicationConfig.shared.invitationHostURL)

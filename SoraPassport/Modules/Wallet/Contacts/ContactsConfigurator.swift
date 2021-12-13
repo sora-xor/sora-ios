@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import IrohaCrypto
 import CommonWallet
@@ -68,7 +63,7 @@ final class ContactsConfigurator {
 
         let searchPlaceholder = LocalizableResource { locale in
             R.string.localizable
-                .selectAccountAddress(preferredLanguages: locale.rLanguages)
+                .selectAccountAddress(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages)
         }
 
         builder

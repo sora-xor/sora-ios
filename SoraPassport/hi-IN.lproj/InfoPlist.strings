@@ -1,4 +1,0 @@
-"NSCameraUsageDescription" = "कैमरा क्यूआर कोड कब्जा करने के लिए प्रयोग किया जाता है";
-"NSFaceIDUsageDescription" = "फेस आईडी का उपयोग आवेदन में अधिकृत करने के लिए किया जाता है";
-"NSPhotoLibraryUsageDescription" = "पुस्तकालय से तस्वीरें लोड करें";
-"NSPhotoLibraryAddUsageDescription" = "क्यूआर कोड के रूप में स्थानांतरण अनुरोध को सहेजें";

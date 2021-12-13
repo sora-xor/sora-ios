@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -98,13 +93,19 @@ extension AccountListViewModelFactory: AccountListViewModelFactoryProtocol {
                               balance: BalanceData,
                               commandFactory: WalletCommandFactoryProtocol,
                               locale: Locale) -> WalletViewModelProtocol? {
-            return createCustomAssetViewModel(for: asset, balanceData: balance, commandFactory: commandFactory, locale: locale)
+        let locale = LocalizationManager.shared.selectedLocale
+        return createCustomAssetViewModel(for: asset, balanceData: balance, commandFactory: commandFactory, locale: locale)
     }
 
     func createActionsViewModel(for assetId: String?,
                                 commandFactory: WalletCommandFactoryProtocol,
                                 locale: Locale) -> WalletViewModelProtocol? {
         return EmptyActionsViewModel()
+    }
+
+    func createShowMoreViewModel(for delegate: ShowMoreViewModelDelegate?,
+                                 locale: Locale) -> WalletViewModelProtocol? {
+        return EmptyShowMoreViewModel(delegate: delegate)
     }
 
     func createAssetIconViewModel(for asset: WalletAsset) -> WalletImageViewModelProtocol? {
@@ -126,4 +127,19 @@ class EmptyActionsViewModel: WalletViewModelProtocol {
     var itemHeight: CGFloat = 0
 
     var command: WalletCommandProtocol?
+}
+
+class EmptyShowMoreViewModel: WalletViewModelProtocol {
+    var cellReuseIdentifier: String = "co.jp.capital.asset.more.cell.identifier"
+
+    var itemHeight: CGFloat = 0
+
+    var command: WalletCommandProtocol?
+
+    weak var delegate: ShowMoreViewModelDelegate?
+    let expanded: Bool = true
+
+    init(delegate: ShowMoreViewModelDelegate?) {
+        self.delegate = delegate
+    }
 }

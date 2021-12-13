@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 import SoraFoundation
@@ -201,7 +196,10 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
     // MARK: Table View Data Source
 
     func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
+        let item = viewModels.remove(at: sourceIndexPath.row)
+        viewModels.insert(item, at: destinationIndexPath.row)
         delegate?.modalPickerDidMoveItem(from: sourceIndexPath.row, to: destinationIndexPath.row)
+        self.tableView.reloadData()
     }
 
     func tableView(_ tableView: UITableView, shouldIndentWhileEditingRowAt indexPath: IndexPath) -> Bool {

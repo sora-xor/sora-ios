@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import IrohaCrypto
@@ -14,70 +9,85 @@ struct TransactionHistoryMergeResult {
 
 enum TransactionHistoryMergeItem {
     case local(item: TransactionHistoryItem)
-    case remote(remote: SubscanHistoryItemData)
+    case remote(remote: WalletRemoteHistoryItemProtocol)
 
     func compareWithItem(_ item: TransactionHistoryMergeItem) -> Bool {
         switch (self, item) {
-        case (.local(let localItem1), .local(let localItem2)):
+        case let (.local(localItem1), .local(localItem2)):
             if localItem1.status == .pending, localItem2.status != .pending {
                 return true
             } else {
-                return compareBlockNumberIfExists(number1: localItem1.blockNumber,
-                                                  number2: localItem2.blockNumber,
-                                                  timestamp1: localItem1.timestamp,
-                                                  timestamp2: localItem2.timestamp)
+                return compareBlockNumberIfExists(
+                    number1: localItem1.blockNumber,
+                    number2: localItem2.blockNumber,
+                    timestamp1: localItem1.timestamp,
+                    timestamp2: localItem2.timestamp
+                )
             }
 
-        case (.local(let localItem), .remote(let remoteItem)):
+        case let (.local(localItem), .remote(remoteItem)):
             if localItem.status == .pending {
                 return true
             } else {
-                return compareBlockNumberIfExists(number1: localItem.blockNumber,
-                                                  number2: remoteItem.blockNumber,
-                                                  timestamp1: localItem.timestamp,
-                                                  timestamp2: remoteItem.timestamp)
+                return compareBlockNumberIfExists(
+                    number1: localItem.blockNumber,
+                    number2: remoteItem.itemBlockNumber,
+                    timestamp1: localItem.timestamp,
+                    timestamp2: remoteItem.itemTimestamp
+                )
             }
-        case (.remote(let remoteItem), .local(let localItem)):
+        case let (.remote(remoteItem), .local(localItem)):
             if localItem.status == .pending {
                 return false
             } else {
-                return compareBlockNumberIfExists(number1: remoteItem.blockNumber,
-                                                  number2: localItem.blockNumber,
-                                                  timestamp1: remoteItem.timestamp,
-                                                  timestamp2: localItem.timestamp)
+                return compareBlockNumberIfExists(
+                    number1: remoteItem.itemBlockNumber,
+                    number2: localItem.blockNumber,
+                    timestamp1: remoteItem.itemTimestamp,
+                    timestamp2: localItem.timestamp
+                )
             }
-        case (.remote(let remoteItem1), .remote(let remoteItem2)):
-            return compareBlockNumberIfExists(number1: remoteItem1.blockNumber,
-                                              number2: remoteItem2.blockNumber,
-                                              timestamp1: remoteItem1.timestamp,
-                                              timestamp2: remoteItem2.timestamp)
+        case let (.remote(remoteItem1), .remote(remoteItem2)):
+            return compareBlockNumberIfExists(
+                number1: remoteItem1.itemBlockNumber,
+                number2: remoteItem2.itemBlockNumber,
+                timestamp1: remoteItem1.itemTimestamp,
+                timestamp2: remoteItem2.itemTimestamp
+            )
         }
     }
 
-    func buildTransactionData(address: String,
-                              networkType: SNAddressType,
-                              asset: WalletAsset,
-                              addressFactory: SS58AddressFactoryProtocol) -> AssetTransactionData {
+    func buildTransactionData(
+        address: String,
+        networkType: SNAddressType,
+        asset: WalletAsset,
+        addressFactory: SS58AddressFactoryProtocol
+    ) -> AssetTransactionData? {
         switch self {
-        case .local(let item):
-            return AssetTransactionData.createTransaction(from: item,
-                                                          address: address,
-                                                          networkType: networkType,
-                                                          asset: asset,
-                                                          addressFactory: addressFactory)
-        case .remote(let item):
-            return AssetTransactionData.createTransaction(from: item,
-                                                          address: address,
-                                                          networkType: networkType,
-                                                          asset: asset,
-                                                          addressFactory: addressFactory)
+        case let .local(item):
+            return AssetTransactionData.createTransaction(
+                from: item,
+                address: address,
+                networkType: networkType,
+                asset: asset,
+                addressFactory: addressFactory
+            )
+        case let .remote(item):
+            return item.createTransactionForAddress(
+                address,
+                networkType: networkType,
+                asset: asset,
+                addressFactory: addressFactory
+            )
         }
     }
 
-    private func compareBlockNumberIfExists(number1: UInt64?,
-                                            number2: UInt64?,
-                                            timestamp1: Int64,
-                                            timestamp2: Int64) -> Bool {
+    private func compareBlockNumberIfExists(
+        number1: UInt64?,
+        number2: UInt64?,
+        timestamp1: Int64,
+        timestamp2: Int64
+    ) -> Bool {
         if let number1 = number1, let number2 = number2 {
             return number1 != number2 ? number1 > number2 : timestamp1 > timestamp2
         }
@@ -87,37 +97,48 @@ enum TransactionHistoryMergeItem {
 }
 
 final class TransactionHistoryMergeManager {
-
     let address: String
     let networkType: SNAddressType
-    let assets: [WalletAsset]
+    let asset: WalletAsset
     let addressFactory: SS58AddressFactoryProtocol
 
-    init(address: String,
-         networkType: SNAddressType,
-         assets: [WalletAsset],
-         addressFactory: SS58AddressFactoryProtocol) {
+    init(
+        address: String,
+        networkType: SNAddressType,
+        asset: WalletAsset,
+        addressFactory: SS58AddressFactoryProtocol
+    ) {
         self.address = address
         self.networkType = networkType
-        self.assets = assets
+        self.asset = asset
         self.addressFactory = addressFactory
     }
 
-    func merge(subscanItems: [SubscanHistoryItemData],
-               localItems: [TransactionHistoryItem]) -> TransactionHistoryMergeResult {
-        let existingHashes = Set(subscanItems.map { $0.hash })
-        let minSubscanItem = subscanItems.last
-
-        let hashesToRemove: [String] = localItems.compactMap { item in
-            if existingHashes.contains(item.txHash) {
-                return item.txHash
-            }
-
-            guard let subscanItem = minSubscanItem else {
+    func merge(
+        remoteItems: [WalletRemoteHistoryItemProtocol],
+        localItems: [TransactionHistoryItem]
+    ) -> TransactionHistoryMergeResult {
+        let remoteHashes: [Data] = remoteItems.compactMap { remoteItem in
+            guard let extrinsicHash = remoteItem.extrinsicHash else {
                 return nil
             }
 
-            if item.timestamp < subscanItem.timestamp {
+            return try? Data(hexString: extrinsicHash)
+        }
+
+        let existingHashes = Set(remoteHashes)
+        let minRemoteItem = remoteItems.last
+
+        let hashesToRemove: [String] = localItems.compactMap { item in
+            if let localHash = try? Data(hexString: item.txHash), existingHashes.contains(localHash) {
+                return item.txHash
+            }
+
+            guard let remoteItem = minRemoteItem else {
+                return nil
+            }
+
+            if item.timestamp < remoteItem.itemTimestamp {
                 return item.txHash
             }
 
@@ -129,36 +150,29 @@ final class TransactionHistoryMergeManager {
             guard !filterSet.contains(item.txHash) else {
                 return nil
             }
+
             return TransactionHistoryMergeItem.local(item: item)
         }
 
-        let remoteMergeItems: [TransactionHistoryMergeItem] = subscanItems.map {
+        let remoteMergeItems: [TransactionHistoryMergeItem] = remoteItems.map {
             TransactionHistoryMergeItem.remote(remote: $0)
         }
 
         let transactionsItems = (localMergeItems + remoteMergeItems)
             .sorted { $0.compareWithItem($1) }
-            .compactMap{ item -> AssetTransactionData? in
-                let asset: WalletAsset?
-                switch item {
-                case .local(let local):
-                    asset = assets.first(where: {$0.identifier == local.assetId})
-                case .remote(let remote):
-                    //TODO fix for remote, hardcode now
-                    asset = assets.first
-                }
-                guard let resultAsset = asset else {
-                    return nil
-                }
-                return item.buildTransactionData(address: address,
-                                          networkType: networkType,
-                                          asset: resultAsset,
-                                          addressFactory: addressFactory)
+            .compactMap { item in
+                item.buildTransactionData(
+                    address: address,
+                    networkType: networkType,
+                    asset: asset,
+                    addressFactory: addressFactory
+                )
             }
 
-
-        let results = TransactionHistoryMergeResult(historyItems: transactionsItems,
-                                                    identifiersToRemove: hashesToRemove)
+        let results = TransactionHistoryMergeResult(
+            historyItems: transactionsItems,
+            identifiersToRemove: hashesToRemove
+        )
 
         return results
     }

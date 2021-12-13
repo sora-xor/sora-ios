@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 protocol InvitationFactoryProtocol {
@@ -34,7 +29,7 @@ struct InvitationFactory: InvitationFactoryProtocol {
             url = url.appendingPathComponent(enviroment.rawValue)
         }
 
-        return url.appendingPathComponent("/join/\(code)")
+        return url//.appendingPathComponent("/join/\(code)")
     }
 
     func createInvitation(for code: String, enviroment: RemoteEnviroment, locale: Locale?) -> String {

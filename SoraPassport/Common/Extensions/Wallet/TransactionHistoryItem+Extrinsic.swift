@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import IrohaCrypto
 import FearlessUtils
@@ -47,19 +42,20 @@ extension TransactionHistoryItem {
 
             let status: Status = result.processingResult.isSuccess ? .success : .failed
 
+            let encodedCall = try JSONEncoder.scaleCompatible().encode(extrinsic.call)
+
             return TransactionHistoryItem(
                 sender: sender,
                 receiver: receiver,
-                status: status,
+                status: result.processingResult.isSuccess ? .success : .failed,
                 txHash: result.extrinsicHash.toHex(includePrefix: true),
                 timestamp: timestamp,
-                amount: amount.stringWithPointSeparator,
-                assetId: call.args.assetId,
-                fee: fee.stringWithPointSeparator,
+                fee: String(result.processingResult.fee ?? 0),
                 blockNumber: result.blockNumber,
-                txIndex: result.txIndex
+                txIndex: result.txIndex,
+                callPath: result.processingResult.callPath,
+                call: encodedCall
             )
-
         } catch {
             return nil
         }

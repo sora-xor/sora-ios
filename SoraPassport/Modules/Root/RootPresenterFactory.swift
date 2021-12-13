@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraKeystore
 import SoraFoundation
@@ -14,14 +9,20 @@ final class RootPresenterFactory: RootPresenterFactoryProtocol {
 
         let presenter = RootPresenter()
         let wireframe = RootWireframe()
+        let keychain = Keychain()
+        let settings = SettingsManager.shared
 
         NetworkAvailabilityLayerService.shared.setup(with: view,
                                                      localizationManager: LocalizationManager.shared,
                                                      logger: Logger.shared)
         let networkAvailabilityInteractor = NetworkAvailabilityLayerService.shared.interactor
-
-        let interactor = RootInteractor(settings: SettingsManager.shared,
-                                        keystore: Keychain(),
+        let inconsistentStateMigrator = InconsistentStateMigrator(
+            settings: settings,
+            keychain: keychain
+        )
+        let interactor = RootInteractor(settings: settings,
+                                        keystore: keychain,
+                                        migrators: [inconsistentStateMigrator],
                                         securityLayerInteractor: SecurityLayerService.sharedInteractor,
                                         networkAvailabilityLayerInteractor: networkAvailabilityInteractor)
 

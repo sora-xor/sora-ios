@@ -1,11 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
-struct CallCodingPath: Equatable {
+struct CallCodingPath: Equatable, Codable {
     let moduleName: String
     let callName: String
 }

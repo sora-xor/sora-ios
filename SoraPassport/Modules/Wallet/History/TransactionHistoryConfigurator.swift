@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -47,7 +42,7 @@ final class TransactionHistoryConfigurator {
     func configure(builder: HistoryModuleBuilderProtocol) {
         let title = LocalizableResource { locale in
             return R.string.localizable
-                .historyTitle(preferredLanguages: locale.rLanguages)
+                .historyTitle(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages)
         }
 
         builder

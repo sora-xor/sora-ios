@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 protocol AccountConfirmViewProtocol: ControllerBackedProtocol {
     func didReceive(words: [String], afterConfirmationFail: Bool)
 }

@@ -1,4 +1,0 @@
-"NSCameraUsageDescription" = "카메라는 QR 코드를 캡처하는 데 사용됩니다.";
-"NSFaceIDUsageDescription" = "얼굴 ID 는 응용 프로그램에서 권한을 부여하는 데 사용됩니다.";
-"NSPhotoLibraryUsageDescription" = "라이브러리에서 사진 로드";
-"NSPhotoLibraryAddUsageDescription" = "전송 요청을 QR 코드로 저장";

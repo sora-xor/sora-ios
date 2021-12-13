@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Then
 import Anchorage
@@ -86,6 +81,10 @@ final class ProfileTableViewCell: UITableViewCell, Reusable {
             switchButton.isHidden = false
             switchButton.isOn = switchContent.isOn
             contentView.isUserInteractionEnabled = false
+        } else {
+            arrowImageView.isHidden = false
+            switchButton.isHidden = true
+            contentView.isUserInteractionEnabled = true
         }
     }
 }

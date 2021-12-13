@@ -1,4 +1,0 @@
-"NSCameraUsageDescription" = "Kamera wird verwenden, um den QR-Code zu scannen";
-"NSFaceIDUsageDescription" = "Face-ID wird zur Autorisierung in der Anwendung verwendet";
-"NSPhotoLibraryUsageDescription" = "Fotos aus der Bibliothek laden";
-"NSPhotoLibraryAddUsageDescription" = "Übertragungsaufforderung als QR-Code speichern";

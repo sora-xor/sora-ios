@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import BigInt
@@ -39,7 +34,7 @@ final class ExtrinsicProcessor {
         eventRecords.filter { record in
             guard record.extrinsicIndex == index,
                   let eventPath = metadata.createEventCodingPath(from: record.event) else {
-                return false
+                       return false
             }
 
             return [.extrinsicSuccess, .extrinsicFailed].contains(eventPath)

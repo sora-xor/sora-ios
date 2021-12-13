@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -165,6 +160,7 @@ final class  WalletTransferConfigurator {
 
     func configure(builder: TransferModuleBuilderProtocol) {
         let title: LocalizableResource<String> = LocalizableResource { (locale: Locale) in
+            let locale = LocalizationManager.shared.selectedLocale
             return R.string.localizable.commonSend(preferredLanguages: locale.rLanguages)
         }
 

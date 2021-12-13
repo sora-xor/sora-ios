@@ -1,521 +1,0 @@
-"common.use" = "استخدام";
-"common.close" = "اغلاق";
-"try.another" = "محاولة اخرى";
-"common.skip" = "تخطي";
-"go.settings" = "فتح الإعدادات";
-"search" = "البحث";
-"not.now" = "ليس الآن";
-"this.year.format" = "dd MMMM";
-"any.year.format" = "dd MMMM yyyy";
-"finished.project.year.format" = "MMM dd, yyyy";
-"network.available" = "اتصال الشبكة متاح";
-"common.error.general.title" = "خطأ";
-"common.error.unauthorized.body" = "الرجاء التحقق من اتصال الإنترنت وإعادة المحاولة لاحقًا";
-"common.error.not.found.title" = "المصدر غير متوفر";
-"common.error.internal.error.title" = "خطأ داخلي";
-"common.error.internal.error.body" = "نعمل بجد لإصلاح المشكلة. من فضلك، حاول مرة أخرى لاحقاً.";
-"common.error.unexpected.status.title" = "حالة استجابة غير متوقعة";
-"operation.error.title" = "فشلت العملية";
-"operation.error.message" = "من فضلك، حاول مرة أخرى لاحقاً";
-"connection.error.title" = "فشل الاتصال";
-"did.resolver.id.too.long.error.title" = "اسم المعرف طويل جدًا";
-"did.resolver.id.duplicated.error.title" = "تم تكرار اسم المعرف";
-"did.resolver.invalid.proof.format.error.title" = "تنسيق دليل الإثبات غير صحيح";
-"did.resolver.proof.verification.error.title" = "فشل التأكد من صحة التحقق";
-"did.resolver.public.key.not.found.error.title" = "الرقم التعريفي العام غير موجود";
-"did.resolver.error.message" = "وقع خلل بشكل غير متوقع في النظام اللامركزي .  نعمل بجد لإصلاح المشكل.";
-"user.create.phone.verified.error.message" = "تم التحقق من رقم الهاتف بالفعل.";
-"user.create.phone.invalid.message" = "رقم الهاتف غير صالح. الرجاء ادخال رقم اخر.";
-"user.create.unexpected.message" = "الرجاء الاتصال بفريق الدعم للخطوات القادمة.";
-"url.no.app.error.message" = "لا يمكن فتح الرابط الخارجي. الرجاء التأكد من وجود أي تطبيق يدعم فتح  روابط الويبسايت.";
-"no.email.bound.error.message" = "الرجاء التأكد من تثبيت تطبيق البريد على الجهاز.";
-"access.backup.load.error.title" = "فشل تحميل بيانات الاعتماد";
-"access.backup.error.message" = "من فضلك، حاول تكرار التسجيل من البداية.";
-"project.title" = "مشاريع Sora";
-"project.founded.template" = "%@ %%من الاصوات%@";
-"project.votes.template" = "%@ الأصوات";
-"project.ended.template" = "تم الانتهاء %@";
-"project.not.voted.title" = "التصويت";
-"project.spent.format" = "لقد أنفقت %@ الأصوات";
-"project.all.small" = "الجميع";
-"project.voted.small" = "تم التصويت";
-"project.favourites.small" = "المفضلة";
-"project.completed.small" = "تم انجازها";
-"empty.voted.project.description" = "قم بالتصويت للمشاريع \n و التي سوف تظهر هنا";
-"empty.completed.project.description" = "عند اكتمال التصويت،\nستجد المشاريع هنا";
-"project.contacts" = "جهات الاتصال والمعلومات";
-"project.details.favorite.voted.count" = "%@ %@";
-"project.remove.from.favourite" = "المفضلة";
-"project.details.email.subject" = "تفاصيل حول مشروع Sora";
-"project.discussion.template" = "مناقشة %@";
-"project.requires.votes.format" = "يتطلب المشروع فقط %@ الأصوات 🚀";
-"personal.info.first.name" = "الاسم الشخصي";
-"personal.info.last.name" = "الاسم العائلي";
-"personal.info.phone" = "الهاتف المحمول";
-"registration.wrong.status.message" = "لم يتم التحقق من رقم هاتفك بعد. الرجاء معاودة المحاولة في وقت لاحق.";
-"registration.user.not.found.message" = "عليك التحقق من رقم هاتفك أولاً";
-"pincode.confirm.your.pin.code" = "تأكيد رمز الواجهة";
-"pincode.set.your.pin.code" = "كود دبوس الإعداد";
-"ask.touchid.title" = "معرف اللمس";
-"ask.touchid.message" = "هل ترغب في استخدام معرف اللمس للمصادقة؟";
-"ask.faceid.title" = "معرف الوجه";
-"ask.faceid.message" = "هل تريد استخدام معرف الوجه للمصادقة؟";
-"ask.biometry.reason" = "المصادقة للوصول إلى الحساب";
-"invite.title" = "قم بدعوة الأصدقاء للحصول على المزيد من الأصوات يوميًا!";
-"invite.parent.invitation.template" = "تمت دعوتك من طرف %@";
-"invite.enter.code.description" = "هل تلقيت دعوتك إلى Sora؟ اضغط على الزر أعلاه وأدخل الرمز.";
-"invite.votes.left.template" = "اليسار%@";
-"invite.enter.invitation.code.compact" = "ادخل الرمز";
-"invite.enter.dialog.hint.template" = "يحتوي الرمز على أحرف أبجدية رقمية";
-"invite.code.applied.title" = "تهانينا!";
-"invite.code.applied.body" = "تم تفعيل الرمز بنجاح";
-"invite.enter.confirmation.body.mask" = "هل تريد تفعيل رمز الدعوة %@؟";
-"invite.enter.error.time.is.up" = "انتهى الوقت لتفعيل رمز الدعوة";
-"invite.enter.error.already.applied" = "لقد قمت بالفعل بتفعيل رمز دعوة آخر";
-"invite.code.parent.young.message" = "لا يمكن تفعيل رمز الدعوة المقدم لأنه من طرف المستخدم الذي قام بالتسجيل بعدك";
-"invite.code.self.message" = "لا يمكنك استخدام رمز الدعوة الخاص بك لنفسك";
-"invitations.values.not.found.error.message" = "لا يمكن تحديد الدعوات المتوفرة. الرجاء منك المحاولة مرة أخرى لاحقاً.";
-"invitations.not.enough.error.message" = "آسف، لكن ليس لديك أي دعوات للمشاركة";
-"invite.empty.friends.description" = "حالة دعواتك \n سيتم عرضها هنا";
-"invitations.sharing.subject" = "دعوة الى Sora";
-"common.passphrase.sharing.subject" = "النسخ الاحتياطي للدخول إلى Sora";
-"recovery.title" = "استعادة الدخول";
-"recovery.body.title" = "ادخل جملة الاستذكار";
-"recovery.passphrase" = "جملة الاستذكار";
-"votes.not.enough.error.message" = "عذرًا ، ولكن ليس لديك نقاط كافية للتصويت.";
-"votes.project.not.found.error.message" = "عذراً، ولكن لم يتم العثور على المشروع.";
-"votes.not.allowed.error.message" = "عذرًا ،  لكن المشروع لا يمكنه قبول الأصوات بعد الآن.";
-"votes.invalid.format.error.message" = "عذرًا ،  لكن عدد أصواتك لا يمكن تفسيرها. أرجوكِ، حاول التصويت مرة أخرى";
-"votes.zero.error.message" = "عذرًا ، يجب أن يكون لديك نقطة واحدة على الأقل للتصويت";
-"votes.project.parameters.error.message" = "عذرًا ، لم يتم مراعاة بعض اسس المشروع بشكل صحيح. يرجى تجربة مشروع آخر.";
-"favorite.project.not.found.error.message" = "عذراً، ولكن لم يتم العثور على المشروع.";
-"favorite.user.not.found.error.message" = "عذرًا ، ولكنك غير مخول لجعل المشروع مفضلًا";
-"startup.verification.title" = "جارٍ التحقق من امكانية الدخول ...";
-"startup.verification.subtitle" = "الرجاء الانتظار";
-"startup.waiting.network.title" = "انتظار الاتصال بالشبكة";
-"startup.waiting.network.subtitle" = "يرجى التحقق من الاتصال";
-"reputation.total.rank.template" = "%@ من %@";
-"reputation.last.votes.template" = "%@ الاصوات التي تم تلقيها اخر مرة";
-"reputation.timer.format" = "سيتم تحديث سمعتك في %@";
-"reputation.soon" = "سيتم تحديث سمعتك قريبا";
-"user.not.found.message" = "تعذر متابعة العملية بسبب عدم العثور على المستخدم";
-"user.status.invalid.message" = "تعذر متابعة العملية لأن حالة المستخدم غير صالحة";
-"user.values.not.found.message" = "تعذر متابعة العملية بسبب عدم العثور على بيانات قيم المستخدم";
-"activity.user.registered.description" = "تهانينا! ستتم ترقية سمعتك!";
-"activity.event.xor.transfered.type" = "تم استلام XOR";
-"activity.user.rank.changed.title.template" = "رتبتك الآن %@ من أصل %@";
-"activity.project.closed.type.template" = "تم الوصول إلى الموعد النهائي للمشروع!";
-"activity.voted.friend.added.type.template" = "صوت صديق لصالح المشروع!";
-"activity.voted.friend.added.description.template" = "%@ أنفق %@ التصويت  %@للمشروع";
-"activity.empty.description" = "ستظهر هنا التحديثات والإشعارات عند \n تلقي المكافأة والدعوات المقبولة";
-"phone.number.sms.code.will.be.sent" = "سيتم ارسال الرمز الى هاتفك عبر رسالة قصيرة";
-"verification.request.new.code.time" = "طلب رمز جديد في %@";
-"phone.verification.user.not.found.message" = "عذرا ، ولكن لم يتم العثور على معلوماتك الشخصية. من فضلك ، حاول التسجيل لاحقًا.";
-"phone.verification.too.frequent.message" = "طلبات متكررة جداً لرمز التحقق . من فضلك، حاول مرة أخرى لاحقاً.";
-"phone.verification.code.expired.message" = "انتهت صلاحية رمز التحقق. من فضلك حاول ادخال واحد آخر.";
-"phone.verification.code.incorrect.message" = "رمز التحقق غير صحيح";
-"phone.verification.code.not.found.message" = "لم يتم العثور على رمز التحقق. يرجى اطلب واحد أخر";
-"wallet.empty.description" = "ستظهر المعاملات الواردة والصادرة هنا \n";
-"wallet.transfer.description.hint" = "الحد الأقصى للرموز %@";
-"wallet.account.share.asset.amount.message" = "عنوان محفظتي على منصة  %@  %@%@:";
-"wallet.account.share.asset.or.amount.message" = "عنوان محفظتي الخاص بمنصة  %@  %@:";
-"wallet.account.share.message" = "عنوان محفظتي الخاص بمنصة Sora:";
-"help.support.title" = "فريق الدعم SORA";
-"tutorial.sign.up" = "التسجيل";
-"tutorial.terms.and.conditions.1" = "بالتسجيل أنت توافق مع\n الشروط والأحكام وسياسة الخصوصية";
-"common.unsupported.version.body" = "تطبيق Sora المحدث متاح في Google Play. يتوفر على التحسينات و تم فيه إصلاح الثغرات.";
-"common.unsupported.version.action" = "افتح متجر التطبيقات";
-"about.terms" = "البنود و الظروف";
-"invite.link.format" = "انضم إلى Sora باستخدام الرابط في الاسفل: \n %@";
-"language.title" = "اختيار اللغة";
-"personal.update.title" = "المعلومات الشخصية";
-"common.passphrase.title" = "جملة الاستذكار";
-"common.passphrase.save.or.send" = "حفظ أو إرسال";
-"common.passphrase.header" = "جملة الإستذكار هي عبارة عن كلمة السر.";
-"common.passphrase.body" = "يتم استخدامها لاستعادة الدخول إلى الحساب. لذا المرجو حفظها ، لاننا نتمكن من استعادة حسابك بدونها!";
-"common.passphrase.your.passphrase" = "جملة الاستذكار";
-"common.unsupported.version.title" = "قم بتحديث تطبيق Sora الخاص بك";
-"network.unavailable" = "شبكة الاتصال غير متوفرة";
-"common.save" = "حفظ";
-"common.cancel" = "إلغاء";
-"common.apply" = "تفعيل";
-"common.ok" = "موافق";
-"common.next" = "التالي";
-"common.vote" = "التصويت";
-"common.today" = "اليوم";
-"common.yesterday" = "أمس";
-"connection.error.message" = "الرجاء التحقق من اتصال الإنترنت وإعادة المحاولة لاحقًا.";
-"common.error.general.message" = "نعمل بجد لإصلاح المشكلة. من فضلك، حاول مرة أخرى لاحقاً.";
-"result.ambiguous.error.title" = "نتيجة مبهمة";
-"access.restore.words.error.message" = "يجب أن تحتوي جملة الإستذكار على 15 كلمة";
-"access.restore.phrase.error.message" = "جملة الإستذكار غير صحيحة. الرجاء ادخال واحدة أخرى";
-"wallet.search.query.error.message" = "يجب أن يكون حجم البحث بين 3 و 64 حرفًا";
-"user.create.phone.registered.error.message" = "رقم الهاتف هذا قيد الاستخدام بالفعل اثناء التسجيل سواء مع هذا المستخدم او مستخدم اخر.";
-"common.error.invalid.parameters" = "معلمات غير صالحة";
-"common.error.invalid.parameters.body" = "الرجاء التحقق من اتصال الإنترنت وإعادة المحاولة لاحقًا.";
-"common.error.unauthorized.title" = "محاولة فاشلة للولوج";
-"activity.user.registered.type" = "تم تسجيل صديق";
-"activity.voting.rights.credited.type.template" = "توزيع الأصوات";
-"activity.voting.rights.title.template" = "الأصوات اليومية";
-"activity.invitation.credited.type.template" = "توزيع الدعوات";
-"activity.project.funded.type.template" = "تم الانتهاء من المشروع!";
-"activity.project.funded.description.template" = "ستتلقى معلومات حول مكافأة XOR قريبًا";
-"activity.project.created.type.template" = "مشروع جديد!";
-"activity.xor.reward.credited.from.project.type.template" = "مكافأة XOR للتصويت";
-"activity.user.rank.changed.type.template" = "تم تغيير الرتبة";
-"activity.project" = "المشروع";
-"activity.user" = "المستخدم";
-"pincode.enter.pin.code" = "أدخل الرمز السري";
-"invite.fragment.title" = "اصدقاء";
-"invite.accepted.invitations.title" = "الدعوات المقبولة";
-"invite.code.sharing.title" = "مشاركة رمز الدعوة";
-"invite.send.invite" = "إرسال دعوة";
-"invite.enter.dialog.title.hint" = "8 أحرف أبجدية رقمية";
-"invite.enter.invitation.code" = "أدخل رمز الدعوة";
-"project.vote.dialog.title" = "كم عدد الاصوات";
-"empty.all.project.description" = "نحن في انتظار ظهور مشاريع جديدة";
-"empty.favorite.project.description" = "قم بإضافة المشاريع إلى المفضلة و\n وسوف تظهر هنا";
-"project.successful.voting" = "تصويت  موفق";
-"project.unsuccessful.voting" = "تصويت غير موفق";
-"project.user.have.not.enough.votes.message" = "ليس لديك ما يكفي من الأصوات 😔";
-"project.you.can.vote.at.least.1.point" = "يمكنك التصويت بنقطة واحدة على الأقل 😜";
-"project.add.to.favourite" = "المفضلة";
-"project.mark.new" = "جديد";
-"project.completed" = "منجز";
-"project.all" = "جميع";
-"project.voted" = "تم التصويت";
-"project.favourites" = "المفضلة";
-"project.email" = "البريد الإلكتروني";
-"project.website" = "الموقع الإلكتروني";
-"project.gallery" = "معرض الصور";
-"activity" = "النشاط";
-"activity.sora.announcement" = "إعلان SORA";
-"votes.history.title" = "تاريخ التصويت";
-"votes.empty.history.description" = "كلما تغيرت تصويتاتك ، \n سترى تاريخ ذلك هنا";
-"reputation.title" = "السمعة";
-"reputation.screen.your.current.reputation" = "رتبة سمعتك";
-"profile.change.personal.details" = "تغيير المعلومات الشخصية";
-"profile.votes.title" = "التصويت";
-"profile.my.reputation.title" = "سمعتي";
-"profile.passphrase.title" = "عرض جملة الاستذكار";
-"profile.title" = "الملف الشخصي";
-"profile.about.title" = "حول";
-"profile.language.title" = "اللغة";
-"wallet.title" = "المحفظة";
-"wallet.withdraw" = "السحب";
-"wallet.receive.xor" = "استلام XOR";
-"contacts.search.hint" = "رقم الهاتف أو معرف الحساب";
-"contacts.search.empty.state.title" = "لا توجد نتائج بحث";
-"contacts.empty.state.title" = "هنا ستظهر أهم جهات الاتصال";
-"about.software" = "البرمجيات";
-"about.version" = "الإصدار";
-"about.source.code" = "مصدر الرمز";
-"about.contact.us" = "اتصل بنا";
-"about.legal" = "الشؤون القانونية";
-"about.title" = "حول";
-"about.privacy" = "سياسة الخصوصية";
-"profile.faq.title" = "الأسئلة المتداولة";
-"tabbar.activity.title" = "النشاط";
-"tabbar.projects.title" = "التصويت";
-"tabbar.wallet.title" = "المحفظة";
-"tabbar.profile.title" = "الملف الشخصي";
-"tabbar.friends.title" = "اصدقاء";
-"tutorial.restore.account" = "استعادة الوصول إلى الحساب";
-"tutorial.terms.and.conditions.2" = "الأحكام والشروط";
-"tutorial.privacy.policy" = "سياسة الخصوصية";
-"tutorial.project.success.desc" = "إذا نجح المشروع في التصويت ، فسيحصل الجميع على حصتهم";
-"tutorial.votes.desc" = "يصوت المستخدمون لصالح المشاريع ويحددون المشروع الذي ينبغي تمويله";
-"tutorial.projects.desc" = "المشاريع التي أضافها المنتجون إلى Sora وأضيفت إلى التصويت بعد عملية الاختيار";
-"recovery.body.subtitle" = "للأسف لا توجد طريقة للوصول إلى حسابك إذا نسيت كلمات الاستذكار";
-"personal.info.title" = "التسجيل";
-"personal.info.invitation.is.invalid" = "رمز الدعوة غير صحيح";
-"personal.info.invitation.description" = "هل حصلت على رابط دعوة؟ ما عليك سوى النقر عليه لتفعيل الرمز ، أو إدخال الرمز يدويًا.";
-"personal.info.inv.code.hint" = "رمز الدعوة (اختياري)";
-"verification.resend.code" = "أعد إرسال الرمز";
-"verification.title" = "التحقق من الهاتف";
-"verification.enter.code.from.sms" = "أدخل الرمز الذي سيصلك عبر رسالة قصيرة";
-"countries.title" = "اختر بلدك";
-"countries.country.not.found" = "لا توجد دول تطابق الطلب الخاص بك";
-"phone.number.title" = "التسجيل";
-"phone.number.mobile" = "رقم الهاتف المحمول";
-"asset.details" = "XOR";
-"common.error.not.found.body" = "نعمل بجد لإصلاح المشكلة. من فضلك، حاول مرة أخرى لاحقاً.";
-"common.open.explorer" = "عرض في مستكشف البلوكشين";
-"contacts.search.hint.v1" = "تعريف الحساب، رقم الهاتف، العنوان";
-"wallet.xor.to.my.eth" = "XOR إلى حساب الإيثريوم الخاص بي";
-"wallet.soranet" = "SORA NET";
-"transaction.total" = "مجموع";
-"transaction.token" = "رمز العملة";
-"transaction.note" = "ملحوظة";
-"transaction.miner.fee.title" = "رسوم المعدن";
-"transaction.miner.help" = "سيتم خصمها من حساب الإيثريوم الخاص بك";
-"transaction.confirm" = "تأكيد المعاملة";
-"transaction.continue" = "استمر";
-"transaction.receiver.title" = "إلى";
-"transaction.amount.title" = "المبلغ";
-"wallet.transfer.note.hint" = "اترك ملاحظة ، الحد الأقصى للرموز %@ .";
-"wallet.transfer.to.ethereum" = "الى حساب محفظة الايثيريوم";
-"wallet.transfer.title.format" = "ارسال%@";
-"asset.state.associating" = "ربط...";
-"asset.state.error" = "خطأ";
-"asset.eth.name" = "ETH";
-"asset.xor.platform" = "SORA NET";
-"asset.eth.plaform" = "الإيثيريوم";
-"transaction.soranet.fee.title" = "رسوم التحويل";
-"transfer.unsuffient.funds.format" = "غير كاف%@ لديك فقط%@";
-"wallet.history.to.my.soranet.title" = "الى حسابي في SORA NET";
-"wallet.history.to.my.ethereum.title" = "الى عنواني في محفظة الايثيريوم";
-"wallet.history.reward.from.system" = "مكافأة من النظام";
-"wallet.history.from.ethereum.address.title" = "من عنوان الايثيريوم";
-"wallet.history.from.soranet.address.title" = "من حساب SORA NET";
-"wallet.history.to.soranet.account" = "الى حساب SORA NET";
-"wallet.history.to.ethereum.address" = "الى عنوان الايثيريوم";
-"wallet.tx.details.send.back" = "أرسل مرة أخرى";
-"wallet.tx.details.send.again" = "أعد الإرسال";
-"common.copy" = "نسخ";
-"common.select.option" = "تحديد خيار";
-"wallet.tx.details.transaction" = "التحويلات";
-"wallet.tx.details.date" = "تاريخ";
-"wallet.tx.details.status" = "الحالة";
-"wallet.tx.details.pending" = "قيد الانتظار";
-"wallet.tx.details.completed" = "منجز";
-"wallet.tx.details.rejected" = "مرفوض";
-"wallet.account.retry.registration" = "إعادة محاولة التسجيل";
-"common.copy.address" = "نسخ العنوان";
-"error_miner_fee_title" = "رصيدك غير كاف لدفع رسوم التعدين";
-"error_miner_fee_subtitle" = "لمتابعة هذه العملية ، تحتاج إلى شحن حساب الايثيريوم الخاص بك.";
-"go_to_ethereum" = "اذهب الى حساب الايثيريوم";
-"error_ethereum_account_title" = "حساب الايثيريوم غير مرتبط";
-"error_ethereum_account_subtitle" = "لمتابعة هذه العملية ، تحتاج إلى حساب ايثيريوم به بعض الاموال لدفع رسوم التعدين قصد إتمام المعاملة المالية.";
-"check_account_status" = "التحقق من وضع الحساب\n";
-"unknown_balance" = "مجهول";
-"xor.balance.title" = "XOR Token على شبكات مختلفة";
-"copy.xor.title" = "انسخ عنوان محفظة Sora (XOR)";
-"copy.eth.title" = "انسخ عنوان محفظة Ethereum (ETH)";
-"view_balance" = "عرض طريقة توزيع عملة Sora (XOR)";
-"referendum.ends.in.title" = "ينتهي بعد";
-"referendum.support.title" = "نعم";
-"referendum.unsupport.title" = "لا";
-"referendum.ended.title" = "انتهى";
-"tabbar.voting.title" = "التصويت";
-"referendum.finishing.soon" = "ستنتهي قريبا";
-"referendum.total.votes" = "مجموع الأصوات";
-"referendum.voting.result" = "نتيجة التصويت";
-"referendum.my.votes.title" = "أصواتك";
-"referendum.no.votes" = "لم يصوت أحد";
-"wallet.erc20" = "ERC20";
-"about.website" = "الموقع الإلكتروني الرسمي";
-"about.telegram" = "مجموعة التلغرام الرسمية";
-"asset.details.val" = "VAL";
-"activity.project.funded.description.template_val" = "ستتلقى معلومات حول مكافأة VAL قريبًا";
-"wallet.val.to.my.eth" = "VAL إلى حساب الإيثريوم الخاص بي";
-"copy.val.title" = "انسخ عنوان محفظة SORA NET (VAL)";
-"val.balance.title" = "VAL Token على شبكات مختلفة";
-"activity.event.val.transfered.type" = "تم استلام VAL";
-"activity.val.reward.credited.from.project.type.template" = "مكافأة VAL للتصويت";
-"wallet.receive.val" = "استلام VAL";
-"view.balance.val" = "عرض طريقة توزيع عملة  SORA  (VAL)";
-"pincode.enter.current.pin.code" = "أدخل الرقم السري الحالي";
-"pincode.updated" = "تم تحديث الرقم السري";
-"pincode.change.success" = "تم تغيير الرقم السري بنجاح.";
-"pincode.enter.new.pin.code" = "أدخل  الرقم السري الجديد";
-"pincode.confirm.new.pin.code" = "قم بتأكيد الرقم السري الجديد";
-"tabbar.staking.title" = "رهن";
-"coming.soon" = "قريبا...";
-"staking.coming.soon" = "سيتمكن حاملو XOR من رهنه ولترشيح validators والحصول على المكافآت.";
-"parliament.coming.soon" = "الحوكمة على شبكة SORA";
-"polkaswap.coming.soon" = "DEX لمستقبل التشغيل البيني. Polkaswap هو بروتوكول AMM-DEX غير أمني لمبادلة الرموز بناءً على شبكة Polkadot و Parachains و blockchains المتصلة عبر جسر. يزيل بروتوكول Polkaswap بشكل فعال الوسطاء الموثوق بهم ويوفر فرصة لتداول أسرع.";
-"profile.passphrase.title.v1" = "عبارات المرور";
-"profile.change.pin.title" = "تغيير PIN";
-"profile.biometry.title" = "المصادقة البيومترية";
-"profile.logout.title" = "تسجيل خروج";
-"transaction.bridge.not.active.error" = "جسر الايثيريوم غير مفعل";
-"transaction.bridge.info" = "معلومات جسر Ethereum";
-"tabbar.polkaswap.title" = "Polkaswap";
-"tabbar.parliament.title" = "البرلمان";
-"referenda.title" = "الاستفتاءات";
-"referenda.title.vote" = "التصويت على الاستفتاءات";
-"common.copied" = "نسخ إلى الحافظة";
-"staking.val.reward" = "مكافآت SORA Validator";
-"project.new.small" = "جديد";
-"project.favs.small" = "المفضلة";
-"project.ended.small" = "انتهى";
-"project.new" = "جديد";
-"project.favs" = "المفضلة";
-"project.ended" = "انتهى";
-"logout.dialog.body" = "سيؤدي هذا الإجراء إلى حذف الحساب من هذا الجهاز. تأكد من عمل نسخة احتياطية من جملة الإستذكار قبل المتابعة.";
-"personal.info.username" = "اسم الحساب (اختياري)";
-"invite.title.v1" = "ادعُ الأصدقاء للحصول على المزيد من المكافآت في المستقبل. سيبدأ توزيع المكافآت عندما يتم إطلاق الميزة.";
-"invite.code" = "رمز الدعوة";
-"invite.referral.reward" = "مكافأة الإحالة";
-"invite.rewards" = "المكافآت";
-"personal.info.username.v1" = "اسم الحساب";
-"common.done" = "تم انجازها";
-"personal.details.info" = "اسم هذا الحساب وكيف سيظهر تحت عنوانك. مع هوية على البلوك شاين، يمكن أن تتم اتاحته للآخرين.";
-"invite.link.sharing.title" = "شارك التطبيق";
-"invite.code.was.copied" = "تم نسخ الرمز";
-"invite.code.wasnt.copied" = "لم يتم نسخ الرمز";
-"invite.code.apply" = "تطبيق رمز الدعوة";
-"invite.accepted.someone" = "قبل شخص ما الدعوة";
-"invite.accepted.empty.state.title" = "لا دعوات مقبولة حتى الان.";
-"common.send" = "إرسال";
-"common.receive" = "استلام";
-"status.success" = "ناجح";
-"transaction.hash" = "عنوان التحويلة";
-"common.from" = "من";
-"history.title" = "الأحداث الأخيرة";
-"referendum.no.active" = "لا توجد استفتاءات نشطة الآن";
-"referendum.no.voted" = "لا توجد استفتاءات تم التصويت عليها بعد";
-"referendum.no.ended" = "لا توجد استفتاءات منتهية بعد";
-"invite.code.left.hours" = "ه";
-"invite.code.left.minutes" = "م";
-"invite.code.left.seconds" = "س";
-"tutorial.one.world" = "عالم واحد.\n اقتصاد واحد.";
-"tutorial.one.world.desc" = "تعمل SORA على أن تصبح نظام إقتصادي عالمي لامركزي، وتمول إنشاء تطبيقات جديدة ومثيرة ، تحت الإشراف الديمقراطي لبرلمان SORA. ";
-"common.retry" = "أعد المحاولة";
-"common.failed" = "فشل";
-"ethereum.config.unavailable" = "عقدة إيثريوم غير متوفرة";
-"asset.val.fullname" = "SORA Validator Token (VAL)";
-"tutorial.terms.and.conditions.3" = "الشروط والأحكام";
-"create_account_title" = "إنشاء حساب";
-"screenshot.alert.title" = "لا تلتقط صور للشاشة";
-"screenshot.alert.text" = "لا تلتقط صورة للشاشة فقد تجمعها ثغرات ضارة من جهات خارجية.";
-"mnemonic.title" = "استعادة جملة الاستذكار";
-"mnemonic.text" = "استخدم وسائل غير رقمية لحفظ بيانات الاسترجاع، كأن تكتبها على ورقة خارجية.";
-"mnemonic.alert.text" = "جملة الإستذكار يستخدم لاستعادة الدخول إلى الحساب. اكتبها لديك، فلن نتمكن من استعادة حسابك بدونها!";
-"common.info" = "المعلومات";
-"account.confirmation.title" = "تأكيد جملة الاستذكار";
-"mnemonic.confirm.text" = "قم بالتأكيد باختيار الكلمات بالترتيب الصحيح";
-"recovery.titleV2" = "استيراد حساب";
-"recovery.source.type" = "نوع المصدر";
-"recovery.mnemonic.passphrase" = "جملة الإستذكار";
-"claim.subtitle" = "نحتاج إلى موافقتك على تحويل أموالك من SORA  حتى تتمكن من استخدامها. ستعمل SORA الآن على شبكة Substrate. يرجى تأكيد الانتقال.";
-"claim.contact.1" = "إذا كان لديك أي أسئلة أو مخاوف يمكنك";
-"claim.contact.2" = "اتصل بنا.";
-"common.sent" = "Sent";
-"common.asset" = "Asset";
-"common.balance" = "Balance";
-"friends.spread.word" = "Spread the word, share the app with your friends.";
-"error.transaction.fee.title" = "Not enough funds for transaction fee";
-"common.choose.asset" = "حدد الأصل";
-"select.account.address" = "Search account address";
-"empty.recent.recipients" = "No recent recipients.\nSent addresses will be shown here.";
-"address.not.found" = "Address not found, make sure that address belongs to the right network.";
-"claim.notification.text" = "Transition in progress...";
-"claim.skip" = "Skip process";
-"status.error" = "Error";
-"common.confirm" = "تأكيد";
-"wallet.transaction.submitted" = "تم إرسال المعاملة";
-"pincode.change.success.v1" = "تم تغيير رمز PIN";
-"claim.subtitle.v1" = "نحتاج إلى موافقتك لإجراء نقل لأصولك من SORA v1. سيسمح لك ذلك باستخدام أصولك على SORA v2. \n\nلا تتأثر الأصول الموجودة على شبكة Ethereum ، فلا يزال بإمكانك الوصول إليها عن طريق استيراد عبارة المرور الخاصة بك إلى أي محفظة متوافقة.";
-"common.scan" = "مسح";
-"details.transferable" = "قابلة للتحويل";
-"details.frozen" = "Frozen";
-"details.total" = "إجمالي الرصيد";
-"claim.welcome.sora2" = "مرحبًا بك في SORA v2";
-"claim.error.title" = "فشل الانتقال";
-"common.error.retry" = "حاول مرة اخرى";
-"common.donotallow" = "لا تسمح";
-"mnemonic.invalid" = "عبارة مرور الذاكرة غير صالحة ، يرجى التحقق مرة أخرى من ترتيب الكلمات.";
-"wallet.history.limitations.title" = "History limitations";
-"wallet.history.limitations.text" = "At the moment, the history of transactions is stored locally, which means if you import the account on another device, log out or reinstall the application on current device, the history of transactions wouldn’t be available any more. Also we can’t show any incoming transactions. We apologize for any inconvenience caused, we are working to resolve the issue.";
-"wallet.asset.id" = "Asset id";
-"details.frozen.total" = "Frozen (Total)";
-"wallet.balance.locked" = "المقفل";
-"wallet.balance.reserved" = "المحجوز";
-"wallet.bonded" = "Bonded";
-"wallet.redeemable" = "Redeemable";
-"wallet.unbonding" = "Unbonding";
-"qr.upload" = "التحميل من المعرض";
-"qr.code" = "QR code";
-"mnemonic.invalid.title" = "عبارة مرور الذاكرة غير صالحة";
-"common.received" = "تم الاستلام";
-"common.input.validator_hint" = "%@ رموز سداسية صغيرة تبدأ بـ 0x";
-"common.incoming" = "الواردة";
-"common.outgoing" = "الصادرة";
-"common.input.validator_max_hint" = "الحد الأقصى للرموز %@";
-"common.all" = "الجميع";
-"common.error" = "خطأ";
-"common.not_now" = "ليس الآن";
-"common.open_settings" = "فتح الإعدادات";
-"common.account_share" = "حسابي هو:";
-"common.show_more" = "إظهار المزيد";
-"common.show_less" = "إظهار اقل";
-"common.description" = "الوصف";
-"common.description_optional" = "الوصف (اختياري)";
-"common.search" = "البحث";
-"account.details_title" = "بيانات الحساب";
-"amount.error.asset" = "عذرًا ، لم نتمكن من العثور على معلومات حول المبلغ الذي تريد إرساله. الرجاء معاودة المحاولة في وقت لاحق.";
-"amount.error.balance" = "عذرا ، فشل طلب كشف الرصيد. الرجاء اعادة المحاولة في وقت لاحق.";
-"amount.error.transfer" = "عذرًا ، لا يمكن الاتصال بمزود خدمة التحوبل . الرجاء اعادة المحاولة في وقت لاحق.";
-"amount.error.no_funds" = "عذرًا ، ليس لديك أموال كافية لتحويل المبلغ المحدد.";
-"amount.fee" = "رسوم التحويل%@";
-"amount.title" = "المبلغ";
-"amount.send" = "المبلغ المطلوب إرساله";
-"amount.total" = "المبلغ الإجمالي";
-"asset_selection.no_asset" = "لا توجد سيولة";
-"confirmation.title" = "تأكيد";
-"confirmation.hint" = "يرجى التحقق من البيانات وتأكيدها";
-"status.title" = "الحالة";
-"status.pending" = "قيد الانتظار";
-"status.rejected" = "مرفوض";
-"transaction.details" = "تفاصيل التحويل";
-"transaction.sender" = "المرسل";
-"transaction.recipient" = "المستلم";
-"transaction.sent" = "المبلغ المرسل";
-"transaction.fee" = "رسوم";
-"transaction.send_back" = "أرسل مرة أخرى";
-"transaction.id" = "صاحب التحويل";
-"transaction.date" = "التاريخ و الوقت";
-"transaction.reason" = "السبب";
-"transaction.type" = "نوع";
-"transaction.done" = "تم انجاز كل شيئ";
-"transaction.pending_description" = "تم إرسال المبلغ المالي";
-"transaction.error.fail" = "فشلت عمليت التحويل. من فضلك، حاول مرة أخرى لاحقاً.";
-"contacts.title" = "جهات الاتصال";
-"contacts.search_results" = "نتائج البحث";
-"contacts.scan" = "المسح الضوئي لرمز QR";
-"filter.title" = "تعيين مؤشر البحث";
-"filter.assets" = "المبالغ";
-"filter.dateRange" = "النطاق الزمني";
-"filter.from" = "من";
-"filter.to" = "إلى";
-"filter.type" = "كتب";
-"filter.reset" = "إعادة تعيين";
-"invoice_scan.scan" = "قم بمسح ضوئي للرمز من المستلم";
-"invoice_scan.upload" = "التحميل من المعرض";
-"invoice_scan.error.camera_restricted" = "معذرة ، تم تقييد الوصول إلى الكاميرا.";
-"invoice_scan.error.camera_restricted_previously" = "للأسف ،  لقد رفضت سابقاً امكانية الولوج  إلى الكاميرا . هل ترغب في السماح بالوصول الآن؟";
-"invoice_scan.error.camera_title" = "الولوج إلى الكاميرا";
-"invoice_scan.error.no_info" = "لا يمكن فك رمز QR";
-"invoice_scan.error.invalid_image" = "لا يمكن معالجة الصورة المختارة";
-"invoice_scan.error.gallery_restricted" = "معذرة ، تم تقييد الوصول إلى الصور.";
-"invoice_scan.error.gallery_restricted_previously" = "للأسف ،  لقد رفضت سابقاً امكانية الوصول إلى الصور . هل ترغب في السماح بالوصول الآن؟";
-"invoice_scan.error.gallery_title" = "الولوج إلى الصور";
-"invoice_scan.error.match" = "لا يمكنك الإرسال إلى حسابك";
-"invoice_scan.error.extract_fail" = "لا يمكن استخراج بيانات المستلم";
-"invoice_scan.error.no_receiver" = "تعذر العثور على المستلم";
-"invoice_scan.error.no_internet" = "يرجى التحقق من اتصال الانترنت";
-"receive.title" = "استلام الاموال";
-"receive.error_qr_generation" = "لا يمكن إنشاء رمز الاستجابة السريعة QR";
-"withdraw.title" = "عملية السحب";
-"withdraw.total_amount" = "المبلغ الإجمالي %@%@";
-"withdraw.error.no_asset" = "عذرًا ، لم نتمكن من العثور على معلومات حول المبلغ الذي تريد إرساله. الرجاء معاودة المحاولة في وقت لاحق.";
-"withdraw.error.balance" = "عذرا ، فشل طلب فحص الرصيد. الرجاء اعادة المحاولة في وقت لاحق.";
-"withdraw.error.connection" = "عذرًا ، لم نتمكن من الاتصال بمزود السحب. الرجاء اعادة المحاولة في وقت لاحق.";
-"withdraw.error.too_poor" = "عذرًا ، ليس لديك أموال كافية لتحويل المبلغ المحدد.";
-"withdraw.error.fail" = "فشلت عملية السحب. الرجاء اعادة المحاولة في وقت لاحق.";
-"amount.module_title" = "حدد المبلغ";
-"contacts.module_title" = "حدد المستلم";
-"amount.error.operation_min_limit" = "عذرًا ، الحد الأدنى لمبلغ العملية هو %@ .";
-"invoice_scan.title" = "مسح رمز QR";
-"common.full_name" = "%1$@ %2$@";
-"amount.defaultFee" = "رسوم التحويل";
-"transaction.sender_id" = "هوية المرسل";
-"common.options_title" = "حدد اختياراً";
-"transaction.recipient_id" = "هوية المستلم";
-"transaction.send_again" = "أعد الإرسال";
-"invoice_scan.error.user_not_found" = "لا يمكن العثور على مستخدم من رمز الإستجابة السريع";
-"operation.fee_title" = "رسوم التحويل";
-"confirmation.title.v1" = "تأكيد التحويل";
-"transaction.details.v1" = "تفاصيل التحويل";
