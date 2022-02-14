@@ -1,4 +1,0 @@
-"NSCameraUsageDescription" = "カメラはQRコードを読み取るのに使われます";
-"NSFaceIDUsageDescription" = "Face IDはログイン認証の際に使われます";
-"NSPhotoLibraryUsageDescription" = "ライブラリから写真をアップロードする";
-"NSPhotoLibraryAddUsageDescription" = "QRコードで取引リクエストを保存する";

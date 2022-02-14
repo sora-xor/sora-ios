@@ -6,6 +6,8 @@
 import Foundation
 import CommonWallet
 import IrohaCrypto
+import FearlessUtils
+import BigInt
 
 extension TransactionHistoryItem {
     static func createFromTransferInfo(_ info: TransferInfo,
@@ -26,16 +28,29 @@ extension TransactionHistoryItem {
 
         let timestamp = Int64(Date().timeIntervalSince1970)
 
-        return TransactionHistoryItem(sender: sender,
-                                      receiver: receiver,
-                                      status: .pending,
-                                      txHash: transactionHash.toHex(includePrefix: true),
-                                      timestamp: timestamp,
-                                      amount: info.amount.stringValue,
-                                      assetId: info.asset,
-                                      fee: totalFee.stringWithPointSeparator,
-                                      blockNumber: nil,
-                                      txIndex: nil)
+        let callPath = CallCodingPath.transfer
+        let callArgs = SoraTransferCall(receiver: receiver,
+                                        amount: info.amount.decimalValue.toSubstrateAmount(precision: 18) ?? 0,
+                                        assetId: info.asset)
+        let call = RuntimeCall<SoraTransferCall>(
+            moduleName: callPath.moduleName,
+            callName: callPath.callName,
+            args: callArgs
+        )
+        let encodedCall = try JSONEncoder.scaleCompatible().encode(call)
+
+        return TransactionHistoryItem(
+            sender: sender,
+            receiver: receiver,
+            status: .pending,
+            txHash: transactionHash.toHex(includePrefix: true),
+            timestamp: timestamp,
+            fee: totalFee.stringWithPointSeparator,
+            blockNumber: nil,
+            txIndex: nil,
+            callPath: callPath,
+            call: encodedCall
+        )
     }
 }
 

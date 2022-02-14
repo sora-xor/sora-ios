@@ -18,6 +18,18 @@ extension WalletAssetId {
         }
     }
 
+    var subqueryHistoryUrl: URL? {
+        #if F_RELEASE
+            return URL(string: "https://api.subquery.network/sq/sora-xor/sora")
+        #elseif F_STAGING
+            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging")
+        #elseif F_TEST
+            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging")
+        #else
+            return URL(string: "https://subquery.q1.dev.sora2.soramitsu.co.jp/")
+        #endif
+    }
+
     var defaultSort: Int? {
         switch self {
         case .xor:

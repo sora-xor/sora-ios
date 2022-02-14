@@ -31,7 +31,7 @@ struct WalletCommonConfigurator {
     func configure(builder: CommonWalletBuilderProtocol) {
         let language = WalletLanguage(rawValue: localizationManager.selectedLocalization)
             ?? WalletLanguage.defaultLanguage
-        
+
         let qrCoderFactory = WalletQRCoderFactory(networkType: networkType,
                                                   publicKey: account.publicKeyData,
                                                   username: account.username,
@@ -40,6 +40,7 @@ struct WalletCommonConfigurator {
         let singleProviderIdFactory = WalletSingleProviderIdFactory(addressType: networkType)
         builder
             .with(language: language)
+            .with(localizationManager: localizationManager)
             .with(commandDecoratorFactory: decoratorFactory)
             .with(logger: Logger.shared)
             .with(amountFormatterFactory: AmountFormatterFactory())

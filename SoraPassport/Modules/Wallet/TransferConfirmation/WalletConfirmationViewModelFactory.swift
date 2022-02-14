@@ -7,6 +7,7 @@ import Foundation
 import CommonWallet
 import FearlessUtils
 import SoraKeystore
+import SoraFoundation
 
 final class WalletConfirmationViewModelFactory {
     private let iconGenerator = PolkadotIconGenerator()
@@ -136,7 +137,7 @@ extension WalletConfirmationViewModelFactory: TransferConfirmationViewModelFacto
     func createViewModelsFromPayload(_ payload: ConfirmationPayload,
                                      locale: Locale) -> [WalletFormViewBindingProtocol]? {
         var viewModelList: [WalletFormViewBindingProtocol] = []
-
+        let locale = LocalizationManager.shared.selectedLocale
         populateAsset(in: &viewModelList, payload: payload, locale: locale)
         populateReceiver(in: &viewModelList, payload: payload, locale: locale)
         populateSendingAmount(in: &viewModelList, payload: payload, locale: locale)
@@ -147,7 +148,8 @@ extension WalletConfirmationViewModelFactory: TransferConfirmationViewModelFacto
 
     func createAccessoryViewModelFromPayload(_ payload: ConfirmationPayload,
                                              locale: Locale) -> AccessoryViewModelProtocol? {
-        AccessoryViewModel(title: "",
+        let locale = LocalizationManager.shared.selectedLocale
+        return AccessoryViewModel(title: "",
                            action: R.string.localizable.transactionConfirm(preferredLanguages: locale.rLanguages))
     }
 }

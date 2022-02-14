@@ -104,6 +104,7 @@ class RootInteractorTests: XCTestCase {
 
         interactor = RootInteractor(settings: settings,
                                     keystore: keystore,
+                                    migrators: [],
                                     securityLayerInteractor: securityLayerInteractor,
                                     networkAvailabilityLayerInteractor: networkAvailabilityLayer)
 

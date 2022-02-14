@@ -12,15 +12,18 @@ final class RootInteractor {
 
     var settings: SettingsManagerProtocol
     var keystore: KeystoreProtocol
+    let migrators: [Migrating]
     var securityLayerInteractor: SecurityLayerInteractorInputProtocol
     var networkAvailabilityLayerInteractor: NetworkAvailabilityLayerInteractorInputProtocol?
 
     init(settings: SettingsManagerProtocol,
          keystore: KeystoreProtocol,
+         migrators: [Migrating],
          securityLayerInteractor: SecurityLayerInteractorInputProtocol,
          networkAvailabilityLayerInteractor: NetworkAvailabilityLayerInteractorInputProtocol?) {
         self.settings = settings
         self.keystore = keystore
+        self.migrators = migrators
         self.securityLayerInteractor = securityLayerInteractor
         self.networkAvailabilityLayerInteractor = networkAvailabilityLayerInteractor
         checkLegacyUpdate()
@@ -93,10 +96,21 @@ extension RootInteractor: RootInteractorInputProtocol {
         }
     }
 
+    private func runMigrators() {
+        migrators.forEach { migrator in
+            do {
+                try migrator.migrate()
+            } catch {
+                Logger.shared.error(error.localizedDescription)
+            }
+        }
+    }
+
     func setup() {
         setupURLHandlingService()
         configureSecurityService()
         configureNetworkAvailabilityService()
         configureDeepLinkService()
+        runMigrators()
     }
 }

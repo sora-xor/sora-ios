@@ -50,9 +50,11 @@ final class WalletQRDecoder: WalletQRDecoderProtocol {
 
         let accountId = try addressFactory.accountId(fromAddress: info.address,
                                                      type: substrateDecoder.chainType)
-        let asset = assets.first(where: { $0.identifier == info.assetId })
+        guard let asset = assets.first(where: { $0.identifier == info.assetId }) else {
+            throw TransferPresenterError.missingAsset
+        }
         return ReceiveInfo(accountId: accountId.toHex(),
-                           assetId: asset?.identifier,
+                           assetId: asset.identifier,
                            amount: nil,
                            details: nil)
     }

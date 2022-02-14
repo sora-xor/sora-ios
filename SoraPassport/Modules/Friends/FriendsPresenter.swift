@@ -127,7 +127,7 @@ private extension FriendsPresenter {
             present(
                 message: R.string.localizable.inviteCodeWasntCopied(preferredLanguages: languages),
                 title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
-                closeAction: "Close", from: view
+                closeAction: R.string.localizable.commonClose(preferredLanguages: languages), from: view
             )
             return
         }

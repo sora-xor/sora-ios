@@ -179,7 +179,7 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     //swiftlint:enable force_cast
 
     var invitationHostURL: URL {
-        URL(string: "https://ref.sora.org")!
+        URL(string: "https://sora-xor.github.io/sora-join-page/")!
     }
 
     var telegramURL: URL {

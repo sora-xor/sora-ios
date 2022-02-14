@@ -103,10 +103,9 @@ extension Chain {
 
     func typeDefNetworkFileURL() -> URL? {
         let base = URL(string: "https://raw.githubusercontent.com/polkascan/py-scale-codec/master/scalecodec/type_registry")
-
         switch self {
         case .sora:
-            let url = String(format: "https://raw.githubusercontent.com/sora-xor/sora2-types/master/%@sora2_types.json", repoPrefix)
+            let url = "https://raw.githubusercontent.com/sora-xor/sora2-substrate-js-library/master/packages/types/src/metadata/\(repoPrefix)/types_scalecodec_mobile.json"
             return URL(string: url)
         case .polkadot:
             return base?.appendingPathComponent("polkadot.json")
@@ -116,13 +115,13 @@ extension Chain {
 
     var repoPrefix: String {
         #if F_RELEASE
-            return "prod/"
+            return "prod"
         #elseif F_STAGING
-            return "stage/"
+            return "stage"
         #elseif F_TEST
-            return "test/"
+            return "test"
         #else
-            return "dev/"
+            return "dev"
         #endif
     }
 }

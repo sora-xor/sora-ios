@@ -95,7 +95,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
                                                                     AnyDataProviderRepository(chainStorage),
                                                                  localStorageIdFactory: localStorageIdFactory)
 
-        let subscanOperationFactory = SubscanOperationFactory()
+        let coingeckoOperationFactory = CoingeckoOperationFactory()
 
         let txFilter = NSPredicate.filterTransactionsBy(address: selectedAccount.address)
         let txStorage: CoreDataRepository<TransactionHistoryItem, CDTransactionHistoryItem> =
@@ -110,23 +110,24 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
                               sortDescriptors: [NSSortDescriptor.accountsByOrder],
                               mapper: AnyCoreDataMapper(ManagedAccountItemMapper()))
 
+        let assetManager = AssetManager.shared
         let networkFacade = WalletNetworkFacade(accountSettings: accountSettings,
                                                 nodeOperationFactory: nodeOperationFactory,
-                                                subscanOperationFactory: subscanOperationFactory,
+                                                coingeckoOperationFactory: coingeckoOperationFactory,
                                                 chainStorage: AnyDataProviderRepository(chainStorage),
                                                 localStorageIdFactory: localStorageIdFactory,
                                                 txStorage: AnyDataProviderRepository(txStorage),
                                                 contactsOperationFactory: contactOperationFactory,
                                                 accountsRepository: AnyDataProviderRepository(accountStorage),
                                                 address: selectedAccount.address,
-                                                networkType: networkType,
+                                                networkType: networkType, assetManager: assetManager,
                                                 totalPriceAssetId: nil)
 
         let builder = CommonWalletBuilder.builder(with: accountSettings,
                                                   networkOperationFactory: networkFacade)
 
         let localizationManager = LocalizationManager.shared
-        let assetManager = AssetManager.shared
+
         let tokenAssets = accountSettings.assets
         let decoratorFactory = WalletCommandDecoratorFactory(localizationManager: localizationManager,
                                                              assets: tokenAssets,

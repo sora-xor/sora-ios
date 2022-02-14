@@ -7,7 +7,7 @@ import Foundation
 
 enum RemoteEnviroment: String, CaseIterable {
     case development = "dev"
-    case test = "tst"
-    case staging = "stg"
+    case test = "test"
+    case staging = "stage"
     case release = ""
 }

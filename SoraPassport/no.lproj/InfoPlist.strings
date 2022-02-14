@@ -1,4 +1,0 @@
-"NSCameraUsageDescription" = "Kameraet brukes til å fange QR-kode";
-"NSFaceIDUsageDescription" = "Ansiktsgjenkjennelse brukes til å autorisere i applikasjonen";
-"NSPhotoLibraryUsageDescription" = "Last inn bilder fra biblioteket";
-"NSPhotoLibraryAddUsageDescription" = "Lagre overføringsforespørsel som en QR-kode";

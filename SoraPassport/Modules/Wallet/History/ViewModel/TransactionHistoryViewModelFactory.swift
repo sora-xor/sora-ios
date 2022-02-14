@@ -36,7 +36,7 @@ final class TransactionHistoryViewModelFactory: HistoryItemViewModelFactoryProto
         guard let asset = assets.first(where: { $0.identifier == assetId }) else {
             throw TransactionHistoryViewModelFactoryError.missingAsset
         }
-
+        let locale = LocalizationManager.shared.selectedLocale
         var amount = amountFormatterFactory.createTokenFormatter(for: asset)
             .value(for: locale)
             .stringFromDecimal(data.amount.decimalValue)
@@ -47,6 +47,8 @@ final class TransactionHistoryViewModelFactory: HistoryItemViewModelFactoryProto
             amount = "\(String.amountIncrease) \(amount)"
         case .outgoing :
             amount = "\(String.amountDecrease) \(amount)"
+        default:
+            _ = amount
         }
 
         let details = dateFormatter.value(for: locale)

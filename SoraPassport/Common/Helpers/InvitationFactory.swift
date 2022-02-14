@@ -34,7 +34,7 @@ struct InvitationFactory: InvitationFactoryProtocol {
             url = url.appendingPathComponent(enviroment.rawValue)
         }
 
-        return url.appendingPathComponent("/join/\(code)")
+        return url//.appendingPathComponent("/join/\(code)")
     }
 
     func createInvitation(for code: String, enviroment: RemoteEnviroment, locale: Locale?) -> String {

@@ -11,6 +11,6 @@ import IrohaCrypto
 extension AssetTransactionData {
 
     var direction: TransactionType {
-        return TransactionType(rawValue: self.type)!
+        return TransactionType(rawValue: self.type) ?? TransactionType.extrinsic
     }
 }

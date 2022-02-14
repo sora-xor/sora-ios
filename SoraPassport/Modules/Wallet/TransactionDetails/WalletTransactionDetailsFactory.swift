@@ -86,6 +86,8 @@ final class TransactionDetailsViewModelFactory {
         case .outgoing :
             title = R.string.localizable
                 .commonSent(preferredLanguages: locale.rLanguages)
+        default:
+            _ = title
         }
 
         let viewModel = SoraTransactionAmountViewModel(title: title,
@@ -209,6 +211,8 @@ final class TransactionDetailsViewModelFactory {
             displayAmount = "\(String.amountIncrease) \(displayAmount)"
         case .outgoing :
             displayAmount = "\(String.amountDecrease) \(displayAmount)"
+        default:
+            _ = displayAmount
         }
 
         let transactionDate = Date(timeIntervalSince1970: TimeInterval(data.timestamp))
@@ -226,7 +230,7 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
     func createViewModelsFromTransaction(data: AssetTransactionData,
                                          commandFactory: WalletCommandFactoryProtocol,
                                          locale: Locale) -> [WalletFormViewBindingProtocol]? {
-
+        let locale = LocalizationManager.shared.selectedLocale
         let chain: Chain = .sora
         var viewModels: [WalletFormViewBindingProtocol] = []
         populateHeader(into: &viewModels, data: data, locale: locale)
@@ -282,7 +286,7 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
         guard let asset = assets.first(where: { $0.identifier == data.assetId }) else {
             return nil
         }
-
+        let locale = LocalizationManager.shared.selectedLocale
         let receiverInfo = ReceiveInfo(accountId: data.peerId,
                                        assetId: asset.identifier,
                                        amount: data.amount,
@@ -305,6 +309,8 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
             case .outgoing :
                 action = R.string.localizable
                         .walletTxDetailsSendAgain(preferredLanguages: locale.rLanguages)
+            default:
+                action = ""
             }
 
         }

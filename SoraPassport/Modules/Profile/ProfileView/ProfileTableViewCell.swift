@@ -86,6 +86,10 @@ final class ProfileTableViewCell: UITableViewCell, Reusable {
             switchButton.isHidden = false
             switchButton.isOn = switchContent.isOn
             contentView.isUserInteractionEnabled = false
+        } else {
+            arrowImageView.isHidden = false
+            switchButton.isHidden = true
+            contentView.isUserInteractionEnabled = true
         }
     }
 }

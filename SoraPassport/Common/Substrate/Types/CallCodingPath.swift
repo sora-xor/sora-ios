@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct CallCodingPath: Equatable {
+struct CallCodingPath: Equatable, Codable {
     let moduleName: String
     let callName: String
 }

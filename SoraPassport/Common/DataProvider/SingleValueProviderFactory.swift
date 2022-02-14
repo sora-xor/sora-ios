@@ -11,7 +11,7 @@ import FearlessUtils
 typealias DecodedAccountInfo = ChainStorageDecodedItem<DyAccountInfo>
 
 protocol SingleValueProviderFactoryProtocol {
-    func getPriceProvider(for assetId: WalletAssetId) -> SingleValueProvider<PriceData>
+    func getPriceProvider(for assetId: WalletAssetId) -> AnySingleValueProvider<PriceData>
     func getAccountProvider(for address: String, runtimeService: RuntimeCodingServiceProtocol) throws
     -> DataProvider<DecodedAccountInfo>
 }
@@ -43,29 +43,31 @@ final class SingleValueProviderFactory {
 }
 
 extension SingleValueProviderFactory: SingleValueProviderFactoryProtocol {
-    func getPriceProvider(for assetId: WalletAssetId) -> SingleValueProvider<PriceData> {
+    func getPriceProvider(for assetId: WalletAssetId) -> AnySingleValueProvider<PriceData> {
         clearIfNeeded()
 
         let identifier = priceIdentifier(for: assetId)
 
         if let provider = providers[identifier]?.target as? SingleValueProvider<PriceData> {
-            return provider
+            return AnySingleValueProvider(provider)
         }
 
         let repository: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
             facade.createRepository()
 
-        let source = SubscanPriceSource(assetId: assetId)
+        let source = CoingeckoPriceSource(assetId: assetId)
 
         let trigger: DataProviderEventTrigger = [.onAddObserver, .onInitialization]
-        let provider = SingleValueProvider(targetIdentifier: identifier,
-                                           source: AnySingleValueProviderSource(source),
-                                           repository: AnyDataProviderRepository(repository),
-                                           updateTrigger: trigger)
+        let provider = SingleValueProvider(
+            targetIdentifier: identifier,
+            source: AnySingleValueProviderSource(source),
+            repository: AnyDataProviderRepository(repository),
+            updateTrigger: trigger
+        )
 
         providers[identifier] = WeakWrapper(target: provider)
 
-        return provider
+        return AnySingleValueProvider(provider)
     }
 
     func getAccountProvider(for address: String, runtimeService: RuntimeCodingServiceProtocol) throws

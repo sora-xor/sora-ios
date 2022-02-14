@@ -5,6 +5,7 @@
 
 import Foundation
 import CommonWallet
+import SoraFoundation
 
 final class ContactsListViewModelFactory: ContactsListViewModelFactoryProtocol {
     private var itemViewModelFactory =
@@ -26,7 +27,7 @@ final class ContactsListViewModelFactory: ContactsListViewModelFactoryProtocol {
                 return (result.0, result.1 + [item])
             }
         }
-
+        let locale = LocalizationManager.shared.selectedLocale
         var sections = [ContactSectionViewModelProtocol]()
 
         if !localItems.isEmpty {
