@@ -4,4 +4,4 @@ OTHER_SWIFT_FLAGS = $(inherited) "-DF_STAGING"
 
 SORA_APPLICATION_CONFIG = Staging
 FIREBASE_CONFIG = GoogleService-Info-Staging.plist
-SORA_NAME = Sora Staging
+SORA_NAME = ADAR Staging

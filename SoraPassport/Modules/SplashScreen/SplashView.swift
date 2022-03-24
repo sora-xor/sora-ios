@@ -14,30 +14,18 @@ class SplashView: UIView {
         return self.viewWithTag(1)
     }
 
-    private var textPart: UIView? {
-        return self.viewWithTag(2)
-    }
-
     func animate(duration animationDurationBase: Double, completion: @escaping () -> Void) {
         if let mainLogo = (self.mainLogo as? UIImageView),
-            let textPart = self.textPart,
             let bottomPart = self.bottomPart {
-                let horizontal = mainLogo.centerXAnchor.constraint(equalTo: self.centerXAnchor, constant: -50)
-                let vertical = mainLogo.centerYAnchor.constraint(equalTo: self.centerYAnchor, constant: -2)
 
             UIView.animateKeyframes(
                 withDuration: animationDurationBase,
                 delay: 0,
                 options: .calculationModeLinear,
                 animations: {
-                    horizontal.isActive = true
-                    vertical.isActive = true
-
-                    horizontal.constant += 50
 
                     UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.5, animations: {
                         bottomPart.alpha = 1
-                        textPart.alpha = 0
                         self.layoutIfNeeded()
                     })
 

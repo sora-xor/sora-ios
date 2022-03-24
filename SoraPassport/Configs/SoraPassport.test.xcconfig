@@ -4,4 +4,4 @@ OTHER_SWIFT_FLAGS = $(inherited) "-DF_TEST"
 
 SORA_APPLICATION_CONFIG = Test
 FIREBASE_CONFIG = GoogleService-Info-Test.plist
-SORA_NAME = Soralution
+SORA_NAME = ADAR test

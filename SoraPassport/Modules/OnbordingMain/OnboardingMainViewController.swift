@@ -11,8 +11,8 @@ import Then
 
 private extension OnboardingMainViewController {
     struct Constants {
-        static let logoWidth: CGFloat = 87
-        static let logoHeight: CGFloat = 116
+        static let logoWidth: CGFloat = 148
+        static let logoHeight: CGFloat = 33
         static let logoFriction: CGFloat = 0.9
     }
 }
@@ -28,7 +28,7 @@ final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, 
     private var logoHeightConstraint: NSLayoutConstraint!
 
     private lazy var logoImageView: UIImageView = {
-        UIImageView(image: R.image.pin.soraVertical()).then {
+        UIImageView(image: R.image.adarMainLogo()).then {
             logoWidthConstraint = ($0.widthAnchor == Constants.logoWidth)
             logoHeightConstraint = ($0.heightAnchor == Constants.logoHeight)
         }
@@ -36,21 +36,11 @@ final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, 
 
     private lazy var titleLabel: UILabel = {
         UILabel().then {
-            $0.numberOfLines = 2
+            $0.numberOfLines = 3
             $0.textAlignment = .center
             $0.font = UIFont.styled(for: .display1)
             $0.textColor = R.color.baseContentPrimary()
             $0.text = titleTitle
-        }
-    }()
-
-    private lazy var detailLabel: UILabel = {
-        UILabel().then {
-            $0.numberOfLines = 0
-            $0.textAlignment = .center
-            $0.font = UIFont.styled(for: .paragraph1)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.text = detailTitle
         }
     }()
 
@@ -148,15 +138,11 @@ private extension OnboardingMainViewController {
             $0.addSubview(logoImageView)
             logoImageView.topAnchor == $0.topAnchor
             logoImageView.centerXAnchor == $0.centerXAnchor
+            logoImageView.bottomAnchor == $0.centerYAnchor
 
             $0.addSubview(titleLabel)
             titleLabel.topAnchor == logoImageView.bottomAnchor + 24
             titleLabel.horizontalAnchors == $0.horizontalAnchors
-
-            $0.addSubview(detailLabel)
-            detailLabel.topAnchor == titleLabel.bottomAnchor + 8
-            detailLabel.bottomAnchor == $0.bottomAnchor
-            detailLabel.horizontalAnchors == $0.horizontalAnchors + 8
         }
 
         return UIView().then {

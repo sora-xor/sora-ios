@@ -15,22 +15,16 @@
             <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
-                <imageView clipsSubviews="YES" userInteractionEnabled="NO" tag="1" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="adarMainLogo" translatesAutoresizingMaskIntoConstraints="NO" id="IJ8-4h-FJS">
-                    <rect key="frame" x="103" y="423" width="50" height="50"/>
-                    <constraints>
-                        <constraint firstAttribute="width" secondItem="IJ8-4h-FJS" secondAttribute="height" multiplier="1:1" id="Vdz-Dd-woA"/>
-                    </constraints>
-                </imageView>
                 <imageView clipsSubviews="YES" userInteractionEnabled="NO" alpha="0.0" tag="3" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="from soramitsu" translatesAutoresizingMaskIntoConstraints="NO" id="7bQ-uU-4wL">
                     <rect key="frame" x="112.5" y="769" width="189" height="53"/>
                     <constraints>
                         <constraint firstAttribute="width" secondItem="7bQ-uU-4wL" secondAttribute="height" multiplier="189:53" id="pQH-8P-h06"/>
                     </constraints>
                 </imageView>
-                <imageView clipsSubviews="YES" userInteractionEnabled="NO" tag="2" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="adarTextFull" translatesAutoresizingMaskIntoConstraints="NO" id="ZC5-yg-89t">
-                    <rect key="frame" x="170" y="415" width="163" height="66"/>
+                <imageView clipsSubviews="YES" userInteractionEnabled="NO" tag="1" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="adarMainLogo" translatesAutoresizingMaskIntoConstraints="NO" id="IJ8-4h-FJS">
+                    <rect key="frame" x="146" y="386.5" width="123" height="123"/>
                     <constraints>
-                        <constraint firstAttribute="width" secondItem="ZC5-yg-89t" secondAttribute="height" multiplier="47:19" id="hOV-sg-FdG"/>
+                        <constraint firstAttribute="width" secondItem="IJ8-4h-FJS" secondAttribute="height" multiplier="1:1" id="Vdz-Dd-woA"/>
                     </constraints>
                 </imageView>
             </subviews>
@@ -39,17 +33,14 @@
             <constraints>
                 <constraint firstItem="7bQ-uU-4wL" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" id="2Ij-q3-Vj3"/>
                 <constraint firstItem="IJ8-4h-FJS" firstAttribute="centerY" secondItem="iN0-l3-epB" secondAttribute="centerY" id="74L-rv-iey"/>
-                <constraint firstItem="ZC5-yg-89t" firstAttribute="leading" secondItem="IJ8-4h-FJS" secondAttribute="trailing" constant="17" id="9pq-bc-Ya2"/>
                 <constraint firstItem="vUN-kp-3ea" firstAttribute="bottom" secondItem="7bQ-uU-4wL" secondAttribute="bottom" constant="40" id="OUS-ti-1QS"/>
-                <constraint firstItem="IJ8-4h-FJS" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" priority="750" constant="-79" id="UvN-Pu-qIE"/>
-                <constraint firstItem="ZC5-yg-89t" firstAttribute="centerY" secondItem="IJ8-4h-FJS" secondAttribute="centerY" id="i6O-Ik-bdh"/>
+                <constraint firstItem="IJ8-4h-FJS" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" priority="750" constant="0.5" id="UvN-Pu-qIE"/>
             </constraints>
             <point key="canvasLocation" x="139" y="154"/>
         </view>
     </objects>
     <resources>
-        <image name="adarMainLogo" width="50" height="50"/>
-        <image name="adarTextFull" width="163" height="50"/>
+        <image name="adarMainLogo" width="123" height="27"/>
         <image name="from soramitsu" width="190" height="53"/>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
