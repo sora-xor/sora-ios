@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19455" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19454"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -15,8 +15,8 @@
             <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
-                <imageView clipsSubviews="YES" userInteractionEnabled="NO" tag="1" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="sora sign" translatesAutoresizingMaskIntoConstraints="NO" id="IJ8-4h-FJS">
-                    <rect key="frame" x="117" y="406" width="80" height="80"/>
+                <imageView clipsSubviews="YES" userInteractionEnabled="NO" tag="1" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="adar-main-logo" translatesAutoresizingMaskIntoConstraints="NO" id="IJ8-4h-FJS">
+                    <rect key="frame" x="103" y="423" width="50" height="50"/>
                     <constraints>
                         <constraint firstAttribute="width" secondItem="IJ8-4h-FJS" secondAttribute="height" multiplier="1:1" id="Vdz-Dd-woA"/>
                     </constraints>
@@ -27,8 +27,8 @@
                         <constraint firstAttribute="width" secondItem="7bQ-uU-4wL" secondAttribute="height" multiplier="189:53" id="pQH-8P-h06"/>
                     </constraints>
                 </imageView>
-                <imageView clipsSubviews="YES" userInteractionEnabled="NO" tag="2" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="sora (text part)" translatesAutoresizingMaskIntoConstraints="NO" id="ZC5-yg-89t">
-                    <rect key="frame" x="212" y="434" width="94" height="38"/>
+                <imageView clipsSubviews="YES" userInteractionEnabled="NO" tag="2" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="adar-text-full" translatesAutoresizingMaskIntoConstraints="NO" id="ZC5-yg-89t">
+                    <rect key="frame" x="170" y="415" width="163" height="66"/>
                     <constraints>
                         <constraint firstAttribute="width" secondItem="ZC5-yg-89t" secondAttribute="height" multiplier="47:19" id="hOV-sg-FdG"/>
                     </constraints>
@@ -38,19 +38,19 @@
             <color key="backgroundColor" systemColor="systemBackgroundColor"/>
             <constraints>
                 <constraint firstItem="7bQ-uU-4wL" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" id="2Ij-q3-Vj3"/>
-                <constraint firstItem="IJ8-4h-FJS" firstAttribute="centerY" secondItem="iN0-l3-epB" secondAttribute="centerY" constant="-2" id="74L-rv-iey"/>
-                <constraint firstItem="ZC5-yg-89t" firstAttribute="leading" secondItem="IJ8-4h-FJS" secondAttribute="trailing" constant="15" id="9pq-bc-Ya2"/>
+                <constraint firstItem="IJ8-4h-FJS" firstAttribute="centerY" secondItem="iN0-l3-epB" secondAttribute="centerY" id="74L-rv-iey"/>
+                <constraint firstItem="ZC5-yg-89t" firstAttribute="leading" secondItem="IJ8-4h-FJS" secondAttribute="trailing" constant="17" id="9pq-bc-Ya2"/>
                 <constraint firstItem="vUN-kp-3ea" firstAttribute="bottom" secondItem="7bQ-uU-4wL" secondAttribute="bottom" constant="40" id="OUS-ti-1QS"/>
-                <constraint firstItem="IJ8-4h-FJS" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" priority="750" constant="-50" id="UvN-Pu-qIE"/>
-                <constraint firstItem="ZC5-yg-89t" firstAttribute="centerY" secondItem="IJ8-4h-FJS" secondAttribute="centerY" constant="7" id="i6O-Ik-bdh"/>
+                <constraint firstItem="IJ8-4h-FJS" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" priority="750" constant="-79" id="UvN-Pu-qIE"/>
+                <constraint firstItem="ZC5-yg-89t" firstAttribute="centerY" secondItem="IJ8-4h-FJS" secondAttribute="centerY" id="i6O-Ik-bdh"/>
             </constraints>
             <point key="canvasLocation" x="139" y="154"/>
         </view>
     </objects>
     <resources>
+        <image name="adar-main-logo" width="50" height="50"/>
+        <image name="adar-text-full" width="163" height="50"/>
         <image name="from soramitsu" width="190" height="53"/>
-        <image name="sora (text part)" width="94" height="38"/>
-        <image name="sora sign" width="80" height="80"/>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>

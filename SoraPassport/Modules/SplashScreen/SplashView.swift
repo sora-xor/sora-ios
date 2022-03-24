@@ -23,12 +23,15 @@ class SplashView: UIView {
             let textPart = self.textPart,
             let bottomPart = self.bottomPart {
                 let horizontal = mainLogo.centerXAnchor.constraint(equalTo: self.centerXAnchor, constant: -50)
-                horizontal.isActive = true
                 let vertical = mainLogo.centerYAnchor.constraint(equalTo: self.centerYAnchor, constant: -2)
-                vertical.isActive = true
-                self.layoutIfNeeded()
 
-                UIView.animateKeyframes(withDuration: animationDurationBase, delay: 0, options: .calculationModeLinear, animations: {
+            UIView.animateKeyframes(
+                withDuration: animationDurationBase,
+                delay: 0,
+                options: .calculationModeLinear,
+                animations: {
+                    horizontal.isActive = true
+                    vertical.isActive = true
 
                     horizontal.constant += 50
 
