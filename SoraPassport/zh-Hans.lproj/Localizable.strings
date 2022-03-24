@@ -58,8 +58,8 @@
 "pincode.set.your.pin.code" = "设置代码";
 "ask.touchid.title" = "指纹识别";
 "ask.touchid.message" = "您是否要使用指纹识别进行身份验证？";
-"ask.faceid.title" = "您要允许“SORA”使用人脸识别吗？";
-"ask.faceid.message" = "SORA 使用人脸识别来限制未经授权的用户访问该应用程序。";
+"ask.faceid.title" = "您要允许“ADAR”使用人脸识别吗？";
+"ask.faceid.message" = "ADAR 使用人脸识别来限制未经授权的用户访问该应用程序。";
 "ask.biometry.reason" = "进行身份验证以访问帐户";
 "invite.title" = "邀请朋友，可每天获得更多的选票！";
 "invite.parent.invitation.template" = "您已被%@邀请";
@@ -189,7 +189,7 @@
 "project.website" = "网站";
 "project.gallery" = "项目库";
 "activity" = "活动";
-"activity.sora.announcement" = "SORA 公告";
+"activity.ADAR.announcement" = "ADAR 公告";
 "votes.history.title" = "投票历史记录";
 "votes.empty.history.description" = "每当您的票数改变时\n您将在这里看到它的历史记录";
 "reputation.title" = "我的声誉";
@@ -259,7 +259,7 @@
 "asset.state.associating" = "关联中...";
 "asset.state.error" = "错误";
 "asset.eth.name" = "ETH";
-"asset.xor.platform" = "SORA 网路";
+"asset.xor.platform" = "ADAR 网路";
 "asset.eth.plaform" = "以太坊";
 "transaction.soranet.fee.title" = "交易费用";
 "transfer.unsuffient.funds.format" = "没有足够的%@ 。您只有%@ 。";
@@ -446,7 +446,7 @@
 "polkaswap.network.fee" = "网络费用";
 "polkaswap.minimum.received.info" = "如果在确认之前有一个较大而不利的价格变动，您的交易将被取消。";
 "polkaswap.liqudity.fee.info" = "每笔交易的一部分 (0.3%) 作为协议激励流向流动性提供者。";
-"polkaswap.network.fee.info" = "网络费用用于保证 SORA 系统的增长和稳定的性能。";
+"polkaswap.network.fee.info" = "网络费用用于保证 ADAR 系统的增长和稳定的性能。";
 "polkaswap.maximum.sold.info" = "如果在确认之前有一个较大而不利的价格变动，您的交易将被取消。";
 "polkaswap.maximum.sold" = "最大销售量";
 "polkaswap.xyk" = "XYK";
@@ -465,10 +465,10 @@
 "from.account" = "从账户";
 "polkaswap.swapped" = "已交换";
 "polkaswap.insufficient.liqudity" = "流动性不足";
-"polkaswap.info.text.1" = "Polkaswap 是由 SORA 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。";
+"polkaswap.info.text.1" = "Polkaswap 是由 ADAR 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。";
 "claim.contact" = "如果您有任何疑问或疑虑，可以 %%联系我们%%";
 "tutorial.many.world" = "许多世界。\n一经济。";
-"tutorial.many.world.desc" = "SORA 正在努力成为一个分散的多元宇宙经济系统，在 SORA 议会的民主监督下为创建新的和令人兴奋的应用程序提供资金。";
+"tutorial.many.world.desc" = "ADAR 正在努力成为一个分散的多元宇宙经济系统，在 ADAR 议会的民主监督下为创建新的和令人兴奋的应用程序提供资金。";
 "polkaswap.info.title.main" = "免责声明：请在继续使用 polkaswap 之前阅读！";
 "common.settings" = "设置";
 "common.german" = "German";
@@ -476,11 +476,11 @@
 "polkaswap.slippage.mayfail" = "Your transaction may fail";
 "polkaswap.slippage.frontrun" = "Your transaction may be frontrun";
 "polkaswap.info.text.7" = "为了在“交换”选项卡中隐藏免责声明通知，请滑动下面的按钮。只有在您完全理解并阅读了所有提到的文件后才能这样做！";
-"polkaswap.info.text.2" = "Polkaswap 是由 SORA 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
-"polkaswap.info.text.3" = "Polkaswap 是由 SORA 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
-"polkaswap.info.text.4" = "Polkaswap 是由 SORA 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
-"polkaswap.info.text.5" = "Polkaswap 是由 SORA 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
-"polkaswap.info.text.6" = "Polkaswap 是由 SORA 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
+"polkaswap.info.text.2" = "Polkaswap 是由 ADAR 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
+"polkaswap.info.text.3" = "Polkaswap 是由 ADAR 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
+"polkaswap.info.text.4" = "Polkaswap 是由 ADAR 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
+"polkaswap.info.text.5" = "Polkaswap 是由 ADAR 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
+"polkaswap.info.text.6" = "Polkaswap 是由 ADAR 社区维护。在使用 Polkaswap 功能之前，请查看 %%Polkaswap FAQ%% 和文档，其中包括有关 Polkaswap 操作原理的详细说明、Polkaswap 备忘录和服务条款以及隐私政策。这些文档对于安全和积极的用户体验至关重要。通过使用 Polkaswap，您承认您已阅读并理解这些文件。 \n\n您还承认以下几点： \n\n 1) 您全权负责遵守在您的法律管辖范围内可能适用于您对 Polkaswap 的特定使用的所有法律；\n 2）您对Polkaswap当前版本为alpha版本的理解：尚未经过全面测试，部分功能可能无法按设计执行；\n 3) 您理解并自愿接受使用 Polkaswap 所涉及的风险，包括但不限于丢失代币的风险。再一次提醒，在您还没阅读常见问题解答、Polkaswap 备忘录和服务条款以及隐私政策的情况下, 请不要继续！";
 "polkaswap.info.text.8" = "Swipe to hide";
 "mnemonic.confirm.text.v2" = "通过按正确顺序选择单词来确认密码";
 "asset.details.title" = "Asset Details";
