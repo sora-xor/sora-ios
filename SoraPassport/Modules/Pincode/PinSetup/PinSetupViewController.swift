@@ -14,8 +14,8 @@ private extension PinSetupViewController {
         static let navigationBarMargin: CGFloat = 44
         static let pinViewMargin: CGFloat = 40
         static let logoBottomMargin: CGFloat = 40
-        static let logoHeight: CGFloat = 88
-        static let logoWidth: CGFloat = 66
+        static let logoHeight: CGFloat = 44
+        static let logoWidth: CGFloat = 206
     }
 
     struct AccessibilityId {
@@ -166,7 +166,7 @@ private extension PinSetupViewController {
 
     func configureLogoImageView() {
         let imageView = UIImageView(
-            image: R.image.pin.soraVertical()
+            image: R.image.adarLogoFull()
         )
 
         imageView.do {
