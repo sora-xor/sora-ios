@@ -10,17 +10,14 @@ abstract_target 'SoraPassportAll' do
   pod 'FireMock', :inhibit_warnings => true
   pod 'GCDWebServer', :inhibit_warnings => true
   pod 'SoraDocuments'
-  #pod 'SoraCrypto', '~> 0.2.0'
-  pod 'IrohaCrypto/secp256k1', :git => 'https://github.com/ArsenyZ/IrohaCrypto.git', :commit => 'c0a0022f0ee95b4e2d255ee108d7a73c257acde2'#, '= 0.7.4'
-  pod 'IrohaCrypto/ed25519', :git => 'https://github.com/ArsenyZ/IrohaCrypto.git', :commit => 'c0a0022f0ee95b4e2d255ee108d7a73c257acde2'
-  pod 'IrohaCrypto/Iroha', :git => 'https://github.com/ArsenyZ/IrohaCrypto.git', :commit => 'c0a0022f0ee95b4e2d255ee108d7a73c257acde2'
-  #pod 'IrohaCrypto'
+  pod 'IrohaCrypto'
   pod 'SoraKeystore'
   pod 'SoraUI'
   pod 'RobinHood'
-  pod 'Kingfisher', :inhibit_warnings => true
-  pod 'FearlessUtils', :git => 'https://github.com/soramitsu/fearless-utils-iOS.git', :commit => 'cc66cd7f9b30c5e3ec4992885efd3cd4c70606c1'
-  pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :commit => '29518e70c1a386405c19f2f335eaeef6d500c4ad'
+  pod 'Kingfisher', :git => 'https://github.com/onevcat/Kingfisher', :branch => 'version6-xcode13', :inhibit_warnings => true
+  pod 'SVGKit', :git => 'https://github.com/SVGKit/SVGKit.git', :tag => '3.0.0'
+  pod 'FearlessUtils'
+  pod 'CommonWallet/Core'
   pod 'FirebaseMessaging'
   pod 'Firebase/Crashlytics'
   pod 'FirebaseAnalytics'
@@ -28,31 +25,28 @@ abstract_target 'SoraPassportAll' do
   pod 'Starscream', :git => 'https://github.com/ERussel/Starscream.git', :branch => 'feature/without-origin'
   pod 'SwiftyBeaver'
   pod 'SKPhotoBrowser'
-  pod 'SoraFoundation', '~> 0.8.0'
-  #pod 'web3swift', :git => 'https://github.com/matter-labs/web3swift.git', :commit => '8b1001b8a336cdcf243d1771bf2040e8c82433cc'
+  pod 'SoraFoundation'
   pod 'IKEventSource'
   pod 'Anchorage'
   pod 'Then'
+  pod 'lottie-ios'
+  pod 'Nantes'
+  pod 'SnapKit'
 
   target 'SoraPassportTests' do
       inherit! :search_paths
       
-      pod 'Cuckoo'
+      pod 'Cuckoo', '1.5.2'
       pod 'FireMock'
       pod 'SoraUI'
       pod 'Starscream', :git => 'https://github.com/ERussel/Starscream.git', :branch => 'feature/without-origin'
       pod 'SoraDocuments'
-     # pod 'SoraCrypto', '~> 0.2.0'
-      pod 'IrohaCrypto/secp256k1', :git => 'https://github.com/ArsenyZ/IrohaCrypto.git', :commit => 'c0a0022f0ee95b4e2d255ee108d7a73c257acde2'#, '= 0.7.4'
-      pod 'IrohaCrypto/ed25519', :git => 'https://github.com/ArsenyZ/IrohaCrypto.git', :commit => 'c0a0022f0ee95b4e2d255ee108d7a73c257acde2'
-      pod 'IrohaCrypto/Iroha', :git => 'https://github.com/ArsenyZ/IrohaCrypto.git', :commit => 'c0a0022f0ee95b4e2d255ee108d7a73c257acde2'
       pod 'SoraKeystore'
       pod 'RobinHood'
-   #   pod 'IrohaCrypto'
-      pod 'FearlessUtils', :git => 'https://github.com/soramitsu/fearless-utils-iOS.git', :commit => 'cc66cd7f9b30c5e3ec4992885efd3cd4c70606c1'
-      pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :commit => '29518e70c1a386405c19f2f335eaeef6d500c4ad'
-      pod 'SoraFoundation', '~> 0.8.0'
-     # pod 'web3swift', :git => 'https://github.com/matter-labs/web3swift.git', :commit => '8b1001b8a336cdcf243d1771bf2040e8c82433cc'
+      pod 'IrohaCrypto'
+      pod 'FearlessUtils'
+      pod 'CommonWallet/Core'
+      pod 'SoraFoundation'
   end
   
   target 'SoraPassportUITests' do

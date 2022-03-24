@@ -485,7 +485,6 @@
 		84A3E6AB2329087300167C00 /* InvitationLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A3E6AA2329087300167C00 /* InvitationLinkService.swift */; };
 		84A3E6AE2329107400167C00 /* InvitationDeepLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A3E6AD2329107400167C00 /* InvitationDeepLinkTests.swift */; };
 		84A74AAE22B64830007F8FC3 /* UnsupportedVersionPresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A74AAD22B64830007F8FC3 /* UnsupportedVersionPresentable.swift */; };
-		84A90A112431CDC300F5CB76 /* WalletNetworkSearchErrorFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A90A102431CDC300F5CB76 /* WalletNetworkSearchErrorFactory.swift */; };
 		84A90A132431CECF00F5CB76 /* WalletSearchRequestError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A90A122431CECF00F5CB76 /* WalletSearchRequestError.swift */; };
 		84A90A152431D06D00F5CB76 /* WalletSearchDataError+TextConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A90A142431D06D00F5CB76 /* WalletSearchDataError+TextConvertible.swift */; };
 		84A90A172431D0E600F5CB76 /* ErrorContent+Wallet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A90A162431D0E600F5CB76 /* ErrorContent+Wallet.swift */; };
@@ -1542,7 +1541,6 @@
 		84A3E6AA2329087300167C00 /* InvitationLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationLinkService.swift; sourceTree = "<group>"; };
 		84A3E6AD2329107400167C00 /* InvitationDeepLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationDeepLinkTests.swift; sourceTree = "<group>"; };
 		84A74AAD22B64830007F8FC3 /* UnsupportedVersionPresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsupportedVersionPresentable.swift; sourceTree = "<group>"; };
-		84A90A102431CDC300F5CB76 /* WalletNetworkSearchErrorFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkSearchErrorFactory.swift; sourceTree = "<group>"; };
 		84A90A122431CECF00F5CB76 /* WalletSearchRequestError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletSearchRequestError.swift; sourceTree = "<group>"; };
 		84A90A142431D06D00F5CB76 /* WalletSearchDataError+TextConvertible.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletSearchDataError+TextConvertible.swift"; sourceTree = "<group>"; };
 		84A90A162431D0E600F5CB76 /* ErrorContent+Wallet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ErrorContent+Wallet.swift"; sourceTree = "<group>"; };
@@ -3825,14 +3823,6 @@
 			path = DeepLink;
 			sourceTree = "<group>";
 		};
-		84A90A0F2431CDA800F5CB76 /* ErrorHandling */ = {
-			isa = PBXGroup;
-			children = (
-				84A90A102431CDC300F5CB76 /* WalletNetworkSearchErrorFactory.swift */,
-			);
-			path = ErrorHandling;
-			sourceTree = "<group>";
-		};
 		84B71ED62436265200CE0A0A /* Soranet */ = {
 			isa = PBXGroup;
 			children = (
@@ -3935,7 +3925,6 @@
 				9441FC5E25D2E80200775559 /* Receive */,
 				84F5B9932465A420004E658C /* Transfer */,
 				843A072B2452FACF002A236E /* Contacts */,
-				84A90A0F2431CDA800F5CB76 /* ErrorHandling */,
 				848C2F58226BB7B90025E950 /* Style */,
 				84BA4EEE225E0F76005E6AC3 /* View */,
 				84E8DEB1225CCDE200640754 /* WalletContextFactory.swift */,
@@ -5251,12 +5240,14 @@
 				"${BUILT_PRODUCTS_DIR}/IKEventSource/IKEventSource.framework",
 				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
 				"${BUILT_PRODUCTS_DIR}/Kingfisher/Kingfisher.framework",
+				"${BUILT_PRODUCTS_DIR}/Nantes/Nantes.framework",
 				"${BUILT_PRODUCTS_DIR}/PromisesObjC/FBLPromises.framework",
 				"${BUILT_PRODUCTS_DIR}/R.swift.Library/Rswift.framework",
 				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
 				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
 				"${BUILT_PRODUCTS_DIR}/SKPhotoBrowser/SKPhotoBrowser.framework",
 				"${BUILT_PRODUCTS_DIR}/SVGKit/SVGKit.framework",
+				"${BUILT_PRODUCTS_DIR}/SnapKit/SnapKit.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
@@ -5265,6 +5256,7 @@
 				"${BUILT_PRODUCTS_DIR}/SwiftyBeaver/SwiftyBeaver.framework",
 				"${BUILT_PRODUCTS_DIR}/Then/Then.framework",
 				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
+				"${BUILT_PRODUCTS_DIR}/lottie-ios/Lottie.framework",
 				"${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework",
 				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
 				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
@@ -5289,12 +5281,14 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IKEventSource.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Kingfisher.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Nantes.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBLPromises.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Rswift.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SKPhotoBrowser.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SVGKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SnapKit.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
@@ -5303,6 +5297,7 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SwiftyBeaver.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Then.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Lottie.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/nanopb.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
@@ -5413,12 +5408,14 @@
 				"${BUILT_PRODUCTS_DIR}/IKEventSource/IKEventSource.framework",
 				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
 				"${BUILT_PRODUCTS_DIR}/Kingfisher/Kingfisher.framework",
+				"${BUILT_PRODUCTS_DIR}/Nantes/Nantes.framework",
 				"${BUILT_PRODUCTS_DIR}/PromisesObjC/FBLPromises.framework",
 				"${BUILT_PRODUCTS_DIR}/R.swift.Library/Rswift.framework",
 				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
 				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
 				"${BUILT_PRODUCTS_DIR}/SKPhotoBrowser/SKPhotoBrowser.framework",
 				"${BUILT_PRODUCTS_DIR}/SVGKit/SVGKit.framework",
+				"${BUILT_PRODUCTS_DIR}/SnapKit/SnapKit.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
@@ -5427,6 +5424,7 @@
 				"${BUILT_PRODUCTS_DIR}/SwiftyBeaver/SwiftyBeaver.framework",
 				"${BUILT_PRODUCTS_DIR}/Then/Then.framework",
 				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
+				"${BUILT_PRODUCTS_DIR}/lottie-ios/Lottie.framework",
 				"${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework",
 				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
 				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
@@ -5451,12 +5449,14 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IKEventSource.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Kingfisher.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Nantes.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBLPromises.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Rswift.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SKPhotoBrowser.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SVGKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SnapKit.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
@@ -5465,6 +5465,7 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SwiftyBeaver.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Then.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Lottie.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/nanopb.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
@@ -5949,7 +5950,6 @@
 				840931F2233E254F0013C871 /* StepContainerView+Inspectable.swift in Sources */,
 				846EC807236C51DB0048ED4E /* ScrollsToTop.swift in Sources */,
 				84CD3AEE232A6A1E0076E056 /* InvitationFactory.swift in Sources */,
-				84A90A112431CDC300F5CB76 /* WalletNetworkSearchErrorFactory.swift in Sources */,
 				02CFE829218B2D9B0032259A /* UIImage+Drawing.swift in Sources */,
 				02CFE821218B20E50032259A /* OnboardingMainViewFactory.swift in Sources */,
 				9441F93D25C96D0600775559 /* AssetTransactionData+HistoryItemData.swift in Sources */,
@@ -6602,7 +6602,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-soralution";
 				CODE_SIGN_ENTITLEMENTS = SoraPassport/SoraPassport.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
@@ -6721,7 +6721,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SoraPassport/SoraPassport.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
@@ -6904,7 +6904,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SoraPassport/SoraPassport.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -6929,7 +6929,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SoraPassport/SoraPassport.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
@@ -7186,7 +7186,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SoraPassport/SoraPassport.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
