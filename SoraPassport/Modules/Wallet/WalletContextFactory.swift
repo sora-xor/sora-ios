@@ -86,16 +86,24 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
             substrateStorageFacade.createRepository()
         let localStorageIdFactory = try ChainStorageIdFactory(chain: networkType.chain)
 
+        let extrinsicService = ExtrinsicService(address: selectedAccount.address,
+                                                cryptoType: selectedAccount.cryptoType,
+                                                runtimeRegistry: RuntimeRegistryFacade.sharedService,
+                                                engine: connection,
+                                                operationManager: OperationManagerFacade.sharedManager)
+
         let nodeOperationFactory = WalletNetworkOperationFactory(engine: connection,
                                                                  accountSettings: accountSettings,
                                                                  cryptoType: selectedAccount.cryptoType,
-                                                                 accountSigner: accountSigner,
+                                                                 accountSigner: accountSigner, extrinsicService: extrinsicService,
                                                                  dummySigner: dummySigner,
                                                                  chainStorage:
                                                                     AnyDataProviderRepository(chainStorage),
                                                                  localStorageIdFactory: localStorageIdFactory)
 
         let coingeckoOperationFactory = CoingeckoOperationFactory()
+        
+        let polkaswapNetworkOperationFactory = PolkaswapNetworkOperationFactory(engine: connection)
 
         let txFilter = NSPredicate.filterTransactionsBy(address: selectedAccount.address)
         let txStorage: CoreDataRepository<TransactionHistoryItem, CDTransactionHistoryItem> =
@@ -114,6 +122,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
         let networkFacade = WalletNetworkFacade(accountSettings: accountSettings,
                                                 nodeOperationFactory: nodeOperationFactory,
                                                 coingeckoOperationFactory: coingeckoOperationFactory,
+                                                polkaswapNetworkOperationFactory: polkaswapNetworkOperationFactory,
                                                 chainStorage: AnyDataProviderRepository(chainStorage),
                                                 localStorageIdFactory: localStorageIdFactory,
                                                 txStorage: AnyDataProviderRepository(txStorage),
@@ -160,12 +169,14 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
 //        assetDetailsConfigurator.configure(builder: builder.accountDetailsModuleBuilder)
 
         TransactionHistoryConfigurator(amountFormatterFactory: amountFormatterFactory,
-                                       assets: accountSettings.assets)
+                                       assets: accountSettings.assets,
+                                       assetManager: assetManager)
             .configure(builder: builder.historyModuleBuilder)
 
         TransactionDetailsConfigurator(account: selectedAccount,
                                        amountFormatterFactory: amountFormatterFactory,
-                                       assets: accountSettings.assets)
+                                       assets: accountSettings.assets,
+                                       assetManager: assetManager)
             .configure(builder: builder.transactionDetailsModuleBuilder)
 
         let transferConfigurator = WalletTransferConfigurator(assets: accountSettings.assets, assetManager: assetManager,
@@ -174,7 +185,8 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
         transferConfigurator.configure(builder: builder.transferModuleBuilder)
 
         let confirmConfigurator = WalletConfirmationConfigurator(assets: accountSettings.assets, assetManager: assetManager,
-                                                              amountFormatterFactory: amountFormatterFactory)
+                                                              amountFormatterFactory: amountFormatterFactory,
+                                                                 localizationManager: localizationManager)
         confirmConfigurator.configure(builder: builder.transferConfirmationBuilder)
 
         let contactsConfigurator = ContactsConfigurator(networkType: networkType)

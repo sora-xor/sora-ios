@@ -14,7 +14,7 @@ protocol AccountCreatePresenterProtocol: class {
     func setup()
     func activateInfo()
     func proceed()
-    func copy()
+    func share()
 }
 
 protocol AccountCreateInteractorInputProtocol: class {

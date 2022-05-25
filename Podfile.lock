@@ -1,208 +1,234 @@
 PODS:
   - Anchorage (4.5.0)
   - BigInt (5.2.0)
-  - CommonWallet/Core (1.14.0):
-    - RobinHood (~> 2.5.0)
-    - SoraFoundation/DateProcessing (~> 0.8.0)
-    - SoraFoundation/Localization (~> 0.8.0)
-    - SoraFoundation/NotificationHandlers (~> 0.8.0)
-    - SoraUI (~> 1.9.3)
-  - Cuckoo (1.5.1):
-    - Cuckoo/Swift (= 1.5.1)
-  - Cuckoo/Swift (1.5.1)
-  - FearlessUtils (0.9.1):
+  - CocoaLumberjack (3.7.4):
+    - CocoaLumberjack/Core (= 3.7.4)
+  - CocoaLumberjack/Core (3.7.4)
+  - CommonWallet/Core (1.16.0):
+    - RobinHood (~> 2.6.1)
+    - SoraFoundation/DateProcessing (~> 1.0.0)
+    - SoraFoundation/Localization (~> 1.0.0)
+    - SoraFoundation/NotificationHandlers (~> 1.0.0)
+    - SoraFoundation/NumberProcessing (~> 1.0.0)
+    - SoraUI (~> 1.10.0)
+  - Cuckoo (1.5.2):
+    - Cuckoo/Swift (= 1.5.2)
+  - Cuckoo/Swift (1.5.2)
+  - FearlessUtils (0.11.1):
     - BigInt (~> 5.0)
-    - IrohaCrypto/ed25519 (~> 0.7.4)
-    - IrohaCrypto/Scrypt (~> 0.7.4)
-    - IrohaCrypto/secp256k1 (~> 0.7.4)
-    - IrohaCrypto/sr25519 (~> 0.7.4)
+    - IrohaCrypto/ed25519 (~> 0.8.0)
+    - IrohaCrypto/Scrypt (~> 0.8.0)
+    - IrohaCrypto/secp256k1 (~> 0.8.0)
+    - IrohaCrypto/sr25519 (~> 0.8.0)
+    - IrohaCrypto/ss58 (~> 0.8.0)
     - TweetNacl (~> 1.0.0)
     - xxHash-Swift (~> 1.0.0)
-  - Firebase/CoreOnly (8.1.0):
-    - FirebaseCore (= 8.1.0)
-  - Firebase/Crashlytics (8.1.0):
+  - Firebase/CoreOnly (8.15.0):
+    - FirebaseCore (= 8.15.0)
+  - Firebase/Crashlytics (8.15.0):
     - Firebase/CoreOnly
-    - FirebaseCrashlytics (~> 8.1.0)
-  - FirebaseAnalytics (8.1.0):
-    - FirebaseAnalytics/AdIdSupport (= 8.1.0)
+    - FirebaseCrashlytics (~> 8.15.0)
+  - FirebaseAnalytics (8.15.0):
+    - FirebaseAnalytics/AdIdSupport (= 8.15.0)
     - FirebaseCore (~> 8.0)
     - FirebaseInstallations (~> 8.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.4)
-    - GoogleUtilities/MethodSwizzler (~> 7.4)
-    - GoogleUtilities/Network (~> 7.4)
-    - "GoogleUtilities/NSData+zlib (~> 7.4)"
+    - GoogleUtilities/AppDelegateSwizzler (~> 7.7)
+    - GoogleUtilities/MethodSwizzler (~> 7.7)
+    - GoogleUtilities/Network (~> 7.7)
+    - "GoogleUtilities/NSData+zlib (~> 7.7)"
     - nanopb (~> 2.30908.0)
-  - FirebaseAnalytics/AdIdSupport (8.1.0):
-    - FirebaseAnalytics/Base (= 8.1.0)
+  - FirebaseAnalytics/AdIdSupport (8.15.0):
     - FirebaseCore (~> 8.0)
     - FirebaseInstallations (~> 8.0)
-    - GoogleAppMeasurement (= 8.1.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.4)
-    - GoogleUtilities/MethodSwizzler (~> 7.4)
-    - GoogleUtilities/Network (~> 7.4)
-    - "GoogleUtilities/NSData+zlib (~> 7.4)"
+    - GoogleAppMeasurement (= 8.15.0)
+    - GoogleUtilities/AppDelegateSwizzler (~> 7.7)
+    - GoogleUtilities/MethodSwizzler (~> 7.7)
+    - GoogleUtilities/Network (~> 7.7)
+    - "GoogleUtilities/NSData+zlib (~> 7.7)"
     - nanopb (~> 2.30908.0)
-  - FirebaseAnalytics/Base (8.1.0):
-    - FirebaseCore (~> 8.0)
-    - FirebaseInstallations (~> 8.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.4)
-    - GoogleUtilities/MethodSwizzler (~> 7.4)
-    - GoogleUtilities/Network (~> 7.4)
-    - "GoogleUtilities/NSData+zlib (~> 7.4)"
-    - nanopb (~> 2.30908.0)
-  - FirebaseCore (8.1.0):
+  - FirebaseCore (8.15.0):
     - FirebaseCoreDiagnostics (~> 8.0)
-    - GoogleUtilities/Environment (~> 7.4)
-    - GoogleUtilities/Logger (~> 7.4)
-  - FirebaseCoreDiagnostics (8.1.0):
-    - GoogleDataTransport (~> 9.0)
-    - GoogleUtilities/Environment (~> 7.4)
-    - GoogleUtilities/Logger (~> 7.4)
+    - GoogleUtilities/Environment (~> 7.7)
+    - GoogleUtilities/Logger (~> 7.7)
+  - FirebaseCoreDiagnostics (8.15.0):
+    - GoogleDataTransport (~> 9.1)
+    - GoogleUtilities/Environment (~> 7.7)
+    - GoogleUtilities/Logger (~> 7.7)
     - nanopb (~> 2.30908.0)
-  - FirebaseCrashlytics (8.1.0):
+  - FirebaseCrashlytics (8.15.0):
     - FirebaseCore (~> 8.0)
     - FirebaseInstallations (~> 8.0)
-    - GoogleDataTransport (~> 9.0)
+    - GoogleDataTransport (~> 9.1)
+    - GoogleUtilities/Environment (~> 7.7)
     - nanopb (~> 2.30908.0)
-    - PromisesObjC (~> 1.2)
-  - FirebaseInstallations (8.1.0):
+    - PromisesObjC (< 3.0, >= 1.2)
+  - FirebaseInstallations (8.15.0):
     - FirebaseCore (~> 8.0)
-    - GoogleUtilities/Environment (~> 7.4)
-    - GoogleUtilities/UserDefaults (~> 7.4)
-    - PromisesObjC (~> 1.2)
-  - FirebaseMessaging (8.1.0):
+    - GoogleUtilities/Environment (~> 7.7)
+    - GoogleUtilities/UserDefaults (~> 7.7)
+    - PromisesObjC (< 3.0, >= 1.2)
+  - FirebaseMessaging (8.15.0):
     - FirebaseCore (~> 8.0)
     - FirebaseInstallations (~> 8.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.4)
-    - GoogleUtilities/Environment (~> 7.4)
-    - GoogleUtilities/Reachability (~> 7.4)
-    - GoogleUtilities/UserDefaults (~> 7.4)
+    - GoogleDataTransport (~> 9.1)
+    - GoogleUtilities/AppDelegateSwizzler (~> 7.7)
+    - GoogleUtilities/Environment (~> 7.7)
+    - GoogleUtilities/Reachability (~> 7.7)
+    - GoogleUtilities/UserDefaults (~> 7.7)
+    - nanopb (~> 2.30908.0)
   - FireMock (3.1)
   - GCDWebServer (3.5.4):
     - GCDWebServer/Core (= 3.5.4)
   - GCDWebServer/Core (3.5.4)
-  - GoogleAppMeasurement (8.1.0):
-    - GoogleAppMeasurement/AdIdSupport (= 8.1.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.4)
-    - GoogleUtilities/MethodSwizzler (~> 7.4)
-    - GoogleUtilities/Network (~> 7.4)
-    - "GoogleUtilities/NSData+zlib (~> 7.4)"
+  - GoogleAppMeasurement (8.15.0):
+    - GoogleAppMeasurement/AdIdSupport (= 8.15.0)
+    - GoogleUtilities/AppDelegateSwizzler (~> 7.7)
+    - GoogleUtilities/MethodSwizzler (~> 7.7)
+    - GoogleUtilities/Network (~> 7.7)
+    - "GoogleUtilities/NSData+zlib (~> 7.7)"
     - nanopb (~> 2.30908.0)
-  - GoogleAppMeasurement/AdIdSupport (8.1.0):
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.4)
-    - GoogleUtilities/MethodSwizzler (~> 7.4)
-    - GoogleUtilities/Network (~> 7.4)
-    - "GoogleUtilities/NSData+zlib (~> 7.4)"
+  - GoogleAppMeasurement/AdIdSupport (8.15.0):
+    - GoogleAppMeasurement/WithoutAdIdSupport (= 8.15.0)
+    - GoogleUtilities/AppDelegateSwizzler (~> 7.7)
+    - GoogleUtilities/MethodSwizzler (~> 7.7)
+    - GoogleUtilities/Network (~> 7.7)
+    - "GoogleUtilities/NSData+zlib (~> 7.7)"
     - nanopb (~> 2.30908.0)
-  - GoogleDataTransport (9.0.0):
+  - GoogleAppMeasurement/WithoutAdIdSupport (8.15.0):
+    - GoogleUtilities/AppDelegateSwizzler (~> 7.7)
+    - GoogleUtilities/MethodSwizzler (~> 7.7)
+    - GoogleUtilities/Network (~> 7.7)
+    - "GoogleUtilities/NSData+zlib (~> 7.7)"
+    - nanopb (~> 2.30908.0)
+  - GoogleDataTransport (9.1.2):
     - GoogleUtilities/Environment (~> 7.2)
     - nanopb (~> 2.30908.0)
-    - PromisesObjC (~> 1.2)
-  - GoogleUtilities/AppDelegateSwizzler (7.4.1):
+    - PromisesObjC (< 3.0, >= 1.2)
+  - GoogleUtilities/AppDelegateSwizzler (7.7.0):
     - GoogleUtilities/Environment
     - GoogleUtilities/Logger
     - GoogleUtilities/Network
-  - GoogleUtilities/Environment (7.4.1):
-    - PromisesObjC (~> 1.2)
-  - GoogleUtilities/Logger (7.4.1):
+  - GoogleUtilities/Environment (7.7.0):
+    - PromisesObjC (< 3.0, >= 1.2)
+  - GoogleUtilities/Logger (7.7.0):
     - GoogleUtilities/Environment
-  - GoogleUtilities/MethodSwizzler (7.4.1):
+  - GoogleUtilities/MethodSwizzler (7.7.0):
     - GoogleUtilities/Logger
-  - GoogleUtilities/Network (7.4.1):
+  - GoogleUtilities/Network (7.7.0):
     - GoogleUtilities/Logger
     - "GoogleUtilities/NSData+zlib"
     - GoogleUtilities/Reachability
-  - "GoogleUtilities/NSData+zlib (7.4.1)"
-  - GoogleUtilities/Reachability (7.4.1):
+  - "GoogleUtilities/NSData+zlib (7.7.0)"
+  - GoogleUtilities/Reachability (7.7.0):
     - GoogleUtilities/Logger
-  - GoogleUtilities/UserDefaults (7.4.1):
+  - GoogleUtilities/UserDefaults (7.7.0):
     - GoogleUtilities/Logger
   - IKEventSource (3.0.1)
-  - IrohaCrypto/BIP39 (0.7.4):
+  - IrohaCrypto (0.8.2):
+    - IrohaCrypto/BIP39 (= 0.8.2)
+    - IrohaCrypto/blake2 (= 0.8.2)
+    - IrohaCrypto/Common (= 0.8.2)
+    - IrohaCrypto/ed25519 (= 0.8.2)
+    - IrohaCrypto/Iroha (= 0.8.2)
+    - IrohaCrypto/Scrypt (= 0.8.2)
+    - IrohaCrypto/secp256k1 (= 0.8.2)
+    - IrohaCrypto/sr25519 (= 0.8.2)
+    - IrohaCrypto/ss58 (= 0.8.2)
+  - IrohaCrypto/BIP39 (0.8.2):
     - IrohaCrypto/Common
-  - IrohaCrypto/blake2 (0.7.4)
-  - IrohaCrypto/Common (0.7.4)
-  - IrohaCrypto/ed25519 (0.7.4):
+  - IrohaCrypto/blake2 (0.8.2)
+  - IrohaCrypto/Common (0.8.2)
+  - IrohaCrypto/ed25519 (0.8.2):
     - IrohaCrypto/Common
-  - IrohaCrypto/Iroha (0.7.4):
+  - IrohaCrypto/Iroha (0.8.2):
     - IrohaCrypto/Common
-  - IrohaCrypto/Scrypt (0.7.4):
+  - IrohaCrypto/Scrypt (0.8.2):
     - IrohaCrypto/Common
     - scrypt.c (~> 0.1)
-  - IrohaCrypto/secp256k1 (0.7.4):
+  - IrohaCrypto/secp256k1 (0.8.2):
     - IrohaCrypto/Common
     - secp256k1.c (~> 0.1)
-  - IrohaCrypto/sr25519 (0.7.4):
+  - IrohaCrypto/sr25519 (0.8.2):
     - IrohaCrypto/BIP39
     - IrohaCrypto/blake2
     - IrohaCrypto/Common
-  - Kingfisher (6.3.0)
+  - IrohaCrypto/ss58 (0.8.2):
+    - IrohaCrypto/blake2
+    - IrohaCrypto/Common
+  - Kingfisher (6.3.1)
+  - lottie-ios (3.3.0)
   - nanopb (2.30908.0):
     - nanopb/decode (= 2.30908.0)
     - nanopb/encode (= 2.30908.0)
   - nanopb/decode (2.30908.0)
   - nanopb/encode (2.30908.0)
-  - PromisesObjC (1.2.12)
-  - R.swift (5.4.0):
+  - Nantes (0.1.2)
+  - PromisesObjC (2.1.0)
+  - R.swift (6.1.0):
     - R.swift.Library (~> 5.3.0)
   - R.swift.Library (5.3.0)
   - ReachabilitySwift (5.0.0)
-  - RobinHood (2.5.1)
+  - RobinHood (2.6.1)
   - scrypt.c (0.1.1)
   - secp256k1.c (0.1.2)
-  - SKPhotoBrowser (6.1.0)
+  - SKPhotoBrowser (7.0.0)
+  - SnapKit (5.6.0)
   - SoraDocuments (0.1.3)
-  - SoraFoundation (0.8.0):
-    - SoraFoundation/DateProcessing (= 0.8.0)
-    - SoraFoundation/Localization (= 0.8.0)
-    - SoraFoundation/NotificationHandlers (= 0.8.0)
-    - SoraFoundation/QueryProcessing (= 0.8.0)
-    - SoraFoundation/Timer (= 0.8.0)
-    - SoraFoundation/ViewModel (= 0.8.0)
-  - SoraFoundation/DateProcessing (0.8.0):
+  - SoraFoundation (1.0.0):
+    - SoraFoundation/DateProcessing (= 1.0.0)
+    - SoraFoundation/Localization (= 1.0.0)
+    - SoraFoundation/NotificationHandlers (= 1.0.0)
+    - SoraFoundation/NumberProcessing (= 1.0.0)
+    - SoraFoundation/QueryProcessing (= 1.0.0)
+    - SoraFoundation/Timer (= 1.0.0)
+    - SoraFoundation/ViewModel (= 1.0.0)
+  - SoraFoundation/DateProcessing (1.0.0):
     - SoraFoundation/Localization
-  - SoraFoundation/Localization (0.8.0):
-    - SoraKeystore (~> 0.1.5)
-  - SoraFoundation/NotificationHandlers (0.8.0)
-  - SoraFoundation/QueryProcessing (0.8.0)
-  - SoraFoundation/Timer (0.8.0):
+  - SoraFoundation/Localization (1.0.0):
+    - SoraKeystore (~> 1.0.0)
+  - SoraFoundation/NotificationHandlers (1.0.0)
+  - SoraFoundation/NumberProcessing (1.0.0)
+  - SoraFoundation/QueryProcessing (1.0.0)
+  - SoraFoundation/Timer (1.0.0):
     - SoraFoundation/NotificationHandlers
-  - SoraFoundation/ViewModel (0.8.0)
-  - SoraKeystore (0.1.5)
-  - SoraUI (1.9.4):
-    - SoraUI/AdaptiveDesign (= 1.9.4)
-    - SoraUI/Animator (= 1.9.4)
-    - SoraUI/Camera (= 1.9.4)
-    - SoraUI/Controls (= 1.9.4)
-    - SoraUI/DetailsView (= 1.9.4)
-    - SoraUI/EmptyState (= 1.9.4)
-    - SoraUI/Helpers (= 1.9.4)
-    - SoraUI/LoadingView (= 1.9.4)
-    - SoraUI/ModalPresentation (= 1.9.4)
-    - SoraUI/PageLoader (= 1.9.4)
-    - SoraUI/PinView (= 1.9.4)
-    - SoraUI/Skrull (= 1.9.4)
-  - SoraUI/AdaptiveDesign (1.9.4)
-  - SoraUI/Animator (1.9.4)
-  - SoraUI/Camera (1.9.4)
-  - SoraUI/Controls (1.9.4):
+  - SoraFoundation/ViewModel (1.0.0)
+  - SoraKeystore (1.0.0)
+  - SoraUI (1.10.3):
+    - SoraUI/AdaptiveDesign (= 1.10.3)
+    - SoraUI/Animator (= 1.10.3)
+    - SoraUI/Camera (= 1.10.3)
+    - SoraUI/Controls (= 1.10.3)
+    - SoraUI/DetailsView (= 1.10.3)
+    - SoraUI/EmptyState (= 1.10.3)
+    - SoraUI/Helpers (= 1.10.3)
+    - SoraUI/LoadingView (= 1.10.3)
+    - SoraUI/ModalPresentation (= 1.10.3)
+    - SoraUI/PageLoader (= 1.10.3)
+    - SoraUI/PinView (= 1.10.3)
+    - SoraUI/Skrull (= 1.10.3)
+  - SoraUI/AdaptiveDesign (1.10.3)
+  - SoraUI/Animator (1.10.3)
+  - SoraUI/Camera (1.10.3)
+  - SoraUI/Controls (1.10.3):
     - SoraUI/Animator
-  - SoraUI/DetailsView (1.9.4):
+  - SoraUI/DetailsView (1.10.3):
     - SoraUI/Controls
-  - SoraUI/EmptyState (1.9.4):
+  - SoraUI/EmptyState (1.10.3):
     - SoraUI/Animator
-  - SoraUI/Helpers (1.9.4)
-  - SoraUI/LoadingView (1.9.4):
+  - SoraUI/Helpers (1.10.3)
+  - SoraUI/LoadingView (1.10.3):
     - SoraUI/Controls
-  - SoraUI/ModalPresentation (1.9.4):
+  - SoraUI/ModalPresentation (1.10.3):
     - SoraUI/Animator
     - SoraUI/Controls
-  - SoraUI/PageLoader (1.9.4)
-  - SoraUI/PinView (1.9.4):
+  - SoraUI/PageLoader (1.10.3)
+  - SoraUI/PinView (1.10.3):
     - SoraUI/Controls
-  - SoraUI/Skrull (1.9.4)
+  - SoraUI/Skrull (1.10.3)
   - Starscream (4.0.4)
-  - SwiftLint (0.43.1)
+  - SVGKit (2.1.0):
+    - CocoaLumberjack (~> 3.0)
+  - SwiftLint (0.47.0)
   - SwiftyBeaver (1.9.5)
   - Then (2.7.0)
   - TweetNacl (1.0.2)
@@ -210,28 +236,30 @@ PODS:
 
 DEPENDENCIES:
   - Anchorage
-  - CommonWallet/Core (from `https://github.com/soramitsu/Capital-iOS.git`, commit `29518e70c1a386405c19f2f335eaeef6d500c4ad`)
-  - Cuckoo
-  - FearlessUtils (from `https://github.com/soramitsu/fearless-utils-iOS.git`, commit `cc66cd7f9b30c5e3ec4992885efd3cd4c70606c1`)
+  - CommonWallet/Core (from `https://github.com/soramitsu/Capital-iOS.git`, branch `feature/sora-propositions`)
+  - Cuckoo (= 1.5.2)
+  - FearlessUtils
   - Firebase/Crashlytics
   - FirebaseAnalytics
   - FirebaseMessaging
   - FireMock
   - GCDWebServer
   - IKEventSource
-  - IrohaCrypto/ed25519 (from `https://github.com/ArsenyZ/IrohaCrypto.git`, commit `c0a0022f0ee95b4e2d255ee108d7a73c257acde2`)
-  - IrohaCrypto/Iroha (from `https://github.com/ArsenyZ/IrohaCrypto.git`, commit `c0a0022f0ee95b4e2d255ee108d7a73c257acde2`)
-  - IrohaCrypto/secp256k1 (from `https://github.com/ArsenyZ/IrohaCrypto.git`, commit `c0a0022f0ee95b4e2d255ee108d7a73c257acde2`)
-  - Kingfisher
+  - IrohaCrypto
+  - Kingfisher (from `https://github.com/onevcat/Kingfisher`, branch `version6-xcode13`)
+  - lottie-ios
+  - Nantes
   - R.swift
   - ReachabilitySwift
   - RobinHood
   - SKPhotoBrowser
+  - SnapKit
   - SoraDocuments
-  - SoraFoundation (~> 0.8.0)
+  - SoraFoundation
   - SoraKeystore
   - SoraUI
   - Starscream (from `https://github.com/ERussel/Starscream.git`, branch `feature/without-origin`)
+  - SVGKit (from `https://github.com/SVGKit/SVGKit.git`, tag `3.0.0`)
   - SwiftLint
   - SwiftyBeaver
   - Then
@@ -240,7 +268,9 @@ SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
     - Anchorage
     - BigInt
+    - CocoaLumberjack
     - Cuckoo
+    - FearlessUtils
     - Firebase
     - FirebaseAnalytics
     - FirebaseCore
@@ -254,8 +284,10 @@ SPEC REPOS:
     - GoogleDataTransport
     - GoogleUtilities
     - IKEventSource
-    - Kingfisher
+    - IrohaCrypto
+    - lottie-ios
     - nanopb
+    - Nantes
     - PromisesObjC
     - R.swift
     - R.swift.Library
@@ -264,6 +296,7 @@ SPEC REPOS:
     - scrypt.c
     - secp256k1.c
     - SKPhotoBrowser
+    - SnapKit
     - SoraDocuments
     - SoraFoundation
     - SoraKeystore
@@ -276,73 +309,78 @@ SPEC REPOS:
 
 EXTERNAL SOURCES:
   CommonWallet:
-    :commit: 29518e70c1a386405c19f2f335eaeef6d500c4ad
+    :branch: feature/sora-propositions
     :git: https://github.com/soramitsu/Capital-iOS.git
-  FearlessUtils:
-    :commit: cc66cd7f9b30c5e3ec4992885efd3cd4c70606c1
-    :git: https://github.com/soramitsu/fearless-utils-iOS.git
-  IrohaCrypto:
-    :commit: c0a0022f0ee95b4e2d255ee108d7a73c257acde2
-    :git: https://github.com/ArsenyZ/IrohaCrypto.git
+  Kingfisher:
+    :branch: version6-xcode13
+    :git: https://github.com/onevcat/Kingfisher
   Starscream:
     :branch: feature/without-origin
     :git: https://github.com/ERussel/Starscream.git
+  SVGKit:
+    :git: https://github.com/SVGKit/SVGKit.git
+    :tag: 3.0.0
 
 CHECKOUT OPTIONS:
   CommonWallet:
-    :commit: 29518e70c1a386405c19f2f335eaeef6d500c4ad
+    :commit: 584bc49ab50ef3eca9f500bd9068aca87fd917c4
     :git: https://github.com/soramitsu/Capital-iOS.git
-  FearlessUtils:
-    :commit: cc66cd7f9b30c5e3ec4992885efd3cd4c70606c1
-    :git: https://github.com/soramitsu/fearless-utils-iOS.git
-  IrohaCrypto:
-    :commit: c0a0022f0ee95b4e2d255ee108d7a73c257acde2
-    :git: https://github.com/ArsenyZ/IrohaCrypto.git
+  Kingfisher:
+    :commit: 2742b4de5036f9352d94c891495a3af3b9bdb67c
+    :git: https://github.com/onevcat/Kingfisher
   Starscream:
-    :commit: b9e69390d96e71427463469f47cdafb8c0db1b21
+    :commit: 96b40350509663ecdbf82c8498b457303c6fc10d
     :git: https://github.com/ERussel/Starscream.git
+  SVGKit:
+    :git: https://github.com/SVGKit/SVGKit.git
+    :tag: 3.0.0
 
 SPEC CHECKSUMS:
   Anchorage: 1961bc81c84aeed54ad7ffc697c50cd9de748ba6
   BigInt: f668a80089607f521586bbe29513d708491ef2f7
-  CommonWallet: c7d06c122997f01ea343c2d5fdd8c8022bf48961
-  Cuckoo: 9124fe138270854903483c270370e6e7658fbc9b
-  FearlessUtils: 02ccf4db110ca31627354fbe4f8254af3b0757c6
-  Firebase: b5956acddaaa53a6c292bec00649fadd18367344
-  FirebaseAnalytics: e812eaae316ba8914b1ef06bef18f11efc1f56c6
-  FirebaseCore: 389c4ce9a7cce4a7e25eb22326b4bee0050557b2
-  FirebaseCoreDiagnostics: 3e249cee3de5c5f9cfd6cc2a19997231286fec11
-  FirebaseCrashlytics: 1b55b3a718f9e20d59d96db46a4652d95a8ba1d2
-  FirebaseInstallations: 7f31798a8198c354eadcb87176d2090b62edc187
-  FirebaseMessaging: c8871b0907dcf4e76de81241eb6a62be6d657d2f
+  CocoaLumberjack: 543c79c114dadc3b1aba95641d8738b06b05b646
+  CommonWallet: 3c67d5fd85593a20f6b55777c2660ff886fc4148
+  Cuckoo: df291c2d8462a39a16494a9db4ef112f5ca3bdc0
+  FearlessUtils: 760f5884fb83e132d9e6751e216d0bb6cee2b27a
+  Firebase: 5f8193dff4b5b7c5d5ef72ae54bb76c08e2b841d
+  FirebaseAnalytics: 7761cbadb00a717d8d0939363eb46041526474fa
+  FirebaseCore: 5743c5785c074a794d35f2fff7ecc254a91e08b1
+  FirebaseCoreDiagnostics: 92e07a649aeb66352b319d43bdd2ee3942af84cb
+  FirebaseCrashlytics: feb07e4e9187be3c23c6a846cce4824e5ce2dd0b
+  FirebaseInstallations: 40bd9054049b2eae9a2c38ef1c3dd213df3605cd
+  FirebaseMessaging: 5e5118a2383b3531e730d974680954c679ca0a13
   FireMock: 3eed872059c12f94855413347da83b9d6d1a6fac
   GCDWebServer: 2c156a56c8226e2d5c0c3f208a3621ccffbe3ce4
-  GoogleAppMeasurement: 9ff7b9e23cced93a5a41736c09bdeb5b5b7fb111
-  GoogleDataTransport: 11e3a5f2c190327df1a4a5d7e7ae3d4d5b9c9e4c
-  GoogleUtilities: f8a43108b38a68eebe8b3540e1f4f2d28843ce20
+  GoogleAppMeasurement: 4c19f031220c72464d460c9daa1fb5d1acce958e
+  GoogleDataTransport: 629c20a4d363167143f30ea78320d5a7eb8bd940
+  GoogleUtilities: e0913149f6b0625b553d70dae12b49fc62914fd1
   IKEventSource: ababa323587c6b0c250dd54d4a48ab68fd845e8e
-  IrohaCrypto: 753b4f9c2af9ddb97538e6b919d087f87112e708
-  Kingfisher: 6c3df386db71d82c0817a429d2c9421a77396529
+  IrohaCrypto: 2b7585e71eff4fbd7e7adc2d592ad5c22610524b
+  Kingfisher: 8b783c3d7be73a99b2172a743a5bc0a4dd331d79
+  lottie-ios: 6ac74dcc09904798f59b18cb3075c089d76be9ae
   nanopb: a0ba3315591a9ae0a16a309ee504766e90db0c96
-  PromisesObjC: 3113f7f76903778cf4a0586bd1ab89329a0b7b97
-  R.swift: c533450b0f7dc494e0993f5f1a1db925d84c3006
+  Nantes: 0396442578e32242223fed46050dea1850236184
+  PromisesObjC: 99b6f43f9e1044bd87a95a60beff28c2c44ddb72
+  R.swift: ec98ff71c4ab2f6fd01dd077e5afd15e63a4834c
   R.swift.Library: 0fc583cb55a99e28901299cc451614cad1161962
   ReachabilitySwift: 985039c6f7b23a1da463388634119492ff86c825
-  RobinHood: 0ccabe29316ad308b691535e43367cf702a2205a
+  RobinHood: bd66f17e8aeb64d2a739d4fe07e4725fc87919d5
   scrypt.c: b42ae06183251329d2b2c620c226fb541a4a3592
   secp256k1.c: db47b726585d80f027423682eb369729e61b3b20
-  SKPhotoBrowser: 343de95d89dc7913763c5dda243cc6e606e4a168
+  SKPhotoBrowser: 6aaa8f232752e87c7e76bace183bead0a137097d
+  SnapKit: e01d52ebb8ddbc333eefe2132acf85c8227d9c25
   SoraDocuments: c927a79974f73672a8f39d8c2bb143afca5d3561
-  SoraFoundation: 191f65cb04fd82f32c8e4e00156a7c979dd2c7e2
-  SoraKeystore: 408a26aafda780fc3005b20ab336791832b5419e
-  SoraUI: cf9681c377dfcdad2f121b3629ea45e698a5d7a3
+  SoraFoundation: 988d90ee3159311b02e42aeba0cf7e85d8bc724c
+  SoraKeystore: 92cff6e2a12f212dd64ed089970ff7c365247b1c
+  SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   Starscream: 5178aed56b316f13fa3bc55694e583d35dd414d9
-  SwiftLint: 99f82d07b837b942dd563c668de129a03fc3fb52
+  SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
+  SwiftLint: d41cc46a2ae58ac6d9f26954bc89f1d72e71fdef
   SwiftyBeaver: 84069991dd5dca07d7069100985badaca7f0ce82
   Then: acfe0be7e98221c6204e12f8161459606d5d822d
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 6f3a1c7d6040f6176977e45bf0563f4ef2dd9e92
+PODFILE CHECKSUM: aded81d24d7bca0d34fc82d3f3b1f4c5e4a46eca
 
-COCOAPODS: 1.10.1
+COCOAPODS: 1.11.2

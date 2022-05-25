@@ -15,8 +15,8 @@ extension NSPredicate {
     static func filterTransactionsBy(address: String) -> NSPredicate {
         let senderPredicate = filterTransactionsBySender(address: address)
         let receiverPredicate = filterTransactionsByReceiver(address: address)
-
-        let orPredicates = [senderPredicate, receiverPredicate]
+        let typePredicate = filterTransactionsByCall(callName: "swap")
+        let orPredicates = [senderPredicate, receiverPredicate, typePredicate]
         return NSCompoundPredicate(orPredicateWithSubpredicates: orPredicates)
     }
 
@@ -26,6 +26,10 @@ extension NSPredicate {
 
     static func filterTransactionsByReceiver(address: String) -> NSPredicate {
         return NSPredicate(format: "%K == %@", #keyPath(CDTransactionHistoryItem.receiver), address)
+    }
+
+    static func filterTransactionsByCall(callName: String) -> NSPredicate {
+        return NSPredicate(format: "%K == %@", #keyPath(CDTransactionHistoryItem.callName), callName)
     }
 
     static func filterContactsByTarget(address: String) -> NSPredicate {

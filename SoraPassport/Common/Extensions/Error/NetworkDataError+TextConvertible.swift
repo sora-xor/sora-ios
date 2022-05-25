@@ -42,6 +42,10 @@ extension NetworkResponseError: ErrorContentConvertible {
                 .commonErrorUnexpectedStatusTitle(preferredLanguages: locale?.rLanguages)
             message = R.string.localizable
                 .commonErrorGeneralMessage(preferredLanguages: locale?.rLanguages)
+        case .accessForbidden(let data):
+            title = "403"
+            message = R.string.localizable
+                .commonErrorGeneralMessage(preferredLanguages: locale?.rLanguages)
         }
 
         return ErrorContent(title: title, message: message)

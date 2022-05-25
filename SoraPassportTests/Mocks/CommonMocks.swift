@@ -1238,6 +1238,20 @@ import os
     
     
     
+     var parliamentURL: URL {
+        get {
+            return cuckoo_manager.getter("parliamentURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.parliamentURL)
+        }
+        
+    }
+    
+    
+    
      var phishingListURL: URL {
         get {
             return cuckoo_manager.getter("phishingListURL",
@@ -1382,6 +1396,11 @@ import os
 	    }
 	    
 	    
+	    var parliamentURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+	        return .init(manager: cuckoo_manager, name: "parliamentURL")
+	    }
+	    
+	    
 	    var phishingListURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
 	        return .init(manager: cuckoo_manager, name: "phishingListURL")
 	    }
@@ -1509,6 +1528,11 @@ import os
 	    
 	    var rewardsURL: Cuckoo.VerifyReadOnlyProperty<URL> {
 	        return .init(manager: cuckoo_manager, name: "rewardsURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+	    }
+	    
+	    
+	    var parliamentURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+	        return .init(manager: cuckoo_manager, name: "parliamentURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
 	    }
 	    
 	    
@@ -1690,6 +1714,14 @@ import os
     
     
      var rewardsURL: URL {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL).self)
+        }
+        
+    }
+    
+    
+     var parliamentURL: URL {
         get {
             return DefaultValueRegistry.defaultValue(for: (URL).self)
         }

@@ -59,6 +59,14 @@ final class WalletCommandDecoratorFactory: WalletCommandDecoratorFactoryProtocol
         return selectCommand
     }
 
+    func createTransferConfirmationDecorator(with commandFactory: WalletCommandFactoryProtocol,
+                                             payload: ConfirmationPayload)
+        -> WalletPresentationCommandProtocol? {
+            let command = commandFactory.prepareConfirmation(with: payload)
+            command.presentationStyle = .modal(inNavigation: true)
+            return command
+    }
+
     func createVisibilityToggleCommand(with commandFactory: WalletCommandFactoryProtocol, for asset: WalletAsset) -> WalletCommandDecoratorProtocol? {
         return ToggleAssetCommand(asset: asset, assetManager: assetManager, commandFactory: commandFactory)
     }

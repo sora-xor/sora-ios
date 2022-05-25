@@ -12,7 +12,7 @@ enum AccountCreateContext: String {
     case networkType
 }
 
-final class AccountCreatePresenter {
+final class AccountCreatePresenter: SharingPresentable {
     weak var view: AccountCreateViewProtocol?
     var wireframe: AccountCreateWireframeProtocol!
     var interactor: AccountCreateInteractorInputProtocol!
@@ -85,10 +85,12 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                           from: view)
     }
 
-    func copy() {
-        let locale = localizationManager?.selectedLocale ?? Locale.current
-        UIPasteboard.general.string = self.metadata?.mnemonic.joined(separator: " ")
-        wireframe.presentSuccessNotification(R.string.localizable.commonCopied(preferredLanguages: locale.rLanguages), from: view)
+    func share() {
+        guard let phrase = metadata?.mnemonic.joined(separator: " ") else { return }
+        let source = TextSharingSource(message: phrase)
+        share(source: source,
+              from: view,
+              with: nil)
     }
 
     func proceed() {

@@ -35,8 +35,6 @@ struct AssetInfo: Codable {
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         visible = try container.decodeIfPresent(Bool.self, forKey: .visible) ?? false
     }
-
-
 }
 
 extension AssetInfo: Identifiable {

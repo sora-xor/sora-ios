@@ -19,8 +19,8 @@ final class EmptyStateListViewModel: EmptyStateListViewModelProtocol {
         let emptyStateView = EmptyStateView()
         emptyStateView.image = image
         emptyStateView.title = title
-        emptyStateView.titleColor = UIColor.emptyStateTitle
-        emptyStateView.titleFont = UIFont.emptyStateTitle
+        emptyStateView.titleColor = R.color.baseContentPrimary()!
+        emptyStateView.titleFont = UIFont.styled(for: .paragraph3)
         emptyStateView.trimStrategy = .hideTitle
         emptyStateView.verticalSpacing = spacing
 

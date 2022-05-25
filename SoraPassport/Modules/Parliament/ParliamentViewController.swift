@@ -27,6 +27,8 @@ final class ParliamentViewController: UIViewController {
         }
     }()
 
+    private var promoView: ComingSoonView?
+
     private var viewModel: ComingSoonViewModel! {
         didSet {
             reloadData()
@@ -65,28 +67,16 @@ final class ParliamentViewController: UIViewController {
             $0.topAnchor == view.safeAreaLayoutGuide.topAnchor
             $0.leadingAnchor == view.safeAreaLayoutGuide.leadingAnchor
             $0.trailingAnchor == view.safeAreaLayoutGuide.trailingAnchor
+            $0.bottomAnchor == view.safeAreaLayoutGuide.bottomAnchor
         }
 
-        createStackView().do {
-            container.addSubview($0)
-            $0.edgeAnchors.verticalAnchors == container.edgeAnchors.verticalAnchors + 24
-            $0.edgeAnchors.horizontalAnchors == container.edgeAnchors.horizontalAnchors + 16
+        guard let soon = UINib(resource: R.nib.comingSoonView).instantiate(withOwner: nil).first as? ComingSoonView else {
+            return
         }
-    }
-
-    private func createStackView() -> UIView {
-
-        let stackView = UIStackView(arrangedSubviews: [
-            comingSoonView.container,
-            descriptionView.container//,
-//            UIView.empty(height: 24),
-//            buttonRoundedView
-        ]).then {
-            $0.axis = .vertical
-            $0.spacing = 0
-        }
-
-        return stackView
+        container.addSubview(soon)
+        soon.edgeAnchors.verticalAnchors == container.edgeAnchors.verticalAnchors
+        soon.edgeAnchors.horizontalAnchors == container.edgeAnchors.horizontalAnchors
+        promoView = soon
     }
 
     private func reloadData() {
@@ -100,12 +90,14 @@ final class ParliamentViewController: UIViewController {
             $0.attributedText = viewModel.comingSoonDescriptionText
                 .styled(.paragraph1)
         }
-
-//        buttonRoundedView.do {
-//            $0.cornerRadius = 16
-//            $0.titleAttributedText = viewModel.navigationButtonModel?.title
-//            $0.descriptionAttributedText = viewModel.navigationButtonModel?.description
-//        }
+        
+        promoView?.titleText = viewModel.comingSoonText
+        promoView?.text = viewModel.comingSoonDescriptionText
+        promoView?.image = viewModel.image
+        promoView?.linkTitle = self.viewModel.linkViewModel?.title ?? ""
+        promoView?.tapClosure = {
+            self.presenter.openLink(url: self.viewModel.linkViewModel?.link)
+        }
     }
 
     @objc private func activateReferenda() {

@@ -30,6 +30,7 @@ protocol ProfileWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPrese
     func showLanguageSelection(from view: ProfileViewProtocol?)
     func showFaq(from view: ProfileViewProtocol?)
     func showAbout(from view: ProfileViewProtocol?)
+    func showDisclaimer(from view: ProfileViewProtocol?)
     func showLogout(from view: ProfileViewProtocol?, completionBlock: (() -> Void)?)
     func switchBiometry(
         toValue: Bool,

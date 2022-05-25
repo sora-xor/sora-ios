@@ -339,6 +339,14 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
             interactor.importAccountWithKeystore(request: request)
         }
     }
+
+    func activateURL(_ url: URL) {
+        if let view = view {
+            wireframe.showWeb(url: url,
+                              from: view,
+                              style: .modal)
+        }
+    }
 }
 
 extension AccountImportPresenter: AccountImportInteractorOutputProtocol {

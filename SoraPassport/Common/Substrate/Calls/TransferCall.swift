@@ -19,6 +19,7 @@ struct SoraTransferCall: Codable {
     }
 }
 
+
 @propertyWrapper
 public struct ArrayCodable: Codable, Equatable {
     public var wrappedValue: String

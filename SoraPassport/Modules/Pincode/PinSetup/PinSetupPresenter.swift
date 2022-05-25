@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import SoraFoundation
 
 class PinSetupPresenter: PinSetupPresenterProtocol {
     weak var view: PinSetupViewProtocol?
@@ -42,7 +43,7 @@ extension PinSetupPresenter: PinSetupInteractorOutputProtocol {
 
     func didReceiveConfigError(_ error: Error) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            _ = self.wireframe.present(error: error, from: nil, locale: Locale.current)
+            _ = self.wireframe.present(error: error, from: nil, locale: LocalizationManager.shared.selectedLocale)
         }
 
     }

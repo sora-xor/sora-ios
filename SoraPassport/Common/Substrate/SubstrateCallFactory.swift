@@ -3,10 +3,10 @@
 * SPDX-License-Identifier: Apache 2.0
 */
 
-import Foundation
-import FearlessUtils
-import IrohaCrypto
 import BigInt
+import FearlessUtils
+import Foundation
+import IrohaCrypto
 
 protocol SubstrateCallFactoryProtocol {
     func migrate(irohaAddress: String, irohaKey: String, signature: String) throws -> RuntimeCall<MigrateCall>
@@ -18,7 +18,6 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
     func migrate(irohaAddress: String, irohaKey: String, signature: String) throws -> RuntimeCall<MigrateCall> {
         let call = MigrateCall(irohaAddress: irohaAddress, irohaPublicKey: irohaKey, irohaSignature: signature)
         return RuntimeCall<MigrateCall>.migrate(call)
-
     }
 
     func transfer(to receiverAccountId: String,
@@ -28,5 +27,18 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
                                     amount: amount,
                                     assetId: asset)
         return RuntimeCall<SoraTransferCall>.transfer(call)
+    }
+
+    func swap(from asset: String,
+              to targetAsset: String,
+              amountCall: [SwapVariant: SwapAmount],
+              type: [UInt?], filter: UInt) throws -> RuntimeCall<SwapCall> {
+        let call = SwapCall(dexId: "0",
+                            inputAssetId: asset,
+                            outputAssetId: targetAsset,
+                            amount: amountCall,
+                            liquiditySourceType: type,
+                            filterMode: filter)
+        return RuntimeCall<SwapCall>.swap(call)
     }
 }

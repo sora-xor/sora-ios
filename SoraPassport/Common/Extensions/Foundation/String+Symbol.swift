@@ -26,5 +26,13 @@ extension String {
         return "−"
     }
 
+    static var space: String { " " }
+
     static var returnKey: String { "\n" }
+
+    static var lokalizableSeparator: String { "%%" }
+
+    func nonEmptyComponents<T>(separatedBy separator: T) -> [String] where T: StringProtocol {
+        return self.components(separatedBy: separator).filter {!$0.isEmpty}
+    }
 }

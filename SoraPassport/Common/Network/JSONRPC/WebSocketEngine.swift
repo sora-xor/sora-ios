@@ -331,6 +331,7 @@ extension WebSocketEngine {
                                    params: params)
 
             data = try jsonEncoder.encode(info)
+            logger.debug("JSONRPCInfo: \(info)")
         } else {
             let info = JSONRPCInfo(identifier: requestId,
                                    jsonrpc: version,
@@ -338,6 +339,7 @@ extension WebSocketEngine {
                                    params: [String]())
 
             data = try jsonEncoder.encode(info)
+            logger.debug("JSONRPCInfo: \(info)")
         }
 
         let handler: JSONRPCResponseHandling?

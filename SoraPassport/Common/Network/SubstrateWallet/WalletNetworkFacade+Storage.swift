@@ -29,7 +29,7 @@ extension WalletNetworkFacade {
             let accountInfoOperation: CompoundOperationWrapper<AccountInfo?> =
                 queryAccountInfoByKey(accountInfoKey, dependingOn: upgradeCheckOperation)
 
-            let dependencies = assets.map({  factory.createBalanceOperation(accountId: address!, assetId: $0.identifier) })
+            let dependencies = assets.map({  factory.createUsableBalanceOperation(accountId: address!, assetId: $0.identifier) })
 
             let mappingOperation = ClosureOperation<[BalanceData]?> {
 

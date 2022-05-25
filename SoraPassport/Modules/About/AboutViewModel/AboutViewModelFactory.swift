@@ -17,7 +17,14 @@ final class AboutViewModelFactory: AboutViewModelFactoryProtocol {
         let cases: [AboutOption] = [
             .website,
             .opensource(version: ApplicationConfig.shared.version),
+            .twitter,
+            .youtube,
+            .instagram,
+            .medium,
+            .wiki,
             .telegram,
+            .announcements,
+            .support,
             .writeUs(toEmail: ApplicationConfig.shared.supportEmail),
             .terms,
             .privacy

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="NeumorphismButton" customModule="SoraPassport" customModuleProvider="target">
+            <userDefinedRuntimeAttributes>
+                <userDefinedRuntimeAttribute type="string" keyPath="buttonTitle" value="ggg"/>
+            </userDefinedRuntimeAttributes>
+            <connections>
+                <outlet property="button" destination="jwY-U7-qf8" id="lrM-Uv-9FU"/>
+                <outlet property="containerView" destination="iN0-l3-epB" id="U0I-xD-IJ7"/>
+                <outlet property="shadowView" destination="v2y-17-nIQ" id="HXq-9h-FRR"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB">
+            <rect key="frame" x="0.0" y="0.0" width="800" height="323"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="v2y-17-nIQ">
+                    <rect key="frame" x="0.0" y="0.0" width="800" height="289"/>
+                </view>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="jwY-U7-qf8">
+                    <rect key="frame" x="0.0" y="0.0" width="800" height="289"/>
+                    <connections>
+                        <action selector="buttonPressed:" destination="-1" eventType="touchUpInside" id="52b-J1-gIO"/>
+                    </connections>
+                </button>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <constraints>
+                <constraint firstItem="jwY-U7-qf8" firstAttribute="top" secondItem="v2y-17-nIQ" secondAttribute="top" id="0qT-1b-LhG"/>
+                <constraint firstItem="v2y-17-nIQ" firstAttribute="trailing" secondItem="vUN-kp-3ea" secondAttribute="trailing" id="5iu-PO-SY5"/>
+                <constraint firstItem="jwY-U7-qf8" firstAttribute="leading" secondItem="v2y-17-nIQ" secondAttribute="leading" id="BPl-c8-Fgn"/>
+                <constraint firstItem="v2y-17-nIQ" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" id="FAZ-SB-anx"/>
+                <constraint firstItem="v2y-17-nIQ" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="coJ-mO-AYG"/>
+                <constraint firstItem="jwY-U7-qf8" firstAttribute="trailing" secondItem="v2y-17-nIQ" secondAttribute="trailing" id="p3H-cX-MBZ"/>
+                <constraint firstItem="v2y-17-nIQ" firstAttribute="bottom" secondItem="vUN-kp-3ea" secondAttribute="bottom" id="s13-Ss-HfK"/>
+                <constraint firstItem="jwY-U7-qf8" firstAttribute="bottom" secondItem="v2y-17-nIQ" secondAttribute="bottom" id="u6K-dY-rcz"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <point key="canvasLocation" x="-52.173913043478265" y="-142.29910714285714"/>
+        </view>
+    </objects>
+</document>

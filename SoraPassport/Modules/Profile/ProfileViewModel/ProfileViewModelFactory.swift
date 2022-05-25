@@ -33,6 +33,7 @@ final class ProfileViewModelFactory: ProfileViewModelFactoryProtocol {
             case .language:     return ProfileOptionViewModel(by: option)
             case .faq:          return ProfileOptionViewModel(by: option)
             case .about:        return ProfileOptionViewModel(by: option)
+            case .disclaimer:   return ProfileOptionViewModel(by: option)
             case .logout:       return ProfileOptionViewModel(by: option)
             }
         }

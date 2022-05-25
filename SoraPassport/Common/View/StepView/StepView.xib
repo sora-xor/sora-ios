@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="14868" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina4_0" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14824"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -54,6 +54,7 @@
                     <nil key="highlightedColor"/>
                 </label>
             </subviews>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
             <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
             <constraints>
                 <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="FWY-E5-WgJ" secondAttribute="trailing" id="BfJ-yU-YD3"/>
@@ -63,7 +64,6 @@
                 <constraint firstItem="eEb-mw-5Bg" firstAttribute="top" secondItem="vUN-kp-3ea" secondAttribute="top" constant="1" id="lzL-Ah-pBh"/>
             </constraints>
             <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
-            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
             <connections>
                 <outlet property="spacingConstraints" destination="PsA-n0-n5v" id="hXr-Cg-OCN"/>
                 <outlet property="stepIndexView" destination="eEb-mw-5Bg" id="KPa-Bo-Zk1"/>
@@ -72,4 +72,9 @@
             <point key="canvasLocation" x="140" y="154"/>
         </view>
     </objects>
+    <designables>
+        <designable name="eEb-mw-5Bg">
+            <size key="intrinsicContentSize" width="22" height="28"/>
+        </designable>
+    </designables>
 </document>

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <customFonts key="customFonts">
+        <array key="Sora-Light.otf">
+            <string>Sora-Light</string>
+        </array>
+    </customFonts>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="NeuTextView" customModule="SoraPassport" customModuleProvider="target">
+            <connections>
+                <outlet property="borderView" destination="MDP-Pe-WhS" id="mHc-6e-FfP"/>
+                <outlet property="containerView" destination="iN0-l3-epB" id="uyx-ji-jGR"/>
+                <outlet property="input" destination="vKv-bV-mE9" id="jLA-1f-6Pe"/>
+                <outlet property="placeholder" destination="AHd-Sx-vbH" id="1M1-qA-eTT"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="140"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="MDP-Pe-WhS" userLabel="Border view" customClass="RoundedView" customModule="SoraUI">
+                    <rect key="frame" x="0.0" y="12" width="414" height="128"/>
+                    <subviews>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Mnemonic" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="AHd-Sx-vbH" userLabel="placeholder">
+                            <rect key="frame" x="16" y="54.5" width="382" height="19"/>
+                            <fontDescription key="fontDescription" name="Sora-Light" family="Sora" pointSize="15"/>
+                            <color key="textColor" name="Base ContentQuaternary"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <textView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" scrollEnabled="NO" showsHorizontalScrollIndicator="NO" showsVerticalScrollIndicator="NO" text="couple raw spatial shop person process still manage hidden carpet expect moment mammal bright pumpkin" textAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="vKv-bV-mE9" userLabel="input">
+                            <rect key="frame" x="10" y="27.5" width="394" height="73"/>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <color key="tintColor" red="0.0" green="0.47843137250000001" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            <constraints>
+                                <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="22" id="rsu-yz-eu0"/>
+                            </constraints>
+                            <color key="textColor" name="Neumorphism/Text Dark"/>
+                            <fontDescription key="fontDescription" name="Sora-Light" family="Sora" pointSize="15"/>
+                            <textInputTraits key="textInputTraits" autocorrectionType="no" spellCheckingType="no" keyboardType="alphabet" returnKeyType="done" smartDashesType="no" smartInsertDeleteType="no" smartQuotesType="no"/>
+                        </textView>
+                    </subviews>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <constraints>
+                        <constraint firstItem="vKv-bV-mE9" firstAttribute="centerY" secondItem="MDP-Pe-WhS" secondAttribute="centerY" id="2gv-pJ-YA1"/>
+                        <constraint firstItem="AHd-Sx-vbH" firstAttribute="centerY" secondItem="MDP-Pe-WhS" secondAttribute="centerY" id="3zJ-sI-a21"/>
+                        <constraint firstItem="vKv-bV-mE9" firstAttribute="leading" secondItem="MDP-Pe-WhS" secondAttribute="leading" constant="10" id="CGN-ZJ-Qm3"/>
+                        <constraint firstItem="vKv-bV-mE9" firstAttribute="top" relation="greaterThanOrEqual" secondItem="MDP-Pe-WhS" secondAttribute="top" constant="9" id="DC9-S6-2Iv"/>
+                        <constraint firstAttribute="trailing" secondItem="vKv-bV-mE9" secondAttribute="trailing" constant="10" id="G0J-bp-T9i"/>
+                        <constraint firstAttribute="trailing" secondItem="AHd-Sx-vbH" secondAttribute="trailing" constant="16" id="KKr-MN-2Hh"/>
+                        <constraint firstItem="AHd-Sx-vbH" firstAttribute="centerX" secondItem="MDP-Pe-WhS" secondAttribute="centerX" id="LF8-AS-h7n"/>
+                        <constraint firstItem="AHd-Sx-vbH" firstAttribute="leading" secondItem="MDP-Pe-WhS" secondAttribute="leading" constant="16" id="WRz-rQ-VSa"/>
+                        <constraint firstAttribute="height" constant="128" id="nGi-If-IJI"/>
+                    </constraints>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
+                            <real key="value" value="24"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="shadowOpacity">
+                            <real key="value" value="0.0"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="shadowColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="size" keyPath="shadowOffset">
+                            <size key="value" width="0.0" height="1"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="shadowRadius">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="fillColor">
+                            <color key="value" name="Base Background"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                            <color key="value" name="Neumorphism/Border Base"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="highlightedFillColor">
+                            <color key="value" name="Base Background"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="highlightedStrokeColor">
+                            <color key="value" name="Neumorphism/Border Focus"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                </view>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <constraints>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="MDP-Pe-WhS" secondAttribute="trailing" id="Vx0-68-Xdu"/>
+                <constraint firstItem="MDP-Pe-WhS" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="g3w-Pl-hJ9"/>
+                <constraint firstItem="MDP-Pe-WhS" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="mwT-zz-Swn"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="bottom" secondItem="MDP-Pe-WhS" secondAttribute="bottom" id="zbQ-3i-Eof"/>
+            </constraints>
+            <nil key="simulatedTopBarMetrics"/>
+            <nil key="simulatedBottomBarMetrics"/>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <point key="canvasLocation" x="137.68115942028987" y="316.74107142857139"/>
+        </view>
+    </objects>
+    <resources>
+        <namedColor name="Base Background">
+            <color red="0.96470588235294119" green="0.94509803921568625" blue="0.94509803921568625" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Base ContentQuaternary">
+            <color red="0.63921568627450975" green="0.64313725490196083" blue="0.6588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Border Base">
+            <color red="0.59999999999999998" green="0.53333333333333333" blue="0.53333333333333333" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Border Focus">
+            <color red="0.14117647058823529" green="0.85490196078431369" blue="0.62745098039215685" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Text Dark">
+            <color red="0.13300000131130219" green="0.067000001668930054" blue="0.067000001668930054" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
+</document>

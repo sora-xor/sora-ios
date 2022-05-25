@@ -12,34 +12,6 @@ final class SelectionSubtitleTableViewCell: UITableViewCell, SelectionItemViewPr
     @IBOutlet private var checkmarkImageView: UIImageView!
 
     @IBInspectable
-    var titleColor: UIColor = UIColor.black {
-        didSet {
-            updateSelectionState()
-        }
-    }
-
-    @IBInspectable
-    var selectedTitleColor: UIColor = UIColor.black {
-        didSet {
-            updateSelectionState()
-        }
-    }
-
-    @IBInspectable
-    var subtitleColor: UIColor = UIColor.black {
-        didSet {
-            updateSelectionState()
-        }
-    }
-
-    @IBInspectable
-    var selectedSubtitleColor: UIColor = UIColor.black {
-        didSet {
-            updateSelectionState()
-        }
-    }
-
-    @IBInspectable
     var checkmarkIcon: UIImage? {
         didSet {
             updateSelectionState()
@@ -60,6 +32,12 @@ final class SelectionSubtitleTableViewCell: UITableViewCell, SelectionItemViewPr
             subtitleLabel.text = subtitleViewModel.subtitle
             updateSelectionState()
 
+            titleLabel.font = UIFont.styled(for: .paragraph2, isBold: true)
+            subtitleLabel.font = UIFont.styled(for: .paragraph3)
+            
+            titleLabel.textColor = R.color.neumorphism.textDark()!
+            subtitleLabel.textColor = R.color.neumorphism.textDark()!
+
             viewModel.addObserver(self)
         }
     }
@@ -67,14 +45,6 @@ final class SelectionSubtitleTableViewCell: UITableViewCell, SelectionItemViewPr
     private func updateSelectionState() {
         guard let viewModel = viewModel else {
             return
-        }
-
-        if titleLabel != nil {
-            titleLabel.textColor = viewModel.isSelected ? selectedTitleColor : titleColor
-        }
-
-        if subtitleLabel != nil {
-            subtitleLabel.textColor = viewModel.isSelected ? selectedSubtitleColor : subtitleColor
         }
 
         if checkmarkImageView != nil {

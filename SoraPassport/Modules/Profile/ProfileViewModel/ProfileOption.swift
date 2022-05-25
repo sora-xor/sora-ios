@@ -14,6 +14,7 @@ enum ProfileOption: UInt, CaseIterable {
     case language   // accessorible
     case faq
     case about
+    case disclaimer
     case logout
 }
 
@@ -29,6 +30,7 @@ extension ProfileOption {
         case .language:     return R.image.profile.language()
         case .faq:          return R.image.profile.faq()
         case .about:        return R.image.profile.about()
+        case .disclaimer:   return R.image.profile.disclaimer()
         case .logout:       return R.image.profile.logout()
         }
     }
@@ -43,6 +45,7 @@ extension ProfileOption {
         case .language:     return R.string.localizable.profileLanguageTitle(preferredLanguages: locale.rLanguages)
         case .faq:          return R.string.localizable.profileFaqTitle(preferredLanguages: locale.rLanguages)
         case .about:        return R.string.localizable.profileAboutTitle(preferredLanguages: locale.rLanguages)
+        case .disclaimer:   return R.string.localizable.polkaswapInfoTitle(preferredLanguages: locale.rLanguages)
         case .logout:       return R.string.localizable.profileLogoutTitle(preferredLanguages: locale.rLanguages)
         }
     }

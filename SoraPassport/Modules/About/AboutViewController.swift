@@ -29,12 +29,13 @@ final class AboutViewController: UIViewController {
 
     private lazy var linkViewButtons: [LinkView] = {
         optionViewModels.enumerated().map { (index, option) in
-            LinkView().then {
+            LinkView(separatorIsVisible: true).then {
                 $0.tag = index
                 $0.iconImage = option.image
                 $0.titleAttributedText = option.title
                 $0.linkTitleAttributedText = option.subtitle
                 $0.iconTintColor = R.color.baseContentQuaternary()
+                $0.backgroundColor = R.color.baseBackground()
                 $0.addTarget(
                     self, action: #selector(linkViewAction(_:)),
                     for: .touchUpInside
@@ -58,7 +59,7 @@ private extension AboutViewController {
 
     func configure() {
         navigationItem.title = R.string.localizable.aboutTitle(preferredLanguages: languages)
-
+        view.backgroundColor = R.color.baseBackground()
         let stackView = UIStackView(
             arrangedSubviews: linkViewButtons
         ).then {

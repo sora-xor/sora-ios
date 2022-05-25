@@ -1,113 +1,64 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
+    <customFonts key="customFonts">
+        <array key="Sora-Light.otf">
+            <string>Sora-Light</string>
+        </array>
+    </customFonts>
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
         <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
         <view contentMode="scaleToFill" id="iN0-l3-epB" customClass="SoraAssetView" customModule="SoraPassport" customModuleProvider="target">
-            <rect key="frame" x="0.0" y="0.0" width="414" height="168"/>
+            <rect key="frame" x="0.0" y="0.0" width="414" height="120"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
                 <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="Jfm-01-Wjp">
-                    <rect key="frame" x="16" y="0.0" width="382" height="168"/>
+                    <rect key="frame" x="16" y="0.0" width="382" height="120"/>
                     <subviews>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="ZTT-zq-Sgx" userLabel="Asset" customClass="BorderedContainerView" customModule="SoraUI">
-                            <rect key="frame" x="0.0" y="0.0" width="382" height="56"/>
+                            <rect key="frame" x="0.0" y="0.0" width="382" height="63.5"/>
                             <subviews>
-                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Asset" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="oFV-gG-IAt">
-                                    <rect key="frame" x="0.0" y="18" width="43" height="20"/>
-                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                    <color key="textColor" name="Base ContentTertiary"/>
-                                    <nil key="highlightedColor"/>
-                                </label>
-                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="5YC-FJ-h7x">
-                                    <rect key="frame" x="340.5" y="18" width="41.5" height="20"/>
-                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" verticalHuggingPriority="251" text="Kusama" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" id="Sdw-gZ-nuz">
+                                    <rect key="frame" x="55" y="7" width="212" height="13"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                    <fontDescription key="fontDescription" name="Sora-Light" family="Sora" pointSize="11"/>
                                     <color key="textColor" name="Base ContentPrimary"/>
                                     <nil key="highlightedColor"/>
                                 </label>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="5YC-FJ-h7x">
+                                    <rect key="frame" x="54" y="18" width="328" height="27.5"/>
+                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                    <color key="textColor" name="Neumorphism/Text Dark"/>
+                                    <nil key="highlightedColor"/>
+                                </label>
                                 <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="i6S-qd-Hr9">
-                                    <rect key="frame" x="312.5" y="16" width="24" height="24"/>
+                                    <rect key="frame" x="0.0" y="9" width="46" height="46"/>
                                     <constraints>
                                         <constraint firstAttribute="width" secondItem="i6S-qd-Hr9" secondAttribute="height" multiplier="1:1" id="PcM-A4-rTE"/>
-                                        <constraint firstAttribute="width" constant="24" id="cla-GC-Xep"/>
+                                        <constraint firstAttribute="width" constant="46" id="cla-GC-Xep"/>
                                     </constraints>
                                 </imageView>
                             </subviews>
                             <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                             <constraints>
-                                <constraint firstItem="5YC-FJ-h7x" firstAttribute="leading" secondItem="i6S-qd-Hr9" secondAttribute="trailing" constant="4" id="2LS-nU-aFj"/>
+                                <constraint firstItem="5YC-FJ-h7x" firstAttribute="leading" secondItem="i6S-qd-Hr9" secondAttribute="trailing" constant="8" id="2LS-nU-aFj"/>
                                 <constraint firstItem="5YC-FJ-h7x" firstAttribute="top" secondItem="ZTT-zq-Sgx" secondAttribute="top" constant="18" id="5wX-61-neD"/>
                                 <constraint firstAttribute="trailing" secondItem="5YC-FJ-h7x" secondAttribute="trailing" id="8Nw-9b-hwu"/>
                                 <constraint firstAttribute="bottom" secondItem="5YC-FJ-h7x" secondAttribute="bottom" constant="18" id="D01-CO-lmF"/>
-                                <constraint firstAttribute="bottom" secondItem="oFV-gG-IAt" secondAttribute="bottom" constant="18" id="OX3-8J-7IV"/>
-                                <constraint firstAttribute="height" constant="56" id="gGS-lU-kZX"/>
-                                <constraint firstItem="oFV-gG-IAt" firstAttribute="top" secondItem="ZTT-zq-Sgx" secondAttribute="top" constant="18" id="ghD-we-doT"/>
-                                <constraint firstItem="oFV-gG-IAt" firstAttribute="leading" secondItem="ZTT-zq-Sgx" secondAttribute="leading" id="v4J-wR-wEr"/>
                                 <constraint firstItem="5YC-FJ-h7x" firstAttribute="centerY" secondItem="i6S-qd-Hr9" secondAttribute="centerY" id="wZc-qD-UyE"/>
+                                <constraint firstItem="i6S-qd-Hr9" firstAttribute="leading" secondItem="ZTT-zq-Sgx" secondAttribute="leading" id="xGb-hM-2dn"/>
                             </constraints>
                             <userDefinedRuntimeAttributes>
-                                <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
-                                <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
-                                <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
-                                <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
-                                <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
-                                    <color key="value" name="Base BorderSecondary"/>
-                                </userDefinedRuntimeAttribute>
-                                <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
-                                    <real key="value" value="1"/>
-                                </userDefinedRuntimeAttribute>
-                            </userDefinedRuntimeAttributes>
-                        </view>
-                        <view hidden="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="buv-3p-WDV" userLabel="AssetId" customClass="BorderedContainerView" customModule="SoraUI">
-                            <rect key="frame" x="0.0" y="56" width="382" height="56"/>
-                            <subviews>
-                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Asset" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="oZm-Ml-05v">
-                                    <rect key="frame" x="0.0" y="18" width="43" height="20"/>
-                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                    <color key="textColor" name="Base ContentTertiary"/>
-                                    <nil key="highlightedColor"/>
-                                </label>
-                                <view contentMode="scaleToFill" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="hhC-8r-jYd" customClass="GrayCopyButton" customModule="SoraPassport" customModuleProvider="target">
-                                    <rect key="frame" x="147" y="14" width="235" height="28"/>
-                                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
-                                    <constraints>
-                                        <constraint firstAttribute="height" constant="28" id="C2M-mH-bnW"/>
-                                    </constraints>
-                                    <userDefinedRuntimeAttributes>
-                                        <userDefinedRuntimeAttribute type="string" keyPath="_title" value="gwerweuwiouewgouhweg"/>
-                                        <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
-                                            <color key="value" name="Base Background"/>
-                                        </userDefinedRuntimeAttribute>
-                                        <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
-                                            <real key="value" value="0.0"/>
-                                        </userDefinedRuntimeAttribute>
-                                    </userDefinedRuntimeAttributes>
-                                    <connections>
-                                        <action selector="buttonTap" destination="iN0-l3-epB" eventType="touchUpInside" id="8GU-cs-wFN"/>
-                                    </connections>
-                                </view>
-                            </subviews>
-                            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
-                            <constraints>
-                                <constraint firstItem="hhC-8r-jYd" firstAttribute="centerY" secondItem="buv-3p-WDV" secondAttribute="centerY" id="286-ec-0Z6"/>
-                                <constraint firstItem="oZm-Ml-05v" firstAttribute="leading" secondItem="buv-3p-WDV" secondAttribute="leading" id="Fh1-H0-aRa"/>
-                                <constraint firstAttribute="height" constant="56" id="Vue-NW-UlL"/>
-                                <constraint firstItem="oZm-Ml-05v" firstAttribute="top" secondItem="buv-3p-WDV" secondAttribute="top" constant="18" id="iyX-er-oa4"/>
-                                <constraint firstAttribute="trailing" secondItem="hhC-8r-jYd" secondAttribute="trailing" id="kw1-N1-dY2"/>
-                                <constraint firstItem="hhC-8r-jYd" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="oZm-Ml-05v" secondAttribute="trailing" constant="40" id="pXs-Yr-7UO"/>
-                                <constraint firstAttribute="bottom" secondItem="oZm-Ml-05v" secondAttribute="bottom" constant="18" id="qFz-s1-Eoi"/>
-                            </constraints>
-                            <userDefinedRuntimeAttributes>
-                                <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="NO"/>
                                 <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
                                 <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
                                 <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
@@ -120,18 +71,18 @@
                             </userDefinedRuntimeAttributes>
                         </view>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="aU0-g8-7iw" userLabel="Balance" customClass="BorderedContainerView" customModule="SoraUI">
-                            <rect key="frame" x="0.0" y="56" width="382" height="112"/>
+                            <rect key="frame" x="0.0" y="63.5" width="382" height="56.5"/>
                             <subviews>
-                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Asset" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="DbT-NE-1FZ">
-                                    <rect key="frame" x="0.0" y="18" width="43" height="76"/>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Balance" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="DbT-NE-1FZ">
+                                    <rect key="frame" x="0.0" y="18" width="60.5" height="20.5"/>
                                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                    <color key="textColor" name="Base ContentTertiary"/>
+                                    <color key="textColor" name="Neumorphism/Text Dark"/>
                                     <nil key="highlightedColor"/>
                                 </label>
                                 <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="skE-VA-DGl">
-                                    <rect key="frame" x="340.5" y="18" width="41.5" height="76"/>
+                                    <rect key="frame" x="340.5" y="18" width="41.5" height="20.5"/>
                                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                    <color key="textColor" name="Base ContentPrimary"/>
+                                    <color key="textColor" name="Neumorphism/Text Dark"/>
                                     <nil key="highlightedColor"/>
                                 </label>
                             </subviews>
@@ -143,7 +94,6 @@
                                 <constraint firstAttribute="bottom" secondItem="DbT-NE-1FZ" secondAttribute="bottom" constant="18" id="aN1-vl-lVD"/>
                                 <constraint firstItem="skE-VA-DGl" firstAttribute="top" secondItem="aU0-g8-7iw" secondAttribute="top" constant="18" id="nIj-Sp-BS3"/>
                                 <constraint firstItem="skE-VA-DGl" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="DbT-NE-1FZ" secondAttribute="trailing" constant="24" id="neD-Zr-eIL"/>
-                                <constraint firstAttribute="height" constant="56" id="pYH-3N-hK9"/>
                                 <constraint firstItem="DbT-NE-1FZ" firstAttribute="top" secondItem="aU0-g8-7iw" secondAttribute="top" constant="18" id="zvz-uy-Qrr"/>
                             </constraints>
                             <userDefinedRuntimeAttributes>
@@ -152,7 +102,7 @@
                                 <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
                                 <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
                                 <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
-                                    <color key="value" name="Base BorderSecondary"/>
+                                    <color key="value" name="Neumorphism/Separator"/>
                                 </userDefinedRuntimeAttribute>
                                 <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
                                     <real key="value" value="1"/>
@@ -163,7 +113,6 @@
                 </stackView>
             </subviews>
             <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
-            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
             <constraints>
                 <constraint firstItem="Jfm-01-Wjp" firstAttribute="bottom" secondItem="vUN-kp-3ea" secondAttribute="bottom" id="5qN-EL-XXR"/>
                 <constraint firstItem="Jfm-01-Wjp" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="B0m-Fi-VO1"/>
@@ -175,10 +124,8 @@
             <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
             <connections>
                 <outlet property="assetIcon" destination="i6S-qd-Hr9" id="b5J-Hy-gbF"/>
-                <outlet property="assetIdLabel" destination="hhC-8r-jYd" id="dTC-7b-cJZ"/>
-                <outlet property="assetIdTitle" destination="oZm-Ml-05v" id="EKu-UZ-4vr"/>
                 <outlet property="assetLabel" destination="5YC-FJ-h7x" id="FU0-NF-V9S"/>
-                <outlet property="assetTitle" destination="oFV-gG-IAt" id="PXm-c5-Aue"/>
+                <outlet property="assetNameLabel" destination="Sdw-gZ-nuz" id="jFv-N8-Ixi"/>
                 <outlet property="balanceLabel" destination="skE-VA-DGl" id="XGj-42-axe"/>
                 <outlet property="balanceTitle" destination="DbT-NE-1FZ" id="Sk5-sz-pks"/>
             </connections>
@@ -186,17 +133,17 @@
         </view>
     </objects>
     <resources>
-        <namedColor name="Base Background">
-            <color red="0.96078431372549022" green="0.96862745098039216" blue="0.97254901960784312" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </namedColor>
         <namedColor name="Base BorderSecondary">
             <color red="0.92549019607843142" green="0.93725490196078431" blue="0.94117647058823528" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Base ContentPrimary">
-            <color red="0.17647058823529413" green="0.16078431372549021" blue="0.14901960784313725" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.13333333333333333" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
-        <namedColor name="Base ContentTertiary">
-            <color red="0.45882352941176469" green="0.47058823529411764" blue="0.4823529411764706" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        <namedColor name="Neumorphism/Separator">
+            <color red="0.89803921568627454" green="0.8666666666666667" blue="0.8666666666666667" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Text Dark">
+            <color red="0.12941176470588237" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>

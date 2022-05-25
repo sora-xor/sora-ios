@@ -16,7 +16,7 @@ extension CommonError: ErrorContentConvertible {
 
         switch self {
         case .undefined:
-            title = R.string.localizable.commonError()
+            title = R.string.localizable.commonErrorGeneralTitle()
 //                .commonUndefinedErrorTitle(preferredLanguages: locale?.rLanguages)
             message = "commonUndefinedErrorMessage"//R.string.localizable
 //                .commonUndefinedErrorMessage(preferredLanguages: locale?.rLanguages)

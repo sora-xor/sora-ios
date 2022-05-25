@@ -18,8 +18,8 @@ final class VotesButtonFactory: VotesButtonFactoryProtocol {
         votesButton.roundedBackgroundView?.highlightedFillColor = .clear
         votesButton.changesContentOpacityWhenHighlighted = true
         votesButton.imageWithTitleView?.iconImage = R.image.votesIcon()
-        votesButton.imageWithTitleView?.titleColor = .barVotes
-        votesButton.imageWithTitleView?.titleFont = .barVotes
+        votesButton.imageWithTitleView?.titleColor = R.color.baseContentTertiary()!
+        votesButton.imageWithTitleView?.titleFont = UIFont.styled(for: .paragraph3)
         votesButton.imageWithTitleView?.spacingBetweenLabelAndIcon = 10
 
         return votesButton

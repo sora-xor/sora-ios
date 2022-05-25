@@ -128,6 +128,7 @@ extension MainTabBarInteractor: EventVisitorProtocol {
 
     func processNewTransaction(event: WalletNewTransactionInserted) {
         presenter?.didUpdateWalletInfo()
+        presenter?.didEndTransaction()
     }
 }
 

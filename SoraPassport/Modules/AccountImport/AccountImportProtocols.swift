@@ -18,6 +18,7 @@ protocol AccountImportViewProtocol: ControllerBackedProtocol {
 protocol AccountImportPresenterProtocol: class {
     func setup()
     func proceed()
+    func activateURL(_ url: URL)
 }
 
 protocol AccountImportInteractorInputProtocol: class {
@@ -35,7 +36,7 @@ protocol AccountImportInteractorOutputProtocol: class {
     func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?)
 }
 
-protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable {
+protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {
     func proceed(from view: AccountImportViewProtocol?)
 }
 

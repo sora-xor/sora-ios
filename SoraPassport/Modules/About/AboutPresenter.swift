@@ -28,7 +28,7 @@ extension AboutPresenter: AboutPresenterProtocol {
 
     func activateOption(_ option: AboutOption) {
         switch option {
-        case .website, .opensource, .telegram, .terms, .privacy:
+        case .website, .opensource, .telegram, .terms, .privacy, .medium, .announcements, .support, .twitter, .instagram, .youtube, .wiki:
             show(url: option.address())
 
         case .writeUs(let email):

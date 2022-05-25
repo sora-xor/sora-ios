@@ -12,6 +12,7 @@ final class WalletNetworkFacade {
     let accountSettings: WalletAccountSettingsProtocol
     let nodeOperationFactory: WalletNetworkOperationFactoryProtocol
     let coingeckoOperationFactory: CoingeckoOperationFactoryProtocol
+    let polkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol
     let address: String
     let networkType: SNAddressType
     let totalPriceAssetId: WalletAssetId?
@@ -25,6 +26,7 @@ final class WalletNetworkFacade {
     init(accountSettings: WalletAccountSettingsProtocol,
          nodeOperationFactory: WalletNetworkOperationFactoryProtocol,
          coingeckoOperationFactory: CoingeckoOperationFactoryProtocol,
+         polkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol,
          chainStorage: AnyDataProviderRepository<ChainStorageItem>,
          localStorageIdFactory: ChainStorageIdFactoryProtocol,
          txStorage: AnyDataProviderRepository<TransactionHistoryItem>,
@@ -37,6 +39,7 @@ final class WalletNetworkFacade {
         self.accountSettings = accountSettings
         self.nodeOperationFactory = nodeOperationFactory
         self.coingeckoOperationFactory = coingeckoOperationFactory
+        self.polkaswapNetworkOperationFactory = polkaswapNetworkOperationFactory
         self.address = address
         self.networkType = networkType
         self.totalPriceAssetId = totalPriceAssetId

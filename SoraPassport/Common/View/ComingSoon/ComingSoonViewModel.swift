@@ -4,6 +4,7 @@
 */
 
 import Foundation
+import UIKit
 
 public struct ComingSoonViewModel {
     let comingSoonText: String
@@ -11,4 +12,5 @@ public struct ComingSoonViewModel {
 
     let linkViewModel: LinkViewModel?
     let navigationButtonModel: NavigationButtonModel?
+    let image: UIImage?
 }

@@ -97,6 +97,7 @@ final class ProfileTableViewCell: UITableViewCell, Reusable {
 private extension ProfileTableViewCell {
 
     func configure() {
+        backgroundColor = R.color.baseBackground()
         createContentStackView().do {
             addSubview($0)
             let insets = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)

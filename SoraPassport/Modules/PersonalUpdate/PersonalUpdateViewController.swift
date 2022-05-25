@@ -25,7 +25,7 @@ final class PersonalUpdateViewController: UIViewController, AdaptiveDesignable {
         super.viewDidLoad()
 
         navigationItem.largeTitleDisplayMode = .never
-
+        view.backgroundColor = R.color.baseBackground()
         adjustLayout()
         configureTableView()
         configureSaveButton()
@@ -54,7 +54,7 @@ final class PersonalUpdateViewController: UIViewController, AdaptiveDesignable {
 
     private func configureTableView() {
         tableView.register(R.nib.personalInfoCell)
-
+        tableView.backgroundColor = .clear
         let footerText = R.string.localizable.personalDetailsInfo(preferredLanguages: languages)
         let footerViewModel = PersonalInfoFooterViewModel(text: footerText)
         setupTableFooter(for: footerViewModel)

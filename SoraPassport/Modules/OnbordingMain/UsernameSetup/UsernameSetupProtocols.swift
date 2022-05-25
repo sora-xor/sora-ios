@@ -10,6 +10,7 @@ protocol UsernameSetupViewProtocol: ControllerBackedProtocol {
 }
 
 protocol UsernameSetupPresenterProtocol: class {
+    var userName: String? { get set }
     func setup()
     func proceed()
     func activateURL(_ url: URL)

@@ -11,6 +11,7 @@ enum SettingsKey: String {
     case decentralizedId
     case publicKeyId
     case biometryEnabled
+    case disclaimerHidden
     case verificationState
     case selectedCurrency
     case invitationCode
@@ -158,6 +159,20 @@ extension SettingsManagerProtocol {
         }
     }
 
+    var disclaimerHidden: Bool? {
+        get {
+            bool(for: SettingsKey.disclaimerHidden.rawValue)
+        }
+
+        set {
+            if let existingValue = newValue {
+                set(value: existingValue, for: SettingsKey.disclaimerHidden.rawValue)
+            } else {
+                removeValue(for: SettingsKey.disclaimerHidden.rawValue)
+            }
+        }
+    }
+    
     var verificationState: VerificationState? {
         get {
             value(of: VerificationState.self, for: SettingsKey.verificationState.rawValue)
@@ -248,15 +263,7 @@ extension SettingsManagerProtocol {
 
     var userName: String? {
         get {
-            string(for: SettingsKey.userName.rawValue)
-        }
-
-        set {
-            if let existingValue = newValue {
-                set(value: existingValue, for: SettingsKey.userName.rawValue)
-            } else {
-                removeValue(for: SettingsKey.userName.rawValue)
-            }
+            selectedAccount?.username ?? string(for: SettingsKey.userName.rawValue)
         }
     }
 }

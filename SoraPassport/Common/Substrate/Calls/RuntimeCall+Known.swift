@@ -22,4 +22,8 @@ extension RuntimeCall {
     static func transfer(_ args: SoraTransferCall) -> RuntimeCall<SoraTransferCall> {
         RuntimeCall<SoraTransferCall>(moduleName: "Assets", callName: "transfer", args: args)
     }
+
+    static func swap(_ args: SwapCall) -> RuntimeCall<SwapCall> {
+        RuntimeCall<SwapCall>(moduleName: "LiquidityProxy", callName: "swap", args: args)
+    }
 }

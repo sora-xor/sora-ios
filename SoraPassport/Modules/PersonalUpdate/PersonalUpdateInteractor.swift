@@ -23,7 +23,6 @@ extension PersonalUpdateInteractor: PersonalUpdateInteractorInputProtocol {
 
     func update(username: String?) {
         settingsManager.selectedAccount = settingsManager.selectedAccount?.replacingUsername(username ?? "")
-        settingsManager.userName = username
         presenter?.didUpdate(username: username)
     }
 }

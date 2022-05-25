@@ -4,4 +4,4 @@ OTHER_SWIFT_FLAGS = $(inherited) "-DF_RELEASE"
 
 SORA_APPLICATION_CONFIG = Release
 FIREBASE_CONFIG = GoogleService-Info-Release.plist
-SORA_NAME = Sora
+SORA_NAME = SORA

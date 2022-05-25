@@ -27,15 +27,14 @@ struct AboutOptionViewModel: AboutOptionViewModelProtocol {
 
     var subtitle: String? {
         switch option {
-        case .website, .opensource, .telegram:
-            return address?.absoluteString
-                .replacingOccurrences(of: "https://", with: "")
+        case .terms, .privacy:
+            return nil
 
         case .writeUs(let email):
             return email
 
         default:
-            return nil
+            return address?.absoluteString.replacingOccurrences(of: "https://", with: "")
         }
     }
 

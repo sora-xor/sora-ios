@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19455" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19454"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB" customClass="SoraAmountConfirmationView" customModule="SoraPassport" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="375" height="56"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="QYg-rG-di7" customClass="BorderedContainerView" customModule="SoraUI">
+                    <rect key="frame" x="16" y="0.0" width="343" height="56"/>
+                    <subviews>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="VND-PK-iwO">
+                            <rect key="frame" x="0.0" y="17.5" width="42" height="21"/>
+                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                            <color key="textColor" name="Neumorphism/Text Dark"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="249" horizontalCompressionResistancePriority="749" contentHorizontalAlignment="left" contentVerticalAlignment="center" placeholder="0" textAlignment="right" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="hT1-D4-oQO">
+                            <rect key="frame" x="58" y="0.0" width="285" height="56"/>
+                            <color key="textColor" name="Neumorphism/Text Dark"/>
+                            <fontDescription key="fontDescription" name="HelveticaNeue" family="Helvetica Neue" pointSize="18"/>
+                            <textInputTraits key="textInputTraits" autocorrectionType="no" spellCheckingType="no" keyboardType="decimalPad" returnKeyType="next" smartDashesType="no" smartInsertDeleteType="no" smartQuotesType="no"/>
+                        </textField>
+                    </subviews>
+                    <gestureRecognizers/>
+                    <constraints>
+                        <constraint firstItem="VND-PK-iwO" firstAttribute="leading" secondItem="QYg-rG-di7" secondAttribute="leading" id="15d-gq-23J"/>
+                        <constraint firstItem="hT1-D4-oQO" firstAttribute="leading" secondItem="VND-PK-iwO" secondAttribute="trailing" constant="16" id="5I0-v8-zGv"/>
+                        <constraint firstItem="VND-PK-iwO" firstAttribute="centerY" secondItem="QYg-rG-di7" secondAttribute="centerY" id="5V8-vn-HI4"/>
+                        <constraint firstAttribute="height" constant="56" id="N45-zK-6Ik"/>
+                        <constraint firstAttribute="bottom" secondItem="hT1-D4-oQO" secondAttribute="bottom" id="Ui1-2Z-cuf"/>
+                        <constraint firstAttribute="trailing" secondItem="hT1-D4-oQO" secondAttribute="trailing" id="d38-LH-aaj"/>
+                        <constraint firstItem="hT1-D4-oQO" firstAttribute="top" secondItem="QYg-rG-di7" secondAttribute="top" id="sYt-Oi-ZjW"/>
+                    </constraints>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                            <color key="value" name="Neumorphism/Separator"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                    <connections>
+                        <outletCollection property="gestureRecognizers" destination="msd-dg-Wag" appends="YES" id="Zz7-Lz-lOi"/>
+                    </connections>
+                </view>
+            </subviews>
+            <gestureRecognizers/>
+            <constraints>
+                <constraint firstAttribute="trailing" secondItem="QYg-rG-di7" secondAttribute="trailing" constant="16" id="Epq-SN-8bB"/>
+                <constraint firstItem="QYg-rG-di7" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="16" id="Q7V-h3-vpv"/>
+                <constraint firstAttribute="bottom" secondItem="QYg-rG-di7" secondAttribute="bottom" id="Sw0-30-bTc"/>
+                <constraint firstItem="QYg-rG-di7" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="YEd-d4-262"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <connections>
+                <outlet property="amountField" destination="hT1-D4-oQO" id="WgP-Yb-paX"/>
+                <outlet property="amountLabel" destination="VND-PK-iwO" id="Su8-XV-Fre"/>
+                <outlet property="borderedView" destination="QYg-rG-di7" id="qde-3v-cKi"/>
+            </connections>
+            <point key="canvasLocation" x="138.40000000000001" y="134.93253373313345"/>
+        </view>
+        <tapGestureRecognizer id="msd-dg-Wag"/>
+    </objects>
+    <resources>
+        <namedColor name="Neumorphism/Separator">
+            <color red="0.89803921568627454" green="0.8666666666666667" blue="0.8666666666666667" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Text Dark">
+            <color red="0.13300000131130219" green="0.067000001668930054" blue="0.067000001668930054" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
+</document>

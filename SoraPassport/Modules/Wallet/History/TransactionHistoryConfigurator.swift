@@ -38,10 +38,11 @@ final class TransactionHistoryConfigurator {
 
     let viewModelFactory: TransactionHistoryViewModelFactory
 
-    init(amountFormatterFactory: NumberFormatterFactoryProtocol, assets: [WalletAsset]) {
+    init(amountFormatterFactory: AmountFormatterFactoryProtocol, assets: [WalletAsset], assetManager: AssetManagerProtocol) {
         viewModelFactory = TransactionHistoryViewModelFactory(amountFormatterFactory: amountFormatterFactory,
                                                               dateFormatter: DateFormatter.history,
-                                                              assets: assets)
+                                                              assets: assets,
+                                                              assetManager: assetManager)
     }
 
     func configure(builder: HistoryModuleBuilderProtocol) {
@@ -57,6 +58,7 @@ final class TransactionHistoryConfigurator {
             .with(transactionCellStyle: TransactionCellStyle.sora)
             .with(cellNib: UINib(resource: R.nib.walletHistoryCell),
                   for: R.reuseIdentifier.walletHistoryCellId.identifier)
+            .with(cellClass: LiquidityHistoryCell.self, for: HistoryConstants.liquidityHistoryCellId)
             .with(transactionHeaderStyle: TransactionHeaderStyle.sora)
             .with(supportsFilter: false)
             .with(includesFeeInAmount: false)

@@ -13,7 +13,7 @@ protocol ConfigurableAssetViewModelProtocol: AssetViewModelProtocol {
 
 struct ConfigurableAssetConstants {
     static let cellReuseIdentifier = "co.jp.sora.asset.cell.identifier"
-    static let cellHeight: CGFloat = 90.0
+    static let cellHeight: CGFloat = 96.0
 }
 
 final class ConfigurableAssetViewModel: ConfigurableAssetViewModelProtocol {

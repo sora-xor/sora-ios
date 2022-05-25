@@ -12,6 +12,10 @@ import SoraFoundation
 final class FriendsViewController: UIViewController {
     var presenter: FriendsPresenterProtocol!
 
+    @IBOutlet weak var imageView: UIImageView!
+    @IBOutlet weak var label: UILabel!
+    @IBOutlet weak var button: NeumorphismButton!
+
     // MARK: - Controls
 
     private lazy var containerView: UIView = {
@@ -76,7 +80,7 @@ final class FriendsViewController: UIViewController {
 
     private lazy var bottomContainerView: UIView = {
         UIView().then {
-            $0.backgroundColor = .white
+            $0.backgroundColor = R.color.baseBackground()
         }
     }()
 
@@ -155,7 +159,9 @@ final class FriendsViewController: UIViewController {
         presenter.setup()
 
         setupLocalization()
-        configure()
+//        configure()
+        configureNew()
+
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -169,9 +175,15 @@ final class FriendsViewController: UIViewController {
 
 private extension FriendsViewController {
 
+    func configureNew() {
+        label.font = UIFont.styled(for: .paragraph2)
+        label.textColor = R.color.neumorphism.textDark()
+        button.addTarget(self, action: #selector(shareInviteAction), for: .touchUpInside)
+    }
+
     func configure() {
         navigationItem.title = R.string.localizable.tabbarFriendsTitle(preferredLanguages: languages)
-
+        view.backgroundColor = R.color.baseBackground()
         // top info
         createStackView().do {
             containerView.addSubview($0)
@@ -230,6 +242,8 @@ private extension FriendsViewController {
             .friendsSpreadWord(preferredLanguages: languages)
             .styled(.paragraph1)
 
+        title = R.string.localizable.inviteFragmentTitle(preferredLanguages: localizationManager?.preferredLocalizations)
+        label.text = R.string.localizable.friendsSpreadWord(preferredLanguages: localizationManager?.preferredLocalizations)
     }
 
     @objc func copyAction() {

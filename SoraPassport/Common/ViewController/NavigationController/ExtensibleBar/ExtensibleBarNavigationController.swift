@@ -140,7 +140,7 @@ public class ExtensibleBarNavigationController: UINavigationController {
 
         delegate = self
 
-        view.backgroundColor = .white
+        view.backgroundColor = R.color.baseBackground()
 
         view.addSubview(navBarExtensionContainerView)
         navBarExtensionContainerView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true

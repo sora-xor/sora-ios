@@ -13,18 +13,18 @@ final class ContactsConfigurator {
 
     private lazy var contactsViewStyle: ContactsViewStyleProtocol = {
         let searchTextStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
-                                              color: R.color.baseContentPrimary()!)
+                                              color: R.color.neumorphism.textDark()!)
         let searchPlaceholderStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
-                                                     color: R.color.baseContentQuaternary()!)
+                                                     color: R.color.neumorphism.textDark()!)
 
-        let searchStroke = WalletStrokeStyle(color: R.color.baseBorderSecondary()!,
+        let searchStroke = WalletStrokeStyle(color: R.color.neumorphism.backgroundDark()!,
                                              lineWidth: 1.0)
-        let searchFieldStyle = WalletRoundedViewStyle(fill: R.color.baseBackground()!,
-                                                      cornerRadius: 8.0,
+        let searchFieldStyle = WalletRoundedViewStyle(fill: R.color.neumorphism.backgroundDark()!,
+                                                      cornerRadius: 24.0,
                                                       stroke: searchStroke)
 
-        return ContactsViewStyle(backgroundColor: R.color.brandWhite()!,
-                                 searchHeaderBackgroundColor: R.color.brandWhite()!,
+        return ContactsViewStyle(backgroundColor: R.color.baseBackground()!,
+                                 searchHeaderBackgroundColor: R.color.baseBackground()!,
                                  searchTextStyle: searchTextStyle,
                                  searchPlaceholderStyle: searchPlaceholderStyle,
                                  searchFieldStyle: searchFieldStyle,
@@ -36,7 +36,7 @@ final class ContactsConfigurator {
     }()
 
     private lazy var contactCellStyle: ContactCellStyleProtocol = {
-        let iconStyle = WalletNameIconStyle(background: .white,
+        let iconStyle = WalletNameIconStyle(background: R.color.baseBackground()!,
                                             title: WalletTextStyle(font: UIFont.styled(for: .paragraph3), color: .black),
                                             radius: 12.0)
         return ContactCellStyle(title:
@@ -68,7 +68,7 @@ final class ContactsConfigurator {
 
         let searchPlaceholder = LocalizableResource { locale in
             R.string.localizable
-                .selectAccountAddress(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages)
+                .selectAccountAddress1(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages)
         }
 
         builder

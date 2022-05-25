@@ -37,8 +37,8 @@ extension EventVisitorProtocol {
     func processWalletUpdate(event: WalletUpdateEvent) {}
     func processReferendumVote(event: ReferendumVoteEvent) {}
     //
-//    func processSelectedAccountChanged(event: SelectedAccountChanged) {}
-//    func processSelectedConnectionChanged(event: SelectedConnectionChanged) {}
+    func processSelectedAccountChanged(event: SelectedAccountChanged) {}
+    func processSelectedConnectionChanged(event: SelectedConnectionChanged) {}
     func processBalanceChanged(event: WalletBalanceChanged) {}
     func processStakingChanged(event: WalletStakingInfoChanged) {}
     func processNewTransaction(event: WalletNewTransactionInserted) {}

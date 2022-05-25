@@ -42,7 +42,16 @@ final class SelectAssetCommand: WalletCommandDecoratorProtocol {
                                                                          delegate: self,
                                                                          context: assetManager)
         let languages = localizationManager.selectedLocale.rLanguages
-        viewController?.title = R.string.localizable.commonChooseAsset(preferredLanguages: languages)
+        let title: String
+        switch mode {
+        case .send:
+            title = R.string.localizable.selectAssetSend(preferredLanguages: languages)
+        case .receive:
+            title = R.string.localizable.selectAssetReceive(preferredLanguages: languages)
+        default:
+            title = R.string.localizable.commonChooseAsset(preferredLanguages: languages)
+        }
+        viewController?.title = title
 
         let presentationCommand = commandFactory.preparePresentationCommand(for: viewController!)
         presentationCommand.presentationStyle = .modal(inNavigation: true)

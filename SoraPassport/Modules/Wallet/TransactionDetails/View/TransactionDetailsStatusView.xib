@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
@@ -16,25 +17,25 @@
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WYe-uE-4ph" userLabel="Balance" customClass="BorderedContainerView" customModule="SoraUI">
-                    <rect key="frame" x="16" y="0.0" width="382" height="56"/>
+                    <rect key="frame" x="0.0" y="0.0" width="414" height="56"/>
                     <subviews>
                         <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="To" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="nye-r7-11g">
                             <rect key="frame" x="0.0" y="18" width="18.5" height="20"/>
                             <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                            <color key="textColor" name="Base ContentTertiary"/>
+                            <color key="textColor" name="Neumorphism/Text Dark"/>
                             <nil key="highlightedColor"/>
                         </label>
                         <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="AMt-AH-sIb">
-                            <rect key="frame" x="318" y="20" width="16" height="16"/>
+                            <rect key="frame" x="398" y="20" width="16" height="16"/>
                             <constraints>
                                 <constraint firstAttribute="width" constant="16" id="boc-1U-nAT"/>
                                 <constraint firstAttribute="width" secondItem="AMt-AH-sIb" secondAttribute="height" multiplier="1:1" id="oFO-rc-ps6"/>
                             </constraints>
                         </imageView>
                         <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="susss" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Rms-UK-Ypg">
-                            <rect key="frame" x="338" y="17.5" width="44" height="21"/>
+                            <rect key="frame" x="350" y="17.5" width="44" height="21"/>
                             <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                            <color key="textColor" name="Base ContentTertiary"/>
+                            <color key="textColor" name="Neumorphism/Button Text Dark"/>
                             <nil key="highlightedColor"/>
                         </label>
                     </subviews>
@@ -42,9 +43,9 @@
                     <constraints>
                         <constraint firstItem="nye-r7-11g" firstAttribute="top" secondItem="WYe-uE-4ph" secondAttribute="top" constant="18" id="0kc-aO-3DL"/>
                         <constraint firstItem="Rms-UK-Ypg" firstAttribute="centerY" secondItem="nye-r7-11g" secondAttribute="centerY" id="20q-mT-wcl"/>
-                        <constraint firstAttribute="trailing" secondItem="Rms-UK-Ypg" secondAttribute="trailing" id="7Wf-Wj-D7O"/>
-                        <constraint firstItem="Rms-UK-Ypg" firstAttribute="leading" secondItem="AMt-AH-sIb" secondAttribute="trailing" constant="4" id="AFa-HU-ANm"/>
+                        <constraint firstItem="Rms-UK-Ypg" firstAttribute="trailing" secondItem="AMt-AH-sIb" secondAttribute="leading" constant="-4" id="AFa-HU-ANm"/>
                         <constraint firstAttribute="height" constant="56" id="DSo-RP-Rb8"/>
+                        <constraint firstAttribute="trailing" secondItem="AMt-AH-sIb" secondAttribute="trailing" id="FiY-LC-ksU"/>
                         <constraint firstAttribute="bottom" secondItem="nye-r7-11g" secondAttribute="bottom" constant="18" id="Ime-Jj-etk"/>
                         <constraint firstItem="AMt-AH-sIb" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="nye-r7-11g" secondAttribute="trailing" constant="24" id="VQh-44-2Zx"/>
                         <constraint firstItem="Rms-UK-Ypg" firstAttribute="centerY" secondItem="AMt-AH-sIb" secondAttribute="centerY" id="Z2M-Sd-gPs"/>
@@ -56,7 +57,7 @@
                         <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
                         <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
                         <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
-                            <color key="value" name="Base BorderSecondary"/>
+                            <color key="value" name="Neumorphism/table separator"/>
                         </userDefinedRuntimeAttribute>
                         <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
                             <real key="value" value="1"/>
@@ -65,10 +66,10 @@
                 </view>
             </subviews>
             <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
-            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+            <color key="backgroundColor" name="Neumorphism/Base"/>
             <constraints>
-                <constraint firstAttribute="trailing" secondItem="WYe-uE-4ph" secondAttribute="trailing" constant="16" id="CG7-Et-BDB"/>
-                <constraint firstItem="WYe-uE-4ph" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="16" id="P4n-Ae-Q6v"/>
+                <constraint firstAttribute="trailing" secondItem="WYe-uE-4ph" secondAttribute="trailing" id="CG7-Et-BDB"/>
+                <constraint firstItem="WYe-uE-4ph" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="P4n-Ae-Q6v"/>
                 <constraint firstItem="WYe-uE-4ph" firstAttribute="bottom" secondItem="iN0-l3-epB" secondAttribute="bottom" id="Weg-uc-fBf"/>
                 <constraint firstItem="WYe-uE-4ph" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="xXg-jS-OiI"/>
             </constraints>
@@ -82,11 +83,17 @@
         </view>
     </objects>
     <resources>
-        <namedColor name="Base BorderSecondary">
-            <color red="0.92549019607843142" green="0.93725490196078431" blue="0.94117647058823528" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        <namedColor name="Neumorphism/Base">
+            <color red="0.96470588235294119" green="0.94509803921568625" blue="0.94509803921568625" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
-        <namedColor name="Base ContentTertiary">
-            <color red="0.45882352941176469" green="0.47058823529411764" blue="0.4823529411764706" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        <namedColor name="Neumorphism/Button Text Dark">
+            <color red="0.20000000000000001" green="0.13333333333333333" blue="0.13333333333333333" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Text Dark">
+            <color red="0.12941176470588237" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/table separator">
+            <color red="0.91764705882352937" green="0.90196078431372551" blue="0.90196078431372551" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>

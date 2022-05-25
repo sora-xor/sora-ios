@@ -20,7 +20,7 @@ final class LanguageSelectionViewController: SelectionListViewController<Selecti
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        view.backgroundColor = R.color.baseBackground()
         navigationItem.largeTitleDisplayMode = .never
 
         applyLocalization()
@@ -34,6 +34,6 @@ extension LanguageSelectionViewController: LanguageSelectionViewProtocol {}
 extension LanguageSelectionViewController: Localizable {
     func applyLocalization() {
         let languages = localizationManager?.preferredLocalizations
-        title = R.string.localizable.languageTitle(preferredLanguages: languages)
+        title = R.string.localizable.profileLanguageTitle(preferredLanguages: languages)
     }
 }

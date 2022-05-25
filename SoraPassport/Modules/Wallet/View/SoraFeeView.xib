@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19455" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19454"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
@@ -19,14 +19,8 @@
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WYe-uE-4ph" userLabel="Balance" customClass="BorderedContainerView" customModule="SoraUI">
                     <rect key="frame" x="16" y="0.0" width="382" height="56"/>
                     <subviews>
-                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Fee" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="nye-r7-11g">
-                            <rect key="frame" x="0.0" y="18" width="28" height="20"/>
-                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                            <color key="textColor" name="Base ContentTertiary"/>
-                            <nil key="highlightedColor"/>
-                        </label>
-                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="peI-DX-P4D">
-                            <rect key="frame" x="340" y="18" width="42" height="20"/>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="peI-DX-P4D">
+                            <rect key="frame" x="0.0" y="18" width="382" height="20"/>
                             <fontDescription key="fontDescription" type="system" pointSize="17"/>
                             <color key="textColor" name="Base ContentPrimary"/>
                             <nil key="highlightedColor"/>
@@ -34,13 +28,10 @@
                     </subviews>
                     <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                     <constraints>
-                        <constraint firstItem="nye-r7-11g" firstAttribute="top" secondItem="WYe-uE-4ph" secondAttribute="top" constant="18" id="0kc-aO-3DL"/>
                         <constraint firstAttribute="height" constant="56" id="DSo-RP-Rb8"/>
-                        <constraint firstAttribute="bottom" secondItem="nye-r7-11g" secondAttribute="bottom" constant="18" id="Ime-Jj-etk"/>
-                        <constraint firstItem="peI-DX-P4D" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="nye-r7-11g" secondAttribute="trailing" constant="24" id="MHv-oh-22b"/>
+                        <constraint firstItem="peI-DX-P4D" firstAttribute="leading" secondItem="WYe-uE-4ph" secondAttribute="leading" id="SZD-6z-yfg"/>
                         <constraint firstAttribute="bottom" secondItem="peI-DX-P4D" secondAttribute="bottom" constant="18" id="TrK-7c-ooy"/>
                         <constraint firstItem="peI-DX-P4D" firstAttribute="top" secondItem="WYe-uE-4ph" secondAttribute="top" constant="18" id="cYU-qV-0UZ"/>
-                        <constraint firstItem="nye-r7-11g" firstAttribute="leading" secondItem="WYe-uE-4ph" secondAttribute="leading" id="hLc-iG-6oe"/>
                         <constraint firstAttribute="trailing" secondItem="peI-DX-P4D" secondAttribute="trailing" id="qfL-vD-qRc"/>
                     </constraints>
                     <userDefinedRuntimeAttributes>
@@ -58,7 +49,6 @@
                 </view>
             </subviews>
             <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
-            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
             <constraints>
                 <constraint firstAttribute="trailing" secondItem="WYe-uE-4ph" secondAttribute="trailing" constant="16" id="CG7-Et-BDB"/>
                 <constraint firstItem="WYe-uE-4ph" firstAttribute="bottom" secondItem="iN0-l3-epB" secondAttribute="bottom" id="EAC-jr-pPC"/>
@@ -68,9 +58,8 @@
             <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
             <connections>
                 <outlet property="feeLabel" destination="peI-DX-P4D" id="ISZ-In-SiH"/>
-                <outlet property="feeTitle" destination="nye-r7-11g" id="xef-fS-fN3"/>
             </connections>
-            <point key="canvasLocation" x="141" y="139"/>
+            <point key="canvasLocation" x="140.57971014492756" y="138.61607142857142"/>
         </view>
     </objects>
     <resources>
@@ -78,10 +67,7 @@
             <color red="0.92549019607843142" green="0.93725490196078431" blue="0.94117647058823528" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Base ContentPrimary">
-            <color red="0.17647058823529413" green="0.16078431372549021" blue="0.14901960784313725" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </namedColor>
-        <namedColor name="Base ContentTertiary">
-            <color red="0.45882352941176469" green="0.47058823529411764" blue="0.4823529411764706" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.13333333333333333" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>

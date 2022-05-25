@@ -11,15 +11,15 @@ final class NetworkAvailabilityLayerPresenter {
     weak var interactor: NetworkAvailabilityLayerInteractorInputProtocol!
 
     var unavailbleStyle: ApplicationStatusStyle {
-        return ApplicationStatusStyle(backgroundColor: UIColor.networkUnavailableBackground,
+        return ApplicationStatusStyle(backgroundColor: R.color.statusError()!,
                                       titleColor: UIColor.white,
-                                      titleFont: UIFont.statusTitle)
+                                      titleFont: UIFont.styled(for: .paragraph3))
     }
 
     var availableStyle: ApplicationStatusStyle {
-        return ApplicationStatusStyle(backgroundColor: UIColor.networkAvailableBackground,
+        return ApplicationStatusStyle(backgroundColor: R.color.statusWarningBackground()!,
                                       titleColor: UIColor.white,
-                                      titleFont: UIFont.statusTitle)
+                                      titleFont: UIFont.styled(for: .paragraph3))
     }
 }
 

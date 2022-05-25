@@ -5,6 +5,7 @@
 
 import Foundation
 import FearlessUtils
+import IrohaCrypto
 
 struct AccountId: ScaleCodable {
     let value: Data
@@ -15,5 +16,13 @@ struct AccountId: ScaleCodable {
 
     func encode(scaleEncoder: ScaleEncoding) throws {
         scaleEncoder.appendRaw(data: value)
+    }
+}
+
+extension AccountAddress {
+    var accountId: Data? {
+        let addressFactory = SS58AddressFactory()
+        guard let addressType = try? addressFactory.extractAddressType(from: self) else { return nil }
+        return try? addressFactory.accountId(fromAddress: self, type: addressType)
     }
 }

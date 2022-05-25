@@ -33,7 +33,7 @@ final class WalletSvgImageViewModel: WalletImageViewModelProtocol {
 
     func loadImage(with completionBlock: @escaping (UIImage?, Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let icon =  RemoteSerializer.shared.image(with: self.svgString)
+            let icon = RemoteSerializer.shared.image(with: self.svgString)
             DispatchQueue.main.async {
                 completionBlock(icon, nil)
             }

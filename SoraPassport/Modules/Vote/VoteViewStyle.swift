@@ -19,7 +19,7 @@ extension VoteViewStyle {
         let thumbIcon = R.image.imageThumb()
         return VoteViewStyle(voteTitle: voteTitle,
                              voteIcon: nil,
-                             tintColor: UIColor.darkRed,
+                             tintColor: R.color.brandSoramitsuRed()!,
                              thumbIcon: thumbIcon)
     }
 
@@ -33,12 +33,12 @@ extension VoteViewStyle {
         case .support:
             title = ""
             icon = R.image.iconThumbUp()?.tinted(with: .white)
-            tintColor = .darkRed
+            tintColor = R.color.brandSoramitsuRed()!
             thumbIcon = R.image.imageThumb()
         case .unsupport:
             title = ""
             icon = R.image.iconThumbDown()?.tinted(with: .white)
-            tintColor = .silver
+            tintColor = R.color.baseContentTertiary()!
             thumbIcon = R.image.imageThumbSilver()
         }
 

@@ -34,7 +34,7 @@ extension SubstrateQREncoder {
             info.prefix,
             info.address,
             info.rawPublicKey.toHex(includePrefix: true),
-            info.username ?? "",
+            "",
             info.assetId
         ]
 

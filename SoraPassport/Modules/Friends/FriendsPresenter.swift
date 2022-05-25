@@ -63,7 +63,7 @@ private extension FriendsPresenter {
         let viewModels = rewardsViewModelFactory
             .createActivatedInvitationViewModel(
                 from: invitationsData,
-                dateFormatter: DateFormatter.history,
+                dateFormatter: DateFormatter.friends,
                 locale: locale
             )
 

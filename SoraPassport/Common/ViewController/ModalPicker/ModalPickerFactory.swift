@@ -52,7 +52,7 @@ struct ModalPickerFactory {
             }
             return LocalizableResource { locale in
                 LoadingIconWithTitleViewModel(iconViewModel: symbolViewModel,
-                                              title: type.name.value(for: locale),
+                                              title: type.name.value(for: locale), subtitle: type.platform?.value(for: locale),
                                               toggle: visible)
             }
         }

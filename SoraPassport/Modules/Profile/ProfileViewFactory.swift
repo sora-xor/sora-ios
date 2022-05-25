@@ -28,7 +28,8 @@ final class ProfileViewFactory: ProfileViewFactoryProtocol {
 
         let wireframe = ProfileWireframe(
             settingsManager: SettingsManager.shared,
-            localizationManager: LocalizationManager.shared
+            localizationManager: LocalizationManager.shared,
+            disclaimerViewFactory: DisclaimerViewFactory()
         )
 
         presenter.wireframe = wireframe

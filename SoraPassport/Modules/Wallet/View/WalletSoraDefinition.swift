@@ -10,6 +10,8 @@ protocol WalletSoraFormDefining: WalletFormDefining {
     func defineViewForSoraTokenViewModel(_ model: WalletTokenViewModel) -> WalletFormItemView?
     func defineViewForSoraReceiverViewModel(_ model: WalletSoraReceiverViewModel) -> WalletFormItemView?
     func defineViewForFeeViewModel(_ model: FeeViewModelProtocol) -> WalletFormItemView?
+    func defineViewForSwapConfirmationHeaderViewModel(_ model: SoraSwapHeaderViewModel) -> WalletFormItemView?
+    func defineViewForAddLiquidityViewModel(_ model: AddLiquidityViewModel) -> WalletFormItemView?
 }
 
 final class WalletSoraDefinition: WalletSoraFormDefining {
@@ -23,7 +25,7 @@ final class WalletSoraDefinition: WalletSoraFormDefining {
     }
 
     func defineViewForFeeViewModel(_ model: FeeViewModelProtocol) -> WalletFormItemView? {
-        let view = R.nib.soraFeeView.firstView(owner: nil)!
+        let view = R.nib.soraFeeConfirmationView.firstView(owner: nil)!
         view.bind(viewModel: model)
 
         return view
@@ -38,7 +40,7 @@ final class WalletSoraDefinition: WalletSoraFormDefining {
     }
 
     func defineViewForSpentAmountModel(_ model: WalletFormSpentAmountModel) -> WalletFormItemView? {
-        let view = R.nib.soraAmountInputView.firstView(owner: nil)!
+        let view = R.nib.soraAmountStaticView.firstView(owner: nil)!
 
         view.bind(viewModel: model)
 
@@ -54,6 +56,18 @@ final class WalletSoraDefinition: WalletSoraFormDefining {
 
     func defineViewForSoraReceiverViewModel(_ model: WalletSoraReceiverViewModel) -> WalletFormItemView? {
         let view = R.nib.soraReceiverView.firstView(owner: nil)!
+        view.bind(viewModel: model)
+        return view
+    }
+
+    func defineViewForSwapConfirmationHeaderViewModel(_ model: SoraSwapHeaderViewModel) -> WalletFormItemView? {
+        let view = R.nib.swapConfirmHeaderView.firstView(owner: nil)!
+        view.bind(viewModel: model)
+        return view
+    }
+    
+    func defineViewForAddLiquidityViewModel(_ model: AddLiquidityViewModel) -> WalletFormItemView? {
+        let view = R.nib.poolConfirmHeaderView.firstView(owner: nil)!
         view.bind(viewModel: model)
         return view
     }

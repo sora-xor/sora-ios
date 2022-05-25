@@ -9,6 +9,13 @@ import CommonWallet
 import RobinHood
 
 final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFactoryProtocol/*, WalletRemoteHistoryOperationFactoryProtocol*/ {
+    func getPoolsDetails() throws -> CompoundOperationWrapper<[PoolDetails]> {
+        .init(targetOperation: .init())
+    }
+    
+    func accountPools(accountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<AccountPools>> {
+        .init(engine: WebSocketEngine(url: .init(string: "")!, logger: Logger.shared), method: "")
+    }
 
     var balanceClosure: (([String]) -> CompoundOperationWrapper<[BalanceData]?>)?
 

@@ -44,6 +44,10 @@ extension MainTabBarPresenter: MainTabBarPresenterProtocol {
 }
 
 extension MainTabBarPresenter: MainTabBarInteractorOutputProtocol {
+    func didEndTransaction() {
+
+    }
+
     func didReloadSelectedAccount() {
         wireframe.showNewWalletView(on: view)
     }
