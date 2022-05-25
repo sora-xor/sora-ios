@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Anchorage
 import Then
@@ -14,7 +9,7 @@ protocol MigrationViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
 
 class MigrationViewController: UIViewController {
     struct Constants {
-        static let logoWidth: CGFloat = 87
+        static let logoWidth: CGFloat = 168
         static let logoHeight: CGFloat = 116
         static let logoFriction: CGFloat = 0.9
     }
@@ -27,9 +22,9 @@ class MigrationViewController: UIViewController {
     private var logoHeightConstraint: NSLayoutConstraint!
 
     private lazy var logoImageView: UIImageView = {
-        UIImageView(image: R.image.pin.soraVertical()).then {
+        UIImageView(image: R.image.soraLogoBig()).then {
             logoWidthConstraint = ($0.widthAnchor == Constants.logoWidth)
-            logoHeightConstraint = ($0.heightAnchor == Constants.logoHeight)
+            logoHeightConstraint = ($0.heightAnchor == Constants.logoWidth)
         }
     }()
 
@@ -41,14 +36,14 @@ class MigrationViewController: UIViewController {
             $0.textAlignment = .center
             $0.font = UIFont.styled(for: .display1)
             $0.textColor = R.color.baseContentPrimary()
-            $0.text = titleTitle
+            $0.attributedText = titleTitle
         }
     }()
 
     private lazy var detailLabel: UILabel = {
         UILabel().then {
             $0.numberOfLines = 0
-            $0.textAlignment = .center
+            $0.textAlignment = .natural
             $0.font = UIFont.styled(for: .paragraph1)
             $0.textColor = R.color.baseContentPrimary()
             $0.text = detailTitle
@@ -67,17 +62,12 @@ class MigrationViewController: UIViewController {
         }
     }()
 
-    private lazy var signUpButton: SoraButton = {
-        SoraButton().then {
+    private lazy var signUpButton: NeumorphismButton = {
+        NeumorphismButton().then {
             $0.heightAnchor == 48
             $0.tintColor = R.color.brandWhite()
-            $0.roundedBackgroundView?.fillColor = R.color.themeAccent()!
-            $0.roundedBackgroundView?.highlightedFillColor = R.color.themeAccentPressed()!
-            $0.roundedBackgroundView?.shadowColor = .clear
-            $0.changesContentOpacityWhenHighlighted = true
-            $0.title = confirmTitle
-            $0.imageWithTitleView?.titleColor = R.color.brandWhite()
-            $0.imageWithTitleView?.displacementBetweenLabelAndIcon = 1
+            $0.color = R.color.neumorphism.tint()!
+            $0.buttonTitle = confirmTitle
             $0.addTarget(self, action: #selector(actionNext), for: .touchUpInside)
         }
     }()
@@ -118,7 +108,7 @@ class MigrationViewController: UIViewController {
             logoImageView.centerXAnchor == $0.centerXAnchor
 
             $0.addSubview(titleLabel)
-            titleLabel.topAnchor == logoImageView.bottomAnchor + 24
+            titleLabel.topAnchor == logoImageView.bottomAnchor + 18
             titleLabel.horizontalAnchors == $0.horizontalAnchors
 
             $0.addSubview(detailLabel)
@@ -195,29 +185,32 @@ private extension MigrationViewController {
         return locale?.rLanguages
     }
 
-    var titleTitle: String {
-        return R.string.localizable.claimWelcomeSora2(preferredLanguages: languages)
+    var titleTitle: NSAttributedString {
+        let baseText = R.string.localizable.claimWelcomeSora2V1(preferredLanguages: languages)
+        let spl = baseText.nonEmptyComponents(separatedBy: String.lokalizableSeparator)
+        let result = spl.reduce("", {$0+$1})
+        let attributedText = result.decoratedWith([:], adding: [.foregroundColor: R.color.neumorphism.tint()!], to: [spl[1]])
+        return attributedText
     }
 
     var detailTitle: String {
         return R.string.localizable
-            .claimSubtitleV1(preferredLanguages: languages)
+            .claimSubtitleV2(preferredLanguages: languages)
     }
 
     var privacyTitle: NSAttributedString? {
         let baseText = R.string.localizable
-            .claimContact1(preferredLanguages: languages) + " " + R.string.localizable
-            .claimContact2(preferredLanguages: locale?.rLanguages)
-        let attributedText = baseText
-            .styled(.paragraph2)
-            .aligned(.center)
+            .claimContactUs(preferredLanguages: locale?.rLanguages)
+        let spl = baseText.nonEmptyComponents(separatedBy: String.lokalizableSeparator)
+        let result = spl.reduce("", {$0+$1})
+        let attributedText = result.decoratedWith([:], adding: [.foregroundColor: R.color.baseContentQuaternary()!, .underlineStyle: NSUnderlineStyle.single.rawValue ], to: [spl[0]])
 
-        return termDecorator.decorate(attributedString: attributedText)
+        return attributedText 
     }
 
     var confirmTitle: String {
         return R.string.localizable
-            .commonConfirm(preferredLanguages: languages)
+            .commonConfirm(preferredLanguages: languages).localizedUppercase
     }
 
 }

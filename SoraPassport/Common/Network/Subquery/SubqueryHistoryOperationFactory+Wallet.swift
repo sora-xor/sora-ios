@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -12,7 +7,7 @@ extension SubqueryHistoryOperationFactory: WalletRemoteHistoryFactoryProtocol {
         address: String,
         count: Int
     ) -> CompoundOperationWrapper<WalletRemoteHistoryData> {
-        let queryOperation = createOperation(address: address, count: count, cursor: context.cursor)
+        let queryOperation = createOperation(address: address, count: count, after: context.cursor ?? "")
 
         let mappingOperation = ClosureOperation<WalletRemoteHistoryData> {
             guard let response = try? queryOperation.extractNoCancellableResultData()
@@ -25,7 +20,7 @@ extension SubqueryHistoryOperationFactory: WalletRemoteHistoryFactoryProtocol {
 
             let context = TransactionHistoryContext(
                 cursor: pageInfo.endCursor,
-                isComplete: pageInfo.endCursor == nil
+                isComplete: !pageInfo.hasNextPage
             )
 
             return WalletRemoteHistoryData(

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
@@ -43,6 +38,7 @@ extension ProfilePresenter: ProfilePresenterProtocol {
         case .language:     wireframe.showLanguageSelection(from: view)
         case .faq:          wireframe.showFaq(from: view)
         case .about:        wireframe.showAbout(from: view)
+        case .disclaimer:   wireframe.showDisclaimer(from: view)
         case .logout:       wireframe.showLogout(from: view, completionBlock: interactor.logoutAndClean)
         }
     }

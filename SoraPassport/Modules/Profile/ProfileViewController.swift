@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Then
 import Anchorage
@@ -15,7 +10,9 @@ final class ProfileViewController: UIViewController {
     private lazy var tableView: UITableView = {
         UITableView().then {
             $0.tableFooterView = UIView()
-            $0.separatorStyle = .none
+            $0.separatorStyle = .singleLine
+            $0.separatorInset = .zero
+            $0.backgroundColor = .clear
             $0.rowHeight = 56
             $0.register(
                 ProfileTableViewCell.self,
@@ -40,7 +37,8 @@ final class ProfileViewController: UIViewController {
         navigationItem.backBarButtonItem = UIBarButtonItem(
             title: "", style: .plain, target: nil, action: nil
         )
-
+        
+        view.backgroundColor = R.color.baseBackground()
         view.addSubview(tableView)
         tableView.edgeAnchors == view.safeAreaLayoutGuide.edgeAnchors
     }
@@ -95,6 +93,6 @@ extension ProfileViewController: Localizable {
 
     func applyLocalization() {
         navigationItem.title = R.string.localizable
-            .tabbarProfileTitle(preferredLanguages: languages)
+            .commonSettings(preferredLanguages: languages)
     }
 }

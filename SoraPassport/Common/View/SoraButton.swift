@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraUI
 
@@ -72,44 +67,25 @@ class SoraButton: RoundedButton {
         view.shadowOpacity = 0
         view.shadowColor = .clear
         view.fillColor = R.color.baseDisabled()!
-        view.progressIcon.image = R.image.iconProgressLoading()!
+        view.progressIcon.loopMode = .loop
         return view
     }()
 }
 
 extension SoraButton {
-    private struct Constants {
-        static let animationPath = "transform.rotation.z"
-        static let animationKey = "loading.animation.key"
-        static let animationDuration: TimeInterval = 1.0
+
+    private func startAnimating() {
+        progressCover.progressIcon.play()
     }
 
-    public func startAnimating() {
-
-        let animation = createAnimation()
-        progressCover.progressIcon.layer.add(animation, forKey: Constants.animationKey)
-
+    private func stopAnimating() {
+        progressCover.progressIcon.stop()
     }
-
-    public func stopAnimating() {
-        progressCover.progressIcon.layer.removeAnimation(forKey: Constants.animationKey)
-    }
-
-    public func createAnimation() -> CAAnimation {
-        let animation = CAKeyframeAnimation(keyPath: Constants.animationPath)
-        animation.values = [0.0, CGFloat.pi, 2.0 * CGFloat.pi]
-        animation.calculationMode = .linear
-        animation.keyTimes = [0.0, 0.5, 1.0]
-        animation.repeatDuration = TimeInterval.infinity
-        animation.duration = Constants.animationDuration
-        animation.isCumulative = false
-        return animation
-    }
-
 }
 
+import Lottie
 class ButtonProgressCover: RoundedView {
-    var progressIcon: UIImageView = UIImageView()
+    lazy var progressIcon: AnimationView = AnimationView(filePath: R.file.soraLoaderJson.path()!)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -133,7 +109,6 @@ class ButtonProgressCover: RoundedView {
         progressIcon.centerXAnchor.constraint(equalTo: self.centerXAnchor).isActive = true
         progressIcon.centerYAnchor.constraint(equalTo: self.centerYAnchor).isActive = true
         progressIcon.heightAnchor.constraint(lessThanOrEqualTo: self.heightAnchor, constant: -16).isActive = true
-        progressIcon.widthAnchor.constraint(equalTo: progressIcon.heightAnchor, multiplier: 1).isActive = true
     }
 }
 

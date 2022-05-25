@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -12,7 +7,7 @@ extension WalletEmptyStateDataSource {
             R.string.localizable.walletEmptyDescription(preferredLanguages: locale.rLanguages)
         }
 
-        let image = R.image.emptyStateIcon()
+        let image = R.image.iconEmptyDots()
         let dataSource = WalletEmptyStateDataSource(titleResource: title, image: image)
         dataSource.localizationManager = LocalizationManager.shared
         dataSource.verticalSpacingForEmptyState = 18
@@ -33,10 +28,22 @@ extension WalletEmptyStateDataSource {
 
     static var contacts: WalletEmptyStateDataSource {
         let title = LocalizableResource { locale in
-            R.string.localizable.contactsEmptyStateTitle(preferredLanguages: locale.rLanguages)
+            R.string.localizable.emptyRecentRecipients2(preferredLanguages: locale.rLanguages)
         }
 
-        let image = R.image.transactionsEmptyState()
+        let image = R.image.iconEmptyDots()
+        let dataSource = WalletEmptyStateDataSource(titleResource: title, image: image)
+        dataSource.localizationManager = LocalizationManager.shared
+
+        return dataSource
+    }
+
+    static var searchAssets: WalletEmptyStateDataSource {
+        let title = LocalizableResource { locale in
+            R.string.localizable.assetNotFound(preferredLanguages: locale.rLanguages)
+        }
+
+        let image = R.image.iconWarningBig()
         let dataSource = WalletEmptyStateDataSource(titleResource: title, image: image)
         dataSource.localizationManager = LocalizationManager.shared
 

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -32,7 +27,7 @@ struct WalletTransferHeaderModelFactory: OperationDefinitionHeaderModelFactoryPr
         if let receiverId = receiverId, NSPredicate.ethereumAddress.evaluate(with: receiverId) {
             text = R.string.localizable.walletTransferToEthereum(preferredLanguages: locale.rLanguages)
         } else {
-            text = R.string.localizable.transactionReceiverTitle(preferredLanguages: locale.rLanguages)
+            text = R.string.localizable.commonRecipient(preferredLanguages: locale.rLanguages)
         }
 
         return MultilineTitleIconViewModel(text: text)

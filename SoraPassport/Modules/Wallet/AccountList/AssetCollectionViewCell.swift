@@ -1,40 +1,33 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
+import UIKit
 import Foundation
 import SoraUI
 import CommonWallet
 import Anchorage
+import SoraFoundation
 
-final class AssetCollectionViewCell: UICollectionViewCell {
-    private struct Constants {
-        static let detailsSpacing: CGFloat = 8.0
+class AssetCollectionViewCell: UICollectionViewCell {
+    
+    let swipeEnabled = false
+
+    @IBOutlet private var backView: UIView! {
+        didSet {
+            backgroundColor = R.color.neumorphism.base()
+            backView.backgroundColor = R.color.neumorphism.base()
+        }
     }
-
-    @IBOutlet private var backgroundRoundedView: RoundedView! {
-        didSet{
+    @IBOutlet private var backgroundRoundedView: UIView! {
+        didSet {
             setupSwipe()
         }
     }
-    @IBOutlet private var leftRoundedView: RoundedView!
-    @IBOutlet private var symbolLabel: UILabel!
     @IBOutlet private var symbolImageView: UIImageView!
+    @IBOutlet private var accessoryLabel: UILabel!
     @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var subtitleLabel: UILabel!
-    @IBOutlet private var accessoryLabel: UILabel!
-    @IBOutlet private var activityIndicator: UIActivityIndicatorView!
-    @IBOutlet private var subtitleLabelLeading: NSLayoutConstraint!
-    @IBOutlet private var detailIconView: UIImageView!
-    @IBOutlet private var detailIconWidth: NSLayoutConstraint!
-    @IBOutlet private var detailIconHeight: NSLayoutConstraint!
-
     private(set) var assetViewModel: ConfigurableAssetViewModelProtocol?
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        activityIndicator.hidesWhenStopped = true
         prepareViewModelReplacement()
 
         assetViewModel = nil
@@ -67,10 +60,12 @@ final class AssetCollectionViewCell: UICollectionViewCell {
     }()
 
     private func setupSwipe() {
+        guard swipeEnabled else { return }
+        
+        backView.widthAnchor == UIScreen.main.bounds.size.width
+
         let containerView = UIView()
-        containerView.addSubview(backgroundRoundedView)
-        let insets = UIEdgeInsets(top: 1, left: 20, bottom: 10, right: 20)
-        backgroundRoundedView.edgeAnchors == containerView.edgeAnchors + insets
+        containerView.addSubview(backView)
 
         hiddenContainerView.addSubview(toggleImageView)
         toggleImageView.centerAnchors == hiddenContainerView.centerAnchors
@@ -92,13 +87,16 @@ final class AssetCollectionViewCell: UICollectionViewCell {
         stackView.widthAnchor == scrollView.widthAnchor * 2
 
         setupGestureRecognizer()
+
+        backView.setNeedsLayout()
+        backView.layoutIfNeeded()
     }
 
     private func setupGestureRecognizer() {
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(hiddenContainerViewTapped))
         hiddenContainerView.addGestureRecognizer(tapGestureRecognizer)
         let visibleTap = UITapGestureRecognizer(target: self, action: #selector(visibleContainerViewTapped))
-        backgroundRoundedView.addGestureRecognizer(visibleTap)
+        backView.addGestureRecognizer(visibleTap)
     }
 
     @objc private func hiddenContainerViewTapped() {
@@ -119,22 +117,12 @@ final class AssetCollectionViewCell: UICollectionViewCell {
         if let assetViewModel = assetViewModel {
             switch assetViewModel.style {
             case .card(let style):
-                backgroundRoundedView.fillColor = style.backgroundColor
-                backgroundRoundedView.cornerRadius = style.cornerRadius
-                backgroundRoundedView.shadowColor = style.shadow.color
-                backgroundRoundedView.shadowOffset = style.shadow.offset
-                backgroundRoundedView.shadowOpacity = style.shadow.opacity
-                backgroundRoundedView.shadowRadius = style.shadow.blurRadius
-                leftRoundedView.fillColor = style.leftFillColor
-                leftRoundedView.cornerRadius = style.cornerRadius
-                symbolLabel.textColor = style.symbol.color
-                symbolLabel.font = style.symbol.font
                 titleLabel.textColor = style.title.color
                 titleLabel.font = style.title.font
                 subtitleLabel.textColor = style.subtitle.color
                 subtitleLabel.font = style.subtitle.font
                 accessoryLabel.textColor = style.accessory.color
-                activityIndicator.tintColor = style.subtitle.color
+//                activityIndicator.tintColor = style.subtitle.color
                 accessoryLabel.font = style.accessory.font
             }
         }
@@ -142,21 +130,21 @@ final class AssetCollectionViewCell: UICollectionViewCell {
 
     private func applyContent() {
         if let assetViewModel = assetViewModel {
-            symbolLabel.isHidden = assetViewModel.imageViewModel != nil
             symbolImageView.isHidden = assetViewModel.imageViewModel == nil
 
             if let iconViewModel = assetViewModel.imageViewModel {
                 iconViewModel.loadImage { [weak self] (icon, _) in
                     self?.symbolImageView.image = icon
                 }
-            } else {
-                symbolLabel.text = assetViewModel.symbol
             }
+
             if let viewModel = assetViewModel as? ConfigurableAssetViewModel {
                 toggleImageView.image = viewModel.toggleIcon
             }
+            let amount = assetViewModel.amount
+            let currentLocale = LocalizationManager.shared.selectedLocale
 
-            titleLabel.text = assetViewModel.amount
+            titleLabel.attributedText = amount.prettyCurrency(baseFont: titleLabel.font, locale: currentLocale)
             subtitleLabel.text = assetViewModel.details
             accessoryLabel.text = assetViewModel.accessoryDetails
         }
@@ -169,7 +157,7 @@ final class AssetCollectionViewCell: UICollectionViewCell {
 
 extension AssetCollectionViewCell: UIScrollViewDelegate {
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        if(scrollView.contentOffset.x >= scrollView.contentSize.width/2 - 10){
+        if scrollView.contentOffset.x >= scrollView.contentSize.width/2 - 10 {
             hiddenContainerViewTapped()
         }
     }
@@ -195,4 +183,3 @@ extension AssetCollectionViewCell: WalletViewProtocol {
         setNeedsLayout()
     }
 }
-

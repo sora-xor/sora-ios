@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="PolkaswapAssetView" customModule="SoraPassport" customModuleProvider="target">
+            <connections>
+                <outlet property="amountField" destination="w0R-CW-5kE" id="u1s-Vx-6a6"/>
+                <outlet property="assetButton" destination="lpY-Mn-rWS" id="Pjb-uz-h9W"/>
+                <outlet property="balanceLabel" destination="XO0-aO-yoJ" id="h2n-tN-hh4"/>
+                <outlet property="balanceValueLabel" destination="93f-wg-dFO" id="QLT-Lr-1qe"/>
+                <outlet property="containerView" destination="iN0-l3-epB" id="MpX-6D-Fs3"/>
+                <outlet property="fromToLabel" destination="EP1-W2-OGF" id="Unn-xI-udh"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="112"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="EP1-W2-OGF">
+                    <rect key="frame" x="14" y="23" width="42" height="21"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="XO0-aO-yoJ">
+                    <rect key="frame" x="357" y="8" width="42" height="21"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="0 XOR" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="93f-wg-dFO">
+                    <rect key="frame" x="350" y="29" width="49" height="21"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="w0R-CW-5kE" customClass="PolkaswapAmountField" customModule="SoraPassport" customModuleProvider="target">
+                    <rect key="frame" x="14" y="52" width="217" height="40"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="40" id="aF8-se-j8s"/>
+                    </constraints>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="color" keyPath="textColor">
+                            <color key="value" name="Neumorphism/Text Dark"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="placeholderColor">
+                            <color key="value" name="Neumorphism/Text Placeholder"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="borderColor">
+                            <color key="value" name="Neumorphism/Separator"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="string" keyPath="placeholderText" value="0.0"/>
+                    </userDefinedRuntimeAttributes>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="lpY-Mn-rWS" customClass="PswapButton" customModule="SoraPassport" customModuleProvider="target">
+                    <rect key="frame" x="239" y="52" width="160" height="40"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="40" id="3g4-I9-o0O"/>
+                        <constraint firstAttribute="width" constant="160" id="MkI-5f-q0X"/>
+                    </constraints>
+                </view>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+            <constraints>
+                <constraint firstItem="93f-wg-dFO" firstAttribute="trailing" secondItem="XO0-aO-yoJ" secondAttribute="trailing" id="03e-bN-Nf0"/>
+                <constraint firstItem="lpY-Mn-rWS" firstAttribute="bottom" secondItem="w0R-CW-5kE" secondAttribute="bottom" id="3Lg-WJ-T5d"/>
+                <constraint firstItem="93f-wg-dFO" firstAttribute="top" secondItem="XO0-aO-yoJ" secondAttribute="bottom" id="7AY-2J-QA0"/>
+                <constraint firstItem="EP1-W2-OGF" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" constant="23" id="NAD-G8-9ri"/>
+                <constraint firstItem="XO0-aO-yoJ" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" constant="8" id="OGq-1g-odR"/>
+                <constraint firstItem="w0R-CW-5kE" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="14" id="PrX-bX-pib"/>
+                <constraint firstItem="lpY-Mn-rWS" firstAttribute="top" secondItem="w0R-CW-5kE" secondAttribute="top" id="Swc-0l-CWf"/>
+                <constraint firstAttribute="trailing" secondItem="XO0-aO-yoJ" secondAttribute="trailing" constant="15" id="TTs-0K-K1C"/>
+                <constraint firstItem="w0R-CW-5kE" firstAttribute="top" secondItem="EP1-W2-OGF" secondAttribute="bottom" constant="8" symbolic="YES" id="l9y-kn-ig2"/>
+                <constraint firstItem="lpY-Mn-rWS" firstAttribute="leading" secondItem="w0R-CW-5kE" secondAttribute="trailing" constant="8" id="mbs-GL-QfX"/>
+                <constraint firstItem="XO0-aO-yoJ" firstAttribute="trailing" secondItem="lpY-Mn-rWS" secondAttribute="trailing" id="nbm-3z-Ivm"/>
+                <constraint firstItem="EP1-W2-OGF" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="14" id="u5L-Dg-WIw"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <point key="canvasLocation" x="137.68115942028987" y="-178.79464285714286"/>
+        </view>
+    </objects>
+    <resources>
+        <namedColor name="Neumorphism/Separator">
+            <color red="0.89803921568627454" green="0.8666666666666667" blue="0.8666666666666667" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Text Dark">
+            <color red="0.12941176470588237" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Text Placeholder">
+            <color red="0.86699998378753662" green="0.80000001192092896" blue="0.80000001192092896" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>

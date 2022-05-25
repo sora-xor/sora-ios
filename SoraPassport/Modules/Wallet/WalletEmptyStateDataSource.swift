@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 import SoraFoundation
@@ -10,8 +5,8 @@ import SoraFoundation
 final class WalletEmptyStateDataSource {
     var titleResource: LocalizableResource<String>?
     var imageForEmptyState: UIImage?
-    var titleColorForEmptyState: UIColor? = UIColor.emptyStateTitle
-    var titleFontForEmptyState: UIFont? = UIFont.emptyStateTitle
+    var titleColorForEmptyState: UIColor? = R.color.baseContentTertiary()
+    var titleFontForEmptyState: UIFont? = UIFont.styled(for: .paragraph1)
     var verticalSpacingForEmptyState: CGFloat? = 16.0
     var trimStrategyForEmptyState: EmptyStateView.TrimStrategy = .none
 

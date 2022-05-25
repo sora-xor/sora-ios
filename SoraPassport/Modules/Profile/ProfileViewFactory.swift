@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import RobinHood
 import SoraKeystore
@@ -28,7 +23,8 @@ final class ProfileViewFactory: ProfileViewFactoryProtocol {
 
         let wireframe = ProfileWireframe(
             settingsManager: SettingsManager.shared,
-            localizationManager: LocalizationManager.shared
+            localizationManager: LocalizationManager.shared,
+            disclaimerViewFactory: DisclaimerViewFactory()
         )
 
         presenter.wireframe = wireframe

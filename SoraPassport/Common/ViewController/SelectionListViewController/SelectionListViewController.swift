@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Rswift
 
@@ -25,6 +20,7 @@ class SelectionListViewController<C: UITableViewCell & SelectionItemViewProtocol
     private func configureTableView() {
         tableView.register(selectableCellNib,
                            forCellReuseIdentifier: selectableCellIdentifier.identifier)
+        tableView.separatorColor = R.color.neumorphism.tableSeparator()
 
         let footerView = UIView(frame: CGRect(origin: .zero, size: CGSize(width: view.bounds.width, height: 1.0)))
         tableView.tableFooterView = footerView

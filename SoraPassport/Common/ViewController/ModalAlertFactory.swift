@@ -1,20 +1,19 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
 struct ModalAlertFactory {
     static func createSuccessAlert(_ title: String) -> UIViewController {
+        return createAlert(title, image: R.image.success())
+    }
+
+    static func createAlert(_ title: String, image: UIImage?) -> UIViewController {
         let contentView = ImageWithTitleView()
-        contentView.iconImage = R.image.success()
+        contentView.iconImage = image
         contentView.title = title
         contentView.spacingBetweenLabelAndIcon = 8.0
         contentView.layoutType = .verticalImageFirst
-        contentView.titleColor = R.color.baseContentTertiary()
-        contentView.titleFont = UIFont.styled(for: .paragraph3)
+        contentView.titleColor = R.color.neumorphism.textDark()
+        contentView.titleFont = UIFont.styled(for: .paragraph3).withSize(15)
 
         let contentWidth = contentView.intrinsicContentSize.width + 24.0
 
@@ -29,7 +28,7 @@ struct ModalAlertFactory {
         let style = ModalAlertPresentationStyle(
             backgroundColor: R.color.utilityNotification()!,
             backdropColor: .clear,
-            cornerRadius: 8.0
+            cornerRadius: 24.0
         )
 
         let configuration = ModalAlertPresentationConfiguration(

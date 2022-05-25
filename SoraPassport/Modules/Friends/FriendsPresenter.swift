@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
@@ -63,7 +58,7 @@ private extension FriendsPresenter {
         let viewModels = rewardsViewModelFactory
             .createActivatedInvitationViewModel(
                 from: invitationsData,
-                dateFormatter: DateFormatter.history,
+                dateFormatter: DateFormatter.friends,
                 locale: locale
             )
 

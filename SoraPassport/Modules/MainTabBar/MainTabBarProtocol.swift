@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import CommonWallet
 
@@ -32,6 +27,7 @@ protocol MainTabBarInteractorOutputProtocol: class {
     func didRequestImportAccount()
     func didRequestMigration(with service: MigrationServiceProtocol)
     func didEndMigration()
+    func didEndTransaction()
 }
 
 protocol MainTabBarWireframeProtocol: AlertPresentable, AuthorizationAccessible {
@@ -43,6 +39,8 @@ protocol MainTabBarWireframeProtocol: AlertPresentable, AuthorizationAccessible 
     func presentAccountImport(on view: MainTabBarViewProtocol?)
     func presentClaim(on view: MainTabBarViewProtocol?, with service: MigrationServiceProtocol)
     func removeClaim(on view: MainTabBarViewProtocol?)
+    
+    func showTransactionSuccess(on view: MainTabBarViewProtocol?)
 }
 
 protocol MainTabBarViewFactoryProtocol: class {

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraFoundation
 import SoraUI
@@ -33,9 +28,10 @@ final class AccountConfirmViewController: UIViewController, AdaptiveDesignable {
     @IBOutlet private var submittedChipsContainer: UIView!
     @IBOutlet private var pendingChipsContainer: UIView!
 
-    @IBOutlet private var nextButton: SoraButton!
-    @IBOutlet private var skipButton: SoraButton!
+    @IBOutlet private var nextButton: NeumorphismButton!
+    @IBOutlet private var skipButton: NeumorphismButton!
 
+    @IBOutlet private var labelToTopConstraint: NSLayoutConstraint!
     @IBOutlet private var topPlaneHeight: NSLayoutConstraint!
     @IBOutlet private var bottomPlaneHeight: NSLayoutConstraint!
 
@@ -58,10 +54,10 @@ final class AccountConfirmViewController: UIViewController, AdaptiveDesignable {
     private var originalPositions: [RoundedButton: Position] = [:]
 
     lazy var nextButtonTitle: LocalizableResource<String> = LocalizableResource { locale in
-        R.string.localizable.accountConfirmationTitle(preferredLanguages: locale.rLanguages)
+        R.string.localizable.commonConfirm(preferredLanguages: locale.rLanguages)
     }
     lazy var skipButtonTitle: LocalizableResource<String> = LocalizableResource { locale in
-        R.string.localizable.claimSkip(preferredLanguages: locale.rLanguages)
+        R.string.localizable.commonSkip(preferredLanguages: locale.rLanguages)
     }
 
     override func viewDidLoad() {
@@ -77,6 +73,9 @@ final class AccountConfirmViewController: UIViewController, AdaptiveDesignable {
 
     private func configureLayout() {
         contentWidth = baseDesignSize.width * designScaleRatio.width - 2.0 * Constants.externalMargin
+        if UIScreen.main.bounds.size.height > 667 {
+            labelToTopConstraint.constant = (UIScreen.main.bounds.size.height - 536.0) / 2.0
+        }
     }
 
     private func setupLocalization() {
@@ -84,15 +83,16 @@ final class AccountConfirmViewController: UIViewController, AdaptiveDesignable {
             return
         }
 
-        title = R.string.localizable.accountConfirmationTitle(preferredLanguages: locale.rLanguages)
+        title = R.string.localizable.accountConfirmationTitleV2(preferredLanguages: locale.rLanguages)
 
-        detailsLabel.font = UIFont.styled(for: .title3)
-        detailsLabel.text = R.string.localizable
-            .mnemonicConfirmText(preferredLanguages: locale.rLanguages)
+        detailsLabel.font = UIFont.styled(for: .paragraph1)
+        detailsLabel.text = R.string.localizable.mnemonicConfirmTextV2(preferredLanguages: locale.rLanguages)
 
-        nextButton.title = nextButtonTitle.value(for: locale)
+        nextButton.font = UIFont.styled(for: .button)
+        skipButton.font = UIFont.styled(for: .button)
 
-        skipButton.title = skipButtonTitle.value(for: locale)
+        nextButton.setTitle(nextButtonTitle.value(for: locale), for: .normal)
+        skipButton.setTitle(skipButtonTitle.value(for: locale), for: .normal)
     }
 
     private func createButton() -> RoundedButton {
@@ -100,11 +100,11 @@ final class AccountConfirmViewController: UIViewController, AdaptiveDesignable {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.roundedBackgroundView?.shadowOpacity = 0.0
         button.contentInsets = Constants.itemContentInsets
-        button.roundedBackgroundView?.fillColor = R.color.baseBackground()!
+        button.roundedBackgroundView?.fillColor = R.color.neumorphism.buttonLightGrey()!
         button.roundedBackgroundView?.highlightedFillColor = R.color.baseBackgroundHover()!
         button.roundedBackgroundView?.cornerRadius = Constants.cornerRadius
         button.imageWithTitleView?.titleColor = R.color.baseContentPrimary()!
-        button.imageWithTitleView?.titleFont = UIFont.styled(for: .paragraph2)
+        button.imageWithTitleView?.titleFont = UIFont.styled(for: .button).withSize(18)
         button.changesContentOpacityWhenHighlighted = true
 
         button.addTarget(self,
@@ -128,7 +128,7 @@ final class AccountConfirmViewController: UIViewController, AdaptiveDesignable {
         pendingButtons = newPendingButtons
 
         let rows = createRowsFromButtons(pendingButtons)
-        minHeight = layoutRows(rows, on: pendingChipsContainer) + 2 * Constants.internalMargin
+        minHeight = layoutRows(rows, on: pendingChipsContainer) //+ 2 * Constants.internalMargin
 
         layoutButtons()
 
@@ -154,7 +154,15 @@ final class AccountConfirmViewController: UIViewController, AdaptiveDesignable {
     }
 
     private func updateNextButton() {
+        nextButton.color = R.color.neumorphism.tint()!
+        nextButton.colorDisabled = R.color.neumorphism.buttonLightGrey()!
+
         nextButton.isEnabled = pendingButtons.isEmpty && !submittedButtons.isEmpty
+        if nextButton.isEnabled {
+            nextButton.setTitleColor(R.color.brandWhite(), for: .normal)
+        } else {
+            nextButton.setTitleColor(R.color.neumorphism.buttonTextDark(), for: .normal)
+        }
     }
 
     @objc private func actionRetry() {
@@ -184,6 +192,7 @@ extension AccountConfirmViewController {
     private func layoutButtons() {
         layoutPendingButtons()
         layoutSubmittedButtons()
+        updateViewConstraints()
     }
 
     private func layoutSubmittedButtons() {
@@ -238,13 +247,13 @@ extension AccountConfirmViewController {
     }
 
     private func layoutRows(_ rows: [[RoundedButton]], on plane: UIView) -> CGFloat {
-        var currentY = Constants.internalMargin
+        let currentY = Constants.internalMargin
 
         let availableWidth = contentWidth - 2.0 * Constants.internalMargin
 
         var totalHeight: CGFloat = 0.0
 
-        for row in rows {
+        for (index, row) in rows.enumerated() {
             var width = row.reduce(CGFloat(0.0)) { (result, item) in
                 return result + item.intrinsicContentSize.width
             }
@@ -255,7 +264,7 @@ extension AccountConfirmViewController {
                 return max(result, item.intrinsicContentSize.height)
             }
 
-            var originX = Constants.internalMargin
+            var originX = Constants.internalMargin + (availableWidth - width) / 2.0 - Constants.itemsSpacing
 
             for item in row {
                 let size = item.intrinsicContentSize
@@ -268,7 +277,7 @@ extension AccountConfirmViewController {
                 let leading = item.leadingAnchor.constraint(equalTo: contentView.leadingAnchor,
                                                             constant: originX)
 
-                let itemY = currentY + height / 2.0 - size.height / 2.0
+                let itemY = currentY + CGFloat(index) * (height + Constants.itemsSpacing)
                 let top = item.topAnchor.constraint(equalTo: plane.topAnchor,
                                                     constant: itemY)
 
@@ -280,12 +289,10 @@ extension AccountConfirmViewController {
                 originX += size.width + Constants.itemsSpacing
             }
 
-            currentY += height + Constants.itemsSpacing
-
             totalHeight += height
         }
 
-        return totalHeight + CGFloat(rows.count - 1) * Constants.itemsSpacing
+        return totalHeight + CGFloat(rows.count - 1) * Constants.itemsSpacing + 10
     }
 
     @objc private func actionItem(_ sender: AnyObject) {
@@ -300,8 +307,6 @@ extension AccountConfirmViewController {
             originalPositions[button] = positions[button]
 
             let animationBlock = {
-                button.roundedBackgroundView?.fillColor = R.color.baseBackground()!
-                button.roundedBackgroundView?.highlightedFillColor = R.color.baseBackgroundHover()!
                 button.changesContentOpacityWhenHighlighted = true
                 self.layoutSubmittedButtons()
 
@@ -318,8 +323,6 @@ extension AccountConfirmViewController {
             positions[button] = originalPositions[button]
 
             let animationBlock = {
-                button.roundedBackgroundView?.fillColor = R.color.baseBackground()!
-                button.roundedBackgroundView?.highlightedFillColor = R.color.baseBackgroundHover()!
                 button.changesContentOpacityWhenHighlighted = false
 
                 currentPosition?.leading.isActive = false
@@ -338,7 +341,9 @@ extension AccountConfirmViewController {
             wordTransitionAnimation.animate(block: animationBlock,
                                             completionBlock: nil)
         }
-
+        if scrollView.contentSize.height > scrollView.frame.height {
+            scrollView.setContentOffset(CGPoint(x: 0, y: pendingChipsContainer.frame.minY - 10), animated: true)
+        }
         updateNextButton()
     }
 }
@@ -351,8 +356,10 @@ extension AccountConfirmViewController: AccountConfirmViewProtocol {
                 self.retryAnimation.animate(view: self.contentView,
                                             completionBlock: nil)
             }
-
-            let alertView = UIAlertController(title: R.string.localizable.commonErrorGeneralTitle(), message: R.string.localizable.mnemonicInvalid(), preferredStyle: .alert)
+            let lang = localizationManager?.selectedLocale.rLanguages
+            let alertView = UIAlertController(title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: lang),
+                                              message: R.string.localizable.mnemonicInvalid(preferredLanguages: lang),
+                                              preferredStyle: .alert)
 
             let useAction = UIAlertAction(
                 title: R.string.localizable.commonOk(),

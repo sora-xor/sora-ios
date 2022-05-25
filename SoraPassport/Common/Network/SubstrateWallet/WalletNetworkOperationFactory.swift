@@ -1,14 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
-import Foundation
-import CommonWallet
-import RobinHood
-import IrohaCrypto
 import BigInt
+import CommonWallet
 import FearlessUtils
+import Foundation
+import IrohaCrypto
+import RobinHood
 
 final class WalletNetworkOperationFactory {
     let accountSettings: WalletAccountSettingsProtocol
@@ -18,11 +13,13 @@ final class WalletNetworkOperationFactory {
     let cryptoType: CryptoType
     let chainStorage: AnyDataProviderRepository<ChainStorageItem>
     let localStorageIdFactory: ChainStorageIdFactoryProtocol
+    let extrinsicService: ExtrinsicServiceProtocol
 
     init(engine: JSONRPCEngine,
          accountSettings: WalletAccountSettingsProtocol,
          cryptoType: CryptoType,
          accountSigner: IRSignatureCreatorProtocol,
+         extrinsicService: ExtrinsicServiceProtocol,
          dummySigner: IRSignatureCreatorProtocol,
          chainStorage: AnyDataProviderRepository<ChainStorageItem>,
          localStorageIdFactory: ChainStorageIdFactoryProtocol) {
@@ -30,6 +27,7 @@ final class WalletNetworkOperationFactory {
         self.accountSettings = accountSettings
         self.cryptoType = cryptoType
         self.accountSigner = accountSigner
+        self.extrinsicService = extrinsicService
         self.dummySigner = dummySigner
         self.chainStorage = chainStorage
         self.localStorageIdFactory = localStorageIdFactory
@@ -49,12 +47,16 @@ final class WalletNetworkOperationFactory {
                                             parameters: [param])
     }
 
-    func createBalanceOperation(accountId: String, assetId: String) -> JSONRPCListOperation<BalanceInfo> {
-
+    func createFreeBalanceOperation(accountId: String, assetId: String) -> JSONRPCListOperation<BalanceInfo> {
         return JSONRPCListOperation<BalanceInfo>(engine: engine,
-                                                method: RPCMethod.freeBalance,
-                                                parameters: [accountId, assetId])
+                                                 method: RPCMethod.freeBalance,
+                                                 parameters: [accountId, assetId])
+    }
 
+    func createUsableBalanceOperation(accountId: String, assetId: String) -> JSONRPCListOperation<BalanceInfo> {
+        return JSONRPCListOperation<BalanceInfo>(engine: engine,
+                                                 method: RPCMethod.usableBalance,
+                                                 parameters: [accountId, assetId])
     }
 
     func createUpgradedInfoFetchOperation() -> CompoundOperationWrapper<Bool?> {
@@ -70,7 +72,7 @@ final class WalletNetworkOperationFactory {
     }
 
     func createAccountInfoFetchOperation(_ accountId: Data)
-    -> CompoundOperationWrapper<AccountInfo?> {
+        -> CompoundOperationWrapper<AccountInfo?> {
         do {
             let storageKeyFactory = StorageKeyFactory()
             let accountIdKey = try storageKeyFactory.accountInfoKeyForId(accountId).toHex(includePrefix: true)
@@ -89,7 +91,7 @@ final class WalletNetworkOperationFactory {
                     StorageUpdateData(update: update)
                 }
 
-                let accountInfo: AccountInfo? = try storageUpdateDataList.reduce(nil) { (result, updateData) in
+                let accountInfo: AccountInfo? = try storageUpdateDataList.reduce(nil) { result, updateData in
                     guard result == nil else {
                         return result
                     }
@@ -134,46 +136,22 @@ final class WalletNetworkOperationFactory {
         return JSONRPCListOperation(engine: engine, method: RPCMethod.getRuntimeVersion)
     }
 
-    func createExtrinsicServiceOperation(asset: String,
-                                         amount: BigUInt,
-                                         receiver: String,
-                                         chain: Chain) -> BaseOperation<String> {
+    func createExtrinsicServiceOperation(closure: @escaping ExtrinsicBuilderClosure) -> BaseOperation<String> {
         do {
-            let identifier = try Data(hexString: accountSettings.accountId)
-            let address = try SS58AddressFactory()
-                .address(fromAccountId: identifier,
-                         type: SNAddressType(chain: chain))
-            //swiftlint:disable force_cast
+            // swiftlint:disable force_cast
             let signer = accountSigner as! SigningWrapperProtocol
-            //swiftlint:enable force_cast
-
-            let receiverAccountId = receiver
-
-            let extrinsicService = ExtrinsicService(address: address,
-                                                    cryptoType: cryptoType,
-                                                    runtimeRegistry: RuntimeRegistryFacade.sharedService,
-                                                    engine: engine,
-                                                    operationManager: OperationManagerFacade.sharedManager)
-
-            let closure: ExtrinsicBuilderClosure = { builder in
-                let callFactory = SubstrateCallFactory()
-
-                let transferCall = try callFactory.transfer(to: receiverAccountId, asset: asset, amount: amount)
-
-                return try builder
-                    .adding(call: transferCall)
-            }
+            // swiftlint:enable force_cast
 
             let operation = BaseOperation<String>()
-            operation.configurationBlock = {
+            operation.configurationBlock = { [weak self] in
                 let semaphore = DispatchSemaphore(value: 0)
 
-                extrinsicService.submit(closure, signer: signer, watch: false, runningIn: .main) { [operation] result, _ in
+                self?.extrinsicService.submit(closure, signer: signer, watch: false, runningIn: .main) { [operation] result, _ in
                     semaphore.signal()
                     switch result {
-                    case .success(let hash):
+                    case let .success(hash):
                         operation.result = .success(hash)
-                    case .failure(let error):
+                    case let .failure(error):
                         operation.result = .failure(error)
                     }
                 }
@@ -229,9 +207,9 @@ final class WalletNetworkOperationFactory {
                 extrinsicService.estimateFee(closure, runningIn: .main) { [operation] result in
                     semaphore.signal()
                     switch result {
-                    case .success(let info):
+                    case let .success(info):
                         operation.result = .success(info)
-                    case .failure(let error):
+                    case let .failure(error):
                         operation.result = .failure(error)
                     }
                 }
@@ -248,7 +226,7 @@ final class WalletNetworkOperationFactory {
             return createBaseOperation(result: .failure(error))
         }
     }
-    
+
     func createCompoundOperation<T>(result: Result<T, Error>) -> CompoundOperationWrapper<T> {
         let baseOperation = createBaseOperation(result: result)
         return CompoundOperationWrapper(targetOperation: baseOperation)

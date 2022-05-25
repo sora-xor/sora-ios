@@ -1,17 +1,12 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
+import FearlessUtils
 import Foundation
 import RobinHood
-import FearlessUtils
 
 protocol SubqueryHistoryOperationFactoryProtocol {
     func createOperation(
         address: String,
         count: Int,
-        cursor: String?
+        after: String
     ) -> BaseOperation<SubqueryHistoryData>
 }
 
@@ -24,97 +19,65 @@ final class SubqueryHistoryOperationFactory {
         self.filter = filter
     }
 
-    private func prepareExtrinsicInclusionFilter() -> String {
-        """
-        {
-          or: [
-            {
-                  extrinsic: {isNull: true}
-            },
-            {
-              not: {
-                and: [
-                    {
-                      extrinsic: { contains: {module: "Assets"} } ,
-                        or: [
-                         { extrinsic: {contains: {call: "transfer"} } },
-                         { extrinsic: {contains: {call: "transferKeepAlive"} } },
-                         { extrinsic: {contains: {call: "forceTransfer"} } },
-                      ]
-                    }
-                ]
-               }
-            }
-          ]
-        }
-        """
-    }
-
-    private func prepareFilter() -> String {
-        var filterStrings: [String] = []
-
-        if filter.contains(.extrinsics) {
-            filterStrings.append(prepareExtrinsicInclusionFilter())
-        } else {
-            filterStrings.append("{extrinsic: { isNull: true }}")
-        }
-
-        if !filter.contains(.rewardsAndSlashes) {
-            filterStrings.append("{reward: { isNull: true }}")
-        }
-
-        if !filter.contains(.transfers) {
-            filterStrings.append("{transfer: { isNull: true }}")
-        }
-
-        return filterStrings.joined(separator: ",")
-    }
-
-    private func prepareQueryForAddress(_ address: String, count: Int, cursor: String?) -> String {
-        let after = cursor.map { "\"\($0)\"" } ?? "null"
-//https://soramitsu.atlassian.net/wiki/spaces/SP/pages/3448406051/Sora+Subquery
+    /// Subquery: https://soramitsu.atlassian.net/wiki/spaces/SP/pages/3448406051/Sora+Subquery
+    private func prepareQueryForAddress(_ address: String, count: Int, after: String) -> String {
         return """
-        {
-            historyElements(
-                 after: \(after),
-                 first: \(count),
-                 orderBy: TIMESTAMP_DESC,
-                 filter: {
-                    or: [
-                        {
-                          address: { equalTo: \"\(address)\" }
-                          or: [
-                            { module: { equalTo: "assets" } method: { equalTo: "transfer" } }
-                            {
-                              module: { equalTo: "liquidityProxy" }
-                              method: { equalTo: "swap" }
-                            }
-                          ]
-                        }
-                        {
-                        data: { contains: { to: \"\(address)\" } }
-                        execution: { contains: { success: true } }
-                        }
-                    ]
-                 }
-             ) {
-                 pageInfo {
-                     startCursor,
-                     endCursor
-                 },
-                 nodes {
-                    id
-                    blockHash
-                    module
-                    method
-                    address
-                    timestamp
-                    networkFee
-                    data
-                    error
-                    execution
-                 }
-             }
+        query {
+          historyElements(
+            first: \(count)
+            orderBy: TIMESTAMP_DESC
+            after: "\(after)"
+            filter: {
+              or: [
+                {
+                  address: {
+                    equalTo: "\(address)"
+                  }
+                  or: [
+                    { module: { equalTo: "assets" }, method: { equalTo: "transfer" } }
+                    {
+                      module: { equalTo: "liquidityProxy" }
+                      method: { equalTo: "swap" }
+                    }
+                    {
+                      module: { equalTo: "poolXYK" }
+                      method: { equalTo: "depositLiquidity" }
+                    }
+                    {
+                      module: { equalTo: "poolXYK" }
+                      method: { equalTo: "withdrawLiquidity" }
+                    }
+                    { data: { contains: [{ method: "depositLiquidity" }] } }
+                    { data: { contains: [{ method: "withdrawLiquidity" }] } }
+                  ]
+                }
+                {
+                  data: {
+                    contains: {
+                      to: "\(address)"
+                    }
+                  }
+                  execution: { contains: { success: true } }
+                }
+              ]
+            }
+          ) {
+            nodes {
+              id
+              blockHash
+              module
+              method
+              address
+              networkFee
+              execution
+              timestamp
+              data
+            }
+            pageInfo {
+              endCursor
+              hasNextPage
+            }
+          }
         }
         """
     }
@@ -124,9 +87,9 @@ extension SubqueryHistoryOperationFactory: SubqueryHistoryOperationFactoryProtoc
     func createOperation(
         address: String,
         count: Int,
-        cursor: String?
+        after: String
     ) -> BaseOperation<SubqueryHistoryData> {
-        let queryString = prepareQueryForAddress(address, count: count, cursor: cursor)
+        let queryString = prepareQueryForAddress(address, count: count, after: after)
 
         let requestFactory = BlockNetworkRequestFactory {
             var request = URLRequest(url: self.url)

@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
-        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <customFonts key="customFonts">
+        <array key="Sora-Light.otf">
+            <string>Sora-Light</string>
+        </array>
         <array key="sora-Regular.otf">
             <string>sora-rc004-0417-Regular</string>
         </array>
@@ -17,14 +19,12 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="AccountImportViewController" customModule="SoraPassport" customModuleProvider="target">
             <connections>
+                <outlet property="mnemonicTextView" destination="CLH-0f-Wa1" id="d9k-L5-dER"/>
                 <outlet property="nextButton" destination="1zX-7F-5Jj" id="tDn-Eb-zVt"/>
+                <outlet property="privacyLabel" destination="NrO-dt-nfS" id="kJg-Jh-inq"/>
                 <outlet property="scrollView" destination="H0p-yD-Jul" id="NuO-CC-dE8"/>
                 <outlet property="stackView" destination="AwS-kl-7JJ" id="o8z-8e-m3K"/>
-                <outlet property="textContainerView" destination="WIx-3s-1tq" id="pdT-rI-HFh"/>
-                <outlet property="textPlaceholderLabel" destination="Y5W-Vv-VcJ" id="UuY-vj-Eta"/>
-                <outlet property="textView" destination="Yrf-1J-bqb" id="4Ba-AX-TnR"/>
-                <outlet property="usernameLabel" destination="bAn-hu-M1z" id="LVH-cY-0Dz"/>
-                <outlet property="usernameTextField" destination="aQx-82-1j5" id="r9v-Th-zLN"/>
+                <outlet property="usernameTextField" destination="Qvv-Q2-KEY" id="mxr-Rm-wl3"/>
                 <outlet property="view" destination="iN0-l3-epB" id="ecI-Cl-ZGv"/>
                 <outlet property="warningLabel" destination="phZ-8l-hZw" id="Nzo-Ik-cPJ"/>
                 <outlet property="warningView" destination="9vS-kj-2Th" id="K3A-kn-PSC"/>
@@ -38,8 +38,8 @@
                 <scrollView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="H0p-yD-Jul">
                     <rect key="frame" x="0.0" y="44" width="414" height="722"/>
                     <subviews>
-                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="AwS-kl-7JJ">
-                            <rect key="frame" x="16" y="16" width="382" height="328"/>
+                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="40" translatesAutoresizingMaskIntoConstraints="NO" id="AwS-kl-7JJ">
+                            <rect key="frame" x="16" y="16" width="382" height="386"/>
                             <subviews>
                                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="9vS-kj-2Th">
                                     <rect key="frame" x="0.0" y="0.0" width="382" height="122"/>
@@ -64,103 +64,24 @@
                                         <constraint firstItem="phZ-8l-hZw" firstAttribute="top" secondItem="9vS-kj-2Th" secondAttribute="top" id="yvs-tT-qx3"/>
                                     </constraints>
                                 </view>
-                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="fid-au-wWm" customClass="BorderedContainerView" customModule="SoraUI">
-                                    <rect key="frame" x="0.0" y="138" width="382" height="52"/>
+                                <view hidden="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WIx-3s-1tq" customClass="RoundedView" customModule="SoraUI">
+                                    <rect key="frame" x="0.0" y="142" width="382" height="128"/>
                                     <subviews>
-                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="bAn-hu-M1z">
-                                            <rect key="frame" x="0.0" y="16" width="41.5" height="20.5"/>
-                                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                            <color key="textColor" name="Base ContentTertiary"/>
-                                            <nil key="highlightedColor"/>
-                                        </label>
-                                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="aQx-82-1j5" customClass="AnimatedTextField" customModule="SoraUI">
-                                            <rect key="frame" x="41.5" y="0.0" width="340.5" height="52"/>
-                                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                            <userDefinedRuntimeAttributes>
-                                                <userDefinedRuntimeAttribute type="number" keyPath="_topInset">
-                                                    <real key="value" value="0.0"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="number" keyPath="_leftInset">
-                                                    <real key="value" value="16"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="number" keyPath="_bottomInset">
-                                                    <real key="value" value="18"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="number" keyPath="_rightInset">
-                                                    <real key="value" value="16"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Regular"/>
-                                                <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
-                                                    <real key="value" value="0.0"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="string" keyPath="_placeholderFontName" value="sora-rc004-0417-Regular"/>
-                                                <userDefinedRuntimeAttribute type="number" keyPath="_placeholderFontSize">
-                                                    <real key="value" value="14"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="string" keyPath="_textFontName" value="sora-rc004-0417-Regular"/>
-                                                <userDefinedRuntimeAttribute type="number" keyPath="_textFontSize">
-                                                    <real key="value" value="14"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="color" keyPath="placeholderColor">
-                                                    <color key="value" name="Base ContentQuaternary"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="color" keyPath="titleColor">
-                                                    <color key="value" name="Base ContentQuaternary"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="color" keyPath="textColor">
-                                                    <color key="value" name="Base ContentPrimary"/>
-                                                </userDefinedRuntimeAttribute>
-                                                <userDefinedRuntimeAttribute type="color" keyPath="cursorColor">
-                                                    <color key="value" name="Theme Accent"/>
-                                                </userDefinedRuntimeAttribute>
-                                            </userDefinedRuntimeAttributes>
-                                        </view>
-                                    </subviews>
-                                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
-                                    <constraints>
-                                        <constraint firstItem="aQx-82-1j5" firstAttribute="centerY" secondItem="bAn-hu-M1z" secondAttribute="centerY" id="F6m-ir-a4P"/>
-                                        <constraint firstItem="bAn-hu-M1z" firstAttribute="centerY" secondItem="fid-au-wWm" secondAttribute="centerY" id="Q1v-BD-K7t"/>
-                                        <constraint firstAttribute="height" constant="52" id="W9k-w3-Fky"/>
-                                        <constraint firstItem="aQx-82-1j5" firstAttribute="leading" secondItem="bAn-hu-M1z" secondAttribute="trailing" id="Wb8-Oy-iGU"/>
-                                        <constraint firstItem="aQx-82-1j5" firstAttribute="top" secondItem="fid-au-wWm" secondAttribute="top" id="Xa0-ba-Bzj"/>
-                                        <constraint firstAttribute="bottom" secondItem="aQx-82-1j5" secondAttribute="bottom" id="ZoL-HV-DsC"/>
-                                        <constraint firstAttribute="trailing" secondItem="aQx-82-1j5" secondAttribute="trailing" id="bLw-Eo-M5p"/>
-                                        <constraint firstItem="bAn-hu-M1z" firstAttribute="leading" secondItem="fid-au-wWm" secondAttribute="leading" id="ijx-xQ-XJg"/>
-                                    </constraints>
-                                    <userDefinedRuntimeAttributes>
-                                        <userDefinedRuntimeAttribute type="number" keyPath="shadowOpacity">
-                                            <real key="value" value="0.0"/>
-                                        </userDefinedRuntimeAttribute>
-                                        <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
-                                            <color key="value" name="Base BorderPrimary"/>
-                                        </userDefinedRuntimeAttribute>
-                                        <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
-                                            <integer key="value" value="1"/>
-                                        </userDefinedRuntimeAttribute>
-                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
-                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
-                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
-                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
-                                    </userDefinedRuntimeAttributes>
-                                </view>
-                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WIx-3s-1tq" customClass="RoundedView" customModule="SoraUI">
-                                    <rect key="frame" x="0.0" y="206" width="382" height="122"/>
-                                    <subviews>
-                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Mnemonic" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Y5W-Vv-VcJ">
-                                            <rect key="frame" x="16" y="18" width="350" height="18"/>
-                                            <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="14"/>
+                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Mnemonic" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Y5W-Vv-VcJ">
+                                            <rect key="frame" x="16" y="54.5" width="350" height="19"/>
+                                            <fontDescription key="fontDescription" name="Sora-Light" family="Sora" pointSize="15"/>
                                             <color key="textColor" name="Base ContentQuaternary"/>
                                             <nil key="highlightedColor"/>
                                         </label>
-                                        <textView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" scrollEnabled="NO" showsHorizontalScrollIndicator="NO" showsVerticalScrollIndicator="NO" text="couple raw spatial shop person process still manage hidden carpet expect moment mammal bright pumpkin" translatesAutoresizingMaskIntoConstraints="NO" id="Yrf-1J-bqb">
-                                            <rect key="frame" x="10" y="9" width="362" height="102"/>
+                                        <textView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" scrollEnabled="NO" showsHorizontalScrollIndicator="NO" showsVerticalScrollIndicator="NO" text="couple raw spatial shop person process still manage hidden carpet expect moment mammal bright pumpkin" textAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="Yrf-1J-bqb">
+                                            <rect key="frame" x="10" y="27.5" width="362" height="73"/>
                                             <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                             <color key="tintColor" red="0.0" green="0.47843137250000001" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                             <constraints>
-                                                <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="102" id="P4d-fH-Tln"/>
+                                                <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="22" id="P4d-fH-Tln"/>
                                             </constraints>
-                                            <color key="textColor" name="Base ContentPrimary"/>
-                                            <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="14"/>
+                                            <color key="textColor" name="Neumorphism/Text Dark"/>
+                                            <fontDescription key="fontDescription" name="Sora-Light" family="Sora" pointSize="15"/>
                                             <textInputTraits key="textInputTraits" autocorrectionType="no" spellCheckingType="no" keyboardType="alphabet" returnKeyType="done" smartDashesType="no" smartInsertDeleteType="no" smartQuotesType="no"/>
                                             <connections>
                                                 <outlet property="delegate" destination="-1" id="5ob-aa-7PN"/>
@@ -169,17 +90,19 @@
                                     </subviews>
                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     <constraints>
-                                        <constraint firstItem="Yrf-1J-bqb" firstAttribute="top" secondItem="WIx-3s-1tq" secondAttribute="top" constant="9" id="33J-lu-3JU"/>
+                                        <constraint firstAttribute="height" constant="128" id="0Hi-mZ-fnB"/>
+                                        <constraint firstItem="Yrf-1J-bqb" firstAttribute="top" relation="greaterThanOrEqual" secondItem="WIx-3s-1tq" secondAttribute="top" constant="9" id="33J-lu-3JU"/>
                                         <constraint firstItem="Yrf-1J-bqb" firstAttribute="leading" secondItem="WIx-3s-1tq" secondAttribute="leading" constant="10" id="JH2-Ze-Qef"/>
+                                        <constraint firstItem="Yrf-1J-bqb" firstAttribute="centerY" secondItem="WIx-3s-1tq" secondAttribute="centerY" id="Jc3-vd-D9E"/>
                                         <constraint firstAttribute="trailing" secondItem="Y5W-Vv-VcJ" secondAttribute="trailing" constant="16" id="LLR-bp-1Aa"/>
-                                        <constraint firstItem="Y5W-Vv-VcJ" firstAttribute="top" secondItem="WIx-3s-1tq" secondAttribute="top" constant="18" id="PaA-XA-67V"/>
                                         <constraint firstItem="Y5W-Vv-VcJ" firstAttribute="leading" secondItem="WIx-3s-1tq" secondAttribute="leading" constant="16" id="VHk-KB-5Di"/>
+                                        <constraint firstItem="Y5W-Vv-VcJ" firstAttribute="centerY" secondItem="WIx-3s-1tq" secondAttribute="centerY" id="fYc-aC-lAj"/>
                                         <constraint firstAttribute="trailing" secondItem="Yrf-1J-bqb" secondAttribute="trailing" constant="10" id="gH5-Im-syZ"/>
-                                        <constraint firstAttribute="height" secondItem="Yrf-1J-bqb" secondAttribute="height" constant="20" id="kfi-aW-ehT"/>
+                                        <constraint firstItem="Y5W-Vv-VcJ" firstAttribute="centerX" secondItem="WIx-3s-1tq" secondAttribute="centerX" id="gKx-PX-ovd"/>
                                     </constraints>
                                     <userDefinedRuntimeAttributes>
                                         <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
-                                            <real key="value" value="10"/>
+                                            <real key="value" value="24"/>
                                         </userDefinedRuntimeAttribute>
                                         <userDefinedRuntimeAttribute type="number" keyPath="shadowOpacity">
                                             <real key="value" value="0.0"/>
@@ -197,21 +120,116 @@
                                             <color key="value" name="Base Background"/>
                                         </userDefinedRuntimeAttribute>
                                         <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
-                                            <color key="value" name="Base ContentQuaternary"/>
+                                            <color key="value" name="Neumorphism/Base Border"/>
                                         </userDefinedRuntimeAttribute>
                                         <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
-                                            <real key="value" value="0.0"/>
+                                            <real key="value" value="1"/>
                                         </userDefinedRuntimeAttribute>
                                         <userDefinedRuntimeAttribute type="color" keyPath="highlightedFillColor">
                                             <color key="value" name="Base BackgroundHover"/>
                                         </userDefinedRuntimeAttribute>
                                     </userDefinedRuntimeAttributes>
                                 </view>
+                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="CLH-0f-Wa1" userLabel="Mnemonic" customClass="NeuTextView" customModule="SoraPassport" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="162" width="382" height="128"/>
+                                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <constraints>
+                                        <constraint firstAttribute="height" constant="128" id="Q9k-z9-rJ2"/>
+                                    </constraints>
+                                </view>
+                                <view hidden="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="47P-nn-Hq9" customClass="BorderedContainerView" customModule="SoraUI">
+                                    <rect key="frame" x="0.0" y="310" width="382" height="42"/>
+                                    <subviews>
+                                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="DfE-5t-PLB" customClass="AnimatedTextField" customModule="SoraUI">
+                                            <rect key="frame" x="0.0" y="0.0" width="382" height="42"/>
+                                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                            <userDefinedRuntimeAttributes>
+                                                <userDefinedRuntimeAttribute type="number" keyPath="_topInset">
+                                                    <real key="value" value="0.0"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="number" keyPath="_leftInset">
+                                                    <real key="value" value="16"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="number" keyPath="_bottomInset">
+                                                    <real key="value" value="10"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="number" keyPath="_rightInset">
+                                                    <real key="value" value="16"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Regular"/>
+                                                <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
+                                                    <real key="value" value="0.0"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="string" keyPath="_placeholderFontName" value="Sora-Light"/>
+                                                <userDefinedRuntimeAttribute type="number" keyPath="_placeholderFontSize">
+                                                    <real key="value" value="29"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="string" keyPath="_textFontName" value="sora-rc004-0417-Regular"/>
+                                                <userDefinedRuntimeAttribute type="number" keyPath="_textFontSize">
+                                                    <real key="value" value="14"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="color" keyPath="placeholderColor">
+                                                    <color key="value" name="Base ContentQuaternary"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="color" keyPath="titleColor">
+                                                    <color key="value" name="Base BorderPrimary"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="color" keyPath="textColor">
+                                                    <color key="value" name="Base ContentPrimary"/>
+                                                </userDefinedRuntimeAttribute>
+                                                <userDefinedRuntimeAttribute type="color" keyPath="cursorColor">
+                                                    <color key="value" name="Theme Accent"/>
+                                                </userDefinedRuntimeAttribute>
+                                            </userDefinedRuntimeAttributes>
+                                        </view>
+                                    </subviews>
+                                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <constraints>
+                                        <constraint firstAttribute="height" constant="42" id="7Xd-Dd-FFt"/>
+                                        <constraint firstAttribute="bottom" secondItem="DfE-5t-PLB" secondAttribute="bottom" id="MDD-HY-XF1"/>
+                                        <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="42" id="T4p-Hw-Qba"/>
+                                        <constraint firstItem="DfE-5t-PLB" firstAttribute="top" secondItem="47P-nn-Hq9" secondAttribute="top" id="b54-tU-Isc"/>
+                                        <constraint firstItem="DfE-5t-PLB" firstAttribute="leading" secondItem="47P-nn-Hq9" secondAttribute="leading" id="j5o-aW-Qct"/>
+                                        <constraint firstAttribute="trailing" secondItem="DfE-5t-PLB" secondAttribute="trailing" id="lc5-pw-ztD"/>
+                                    </constraints>
+                                    <userDefinedRuntimeAttributes>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="shadowOpacity">
+                                            <real key="value" value="0.0"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                                            <color key="value" name="Base BorderPrimary"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                                            <integer key="value" value="1"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
+                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
+                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                                        <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                                        <userDefinedRuntimeAttribute type="color" keyPath="fillColor">
+                                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                        </userDefinedRuntimeAttribute>
+                                    </userDefinedRuntimeAttributes>
+                                </view>
+                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Qvv-Q2-KEY" userLabel="Username" customClass="NeuTextField" customModule="SoraPassport" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="330" width="382" height="56"/>
+                                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <constraints>
+                                        <constraint firstAttribute="height" constant="56" id="4rp-8V-cVv"/>
+                                    </constraints>
+                                    <userDefinedRuntimeAttributes>
+                                        <userDefinedRuntimeAttribute type="color" keyPath="textColor">
+                                            <color key="value" name="Neumorphism/Text Dark"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="color" keyPath="placeholderColor">
+                                            <color key="value" name="Neumorphism/Text Placeholder"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="color" keyPath="borderColor">
+                                            <color key="value" name="Neumorphism/Base Border"/>
+                                        </userDefinedRuntimeAttribute>
+                                    </userDefinedRuntimeAttributes>
+                                </view>
                             </subviews>
-                            <constraints>
-                                <constraint firstItem="fid-au-wWm" firstAttribute="leading" secondItem="AwS-kl-7JJ" secondAttribute="leading" id="1vN-Zx-TYG"/>
-                                <constraint firstAttribute="trailing" secondItem="fid-au-wWm" secondAttribute="trailing" id="xu7-xT-hKz"/>
-                            </constraints>
                         </stackView>
                     </subviews>
                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
@@ -223,37 +241,30 @@
                         <constraint firstAttribute="bottom" secondItem="AwS-kl-7JJ" secondAttribute="bottom" id="wH2-26-qAx"/>
                     </constraints>
                 </scrollView>
-                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="1zX-7F-5Jj" customClass="SoraButton" customModule="SoraPassport" customModuleProvider="target">
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Privacy bla bla" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="NrO-dt-nfS">
+                    <rect key="frame" x="16" y="751.5" width="382" height="20.5"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="1zX-7F-5Jj" customClass="NeumorphismButton" customModule="SoraPassport" customModuleProvider="target">
                     <rect key="frame" x="16" y="790" width="382" height="48"/>
-                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <constraints>
                         <constraint firstAttribute="height" constant="48" id="CEv-8y-pHP"/>
                     </constraints>
                     <userDefinedRuntimeAttributes>
-                        <userDefinedRuntimeAttribute type="color" keyPath="_titleColor">
-                            <color key="value" name="Brand White"/>
-                        </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
+                        <userDefinedRuntimeAttribute type="color" keyPath="color">
                             <color key="value" name="Theme Accent"/>
                         </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="color" keyPath="_highlightedFillColor">
-                            <color key="value" name="Theme AccentHover"/>
+                        <userDefinedRuntimeAttribute type="string" keyPath="buttonTitle" value="rrrrr"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="bottomShadowColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="string" keyPath="_title" value="Next"/>
-                        <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Bold"/>
-                        <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
-                            <real key="value" value="14"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="topShadowColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="boolean" keyPath="_changesContentOpacityWhenHighlighted" value="NO"/>
-                        <userDefinedRuntimeAttribute type="color" keyPath="_highlightedTitleColor">
-                            <color key="value" name="Brand White"/>
-                        </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
-                            <real key="value" value="0.0"/>
-                        </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
-                            <real key="value" value="0.0"/>
-                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="isFlat" value="YES"/>
                     </userDefinedRuntimeAttributes>
                     <connections>
                         <action selector="actionNext" destination="-1" eventType="touchUpInside" id="7zO-Ca-qbN"/>
@@ -261,12 +272,15 @@
                 </view>
             </subviews>
             <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
-            <color key="backgroundColor" name="Brand White"/>
+            <color key="backgroundColor" name="Base Background"/>
             <constraints>
                 <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="1zX-7F-5Jj" secondAttribute="trailing" constant="16" id="9nM-po-FF3"/>
                 <constraint firstItem="1zX-7F-5Jj" firstAttribute="top" secondItem="H0p-yD-Jul" secondAttribute="bottom" constant="24" id="JOV-66-fbN"/>
+                <constraint firstItem="NrO-dt-nfS" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" constant="16" id="R1h-5R-a5b"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="NrO-dt-nfS" secondAttribute="trailing" constant="16" id="RFr-v4-62P"/>
                 <constraint firstItem="H0p-yD-Jul" firstAttribute="top" secondItem="vUN-kp-3ea" secondAttribute="top" id="UZ0-YB-y0V"/>
                 <constraint firstItem="vUN-kp-3ea" firstAttribute="bottom" secondItem="1zX-7F-5Jj" secondAttribute="bottom" constant="24" id="WgO-4n-XcD"/>
+                <constraint firstItem="1zX-7F-5Jj" firstAttribute="top" secondItem="NrO-dt-nfS" secondAttribute="bottom" constant="18" id="bw3-9K-Iv6"/>
                 <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="H0p-yD-Jul" secondAttribute="trailing" id="r6G-qe-HoD"/>
                 <constraint firstItem="1zX-7F-5Jj" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" constant="16" id="v2f-WD-H7j"/>
                 <constraint firstItem="AwS-kl-7JJ" firstAttribute="width" secondItem="iN0-l3-epB" secondAttribute="width" constant="-32" id="w6W-Ld-1NU"/>
@@ -275,15 +289,10 @@
             <point key="canvasLocation" x="139" y="115"/>
         </view>
     </objects>
-    <designables>
-        <designable name="1zX-7F-5Jj">
-            <size key="intrinsicContentSize" width="51.5" height="34"/>
-        </designable>
-    </designables>
     <resources>
         <image name="iconAlert" width="24" height="24"/>
         <namedColor name="Base Background">
-            <color red="0.96078431372549022" green="0.96862745098039216" blue="0.97254901960784312" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.96470588235294119" green="0.94509803921568625" blue="0.94509803921568625" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Base BackgroundHover">
             <color red="0.92549019607843142" green="0.93725490196078431" blue="0.94117647058823528" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
@@ -292,16 +301,22 @@
             <color red="0.8666666666666667" green="0.8784313725490196" blue="0.88235294117647056" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Base ContentPrimary">
-            <color red="0.17647058823529413" green="0.16078431372549021" blue="0.14901960784313725" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.13333333333333333" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Base ContentQuaternary">
             <color red="0.63921568627450975" green="0.64313725490196083" blue="0.6588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
-        <namedColor name="Base ContentTertiary">
-            <color red="0.45882352941176469" green="0.47058823529411764" blue="0.4823529411764706" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </namedColor>
         <namedColor name="Brand White">
             <color red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Base Border">
+            <color red="0.59999999999999998" green="0.53333333333333333" blue="0.53333333333333333" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Text Dark">
+            <color red="0.13300000131130219" green="0.067000001668930054" blue="0.067000001668930054" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Text Placeholder">
+            <color red="0.8666666666666667" green="0.80000000000000004" blue="0.80000000000000004" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Status Error">
             <color red="1" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
@@ -309,11 +324,5 @@
         <namedColor name="Theme Accent">
             <color red="0.81568627450980391" green="0.0078431372549019607" blue="0.10588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
-        <namedColor name="Theme AccentHover">
-            <color red="0.77647058823529413" green="0.0078431372549019607" blue="0.10196078431372549" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </namedColor>
-        <systemColor name="systemBackgroundColor">
-            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-        </systemColor>
     </resources>
 </document>

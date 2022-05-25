@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraFoundation
 import SoraUI
@@ -18,11 +13,13 @@ final class AccountCreateViewController: UIViewController {
     @IBOutlet private var scrollView: UIScrollView!
     @IBOutlet private var stackView: UIStackView!
     @IBOutlet private var detailsLabel: UILabel!
-    @IBOutlet private var explainLabel: UILabel!
     @IBOutlet private var mnemonicContainer: BorderedContainerView!
 
-    @IBOutlet var copyButton: SoraButton!
-    @IBOutlet var nextButton: SoraButton!
+    @IBOutlet var shareButton: NeumorphismButton!
+    @IBOutlet var nextButton: NeumorphismButton!
+
+    @IBOutlet weak var topToRedSignConstraint: NSLayoutConstraint!
+    @IBOutlet weak var stackHeightConstraint: NSLayoutConstraint!
 
     var mode: Mode = .registration
 
@@ -46,6 +43,7 @@ final class AccountCreateViewController: UIViewController {
         super.viewDidLoad()
 
         setupNavigationItem()
+        adjustLayout()
         setupLocalization()
         configure()
 
@@ -58,9 +56,6 @@ final class AccountCreateViewController: UIViewController {
         if keyboardHandler == nil {
             setupKeyboardHandler()
         }
-        if mode == .view {
-
-        }
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -69,28 +64,35 @@ final class AccountCreateViewController: UIViewController {
         clearKeyboardHandler()
     }
 
+    private func adjustLayout() {
+        if UIScreen.main.bounds.size.height <= 568 {
+            stackHeightConstraint.constant = 390
+        } else if UIScreen.main.bounds.size.height > 667 {
+            topToRedSignConstraint.constant = (UIScreen.main.bounds.size.height - 667) / 2.0
+        }
+    }
+
     private func configure() {
-        stackView.arrangedSubviews.forEach { $0.backgroundColor = R.color.brandWhite() }
+        view.backgroundColor = R.color.neumorphism.base()
 
         detailsLabel.font = UIFont.styled(for: .paragraph1)
-        explainLabel.font = UIFont.styled(for: .paragraph3)
+
+        shareButton.tintColor = R.color.neumorphism.buttonTextDark()
+        shareButton.setImage(R.image.shareArrow(), for: .normal)
+        shareButton.color = R.color.neumorphism.buttonLightGrey()!
+        nextButton.color = R.color.neumorphism.tint()!
+        nextButton.font = UIFont.styled(for: .button)
+
         if mode == .view {
             let view = nextButton.superview!
-            view.addSubview(copyButton)
-            copyButton.fillColor = R.color.themeAccent()!
-            copyButton.roundedBackgroundView!.highlightedFillColor = R.color.themeAccentPressed()!
-            copyButton.imageWithTitleView?.iconTintColor = .white
-            copyButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16).isActive = true
-            copyButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16).isActive = true
-            copyButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
-            copyButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24).isActive = true
-            copyButton.topAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: 24).isActive = true
+            view.addSubview(shareButton)
+            shareButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16).isActive = true
+            shareButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16).isActive = true
+            shareButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
+            shareButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24).isActive = true
+            shareButton.topAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: 24).isActive = true
 
             nextButton.removeFromSuperview()
-        } else {
-            copyButton.fillColor = R.color.baseBackground()!
-            copyButton.roundedBackgroundView!.highlightedFillColor = R.color.baseBackgroundHover()!
-            copyButton.imageWithTitleView?.iconTintColor = R.color.baseContentPrimary()
         }
     }
 
@@ -108,18 +110,10 @@ final class AccountCreateViewController: UIViewController {
         }
 
         let mnemonicView = MnemonicDisplayView()
-
-        if let indexColor = R.color.baseContentQuaternary() {
-            mnemonicView.indexTitleColorInColumn = indexColor
-        }
-
-        if let titleColor = R.color.baseContentPrimary() {
-            mnemonicView.wordTitleColorInColumn = titleColor
-        }
-
+        mnemonicView.indexTitleColorInColumn = R.color.neumorphism.textDark()!
+        mnemonicView.wordTitleColorInColumn = R.color.neumorphism.textDark()!
         mnemonicView.indexFontInColumn = UIFont.styled(for: .paragraph1)
-        mnemonicView.wordFontInColumn =  UIFont.styled(for: .paragraph1)
-        mnemonicView.backgroundColor = R.color.brandWhite()
+        mnemonicView.wordFontInColumn =  UIFont.styled(for: .paragraph1, isBold: true)
         mnemonicView.translatesAutoresizingMaskIntoConstraints = false
         mnemonicContainer.addSubview(mnemonicView)
         mnemonicView.leadingAnchor.constraint(equalTo: mnemonicContainer.leadingAnchor, constant: -16).isActive = true
@@ -132,20 +126,18 @@ final class AccountCreateViewController: UIViewController {
     private func setupLocalization() {
         let locale = localizationManager?.selectedLocale ?? Locale.current
 
-        title = R.string.localizable.mnemonicTitle(preferredLanguages: locale.rLanguages)
+        title = R.string.localizable.mnemonicTitle(preferredLanguages: locale.rLanguages).capitalized
         detailsLabel.text = R.string.localizable.mnemonicText(preferredLanguages: locale.rLanguages)
-        explainLabel.text = R.string.localizable
-            .commonPassphraseBody(preferredLanguages: locale.rLanguages)
-        nextButton.title = R.string.localizable
-            .transactionContinue(preferredLanguages: locale.rLanguages)
+        nextButton.setTitle(R.string.localizable
+                                .transactionContinue(preferredLanguages: locale.rLanguages), for: .normal)
     }
 
     @IBAction private func actionNext() {
         presenter.proceed()
     }
 
-    @IBAction private func actionCopy() {
-        presenter.copy()
+    @IBAction private func actionShare() {
+        presenter.share()
     }
 
     @objc private func actionOpenInfo() {

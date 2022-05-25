@@ -1,12 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
+import BigInt
+import CommonWallet
 import Foundation
 import IrohaCrypto
-import CommonWallet
-import BigInt
 
 extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
     var itemBlockNumber: UInt64 {
@@ -18,22 +13,14 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
     }
 
     var itemTimestamp: Int64 {
-        Int64(timestamp.value) ?? 0
+        Int64(timestamp.value)
     }
 
     var extrinsicHash: String? {
-        return self.identifier
+        return identifier
     }
 
     var label: WalletRemoteHistorySourceLabel {
-//        if reward != nil {
-//            return .rewards
-//        }
-//
-//        if transfer != nil {
-//            return .transfers
-//        }
-
         return .extrinsics
     }
 
@@ -43,11 +30,11 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
     ) -> AssetTransactionData? {
-        if let rewardOrSlash = try? self.data.map(to: SubqueryRewardOrSlash.self) {
+        if let rewardOrSlash = try? data.map(to: SubqueryRewardOrSlash.self) {
             return createTransactionForRewardOrSlash(rewardOrSlash, asset: asset)
         }
 
-        if let transfer = try? self.data.map(to: SubqueryTransfer.self) {
+        if let transfer = try? data.map(to: SubqueryTransfer.self) {
             return createTransactionForTransfer(
                 transfer,
                 address: address,
@@ -56,30 +43,42 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
                 addressFactory: addressFactory
             )
         }
-// no swap in 2.2
-//        if let swap = swap {
-//            return createTransactionForSwap(swap)
-//        }
 
-        guard let extrinsic = try? self.data.map(to: SubqueryExtrinsic.self) else { return nil }
+        if let swap = try? data.map(to: SubquerySwap.self) {
+            return createTransactionForSwap(swap)
+        }
 
-        return createTransactionForExtrinsic(
-            extrinsic,
-            address: address,
-            networkType: networkType,
-            asset: asset,
-            addressFactory: addressFactory
-        )
+        if let extrinsic = try? data.map(to: SubqueryExtrinsic.self) {
+            return createTransactionForExtrinsic(
+                extrinsic,
+                address: address,
+                networkType: networkType,
+                asset: asset,
+                addressFactory: addressFactory
+            )
+        }
+
+        if let liquidity = try? data.map(to: SubqueryLiquidity.self) {
+            return createTransactionForLiquidity(
+                liquidity,
+                address: address,
+                networkType: networkType,
+                asset: asset,
+                addressFactory: addressFactory
+            )
+        }
+
+        print("Error: No tx type for: \(data)")
+        return nil
     }
 
     private func createTransactionForSwap(
         _ swap: SubquerySwap
     ) -> AssetTransactionData {
-
-        let status: AssetTransactionStatus = self.execution.success ? .commited : .rejected
+        let status: AssetTransactionStatus = execution.success ? .commited : .rejected
         let amountDecimal = Decimal(string: swap.targetAssetAmount) ?? .zero
-        let feeDecimal = Decimal(string: self.fee) ?? .zero
 
+        let feeDecimal = Decimal(string: self.fee) ?? .zero
         let fee = AssetTransactionFee(
             identifier: swap.targetAssetId,
             assetId: swap.targetAssetId,
@@ -87,23 +86,32 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
             context: nil
         )
 
+        let lpFeeDecimal = Decimal(string: swap.liquidityProviderFee) ?? .zero
+        let lpFee = AssetTransactionFee(
+            identifier: swap.baseAssetId,
+            assetId: swap.baseAssetId,
+            amount: AmountDecimal(value: lpFeeDecimal),
+            context: ["type": TransactionType.swap.rawValue]
+        )
+        // Selected market: empty: smart; else first?
         return AssetTransactionData(
             transactionId: identifier,
             status: status,
-            assetId: swap.baseAssetId,
-            peerId: swap.targetAssetId,
+            assetId: swap.targetAssetId,
+            peerId: swap.baseAssetId,
             peerFirstName: nil,
             peerLastName: nil,
-            peerName: nil,
-            details: "",
+            peerName: swap.selectedMarket,
+            details: swap.baseAssetAmount,
             amount: AmountDecimal(value: amountDecimal),
-            fees: [fee],
+            fees: [fee, lpFee],
             timestamp: itemTimestamp,
             type: TransactionType.swap.rawValue,
             reason: nil,
             context: nil)
     }
-//never works yet
+
+    // never works yet
     private func createTransactionForExtrinsic(
         _ extrinsic: SubqueryExtrinsic,
         address: String,
@@ -150,8 +158,7 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
         asset: WalletAsset,
         addressFactory: SS58AddressFactoryProtocol
     ) -> AssetTransactionData {
-
-        let status = self.execution.success ? AssetTransactionStatus.commited : AssetTransactionStatus.rejected
+        let status = execution.success ? AssetTransactionStatus.commited : AssetTransactionStatus.rejected
 
         let peerAddress = transfer.sender == address ? transfer.receiver : transfer.sender
 
@@ -234,6 +241,40 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
             type: type,
             reason: nil,
             context: context
+        )
+    }
+
+    private func createTransactionForLiquidity(
+        _ liquidity: SubqueryLiquidity,
+        address: String,
+        networkType: SNAddressType,
+        asset: WalletAsset,
+        addressFactory: SS58AddressFactoryProtocol
+    ) -> AssetTransactionData {
+        let status: AssetTransactionStatus = execution.success ? .commited : .rejected
+        let amountDecimal = Decimal(string: liquidity.targetAssetAmount) ?? .zero
+        let fee = AssetTransactionFee(
+            identifier: asset.identifier,
+            assetId: asset.identifier,
+            amount: AmountDecimal(value: Decimal(string: self.fee) ?? .zero),
+            context: nil
+        )
+
+        return AssetTransactionData(
+            transactionId: identifier,
+            status: status,
+            assetId: liquidity.targetAssetId,
+            peerId: liquidity.baseAssetId,
+            peerFirstName: nil,
+            peerLastName: nil,
+            peerName: liquidity.baseAssetId,
+            details: liquidity.baseAssetAmount,
+            amount: AmountDecimal(value: amountDecimal),
+            fees: [fee],
+            timestamp: itemTimestamp,
+            type: liquidity.type.transactionType.rawValue,
+            reason: nil,
+            context: nil
         )
     }
 }

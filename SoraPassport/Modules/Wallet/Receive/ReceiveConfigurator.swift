@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraUI
@@ -35,7 +30,7 @@ final class ReceiveConfigurator: AdaptiveDesignable {
     func configure(builder: ReceiveAmountModuleBuilderProtocol) {
         let margin: CGFloat = 24.0
         let qrSize: CGFloat = 280.0 * designScaleRatio.width + 2.0 * margin
-        let style = ReceiveStyle(qrBackgroundColor: .white,
+        let style = ReceiveStyle(qrBackgroundColor: R.color.baseBackground()!,
                                  qrMode: .scaleAspectFit,
                                  qrSize: CGSize(width: 260, height: 260),
                                  qrMargin: 3)

@@ -1,25 +1,25 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
-import Foundation
-import CommonWallet
-import RobinHood
-import xxHash_Swift
-import FearlessUtils
-import IrohaCrypto
-import Starscream
 import BigInt
+import CommonWallet
+import FearlessUtils
+import Foundation
+import IrohaCrypto
+import RobinHood
+import Starscream
+import xxHash_Swift
 
 enum WalletNetworkOperationFactoryError: Error {
     case invalidAmount
     case invalidAsset
     case invalidChain
     case invalidReceiver
+    case invalidContext
 }
 
 extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
+    func getPoolsDetails() throws -> CompoundOperationWrapper<[PoolDetails]> {
+        CompoundOperationWrapper(targetOperation: .init())
+    }
+    
     func fetchBalanceOperation(_ assets: [String]) -> CompoundOperationWrapper<[BalanceData]?> {
         return CompoundOperationWrapper<[BalanceData]?>.createWithResult(nil)
     }
@@ -27,11 +27,11 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     func fetchTransactionHistoryOperation(_ filter: WalletHistoryRequest,
                                           pagination: Pagination)
         -> CompoundOperationWrapper<AssetTransactionPageData?> {
-            let operation = ClosureOperation<AssetTransactionPageData?> {
-                nil
-            }
+        let operation = ClosureOperation<AssetTransactionPageData?> {
+            nil
+        }
 
-            return CompoundOperationWrapper(targetOperation: operation)
+        return CompoundOperationWrapper(targetOperation: operation)
     }
 
     func transferMetadataOperation(_ info: TransferMetadataInfo) -> CompoundOperationWrapper<TransferMetaData?> {
@@ -65,9 +65,8 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             let paymentInfo = try feeOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 
-
             guard let fee = BigUInt(paymentInfo.fee),
-                let decimalFee = Decimal.fromSubstrateAmount(fee, precision: feeAsset.precision) else {
+                  let decimalFee = Decimal.fromSubstrateAmount(fee, precision: feeAsset.precision) else {
                 return nil
             }
 
@@ -77,7 +76,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
                                                 type: FeeType.fixed.rawValue, parameters: [amount])
 
             if let receiverInfo = try compoundReceiver.targetOperation
-                    .extractResultData(throwing: BaseOperationError.parentOperationCancelled) {
+                .extractResultData(throwing: BaseOperationError.parentOperationCancelled) {
                 let context = TransferMetadataContext(data: receiverInfo.data,
                                                       precision: asset.precision).toContext()
                 return TransferMetaData(feeDescriptions: [feeDescription], context: context)
@@ -86,7 +85,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             }
         }
 
-        let dependencies = [feeOperation] /*+ compoundInfo.allOperations*/ + compoundReceiver.allOperations
+        let dependencies = [feeOperation] /* + compoundInfo.allOperations */ + compoundReceiver.allOperations
 
         dependencies.forEach { mapOperation.addDependency($0) }
 
@@ -94,6 +93,16 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     }
 
     func transferOperation(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        switch info.type {
+        case .swap:
+            return swapOperationWrapper(info)
+        // TBD       case .addLiquidity, .removeLiquidity...
+        default:
+            return transferOperationWrapper(info)
+        }
+    }
+    
+    private func transferOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
         guard
             let asset = accountSettings.assets.first(where: { $0.identifier == info.asset }) else {
             let error = WalletNetworkOperationFactoryError.invalidAsset
@@ -107,10 +116,16 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
 
         let chain = asset.chain
 
-        let transferOperation = createExtrinsicServiceOperation(asset: asset.identifier,
-                                                                amount: amount,
-                                                                receiver: info.destination,
-                                                                chain: chain)
+        let closure: ExtrinsicBuilderClosure = { builder in
+            let callFactory = SubstrateCallFactory()
+
+            let transferCall = try callFactory.transfer(to: info.destination, asset: asset.identifier, amount: amount)
+
+            return try builder
+                .adding(call: transferCall)
+        }
+
+        let transferOperation = createExtrinsicServiceOperation(closure: closure)
 
         let mapOperation: ClosureOperation<Data> = ClosureOperation {
             let hashString = try transferOperation
@@ -123,6 +138,49 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
 
         return CompoundOperationWrapper(targetOperation: mapOperation,
                                         dependencies: [transferOperation])
+    }
+
+    private func swapOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        guard
+            let asset = accountSettings.assets.first(where: { $0.identifier == info.asset }),
+            let destinationAsset = accountSettings.assets.first(where: { $0.identifier == info.destination }) else {
+            let error = WalletNetworkOperationFactoryError.invalidAsset
+            return createCompoundOperation(result: .failure(error))
+        }
+
+        guard let context = info.context else {
+            let error = WalletNetworkOperationFactoryError.invalidContext
+            return createCompoundOperation(result: .failure(error))
+        }
+
+        guard let amountCall = info.amountCall else {
+            let error = WalletNetworkOperationFactoryError.invalidReceiver
+            return createCompoundOperation(result: .failure(error))
+        }
+
+        let sourceType: String = context[TransactionContextKeys.marketType] ?? ""
+        let marketType: LiquiditySourceType = LiquiditySourceType(rawValue: sourceType) ?? .smart
+        let marketCode = marketType.code
+        let filter = marketType.filter
+
+        let builderClosure: ExtrinsicBuilderClosure = { builder in
+            let call = try SubstrateCallFactory().swap(from: asset.identifier, to: info.destination, amountCall: amountCall, type: marketCode, filter: filter)
+            return try builder.adding(call: call)
+        }
+
+        let wrapper = createExtrinsicServiceOperation(closure: builderClosure)
+
+        let mapOperation: ClosureOperation<Data> = ClosureOperation {
+            let hashString = try wrapper
+                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+
+            return try Data(hexString: hashString)
+        }
+
+        mapOperation.addDependency(wrapper)
+
+        return CompoundOperationWrapper(targetOperation: mapOperation,
+                                        dependencies: [wrapper])
     }
 
     func searchOperation(_ searchString: String) -> CompoundOperationWrapper<[SearchData]?> {

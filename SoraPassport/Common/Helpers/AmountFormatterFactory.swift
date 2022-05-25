@@ -1,13 +1,15 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
 
-struct AmountFormatterFactory: NumberFormatterFactoryProtocol {
+protocol AmountFormatterFactoryProtocol: NumberFormatterFactoryProtocol {
+    func createTokenFormatter(for asset: WalletAsset?, maxPrecision: Int) -> LocalizableResource<TokenFormatter>
+    func createDisplayFormatter(for asset: WalletAsset?, maxPrecision: Int) -> LocalizableResource<NumberFormatter>
+    func createPercentageFormatter(maxPrecision: Int) -> LocalizableResource<NumberFormatter>
+    func createPolkaswapAmountFormatter() -> LocalizableResource<NumberFormatter>
+}
+
+struct AmountFormatterFactory: AmountFormatterFactoryProtocol {
     let assetPrecision: Int
     let usdPrecision: Int
 
@@ -29,12 +31,31 @@ struct AmountFormatterFactory: NumberFormatterFactoryProtocol {
     }
 
     func createDisplayFormatter(for asset: WalletAsset?) -> LocalizableResource<NumberFormatter> {
-        let precision = asset != nil  ? Int(asset!.precision) : assetPrecision
+        let precision = precision(for: asset)
         return createAssetNumberFormatter(for: precision).localizableResource()
     }
 
+    func createDisplayFormatter(for asset: WalletAsset?, maxPrecision: Int) -> LocalizableResource<NumberFormatter> {
+        var precision = precision(for: asset)
+        precision = min(precision, maxPrecision)
+        return createAssetNumberFormatter(for: precision).localizableResource()
+    }
+
+    func precision(for asset: WalletAsset?) -> Int {
+        guard let asset = asset else {
+            return assetPrecision
+        }
+        return Int(asset.precision)
+    }
+
     func createTokenFormatter(for asset: WalletAsset?) -> LocalizableResource<TokenFormatter> {
-        let precision = asset != nil  ? Int(asset!.precision) : assetPrecision
+        let precision = asset != nil ? Int(asset!.precision) : Int.max
+        return createTokenFormatter(for: asset, maxPrecision: precision)
+    }
+
+    func createTokenFormatter(for asset: WalletAsset?, maxPrecision: Int) -> LocalizableResource<TokenFormatter> {
+        var precision = asset != nil  ? Int(asset!.precision) : assetPrecision
+        precision = min(precision, maxPrecision)
         let numberFormatter = createTokenNumberFormatter(for: precision)
         let tokenFormatter = TokenFormatter(decimalFormatter: numberFormatter,
                                         tokenSymbol: asset?.symbol ?? "",
@@ -87,4 +108,17 @@ struct AmountFormatterFactory: NumberFormatterFactoryProtocol {
 
         return formatter
     }
+
+    func createPercentageFormatter(maxPrecision: Int = 2) -> LocalizableResource<NumberFormatter> {
+        let formatter = NumberFormatter.percent
+        formatter.maximumFractionDigits = maxPrecision
+        return formatter.localizableResource()
+    }
+
+    func createPolkaswapAmountFormatter() -> LocalizableResource<NumberFormatter> {
+        let formatter = NumberFormatter.amount
+        formatter.maximumFractionDigits = 8
+        return formatter.localizableResource()
+    }
+
 }

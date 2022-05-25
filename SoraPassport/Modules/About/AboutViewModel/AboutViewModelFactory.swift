@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 protocol AboutViewModelFactoryProtocol {
@@ -17,7 +12,14 @@ final class AboutViewModelFactory: AboutViewModelFactoryProtocol {
         let cases: [AboutOption] = [
             .website,
             .opensource(version: ApplicationConfig.shared.version),
+            .twitter,
+            .youtube,
+            .instagram,
+            .medium,
+            .wiki,
             .telegram,
+            .announcements,
+            .support,
             .writeUs(toEmail: ApplicationConfig.shared.supportEmail),
             .terms,
             .privacy

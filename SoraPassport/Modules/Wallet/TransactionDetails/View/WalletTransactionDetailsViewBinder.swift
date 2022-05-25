@@ -1,22 +1,17 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
 struct WalletTransactionDetailsViewBinder {
     var separatorStyle: WalletStrokeStyleProtocol {
-        WalletStrokeStyle(color: UIColor(red: 0.6, green: 0.6, blue: 0.6, alpha: 0.35), lineWidth: 1.0)
+        WalletStrokeStyle(color: R.color.neumorphism.tableSeparator()!, lineWidth: 1.0)
     }
 
     var formDetailsViewStyle: WalletFormDetailsViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
-                                    color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1),
+                                    color: R.color.neumorphism.textDark()!)
 
-        let details = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 14)!,
-                                      color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
+        let details = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
+                                      color: R.color.neumorphism.textDark()!)
 
         let contentInsets = UIEdgeInsets(top: 11, left: 0, bottom: 11, right: 0)
 
@@ -31,8 +26,8 @@ struct WalletTransactionDetailsViewBinder {
     }
 
     var noteStyle: WalletFormTitleIconViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
-                                    color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1),
+                                    color: R.color.neumorphism.textDark()!)
 
         let contentInsets = UIEdgeInsets(top: 18, left: 0, bottom: 18, right: 0)
 
@@ -43,8 +38,8 @@ struct WalletTransactionDetailsViewBinder {
     }
 
     var singleHeaderStyle: WalletFormTitleIconViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Bold(size: 14)!,
-                                    color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
+                                    color: R.color.neumorphism.textDark()!)
 
         let contentInsets = UIEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
 
@@ -55,8 +50,8 @@ struct WalletTransactionDetailsViewBinder {
     }
 
     var detailsHeaderStyle: WalletFormTitleIconViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Bold(size: 14)!,
-                                    color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
+                                    color: R.color.neumorphism.textDark()!)
 
         let contentInsets = UIEdgeInsets(top: 16, left: 0, bottom: 0, right: 0)
 
@@ -67,11 +62,11 @@ struct WalletTransactionDetailsViewBinder {
     }
 
     var totalAmountStyle: WalletFormDetailsViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Bold(size: 14)!,
-                                    color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
+                                    color: R.color.neumorphism.textDark()!)
 
-        let details = WalletTextStyle(font: R.font.soraRc0040417Bold(size: 20)!,
-                                      color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
+        let details = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true).withSize(20),
+                                      color: R.color.neumorphism.textDark()!)
 
         let contentInsets = UIEdgeInsets(top: 11, left: 0, bottom: 13, right: 0)
 

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CoreData
 import Foundation
 import FearlessUtils
@@ -35,8 +30,6 @@ struct AssetInfo: Codable {
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         visible = try container.decodeIfPresent(Bool.self, forKey: .visible) ?? false
     }
-
-
 }
 
 extension AssetInfo: Identifiable {

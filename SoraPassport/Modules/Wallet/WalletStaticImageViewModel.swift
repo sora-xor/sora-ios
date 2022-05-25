@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -33,7 +28,7 @@ final class WalletSvgImageViewModel: WalletImageViewModelProtocol {
 
     func loadImage(with completionBlock: @escaping (UIImage?, Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let icon =  RemoteSerializer.shared.image(with: self.svgString)
+            let icon = RemoteSerializer.shared.image(with: self.svgString)
             DispatchQueue.main.async {
                 completionBlock(icon, nil)
             }

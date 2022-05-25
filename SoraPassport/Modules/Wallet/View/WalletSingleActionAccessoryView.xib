@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19455" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17701"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19455"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
-        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -15,38 +14,27 @@
             <rect key="frame" x="0.0" y="0.0" width="414" height="100"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
-                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Y5f-Er-AXF" customClass="SoraButton" customModule="SoraPassport" customModuleProvider="target">
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Y5f-Er-AXF" customClass="NeumorphismButton" customModule="SoraPassport" customModuleProvider="target">
                     <rect key="frame" x="16" y="24" width="382" height="52"/>
-                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                     <constraints>
                         <constraint firstAttribute="height" constant="52" id="N3X-K2-1pL"/>
                     </constraints>
                     <userDefinedRuntimeAttributes>
-                        <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
-                            <color key="value" name="Theme Accent"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="bottomShadowColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="color" keyPath="_highlightedFillColor">
-                            <color key="value" name="Theme AccentPressed"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="topShadowColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="color" keyPath="_titleColor">
-                            <color key="value" name="Brand White"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="color">
+                            <color key="value" name="Neumorphism/Tint"/>
                         </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="color" keyPath="_highlightedTitleColor">
-                            <color key="value" name="Brand White"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="colorDisabled">
+                            <color key="value" name="Neumorphism/Button Light Grey"/>
                         </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="string" keyPath="_title" value="Next"/>
-                        <userDefinedRuntimeAttribute type="string" keyPath="_titleFontName" value="sora-rc004-0417-Bold"/>
-                        <userDefinedRuntimeAttribute type="number" keyPath="_titleFontSize">
-                            <real key="value" value="14"/>
-                        </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
-                            <real key="value" value="0.0"/>
-                        </userDefinedRuntimeAttribute>
-                        <userDefinedRuntimeAttribute type="boolean" keyPath="_highlighted" value="NO"/>
                     </userDefinedRuntimeAttributes>
                 </view>
             </subviews>
-            <color key="backgroundColor" name="Brand White"/>
             <constraints>
                 <constraint firstAttribute="trailing" secondItem="Y5f-Er-AXF" secondAttribute="trailing" constant="16" id="EMD-al-vrI"/>
                 <constraint firstItem="Y5f-Er-AXF" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="16" id="QZd-5Q-C82"/>
@@ -59,23 +47,12 @@
             <point key="canvasLocation" x="139" y="133"/>
         </view>
     </objects>
-    <designables>
-        <designable name="Y5f-Er-AXF">
-            <size key="intrinsicContentSize" width="51.5" height="34"/>
-        </designable>
-    </designables>
     <resources>
-        <namedColor name="Brand White">
-            <color red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        <namedColor name="Neumorphism/Button Light Grey">
+            <color red="0.92549019607843142" green="0.89803921568627454" blue="0.89803921568627454" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
-        <namedColor name="Theme Accent">
-            <color red="0.81568627450980391" green="0.0078431372549019607" blue="0.10588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        <namedColor name="Neumorphism/Tint">
+            <color red="0.93333333333333335" green="0.13333333333333333" blue="0.20000000000000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
-        <namedColor name="Theme AccentPressed">
-            <color red="0.73333333333333328" green="0.0078431372549019607" blue="0.094117647058823528" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </namedColor>
-        <systemColor name="systemBackgroundColor">
-            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-        </systemColor>
     </resources>
 </document>

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 enum RPCMethod {
@@ -26,4 +21,13 @@ enum RPCMethod {
     static let freeBalance = "assets_freeBalance"
     static let assetInfo = "assets_listAssetInfos"
     static let needsMigration = "irohaMigration_needsMigration"
+    static let usableBalance = "assets_usableBalance"
+
+    // Polkaswap
+    static let checkIsSwapPossible          = "liquidityProxy_isPathAvailable"
+    static let availableMarketAlgorithms    = "liquidityProxy_listEnabledSourcesForPath"
+    static let recalculateSwapValues        = "liquidityProxy_quote"
+    static let swapExtrinsic                = "liquidityProxy_swap"
+    
+    static let accountPools                 = "PoolXYK_AccountPools" // poolXYK_accountPools poolXYK.reserves poolXYK.properties poolXYK.poolProviders poolXYK.totalIssuances
 }

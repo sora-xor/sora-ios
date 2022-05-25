@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 public protocol ExtensibleBarProvider {
@@ -140,7 +135,7 @@ public class ExtensibleBarNavigationController: UINavigationController {
 
         delegate = self
 
-        view.backgroundColor = .white
+        view.backgroundColor = R.color.baseBackground()
 
         view.addSubview(navBarExtensionContainerView)
         navBarExtensionContainerView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true

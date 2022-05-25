@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import UIKit
 
@@ -16,7 +11,7 @@ extension StakingPresenter: StakingPresenterProtocol {
     func setup(preferredLocalizations languages: [String]?) {
 
         let linkViewModel = LinkViewModel(
-            title: R.string.localizable.stakingValReward(preferredLanguages: languages),
+            title: R.string.localizable.commonLearnMore(preferredLanguages: languages),
             link: ApplicationConfig.shared.rewardsURL,
             linkTitleText: nil,
             image: R.image.assetVal()
@@ -24,9 +19,10 @@ extension StakingPresenter: StakingPresenterProtocol {
 
         let viewModel = ComingSoonViewModel(
             comingSoonText: R.string.localizable.comingSoon(preferredLanguages: languages).uppercased(),
-            comingSoonDescriptionText: R.string.localizable.stakingComingSoon(preferredLanguages: languages),
+            comingSoonDescriptionText: R.string.localizable.stakingDescription(preferredLanguages: languages),
             linkViewModel: linkViewModel,
-            navigationButtonModel: nil
+            navigationButtonModel: nil,
+            image: R.image.promoStaking()
         )
 
         view?.didReceive(viewModel: viewModel)

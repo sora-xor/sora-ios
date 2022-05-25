@@ -4,4 +4,4 @@ OTHER_SWIFT_FLAGS = $(inherited) "-DENABLE_UITUNNEL" "-DF_DEV"
 
 SORA_APPLICATION_CONFIG = Dev
 FIREBASE_CONFIG = GoogleService-Info-Dev.plist
-SORA_NAME = Sora Dev
+SORA_NAME = SORA Dev

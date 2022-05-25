@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19455" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina4_7" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19454"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -11,6 +12,16 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="OnboardingMainViewController" customModule="SoraPassport" customModuleProvider="target">
             <connections>
+                <outlet property="createAccountButton" destination="tul-FI-qT5" id="rB4-B0-OGq"/>
+                <outlet property="descriptionLabel" destination="PoH-TM-WoE" id="pZh-wH-EwC"/>
+                <outlet property="importAccountButton" destination="B9e-54-trY" id="0pZ-ye-XnL"/>
+                <outlet property="logo" destination="HfQ-aS-zcT" id="m0y-Pj-9b1"/>
+                <outlet property="logoToTitleConstraint" destination="6Er-Jn-aw8" id="Dgt-UY-ldk"/>
+                <outlet property="logoTopConstraint" destination="C0e-Zw-GuN" id="EnP-fR-cce"/>
+                <outlet property="subtitleLabel" destination="PLG-pX-Ten" id="xmT-t1-fJQ"/>
+                <outlet property="subtitleToDescriptionConstraint" destination="Rxv-XO-5wb" id="o3G-iy-JEQ"/>
+                <outlet property="titleLabel" destination="0T1-IO-yfK" id="dC9-Qh-dee"/>
+                <outlet property="titleToSubtitleConstraint" destination="gor-Il-AsO" id="ec6-GN-kan"/>
                 <outlet property="view" destination="Kk9-oi-zzE" id="p3a-BU-AS7"/>
             </connections>
         </placeholder>
@@ -18,12 +29,95 @@
         <view contentMode="scaleToFill" id="Kk9-oi-zzE">
             <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+            <subviews>
+                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="sora sign" translatesAutoresizingMaskIntoConstraints="NO" id="HfQ-aS-zcT">
+                    <rect key="frame" x="103.5" y="56" width="168" height="168"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="168" id="02N-XE-EYd"/>
+                        <constraint firstAttribute="width" constant="168" id="RNN-ld-CZL"/>
+                    </constraints>
+                </imageView>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="PLG-pX-Ten">
+                    <rect key="frame" x="16" y="280.5" width="343" height="20.5"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="tul-FI-qT5" customClass="NeumorphismButton" customModule="SoraPassport" customModuleProvider="target">
+                    <rect key="frame" x="16" y="527" width="343" height="56"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="56" id="vZa-4u-DoY"/>
+                    </constraints>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="color" keyPath="color">
+                            <color key="value" name="Theme Accent"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="string" keyPath="buttonTitle" value="rrrrr"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="bottomShadowColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="color" keyPath="topShadowColor">
+                            <color key="value" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="isFlat" value="YES"/>
+                    </userDefinedRuntimeAttributes>
+                    <connections>
+                        <action selector="createAccountPressed:" destination="-1" eventType="touchUpInside" id="Vgj-n2-9qE"/>
+                    </connections>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="B9e-54-trY" customClass="NeumorphismButton" customModule="SoraPassport" customModuleProvider="target">
+                    <rect key="frame" x="16" y="591" width="343" height="56"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="56" id="siX-mI-KCB"/>
+                    </constraints>
+                    <connections>
+                        <action selector="importAccountPressed:" destination="-1" eventType="touchUpInside" id="7nK-qZ-eyE"/>
+                    </connections>
+                </view>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="PoH-TM-WoE">
+                    <rect key="frame" x="16" y="321" width="343" height="20.5"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="0T1-IO-yfK">
+                    <rect key="frame" x="16" y="252" width="343" height="20.5"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+            </subviews>
             <viewLayoutGuide key="safeArea" id="YRf-Fh-iH5"/>
             <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+            <constraints>
+                <constraint firstItem="0T1-IO-yfK" firstAttribute="top" secondItem="HfQ-aS-zcT" secondAttribute="bottom" constant="28" id="6Er-Jn-aw8"/>
+                <constraint firstItem="0T1-IO-yfK" firstAttribute="leading" secondItem="YRf-Fh-iH5" secondAttribute="leading" constant="16" id="6nr-Bc-WJR"/>
+                <constraint firstItem="HfQ-aS-zcT" firstAttribute="top" secondItem="YRf-Fh-iH5" secondAttribute="top" constant="56" id="C0e-Zw-GuN"/>
+                <constraint firstItem="tul-FI-qT5" firstAttribute="top" relation="greaterThanOrEqual" secondItem="PoH-TM-WoE" secondAttribute="bottom" constant="8" id="EXF-28-ruA"/>
+                <constraint firstItem="PoH-TM-WoE" firstAttribute="leading" secondItem="YRf-Fh-iH5" secondAttribute="leading" constant="16" id="ICz-mI-E6K"/>
+                <constraint firstItem="PLG-pX-Ten" firstAttribute="leading" secondItem="YRf-Fh-iH5" secondAttribute="leading" constant="16" id="OYB-1B-1u5"/>
+                <constraint firstItem="YRf-Fh-iH5" firstAttribute="trailing" secondItem="0T1-IO-yfK" secondAttribute="trailing" constant="16" id="Rh8-gK-obZ"/>
+                <constraint firstItem="PoH-TM-WoE" firstAttribute="top" secondItem="PLG-pX-Ten" secondAttribute="bottom" constant="20" id="Rxv-XO-5wb"/>
+                <constraint firstItem="YRf-Fh-iH5" firstAttribute="trailing" secondItem="PoH-TM-WoE" secondAttribute="trailing" constant="16" id="RzM-O5-qAp"/>
+                <constraint firstItem="B9e-54-trY" firstAttribute="top" secondItem="tul-FI-qT5" secondAttribute="bottom" constant="8" id="SoP-hP-Ouv"/>
+                <constraint firstItem="YRf-Fh-iH5" firstAttribute="trailing" secondItem="B9e-54-trY" secondAttribute="trailing" constant="16" id="T5o-P5-i4b"/>
+                <constraint firstItem="HfQ-aS-zcT" firstAttribute="centerX" secondItem="YRf-Fh-iH5" secondAttribute="centerX" id="YDc-Rw-GtS"/>
+                <constraint firstItem="B9e-54-trY" firstAttribute="leading" secondItem="YRf-Fh-iH5" secondAttribute="leading" constant="16" id="ZXn-Fs-rzz"/>
+                <constraint firstItem="PLG-pX-Ten" firstAttribute="top" secondItem="0T1-IO-yfK" secondAttribute="bottom" constant="8" id="gor-Il-AsO"/>
+                <constraint firstItem="YRf-Fh-iH5" firstAttribute="trailing" secondItem="tul-FI-qT5" secondAttribute="trailing" constant="16" id="h9J-KO-48c"/>
+                <constraint firstItem="YRf-Fh-iH5" firstAttribute="trailing" secondItem="PLG-pX-Ten" secondAttribute="trailing" constant="16" id="nSc-Dz-0dC"/>
+                <constraint firstItem="YRf-Fh-iH5" firstAttribute="bottom" secondItem="B9e-54-trY" secondAttribute="bottom" constant="20" id="qVi-jz-kKU"/>
+                <constraint firstItem="tul-FI-qT5" firstAttribute="leading" secondItem="YRf-Fh-iH5" secondAttribute="leading" constant="16" id="td3-Dc-fgo"/>
+            </constraints>
             <point key="canvasLocation" x="175.19999999999999" y="167.76611694152925"/>
         </view>
     </objects>
     <resources>
+        <image name="sora sign" width="80" height="80"/>
+        <namedColor name="Theme Accent">
+            <color red="0.81568627450980391" green="0.0078431372549019607" blue="0.10588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>

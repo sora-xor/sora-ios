@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19455" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19454"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -30,7 +30,7 @@
                         </constraints>
                     </imageView>
                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" verticalHuggingPriority="251" text="Kusama" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="uEb-gg-hd8">
-                        <rect key="frame" x="59" y="18" width="316" height="19"/>
+                        <rect key="frame" x="59" y="17.5" width="316" height="20.5"/>
                         <fontDescription key="fontDescription" name="sora-rc004-0417-Regular" family="sora-rc004-0417" pointSize="16"/>
                         <color key="textColor" name="Base ContentPrimary"/>
                         <nil key="highlightedColor"/>
@@ -40,6 +40,7 @@
                         <color key="tintColor" name="colorWhite"/>
                     </imageView>
                 </subviews>
+                <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                 <constraints>
                     <constraint firstItem="E1D-v5-T4u" firstAttribute="centerY" secondItem="bNL-3J-HyZ" secondAttribute="centerY" id="2ne-rO-Zq0"/>
                     <constraint firstItem="E1D-v5-T4u" firstAttribute="leading" secondItem="uEb-gg-hd8" secondAttribute="trailing" constant="5" id="LDd-9j-g0r"/>
@@ -50,7 +51,7 @@
                     <constraint firstItem="uEb-gg-hd8" firstAttribute="centerY" secondItem="bNL-3J-HyZ" secondAttribute="centerY" id="tdL-6V-iUr"/>
                 </constraints>
             </tableViewCellContentView>
-            <color key="backgroundColor" name="Brand White"/>
+            <color key="backgroundColor" name="Base Background"/>
             <connections>
                 <outlet property="checkmarkImageView" destination="E1D-v5-T4u" id="Cvv-4A-4bY"/>
                 <outlet property="iconImageView" destination="LQ1-0Y-Xyt" id="tsM-wo-tE7"/>
@@ -62,11 +63,11 @@
     <resources>
         <image name="assetVal" width="24" height="24"/>
         <image name="listCheckmarkIcon" width="19" height="14"/>
-        <namedColor name="Base ContentPrimary">
-            <color red="0.17647058823529413" green="0.16078431372549021" blue="0.14901960784313725" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        <namedColor name="Base Background">
+            <color red="0.96470588235294119" green="0.94509803921568625" blue="0.94509803921568625" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
-        <namedColor name="Brand White">
-            <color red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        <namedColor name="Base ContentPrimary">
+            <color red="0.13333333333333333" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="colorWhite">
             <color red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>

@@ -1,21 +1,17 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 extension CompoundAttributedStringDecorator {
     static func legal(for locale: Locale?) -> AttributedStringDecoratorProtocol {
         let attributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: R.color.baseContentQuaternary()!,
+            .foregroundColor: R.color.neumorphism.textDark()!,
             .font: UIFont.styled(for: .paragraph2)!
         ]
 
         let rangeDecorator = RangeAttributedStringDecorator(attributes: attributes)
 
         let highlightAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: R.color.baseContentPrimary()!
+            .foregroundColor: R.color.neumorphism.text()!,
+            .underlineStyle: NSUnderlineStyle.single.rawValue
         ]
 
         let termsConditions = R.string.localizable

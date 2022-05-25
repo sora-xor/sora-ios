@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -11,9 +6,11 @@ final class TransactionDetailsConfigurator {
 
     init(account: AccountItem,
          amountFormatterFactory: NumberFormatterFactoryProtocol,
-         assets: [WalletAsset]) {
+         assets: [WalletAsset],
+         assetManager: AssetManagerProtocol) {
         viewModelFactory = TransactionDetailsViewModelFactory(account: account,
                                                               assets: assets,
+                                                              assetManager: assetManager,
                                                               dateFormatter: DateFormatter.transactionDetails,
                                                               amountFormatterFactory: amountFormatterFactory)
     }

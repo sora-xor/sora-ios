@@ -1,21 +1,16 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
 struct WalletConfirmationViewBinder {
     var separatorStyle: WalletStrokeStyleProtocol {
-        WalletStrokeStyle(color: UIColor(red: 0.6, green: 0.6, blue: 0.6, alpha: 0.35), lineWidth: 1.0)
+        WalletStrokeStyle(color: R.color.neumorphism.separator()!, lineWidth: 1.0)
     }
 
     var formDetailsViewStyle: WalletFormDetailsViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1),
                                     color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
 
-        let details = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 14)!,
+        let details = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                       color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
 
         let contentInsets = UIEdgeInsets(top: 11, left: 0, bottom: 11, right: 0)
@@ -31,7 +26,7 @@ struct WalletConfirmationViewBinder {
     }
 
     var noteStyle: WalletFormTitleIconViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1),
                                     color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
 
         let contentInsets = UIEdgeInsets(top: 18, left: 0, bottom: 18, right: 0)
@@ -43,7 +38,7 @@ struct WalletConfirmationViewBinder {
     }
 
     var receiverStyle: WalletFormTitleIconViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 14)!,
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                     color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
 
         let contentInsets = UIEdgeInsets(top: 16, left: 0, bottom: 16, right: 0)
@@ -55,7 +50,7 @@ struct WalletConfirmationViewBinder {
     }
 
     var detailsHeaderStyle: WalletFormTitleIconViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Bold(size: 14)!,
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                     color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
 
         let contentInsets = UIEdgeInsets(top: 16, left: 0, bottom: 0, right: 0)
@@ -67,10 +62,10 @@ struct WalletConfirmationViewBinder {
     }
 
     var totalAmountStyle: WalletFormDetailsViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Bold(size: 14)!,
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                     color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
 
-        let details = WalletTextStyle(font: R.font.soraRc0040417Bold(size: 20)!,
+        let details = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true).withSize(20),
                                       color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
 
         let contentInsets = UIEdgeInsets(top: 11, left: 0, bottom: 13, right: 0)
@@ -86,10 +81,10 @@ struct WalletConfirmationViewBinder {
     }
 
     var tokenStyle: WalletFormTokenViewStyle {
-        let title = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 14)!,
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                     color: UIColor(red: 0.176, green: 0.161, blue: 0.149, alpha: 1))
 
-        let subtitle = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 14)!,
+        let subtitle = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                        color: UIColor(red: 0.459, green: 0.471, blue: 0.482, alpha: 1))
 
         let contentInsets = UIEdgeInsets(top: 17, left: 0.0, bottom: 16, right: 0.0)

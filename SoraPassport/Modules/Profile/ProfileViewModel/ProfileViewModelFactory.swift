@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -33,6 +28,7 @@ final class ProfileViewModelFactory: ProfileViewModelFactoryProtocol {
             case .language:     return ProfileOptionViewModel(by: option)
             case .faq:          return ProfileOptionViewModel(by: option)
             case .about:        return ProfileOptionViewModel(by: option)
+            case .disclaimer:   return ProfileOptionViewModel(by: option)
             case .logout:       return ProfileOptionViewModel(by: option)
             }
         }

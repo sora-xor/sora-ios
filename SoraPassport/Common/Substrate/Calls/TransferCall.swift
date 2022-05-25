@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import BigInt
@@ -18,6 +13,7 @@ struct SoraTransferCall: Codable {
         case amount = "amount"
     }
 }
+
 
 @propertyWrapper
 public struct ArrayCodable: Codable, Equatable {

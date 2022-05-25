@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
@@ -15,11 +10,10 @@ final class OnboardingMainViewFactory: OnboardingMainViewFactoryProtocol {
             Logger.shared.error("Can't find required keystore import service")
             return nil
         }
-        
+
         let locale: Locale = LocalizationManager.shared.selectedLocale
 
         let view = OnboardingMainViewController(nib: R.nib.onbordingMain)
-        view.termDecorator = CompoundAttributedStringDecorator.legal(for: locale)
         view.locale = locale
 
         let presenter = OnboardingMainPresenter(locale: locale)

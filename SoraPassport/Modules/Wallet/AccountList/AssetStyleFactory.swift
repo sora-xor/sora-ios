@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -26,8 +21,8 @@ struct AssetStyleFactory: AssetCellStyleFactoryProtocol {
                                        blurRadius: 4.0)
 
         let textColor = R.color.baseContentPrimary()!
-        let headerFont = UIFont.styled(for: .paragraph1, isBold: true)!
-        let regularFont = UIFont.styled(for: .paragraph2, isBold: false)!
+        let headerFont = UIFont.styled(for: .display2, isBold: true)!
+        let regularFont = UIFont.styled(for: .paragraph3, isBold: false)!
 
         let cardStyle = CardAssetStyle(backgroundColor: .white,
                                        leftFillColor: leftColor,

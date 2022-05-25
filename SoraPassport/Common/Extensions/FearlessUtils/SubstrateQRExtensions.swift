@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import FearlessUtils
 import Foundation
 import IrohaCrypto
@@ -34,7 +29,7 @@ extension SubstrateQREncoder {
             info.prefix,
             info.address,
             info.rawPublicKey.toHex(includePrefix: true),
-            info.username ?? "",
+            "",
             info.assetId
         ]
 

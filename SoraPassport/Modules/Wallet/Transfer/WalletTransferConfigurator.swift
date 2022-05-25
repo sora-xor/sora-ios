@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -13,16 +8,16 @@ final class  WalletTransferConfigurator {
 
     var commandFactory: WalletCommandFactoryProtocol? {
         get {
-            errorHandler?.commandFactory
+            viewModelFactory.commandFactory
         }
         set {
             errorHandler?.commandFactory = newValue
-            self.viewModelFactory.commandFactory = newValue
+            viewModelFactory.commandFactory = newValue
         }
     }
 
     lazy private var headerStyle: WalletContainingHeaderStyle = {
-        let text = WalletTextStyle(font: R.font.soraRc0040417Bold(size: 14)!,
+        let text = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                    color: UIColor(red: 0.125, green: 0.125, blue: 0.125, alpha: 1))
         let contentInsets = UIEdgeInsets(top: 15.0, left: 0.0, bottom: 0.0, right: 0.0)
 
@@ -33,7 +28,7 @@ final class  WalletTransferConfigurator {
 
     static var errorStyle: WalletContainingErrorStyle = {
         let error = WalletInlineErrorStyle(titleColor: UIColor(red: 0.942, green: 0, blue: 0.044, alpha: 1),
-                                           titleFont: R.font.soraRc0040417Regular(size: 12)!,
+                                           titleFont: UIFont.styled(for: .paragraph3),
                                            icon: R.image.iconWarning()!)
         let contentInsets = UIEdgeInsets(top: 16.0, left: 0.0, bottom: 16.0, right: 0.0)
         return WalletContainingErrorStyle(inlineErrorStyle: error,
@@ -46,11 +41,11 @@ final class  WalletTransferConfigurator {
     }()
 
     lazy private var assetStyle: WalletContainingAssetStyle = {
-        let title = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 14)!,
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                     color: UIColor(red: 0.125, green: 0.125, blue: 0.125, alpha: 1))
-        let subtitle = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 14)!,
+        let subtitle = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                        color: UIColor(red: 0.459, green: 0.471, blue: 0.482, alpha: 1))
-        let details = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 12)!,
+        let details = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
                                       color: UIColor(red: 0.539, green: 0.539, blue: 0.539, alpha: 1))
         let contentInsets = UIEdgeInsets(top: 16.0, left: 0.0, bottom: 16, right: 0.0)
 
@@ -68,7 +63,7 @@ final class  WalletTransferConfigurator {
     }()
 
     lazy private var receiverStyle: WalletContainingReceiverStyle = {
-        let textStyle = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
+        let textStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph1),
                                         color: UIColor(red: 0.125, green: 0.125, blue: 0.125, alpha: 1))
         let contentInsets = UIEdgeInsets(top: 15.0, left: 0.0, bottom: 15.0, right: 0.0)
 
@@ -81,7 +76,7 @@ final class  WalletTransferConfigurator {
     }()
 
     lazy private var amountStyle: WalletContainingAmountStyle = {
-        let textStyle = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 18.0)!,
+        let textStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true).withSize(18),
                                         color: UIColor(red: 0.125, green: 0.125, blue: 0.125, alpha: 1))
         let contentInsets = UIEdgeInsets(top: 8.0, left: 0.0, bottom: 15, right: 0.0)
 
@@ -98,7 +93,7 @@ final class  WalletTransferConfigurator {
     }()
 
     lazy private var feeHeaderStyle: WalletContainingHeaderStyle = {
-        let text = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 12)!,
+        let text = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
                                    color: UIColor(red: 0.459, green: 0.471, blue: 0.482, alpha: 1))
         let contentInsets = UIEdgeInsets(top: 15.0, left: 0.0, bottom: 0.0, right: 0.0)
 
@@ -108,9 +103,9 @@ final class  WalletTransferConfigurator {
     }()
 
     lazy private var feeStyle: WalletContainingFeeStyle = {
-        let title = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
+        let title = WalletTextStyle(font: UIFont.styled(for: .paragraph1),
                                     color: UIColor(red: 0.125, green: 0.125, blue: 0.125, alpha: 1))
-        let amount = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 14)!,
+        let amount = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                      color: UIColor(red: 0.125, green: 0.125, blue: 0.125, alpha: 1))
         let contentInsets = UIEdgeInsets(top: 18.0, left: 0.0, bottom: 18.0, right: 0.0)
 
@@ -126,9 +121,9 @@ final class  WalletTransferConfigurator {
     }()
 
     lazy private var descriptionStyle: WalletContainingDescriptionStyle = {
-        let text = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
+        let text = WalletTextStyle(font: UIFont.styled(for: .paragraph1),
                                     color: UIColor(red: 0.125, green: 0.125, blue: 0.125, alpha: 1))
-        let placeholder = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 14)!,
+        let placeholder = WalletTextStyle(font: UIFont.styled(for: .paragraph1),
                                           color: UIColor(red: 0.631, green: 0.631, blue: 0.627, alpha: 1))
         let contentInsets = UIEdgeInsets(top: 19.0, left: 0.0, bottom: 0.0, right: 0.0)
 
@@ -144,7 +139,7 @@ final class  WalletTransferConfigurator {
     }()
 
     lazy private var generatingIconStyle: WalletNameIconStyleProtocol = {
-        let textStyle = WalletTextStyle(font: R.font.soraRc0040417Regular(size: 12)!,
+        let textStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
                                         color: UIColor(red: 0.379, green: 0.379, blue: 0.379, alpha: 1))
         return WalletNameIconStyle(background: .white,
                                    title: textStyle,
@@ -155,18 +150,18 @@ final class  WalletTransferConfigurator {
 
     init(assets: [WalletAsset],
          assetManager: AssetManagerProtocol,
-         amountFormatterFactory: NumberFormatterFactoryProtocol,
+         amountFormatterFactory: AmountFormatterFactoryProtocol,
          localizationManager: LocalizationManagerProtocol) {
         viewModelFactory = WalletTransferViewModelFactory(assets: assets,
                                                           assetManager: assetManager,
-                                                    amountFormatterFactory: amountFormatterFactory)
+                                                          amountFormatterFactory: amountFormatterFactory)
         self.localizationManager = localizationManager
     }
 
     func configure(builder: TransferModuleBuilderProtocol) {
         let title: LocalizableResource<String> = LocalizableResource { (locale: Locale) in
             let locale = LocalizationManager.shared.selectedLocale
-            return R.string.localizable.commonSend(preferredLanguages: locale.rLanguages)
+            return R.string.localizable.transferAmountTitle(preferredLanguages: locale.rLanguages)
         }
 
         let definitionFactory = TransferDefinitionFactory()

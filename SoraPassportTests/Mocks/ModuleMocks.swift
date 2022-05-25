@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Cuckoo
 @testable import SoraPassport
 
@@ -14190,6 +14185,21 @@ import Foundation
     
     
     
+     func showDisclaimer(from view: ProfileViewProtocol?)  {
+        
+    return cuckoo_manager.call("showDisclaimer(from: ProfileViewProtocol?)",
+            parameters: (view),
+            escapingParameters: (view),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.showDisclaimer(from: view))
+        
+    }
+    
+    
+    
      func showLogout(from view: ProfileViewProtocol?, completionBlock: (() -> Void)?)  {
         
     return cuckoo_manager.call("showLogout(from: ProfileViewProtocol?, completionBlock: (() -> Void)?)",
@@ -14337,6 +14347,11 @@ import Foundation
 	        return .init(stub: cuckoo_manager.createStub(for: MockProfileWireframeProtocol.self, method: "showAbout(from: ProfileViewProtocol?)", parameterMatchers: matchers))
 	    }
 	    
+	    func showDisclaimer<M1: Cuckoo.OptionalMatchable>(from view: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(ProfileViewProtocol?)> where M1.OptionalMatchedType == ProfileViewProtocol {
+	        let matchers: [Cuckoo.ParameterMatcher<(ProfileViewProtocol?)>] = [wrap(matchable: view) { $0 }]
+	        return .init(stub: cuckoo_manager.createStub(for: MockProfileWireframeProtocol.self, method: "showDisclaimer(from: ProfileViewProtocol?)", parameterMatchers: matchers))
+	    }
+	    
 	    func showLogout<M1: Cuckoo.OptionalMatchable, M2: Cuckoo.OptionalMatchable>(from view: M1, completionBlock: M2) -> Cuckoo.ProtocolStubNoReturnFunction<(ProfileViewProtocol?, (() -> Void)?)> where M1.OptionalMatchedType == ProfileViewProtocol, M2.OptionalMatchedType == (() -> Void) {
 	        let matchers: [Cuckoo.ParameterMatcher<(ProfileViewProtocol?, (() -> Void)?)>] = [wrap(matchable: view) { $0.0 }, wrap(matchable: completionBlock) { $0.1 }]
 	        return .init(stub: cuckoo_manager.createStub(for: MockProfileWireframeProtocol.self, method: "showLogout(from: ProfileViewProtocol?, completionBlock: (() -> Void)?)", parameterMatchers: matchers))
@@ -14431,6 +14446,12 @@ import Foundation
 	    }
 	    
 	    @discardableResult
+	    func showDisclaimer<M1: Cuckoo.OptionalMatchable>(from view: M1) -> Cuckoo.__DoNotUse<(ProfileViewProtocol?), Void> where M1.OptionalMatchedType == ProfileViewProtocol {
+	        let matchers: [Cuckoo.ParameterMatcher<(ProfileViewProtocol?)>] = [wrap(matchable: view) { $0 }]
+	        return cuckoo_manager.verify("showDisclaimer(from: ProfileViewProtocol?)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+	    }
+	    
+	    @discardableResult
 	    func showLogout<M1: Cuckoo.OptionalMatchable, M2: Cuckoo.OptionalMatchable>(from view: M1, completionBlock: M2) -> Cuckoo.__DoNotUse<(ProfileViewProtocol?, (() -> Void)?), Void> where M1.OptionalMatchedType == ProfileViewProtocol, M2.OptionalMatchedType == (() -> Void) {
 	        let matchers: [Cuckoo.ParameterMatcher<(ProfileViewProtocol?, (() -> Void)?)>] = [wrap(matchable: view) { $0.0 }, wrap(matchable: completionBlock) { $0.1 }]
 	        return cuckoo_manager.verify("showLogout(from: ProfileViewProtocol?, completionBlock: (() -> Void)?)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
@@ -14506,6 +14527,10 @@ import Foundation
     }
     
      func showAbout(from view: ProfileViewProtocol?)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
+     func showDisclaimer(from view: ProfileViewProtocol?)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     

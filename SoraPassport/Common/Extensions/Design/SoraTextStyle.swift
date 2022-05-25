@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 enum SoraTextStyle {
@@ -12,6 +7,12 @@ enum SoraTextStyle {
     ///   - `textStyle: UIFont.TextStyle.largeTitle`
     case display1
 
+    /// Base ExtraBold font for large titles neomorphism
+    ///   - `fontSize: (base: 21, max: nil)`
+    ///   - `attributes: (kern: -0.84, lineHeightMultiple: 0.0)`
+    ///   - `textStyle: UIFont.TextStyle.largeTitle`
+    case display2
+    
     /// Base Bold font for titles
     ///   - `fontSize: (base: 24, max: 28)`
     ///   - `attributes: (kern: -0.72, lineHeightMultiple: 0.0)`
@@ -88,45 +89,49 @@ extension SoraTextStyle {
         let fontStyleName: String
 
         switch self {
-        case .display1:
+        case .display1, .display2:
             fontStyleName = "ExtraBold"
+        case .title1:
+            fontStyleName = "Regular"
 
-        case .title1, .title2, .title3, .title4:
+        case .title2, .title3, .title4:
             fontStyleName = "Bold"
 
         case .paragraph1, .paragraph2, .paragraph3, .paragraph4:
-            fontStyleName = isBold ? "Bold" : "Regular"
+            fontStyleName = isBold ? "Bold" : "Light"
 
         case .uppercase1, .uppercase2, .uppercase3:
             fontStyleName = isBold ? "Bold" : "Regular"
         case .button:
-            fontStyleName = "SemiBold"
+            fontStyleName = isBold ?  "SemiBold" : "Bold"
         }
 
-        return "sora-rc004-0417-\(fontStyleName)"
+        return "Sora-\(fontStyleName)"
     }
 
     var fontSize: (base: CGFloat, max: CGFloat?) {
         switch self {
         case .display1:     return (base: 28, max: 32)
-        case .title1:       return (base: 24, max: 28)
+        case .display2:     return (base: 21, max: nil)
+        case .title1:       return (base: 18, max: 21)
         case .title2:       return (base: 22, max: 26)
         case .title3:       return (base: 20, max: 24)
         case .title4:       return (base: 18, max: 22)
-        case .paragraph1:   return (base: 16, max: nil)
-        case .paragraph2:   return (base: 14, max: nil)
+        case .paragraph1:   return (base: 15, max: nil)
+        case .paragraph2:   return (base: 13, max: nil)
         case .paragraph3:   return (base: 12, max: nil)
         case .paragraph4:   return (base: 10, max: nil)
         case .uppercase1:   return (base: 14, max: 18)
         case .uppercase2:   return (base: 12, max: 16)
         case .uppercase3:   return (base: 10, max: 14)
-        case .button:       return (base: 15, max: 18)
+        case .button:       return (base: 21, max: 21)
         }
     }
 
     var textStyle: UIFont.TextStyle {
         switch self {
         case .display1:     return .largeTitle
+        case .display2:     return .largeTitle
         case .title1:       return .title1
         case .title2:       return .title2
         case .title3:       return .title3
@@ -138,13 +143,14 @@ extension SoraTextStyle {
         case .uppercase1:   return .caption2
         case .uppercase2:   return .caption2
         case .uppercase3:   return .caption2
-        case .button:       return .body
+        case .button:       return .title1
         }
     }
 
     var attributes: (kern: CGFloat, lineHeightMultiple: CGFloat) {
         switch self {
         case .display1:     return (kern: -0.84, lineHeightMultiple: 0.00)
+        case .display2:     return (kern: -0.84, lineHeightMultiple: 0.00)
         case .title1:       return (kern: -0.72, lineHeightMultiple: 0.00)
         case .title2:       return (kern: -0.66, lineHeightMultiple: 0.00)
         case .title3:       return (kern: -0.60, lineHeightMultiple: 0.00)
@@ -156,7 +162,7 @@ extension SoraTextStyle {
         case .uppercase1:   return (kern: +0.42, lineHeightMultiple: 1.13)
         case .uppercase2:   return (kern: +0.48, lineHeightMultiple: 1.32)
         case .uppercase3:   return (kern: +0.40, lineHeightMultiple: 1.59)
-        case .button:       return (kern: -0.30, lineHeightMultiple: 1.06)
+        case .button:       return (kern: -0.63, lineHeightMultiple: 0.79)
         }
     }
 
@@ -167,7 +173,7 @@ extension SoraTextStyle {
             ],
             [UIFontDescriptor.FeatureKey.featureIdentifier: kNumberCaseType,
              UIFontDescriptor.FeatureKey.typeIdentifier: kUpperCaseNumbersSelector
-            ],
+            ]
         ]
     }
 }
@@ -211,6 +217,44 @@ extension String {
         return NSAttributedString(string: self, attributes: attributes)
     }
 
+    typealias Style = [NSAttributedString.Key: Any]
+    func decoratedWith(_  baseStyle: Style, adding style: Style, to substrings: [String]) -> NSAttributedString {
+        let result = NSMutableAttributedString(string: self, attributes: baseStyle)
+        for substring in substrings {
+            if let range = self.range(of: substring) {
+                let decoRange = NSRange(range, in: self)
+                result.addAttributes(style, range: decoRange)
+            }
+        }
+        return result
+    }
+
+    func decoratedWith(_  baseStyle: Style, adding style: Style, to range: Range<Index>) -> NSAttributedString {
+        let result = NSMutableAttributedString(string: self, attributes: baseStyle)
+        let decoRange = NSRange(range, in: self)
+        result.addAttributes(style, range: decoRange)
+        return result
+    }
+
+    func prettyCurrency(baseFont: UIFont, smallSize: CGFloat = 13, locale currentLocale: Locale) -> NSAttributedString {
+        let result: NSAttributedString
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byCharWrapping
+        style.lineHeightMultiple = 0.95
+        style.alignment = .right
+        let attributes: Style = [.font: baseFont, .paragraphStyle: style, .kern: -1]
+
+        if let separation = self.firstIndex(of: Character(currentLocale.decimalSeparator ?? ".")) {
+            let adjusted = self.index(after: separation)
+            let range: Range = adjusted..<self.endIndex
+            let decorated = self.decoratedWith(attributes, adding: [.font: baseFont.withSize(smallSize)], to: range)
+
+            result = decorated
+        } else {
+            result = NSMutableAttributedString(string: self, attributes: attributes)
+        }
+        return result
+    }
 }
 
 extension UIFont {
@@ -263,6 +307,15 @@ extension UIFont {
 }
 
 extension NSAttributedString {
+
+    var wholeRange: NSRange {
+        NSRange(location: 0, length: self.length)
+    }
+
+    static var space: NSAttributedString {
+        NSAttributedString(string: " ")
+    }
+
     func aligned(_ alignment: NSTextAlignment) -> NSAttributedString {
 
         let attributedString = NSMutableAttributedString(attributedString: self)

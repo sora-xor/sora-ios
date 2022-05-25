@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB" customClass="SoraDetailsCopyView" customModule="SoraPassport" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="64"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="TjY-iZ-GoL" userLabel="Balance" customClass="BorderedContainerView" customModule="SoraUI">
+                    <rect key="frame" x="0.0" y="0.0" width="414" height="64"/>
+                    <subviews>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Balance" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="6Je-RM-2lt">
+                            <rect key="frame" x="0.0" y="18" width="60.5" height="28"/>
+                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                            <color key="textColor" name="Neumorphism/Text Dark"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="pFv-Iv-d8u">
+                            <rect key="frame" x="372.5" y="18" width="41.5" height="28"/>
+                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                            <color key="textColor" name="Neumorphism/Text Dark"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="YC9-hO-YGt" customClass="GrayCopyButton" customModule="SoraPassport" customModuleProvider="target">
+                            <rect key="frame" x="375" y="16" width="39" height="32"/>
+                            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="color" keyPath="_fillColor">
+                                    <color key="value" name="Neumorphism/DetailButtonFill"/>
+                                </userDefinedRuntimeAttribute>
+                            </userDefinedRuntimeAttributes>
+                            <connections>
+                                <action selector="buttonTap" destination="iN0-l3-epB" eventType="touchUpInside" id="W2Q-5l-AbP"/>
+                            </connections>
+                        </view>
+                    </subviews>
+                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                    <constraints>
+                        <constraint firstAttribute="trailing" secondItem="YC9-hO-YGt" secondAttribute="trailing" id="53r-UB-xdF"/>
+                        <constraint firstAttribute="trailing" secondItem="pFv-Iv-d8u" secondAttribute="trailing" id="HX2-jx-eFR"/>
+                        <constraint firstItem="6Je-RM-2lt" firstAttribute="leading" secondItem="TjY-iZ-GoL" secondAttribute="leading" id="JcV-W3-XM3"/>
+                        <constraint firstItem="YC9-hO-YGt" firstAttribute="centerY" secondItem="TjY-iZ-GoL" secondAttribute="centerY" id="Lro-y6-WK7"/>
+                        <constraint firstAttribute="bottom" secondItem="6Je-RM-2lt" secondAttribute="bottom" constant="18" id="Mi3-Mk-o58"/>
+                        <constraint firstAttribute="bottom" secondItem="pFv-Iv-d8u" secondAttribute="bottom" constant="18" id="WaW-7d-Hix"/>
+                        <constraint firstItem="6Je-RM-2lt" firstAttribute="top" secondItem="TjY-iZ-GoL" secondAttribute="top" constant="18" id="iPO-Hb-FTN"/>
+                        <constraint firstItem="pFv-Iv-d8u" firstAttribute="top" secondItem="TjY-iZ-GoL" secondAttribute="top" constant="18" id="nFn-G0-NOi"/>
+                        <constraint firstItem="pFv-Iv-d8u" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="6Je-RM-2lt" secondAttribute="trailing" constant="24" id="rgI-hJ-JGw"/>
+                    </constraints>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                            <color key="value" name="Neumorphism/Separator"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                </view>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <constraints>
+                <constraint firstItem="TjY-iZ-GoL" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="0Eo-MC-A6m"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="bottom" secondItem="TjY-iZ-GoL" secondAttribute="bottom" id="4JG-HO-WUc"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="TjY-iZ-GoL" secondAttribute="trailing" id="nSe-Vz-Zqu"/>
+                <constraint firstItem="TjY-iZ-GoL" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" id="yaY-wR-iPn"/>
+            </constraints>
+            <nil key="simulatedTopBarMetrics"/>
+            <nil key="simulatedBottomBarMetrics"/>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <connections>
+                <outlet property="copyButton" destination="YC9-hO-YGt" id="4ci-3R-G2h"/>
+                <outlet property="toTitle" destination="6Je-RM-2lt" id="ltP-Bd-ZgZ"/>
+            </connections>
+            <point key="canvasLocation" x="139" y="64"/>
+        </view>
+    </objects>
+    <designables>
+        <designable name="YC9-hO-YGt">
+            <size key="intrinsicContentSize" width="39" height="32"/>
+        </designable>
+    </designables>
+    <resources>
+        <namedColor name="Neumorphism/DetailButtonFill">
+            <color red="0.93725490196078431" green="0.9137254901960784" blue="0.9137254901960784" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Separator">
+            <color red="0.89803921568627454" green="0.8666666666666667" blue="0.8666666666666667" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Text Dark">
+            <color red="0.12941176470588237" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>

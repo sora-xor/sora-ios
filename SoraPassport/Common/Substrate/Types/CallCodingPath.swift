@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 struct CallCodingPath: Equatable, Codable {
@@ -19,7 +14,15 @@ extension CallCodingPath {
         CallCodingPath(moduleName: "Assets", callName: "transfer_keep_alive")
     }
 
+    static var swap: CallCodingPath {
+        CallCodingPath(moduleName: "LiquidityProxy", callName: "swap")
+    }
+
     var isTransfer: Bool {
         [.transfer, .transferKeepAlive].contains(self)
+    }
+
+    var isSwap: Bool {
+        [.swap].contains(self)
     }
 }

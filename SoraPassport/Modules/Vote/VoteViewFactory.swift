@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 protocol VoteViewFactoryProtocol {
@@ -28,8 +23,8 @@ extension VoteViewFactory: VoteViewFactoryProtocol {
                 return nil
         }
 
-        view.normalDescriptionColor = .voteDescriptionNormal
-        view.errorDescriptionColor = .voteDescriptionError
+        view.normalDescriptionColor = R.color.baseContentPrimary()!
+        view.errorDescriptionColor = R.color.statusError()!
 
         let trackCornerRadius: CGFloat = 4.0
         let trackImageSize = CGSize(width: 12.0, height: 8.0)
@@ -43,7 +38,7 @@ extension VoteViewFactory: VoteViewFactoryProtocol {
                                                    contentScale: UIScreen.main.scale)
         view.minimumTrackImage = minimumTrackImage?.resizableImage(withCapInsets: resizableInsets)
 
-        let maximumTrackImage = UIImage.background(from: .voteMaximumTrack,
+        let maximumTrackImage = UIImage.background(from: R.color.statusSuccessBackground()!,
                                                    size: trackImageSize,
                                                    cornerRadius: trackCornerRadius,
                                                    contentScale: UIScreen.main.scale)

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CoreData
 import CommonWallet
@@ -57,6 +52,14 @@ final class WalletCommandDecoratorFactory: WalletCommandDecoratorFactoryProtocol
                                                localizationManager: localizationManager)
 
         return selectCommand
+    }
+
+    func createTransferConfirmationDecorator(with commandFactory: WalletCommandFactoryProtocol,
+                                             payload: ConfirmationPayload)
+        -> WalletPresentationCommandProtocol? {
+            let command = commandFactory.prepareConfirmation(with: payload)
+            command.presentationStyle = .modal(inNavigation: true)
+            return command
     }
 
     func createVisibilityToggleCommand(with commandFactory: WalletCommandFactoryProtocol, for asset: WalletAsset) -> WalletCommandDecoratorProtocol? {

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import IrohaCrypto
 import SoraFoundation
 
@@ -18,6 +13,7 @@ protocol AccountImportViewProtocol: ControllerBackedProtocol {
 protocol AccountImportPresenterProtocol: class {
     func setup()
     func proceed()
+    func activateURL(_ url: URL)
 }
 
 protocol AccountImportInteractorInputProtocol: class {
@@ -35,7 +31,7 @@ protocol AccountImportInteractorOutputProtocol: class {
     func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?)
 }
 
-protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable {
+protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {
     func proceed(from view: AccountImportViewProtocol?)
 }
 

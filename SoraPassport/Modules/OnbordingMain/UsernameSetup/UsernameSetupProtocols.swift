@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import SoraFoundation
 
 protocol UsernameSetupViewProtocol: ControllerBackedProtocol {
@@ -10,6 +5,7 @@ protocol UsernameSetupViewProtocol: ControllerBackedProtocol {
 }
 
 protocol UsernameSetupPresenterProtocol: class {
+    var userName: String? { get set }
     func setup()
     func proceed()
     func activateURL(_ url: URL)

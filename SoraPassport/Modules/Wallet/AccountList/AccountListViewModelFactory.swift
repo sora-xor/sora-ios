@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -14,7 +9,7 @@ final class AccountListViewModelFactory {
 //    weak var commandFactory: WalletCommandFactoryProtocol?
 
     let assetCellStyleFactory: AssetCellStyleFactoryProtocol
-    let amountFormatterFactory: NumberFormatterFactoryProtocol
+    let amountFormatterFactory: AmountFormatterFactoryProtocol
     let assetManager: AssetManagerProtocol
 //    let priceAsset: WalletAsset
 
@@ -23,7 +18,7 @@ final class AccountListViewModelFactory {
          assetCellStyleFactory: AssetCellStyleFactoryProtocol,
          assetManager: AssetManagerProtocol,
          commandDecorator: WalletCommandDecoratorFactoryProtocol,
-         amountFormatterFactory: NumberFormatterFactoryProtocol) {
+         amountFormatterFactory: AmountFormatterFactoryProtocol) {
         self.assetCellStyleFactory = assetCellStyleFactory
         self.amountFormatterFactory = amountFormatterFactory
         self.commandDecorator = commandDecorator
@@ -38,7 +33,7 @@ final class AccountListViewModelFactory {
                                             balanceData: BalanceData,
                                             commandFactory: WalletCommandFactoryProtocol,
                                             locale: Locale) -> AssetViewModelProtocol? {
-        let amountFormatter = amountFormatterFactory.createDisplayFormatter(for: asset)
+        let amountFormatter = amountFormatterFactory.createDisplayFormatter(for: asset, maxPrecision: 8)
 
         guard let assetInfo = assetManager.assetInfo(for: asset.identifier) else {return nil}
 

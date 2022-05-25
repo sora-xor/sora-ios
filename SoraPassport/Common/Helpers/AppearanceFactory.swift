@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import UIKit
 import SoraUI
@@ -12,6 +7,7 @@ struct AppearanceFactory {
     static func applyGlobalAppearance() {
         configureGlobalNavigationBar()
         configureButtons()
+//        configureSearchBar()
     }
 
     private static func configureButtons() {
@@ -22,69 +18,35 @@ struct AppearanceFactory {
         GrayCopyButton.appearance().titleFont = .styled(for: .paragraph2)
         GrayCopyButton.appearance().cornerRadius = 24.0
         GrayCopyButton.appearance().shadowOpacity = 0
+    }
+
+    private static func configureSearchBar() {
+        let searchTextStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
+                                              color: R.color.neumorphism.textDark()!)
+        let searchPlaceholderStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
+                                                     color: R.color.neumorphism.textDark()!)
+
+        let searchStroke = WalletStrokeStyle(color: R.color.neumorphism.backgroundLightGrey()!,
+                                             lineWidth: 1.0)
+        let searchFieldStyle = WalletRoundedViewStyle(fill: R.color.neumorphism.backgroundLightGrey()!,
+                                                      cornerRadius: 24.0,
+                                                      stroke: searchStroke)
+//        UISearchBar.appearance().searchTextField.textColor = .red
 
     }
 
     // TODO: SN-264. UINavigationBar configuration to decorator ??
     private static func configureGlobalNavigationBar() {
 
-        let color = R.color.baseContentPrimary()!
-        let image = R.image.arrowLeft()
-        let largeFont = UIFont.styled(for: .display1)
-        let normalFont = UIFont.styled(for: .paragraph1)
-
-        if #available(iOS 13, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithTransparentBackground()
-
-            // large title color
-            appearance.largeTitleTextAttributes = [.foregroundColor: color, .font: largeFont]
-
-            // title color
-            appearance.titleTextAttributes = [.foregroundColor: color, .font: normalFont]
-
-            // bar button styling
-            let barButtonItemApperance = UIBarButtonItemAppearance()
-            barButtonItemApperance.normal.titleTextAttributes = [.foregroundColor: color]
-            appearance.backButtonAppearance = barButtonItemApperance
-
-            // back button image
-            appearance.setBackIndicatorImage(image, transitionMaskImage: image)
-
-            UINavigationBar.appearance().compactAppearance = appearance
-            UINavigationBar.appearance().standardAppearance = appearance
-            UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        } else {
-            // back button image
-            let barAppearance = UINavigationBar.appearance(
-                whenContainedInInstancesOf: [SoraNavigationController.self]
-            )
-
-            barAppearance.backIndicatorImage = image
-            barAppearance.backIndicatorTransitionMaskImage = image
-
-            let barButtonAppearance = UIBarButtonItem.appearance(
-                whenContainedInInstancesOf: [SoraNavigationController.self]
-            )
-
-            barButtonAppearance.setBackButtonTitlePositionAdjustment(
-                UIOffset(horizontal: 0, vertical: -1), for: .default
-            )
-        }
-
-        // large title color
-        UINavigationBar.appearance().largeTitleTextAttributes = [.foregroundColor: color, .font: largeFont]
-
-        UINavigationBar.appearance(whenContainedInInstancesOf: [SoraNavigationController.self]).prefersLargeTitles = true
         // title color
-        UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: color, .font: normalFont]
+        UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: R.color.neumorphism.textDark() as Any,
+                                                            .font: UIFont.styled(for: .title1) as Any]
 
         // the back icon / buttons color
-        UINavigationBar.appearance().tintColor = color
+        UINavigationBar.appearance().tintColor = R.color.neumorphism.navBarIcon()!
 
         // background color
-        UINavigationBar.appearance().barTintColor = .white
-        UINavigationBar.appearance().backgroundColor = .white
-        UINavigationBar.appearance().shadowImage = UIImage()
+        UINavigationBar.appearance().barTintColor = R.color.neumorphism.base()
+        UINavigationBar.appearance().backgroundColor = R.color.neumorphism.base()
     }
 }

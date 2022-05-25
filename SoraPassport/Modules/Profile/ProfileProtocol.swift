@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 protocol ProfileViewProtocol: ControllerBackedProtocol {
@@ -30,6 +25,7 @@ protocol ProfileWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPrese
     func showLanguageSelection(from view: ProfileViewProtocol?)
     func showFaq(from view: ProfileViewProtocol?)
     func showAbout(from view: ProfileViewProtocol?)
+    func showDisclaimer(from view: ProfileViewProtocol?)
     func showLogout(from view: ProfileViewProtocol?, completionBlock: (() -> Void)?)
     func switchBiometry(
         toValue: Bool,

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import CommonWallet
@@ -40,6 +35,10 @@ extension NetworkResponseError: ErrorContentConvertible {
         case .unexpectedStatusCode:
             title = R.string.localizable
                 .commonErrorUnexpectedStatusTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable
+                .commonErrorGeneralMessage(preferredLanguages: locale?.rLanguages)
+        case .accessForbidden(let data):
+            title = "403"
             message = R.string.localizable
                 .commonErrorGeneralMessage(preferredLanguages: locale?.rLanguages)
         }

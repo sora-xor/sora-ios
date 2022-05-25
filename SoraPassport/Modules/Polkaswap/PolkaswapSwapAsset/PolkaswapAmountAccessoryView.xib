@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB" customClass="PolkaswapAmountAccessoryView" customModule="SoraPassport">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="48"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Efv-wu-aOE">
+                    <rect key="frame" x="327" y="0.0" width="67" height="48"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="48" id="RQE-ff-n1C"/>
+                    </constraints>
+                    <state key="normal" title="Button"/>
+                    <buttonConfiguration key="configuration" style="plain" title="Button"/>
+                </button>
+                <stackView opaque="NO" contentMode="scaleToFill" distribution="fillEqually" alignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="MXi-GV-gj7">
+                    <rect key="frame" x="0.0" y="0.0" width="319" height="48"/>
+                </stackView>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="oFi-BJ-Iej">
+                    <rect key="frame" x="0.0" y="0.0" width="414" height="1"/>
+                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="1" id="0KX-xg-YJC"/>
+                    </constraints>
+                </view>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+            <constraints>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="Efv-wu-aOE" secondAttribute="trailing" constant="20" id="CLb-Sw-Oyx"/>
+                <constraint firstItem="MXi-GV-gj7" firstAttribute="bottom" secondItem="vUN-kp-3ea" secondAttribute="bottom" id="Ej0-Lg-Wvb"/>
+                <constraint firstItem="Efv-wu-aOE" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="bM5-Ih-smK"/>
+                <constraint firstItem="Efv-wu-aOE" firstAttribute="bottom" secondItem="vUN-kp-3ea" secondAttribute="bottom" id="ep8-AN-LaO"/>
+                <constraint firstItem="oFi-BJ-Iej" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="gGz-9y-s7z"/>
+                <constraint firstItem="Efv-wu-aOE" firstAttribute="leading" secondItem="MXi-GV-gj7" secondAttribute="trailing" constant="8" symbolic="YES" id="jXA-ax-94e"/>
+                <constraint firstAttribute="trailing" secondItem="oFi-BJ-Iej" secondAttribute="trailing" id="mXl-af-GYq"/>
+                <constraint firstItem="MXi-GV-gj7" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="pUW-CO-xjK"/>
+                <constraint firstItem="MXi-GV-gj7" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" id="uEs-g6-k2i"/>
+                <constraint firstItem="oFi-BJ-Iej" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="zxu-yL-q5D"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <connections>
+                <outlet property="doneButton" destination="Efv-wu-aOE" id="mQC-Zg-0eB"/>
+                <outlet property="separator" destination="oFi-BJ-Iej" id="o2d-Y0-Iv8"/>
+                <outlet property="stack" destination="MXi-GV-gj7" id="siG-fA-eeO"/>
+            </connections>
+            <point key="canvasLocation" x="137.68115942028987" y="-113.83928571428571"/>
+        </view>
+    </objects>
+    <resources>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>

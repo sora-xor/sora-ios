@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -17,7 +12,7 @@ extension HistoryViewStyle {
                                    opacity: 1.0,
                                    blurRadius: 4.0)
 
-        return HistoryViewStyle(fillColor: .white,
+        return HistoryViewStyle(fillColor: R.color.neumorphism.base()!,
                                 borderStyle: borderStyle,
                                 cornerRadius: cornerRadius,
                                 titleStyle: titleStyle,
@@ -33,7 +28,7 @@ extension HistoryViewStyle {
 
 extension TransactionCellStyle {
     static var sora: TransactionCellStyle {
-        let text = WalletTextStyle(font: R.font.soraRc0040417SemiBold(size: 15.0)!,
+        let text = WalletTextStyle(font: UIFont.styled(for: .paragraph1, isBold: true),
                                    color: UIColor(white: 44.0 / 255.0, alpha: 1.0))
         let transactionStatusStyle = WalletTransactionStatusStyle(icon: nil, color: .white)
         let container = WalletTransactionStatusStyleContainer(approved: transactionStatusStyle,
@@ -45,7 +40,7 @@ extension TransactionCellStyle {
                                     statusStyleContainer: container,
                                     increaseAmountIcon: nil,
                                     decreaseAmountIcon: nil,
-                                    separatorColor: .clear)
+                                    separatorColor: R.color.neumorphism.separator()!)
     }
 }
 
@@ -53,8 +48,8 @@ extension TransactionHeaderStyle {
     static var sora: TransactionHeaderStyle { // date section
         let text = WalletTextStyle(font: UIFont.styled(for: .paragraph2, isBold: false),
                                    color: R.color.baseContentTertiary()!)
-        return TransactionHeaderStyle(background: .white,
+        return TransactionHeaderStyle(background: R.color.neumorphism.base()!,
                                       title: text,
-                                      separatorColor: .clear)
+                                      separatorColor: R.color.neumorphism.separator()!)
     }
 }

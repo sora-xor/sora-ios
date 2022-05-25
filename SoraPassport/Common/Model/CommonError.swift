@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 enum CommonError: Error {
@@ -16,7 +11,7 @@ extension CommonError: ErrorContentConvertible {
 
         switch self {
         case .undefined:
-            title = R.string.localizable.commonError()
+            title = R.string.localizable.commonErrorGeneralTitle()
 //                .commonUndefinedErrorTitle(preferredLanguages: locale?.rLanguages)
             message = "commonUndefinedErrorMessage"//R.string.localizable
 //                .commonUndefinedErrorMessage(preferredLanguages: locale?.rLanguages)

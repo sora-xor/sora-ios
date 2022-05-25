@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import os
 
@@ -29,6 +24,7 @@ protocol ApplicationConfigProtocol {
     var combinedTransfersHandlingDelay: TimeInterval { get }
     var polkaswapURL: URL { get }
     var rewardsURL: URL { get }
+    var parliamentURL: URL  { get }
     var phishingListURL: URL { get }
     var shareURL: URL { get }
 }
@@ -166,7 +162,35 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     var privacyPolicyURL: URL {
         URL(string: "https://sora.org/privacy")!
     }
-
+    
+    var twitterURL: URL {
+        URL(string: "https://twitter.com/sora_xor")!
+    }
+    
+    var youtubeURL: URL {
+        URL(string: "https://youtube.com/sora_xor")!
+    }
+    
+    var instagramURL: URL {
+        URL(string: "https://instagram.com/sora_xor")!
+    }
+    
+    var mediumURL: URL {
+        URL(string: "https://medium.com/sora-xor")!
+    }
+    
+    var wikiURL: URL {
+        URL(string: "https://wiki.sora.org")!
+    }
+    
+    var announcementsURL: URL {
+        URL(string: "https://t.me/sora_announcements")!
+    }
+    
+    var supportURL: URL {
+        URL(string: "https://t.me/sorahappiness")!
+    }
+    
     //swiftlint:disable force_cast
     var version: String {
         let bundle = Bundle(for: ApplicationConfig.self)
@@ -206,6 +230,10 @@ extension ApplicationConfig: ApplicationConfigProtocol {
 
     var polkaswapURL: URL {
         URL(string: "https://polkaswap.io")!
+    }
+
+    var parliamentURL: URL {
+        URL(string:"https://medium.com/sora-xor/the-sora-parliament-af8184dae384")!
     }
 
     var rewardsURL: URL {

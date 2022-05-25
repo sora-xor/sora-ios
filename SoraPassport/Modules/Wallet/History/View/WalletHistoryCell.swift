@@ -1,85 +1,137 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
-import UIKit
+import Anchorage
 import CommonWallet
+import SoraFoundation
 import SoraUI
+import UIKit
 
-final class WalletHistoryCell: UITableViewCell {
+class WalletHistoryCell: UITableViewCell {
     @IBOutlet private var iconImageView: UIImageView!
     @IBOutlet private var pendingImageView: UIImageView!
     @IBOutlet private var titleLabel: UILabel!
     @IBOutlet private var noteLabel: UILabel!
     @IBOutlet private var amountLabel: UILabel!
     @IBOutlet private var dateLabel: UILabel!
-
-    @IBOutlet private var titleLabelCenterConstraints: NSLayoutConstraint!
-    @IBOutlet private var titleLabelTopConstraints: NSLayoutConstraint!
+    @IBOutlet private var directionLabel: UILabel!
+    @IBOutlet private var stackView: UIStackView!
 
     private(set) var viewModel: WalletViewModelProtocol?
 
     override func awakeFromNib() {
         super.awakeFromNib()
-        titleLabel.font = UIFont.styled(for: .paragraph3, isBold: false)
-        noteLabel.font = UIFont.styled(for: .paragraph4)
-        amountLabel.font = UIFont.styled(for: .paragraph2, isBold: true)
-        dateLabel.font = UIFont.styled(for: .paragraph4)
-        pendingImageView.isHidden = true
-    }
 
-    private struct Constants {
-        static let animationPath = "transform.rotation.z"
-        static let animationKey = "loading.animation.key"
-        static let animationDuration = 1.0
-    }
-
-    private func createAnimation() -> CAAnimation {
-        let animation = CAKeyframeAnimation(keyPath: Constants.animationPath)
-        animation.values = [0.0, CGFloat.pi, 2.0 * CGFloat.pi]
-        animation.timingFunctions = [CAMediaTimingFunction(name: .easeIn), CAMediaTimingFunction(name: .easeOut)]
-        animation.calculationMode = .linear
-        animation.keyTimes = [0.0, 0.5, 1.0]
-        animation.repeatDuration = TimeInterval.infinity
-        animation.duration = Constants.animationDuration
-        animation.isCumulative = false
-        return animation
+        contentView.backgroundColor = R.color.neumorphism.base()
     }
 }
 
 extension WalletHistoryCell: WalletViewProtocol {
+
+    func addImageView() -> UIImageView {
+        let imageView = UIImageView(frame: .zero)
+        imageView.widthAnchor == 14
+        imageView.heightAnchor == 14
+        stackView.addArrangedSubview(imageView)
+        return imageView
+    }
+
     func bind(viewModel: WalletViewModelProtocol) {
         if let transactionViewModel = viewModel as? HistoryItemViewModel {
             self.viewModel = transactionViewModel
-            pendingImageView.isHidden = true
-            pendingImageView.layer.removeAnimation(forKey: Constants.animationKey)
 
             iconImageView.image = transactionViewModel.imageViewModel?.image
             titleLabel.text = transactionViewModel.title
-            noteLabel.text = ""
-            amountLabel.text = transactionViewModel.amount
+            amountLabel.attributedText = transactionViewModel.amount
             dateLabel.text = transactionViewModel.details
+            directionLabel.text = transactionViewModel.type.localizedName
 
-            amountLabel.textColor = transactionViewModel.direction == .incoming ?
-                R.color.statusSuccess()! :
-                R.color.baseContentPrimary()!
-            amountLabel.font = transactionViewModel.status == .rejected ?
-                UIFont.styled(for: .paragraph2, isBold: false) :
-                UIFont.styled(for: .paragraph2, isBold: true)
+            dateLabel.font = UIFont.styled(for: .paragraph2, isBold: false).withSize(15)
 
-            if transactionViewModel.status == .rejected {
-                amountLabel.textColor = R.color.statusError()!
-            } else if transactionViewModel.status == .pending {
-                pendingImageView.isHidden = false
-                let animation = createAnimation()
-                pendingImageView.layer.add(animation, forKey: Constants.animationKey)
+            directionLabel.font = UIFont.styled(for: .uppercase2, isBold: false).withSize(15)
+            if transactionViewModel.type == .swap {
+                titleLabel.font = UIFont.styled(for: .paragraph2, isBold: true)
+            } else {
+                titleLabel.font = UIFont.styled(for: .paragraph3, isBold: false)
             }
 
-            titleLabelCenterConstraints.isActive = true
-            titleLabelTopConstraints.isActive = false
+            for subview in stackView.arrangedSubviews {
+                stackView.removeArrangedSubview(subview)
+                subview.removeFromSuperview()
+            }
 
-            setNeedsLayout()
+            if let assetViewModel = transactionViewModel.assetImageViewModel {
+                let imageView = addImageView()
+                assetViewModel.loadImage { [weak imageView] image, error in
+                    if error == nil {
+                        imageView?.image = image
+                    } else {
+                        print(error!.localizedDescription)
+                    }
+                }
+            }
+
+            if let peerViewModel = transactionViewModel.peerImageViewModel {
+                let arrowImageView = addImageView()
+                arrowImageView.image = R.image.assetArrow()
+
+                let imageView = addImageView()
+                peerViewModel.loadImage { [weak imageView] image, error in
+                    if error == nil {
+                        imageView?.image = image
+                    } else {
+                        print(error!.localizedDescription)
+                    }
+                }
+            }
+
+        } else
+
+        if let transactionViewModel = viewModel as? HistorySwapViewModel {  self.viewModel = transactionViewModel
+
+            iconImageView.image = transactionViewModel.imageViewModel?.image
+            titleLabel.attributedText = transactionViewModel.title
+            amountLabel.attributedText = transactionViewModel.amount
+            dateLabel.text = transactionViewModel.details
+            directionLabel.text = transactionViewModel.type.localizedName
+
+            dateLabel.font = UIFont.styled(for: .paragraph2, isBold: false).withSize(15)
+
+            directionLabel.font = UIFont.styled(for: .uppercase2, isBold: false).withSize(15)
+
+
+            for subview in stackView.arrangedSubviews {
+                stackView.removeArrangedSubview(subview)
+                subview.removeFromSuperview()
+            }
+
+            if let assetViewModel = transactionViewModel.assetImageViewModel {
+                let imageView = addImageView()
+                assetViewModel.loadImage { [weak imageView] image, error in
+                    if error == nil {
+                        imageView?.image = image
+                    } else {
+                        print(error!.localizedDescription)
+                    }
+                }
+            }
+
+            if let peerViewModel = transactionViewModel.peerImageViewModel {
+                let arrowImageView = addImageView()
+                arrowImageView.image = R.image.assetArrow()
+
+                let imageView = addImageView()
+                peerViewModel.loadImage { [weak imageView] image, error in
+                    if error == nil {
+                        imageView?.image = image
+                    } else {
+                        print(error!.localizedDescription)
+                    }
+                }
+            }
+
         }
+        preservesSuperviewLayoutMargins = false
+        separatorInset = UIEdgeInsets.zero
+        layoutMargins = UIEdgeInsets.zero
+
+        setNeedsLayout()
     }
 }

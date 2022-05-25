@@ -1,10 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
+import SoraFoundation
 
 final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     var walletContext: CommonWalletContextProtocol
@@ -47,7 +43,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         }
         let navigationController = SoraNavigationController(rootViewController: migrationController)
         navigationController.modalPresentationStyle = .overFullScreen
-        
+
         let presentingController = tabBarController.topModalViewController
         presentingController.present(navigationController, animated: true, completion: nil)
 
@@ -71,6 +67,14 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
 
         let presentingController = tabBarController.topModalViewController
         presentingController.present(navigationController, animated: true, completion: nil)
+    }
+
+    func showTransactionSuccess(on view: MainTabBarViewProtocol?) {
+        if let view = view {
+            let title = R.string.localizable.walletTransactionSubmitted(preferredLanguages:      LocalizationManager.shared.selectedLocale.rLanguages)
+            let alert = ModalAlertFactory.createSuccessAlert(title)
+            view.controller.present(alert, animated: true, completion: nil)
+        }
     }
 
     // MARK: Private

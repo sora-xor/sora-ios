@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CommonWallet
 import SoraFoundation
 import SoraUI
@@ -38,9 +33,6 @@ struct TransferDefinitionFactory: OperationDefinitionViewFactoryOverriding {
 
     func createAmountView() -> BaseAmountInputView? {
         let view = R.nib.soraAmountInputView.firstView(owner: nil)!
-
-        view.assetLabel.font = UIFont.styled(for: .paragraph2, isBold: true)
-        view.assetLabel.text = R.string.localizable.transactionAmountTitle()
 
         return view
     }

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import Anchorage
 import SoraUI
@@ -13,7 +8,7 @@ final class LinkView: BackgroundedContentControl {
 
     private lazy var descriptionTitleLabel: UILabel = {
         UILabel().then {
-            $0.font = UIFont.styled(for: .paragraph2)
+            $0.font = UIFont.styled(for: .paragraph1, isBold: true)
             $0.textColor = R.color.baseContentPrimary()
             $0.lineBreakMode = .byTruncatingTail
         }
@@ -22,7 +17,7 @@ final class LinkView: BackgroundedContentControl {
     private lazy var linkTitleLabel: UILabel = {
         UILabel().then {
             $0.font = UIFont.styled(for: .paragraph3)
-            $0.textColor = R.color.themeAccent()
+            $0.textColor = R.color.neumorphism.textDark()
             $0.lineBreakMode = .byTruncatingTail
         }
     }()
@@ -41,7 +36,13 @@ final class LinkView: BackgroundedContentControl {
         }
     }()
 
-    var separatorIsVisible = false
+    private var separatorIsVisible: Bool = false
+
+    init(separatorIsVisible: Bool = false) {
+        self.separatorIsVisible = separatorIsVisible
+        super.init(frame: .zero)
+        configure()
+    }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
@@ -101,7 +102,7 @@ final class LinkView: BackgroundedContentControl {
 private extension LinkView {
 
     func configure() {
-        backgroundColor = .white
+        backgroundColor = R.color.baseBackground()!
 
         changesContentOpacityWhenHighlighted = true
 
@@ -141,7 +142,7 @@ private extension LinkView {
             // separator
             UIView().then {
                 $0.isHidden = !separatorIsVisible
-                $0.backgroundColor = .listSeparator
+                $0.backgroundColor = R.color.neumorphism.tableSeparator()!
                 $0.heightAnchor == 0.5
             }
         ]).then {
@@ -187,6 +188,11 @@ extension LinkView {
     @IBInspectable
     var linkTitleAttributedText: String? {
         get { linkTitleLabel.attributedText?.string }
-        set { linkTitleLabel.attributedText = newValue?.styled(.paragraph3) }
+        set {
+            let attributedNewValue = newValue?.styled(.paragraph3) ?? NSAttributedString(string: "")
+            let mutableNewValue = NSMutableAttributedString(attributedString: attributedNewValue)
+            mutableNewValue.addAttribute(.underlineStyle, value: 1, range: NSRange(location: 0, length: mutableNewValue.length))
+            linkTitleLabel.attributedText = mutableNewValue
+        }
     }
 }

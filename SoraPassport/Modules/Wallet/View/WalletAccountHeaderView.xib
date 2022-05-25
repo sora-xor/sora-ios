@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="18122" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina4_7" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="18093"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
-        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <customFonts key="customFonts">
@@ -31,110 +30,60 @@
                         <nil key="highlightedColor"/>
                     </label>
                     <stackView opaque="NO" contentMode="scaleToFill" distribution="equalCentering" alignment="center" spacing="8" translatesAutoresizingMaskIntoConstraints="NO" id="usG-bf-rXf">
-                        <rect key="frame" x="211" y="17.5" width="152" height="32"/>
+                        <rect key="frame" x="179" y="13.5" width="184" height="40"/>
                         <subviews>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Qiu-ij-5bK" userLabel="Send Button" customClass="RoundedButton" customModule="SoraUI">
-                                <rect key="frame" x="0.0" y="0.0" width="32" height="32"/>
-                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="iiI-rx-X8h" customClass="NeumorphismButton" customModule="SoraPassport" customModuleProvider="target">
+                                <rect key="frame" x="0.0" y="0.0" width="40" height="40"/>
+                                <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" constant="32" id="V15-zP-T87"/>
-                                    <constraint firstAttribute="width" secondItem="Qiu-ij-5bK" secondAttribute="height" multiplier="1:1" id="V96-6J-Cu7"/>
+                                    <constraint firstAttribute="height" constant="40" id="3UI-gN-kEe"/>
+                                    <constraint firstAttribute="width" constant="40" id="CcM-vV-iDS"/>
                                 </constraints>
                                 <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletSend"/>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
-                                        <real key="value" value="16"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="size" keyPath="_shadowOffset">
-                                        <size key="value" width="0.0" height="0.0"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
-                                        <real key="value" value="0.0"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
-                                        <real key="value" value="0.0"/>
-                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="image" keyPath="image" value="iconWalletSendNew"/>
                                 </userDefinedRuntimeAttributes>
                             </view>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="MNr-UY-PtB" userLabel="Receive Button" customClass="RoundedButton" customModule="SoraUI">
-                                <rect key="frame" x="40" y="0.0" width="32" height="32"/>
-                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Kv2-HC-Kmv" customClass="NeumorphismButton" customModule="SoraPassport" customModuleProvider="target">
+                                <rect key="frame" x="48" y="0.0" width="40" height="40"/>
+                                <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" secondItem="MNr-UY-PtB" secondAttribute="height" multiplier="1:1" id="Rt4-le-mmJ"/>
-                                    <constraint firstAttribute="width" constant="32" id="bQn-O9-vtB"/>
+                                    <constraint firstAttribute="width" constant="40" id="7hp-FC-vlc"/>
+                                    <constraint firstAttribute="height" constant="40" id="SDW-zQ-JUV"/>
                                 </constraints>
                                 <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletReceive"/>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
-                                        <real key="value" value="16"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="size" keyPath="_shadowOffset">
-                                        <size key="value" width="0.0" height="0.0"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
-                                        <real key="value" value="0.0"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
-                                        <real key="value" value="0.0"/>
-                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="image" keyPath="image" value="iconWalletReceiveNew"/>
                                 </userDefinedRuntimeAttributes>
                             </view>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="p8c-4X-5Sv" customClass="RoundedButton" customModule="SoraUI">
-                                <rect key="frame" x="80" y="0.0" width="32" height="32"/>
-                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Gzj-hC-s2m" customClass="NeumorphismButton" customModule="SoraPassport" customModuleProvider="target">
+                                <rect key="frame" x="96" y="0.0" width="40" height="40"/>
+                                <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" constant="32" id="VPH-QI-RkW"/>
-                                    <constraint firstAttribute="width" secondItem="p8c-4X-5Sv" secondAttribute="height" multiplier="1:1" id="tXo-pw-YB2"/>
+                                    <constraint firstAttribute="width" constant="40" id="IL5-nT-Jz6"/>
+                                    <constraint firstAttribute="height" constant="40" id="Vaj-0U-HLe"/>
                                 </constraints>
                                 <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletScan"/>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
-                                        <real key="value" value="16"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="size" keyPath="_shadowOffset">
-                                        <size key="value" width="0.0" height="0.0"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
-                                        <real key="value" value="0.0"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
-                                        <real key="value" value="0.0"/>
-                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="image" keyPath="image" value="iconWalletScanNew"/>
                                 </userDefinedRuntimeAttributes>
                             </view>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="GGZ-NL-sPT" customClass="RoundedButton" customModule="SoraUI">
-                                <rect key="frame" x="120" y="0.0" width="32" height="32"/>
-                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="URw-nQ-K7H" customClass="NeumorphismButton" customModule="SoraPassport" customModuleProvider="target">
+                                <rect key="frame" x="144" y="0.0" width="40" height="40"/>
+                                <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" constant="32" id="6SR-hH-BuX"/>
-                                    <constraint firstAttribute="width" secondItem="GGZ-NL-sPT" secondAttribute="height" multiplier="1:1" id="L1o-00-ZJM"/>
+                                    <constraint firstAttribute="width" constant="40" id="PF0-6e-POc"/>
+                                    <constraint firstAttribute="height" constant="40" id="aZ0-6V-pZe"/>
                                 </constraints>
                                 <userDefinedRuntimeAttributes>
-                                    <userDefinedRuntimeAttribute type="image" keyPath="_iconImage" value="iconWalletMore"/>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_cornerRadius">
-                                        <real key="value" value="16"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="size" keyPath="_shadowOffset">
-                                        <size key="value" width="0.0" height="0.0"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowRadius">
-                                        <real key="value" value="0.0"/>
-                                    </userDefinedRuntimeAttribute>
-                                    <userDefinedRuntimeAttribute type="number" keyPath="_shadowOpacity">
-                                        <real key="value" value="0.0"/>
-                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="image" keyPath="image" value="iconWalletMoreNew"/>
                                 </userDefinedRuntimeAttributes>
                             </view>
                         </subviews>
-                        <constraints>
-                            <constraint firstItem="MNr-UY-PtB" firstAttribute="width" secondItem="MNr-UY-PtB" secondAttribute="height" multiplier="1:1" id="4Ym-zS-Rsa"/>
-                            <constraint firstItem="Qiu-ij-5bK" firstAttribute="width" secondItem="Qiu-ij-5bK" secondAttribute="height" multiplier="1:1" id="fpo-7V-TJR"/>
-                        </constraints>
+                        <userDefinedRuntimeAttributes>
+                            <userDefinedRuntimeAttribute type="boolean" keyPath="masksToBounds" value="NO"/>
+                        </userDefinedRuntimeAttributes>
                     </stackView>
                 </subviews>
             </view>
             <viewLayoutGuide key="safeArea" id="QmK-rt-AD4"/>
-            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
             <constraints>
                 <constraint firstItem="y8J-gX-rEP" firstAttribute="leading" secondItem="QmK-rt-AD4" secondAttribute="leading" constant="20" id="19g-0J-z6K"/>
                 <constraint firstItem="y8J-gX-rEP" firstAttribute="top" secondItem="QmK-rt-AD4" secondAttribute="top" constant="20" id="ZJL-mr-u7F"/>
@@ -142,39 +91,22 @@
                 <constraint firstAttribute="trailing" secondItem="usG-bf-rXf" secondAttribute="trailing" constant="12" id="uYk-cX-Cr5"/>
             </constraints>
             <connections>
-                <outlet property="moreButton" destination="GGZ-NL-sPT" id="dfB-66-aH2"/>
-                <outlet property="receiveButton" destination="MNr-UY-PtB" id="Euk-1o-K9o"/>
-                <outlet property="scanButton" destination="p8c-4X-5Sv" id="SOW-fU-YIu"/>
-                <outlet property="sendButton" destination="Qiu-ij-5bK" id="YsZ-Og-ElD"/>
+                <outlet property="moreButton" destination="URw-nQ-K7H" id="onS-dm-0IN"/>
+                <outlet property="receiveButton" destination="Kv2-HC-Kmv" id="YyY-Vn-lYh"/>
+                <outlet property="scanButton" destination="Gzj-hC-s2m" id="J6J-na-Nvj"/>
+                <outlet property="sendButton" destination="iiI-rx-X8h" id="ZRV-5q-onH"/>
                 <outlet property="titleLabel" destination="y8J-gX-rEP" id="tZv-ym-XLL"/>
             </connections>
-            <point key="canvasLocation" x="-198" y="3"/>
+            <point key="canvasLocation" x="-166" y="-18"/>
         </collectionViewCell>
     </objects>
-    <designables>
-        <designable name="GGZ-NL-sPT">
-            <size key="intrinsicContentSize" width="48" height="48"/>
-        </designable>
-        <designable name="MNr-UY-PtB">
-            <size key="intrinsicContentSize" width="40" height="40"/>
-        </designable>
-        <designable name="Qiu-ij-5bK">
-            <size key="intrinsicContentSize" width="40" height="40"/>
-        </designable>
-        <designable name="p8c-4X-5Sv">
-            <size key="intrinsicContentSize" width="48" height="48"/>
-        </designable>
-    </designables>
     <resources>
-        <image name="iconWalletMore" width="32" height="32"/>
-        <image name="iconWalletReceive" width="24" height="24"/>
-        <image name="iconWalletScan" width="32" height="32"/>
-        <image name="iconWalletSend" width="24" height="24"/>
+        <image name="iconWalletMoreNew" width="24" height="21"/>
+        <image name="iconWalletReceiveNew" width="22" height="21"/>
+        <image name="iconWalletScanNew" width="20" height="21"/>
+        <image name="iconWalletSendNew" width="20" height="19"/>
         <namedColor name="Base ContentPrimary">
             <color red="0.17647058823529413" green="0.16078431372549021" blue="0.14901960784313725" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
-        <systemColor name="systemBackgroundColor">
-            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-        </systemColor>
     </resources>
 </document>

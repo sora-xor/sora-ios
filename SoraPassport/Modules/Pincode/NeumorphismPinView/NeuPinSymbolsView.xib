@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19455" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19454"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="NeuPinSymbolsView" customModule="SoraPassport" customModuleProvider="target">
+            <connections>
+                <outlet property="containerView" destination="iN0-l3-epB" id="0rY-vu-hie"/>
+                <outletCollection property="symbolImages" destination="Pu1-Kh-ZNZ" collectionClass="NSMutableArray" id="qIq-OD-mYG"/>
+                <outletCollection property="symbolImages" destination="Hwu-Sq-Cqk" collectionClass="NSMutableArray" id="CXT-bV-6zQ"/>
+                <outletCollection property="symbolImages" destination="1bY-Qh-jdC" collectionClass="NSMutableArray" id="6Kc-zh-qfy"/>
+                <outletCollection property="symbolImages" destination="d1g-aa-0pm" collectionClass="NSMutableArray" id="dYs-aJ-Crs"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB">
+            <rect key="frame" x="0.0" y="0.0" width="700" height="575"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <stackView opaque="NO" contentMode="scaleToFill" distribution="equalCentering" alignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="CP5-TT-Htm">
+                    <rect key="frame" x="0.0" y="0.0" width="700" height="575"/>
+                    <subviews>
+                        <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Pin/pin left" translatesAutoresizingMaskIntoConstraints="NO" id="ziu-YZ-W4j">
+                            <rect key="frame" x="0.0" y="0.0" width="204.5" height="575"/>
+                            <constraints>
+                                <constraint firstAttribute="width" constant="204.5" placeholder="YES" id="H3X-YU-FsU"/>
+                            </constraints>
+                        </imageView>
+                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="20" translatesAutoresizingMaskIntoConstraints="NO" id="Cpa-R9-IUq">
+                            <rect key="frame" x="248" y="209.5" width="204.5" height="156"/>
+                            <subviews>
+                                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Pin/pin empty" translatesAutoresizingMaskIntoConstraints="NO" id="d1g-aa-0pm">
+                                    <rect key="frame" x="0.0" y="0.0" width="204.5" height="24"/>
+                                </imageView>
+                                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Pin/pin empty" translatesAutoresizingMaskIntoConstraints="NO" id="1bY-Qh-jdC">
+                                    <rect key="frame" x="0.0" y="44" width="204.5" height="24"/>
+                                </imageView>
+                                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Pin/pin empty" translatesAutoresizingMaskIntoConstraints="NO" id="Hwu-Sq-Cqk">
+                                    <rect key="frame" x="0.0" y="88" width="204.5" height="24"/>
+                                </imageView>
+                                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Pin/pin empty" translatesAutoresizingMaskIntoConstraints="NO" id="Pu1-Kh-ZNZ">
+                                    <rect key="frame" x="0.0" y="132" width="204.5" height="24"/>
+                                </imageView>
+                            </subviews>
+                            <constraints>
+                                <constraint firstItem="1bY-Qh-jdC" firstAttribute="height" secondItem="d1g-aa-0pm" secondAttribute="height" id="5dN-FT-Blf"/>
+                                <constraint firstItem="Pu1-Kh-ZNZ" firstAttribute="height" secondItem="d1g-aa-0pm" secondAttribute="height" id="Ktp-0v-Ws0"/>
+                                <constraint firstItem="Hwu-Sq-Cqk" firstAttribute="height" secondItem="d1g-aa-0pm" secondAttribute="height" id="iP1-Nk-8Qf"/>
+                            </constraints>
+                        </stackView>
+                        <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Pin/pin right" translatesAutoresizingMaskIntoConstraints="NO" id="Wj0-GE-Dhd">
+                            <rect key="frame" x="495.5" y="0.0" width="204.5" height="575"/>
+                        </imageView>
+                    </subviews>
+                    <constraints>
+                        <constraint firstItem="ziu-YZ-W4j" firstAttribute="top" secondItem="CP5-TT-Htm" secondAttribute="top" id="JNO-zk-ccm"/>
+                        <constraint firstItem="ziu-YZ-W4j" firstAttribute="width" secondItem="Cpa-R9-IUq" secondAttribute="width" placeholder="YES" id="KoV-2k-KNB"/>
+                        <constraint firstItem="Wj0-GE-Dhd" firstAttribute="width" secondItem="Cpa-R9-IUq" secondAttribute="width" id="RYr-CQ-1Fc"/>
+                        <constraint firstItem="Wj0-GE-Dhd" firstAttribute="top" secondItem="CP5-TT-Htm" secondAttribute="top" id="tQn-3x-1hU"/>
+                    </constraints>
+                </stackView>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <constraints>
+                <constraint firstItem="CP5-TT-Htm" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="30J-9B-uPj"/>
+                <constraint firstAttribute="bottom" secondItem="CP5-TT-Htm" secondAttribute="bottom" id="APN-IE-TwQ"/>
+                <constraint firstAttribute="trailing" secondItem="CP5-TT-Htm" secondAttribute="trailing" id="Izd-89-mBi"/>
+                <constraint firstItem="CP5-TT-Htm" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="gQl-zF-enM"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <point key="canvasLocation" x="310.14492753623193" y="-15.066964285714285"/>
+        </view>
+    </objects>
+    <resources>
+        <image name="Pin/pin empty" width="81" height="24"/>
+        <image name="Pin/pin left" width="101" height="175"/>
+        <image name="Pin/pin right" width="99" height="175"/>
+    </resources>
+</document>

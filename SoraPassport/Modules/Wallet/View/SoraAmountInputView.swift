@@ -1,40 +1,17 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CommonWallet
 import SoraFoundation
 import SoraUI
 import Foundation
+import UIKit
 
 final class SoraAmountInputView: BaseAmountInputView, WalletFormBordering {
     var contentInsets: UIEdgeInsets = .zero
 
     @IBOutlet private(set) var borderedView: BorderedContainerView!
-    @IBOutlet private(set) var assetLabel: UILabel!
-    @IBOutlet private(set) var amountField: UITextField!
-    @IBOutlet private(set) var keyboardIndicator: ActionTitleControl!
+//    @IBOutlet private(set) var amountField: UITextField!
+    @IBOutlet private(set) var amountInput: NeuTextField!
 
     private(set) var inputViewModel: AmountInputViewModelProtocol?
-
-    var keyboardIndicatorSpacing: CGFloat = 8.0 {
-        didSet {
-            updateIndicatorState()
-        }
-    }
-
-    var keyboardIndicatorIcon: UIImage? {
-        didSet {
-            updateIndicatorState()
-        }
-    }
-
-    var keyboardIndicatorMode: KeyboardIndicatorDisplayMode = .editing {
-        didSet {
-            updateIndicatorState()
-        }
-    }
 
     override public var intrinsicContentSize: CGSize {
         var size = super.intrinsicContentSize
@@ -49,22 +26,21 @@ final class SoraAmountInputView: BaseAmountInputView, WalletFormBordering {
         }
 
         set {
-            borderedView.borderType = newValue
+//            borderedView.borderType = newValue
         }
     }
 
     override var isFirstResponder: Bool {
-        return amountField.isFirstResponder
+        return amountInput.isFirstResponder
     }
 
     override func resignFirstResponder() -> Bool {
-        return amountField.resignFirstResponder()
+        return amountInput.resignFirstResponder()
     }
 
     override func awakeFromNib() {
-        self.assetLabel.font = UIFont.styled(for: .paragraph2, isBold: true)
-        self.assetLabel.text = R.string.localizable.transactionAmountTitle()
-        self.amountField.font = UIFont.styled(for: .paragraph2)
+        amountInput.font = UIFont.styled(for: .paragraph2).withSize(29)
+        amountInput.delegate = self
     }
 
     func bind(inputViewModel: AmountInputViewModelProtocol) {
@@ -72,91 +48,52 @@ final class SoraAmountInputView: BaseAmountInputView, WalletFormBordering {
 
         self.inputViewModel = inputViewModel
         inputViewModel.observable.add(observer: self)
-        amountField.text = inputViewModel.displayAmount
+        amountInput.text = inputViewModel.displayAmount
 
         let locale = LocalizationManager.shared.selectedLocale
-        assetLabel.text = R.string.localizable.transactionAmountTitle(preferredLanguages: locale.rLanguages)
-
+        self.amountInput.placeholderText = R.string.localizable.transactionAmountTitle(preferredLanguages: locale.rLanguages)
     }
 
     func bind(viewModel: WalletFormSpentAmountModel) {
-        amountField.text = viewModel.amount
-        assetLabel.text = viewModel.title
-        amountField.isEnabled = false
+        amountInput.text = viewModel.amount
+        amountInput.placeholderText = viewModel.title
+        amountInput.isEnabled = false
     }
 
     func bind(viewModel: WalletNewFormDetailsViewModel) {
-        amountField.text = viewModel.details
-        assetLabel.text = viewModel.title
-        amountField.isEnabled = false
+        amountInput.text = viewModel.details
+        amountInput.placeholderText = viewModel.title
+        amountInput.isEnabled = false
     }
 
     func bind(viewModel: SoraTransactionAmountViewModel) {
-        amountField.text = viewModel.details
-        assetLabel.text = viewModel.title
-        amountField.isEnabled = false
+        amountInput.text = viewModel.details
+        amountInput.placeholderText = viewModel.title
+        amountInput.isEnabled = false
     }
 
     // MARK: Private
 
-    @IBAction private func actionControlDidChange() {
-        if keyboardIndicator.isActivated {
-            amountField.becomeFirstResponder()
-        } else {
-            amountField.resignFirstResponder()
-        }
-    }
-
     @IBAction private func actionTap(_ gestureRecognizer: UIGestureRecognizer) {
         if gestureRecognizer.state == .ended,
             borderedView.frame.contains(gestureRecognizer.location(in: borderedView)) {
-            amountField.becomeFirstResponder()
-        }
-    }
-
-    private func updateIndicatorState() {
-        let shouldHide: Bool
-
-        switch keyboardIndicatorMode {
-        case .never:
-            shouldHide = true
-        case .editing:
-            shouldHide = !amountField.isFirstResponder
-        case .always:
-            shouldHide = false
-        }
-
-        if !shouldHide {
-            keyboardIndicator.imageView.image = keyboardIndicatorIcon
-            keyboardIndicator.horizontalSpacing = keyboardIndicatorSpacing
-        } else {
-            keyboardIndicator.imageView.image = nil
-            keyboardIndicator.horizontalSpacing = 0
+            amountInput.becomeFirstResponder()
         }
     }
 }
 
 extension SoraAmountInputView: AmountInputViewModelObserver {
     func amountInputDidChange() {
-        amountField.text = inputViewModel?.displayAmount
+        amountInput.text = inputViewModel?.displayAmount
+        //cursor update?
     }
 }
 
-extension SoraAmountInputView: UITextFieldDelegate {
-    func textField(_ textField: UITextField,
-                   shouldChangeCharactersIn range: NSRange,
-                   replacementString string: String) -> Bool {
+extension SoraAmountInputView: SoraTextDelegate {
+    func soraTextField(_ textField: NeuTextField,
+                       shouldChangeCharactersIn range: NSRange,
+                       replacementString string: String) -> Bool {
 
         return inputViewModel?.didReceiveReplacement(string, for: range) ?? false
-    }
-
-    func textFieldDidBeginEditing(_ textField: UITextField) {
-        updateIndicatorState()
-        keyboardIndicator.activate(animated: true)
-    }
-
-    func textFieldDidEndEditing(_ textField: UITextField) {
-        updateIndicatorState()
-        keyboardIndicator.deactivate(animated: true)
     }
 }

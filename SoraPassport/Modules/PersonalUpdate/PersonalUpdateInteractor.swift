@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 
@@ -23,7 +18,6 @@ extension PersonalUpdateInteractor: PersonalUpdateInteractorInputProtocol {
 
     func update(username: String?) {
         settingsManager.selectedAccount = settingsManager.selectedAccount?.replacingUsername(username ?? "")
-        settingsManager.userName = username
         presenter?.didUpdate(username: username)
     }
 }

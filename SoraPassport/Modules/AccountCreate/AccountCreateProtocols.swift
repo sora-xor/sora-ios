@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import IrohaCrypto
 import SoraFoundation
 
@@ -14,7 +9,7 @@ protocol AccountCreatePresenterProtocol: class {
     func setup()
     func activateInfo()
     func proceed()
-    func copy()
+    func share()
 }
 
 protocol AccountCreateInteractorInputProtocol: class {

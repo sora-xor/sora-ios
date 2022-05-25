@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import Starscream
 
@@ -331,6 +326,7 @@ extension WebSocketEngine {
                                    params: params)
 
             data = try jsonEncoder.encode(info)
+            logger.debug("JSONRPCInfo: \(info)")
         } else {
             let info = JSONRPCInfo(identifier: requestId,
                                    jsonrpc: version,
@@ -338,6 +334,7 @@ extension WebSocketEngine {
                                    params: [String]())
 
             data = try jsonEncoder.encode(info)
+            logger.debug("JSONRPCInfo: \(info)")
         }
 
         let handler: JSONRPCResponseHandling?

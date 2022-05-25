@@ -1,12 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
-protocol WalletTransactionDetailsDefining: WalletFormDefining {
+protocol WalletTransactionDetailsDefining: WalletSoraFormDefining {
     func defineViewForAccountViewModel(_ viewModel: WalletAccountViewModel) -> WalletFormItemView?
     func defineViewForTransactionsViewModel(_ viewModel: WalletTransactionsViewModel) -> WalletFormItemView?
     func defineViewForHeader(_ viewModel: SoraTransactionHeaderViewModel) -> WalletFormItemView?
@@ -28,6 +23,15 @@ final class WalletTransactionDetailsDefinition {
 }
 
 extension WalletTransactionDetailsDefinition: WalletTransactionDetailsDefining {
+    func defineViewForAddLiquidityViewModel(_ model: AddLiquidityViewModel) -> WalletFormItemView? {
+        return nil
+    }
+    
+   
+    func defineViewForSwapConfirmationHeaderViewModel(_ model: SoraSwapHeaderViewModel) -> WalletFormItemView? {
+        return nil
+    }
+
     func defineViewForAccountViewModel(_ viewModel: WalletAccountViewModel) -> WalletFormItemView? {
         guard let accountView = R.nib.walletAccountView(owner: nil) else {
             return nil
@@ -54,6 +58,14 @@ extension WalletTransactionDetailsDefinition: WalletTransactionDetailsDefining {
         return view
     }
 
+    func  defineViewForSoraTokenViewModel(_ viewModel: WalletTokenViewModel) -> WalletFormItemView? {
+        let view = R.nib.transactionDetailsHeaderView.firstView(owner: nil)!
+
+        view.bind(viewModel: viewModel)
+
+        return view
+    }
+
     func defineViewForStatus(_ viewModel: SoraTransactionStatusViewModel) -> WalletFormItemView? {
         let view = R.nib.transactionDetailsStatusView.firstView(owner: nil)!
 
@@ -63,7 +75,7 @@ extension WalletTransactionDetailsDefinition: WalletTransactionDetailsDefining {
     }
 
     func defineViewForSoraReceiverViewModel(_ model: WalletSoraReceiverViewModel) -> WalletFormItemView? {
-        let view = R.nib.soraReceiverView.firstView(owner: nil)!
+        let view = R.nib.soraDetailsCopyView.firstView(owner: nil)!
         view.bind(viewModel: model)
         return view
     }
@@ -83,6 +95,7 @@ extension WalletTransactionDetailsDefinition: WalletTransactionDetailsDefining {
 
         return view
     }
+    
 }
 
 struct WalletTxDetailsDefinitionFactory: WalletFormDefinitionFactoryProtocol {

@@ -1,25 +1,20 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import FearlessUtils
 import SoraKeystore
 
-struct WalletTransferViewModelFactory {
+final class WalletTransferViewModelFactory {
 
     weak var commandFactory: WalletCommandFactoryProtocol?
 
     private let iconGenerator = PolkadotIconGenerator()
     let assets: [WalletAsset]
     let assetManager: AssetManagerProtocol
-    let amountFormatterFactory: NumberFormatterFactoryProtocol
+    let amountFormatterFactory: AmountFormatterFactoryProtocol
 
     init(assets: [WalletAsset],
          assetManager: AssetManagerProtocol,
-         amountFormatterFactory: NumberFormatterFactoryProtocol) {
+         amountFormatterFactory: AmountFormatterFactoryProtocol) {
         self.assets = assets
         self.assetManager = assetManager
         self.amountFormatterFactory = amountFormatterFactory
@@ -41,12 +36,12 @@ extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
         let command = SendToContactCommand(nextAction: {
             UIPasteboard.general.string = payload.receiverName
             let success = ModalAlertFactory.createSuccessAlert(R.string.localizable.commonCopied(preferredLanguages: locale.rLanguages))
-            try? commandFactory?.preparePresentationCommand(for: success).execute()
+            try? self.commandFactory?.preparePresentationCommand(for: success).execute()
         })
 
         return WalletSoraReceiverViewModel(text: payload.receiverName,
                                            icon: icon,
-                                           title: R.string.localizable.transactionReceiverTitle(preferredLanguages: locale.rLanguages),
+                                           title: R.string.localizable.commonRecipient(preferredLanguages: locale.rLanguages),
                                            command: command)
 
     }
@@ -68,7 +63,7 @@ extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
         title =  "\(asset.symbol)"
         subtitle = asset.identifier
 
-        let amountFormatter = amountFormatterFactory.createDisplayFormatter(for: asset)
+        let amountFormatter = amountFormatterFactory.createDisplayFormatter(for: asset, maxPrecision: 8)
 
         if let balanceData = inputState.balance,
            let formattedBalance = amountFormatter.value(for: locale)
@@ -87,7 +82,7 @@ extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
         }
 
         return WalletTokenViewModel(state: selectedAssetState,
-                                    header: "",
+                                    header: asset.platform?.value(for: locale) ?? "",
                                     title: title,
                                     subtitle: subtitle,
                                     details: details,
@@ -117,7 +112,7 @@ extension WalletTransferViewModelFactory: TransferViewModelFactoryOverriding {
     func createAccessoryViewModel(_ inputState: TransferInputState,
                                   payload: TransferPayload?,
                                   locale: Locale) throws -> AccessoryViewModelProtocol? {
-        let action = R.string.localizable.transactionContinue(preferredLanguages: locale.rLanguages)
+        let action = R.string.localizable.transactionContinue(preferredLanguages: locale.rLanguages).uppercased()
         return AccessoryViewModel(title: "", action: action)
     }
 }

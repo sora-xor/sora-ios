@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
@@ -10,21 +5,21 @@ import SoraFoundation
 final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable {
 
     private(set) var settingsManager: SettingsManagerProtocol
-
     private(set) var localizationManager: LocalizationManagerProtocol
+    private(set) var disclaimerViewFactory: DisclaimerViewFactoryProtocol
 
     init(settingsManager: SettingsManagerProtocol,
-         localizationManager: LocalizationManagerProtocol) {
+         localizationManager: LocalizationManagerProtocol,
+         disclaimerViewFactory: DisclaimerViewFactoryProtocol
+    ) {
         self.settingsManager = settingsManager
         self.localizationManager = localizationManager
+        self.disclaimerViewFactory = disclaimerViewFactory
     }
 
     func showPersonalDetailsView(from view: ProfileViewProtocol?) {
-        guard let personalView = PersonalUpdateViewFactory.createView() else {
-            return
-        }
-
-        if let navigationController = view?.controller.navigationController {
+        if let personalView = UsernameSetupViewFactory.createViewForEditing(),
+           let navigationController = view?.controller.navigationController {
             personalView.controller.hidesBottomBarWhenPushed = true
             navigationController.pushViewController(personalView.controller, animated: true)
         }
@@ -108,6 +103,17 @@ final class ProfileWireframe: ProfileWireframeProtocol, AuthorizationPresentable
         if let navigationController = view?.controller.navigationController {
             aboutView.controller.hidesBottomBarWhenPushed = true
             navigationController.pushViewController(aboutView.controller, animated: true)
+        }
+    }
+
+    func showDisclaimer(from view: ProfileViewProtocol?) {
+        guard let disclaimerView = disclaimerViewFactory.createView() else {
+            return
+        }
+
+        if let navigationController = view?.controller.navigationController {
+            disclaimerView.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(disclaimerView.controller, animated: true)
         }
     }
 

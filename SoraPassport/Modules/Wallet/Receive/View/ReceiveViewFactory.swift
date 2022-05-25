@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -43,6 +38,8 @@ final class ReceiveViewFactory: ReceiveViewFactoryProtocol {
         receiveView.accountView.iconImage = icon
         receiveView.accountView.subtitleLabel?.lineBreakMode = .byTruncatingMiddle
         receiveView.accountView.titleLabel?.lineBreakMode = .byTruncatingMiddle
+        receiveView.accountView.titleLabel?.font = UIFont.styled(for: .title1).withSize(15)
+        receiveView.accountView.subtitleLabel?.font = UIFont.styled(for: .paragraph3)
 
         let locale = localizationManager.selectedLocale
 

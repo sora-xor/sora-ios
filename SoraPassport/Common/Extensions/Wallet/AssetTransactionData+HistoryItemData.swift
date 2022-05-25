@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import BigInt
@@ -25,6 +20,12 @@ extension AssetTransactionData {
                 asset: asset,
                 addressFactory: addressFactory
             )
+        } else if item.callPath.isSwap {
+            return createLocalSwap(
+                from: item,
+                address: address,
+                asset: asset
+            )
         } else {
             return createLocalExtrinsic(
                 from: item,
@@ -34,6 +35,63 @@ extension AssetTransactionData {
                 addressFactory: addressFactory
             )
         }
+        
+        // TODO: add other types of transactions
+    }
+
+    private static func createLocalSwap(
+        from item: TransactionHistoryItem,
+        address: String,
+        asset: WalletAsset
+    ) -> AssetTransactionData  {
+
+        let swap = try? JSONDecoder.scaleCompatible().decode(RuntimeCall<SwapCall>.self, from: item.call).args
+        let sourceType: UInt? = swap?.liquiditySourceType.first as? UInt
+        let marketType: LiquiditySourceType = LiquiditySourceType(networkValue: sourceType)
+        let amountStruct = swap?.amount.values.first
+        let desired = amountStruct?.desired ?? 0
+        let slip = amountStruct?.slip ?? 0
+
+        let amountDecimal = Decimal.fromSubstrateAmount(slip, precision: asset.precision) ?? .zero
+        let fromAmountDecimal = Decimal.fromSubstrateAmount(desired, precision: asset.precision) ?? .zero
+
+        let feeDecimal: Decimal = {
+            guard let feeValue = BigUInt(item.fee) else {
+                return Decimal(string: item.fee) ?? .zero
+            }
+
+            return Decimal.fromSubstrateAmount(feeValue, precision: asset.precision) ?? .zero
+        }()
+        let fee = AssetTransactionFee(
+            identifier: asset.identifier,
+            assetId: asset.identifier,
+            amount: AmountDecimal(value: feeDecimal),
+            context: nil
+        )
+
+        let lpFeeDecimal: Decimal = .zero
+        let lpFee = AssetTransactionFee(
+            identifier: asset.identifier,
+            assetId: asset.identifier,
+            amount: AmountDecimal(value: lpFeeDecimal),
+            context: ["type": TransactionType.swap.rawValue]
+        )
+
+        return AssetTransactionData(
+            transactionId: item.txHash,
+            status: item.status.walletValue,
+            assetId: swap?.outputAssetId ?? "?",
+            peerId: swap?.inputAssetId ?? "??",
+            peerFirstName: nil,
+            peerLastName: nil,
+            peerName: marketType.rawValue,
+            details: fromAmountDecimal.description,
+            amount: AmountDecimal(value: amountDecimal),
+            fees: [fee, lpFee],
+            timestamp: item.timestamp,
+            type: TransactionType.swap.rawValue,
+            reason: nil,
+            context: nil)
     }
 
     private static func createLocalTransfer(
@@ -119,6 +177,7 @@ extension AssetTransactionData {
             type: networkType
         )
 
+        let cfff = try? JSONDecoder.scaleCompatible().decode(RuntimeCall<SwapCall>.self, from: item.call)
         let peerId = accountId?.toHex() ?? address
 
         return AssetTransactionData(

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraKeystore
 import SoraFoundation
@@ -19,15 +14,13 @@ final class AccountImportViewController: UIViewController {
     @IBOutlet private var scrollView: UIScrollView!
     @IBOutlet private var stackView: UIStackView!
 
-    @IBOutlet private var usernameView: UIView!
-    @IBOutlet private var usernameTextField: AnimatedTextField!
     @IBOutlet private var usernameLabel: UILabel!
+    @IBOutlet private var privacyLabel: UILabel!
 
-    @IBOutlet private var textPlaceholderLabel: UILabel!
-    @IBOutlet private var textView: UITextView!
-    @IBOutlet private var nextButton: SoraButton!
+    @IBOutlet private var usernameTextField: NeuTextField!
+    @IBOutlet private var mnemonicTextView: NeuTextView!
 
-    @IBOutlet private var textContainerView: UIView!
+    @IBOutlet private var nextButton: NeumorphismButton!
 
     @IBOutlet private var warningView: UIView!
     @IBOutlet private var warningLabel: UILabel!
@@ -36,6 +29,13 @@ final class AccountImportViewController: UIViewController {
     private var usernameViewModel: InputViewModelProtocol?
     private var passwordViewModel: InputViewModelProtocol?
     private var sourceViewModel: InputViewModelProtocol?
+
+    lazy var termDecorator: AttributedStringDecoratorProtocol = {
+        CompoundAttributedStringDecorator.legal(for: localizationManager?.selectedLocale)
+    }()
+
+    var legalData = LegalData(termsUrl: ApplicationConfig.shared.termsURL,
+                          privacyPolicyUrl: ApplicationConfig.shared.privacyPolicyURL)
 
     var keyboardHandler: KeyboardHandler?
 
@@ -54,7 +54,6 @@ final class AccountImportViewController: UIViewController {
 
         configure()
         setupLocalization()
-        updateTextViewPlaceholder()
 
         presenter.setup()
     }
@@ -64,7 +63,7 @@ final class AccountImportViewController: UIViewController {
 
         if keyboardHandler == nil {
             setupKeyboardHandler()
-            textView.becomeFirstResponder()
+            mnemonicTextView.becomeFirstResponder()
         }
 
     }
@@ -76,34 +75,53 @@ final class AccountImportViewController: UIViewController {
     }
 
     private func configure() {
-        stackView.arrangedSubviews.forEach { $0.backgroundColor = R.color.brandWhite() }
+        stackView.arrangedSubviews.forEach { $0.backgroundColor = R.color.baseBackground() }
 
-        textView.tintColor = R.color.baseContentPrimary()
-
-        usernameTextField.textField.returnKeyType = .done
-        usernameTextField.textField.textContentType = .nickname
-        usernameTextField.textField.autocapitalizationType = .none
-        usernameTextField.textField.autocorrectionType = .no
-        usernameTextField.textField.spellCheckingType = .no
-        usernameTextField.textField.font = UIFont.styled(for: .paragraph2)
-        usernameTextField.textField.textAlignment = .right
+        usernameTextField.returnKeyType = .done
+        usernameTextField.textContentType = .nickname
+        usernameTextField.autocapitalizationType = .none
+        usernameTextField.autocorrectionType = .no
+        usernameTextField.spellCheckingType = .no
+        usernameTextField.keyboardType = .alphabet
+        usernameTextField.delegate = self
         usernameTextField.addTarget(self, action: #selector(actionNameTextFieldChanged), for: .editingChanged)
 
-        usernameTextField.delegate = self
+        mnemonicTextView.delegate = self
 
+        privacyLabel.numberOfLines = 0
+        privacyLabel.textAlignment = .center
+        privacyLabel.font = UIFont.styled(for: .paragraph2)
+        privacyLabel.textColor = R.color.baseContentPrimary()
+        privacyLabel.attributedText = privacyTitle
+        privacyLabel.isUserInteractionEnabled = true
+        privacyLabel.addGestureRecognizer(tapGestureRecognizer)
+
+    }
+
+    var privacyTitle: NSAttributedString? {
+        let languages = localizationManager?.preferredLocalizations
+
+        let baseText = R.string.localizable
+            .tutorialTermsAndConditionsRecovery(preferredLanguages: languages)
+        let spl = baseText.nonEmptyComponents(separatedBy: String.lokalizableSeparator)
+        let result = spl.reduce("", {$0+$1})
+        let attributedText = result.decoratedWith([:], adding: [.foregroundColor: R.color.baseContentQuaternary()!, .underlineStyle: NSUnderlineStyle.single.rawValue ], to: [spl[1], spl[3]])
+
+        return attributedText.aligned(.center)
     }
 
     private func setupLocalization() {
         let locale = localizationManager?.selectedLocale ?? Locale.current
 
         title = R.string.localizable
-            .recoveryTitleV2(preferredLanguages: locale.rLanguages)
+            .recoveryTitleV2(preferredLanguages: locale.rLanguages).capitalized
 
-        usernameLabel.text = R.string.localizable.personalInfoUsernameV1(preferredLanguages: locale.rLanguages)
+        usernameTextField.placeholderText = R.string.localizable.personalInfoUsernameV1(preferredLanguages: locale.rLanguages)
 
-        nextButton.title = R.string.localizable
-            .transactionContinue(preferredLanguages: locale.rLanguages)
-        nextButton.invalidateLayout()
+        nextButton.setTitle(R.string.localizable.transactionContinue(preferredLanguages: locale.rLanguages), for: .normal)
+        nextButton.color = R.color.neumorphism.tint()!
+        nextButton.font = UIFont.styled(for: .button)
+        nextButton.removeNeumorphismShadows()
     }
 
     private func updateNextButton() {
@@ -114,15 +132,11 @@ final class AccountImportViewController: UIViewController {
         }
 
         if let viewModel = sourceViewModel, viewModel.inputHandler.required {
-            let textViewActive = !textContainerView.isHidden && !textView.text.isEmpty
+            let textViewActive = !mnemonicTextView.isHidden && !(mnemonicTextView.text ?? "").isEmpty
             isEnabled = isEnabled && textViewActive
         }
 
         nextButton?.isEnabled = isEnabled
-    }
-
-    private func updateTextViewPlaceholder() {
-        textPlaceholderLabel.isHidden = !textView.text.isEmpty
     }
 
     @IBAction private func actionNameTextFieldChanged() {
@@ -136,6 +150,22 @@ final class AccountImportViewController: UIViewController {
     @IBAction private func actionNext() {
         presenter.proceed()
     }
+
+    @IBAction func actionTerms(_ gestureRecognizer: UITapGestureRecognizer) {
+        if gestureRecognizer.state == .ended {
+            let location = gestureRecognizer.location(in: privacyLabel.superview)
+
+            if location.x < privacyLabel.center.x {
+                presenter.activateURL(legalData.termsUrl)
+            } else {
+                presenter.activateURL(legalData.privacyPolicyUrl)
+            }
+        }
+    }
+
+    private lazy var tapGestureRecognizer: UITapGestureRecognizer = {
+        UITapGestureRecognizer(target: self, action: #selector(actionTerms(_:)))
+    }()
 }
 
 extension AccountImportViewController: AccountImportViewProtocol {
@@ -143,14 +173,14 @@ extension AccountImportViewController: AccountImportViewProtocol {
         switch type {
         case .mnemonic:
             passwordViewModel = nil
-            textContainerView.isHidden = false
+            mnemonicTextView.isHidden = false
 
         case .seed:
-            textContainerView.isHidden = false
+            mnemonicTextView.isHidden = false
 
         case .keystore:
-            textContainerView.isHidden = true
-            textView.text = nil
+            mnemonicTextView.isHidden = true
+            mnemonicTextView.text = nil
         }
 
         warningView.isHidden = true
@@ -159,10 +189,9 @@ extension AccountImportViewController: AccountImportViewProtocol {
     func setSource(viewModel: InputViewModelProtocol) {
         sourceViewModel = viewModel
 
-        textPlaceholderLabel.text = viewModel.placeholder
-        textView.text = viewModel.inputHandler.value
+        mnemonicTextView.placeholderText = viewModel.placeholder
+        mnemonicTextView.text = viewModel.inputHandler.value
 
-        updateTextViewPlaceholder()
         updateNextButton()
     }
 
@@ -190,39 +219,11 @@ extension AccountImportViewController: AccountImportViewProtocol {
     }
 }
 
-extension AccountImportViewController: UITextFieldDelegate {
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        textField.resignFirstResponder()
+extension AccountImportViewController: SoraTextDelegate {
 
-        return false
-    }
-
-    func textField(_ textField: UITextField,
-                   shouldChangeCharactersIn range: NSRange,
-                   replacementString string: String) -> Bool {
-        guard let currentViewModel = derivationPathModel else {
-            return true
-        }
-
-        let shouldApply = currentViewModel.inputHandler.didReceiveReplacement(string, for: range)
-
-        if !shouldApply, textField.text != currentViewModel.inputHandler.value {
-            textField.text = currentViewModel.inputHandler.value
-        }
-
-        return shouldApply
-    }
-}
-
-extension AccountImportViewController: AnimatedTextFieldDelegate {
-    func animatedTextFieldShouldReturn(_ textField: AnimatedTextField) -> Bool {
-        textField.resignFirstResponder()
-        return false
-    }
-
-    func animatedTextField(_ textField: AnimatedTextField,
-                           shouldChangeCharactersIn range: NSRange,
-                           replacementString string: String) -> Bool {
+    func soraTextField(_ textField: NeuTextField,
+                       shouldChangeCharactersIn range: NSRange,
+                       replacementString string: String) -> Bool {
         let viewModel: InputViewModelProtocol?
 
         if textField === usernameTextField {
@@ -243,21 +244,24 @@ extension AccountImportViewController: AnimatedTextFieldDelegate {
 
         return shouldApply
     }
-}
 
-extension AccountImportViewController: UITextViewDelegate {
-    func textViewDidChange(_ textView: UITextView) {
+    func soraTextFieldShouldReturn(_ textField: NeuTextField) -> Bool {
+        textField.resignFirstResponder()
+
+        return false
+    }
+
+    func soraTextViewDidChange(_ textView: NeuTextView) {
         if textView.text != sourceViewModel?.inputHandler.value {
             textView.text = sourceViewModel?.inputHandler.value
         }
 
-        updateTextViewPlaceholder()
         updateNextButton()
     }
 
-    func textView(_ textView: UITextView,
-                  shouldChangeTextIn range: NSRange,
-                  replacementText text: String) -> Bool {
+    func soraTextView(_ textView: NeuTextView,
+                      shouldChangeTextIn range: NSRange,
+                      replacementText text: String) -> Bool {
         if text == String.returnKey {
             textView.resignFirstResponder()
             return false
@@ -290,10 +294,10 @@ extension AccountImportViewController: KeyboardAdoptable {
         if contentInsets.bottom > 0.0 {
             let targetView: UIView?
 
-            if textView.isFirstResponder {
-                targetView = textView
+            if mnemonicTextView.isFirstResponder {
+                targetView = mnemonicTextView
             } else if usernameTextField.isFirstResponder {
-                targetView = usernameView
+                targetView = usernameTextField
             } else {
                 targetView = nil
             }

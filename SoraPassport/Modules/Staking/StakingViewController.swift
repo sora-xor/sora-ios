@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Then
 import Anchorage
@@ -24,6 +19,8 @@ final class StakingViewController: UIViewController {
             $0.addTarget(self, action: #selector(activateLink), for: .touchUpInside)
         }
     }()
+
+    private var promoView: ComingSoonView?
 
     private var viewModel: ComingSoonViewModel! {
         didSet {
@@ -47,37 +44,21 @@ final class StakingViewController: UIViewController {
 
     private func configure() {
 
-        let scrollView = UIScrollView().then {
-            view.addSubview($0)
-            $0.edgeAnchors == view.safeAreaLayoutGuide.edgeAnchors
-        }
-
         let container = UIView().then {
-            scrollView.addSubview($0)
-            $0.edgeAnchors == scrollView.edgeAnchors
-            $0.widthAnchor == scrollView.widthAnchor
+            view.addSubview($0)
+            $0.topAnchor == view.safeAreaLayoutGuide.topAnchor
+            $0.leadingAnchor == view.safeAreaLayoutGuide.leadingAnchor
+            $0.trailingAnchor == view.safeAreaLayoutGuide.trailingAnchor
+            $0.bottomAnchor == view.safeAreaLayoutGuide.bottomAnchor
         }
 
-        createStackView().do {
-            container.addSubview($0)
-            $0.edgeAnchors.verticalAnchors == container.edgeAnchors.verticalAnchors + 24
-            $0.edgeAnchors.horizontalAnchors == container.edgeAnchors.horizontalAnchors + 16
+        guard let soon = UINib(resource: R.nib.comingSoonView).instantiate(withOwner: nil).first as? ComingSoonView else {
+            return
         }
-    }
-
-    private func createStackView() -> UIView {
-
-        let stackView = UIStackView(arrangedSubviews: [
-            comingSoonView.container,
-            descriptionView.container,
-            UIView.empty(height: 24),
-            linkView
-        ]).then {
-            $0.axis = .vertical
-            $0.spacing = 0
-        }
-
-        return stackView
+        container.addSubview(soon)
+        soon.edgeAnchors.verticalAnchors == container.edgeAnchors.verticalAnchors
+        soon.edgeAnchors.horizontalAnchors == container.edgeAnchors.horizontalAnchors
+        promoView = soon
     }
 
     private func reloadData() {
@@ -95,6 +76,14 @@ final class StakingViewController: UIViewController {
             $0.iconImage = viewModel.linkViewModel?.image
             $0.titleAttributedText = viewModel.linkViewModel?.title
             $0.linkTitleAttributedText = viewModel.linkViewModel?.linkTitle
+        }
+
+        promoView?.titleText = viewModel.comingSoonText
+        promoView?.text = viewModel.comingSoonDescriptionText
+        promoView?.image = viewModel.image
+        promoView?.linkTitle = self.viewModel.linkViewModel?.title ?? ""
+        promoView?.tapClosure = {
+            self.presenter.openLink(url: self.viewModel.linkViewModel?.link)
         }
     }
 

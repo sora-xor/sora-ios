@@ -1,14 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import CommonWallet
 import SoraUI
 
 final class WalletSingleActionAccessoryView: UIView {
-    @IBOutlet private(set) var actionButton: SoraButton!
+    @IBOutlet private(set) var actionButton: NeumorphismButton!
 }
 
 extension WalletSingleActionAccessoryView: CommonWallet.AccessoryViewProtocol {
@@ -28,7 +23,7 @@ extension WalletSingleActionAccessoryView: CommonWallet.AccessoryViewProtocol {
     var extendsUnderSafeArea: Bool { true }
 
     func bind(viewModel: AccessoryViewModelProtocol) {
-        actionButton.imageWithTitleView?.title = viewModel.action
-        actionButton.invalidateLayout()
+        actionButton.setTitle(viewModel.action, for: .normal)
+//        actionButton.color
     }
 }

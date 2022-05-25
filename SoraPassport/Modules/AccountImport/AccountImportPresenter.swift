@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -337,6 +332,14 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
                                                        cryptoType: selectedCryptoType)
 
             interactor.importAccountWithKeystore(request: request)
+        }
+    }
+
+    func activateURL(_ url: URL) {
+        if let view = view {
+            wireframe.showWeb(url: url,
+                              from: view,
+                              style: .modal)
         }
     }
 }

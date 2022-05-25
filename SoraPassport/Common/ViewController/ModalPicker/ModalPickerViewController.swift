@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 import SoraFoundation
@@ -30,7 +25,7 @@ enum ModalPickerViewAction {
     case add
 }
 
-class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>: UIViewController,
+class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>: UIViewController, UISearchResultsUpdating,
     ModalViewProtocol, UITableViewDelegate, UITableViewDataSource where T == C.Model {
 
     @IBOutlet private var headerView: ImageWithTitleView!
@@ -49,11 +44,17 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
     var cellIdentifier: String = "modalPickerCellId"
     var selectedIndex: Int = 0
 
+    var searchController: UISearchController = UISearchController()
+
     var hasCloseItem: Bool = false
     var hasDoneItem: Bool = false
     var allowsSelection: Bool = true
 
     var viewModels: [LocalizableResource<T>] = []
+    private var filteredViewModels: [LocalizableResource<T>] = []
+    private var models: [LocalizableResource<T>] {
+        searchController.isActive ? filteredViewModels : viewModels
+    }
 
     weak var delegate: ModalPickerViewControllerDelegate?
     weak var presenter: ModalPresenterProtocol?
@@ -78,10 +79,16 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
         tableView.isEditing = self.isEditing
         headerHeightConstraint.constant = headerHeight
 
+        searchController.searchResultsUpdater = self
+        searchController.hidesNavigationBarDuringPresentation = false
+        self.extendedLayoutIncludesOpaqueBars = true
+        self.navigationItem.searchController = searchController
+
         if let icon = icon {
             headerView.iconImage = icon
         } else {
             headerView.spacingBetweenLabelAndIcon = 0
+            headerView.isHidden = true
         }
 
         switch actionType {
@@ -90,6 +97,8 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
         default:
             break
         }
+
+        configureSearch()
 
         if hasCloseItem {
             centerHeader()
@@ -103,6 +112,8 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
     private func setupLocalization() {
         let locale = localizationManager?.selectedLocale ?? Locale.current
         headerView.title = localizedTitle?.value(for: locale)
+        headerView.titleFont = UIFont.styled(for: .title1)
+        searchController.searchBar.placeholder = R.string.localizable.search(preferredLanguages: locale.rLanguages)
     }
 
     private func configureAddAction() {
@@ -129,6 +140,17 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
                                              constant: -20.0).isActive = true
     }
 
+    private func configureSearch() {
+        let bar = searchController.searchBar
+        bar.backgroundColor = .clear
+        bar.clearBackgroundColor()
+        bar.changePlaceholderColor(R.color.neumorphism.textDark()!)
+        bar.textField?.textColor = R.color.neumorphism.textDark()!
+        bar.textField?.font = UIFont.styled(for: .paragraph2)
+        bar.setLeftImage(R.image.iconSearch()!, tintColor: R.color.neumorphism.navBarIcon()!)
+        bar.showsCancelButton = false
+    }
+
     private func configureCloseItem() {
         let closeButton = RoundedButton()
         closeButton.translatesAutoresizingMaskIntoConstraints = false
@@ -138,7 +160,7 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
         closeButton.changesContentOpacityWhenHighlighted = true
         closeButton.imageWithTitleView?.spacingBetweenLabelAndIcon = 0.0
         closeButton.contentInsets = UIEdgeInsets(top: 20.0, left: 20.0, bottom: 20.0, right: 20.0)
-        closeButton.imageWithTitleView?.iconImage = R.image.iconClose()
+        closeButton.imageWithTitleView?.iconImage = R.image.close()
 
         headerBackgroundView.addSubview(closeButton)
 
@@ -170,11 +192,22 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
             newCell.checkmarked = true
         }
 
-        selectedIndex = indexPath.row
+        selectedIndex = realIndex(for: indexPath.row)
 
-        self.dismiss(animated: true) { [weak self] in
-            self?.delegate?.modalPickerDidSelectModelAtIndex(indexPath.row, context: self?.context)
+        self.dismiss(animated: true) { [weak self, selectedIndex] in
+            self?.delegate?.modalPickerDidSelectModelAtIndex(selectedIndex, context: self?.context)
         }
+    }
+
+    func realIndex(for selectedIndex: Int) -> Int {
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+        // swiftlint:disable force_cast
+        let selected = models[selectedIndex].value(for: locale) as! LoadingIconWithTitleViewModel
+        let realIndex = viewModels.firstIndex(where: {
+            $0.value(for: locale) as! LoadingIconWithTitleViewModel == selected
+        })
+        // swiftlint:enable force_cast
+        return realIndex ?? 0
     }
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
@@ -186,6 +219,7 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
     }
 
     func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
+        if searchController.isActive { return false }
         return indexPath.row != 0
     }
 
@@ -212,7 +246,7 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return viewModels.count
+        return models.count
     }
 
     // swiftlint:disable force_cast
@@ -220,13 +254,13 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
         var cell = tableView.dequeueReusableCell(withIdentifier: cellIdentifier, for: indexPath) as! C
 
         let locale = localizationManager?.selectedLocale ?? Locale.current
-        let model = viewModels[indexPath.row].value(for: locale)
+        let model = models[indexPath.row].value(for: locale)
         cell.bind(model: model)
         cell.checkmarked = (selectedIndex == indexPath.row)
         cell.showsReorderControl = true
         cell.shouldIndentWhileEditing = false
         if let toggle = cell.toggle {
-            toggle.tag = indexPath.row
+            toggle.tag = realIndex(for: indexPath.row)
             toggle.addTarget(self, action: #selector(handleToggle), for: .valueChanged)
         }
         return cell
@@ -254,11 +288,30 @@ class ModalPickerViewController<C: UITableViewCell & ModalPickerCellProtocol, T>
     @objc private func handleClose() {
         presenter?.hide(view: self, animated: true)
     }
-    
+
     @objc private func handleDone() {
         self.dismiss(animated: true, completion: {[weak self] in
             self?.delegate?.modalPickerDone(context: nil)
         })
+    }
+
+    func updateSearchResults(for searchController: UISearchController) {
+        if let text = searchController.searchBar.text {
+            let locale = localizationManager?.selectedLocale ?? Locale.current
+            let result = text.isEmpty ? viewModels : viewModels.filter {
+
+                // swiftlint:disable force_cast
+                let model = $0.value(for: locale) as! LoadingIconWithTitleViewModel
+                // swiftlint:enable force_cast
+
+                return model.title.localizedCaseInsensitiveContains(text) || (model.subtitle ?? "").localizedCaseInsensitiveContains(text)
+            }
+            print(result.map {$0.value(for: locale)})
+            filteredViewModels = result
+            tableView.reloadData()
+            reloadEmptyState(animated: false)
+        }
+
     }
 }
 
@@ -275,5 +328,67 @@ extension ModalPickerViewController: Localizable {
 extension ModalPickerViewController: ModalPresenterDelegate {
     func presenterDidHide(_ presenter: ModalPresenterProtocol) {
         delegate?.modalPickerDidCancel(context: context)
+    }
+}
+
+extension ModalPickerViewController: EmptyStateDelegate {
+    var configurationDataSource: EmptyStateDataSource { WalletEmptyStateDataSource.searchAssets
+    }
+
+    var shouldDisplayEmptyState: Bool {
+        guard filteredViewModels.isEmpty  else {
+            return false
+        }
+
+        return true
+    }
+}
+
+extension ModalPickerViewController: EmptyStateDataSource {
+    
+    var viewForEmptyState: UIView? {
+        return nil
+    }
+
+    var contentViewForEmptyState: UIView {
+        return view
+    }
+
+    var imageForEmptyState: UIImage? {
+        return configurationDataSource.imageForEmptyState
+    }
+
+    var titleForEmptyState: String? {
+        return configurationDataSource.titleForEmptyState
+    }
+
+    var titleColorForEmptyState: UIColor? {
+        return configurationDataSource.titleColorForEmptyState
+    }
+
+    var titleFontForEmptyState: UIFont? {
+        return configurationDataSource.titleFontForEmptyState
+    }
+
+    var verticalSpacingForEmptyState: CGFloat? {
+        return configurationDataSource.verticalSpacingForEmptyState
+    }
+
+    var trimStrategyForEmptyState: EmptyStateView.TrimStrategy {
+        return configurationDataSource.trimStrategyForEmptyState ?? .none
+    }
+}
+
+extension ModalPickerViewController: EmptyStateViewOwnerProtocol {
+    var emptyStateDelegate: EmptyStateDelegate {
+        return self
+    }
+
+    var emptyStateDataSource: EmptyStateDataSource {
+        return self
+    }
+
+    var displayInsetsForEmptyState: UIEdgeInsets {
+        return .zero
     }
 }

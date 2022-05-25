@@ -1,9 +1,5 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import UIKit
 
 final class ParliamentPresenter {
     weak var view: ParliamentViewProtocol?
@@ -21,9 +17,10 @@ extension ParliamentPresenter: ParliamentPresenterProtocol {
 
         let viewModel = ComingSoonViewModel(
             comingSoonText: R.string.localizable.comingSoon(preferredLanguages: languages).uppercased(),
-            comingSoonDescriptionText: R.string.localizable.parliamentComingSoon(preferredLanguages: languages),
-            linkViewModel: nil,
-            navigationButtonModel: navigationButtonModel
+            comingSoonDescriptionText: R.string.localizable.tutorialManyWorldDesc(preferredLanguages: languages),
+            linkViewModel: LinkViewModel(title: R.string.localizable.commonLearnMore(preferredLanguages: languages), link:  ApplicationConfig.shared.parliamentURL),
+            navigationButtonModel: navigationButtonModel,
+            image: R.image.promoParliament()
         )
 
         view?.didReceive(viewModel: viewModel)
@@ -31,6 +28,15 @@ extension ParliamentPresenter: ParliamentPresenterProtocol {
 
     func activateReferenda() {
         wireframe.showReferendaView(from: view)
+    }
+
+    func openLink(url: URL?) {
+        guard let view = view, let url = url,
+              UIApplication.shared.canOpenURL(url) else {
+            return
+        }
+
+        wireframe.showWeb(url: url, from: view, style: .automatic)
     }
 }
 

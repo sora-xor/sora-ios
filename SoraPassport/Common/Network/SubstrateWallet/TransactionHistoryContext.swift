@@ -1,13 +1,23 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 enum TransactionContextKeys {
     static let extrinsicHash = "extrinsicHash"
     static let era = "era"
+
+    static let transactionType: String = "transaction_type"
+    static let estimatedAmount: String = "estimatedAmount"
+    static let slippage: String = "possibleSlippage"
+    static let desire: String = "desiredOutput"
+    static let marketType: String = "marketType"
+    static let minMaxValue: String = "minMaxValue"
+    
+    //pools
+    static let shareOfPool: String = "shareOfPoo"
+    static let firstAssetAmount: String = "firstAssetAmount"
+    static let secondAssetAmount: String = "secondAssetAmount"
+    static let directExchangeRateValue: String = "directExchangeRateValue"
+    static let inversedExchangeRateValue: String = "inversedExchangeRateValue"
+    static let sbApy: String = "sbApy"
 }
 
 struct TransactionHistoryContext {

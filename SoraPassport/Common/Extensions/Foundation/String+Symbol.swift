@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 extension String {
@@ -26,5 +21,13 @@ extension String {
         return "−"
     }
 
+    static var space: String { " " }
+
     static var returnKey: String { "\n" }
+
+    static var lokalizableSeparator: String { "%%" }
+
+    func nonEmptyComponents<T>(separatedBy separator: T) -> [String] where T: StringProtocol {
+        return self.components(separatedBy: separator).filter {!$0.isEmpty}
+    }
 }

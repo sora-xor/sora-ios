@@ -1,12 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CommonWallet
 import SoraFoundation
 import SoraUI
 import Foundation
+import UIKit
 
 
 final class InvisibleHeaderView: BaseOperationDefinitionHeaderView {
@@ -17,15 +13,9 @@ final class InvisibleHeaderView: BaseOperationDefinitionHeaderView {
 
 final class SoraAssetView: BaseSelectedAssetView, WalletFormBordering {
 
-    @IBOutlet private(set) var assetTitle: UILabel!
     @IBOutlet private(set) var assetLabel: UILabel!
+    @IBOutlet private(set) var assetNameLabel: UILabel!
     @IBOutlet private(set) var assetIcon: UIImageView!
-
-    @IBOutlet private(set) var assetIdTitle: UILabel!
-    @IBOutlet private(set) var assetIdLabel: GrayCopyButton!
-    @IBAction private func buttonTap() {
-        UIPasteboard.general.string = fullText
-    }
     private var fullText: String?
 
     @IBOutlet private(set) var balanceTitle: UILabel!
@@ -38,12 +28,13 @@ final class SoraAssetView: BaseSelectedAssetView, WalletFormBordering {
     var borderType: BorderType = .bottom
 
     override func awakeFromNib() {
-        self.assetTitle.font = UIFont.styled(for: .paragraph2)
-        self.assetLabel.font = UIFont.styled(for: .paragraph2)
-        self.assetIdTitle.font = UIFont.styled(for: .paragraph2)
-        self.balanceTitle.font = UIFont.styled(for: .paragraph2)
-        self.balanceLabel.font = UIFont.styled(for: .paragraph2)
+        self.assetLabel.font = UIFont.styled(for: .display1)
+        self.balanceTitle.font = UIFont.styled(for: .title1).withSize(15)
+        self.balanceLabel.font = UIFont.styled(for: .paragraph1, isBold: true).withSize(18)
+    }
 
+    func viewDidLayoutSubviews() {
+        super.inputViewController?.viewDidLayoutSubviews()
     }
 
     func bind(viewModel: AssetSelectionViewModelProtocol) {
@@ -52,17 +43,17 @@ final class SoraAssetView: BaseSelectedAssetView, WalletFormBordering {
             iconViewModel.loadImage { [weak self] (icon, _) in
                 self?.assetIcon.image = icon
             }
+            self.assetNameLabel.text = concreteViewModel.header
         } else {
             self.assetIcon.image = viewModel.icon
         }
         self.assetLabel.text = viewModel.title
-        self.assetIdLabel.title = viewModel.subtitle
+
         self.fullText = viewModel.subtitle
-        self.balanceLabel.text = viewModel.details
+        let amount = viewModel.details
 
         let locale = LocalizationManager.shared.selectedLocale
-
-        self.assetTitle.text = R.string.localizable.commonAsset(preferredLanguages: locale.rLanguages)
+        self.balanceLabel.attributedText = amount.prettyCurrency(baseFont: balanceLabel.font, locale: locale)
         self.balanceTitle.text = R.string.localizable.commonBalance(preferredLanguages: locale.rLanguages)
     }
 
@@ -72,37 +63,46 @@ final class SoraFeeView: BaseFeeView, WalletFormBordering {
     var borderType: BorderType = []
 
     func bind(viewModel: FeeViewModelProtocol) {
-        self.feeLabel.text = viewModel.details
         let locale = LocalizationManager.shared.selectedLocale
-        self.feeTitle.text = R.string.localizable.transactionSoranetFeeTitle(preferredLanguages: locale.rLanguages)
+        if titleLabel == nil {
+            let text = R.string.localizable.transactionSoranetFeeTitle(preferredLanguages: locale.rLanguages) + ": " + viewModel.details
+            let decor = text.decoratedWith([.font: UIFont.styled(for: .paragraph2)], adding: [.font: UIFont.styled(for: .paragraph2, isBold:true)], to: [viewModel.details])
+            feeLabel.attributedText = decor
+        } else {
+            feeLabel.text = viewModel.details
+            titleLabel?.text = viewModel.title
+        }
     }
 
     func bind(viewModel: SoraTransactionAmountViewModel) {
-        feeLabel.text = viewModel.details
-        feeTitle.text = viewModel.title
+        if titleLabel == nil {
+            feeLabel.text = viewModel.title + ": " + viewModel.details
+        } else {
+            feeLabel.text = viewModel.details
+            titleLabel?.text = viewModel.title
+        }
     }
 
-    @IBOutlet private(set) var feeTitle: UILabel!
     @IBOutlet private(set) var feeLabel: UILabel!
+    @IBOutlet private(set) var titleLabel: UILabel?
 
     override func awakeFromNib() {
-        self.feeTitle.font = UIFont.styled(for: .paragraph2)
-        self.feeLabel.font = UIFont.styled(for: .paragraph2)
-
-        self.feeTitle.text = R.string.localizable.transactionSoranetFeeTitle()
+        feeLabel.font = UIFont.styled(for: .paragraph2, isBold: true)
+        titleLabel?.font = UIFont.styled(for: .title1).withSize(15)
+        titleLabel?.text = R.string.localizable.transactionSoranetFeeTitle()
     }
-
 }
 
 final class SoraReceiverView: BaseReceiverView, WalletFormBordering {
     @IBOutlet private(set) var toTitle: UILabel!
-    @IBOutlet private(set) var toLabel: GrayCopyButton!
+    @IBOutlet private(set) var toLabel: UILabel!
+    @IBOutlet private(set) var copyImage: UIImageView!
+    @IBOutlet private(set) var copyButton: UIButton!
     @IBAction private func buttonTap() {
         if let command = command {
             try? command.execute()
         } else {
             UIPasteboard.general.string = fullText
-
         }
     }
 
@@ -113,13 +113,51 @@ final class SoraReceiverView: BaseReceiverView, WalletFormBordering {
     var borderType: BorderType = []
 
     override func awakeFromNib() {
-        self.toTitle.font = UIFont.styled(for: .paragraph2)
-        self.toTitle.text = R.string.localizable.transactionReceiverTitle()
+        let locale = LocalizationManager.shared.selectedLocale
+        toTitle.font = UIFont.styled(for: .title1).withSize(15)
+        toTitle.text = R.string.localizable.commonRecipient(preferredLanguages: locale.rLanguages)
+
+        copyImage.image = R.image.copyNeu()
+        copyButton.setTitle("", for: .normal)
     }
 
     func bind(viewModel: MultilineTitleIconViewModelProtocol) {
         self.fullText = viewModel.text
-        self.toLabel.title = viewModel.text
+        self.toLabel.text = viewModel.text
+
+        if let model = viewModel as? WalletSoraReceiverViewModel {
+            self.command = model.command
+            self.toTitle.text = model.title
+        }
+    }
+}
+
+final class SoraDetailsCopyView: BaseReceiverView, WalletFormBordering {
+    @IBOutlet private(set) var toTitle: UILabel!
+    @IBOutlet private(set) var copyButton: GrayCopyButton!
+    @IBAction private func buttonTap() {
+        if let command = command {
+            try? command.execute()
+        } else {
+            UIPasteboard.general.string = fullText
+        }
+    }
+
+    private var command: WalletCommandProtocol?
+
+    private var fullText: String?
+
+    var borderType: BorderType = []
+
+    override func awakeFromNib() {
+        let locale = LocalizationManager.shared.selectedLocale
+        toTitle.font = UIFont.styled(for: .title1).withSize(15)
+        toTitle.text = R.string.localizable.commonRecipient(preferredLanguages: locale.rLanguages)
+    }
+
+    func bind(viewModel: MultilineTitleIconViewModelProtocol) {
+        self.fullText = viewModel.text
+        self.copyButton.title = viewModel.text
 
         if let model = viewModel as? WalletSoraReceiverViewModel {
             self.command = model.command

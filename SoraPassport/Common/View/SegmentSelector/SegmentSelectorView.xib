@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="SegmentSelectorView" customModule="SoraPassport" customModuleProvider="target">
+            <connections>
+                <outlet property="containerView" destination="iN0-l3-epB" id="ua9-XS-tbt"/>
+                <outlet property="selectionView" destination="Ygy-Ka-8gH" id="HHD-nU-baG"/>
+                <outlet property="stackView" destination="b4s-WD-A4H" id="hvd-NT-T5c"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="248"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <stackView opaque="NO" contentMode="scaleToFill" distribution="fillEqually" translatesAutoresizingMaskIntoConstraints="NO" id="b4s-WD-A4H">
+                    <rect key="frame" x="0.0" y="0.0" width="414" height="247"/>
+                    <subviews>
+                        <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="6gq-XJ-1Zo" userLabel="Segment1">
+                            <rect key="frame" x="0.0" y="0.0" width="207" height="247"/>
+                            <state key="normal" title="Button"/>
+                            <buttonConfiguration key="configuration" style="plain" title="Segment1"/>
+                        </button>
+                        <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Im9-gf-SKt" userLabel="Segment2">
+                            <rect key="frame" x="207" y="0.0" width="207" height="247"/>
+                            <state key="normal" title="Button"/>
+                            <buttonConfiguration key="configuration" style="plain" title="Segment2"/>
+                        </button>
+                    </subviews>
+                </stackView>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="poO-qG-GWW">
+                    <rect key="frame" x="0.0" y="247" width="426" height="1"/>
+                    <subviews>
+                        <view contentMode="scaleToFill" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Ygy-Ka-8gH">
+                            <rect key="frame" x="0.0" y="0.0" width="213" height="1"/>
+                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                            <color key="backgroundColor" name="Brand Polkaswap Pink"/>
+                        </view>
+                    </subviews>
+                    <color key="backgroundColor" name="Neumorphism/Separator"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="1" id="oPy-Iy-ukR"/>
+                    </constraints>
+                </view>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <constraints>
+                <constraint firstItem="poO-qG-GWW" firstAttribute="top" secondItem="b4s-WD-A4H" secondAttribute="bottom" id="1DY-t5-Ncr"/>
+                <constraint firstItem="poO-qG-GWW" firstAttribute="trailing" secondItem="vUN-kp-3ea" secondAttribute="trailing" constant="12" id="4h4-z2-2Hr"/>
+                <constraint firstItem="b4s-WD-A4H" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="5Bn-GN-gkv"/>
+                <constraint firstAttribute="trailing" secondItem="b4s-WD-A4H" secondAttribute="trailing" id="6Aq-Ew-Rh0"/>
+                <constraint firstItem="poO-qG-GWW" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" id="Eng-Ri-Uht"/>
+                <constraint firstItem="b4s-WD-A4H" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="KgG-Za-qAH"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="bottom" secondItem="poO-qG-GWW" secondAttribute="bottom" id="ViV-sW-Wy3"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <point key="canvasLocation" x="137.68115942028987" y="-133.25892857142856"/>
+        </view>
+    </objects>
+    <resources>
+        <namedColor name="Brand Polkaswap Pink">
+            <color red="0.92941176470588238" green="0.078431372549019607" blue="0.35686274509803922" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Separator">
+            <color red="0.89803921568627454" green="0.8666666666666667" blue="0.8666666666666667" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
+</document>

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -33,6 +28,8 @@ class AssetDetailsCommandMock: WalletPresentationCommandMock, AssetDetailsCommad
 }
 
 final class WalletContextMock: CommonWalletContextProtocol {
+    var networkOperationFactory: WalletNetworkOperationFactoryProtocol {get {return WalletNetworkOperationFactoryProtocolMock()}}
+
     var closureCreateRootController: (() -> UINavigationController)?
     var closurePrepareSendCommand: ((String?) -> WalletPresentationCommandProtocol)?
     var closurePrepareReceiveCommand: ((String?) -> WalletPresentationCommandProtocol)?
@@ -94,4 +91,9 @@ final class WalletContextMock: CommonWalletContextProtocol {
     func prepareTransfer(with payload: TransferPayload) -> WalletPresentationCommandProtocol {
         return closurePrepareTransferCommand?(payload) ?? WalletPresentationCommandMock()
     }
+    
+    func prepareConfirmation(with payload: ConfirmationPayload) -> WalletPresentationCommandProtocol {
+        WalletPresentationCommandMock()
+    }
+
 }

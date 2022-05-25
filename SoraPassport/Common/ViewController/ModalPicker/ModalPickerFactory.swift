@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraUI
 import SoraFoundation
@@ -52,7 +47,7 @@ struct ModalPickerFactory {
             }
             return LocalizableResource { locale in
                 LoadingIconWithTitleViewModel(iconViewModel: symbolViewModel,
-                                              title: type.name.value(for: locale),
+                                              title: type.name.value(for: locale), subtitle: type.platform?.value(for: locale),
                                               toggle: visible)
             }
         }

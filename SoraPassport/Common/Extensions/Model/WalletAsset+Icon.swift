@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CommonWallet
 import SoraKeystore
 import SoraFoundation
@@ -26,7 +21,7 @@ extension WalletAsset {
                            name: LocalizableResource<String> { _ in "info.symbol" },
                            platform: LocalizableResource<String> { _ in "info.name" },
                            symbol: "info.symbol",
-                           precision: Int16(1),
+                           precision: Int16(18),
                            modes: .transfer)
     }
 }

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB" customClass="SoraFeeView" customModule="SoraPassport" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="56"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WYe-uE-4ph" userLabel="Balance" customClass="BorderedContainerView" customModule="SoraUI">
+                    <rect key="frame" x="16" y="0.0" width="382" height="56"/>
+                    <subviews>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" verticalHuggingPriority="251" text="Label" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="peI-DX-P4D">
+                            <rect key="frame" x="50" y="18" width="332" height="20"/>
+                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                            <color key="textColor" name="Base ContentPrimary"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="158-8T-3AO">
+                            <rect key="frame" x="0.0" y="18" width="42" height="20.5"/>
+                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                    </subviews>
+                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="56" id="DSo-RP-Rb8"/>
+                        <constraint firstItem="peI-DX-P4D" firstAttribute="centerY" secondItem="158-8T-3AO" secondAttribute="centerY" id="KyF-VQ-9bN"/>
+                        <constraint firstItem="158-8T-3AO" firstAttribute="leading" secondItem="WYe-uE-4ph" secondAttribute="leading" id="Qzb-Ee-Gu9"/>
+                        <constraint firstItem="peI-DX-P4D" firstAttribute="leading" secondItem="158-8T-3AO" secondAttribute="trailing" constant="8" id="Y5T-K1-Y3R"/>
+                        <constraint firstAttribute="trailing" secondItem="peI-DX-P4D" secondAttribute="trailing" id="qfL-vD-qRc"/>
+                        <constraint firstItem="158-8T-3AO" firstAttribute="centerY" secondItem="WYe-uE-4ph" secondAttribute="centerY" id="vPQ-A2-lky"/>
+                    </constraints>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_bottomBorder" value="YES"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_topBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_leftBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="boolean" keyPath="_rightBorder" value="NO"/>
+                        <userDefinedRuntimeAttribute type="color" keyPath="strokeColor">
+                            <color key="value" name="Base BorderSecondary"/>
+                        </userDefinedRuntimeAttribute>
+                        <userDefinedRuntimeAttribute type="number" keyPath="strokeWidth">
+                            <real key="value" value="1"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                </view>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <constraints>
+                <constraint firstAttribute="trailing" secondItem="WYe-uE-4ph" secondAttribute="trailing" constant="16" id="CG7-Et-BDB"/>
+                <constraint firstItem="WYe-uE-4ph" firstAttribute="bottom" secondItem="iN0-l3-epB" secondAttribute="bottom" id="EAC-jr-pPC"/>
+                <constraint firstItem="WYe-uE-4ph" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="16" id="P4n-Ae-Q6v"/>
+                <constraint firstItem="WYe-uE-4ph" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="xXg-jS-OiI"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <connections>
+                <outlet property="feeLabel" destination="peI-DX-P4D" id="ISZ-In-SiH"/>
+                <outlet property="titleLabel" destination="158-8T-3AO" id="NEw-ZB-rJc"/>
+            </connections>
+            <point key="canvasLocation" x="140.57971014492756" y="138.61607142857142"/>
+        </view>
+    </objects>
+    <resources>
+        <namedColor name="Base BorderSecondary">
+            <color red="0.92549019607843142" green="0.93725490196078431" blue="0.94117647058823528" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Base ContentPrimary">
+            <color red="0.13333333333333333" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>

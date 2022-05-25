@@ -1,25 +1,28 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
+import SoraKeystore
 
 final class UsernameSetupPresenter {
     weak var view: UsernameSetupViewProtocol?
     var wireframe: UsernameSetupWireframeProtocol!
-
-    private var viewModel: InputViewModelProtocol = {
-        let inputHandling = InputHandler(required: false,
-                                         predicate: NSPredicate.notEmpty,
-                                         processor: ByteLengthProcessor.username)
-        return InputViewModel(inputHandler: inputHandling)
-    }()
+    var viewModel: InputViewModel!
+    let settingsManager = SettingsManager.shared
+    var userName: String? {
+        get { settingsManager.userName }
+        set {
+            let newUserName = newValue ?? ""
+            settingsManager.selectedAccount = settingsManager.selectedAccount?.replacingUsername(newUserName)
+        }
+    }
 }
 
 extension UsernameSetupPresenter: UsernameSetupPresenterProtocol {
     func setup() {
+        let inputHandling = InputHandler(value: userName ?? "",
+                                         required: false,
+                                         predicate: NSPredicate.notEmpty,
+                                         processor: ByteLengthProcessor.username)
+        viewModel = InputViewModel(inputHandler: inputHandling)
         view?.set(viewModel: viewModel)
     }
 

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -29,7 +24,7 @@ extension WalletNetworkFacade {
             let accountInfoOperation: CompoundOperationWrapper<AccountInfo?> =
                 queryAccountInfoByKey(accountInfoKey, dependingOn: upgradeCheckOperation)
 
-            let dependencies = assets.map({  factory.createBalanceOperation(accountId: address!, assetId: $0.identifier) })
+            let dependencies = assets.map({  factory.createUsableBalanceOperation(accountId: address!, assetId: $0.identifier) })
 
             let mappingOperation = ClosureOperation<[BalanceData]?> {
 

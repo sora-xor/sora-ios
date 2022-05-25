@@ -1,223 +1,83 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 import SoraFoundation
-import Anchorage
-import Then
 
-private extension OnboardingMainViewController {
-    struct Constants {
-        static let logoWidth: CGFloat = 87
-        static let logoHeight: CGFloat = 116
-        static let logoFriction: CGFloat = 0.9
-    }
-}
-
-final class OnboardingMainViewController: UIViewController, AdaptiveDesignable, HiddableBarWhenPushed {
+final class OnboardingMainViewController: UIViewController, OnboardingMainViewProtocol, HiddableBarWhenPushed {
     var presenter: OnboardingMainPresenterProtocol!
 
-    var termDecorator: AttributedStringDecoratorProtocol?
+    @IBOutlet weak var logo: UIImageView!
+    @IBOutlet weak var titleLabel: UILabel!
+    @IBOutlet weak var subtitleLabel: UILabel!
+    @IBOutlet weak var descriptionLabel: UILabel!
+    @IBOutlet weak var createAccountButton: NeumorphismButton!
+    @IBOutlet weak var importAccountButton: NeumorphismButton!
+
+    @IBOutlet weak var logoTopConstraint: NSLayoutConstraint!
+    @IBOutlet weak var logoToTitleConstraint: NSLayoutConstraint!
+    @IBOutlet weak var titleToSubtitleConstraint: NSLayoutConstraint!
+    @IBOutlet weak var subtitleToDescriptionConstraint: NSLayoutConstraint!
+
+    let soraLabelText = "SORA"
 
     var locale: Locale?
-
-    private var logoWidthConstraint: NSLayoutConstraint!
-    private var logoHeightConstraint: NSLayoutConstraint!
-
-    private lazy var logoImageView: UIImageView = {
-        UIImageView(image: R.image.pin.soraVertical()).then {
-            logoWidthConstraint = ($0.widthAnchor == Constants.logoWidth)
-            logoHeightConstraint = ($0.heightAnchor == Constants.logoHeight)
-        }
-    }()
-
-    private lazy var titleLabel: UILabel = {
-        UILabel().then {
-            $0.numberOfLines = 2
-            $0.textAlignment = .center
-            $0.font = UIFont.styled(for: .display1)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.text = titleTitle
-        }
-    }()
-
-    private lazy var detailLabel: UILabel = {
-        UILabel().then {
-            $0.numberOfLines = 0
-            $0.textAlignment = .center
-            $0.font = UIFont.styled(for: .paragraph1)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.text = detailTitle
-        }
-    }()
-
-    private lazy var signUpButton: SoraButton = {
-        SoraButton().then {
-            $0.heightAnchor == 48
-            $0.tintColor = R.color.brandWhite()
-            $0.roundedBackgroundView?.fillColor = R.color.themeAccent()!
-            $0.roundedBackgroundView?.highlightedFillColor = R.color.themeAccentPressed()!
-            $0.roundedBackgroundView?.shadowColor = .clear
-            $0.changesContentOpacityWhenHighlighted = true
-            $0.title = signUpTitle
-            $0.imageWithTitleView?.titleColor = R.color.brandWhite()
-            $0.imageWithTitleView?.displacementBetweenLabelAndIcon = 1
-            $0.addTarget(self, action: #selector(actionSignup), for: .touchUpInside)
-        }
-    }()
-
-    private lazy var restoreButton: SoraButton = {
-        SoraButton().then {
-            $0.heightAnchor == 48
-            $0.tintColor = R.color.baseContentPrimary()
-            $0.roundedBackgroundView?.fillColor = R.color.brandWhite()!
-            $0.roundedBackgroundView?.highlightedFillColor = R.color.baseBackgroundHover()!
-            $0.roundedBackgroundView?.shadowColor = .clear
-            $0.changesContentOpacityWhenHighlighted = true
-            $0.title = restoreTitle
-            $0.imageWithTitleView?.titleColor = R.color.themeAccent()
-            $0.imageWithTitleView?.displacementBetweenLabelAndIcon = 1
-            $0.addTarget(self, action: #selector(actionRestoreAccess), for: .touchUpInside)
-        }
-    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
         configure()
         adjustLayout()
-
         presenter.setup()
     }
-}
 
-// MARK: - Texts
-
-private extension OnboardingMainViewController {
-    var languages: [String]? {
-        return locale?.rLanguages
-    }
-
-    var titleTitle: String {
-        return R.string.localizable
-            .tutorialOneWorld(preferredLanguages: languages)
-    }
-
-    var detailTitle: String {
-        return R.string.localizable
-            .tutorialOneWorldDesc(preferredLanguages: languages)
-    }
-
-    var signUpTitle: String {
-        return R.string.localizable
-            .create_account_title(preferredLanguages: languages)
-    }
-
-    var restoreTitle: String {
-        return R.string.localizable
-            .recoveryTitleV2(preferredLanguages: languages)
-    }
-}
-
-// MARK: - Configure
-
-private extension OnboardingMainViewController {
     func configure() {
-        createContainerView().do {
-            view.addSubview($0)
-            $0.edgeAnchors.verticalAnchors == view.safeAreaLayoutGuide.edgeAnchors.verticalAnchors + 8
-            $0.edgeAnchors.horizontalAnchors == view.safeAreaLayoutGuide.edgeAnchors.horizontalAnchors
-        }
+        view.backgroundColor = R.color.neumorphism.base()
+        logo.image = R.image.soraLogoBig()
+        configureLabels()
+        configureButtons()
     }
 
-    func createContainerView() -> UIView {
-        UIStackView(arrangedSubviews: [
-            createContentContainerView(),
-            createButtonsContainerView()
-        ]).then {
-            $0.axis = .vertical
-            $0.spacing = 16
-        }
+    func configureLabels() {
+        let locale = locale ?? Locale.current
+
+        titleLabel.text =  R.string.localizable.tutorialManyWorld(preferredLanguages: locale.rLanguages)
+        subtitleLabel.text = soraLabelText
+        descriptionLabel.text = R.string.localizable.tutorialManyWorldDesc(preferredLanguages: locale.rLanguages)
+
+        titleLabel.textColor = R.color.neumorphism.textDark()
+        subtitleLabel.textColor = R.color.neumorphism.tint()
+        descriptionLabel.textColor = R.color.neumorphism.textDark()
+
+        titleLabel.font = UIFont.styled(for: .display1)
+        subtitleLabel.font = UIFont.styled(for: .display1)
+        descriptionLabel.font = UIFont.styled(for: .paragraph2)
     }
 
-    func createContentContainerView() -> UIView {
-        let container = UIView().then {
-            $0.addSubview(logoImageView)
-            logoImageView.topAnchor == $0.topAnchor
-            logoImageView.centerXAnchor == $0.centerXAnchor
+    fileprivate func configureButtons() {
+        let locale = locale ?? Locale.current
 
-            $0.addSubview(titleLabel)
-            titleLabel.topAnchor == logoImageView.bottomAnchor + 24
-            titleLabel.horizontalAnchors == $0.horizontalAnchors
-
-            $0.addSubview(detailLabel)
-            detailLabel.topAnchor == titleLabel.bottomAnchor + 8
-            detailLabel.bottomAnchor == $0.bottomAnchor
-            detailLabel.horizontalAnchors == $0.horizontalAnchors + 8
-        }
-
-        return UIView().then {
-            $0.addSubview(container)
-            container.centerAnchors == $0.centerAnchors
-            container.horizontalAnchors == $0.horizontalAnchors + 16
-        }
-    }
-
-    func createButtonsContainerView() -> UIView {
-        let container = UIStackView(arrangedSubviews: [
-            signUpButton,
-            restoreButton
-        ]).then {
-            $0.axis = .vertical
-            $0.spacing = 8
-        }
-
-        return UIView().then {
-            $0.addSubview(container)
-            container.verticalAnchors == $0.verticalAnchors
-            container.horizontalAnchors == $0.horizontalAnchors + 8
-        }
+        createAccountButton.setTitle(R.string.localizable.create_account_title(preferredLanguages: locale.rLanguages), for: .normal)
+        createAccountButton.font = UIFont.styled(for: .button)
+        createAccountButton.color = R.color.neumorphism.tint()!
+        importAccountButton.setTitle(R.string.localizable.recoveryTitleV2(preferredLanguages: locale.rLanguages), for: .normal)
+        importAccountButton.font = UIFont.styled(for: .button)
+        importAccountButton.setTitleColor(R.color.neumorphism.buttonTextDark(), for: .normal)
     }
 
     func adjustLayout() {
-        logoWidthConstraint.constant *= designScaleRatio.height * Constants.logoFriction
-        logoHeightConstraint.constant *= designScaleRatio.height * Constants.logoFriction
-    }
-}
+        if UIScreen.main.bounds.height <= 568 {
+            logoTopConstraint.constant = 8
+            logoToTitleConstraint.constant = 8
+            titleToSubtitleConstraint.constant = 0
 
-// MARK: - Actions
-
-private extension OnboardingMainViewController {
-    @IBAction func actionSignup(sender: AnyObject) {
-        presenter.activateSignup()
-    }
-
-    @IBAction func actionRestoreAccess(sender: AnyObject) {
-        presenter.activateAccountRestore()
-    }
-
-}
-
-extension OnboardingMainViewController: OnboardingMainViewProtocol {
-
-}
-
-extension UIView {
-    func padding(vertical: CGFloat = 0, horizontal: CGFloat = 0) -> UIView {
-        UIView().then {
-            $0.backgroundColor = .clear
-
-            $0.addSubview(self)
-            $0.edgeAnchors.verticalAnchors == edgeAnchors.verticalAnchors + vertical
-            $0.edgeAnchors.horizontalAnchors == edgeAnchors.horizontalAnchors + horizontal
+            descriptionLabel.font = UIFont.styled(for: .paragraph3)
         }
     }
 
-    func colored(_ color: UIColor?) -> UIView {
-        backgroundColor = color
-        return self
+    @IBAction func createAccountPressed(_ sender: Any) {
+        presenter.activateSignup()
+    }
+
+    @IBAction func importAccountPressed(_ sender: Any) {
+        presenter.activateAccountRestore()
     }
 }

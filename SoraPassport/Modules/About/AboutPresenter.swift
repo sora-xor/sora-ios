@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -28,7 +23,7 @@ extension AboutPresenter: AboutPresenterProtocol {
 
     func activateOption(_ option: AboutOption) {
         switch option {
-        case .website, .opensource, .telegram, .terms, .privacy:
+        case .website, .opensource, .telegram, .terms, .privacy, .medium, .announcements, .support, .twitter, .instagram, .youtube, .wiki:
             show(url: option.address())
 
         case .writeUs(let email):

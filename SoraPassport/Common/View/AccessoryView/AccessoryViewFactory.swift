@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
@@ -19,8 +14,8 @@ final class AccessoryViewFactory: AccessoryViewFactoryProtocol {
                                     completionSelector: Selector?) -> AccessoryViewProtocol {
         let view = R.nib.accessoryView(owner: nil)!
 
-        view.titleColor = UIColor.accessoryTitle
-        view.titleFont = UIFont.accessoryTitle
+        view.titleColor = R.color.brandWhite()
+        view.titleFont = UIFont.styled(for: .button)
 
         if let target = target, let selector = completionSelector {
             view.actionButton.addTarget(target, action: selector, for: .touchUpInside)
@@ -33,8 +28,8 @@ final class AccessoryViewFactory: AccessoryViewFactoryProtocol {
                                       target: Any?,
                                       actionHandler: Selector?) -> SoraButton {
         let actionButton = SoraButton()
-        actionButton.imageWithTitleView?.titleColor = UIColor.actionTitle
-        actionButton.imageWithTitleView?.titleFont = UIFont.accessoryTitle
+        actionButton.imageWithTitleView?.titleColor = R.color.brandWhite()
+        actionButton.imageWithTitleView?.titleFont = UIFont.styled(for: .button)
         actionButton.imageWithTitleView?.title = title
         actionButton.roundedBackgroundView?.fillColor = .clear
         actionButton.roundedBackgroundView?.highlightedFillColor = .clear

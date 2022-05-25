@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 final class MainTabBarViewController: UITabBarController {
@@ -30,16 +25,16 @@ final class MainTabBarViewController: UITabBarController {
     }
 
     private func configureTabBar() {
-        tabBar.tintColor = R.color.baseContentPrimary()
+        tabBar.tintColor = R.color.neumorphism.tint()
 
         if #available(iOS 13.0, *) {
             let appearance = UITabBarAppearance()
 
-            appearance.backgroundImage = UIImage.background(from: UIColor.tabBarBackground)
-            appearance.shadowImage = UIImage.background(from: UIColor.tabBarShadow)
+            appearance.backgroundImage = UIImage.background(from: R.color.neumorphism.base()!)
+            appearance.shadowImage = UIImage.background(from: R.color.neumorphism.separator()!)
 
             let normalAttributes = [NSAttributedString.Key.foregroundColor: R.color.baseContentTertiary()!]
-            let selectedAttributes = [NSAttributedString.Key.foregroundColor: R.color.baseContentPrimary()!]
+            let selectedAttributes = [NSAttributedString.Key.foregroundColor: R.color.neumorphism.tint()!]
 
             appearance.stackedLayoutAppearance.normal.titleTextAttributes = normalAttributes
             appearance.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttributes
@@ -53,8 +48,8 @@ final class MainTabBarViewController: UITabBarController {
                 //tabBar.scrollEdgeAppearance = tabBar.standardAppearance
             }
         } else {
-            tabBar.backgroundImage = UIImage.background(from: UIColor.tabBarBackground)
-            tabBar.shadowImage = UIImage.background(from: UIColor.tabBarShadow)
+            tabBar.backgroundImage = UIImage.background(from: R.color.neumorphism.base()!)
+            tabBar.shadowImage = UIImage.background(from: R.color.neumorphism.separator()!)
         }
     }
 }

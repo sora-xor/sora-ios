@@ -1,14 +1,10 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
+import SoraFoundation
 
 struct SubqueryPageInfo: Decodable {
-    let startCursor: String?
     let endCursor: String?
+    let hasNextPage: Bool
 }
 
 struct SubqueryTransfer: Decodable {
@@ -71,6 +67,44 @@ struct SubqueryHistoryElement: Decodable {
     let fee: String
     let data: JSON
     let execution: SubqueryExecution
+}
+
+struct SubqueryLiquidity: Decodable {
+    let baseAssetId: String
+    let targetAssetId: String
+    let targetAssetAmount: String
+    let baseAssetAmount: String
+    let type: TransactionLiquidityType
+}
+
+enum TransactionLiquidityType: String, Decodable {
+    case deposit = "Deposit"
+    case removal = "Removal"
+}
+
+extension TransactionType {
+    var transactionLiquidityType: TransactionLiquidityType? {
+        switch self {
+        case .liquidityAdd:
+            return .deposit
+        case .liquidityRemoval:
+            return .removal
+        case .incoming, .outgoing, .reward, .slash, .swap, .extrinsic:
+            return nil
+        }
+    }
+}
+
+extension TransactionLiquidityType {
+    var localizedString: String {
+        let preferredLanguages = LocalizationManager.shared.selectedLocale.rLanguages
+        switch self {
+        case .deposit:
+            return R.string.localizable.commonDeposit(preferredLanguages: preferredLanguages).uppercased()
+        case .removal:
+            return R.string.localizable.commonRemove(preferredLanguages: preferredLanguages).uppercased()
+        }
+    }
 }
 
 struct SubqueryTimestamp: Decodable {

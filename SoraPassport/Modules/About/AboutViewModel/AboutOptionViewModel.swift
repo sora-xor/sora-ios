@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 protocol AboutOptionViewModelProtocol {
@@ -27,15 +22,14 @@ struct AboutOptionViewModel: AboutOptionViewModelProtocol {
 
     var subtitle: String? {
         switch option {
-        case .website, .opensource, .telegram:
-            return address?.absoluteString
-                .replacingOccurrences(of: "https://", with: "")
+        case .terms, .privacy:
+            return nil
 
         case .writeUs(let email):
             return email
 
         default:
-            return nil
+            return address?.absoluteString.replacingOccurrences(of: "https://", with: "")
         }
     }
 
