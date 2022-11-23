@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import RobinHood
@@ -17,7 +12,7 @@ final class RuntimeMetadataCreationHelper {
         let url = Bundle(for: self).url(forResource: "runtimeTestMetadata", withExtension: "")!
         let hex = try String(contentsOf: url).trimmingCharacters(in: .whitespacesAndNewlines)
         let data = try Data(hexString: hex)
-        let item = RuntimeMetadataItem(chain: identifier, version: specVersion, txVersion: txVersion, metadata: data)
+        let item = RuntimeMetadataItem(chain: identifier, version: specVersion, txVersion: txVersion, metadata: data, resolver: nil)
 
         let operation = repository.saveOperation({ [item] }, { [] })
         operationManager.enqueue(operations: [operation], in: .transient)

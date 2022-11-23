@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import Cuckoo
@@ -64,7 +59,7 @@ class SecurityLayerInteractorTests: XCTestCase {
         let mockApplicationHandler = MockApplicationHandlerProtocol()
 
         var settings = InMemorySettingsManager()
-        settings.decentralizedId = Constants.dummyDid
+//        settings.decentralizedId = Constants.dummyDid
 
         let keystore = InMemoryKeychain()
         try! keystore.addKey(Data(), with: KeystoreTag.pincode.rawValue)

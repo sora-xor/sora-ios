@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import BigInt
 import CommonWallet
 import FearlessUtils
@@ -14,6 +9,10 @@ import SoraKeystore
 extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
 
     func fetchBalanceOperation(_ assets: [String]) -> CompoundOperationWrapper<[BalanceData]?> {
+        return fetchBalanceOperation(assets, onlyVisible: true)
+    }
+
+    func fetchBalanceOperation(_ assets: [String], onlyVisible: Bool) -> CompoundOperationWrapper<[BalanceData]?> {
         let userAssets: [WalletAsset] = assets.compactMap { identifier in
             guard identifier != totalPriceAssetId?.rawValue else {
                 return nil
@@ -22,11 +21,11 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
             return accountSettings.assets.first { $0.identifier == identifier }
         }
         // hack while Capital can't change order
-        let sortedAssets = assetManager.sortedAssets(userAssets, onlyVisible: true)
+
+        let sortedAssets = assetManager.sortedAssets(userAssets, onlyVisible: onlyVisible)
 
         let balanceOperation = fetchBalanceInfoForAssets(sortedAssets)
         let priceOperations: [CompoundOperationWrapper<Price?>] = sortedAssets.compactMap {
-            // TODO: rawValue is nil now
             if let assetId = WalletAssetId(rawValue: $0.identifier) {
                 return fetchPriceOperation(assetId)
             } else {
@@ -93,7 +92,7 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
 
         guard !historyContext.isComplete,
               let feeAsset = accountSettings.assets.first(where: { $0.isFeeAsset }),
-              let _ = WalletAssetId(rawValue: feeAsset.identifier)
+              WalletAssetId(rawValue: feeAsset.identifier) != nil
         else {
             let pageData = AssetTransactionPageData(
                 transactions: [],
@@ -108,7 +107,7 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
         let remoteHistoryWrapper: CompoundOperationWrapper<WalletRemoteHistoryData>
 
         let remoteHistoryFactory = SubqueryHistoryOperationFactory(
-            url: WalletAssetId.subqueryHistoryUrl,
+            url: ApplicationConfig.shared.subqueryUrl,
             filter: filter
         )
 
@@ -195,11 +194,12 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
             let txSaveOperation = txStorage.saveOperation({
                 switch transferWrapper.targetOperation.result {
                 case let .success(txHash):
-                    let item = try TransactionHistoryItem
-                        .createFromTransferInfo(info,
-                                                transactionHash: txHash,
-                                                networkType: currentNetworkType,
-                                                addressFactory: addressFactory)
+                    let item = try TransactionHistoryItem.createFromTransferInfo(
+                        info,
+                        transactionHash: txHash,
+                        networkType: currentNetworkType,
+                        addressFactory: addressFactory
+                    )
                     return [item]
                 case let .failure(error):
                     throw error
@@ -225,8 +225,7 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
                     .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
             }
 
-            let dependencies = [txSaveOperation] + contactSaveWrapper.allOperations +
-                transferWrapper.allOperations
+            let dependencies = [txSaveOperation] + contactSaveWrapper.allOperations + transferWrapper.allOperations
 
             completionOperation.addDependency(txSaveOperation)
             completionOperation.addDependency(contactSaveWrapper.targetOperation)

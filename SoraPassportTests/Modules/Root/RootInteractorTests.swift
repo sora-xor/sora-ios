@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import Cuckoo
 @testable import SoraPassport
@@ -16,23 +11,26 @@ class RootInteractorTests: XCTestCase {
 
     private(set) var keystore =  InMemoryKeychain()
     private(set) var settings = InMemorySettingsManager()
+    private(set) var accountSettings = SelectedWalletSettings.shared
 
     override func setUp() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
         settings.removeAll()
-
+        try? UserDataStorageFacade.shared.databaseService.close()
+        try? UserDataStorageFacade.shared.databaseService.drop()
         defaultSetup()
     }
 
     override func tearDown() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
         settings.removeAll()
+        try? UserDataStorageFacade.shared.databaseService.close()
+        try? UserDataStorageFacade.shared.databaseService.drop()
     }
 
     func testDecidedOnboardingWhenNoDecentralizedId() {
         performTestDecidedOnboarding()
     }
-
 
     private func performTestDecidedOnboarding() {
         // given
@@ -44,6 +42,10 @@ class RootInteractorTests: XCTestCase {
             when(stub.showOnboarding(on: viewMatcher)).then { view in
                 expectation.fulfill()
             }
+        }
+
+        stub(wireframe) { stub in
+            when(stub.showPincodeSetup(on: viewMatcher)).thenDoNothing()
         }
 
         // when
@@ -63,9 +65,6 @@ class RootInteractorTests: XCTestCase {
                                                             keychain: keystore,
                                                             settings: settings)
 
-        settings.decentralizedId = Constants.dummyDid
-        settings.publicKeyId = Constants.dummyPubKeyId
-
         try? keystore.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreTag.pincode.rawValue)
 
         let expectation = XCTestExpectation()
@@ -82,7 +81,6 @@ class RootInteractorTests: XCTestCase {
         // then
         wait(for: [expectation], timeout: Constants.expectationDuration)
 
-        XCTAssertEqual(settings.decentralizedId, Constants.dummyDid)
     }
 
     // MARK: Private
@@ -93,6 +91,8 @@ class RootInteractorTests: XCTestCase {
         wireframe = MockRootWireframeProtocol()
         let securityLayerInteractor = MockSecurityLayerInteractorInputProtocol()
         let networkAvailabilityLayer = MockNetworkAvailabilityLayerInteractorInputProtocol()
+
+        accountSettings.setup()
 
         stub(securityLayerInteractor) { stub in
             when(stub).setup().thenDoNothing()

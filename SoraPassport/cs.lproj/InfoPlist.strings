@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "K načtení QR kódu se používá fotoaparát";
+"NSFaceIDUsageDescription" = "K autorizaci v aplikaci se používá Face ID";
+"NSPhotoLibraryUsageDescription" = "Načíst fotografie z knihovny";
+"NSPhotoLibraryAddUsageDescription" = "Uložit požadavek na převod jako QR kód";

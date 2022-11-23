@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 protocol EventVisitorProtocol: class {
@@ -17,7 +12,7 @@ protocol EventVisitorProtocol: class {
     //
     func processSelectedAccountChanged(event: SelectedAccountChanged)
     func processSelectedUsernameChanged(event: SelectedUsernameChanged)
-    func processSelectedConnectionChanged(event: SelectedConnectionChanged)
+//    func processSelectedNodeUpdated(event: ChainsUpdatedEvent)
     func processBalanceChanged(event: WalletBalanceChanged)
     func processStakingChanged(event: WalletStakingInfoChanged)
     func processNewTransaction(event: WalletNewTransactionInserted)
@@ -25,6 +20,25 @@ protocol EventVisitorProtocol: class {
     func processTypeRegistryPrepared(event: TypeRegistryPrepared)
     func processMigration(event: MigrationEvent)
     func processSuccsessMigration(event: MigrationSuccsessEvent)
+
+    func processChainSyncDidStart(event: ChainSyncDidStart)
+    func processChainSyncDidComplete(event: ChainSyncDidComplete)
+    func processChainSyncDidFail(event: ChainSyncDidFail)
+    func processChainsUpdated(event: ChainsUpdatedEvent)
+    func processFailedNodeConnection(event: FailedNodeConnectionEvent)
+
+    func processRuntimeCommonTypesSyncCompleted(event: RuntimeCommonTypesSyncCompleted)
+    func processRuntimeChainTypesSyncCompleted(event: RuntimeChainTypesSyncCompleted)
+    func processRuntimeChainMetadataSyncCompleted(event: RuntimeMetadataSyncCompleted)
+
+    func processRuntimeCoderReady(event: RuntimeCoderCreated)
+    func processRuntimeCoderCreationFailed(event: RuntimeCoderCreationFailed)
+
+//    func processSelectedNodeUpdated(event: SelectedNodeChangedEvent)
+
+//    func processUserInactive(event: UserInactiveEvent)
+
+//    func processMetaAccountChanged(event: MetaAccountModelChangedEvent)
 }
 
 extension EventVisitorProtocol {
@@ -38,7 +52,6 @@ extension EventVisitorProtocol {
     func processReferendumVote(event: ReferendumVoteEvent) {}
     //
     func processSelectedAccountChanged(event: SelectedAccountChanged) {}
-    func processSelectedConnectionChanged(event: SelectedConnectionChanged) {}
     func processBalanceChanged(event: WalletBalanceChanged) {}
     func processStakingChanged(event: WalletStakingInfoChanged) {}
     func processNewTransaction(event: WalletNewTransactionInserted) {}
@@ -47,4 +60,21 @@ extension EventVisitorProtocol {
     func processMigration(event: MigrationEvent) {}
     func processSuccsessMigration(event: MigrationSuccsessEvent) {}
 //    func processPurchaseCompletion(event: PurchaseCompleted) {}
+
+    func processChainSyncDidStart(event _: ChainSyncDidStart) {}
+    func processChainSyncDidComplete(event _: ChainSyncDidComplete) {}
+    func processChainSyncDidFail(event _: ChainSyncDidFail) {}
+    func processChainsUpdated(event _: ChainsUpdatedEvent) {}
+    func processFailedNodeConnection(event: FailedNodeConnectionEvent) {}
+
+    func processRuntimeCommonTypesSyncCompleted(event _: RuntimeCommonTypesSyncCompleted) {}
+    func processRuntimeChainTypesSyncCompleted(event _: RuntimeChainTypesSyncCompleted) {}
+    func processRuntimeChainMetadataSyncCompleted(event _: RuntimeMetadataSyncCompleted) {}
+
+    func processRuntimeCoderReady(event _: RuntimeCoderCreated) {}
+    func processRuntimeCoderCreationFailed(event _: RuntimeCoderCreationFailed) {}
+
+    func processSelectedNodeUpdated(event: SelectedNodeChangedEvent) {}
+
+//    func processUserInactive(event _: UserInactiveEvent) {}
 }

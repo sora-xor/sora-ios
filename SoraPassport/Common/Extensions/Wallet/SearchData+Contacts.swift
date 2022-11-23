@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import IrohaCrypto
@@ -22,7 +17,7 @@ extension SearchData {
                           context: contactContext.toContext())
     }
 
-    static func createFromAccountItem(_ accountItem: ManagedAccountItem,
+    static func createFromAccountItem(_ accountItem: AccountItem,
                                       addressFactory: SS58AddressFactory) throws -> SearchData {
         let accountId = try addressFactory.accountId(fromAddress: accountItem.address,
                                                      type: accountItem.networkType)

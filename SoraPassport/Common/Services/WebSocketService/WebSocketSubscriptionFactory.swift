@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import IrohaCrypto
@@ -17,12 +12,14 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
     let eventCenter = EventCenter.shared
     let logger = Logger.shared
 
-    let runtimeService = RuntimeRegistryFacade.sharedService
+    var runtimeService: RuntimeCodingServiceProtocol? {
+        ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())
+    }
+
     let providerFactory: SubstrateDataProviderFactoryProtocol
 
     init(storageFacade: StorageFacadeProtocol) {
         self.storageFacade = storageFacade
-
         providerFactory = SubstrateDataProviderFactory(
             facade: storageFacade,
             operationManager: operationManager
@@ -149,8 +146,7 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
         transferSubscription: TransactionSubscription,
         accountId: Data,
         localStorageIdFactory: ChainStorageIdFactoryProtocol
-    )
-        throws -> AccountInfoSubscription {
+    ) throws -> AccountInfoSubscription {
         let accountStorageKey = try storageKeyFactory.accountInfoKeyForId(accountId)
 
         let localStorageKey = localStorageIdFactory.createIdentifier(for: accountStorageKey)
@@ -238,7 +234,7 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
             address: address,
             chain: networkType.chain,
             addressFactory: addressFactory,
-            runtimeService: runtimeService,
+            runtimeService: runtimeService!,
             txStorage: AnyDataProviderRepository(txStorage),
             contactOperationFactory: contactOperationFactory,
             storageRequestFactory: storageRequestFactory,

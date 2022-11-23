@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -16,7 +11,7 @@ protocol ErrorContentConvertible {
 }
 
 extension ErrorPresentable where Self: AlertPresentable {
-    func present(error: Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool {
+    func present(error: Swift.Error, from view: ControllerBackedProtocol?, locale: Locale?) -> Bool {
         var optionalContent: ErrorContent?
 
         if let contentConvertibleError = error as? ErrorContentConvertible {

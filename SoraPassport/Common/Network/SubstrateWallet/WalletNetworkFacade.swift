@@ -1,12 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import IrohaCrypto
 import RobinHood
+import FearlessUtils
 
 final class WalletNetworkFacade {
     let accountSettings: WalletAccountSettingsProtocol
@@ -20,8 +16,11 @@ final class WalletNetworkFacade {
     let localStorageIdFactory: ChainStorageIdFactoryProtocol
     let txStorage: AnyDataProviderRepository<TransactionHistoryItem>
     let contactsOperationFactory: WalletContactOperationFactoryProtocol
-    let accountsRepository: AnyDataProviderRepository<ManagedAccountItem>
+    let accountsRepository: AnyDataProviderRepository<AccountItem>
     let assetManager: AssetManagerProtocol
+
+    lazy var localStorageKeyFactory = LocalStorageKeyFactory()
+    lazy var remoteStorageKeyFactory = StorageKeyFactory()
 
     init(accountSettings: WalletAccountSettingsProtocol,
          nodeOperationFactory: WalletNetworkOperationFactoryProtocol,
@@ -31,7 +30,7 @@ final class WalletNetworkFacade {
          localStorageIdFactory: ChainStorageIdFactoryProtocol,
          txStorage: AnyDataProviderRepository<TransactionHistoryItem>,
          contactsOperationFactory: WalletContactOperationFactoryProtocol,
-         accountsRepository: AnyDataProviderRepository<ManagedAccountItem>,
+         accountsRepository: AnyDataProviderRepository<AccountItem>,
          address: String,
          networkType: SNAddressType,
          assetManager: AssetManagerProtocol,

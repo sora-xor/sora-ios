@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import CoreData
@@ -20,7 +15,7 @@ final class ManagedConnectionItemMapper: CoreDataMapperProtocol {
         #keyPath(CoreDataEntity.identifier)
     }
 
-    func populate(entity: CDConnectionItem,
+    func populate(entity: CoreDataEntity,
                   from model: DataProviderModel,
                   using context: NSManagedObjectContext) throws {
         entity.identifier = model.url.absoluteString
@@ -29,12 +24,12 @@ final class ManagedConnectionItemMapper: CoreDataMapperProtocol {
         entity.order = model.order
     }
 
-    func transform(entity: CDConnectionItem) throws -> DataProviderModel {
+    func transform(entity: CoreDataEntity) throws -> DataProviderModel {
         guard
             let identifier = entity.identifier,
             let url = URL(string: identifier),
             let title = entity.title else {
-            throw ManagedAccountItemMapperError.invalidEntity
+            throw ManagedConnectionItemMapperError.invalidEntity
         }
         let networkType = SNAddressType(UInt8(entity.networkType))
         return ManagedConnectionItem(title: title,

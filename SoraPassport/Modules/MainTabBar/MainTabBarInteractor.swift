@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import CommonWallet
@@ -13,38 +8,16 @@ final class MainTabBarInteractor {
 	weak var presenter: MainTabBarInteractorOutputProtocol?
 
     let eventCenter: EventCenterProtocol
-    let settings: SettingsManagerProtocol
     let serviceCoordinator: ServiceCoordinatorProtocol
     let keystoreImportService: KeystoreImportServiceProtocol
 
-    private var currentAccount: AccountItem?
-    private var currentConnection: ConnectionItem?
-
     init(eventCenter: EventCenterProtocol,
-         settings: SettingsManagerProtocol,
          serviceCoordinator: ServiceCoordinatorProtocol,
          keystoreImportService: KeystoreImportServiceProtocol) {
         self.eventCenter = eventCenter
-        self.settings = settings
         self.keystoreImportService = keystoreImportService
         self.serviceCoordinator = serviceCoordinator
-
-        updateSelectedItems()
-
-        startServices()
-    }
-
-    private func updateSelectedItems() {
-        self.currentAccount = settings.selectedAccount
-        self.currentConnection = settings.selectedConnection
-    }
-
-    private func startServices() {
         serviceCoordinator.setup()
-    }
-
-    private func stopServices() {
-        serviceCoordinator.throttle()
     }
 }
 
@@ -99,23 +72,15 @@ extension MainTabBarInteractor: EventVisitorProtocol {
         presenter?.didEndMigration()
     }
 
+    func processChainsUpdated(event: ChainsUpdatedEvent) {
+        presenter?.didReloadSelectedNetwork()
+    }
+
     func processWalletUpdate(event: WalletUpdateEvent) {
 //        updateWalletAccount()
     }
     func processSelectedAccountChanged(event: SelectedAccountChanged) {
-//        if currentAccount != settings.selectedAccount {
-//            updateWebSocketSettings()
-//            updateSelectedItems()
-//            presenter?.didReloadSelectedAccount()
-//        }
-    }
-
-    func processSelectedConnectionChanged(event: SelectedConnectionChanged) {
-//        if currentConnection != settings.selectedConnection {
-//            updateWebSocketSettings()
-//            updateSelectedItems()
-//            presenter?.didReloadSelectedNetwork()
-//        }
+        presenter?.didUserChange()
     }
 
     func processBalanceChanged(event: WalletBalanceChanged) {

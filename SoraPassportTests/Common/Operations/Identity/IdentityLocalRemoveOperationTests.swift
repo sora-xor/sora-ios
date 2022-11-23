@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import IrohaCrypto
@@ -13,12 +8,12 @@ class IdentityLocalRemoveOperationTests: XCTestCase {
     private(set) var settings = SettingsManager.shared
 
     override func setUp() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
         settings.removeAll()
     }
 
     override func tearDown() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
         settings.removeAll()
     }
 /*

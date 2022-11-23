@@ -1,19 +1,14 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 @testable import SoraPassport
 import RobinHood
 import CoreData
 
-final class CoreDataCacheTestFacade: CoreDataCacheFacadeProtocol {
+final class CoreDataCacheTestFacade: CacheFacadeProtocol {
     let databaseService: CoreDataServiceProtocol
 
     init() {
         let modelName = "Entities"
-        let bundle = Bundle(for: CoreDataCacheFacade.self)
+        let bundle = Bundle(for: CacheFacade.self)
         let modelURL = bundle.url(forResource: modelName, withExtension: "momd")
 
         let configuration = CoreDataServiceConfiguration(modelURL: modelURL!,

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
@@ -22,7 +17,7 @@ final class AccountConfirmViewFactory: AccountConfirmViewFactoryProtocol {
         let presenter = AccountConfirmPresenter()
 
         let keychain = Keychain()
-        let settings = SettingsManager.shared
+        let settings = SelectedWalletSettings.shared
 
         let accountOperationFactory = AccountOperationFactory(keystore: keychain)
         let accountRepository: CoreDataRepository<AccountItem, CDAccountItem> =
@@ -71,7 +66,7 @@ final class AccountConfirmViewFactory: AccountConfirmViewFactoryProtocol {
                                                      accountOperationFactory: accountOperationFactory,
                                                      accountRepository: AnyDataProviderRepository(accountRepository),
                                                      operationManager: OperationManagerFacade.sharedManager,
-                                                     settings: SettingsManager.shared,
+                                                     settings: SelectedWalletSettings.shared,
                                                      eventCenter: EventCenter.shared)
         let wireframe = AddConfirmationWireframe()
 
@@ -80,6 +75,47 @@ final class AccountConfirmViewFactory: AccountConfirmViewFactoryProtocol {
         presenter.interactor = interactor
         presenter.wireframe = wireframe
         interactor.presenter = presenter
+
+        let localizationManager = LocalizationManager.shared
+        view.localizationManager = localizationManager
+        presenter.localizationManager = localizationManager
+
+        return view
+    }
+    
+    static func createViewForAdding(request: AccountCreationRequest,
+                                    metadata: AccountCreationMetadata,
+                                    endAddingBlock: (() -> Void)?) -> AccountConfirmViewProtocol? {
+        guard let mnemonic = try? IRMnemonicCreator()
+            .mnemonic(fromList: metadata.mnemonic.joined(separator: " ")) else {
+            return nil
+        }
+
+        let view = AccountConfirmViewController(nib: R.nib.accountConfirmViewController)
+
+        let presenter = AccountConfirmPresenter()
+
+        let keychain = Keychain()
+
+        let accountOperationFactory = AccountOperationFactory(keystore: keychain)
+        let accountRepository: CoreDataRepository<AccountItem, CDAccountItem> =
+            UserDataStorageFacade.shared.createRepository()
+
+        let interactor = AddAccountConfirmInteractor(request: request,
+                                                     mnemonic: mnemonic,
+                                                     accountOperationFactory: accountOperationFactory,
+                                                     accountRepository: AnyDataProviderRepository(accountRepository),
+                                                     operationManager: OperationManagerFacade.sharedManager,
+                                                     settings: SelectedWalletSettings.shared,
+                                                     eventCenter: EventCenter.shared)
+        let wireframe = AddConfirmationWireframe()
+
+        view.presenter = presenter
+        presenter.view = view
+        presenter.interactor = interactor
+        presenter.wireframe = wireframe
+        interactor.presenter = presenter
+        wireframe.endAddingBlock = endAddingBlock
 
         let localizationManager = LocalizationManager.shared
         view.localizationManager = localizationManager

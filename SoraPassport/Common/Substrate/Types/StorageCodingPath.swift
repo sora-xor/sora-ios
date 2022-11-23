@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 struct StorageCodingPath {
@@ -13,6 +8,10 @@ struct StorageCodingPath {
 extension StorageCodingPath {
     static var account: StorageCodingPath {
         StorageCodingPath(moduleName: "System", itemName: "Account")
+    }
+
+    static var tokens: StorageCodingPath {
+        StorageCodingPath(moduleName: "Tokens", itemName: "Accounts")
     }
 
     static var events: StorageCodingPath {

@@ -1,23 +1,16 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import SoraFoundation
 import SoraUI
+import BigInt
+import XNetworking
+import FearlessUtils
+import CommonWallet
 
 extension FriendsPresenter {
-
     enum InvitationActionType: Int {
-        case copyInviteCode
-        case sendInvite
-        case enterCode
-    }
-
-    private struct Constants {
-        static let timerStyleSwitchThreshold: TimeInterval = 3600
+        case startInvite
+        case enterLink
     }
 }
 
@@ -26,182 +19,48 @@ final class FriendsPresenter {
     var wireframe: FriendsWireframeProtocol!
     var interactor: FriendsInteractorInputProtocol!
 
-    let timerFactory: CountdownFactoryProtocol
-    let invitationFactory: InvitationFactoryProtocol
-    let friendsViewModelFactory: FriendsViewModelFactoryProtocol
-    let rewardsViewModelFactory: RewardsViewModelFactoryProtocol
+    private var isExpaned: Bool = false
+    private var rewards: [ReferrerReward] = []
+    private let settings: SettingsManagerProtocol
+    private var setReferrerFee = Decimal(0)
+    private var bondFee = Decimal(0)
+    private var unbondFee = Decimal(0)
+    private var referralBalance = Decimal(0)
+    private var referrer = ""
+    private var totalRewardRow = 0
+    private let selectedAccount: AccountItem
+    private let feeAsset: AssetInfo
 
-    var logger: LoggerProtocol?
-
-    private(set) var userData: UserData?
-    private(set) var parentInfo: ParentInfoData?
-
-    private(set) var timer: CountdownTimerProtocol?
-
-    private var isSharingInvitation: Bool = false
-
-    init(timerFactory: CountdownFactoryProtocol,
-         invitationFactory: InvitationFactoryProtocol,
-         friendsViewModelFactory: FriendsViewModelFactoryProtocol,
-         rewardsViewModelFactory: RewardsViewModelFactoryProtocol) {
-        self.timerFactory = timerFactory
-        self.invitationFactory = invitationFactory
-        self.friendsViewModelFactory = friendsViewModelFactory
-        self.rewardsViewModelFactory = rewardsViewModelFactory
-    }
-
-    deinit {
-        invalidateTimer()
-    }
-}
-
-// MARK: - Private Functions
-
-private extension FriendsPresenter {
-
-    func updateInvitedUsers(from invitationsData: ActivatedInvitationsData) {
-        let viewModels = rewardsViewModelFactory
-            .createActivatedInvitationViewModel(
-                from: invitationsData,
-                dateFormatter: DateFormatter.friends,
-                locale: locale
-            )
-
-        view?.didReceive(rewardsViewModels: viewModels)
-    }
-
-    func updateInvitationActions() {
-        let viewModel = friendsViewModelFactory
-            .createActionListViewModel(from: userData)
-
-        view?.didReceive(friendsViewModel: viewModel)
-
-        if let userData = userData {
-            if userData.canAcceptInvitation {
-                scheduleTimer()
-                updateInviteCodeTitle()
-            } else {
-                invalidateTimer()
-            }
-        }
-    }
-
-    func updateInviteCodeTitle() {
-        if let timer = timer,
-           let notificationType = TimerNotificationInterval(rawValue: timer.notificationInterval) {
-            let timerValue = friendsViewModelFactory.createActionAccessory(
-                for: languages, from: timer.remainedInterval, notificationInterval: notificationType
-            )
-
-            let inviteTitle = R.string.localizable.inviteCodeApply(preferredLanguages: languages)
-
-            view?.didChange(applyInviteTitle: "\(inviteTitle) (\(timerValue))")
-        }
-    }
-
-    func scheduleTimer() {
-        guard timer == nil else {
-            return
-        }
-
-        if let remainedInterval = userData?.invitationExpirationInterval {
-            let notificationType = remainedInterval <= Constants.timerStyleSwitchThreshold ?
-                TimerNotificationInterval.second : TimerNotificationInterval.minute
-
-            timer = timerFactory.createTimer(with: self, notificationInterval: notificationType.rawValue)
-
-            timer?.start(with: remainedInterval)
-        }
-    }
-
-    func invalidateTimer() {
-        timer?.delegate = nil
-        timer?.stop()
-        timer = nil
-    }
-
-    func copyInviteCodeAction() {
-        guard !isSharingInvitation else { return }
-
-        guard let invitationCode = userData?.values.invitationCode else {
-            present(
-                message: R.string.localizable.inviteCodeWasntCopied(preferredLanguages: languages),
-                title: R.string.localizable.commonErrorGeneralTitle(preferredLanguages: languages),
-                closeAction: R.string.localizable.commonClose(preferredLanguages: languages), from: view
-            )
-            return
-        }
-
-        UIPasteboard.general.string = invitationCode
-
-        isSharingInvitation = true
-
-        let closeTitle = R.string.localizable.commonClose(preferredLanguages: languages)
-        let closeAction = AlertPresentableAction(title: closeTitle) { [weak self] in
-            self?.isSharingInvitation = false
-        }
-
-    }
-
-    func sendInvitationAction() {
-        if !isSharingInvitation {
-            isSharingInvitation = true
-
-            let invitationCode = ""
-
-            let invitationMessage = invitationFactory.createInvitation(
-                from: invitationCode, locale: locale
-            )
-
-            let subject = R.string.localizable
-                .invitationsSharingSubject(preferredLanguages: languages)
-
-            let source = TextSharingSource(
-                message: invitationMessage, subject: subject
-            )
-
-            wireframe.share(source: source, from: view) { [weak self] _ in
-                self?.isSharingInvitation = false
-            }
-        }
-    }
-
-    func enterInvitationCodeAction() {
-        let inputFieldViewModel = InputFieldViewModel(
-            title: R.string.localizable.inviteEnterInvitationCode(preferredLanguages: languages),
-            hint: R.string.localizable.inviteEnterDialogHintTemplate(preferredLanguages: languages),
-            cancelActionTitle: R.string.localizable.commonCancel(preferredLanguages: languages),
-            doneActionTitle: R.string.localizable.commonApply(preferredLanguages: languages)
-        )
-
-        inputFieldViewModel.completionPredicate = NSPredicate.invitationCode
-        inputFieldViewModel.invalidCharacters = NSCharacterSet.alphanumerics.inverted
-        inputFieldViewModel.maximumLength = PersonalInfoSharedConstants.invitationCodeLimit
-        inputFieldViewModel.delegate = self
-
-        wireframe.requestInput(for: inputFieldViewModel, from: view)
+    init(settings: SettingsManagerProtocol,
+         keychain: KeystoreProtocol,
+         selectedAccount: AccountItem,
+         feeAsset: AssetInfo) {
+        self.settings = settings
+        self.selectedAccount = selectedAccount
+        self.feeAsset = feeAsset
     }
 }
 
 // MARK: - Presenter Protocol
 
 extension FriendsPresenter: FriendsPresenterProtocol {
-
     func setup() {
-        updateInvitationActions()
         interactor.setup()
     }
 
-    func viewDidAppear() {
-        interactor.refreshUser()
-        interactor.refreshInvitedUsers()
-    }
-
     func didSelectAction(_ action: FriendsPresenter.InvitationActionType) {
+        guard let viewController = view?.controller else { return }
+
         switch action {
-        case .copyInviteCode:   copyInviteCodeAction()
-        case .sendInvite:       sendInvitationAction()
-        case .enterCode:        enterInvitationCodeAction()
+        case .startInvite:
+            showInputRewardAmount(with: .bond)
+
+        case .enterLink:
+            guard referrer.isEmpty else {
+                wireframe.showReferrerScreen(from: viewController, referrer: referrer)
+                return
+            }
+            wireframe.showLinkInputViewController(from: viewController, delegate: self)
         }
     }
 }
@@ -209,63 +68,154 @@ extension FriendsPresenter: FriendsPresenterProtocol {
 // MARK: - Interactor Output Protocol
 
 extension FriendsPresenter: FriendsInteractorOutputProtocol {
-
-    func didLoad(user: UserData) {
-        userData = user
-        updateInvitationActions()
+    func updateReferrer(address: String) {
+        self.referrer = address
+        updateScreen()
     }
 
-    func didReceiveUserDataProvider(error: Error) {
-        logger?.debug("Did receive values data provider \(error)")
+    func updateReferral(balance: Decimal) {
+        self.referralBalance = balance
+        updateScreen()
     }
 
-    func didLoad(invitationsData: ActivatedInvitationsData) {
-        parentInfo = invitationsData.parentInfo
-        updateInvitedUsers(from: invitationsData)
-        updateInvitationActions()
+    func updateReferral(rewards: [ReferrerReward]) {
+        self.rewards = rewards
+        updateScreen()
     }
 
-    func didReceiveInvitedUsersDataProvider(error: Error) {
-        logger?.debug("Did receive invited users data provider \(error)")
-    }
-}
+    func didReceive(rewards: [ReferrerReward],
+                    setReferrerFee: Decimal,
+                    bondFee: Decimal,
+                    unbondFee: Decimal,
+                    referralBalance: Decimal,
+                    referrer: String) {
+        self.rewards = rewards
+        self.setReferrerFee = setReferrerFee
+        self.bondFee = bondFee
+        self.unbondFee = unbondFee
+        self.referralBalance = referralBalance
+        self.referrer = referrer
 
-// MARK: - InputField Delegate
-
-extension FriendsPresenter: InputFieldViewModelDelegate {
-
-    func inputFieldDidCancelInput(to viewModel: InputFieldViewModelProtocol) {
-        logger?.debug("Did cancel invitation input")
-    }
-
-    func inputFieldDidCompleteInput(to viewModel: InputFieldViewModelProtocol) {
-        interactor.apply(invitationCode: viewModel.value)
+        updateScreen()
     }
 }
 
-// MARK: - CountdownTimer Delegate
-
-extension FriendsPresenter: CountdownTimerDelegate {
-
-    func didStart(with interval: TimeInterval) {
-        logger?.debug("Did start invitation timer for \(interval)")
+extension FriendsPresenter: InputLinkPresenterOutput {
+    func setupReferrer(_ referrer: String) {
+        self.referrer = referrer
+        updateScreen()
     }
 
-    func didCountdown(remainedInterval: TimeInterval) {
-        if remainedInterval <= Constants.timerStyleSwitchThreshold,
-           timer?.notificationInterval != TimerNotificationInterval.second.rawValue {
-            invalidateTimer()
-            scheduleTimer()
+    func showAlert(withSuccess isSuccess: Bool) {
+        DispatchQueue.main.async {
+
+            let title = isSuccess ? R.string.localizable.walletTransactionSubmitted(preferredLanguages: .currentLocale) :
+            R.string.localizable.walletTransactionRejected(preferredLanguages: .currentLocale)
+
+            let image = isSuccess ? R.image.success() : R.image.iconClose()
+
+            self.view?.showAlert(with: title, image: image)
+        }
+    }
+}
+
+extension FriendsPresenter: InputRewardAmountPresenterOutput {
+}
+
+extension FriendsPresenter: TotalRewardsCellDelegate {
+    func expandButtonTapped() {
+        isExpaned = !isExpaned
+
+        let items = createItems()
+        let indexs: [Int] = Array(totalRewardRow...(totalRewardRow + rewards.count))
+        view?.reloadScreen(with: items, updatedIndexs: indexs, isExpanding: isExpaned)
+    }
+}
+
+extension FriendsPresenter: ReferrerCellDelegate {
+    func enterLinkButtonTapped() {
+        guard let view = view?.controller else { return }
+        wireframe.showLinkInputViewController(from: view, delegate: self)
+    }
+}
+
+extension FriendsPresenter: AvailableInvitationsCellDelegate {
+    func shareButtonTapped(with text: String) {
+        showActivityViewController(with: text)
+    }
+
+    func changeBoundedAmount(to type: InputRewardAmountType) {
+        showInputRewardAmount(with: type)
+    }
+}
+
+private extension FriendsPresenter {
+    func createItems() -> [CellViewModel] {
+
+        let totalReward = rewards.reduce(Decimal(0)) { totalReward, reward in
+            let decimalReward = Decimal.fromSubstrateAmount(BigUInt(stringLiteral: reward.amount), precision: 18) ?? Decimal(0)
+            return totalReward + decimalReward
         }
 
-        updateInviteCodeTitle()
+        var items: [CellViewModel] = [SpaceViewModel(height: 6, backgroundColor: R.color.baseBackground()!)]
+
+        let invitationCount = (referralBalance / setReferrerFee).rounded(mode: .down)
+        items.append(AvailableInvitationsViewModel(accountAddress: selectedAccount.address,
+                                                   invitationCount: invitationCount,
+                                                   bondedAmount: referralBalance,
+                                                   delegate: self))
+
+        items.append(SpaceViewModel(height: 6, backgroundColor: R.color.baseBackground()!))
+
+        items.append(ReferrerViewModel(address: referrer, delegate: self))
+
+        items.append(TotalRewardsViewModel(invetationCount: rewards.count,
+                                           totalRewardsAmount: totalReward,
+                                           assetSymbol: feeAsset.symbol,
+                                           delegate: self))
+        totalRewardRow = items.count
+
+        if isExpaned {
+            items.append(RewardSeparatorViewModel())
+
+            for reward in rewards {
+                let amount =  Decimal.fromSubstrateAmount(BigUInt(stringLiteral: reward.amount), precision: 18) ?? Decimal(0)
+                items.append(RewardRawViewModel(title: reward.referral, amount: amount, assetSymbol: feeAsset.symbol))
+            }
+        }
+
+        items.append(RewardFooterViewModel())
+
+        return items
     }
 
-    func didStop(with remainedInterval: TimeInterval) {
-        interactor.refreshUser()
-        interactor.refreshInvitedUsers()
+    func updateScreen() {
+        if referralBalance < setReferrerFee {
+            DispatchQueue.main.async {
+                self.view?.startInvitingScreen(with: self.referrer)
+            }
+            return
+        }
 
-        updateInvitationActions()
+        let items = createItems()
+
+        DispatchQueue.main.async {
+            self.view?.setup(with: items)
+        }
+    }
+
+    func showInputRewardAmount(with type: InputRewardAmountType) {
+        guard let view = view?.controller else { return }
+        wireframe.showInputRewardAmountViewController(from: view,
+                                                      fee: type == .bond ? bondFee : unbondFee,
+                                                      bondedAmount: referralBalance,
+                                                      type: type,
+                                                      delegate: self)
+    }
+
+    func showActivityViewController(with shareText: String) {
+        guard let view = view?.controller else { return }
+        wireframe.showActivityViewController(from: view, shareText: shareText)
     }
 }
 
@@ -279,11 +229,5 @@ extension FriendsPresenter: Localizable {
 
     var languages: [String] {
         return localizationManager?.preferredLocalizations ?? []
-    }
-
-    func applyLocalization() {
-        if view?.isSetup == true {
-            updateInvitationActions()
-        }
     }
 }

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -11,6 +6,7 @@ protocol WalletTransactionDetailsDefining: WalletSoraFormDefining {
     func defineViewForTransactionsViewModel(_ viewModel: WalletTransactionsViewModel) -> WalletFormItemView?
     func defineViewForHeader(_ viewModel: SoraTransactionHeaderViewModel) -> WalletFormItemView?
     func defineViewForStatus(_ viewModel: SoraTransactionStatusViewModel) -> WalletFormItemView?
+    func defineViewForReferralStatus(_ viewModel: SoraReferralTransactionStatusViewModel) -> WalletFormItemView?
     func defineViewForSoraReceiverViewModel(_ model: WalletSoraReceiverViewModel) -> WalletFormItemView?
     func defineViewForFeeViewModel(_ model: FeeViewModelProtocol) -> WalletFormItemView?
     func defineViewForAmountModel(_ model: SoraTransactionAmountViewModel) -> WalletFormItemView?
@@ -28,7 +24,22 @@ final class WalletTransactionDetailsDefinition {
 }
 
 extension WalletTransactionDetailsDefinition: WalletTransactionDetailsDefining {
+    func defineViewForReferralStatus(_ viewModel: SoraReferralTransactionStatusViewModel) -> WalletFormItemView? {
+        let view = ReferralTransactionStatusView(frame: .zero)
+
+        view.bind(viewModel: viewModel)
+
+        return view
+    }
+
     func defineViewForAddLiquidityViewModel(_ model: AddLiquidityViewModel) -> WalletFormItemView? {
+        return nil
+    }
+
+    func defineViewForAddLiquidityConfirmationHeaderViewModel(_ model: SoraAddLiquidityHeaderViewModel) -> WalletFormItemView? {
+        return nil
+    }
+    func defineViewForRemoveLiquidityConfirmationHeaderViewModel(_ model: SoraRemoveLiquidityHeaderViewModel) -> WalletFormItemView? {
         return nil
     }
     

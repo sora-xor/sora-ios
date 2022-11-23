@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import UIKit
 import Lottie
@@ -10,10 +5,6 @@ import Lottie
 class SplashViewController: UIViewController, SplashViewProtocol {
 
     var presenter: SplashPresenter!
-
-    private lazy var splash: SplashView = {
-        return R.nib.launchScreen(owner: nil)!
-    }()
 
     private lazy var animationView = AnimationView(filePath: R.file.soraSplashJson.path()!)
 

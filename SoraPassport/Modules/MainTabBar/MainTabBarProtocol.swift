@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import CommonWallet
 
@@ -10,9 +5,8 @@ protocol MainTabBarViewProtocol: ControllerBackedProtocol {
     func didReplaceView(for newView: UIViewController, for index: Int)
 }
 
-protocol MainTabBarPresenterProtocol: class {
+protocol MainTabBarPresenterProtocol: AnyObject {
     func setup()
-    func viewDidAppear()
 }
 
 protocol MainTabBarInteractorInputProtocol: class {
@@ -33,6 +27,7 @@ protocol MainTabBarInteractorOutputProtocol: class {
     func didRequestMigration(with service: MigrationServiceProtocol)
     func didEndMigration()
     func didEndTransaction()
+    func didUserChange()
 }
 
 protocol MainTabBarWireframeProtocol: AlertPresentable, AuthorizationAccessible {
@@ -46,6 +41,7 @@ protocol MainTabBarWireframeProtocol: AlertPresentable, AuthorizationAccessible 
     func removeClaim(on view: MainTabBarViewProtocol?)
     
     func showTransactionSuccess(on view: MainTabBarViewProtocol?)
+    func recreateWalletViewController(on view: MainTabBarViewProtocol?)
 }
 
 protocol MainTabBarViewFactoryProtocol: class {

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CommonWallet
 import UIKit
 
@@ -64,7 +59,7 @@ final class LiquidityHistoryViewModel: WalletViewModelProtocol {
 
         if status == .rejected {
             rightTitle = NSAttributedString(
-                string: R.string.localizable.commonFailed(),
+                string: R.string.localizable.commonFailed(preferredLanguages: locale.rLanguages),
                 attributes: [
                     .font: UIFont.styled(for: .paragraph1, isBold: true)!,
                     .foregroundColor: R.color.statusError()!
@@ -141,14 +136,15 @@ final class LiquidityHistoryViewModel: WalletViewModelProtocol {
 
         let sign = liquidityType == .removal ? String.amountIncrease : .amountDecrease
         let formatter = NumberFormatter.historyAmount
-        let formattedAmount = formatter.stringFromDecimal(Decimal(string: amout) ?? .zero) ?? ""
+        let formattedAmount = sign+(formatter.stringFromDecimal(Decimal(string: amout) ?? .zero) ?? "")
 
         let asset = NSAttributedString(string: assetSymbol, attributes: assetAttributes)
 
-        let am = formattedAmount.prettyCurrency(baseFont: UIFont.styled(for: .paragraph1, isBold: true), smallSize: 10, locale: locale)
-
+        let amount = NSMutableAttributedString(attributedString:
+                                                formattedAmount.prettyCurrency(baseFont: UIFont.styled(for: .paragraph1, isBold: true), smallSize: 10, locale: locale))
+        amount.addAttributes(decimalsAmountAttributes, range: amount.wholeRange)
         let result = NSMutableAttributedString()
-        result.append(am)
+        result.append(amount)
         result.append(NSAttributedString(string: " "))
         result.append(asset)
 

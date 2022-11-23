@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 class PinChangePresenter: PinSetupPresenterProtocol {
@@ -12,6 +7,7 @@ class PinChangePresenter: PinSetupPresenterProtocol {
 
     func start() {
         view?.didChangeAccessoryState(enabled: false)
+        view?.updatePinCodeSymbolsCount(with: 6)
     }
 
     func activateBiometricAuth() {}

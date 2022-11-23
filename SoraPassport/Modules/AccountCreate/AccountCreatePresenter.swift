@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import IrohaCrypto
 import SoraFoundation
@@ -115,6 +110,10 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
         wireframe.confirm(from: view,
                           request: request,
                           metadata: metadata)
+    }
+
+    func restoredApp() {
+        wireframe.authorize()
     }
 }
 

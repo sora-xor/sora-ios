@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraUI
 import SoraFoundation
@@ -18,6 +13,52 @@ enum AccountHeaderType {
 
 struct ModalPickerFactory {
 
+    static func createPickerForAssetList(_ types: [AssetInfo],
+                                         selectedType: AssetInfo?,
+                                         delegate: ModalPickerViewControllerDelegate?,
+                                         context: AnyObject?) -> UIViewController? {
+        guard types.count > 0 else {
+            return nil
+        }
+
+        let viewController: ModalPickerViewController<LoadingIconWithTitleTableViewCell, LoadingIconWithTitleViewModel>
+            = ModalPickerViewController(nib: R.nib.modalPickerViewController)
+        viewController.navigationItem.largeTitleDisplayMode = .never
+        viewController.localizedTitle = LocalizableResource { locale in
+            R.string.localizable.commonChooseAsset(preferredLanguages: locale.rLanguages)
+        }
+        viewController.title =  R.string.localizable.commonChooseAsset(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages)
+        viewController.cellNib = UINib(resource: R.nib.loadingIconWithTitleTableViewCell)
+        viewController.delegate = delegate
+        viewController.modalPresentationStyle = .pageSheet
+        viewController.context = context
+        viewController.selectedIndex = -1
+
+        viewController.viewModels = types.map { type in
+            let symbolViewModel: WalletImageViewModelProtocol?
+            var visible = false
+            if let iconString = type.icon {
+                symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+                visible = type.visible ?? false
+            } else {
+                symbolViewModel = nil
+            }
+            return LocalizableResource { locale in
+                LoadingIconWithTitleViewModel(iconViewModel: symbolViewModel,
+                                              title: type.symbol, subtitle: type.name,
+                                              toggle: visible)
+            }
+        }
+
+        let factory = ModalSheetPresentationFactory(configuration: ModalSheetPresentationConfiguration.sora)
+        viewController.modalTransitioningFactory = factory
+
+        viewController.localizationManager = LocalizationManager.shared
+
+        return viewController
+
+    }
+//TODO: call with AssetInfo
     static func createPickerForAssetList(_ types: [WalletAsset],
                                          selectedType: WalletAsset?,
                                          delegate: ModalPickerViewControllerDelegate?,

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraFoundation
 import SoraUI
@@ -53,6 +48,11 @@ final class AccountCreateViewController: UIViewController {
         configure()
 
         presenter.setup()
+
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(appEnterToForeground),
+                                               name: UIApplication.willEnterForegroundNotification,
+                                               object: nil)
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -67,6 +67,15 @@ final class AccountCreateViewController: UIViewController {
         super.viewDidDisappear(animated)
 
         clearKeyboardHandler()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc
+    func appEnterToForeground() {
+        presenter?.restoredApp()
     }
 
     private func adjustLayout() {

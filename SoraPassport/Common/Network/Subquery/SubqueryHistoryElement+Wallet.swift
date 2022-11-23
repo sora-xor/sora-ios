@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import BigInt
 import CommonWallet
 import Foundation
@@ -268,7 +263,7 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
         return AssetTransactionData(
             transactionId: identifier,
             status: status,
-            assetId: liquidity.targetAssetId,
+            assetId: liquidity.targetAssetId, // TODO: check
             peerId: liquidity.baseAssetId,
             peerFirstName: nil,
             peerLastName: nil,

@@ -1,15 +1,25 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import FearlessUtils
 import Foundation
+
+enum PalleteName: String {
+//    case System
+//    case PoolXYK
+//    case MulticollateralBondingCurvePool
+//    case Referrals
+//    case Staking
+//    case Tokens
+    case Assets
+}
 
 extension StorageKeyFactoryProtocol {
     func updatedDualRefCount() throws -> Data {
         try createStorageKey(moduleName: "System",
                              storageName: "UpgradedToDualRefCount")
+    }
+
+    func assetsInfoKeysPaged() throws -> Data {
+        try createStorageKey(moduleName: PalleteName.Assets.rawValue,
+                             storageName: "AssetInfos")
     }
 
     func accountInfoKeyForId(_ identifier: Data) throws -> Data {
@@ -19,8 +29,13 @@ extension StorageKeyFactoryProtocol {
                              hasher: .blake128Concat)
     }
 
-    func accountPoolsKeyForId(_ identifier: Data) throws -> Data {
-        try createStorageKey(moduleName: "PoolXYK", storageName: "AccountPools") + identifier
+    func accountPoolsKeyForId(_ identifier: Data, baseAssetId: Data) throws -> Data {
+        try createStorageKey(moduleName: "PoolXYK",
+                             storageName: "AccountPools",
+                             key1: identifier,
+                             hasher1: .identity,
+                             key2: baseAssetId,
+                             hasher2: .blake128Concat)
     }
 
     func accountPoolTotalIssuancesKeyForId(_ identifier: Data) throws -> Data {
@@ -94,11 +109,48 @@ extension StorageKeyFactoryProtocol {
                              key2: asset2,
                              hasher2: .blake128Concat)
     }
-    
+
     func tbcPoolKey(asset: Data) throws -> Data {
         try createStorageKey(moduleName: "MulticollateralBondingCurvePool",
                              storageName: "CollateralReserves",
                              key: asset,
                              hasher: .twox64Concat)
+    }
+
+    func referrerBalancesKeyForId(_ identifier: Data) throws -> Data {
+        try createStorageKey(moduleName: "Referrals",
+                             storageName: "ReferrerBalances",
+                             key: identifier,
+                             hasher: .blake128Concat)
+    }
+
+    func referrersKeyForId(_ identifier: Data) throws -> Data {
+        try createStorageKey(moduleName: "Referrals",
+                             storageName: "Referrers",
+                             key: identifier,
+                             hasher: .blake128Concat)
+    }
+
+    func accountsKey(account: Data, asset: Data) throws -> Data {
+        try createStorageKey(moduleName: "Tokens",
+                             storageName: "Accounts",
+                             key1: account,
+                             hasher1: .blake128Concat,
+                             key2: asset,
+                             hasher2: .twox64Concat)
+    }
+
+    func accountsKey(account: Data) throws -> Data {
+        try createStorageKey(moduleName: "Tokens",
+                             storageName: "Accounts",
+                             key: account,
+                             hasher: .blake128Concat)
+    }
+
+    func referralsKeyForId(_ identifier: Data) throws -> Data {
+        try createStorageKey(moduleName: "Referrals",
+                             storageName: "Referrals",
+                             key: identifier,
+                             hasher: .blake128Concat)
     }
  }

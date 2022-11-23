@@ -1,13 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 // MARK: - Base
 
-protocol ProfileOptionViewModelProtocol {
+protocol ProfileOptionViewModelProtocol: CellViewModel {
     static var locale: Locale { get set }
 
     var option: ProfileOption { get }
@@ -20,6 +15,12 @@ protocol ProfileOptionViewModelProtocol {
 }
 
 struct ProfileOptionViewModel: ProfileOptionViewModelProtocol {
+    var cellReuseIdentifier: String {
+        ProfileTableViewCell.reuseIdentifier
+    }
+
+    static var cellType: Reusable.Type { ProfileTableViewCell.self }
+    
     static var locale: Locale = Locale.current
 
     var option: ProfileOption

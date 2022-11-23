@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -26,11 +21,11 @@ final class AccountListConfigurator {
         assetStyleFactory = AssetStyleFactory()
 
         let amountFormatterFactory = AmountFormatterFactory()
-
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         viewModelFactory = AccountListViewModelFactory(address: address,
                                                        chain: chain,
                                                        assetCellStyleFactory: assetStyleFactory,
-                                                       assetManager: AssetManager.shared,
+                                                       assetManager: assetManager,
                                                        commandDecorator: commandDecorator,
                                                        amountFormatterFactory: amountFormatterFactory/*,
                                                        priceAsset: priceAsset,

@@ -1,9 +1,5 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import SoraFoundation
 
 enum LiquiditySourceType: String {
     case smart = ""
@@ -11,8 +7,7 @@ enum LiquiditySourceType: String {
     case tbc = "MulticollateralBondingCurvePool"
 }
 
-extension LiquiditySourceType {
-
+extension LiquiditySourceType: SourceType {
     func titleForLocale(_ locale: Locale) -> String {
         switch self {
         case .xyk:
@@ -24,7 +19,23 @@ extension LiquiditySourceType {
         }
     }
 
-    var code: [UInt] {
+    var descriptionText: String? {
+        let preferredLocalizations = LocalizationManager.shared.preferredLocalizations
+        switch self {
+        case .smart:
+            return R.string.localizable.polkaswapMarketSmartDescription(preferredLanguages: preferredLocalizations)
+        case .xyk:
+            return R.string.localizable.polkaswapMarketXykDescription(preferredLanguages: preferredLocalizations)
+        case .tbc:
+            return R.string.localizable.polkaswapMarketTbcDescription(preferredLanguages: preferredLocalizations)
+        }
+    }
+
+}
+
+extension LiquiditySourceType {
+
+    var code: [[String?]] {
         /*
         Metadata:
          - 0 : "XYKPool"
@@ -40,9 +51,9 @@ extension LiquiditySourceType {
         case .smart:
             return []
         case .tbc:
-            return [2]
+            return [["MulticollateralBondingCurvePool", nil]]
         case .xyk:
-            return [0]
+            return [["XYKPool",nil]]
         }
     }
 

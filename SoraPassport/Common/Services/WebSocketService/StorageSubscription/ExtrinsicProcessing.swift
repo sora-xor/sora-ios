@@ -1,11 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import BigInt
+import IrohaCrypto
 
 struct ExtrinsicProcessingResult {
     let extrinsic: Extrinsic
@@ -26,6 +22,11 @@ protocol ExtrinsicProcessing {
 
 final class ExtrinsicProcessor {
     let accountId: AccountAddress
+    var account: MultiAddress {
+        // swiftlint:disable:next force_try
+        MultiAddress.accoundId(try! Data(hexString: accountId))
+        //probably should be address32
+    }
 
     init(accountId: AccountAddress) {
         self.accountId = accountId
@@ -51,19 +52,39 @@ final class ExtrinsicProcessor {
         eventRecords: [EventRecord],
         metadata: RuntimeMetadata
     ) -> BigUInt? {
-        eventRecords.filter { record in
+        eventRecords.compactMap { record in
             guard record.extrinsicIndex == index,
                   let eventPath = metadata.createEventCodingPath(from: record.event) else {
-                return false
+                return nil
             }
-            return eventPath == .feeWitdrawn
-        }.reduce(BigUInt(0)) { totalFee, record in
-            guard let deposit = try? record.event.params.map(to: BalanceDepositEvent.self) else {
-                return totalFee
+            if eventPath == .balanceDeposit {
+                return try? record.event.data.map(to: BalanceDepositEvent.self).amount
             }
 
-            return totalFee + deposit.amount
+            if eventPath == .feeWitdrawn {
+                return BigUInt((record.event.data.arrayValue ?? []).last?.stringValue ?? "0")
+            }
+
+            return nil
+        }.reduce(BigUInt(0)) { (totalFee: BigUInt, partialFee: BigUInt) in
+            totalFee + partialFee
         }
+    }
+
+    private func matchBatch(
+        extrinsicIndex: UInt32,
+        extrinsic: Extrinsic,
+        eventRecords: [EventRecord],
+        metadata: RuntimeMetadata
+    ) -> ExtrinsicProcessingResult? {
+        let batch = try? extrinsic.call.map(to: RuntimeCall<BatchArgs>.self)
+
+        let calls = batch?.args.calls ?? []
+        for call in calls {
+            let innerExtrinsic = Extrinsic(signature: extrinsic.signature, call: call)
+            process(extrinsicIndex: extrinsicIndex, extrinsic: innerExtrinsic, eventRecords: eventRecords, metadata: metadata)
+        }
+        return nil
     }
 
     private func matchTransfer(
@@ -73,10 +94,12 @@ final class ExtrinsicProcessor {
         metadata: RuntimeMetadata
     ) -> ExtrinsicProcessingResult? {
         do {
-            let sender = extrinsic.signature?.address.stringValue
+            let sender = try extrinsic.signature?.address.map(to: MultiAddress.self)
+            let accData = try? SS58AddressFactory().accountId(fromAddress: accountId, type: 69)
+
             let call = try extrinsic.call.map(to: RuntimeCall<SoraTransferCall>.self)
             let callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
-            let isAccountMatched = accountId == sender || accountId == call.args.receiver
+            let isAccountMatched = account == sender || account == call.args.receiver
 
             guard
                 callPath.isTransfer,
@@ -95,13 +118,13 @@ final class ExtrinsicProcessor {
                 metadata: metadata
             )
 
-            let peerId = accountId == sender ? call.args.receiver : sender
+            let peerId = account == sender ? call.args.receiver : sender
 
             return ExtrinsicProcessingResult(
                 extrinsic: extrinsic,
                 callPath: callPath,
                 fee: fee,
-                peerId: peerId,
+                peerId: try? SS58AddressFactory().addressFromAccountId(data: peerId!.data, type: 69),
                 isSuccess: isSuccess
             )
 
@@ -117,10 +140,10 @@ final class ExtrinsicProcessor {
         metadata: RuntimeMetadata
     ) -> ExtrinsicProcessingResult? {
         do {
-            let sender = extrinsic.signature?.address.stringValue
+            let sender = try extrinsic.signature?.address.map(to: MultiAddress.self)
             let call = try extrinsic.call.map(to: RuntimeCall<MigrateCall>.self)
             let callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
-            let isAccountMatched = accountId == sender
+            let isAccountMatched = account == sender
 
             guard
                 isAccountMatched,
@@ -152,10 +175,10 @@ final class ExtrinsicProcessor {
         metadata: RuntimeMetadata
     ) -> ExtrinsicProcessingResult? {
         do {
-            let sender = extrinsic.signature?.address.stringValue
+            let sender = try extrinsic.signature?.address.map(to: MultiAddress.self)
             let call = try extrinsic.call.map(to: RuntimeCall<NoRuntimeArgs>.self)
             let callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
-            let isAccountMatched = accountId == sender
+            let isAccountMatched = account == sender
 
             guard
                 isAccountMatched,
@@ -181,7 +204,7 @@ final class ExtrinsicProcessor {
                 isSuccess: isSuccess
             )
 
-        } catch {
+        } catch let error {
             return nil
         }
     }
@@ -197,33 +220,56 @@ extension ExtrinsicProcessor: ExtrinsicProcessing {
         do {
             let decoder = try coderFactory.createDecoder(from: extrinsicData)
             let extrinsic: Extrinsic = try decoder.read(of: GenericType.extrinsic.name)
+            return process(extrinsicIndex: extrinsicIndex,
+                           extrinsic: extrinsic,
+                           eventRecords: eventRecords,
+                           metadata: coderFactory.metadata)
 
-            if let processingResult = matchTransfer(
-                extrinsicIndex: extrinsicIndex,
-                extrinsic: extrinsic,
-                eventRecords: eventRecords,
-                metadata: coderFactory.metadata
-            ) {
-                return processingResult
-            }
-
-            if let migrationResult = matchMigration(
-                extrinsicIndex: extrinsicIndex,
-                extrinsic: extrinsic,
-                eventRecords: eventRecords,
-                metadata: coderFactory.metadata
-            ) {
-                return migrationResult
-            }
-
-            return matchExtrinsic(
-                extrinsicIndex: extrinsicIndex,
-                extrinsic: extrinsic,
-                eventRecords: eventRecords,
-                metadata: coderFactory.metadata
-            )
-        } catch {
+        } catch let error {
+            print(error)
             return nil
         }
+    }
+
+    func process(
+        extrinsicIndex: UInt32,
+        extrinsic: Extrinsic,
+        eventRecords: [EventRecord],
+        metadata:  RuntimeMetadata
+    ) -> ExtrinsicProcessingResult? {
+
+        if let result = matchBatch(
+            extrinsicIndex: extrinsicIndex,
+            extrinsic: extrinsic,
+            eventRecords: eventRecords,
+            metadata: metadata
+        ) {
+            return nil
+        }
+
+        if let processingResult = matchTransfer(
+            extrinsicIndex: extrinsicIndex,
+            extrinsic: extrinsic,
+            eventRecords: eventRecords,
+            metadata: metadata
+        ) {
+            return processingResult
+        }
+
+        if let migrationResult = matchMigration(
+            extrinsicIndex: extrinsicIndex,
+            extrinsic: extrinsic,
+            eventRecords: eventRecords,
+            metadata: metadata
+        ) {
+            return migrationResult
+        }
+
+        return matchExtrinsic(
+            extrinsicIndex: extrinsicIndex,
+            extrinsic: extrinsic,
+            eventRecords: eventRecords,
+            metadata: metadata
+        )
     }
 }

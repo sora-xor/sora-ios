@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import RobinHood
@@ -115,7 +110,7 @@ final class ExtrinsicService {
             let addressType = try addressFactory.extractAddressType(from: currentAddress)
             let accountId = try addressFactory.accountId(fromAddress: currentAddress, type: addressType)
 
-            let account = accountId
+            let account = MultiAddress.accoundId(accountId)
 
             var builder: ExtrinsicBuilderProtocol =
                 try ExtrinsicBuilder(specVersion: codingFactory.specVersion,

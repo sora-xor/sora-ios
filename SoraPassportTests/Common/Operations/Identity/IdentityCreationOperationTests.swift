@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import SoraKeystore
 //import SoraCrypto
@@ -13,11 +8,11 @@ class IdentityCreationOperationTests: XCTestCase {
     private let keystore = Keychain()
 
     override func setUp() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
     }
 
     override func tearDown() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
     }
 /*
     func testSuccessfullIdentityCreation() throws {

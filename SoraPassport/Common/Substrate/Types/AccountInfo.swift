@@ -1,65 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import BigInt
-
-struct AccountInfo: ScaleDecodable {
-    let nonce: UInt32
-    let consumers: UInt32
-    let providers: UInt32
-    let data: AccountData
-
-    init(v27: AccountInfoV27) {
-        self.nonce = v27.nonce
-        self.consumers = v27.refcount
-        self.providers = 0
-        self.data = v27.data
-    }
-
-    init(scaleDecoder: ScaleDecoding) throws {
-        nonce = try UInt32(scaleDecoder: scaleDecoder)
-        consumers = try UInt32(scaleDecoder: scaleDecoder)
-        providers = try UInt32(scaleDecoder: scaleDecoder)
-        data = try AccountData(scaleDecoder: scaleDecoder)
-    }
-}
-
-struct AccountInfoV27: ScaleDecodable {
-    let nonce: UInt32
-    let refcount: UInt32
-    let data: AccountData
-
-    init(scaleDecoder: ScaleDecoding) throws {
-        nonce = try UInt32(scaleDecoder: scaleDecoder)
-        refcount = try UInt32(scaleDecoder: scaleDecoder)
-        data = try AccountData(scaleDecoder: scaleDecoder)
-    }
-}
-
-struct AccountData: ScaleDecodable {
-    let free: Balance
-    let reserved: Balance
-    let miscFrozen: Balance
-    let feeFrozen: Balance
-
-    init(scaleDecoder: ScaleDecoding) throws {
-        free = try Balance(scaleDecoder: scaleDecoder)
-        reserved = try Balance(scaleDecoder: scaleDecoder)
-        miscFrozen = try Balance(scaleDecoder: scaleDecoder)
-        feeFrozen = try Balance(scaleDecoder: scaleDecoder)
-    }
-
-    init(free: BigUInt = 0, reserved: BigUInt = 0, miscFrozen: BigUInt = 0, feeFrozen: BigUInt = 0) {
-        self.free = Balance(value: free)
-        self.reserved = Balance(value: reserved)
-        self.miscFrozen = Balance(value: miscFrozen)
-        self.feeFrozen = Balance(value: feeFrozen)
-    }
-}
 
 struct BalanceInfo: Decodable {
     @StringCodable var balance: BigUInt
@@ -87,4 +28,49 @@ struct Balance: ScaleCodable {
 
         scaleEncoder.appendRaw(data: Data(encodedData))
     }
+}
+
+
+struct AccountInfo: Codable, Equatable {
+    @StringCodable var nonce: UInt32
+    @StringCodable var consumers: UInt32
+    @StringCodable var providers: UInt32
+    let data: AccountData
+
+    init(nonce: UInt32, consumers: UInt32, providers: UInt32, data: AccountData) {
+        self.nonce = nonce
+        self.consumers = consumers
+        self.providers = providers
+        self.data = data
+    }
+//Left intentionally for later try to get other balances this way
+//    init?(ormlAccountInfo: OrmlAccountInfo?) {
+//        guard let ormlAccountInfo = ormlAccountInfo else {
+//            return nil
+//        }
+//        nonce = 0
+//        consumers = 0
+//        providers = 0
+//
+//        data = AccountData(
+//            free: ormlAccountInfo.free,
+//            reserved: ormlAccountInfo.reserved,
+//            miscFrozen: ormlAccountInfo.frozen,
+//            feeFrozen: BigUInt.zero
+//        )
+//    }
+}
+
+struct AccountData: Codable, Equatable {
+    @StringCodable var free: BigUInt
+    @StringCodable var reserved: BigUInt
+    @StringCodable var miscFrozen: BigUInt
+    @StringCodable var feeFrozen: BigUInt
+}
+
+extension AccountData {
+    var total: BigUInt { free + reserved }
+    var frozen: BigUInt { reserved + locked }
+    var locked: BigUInt { max(miscFrozen, feeFrozen) }
+    var available: BigUInt { free - locked }
 }

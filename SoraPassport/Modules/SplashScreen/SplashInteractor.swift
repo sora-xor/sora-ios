@@ -1,121 +1,92 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import FearlessUtils
-import RobinHood
 
 typealias RuntimeServiceProtocol = RuntimeRegistryServiceProtocol & RuntimeCodingServiceProtocol
 
 final class SplashInteractor: SplashInteractorProtocol {
     weak var presenter: SplashPresenterProtocol!
     let settings: SettingsManagerProtocol
-    let operationManager: OperationManagerProtocol
     let socketService: WebSocketServiceProtocol
-    let runtimeService: RuntimeServiceProtocol
 
     init(settings: SettingsManagerProtocol,
-         operationManager: OperationManagerProtocol,
-         socketService: WebSocketServiceProtocol,
-         runtimeService: RuntimeServiceProtocol) {
+         socketService: WebSocketServiceProtocol) {
         self.settings = settings
-        self.operationManager = operationManager
         self.socketService = socketService
-        self.runtimeService = runtimeService
     }
 
     func setup() {
         socketService.setup()
-        runtimeService.setup()
-        setupChainData()
+        loadGenesis()
     }
 
-    private func setupChainData() {
-        let genesisOperation = createGenesisOperation(engine: socketService.connection!)
-        genesisOperation.completionBlock = {
-            if let genesis = try? genesisOperation.extractResultData() {
-                self.settings.set(value: genesis, for: SettingsKey.externalGenesis.rawValue)
-                Logger.shared.info("Runtime update gen: \(genesis)" )
-            }
+    private func loadGenesis() {
+        let provider = GenesisProvider(engine: socketService.connection!)
+        provider.load(completion: { [weak self] genesis in
+            self?.didLoadGenesis(genesis)
+        })
+    }
 
-            self.socketService.performPrelaunchSusbscriptions()
-            self.runtimeService.update(to: .sora, forced: true) //apply correct genesis
-            self.continueSetup(socketService: self.socketService, runtimeService: self.runtimeService)
+    private func didLoadGenesis(_ genesis: String?) {
+        if let genesis = genesis {
+            self.settings.set(value: genesis, for: SettingsKey.externalGenesis.rawValue)
+            Logger.shared.info("Runtime update gen: " + genesis)
+        }
+        loadAssetsInfo(chainId: genesis)
+    }
+
+    private func loadAssetsInfo(chainId: String?) {
+        let provider = AssetsInfoProvider(engine: socketService.connection!, storageKeyFactory: StorageKeyFactory(), chainId: chainId)
+        provider.load { [weak self] assetsInfo in
+            self?.didLoadAssetsInfo(assetsInfo)
+        }
+    }
+
+    private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo]) {
+        AssetManager.networkAssets = assetsInfo
+
+        socketService.throttle()
+
+        DispatchQueue.main.async {
+            self.startChain()
+        }
+    }
+
+    private func startChain() {
+        let dbMigrator = UserStorageMigrator(
+            targetVersion: UserStorageParams.modelVersion,
+            storeURL: UserStorageParams.storageURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: Keychain(),
+            settings: settings,
+            fileManager: FileManager.default
+        )
+        let logger = Logger.shared
+//it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
+        do {
+            try dbMigrator.migrate()
+        } catch {
+            logger.error(error.localizedDescription)
         }
 
-        let operations = [genesisOperation]
+        let settings = SelectedWalletSettings.shared
+        let chainRegistry = ChainRegistryFacade.sharedRegistry
 
-        operationManager.enqueue(operations: operations, in: .blockAfter)
-    }
-
-    private func continueSetup(socketService: WebSocketServiceProtocol, runtimeService: RuntimeCodingServiceProtocol) {
-
-        let coderOperation = runtimeService.fetchCoderFactoryOperation()
-        let whiteListOperation = WhitelistOperationFactory(repository: FileRepository()).fetchWhiteListOperation(for: .sora)
-        let assetsOperation = createAssetListOperation(engine: socketService.connection!)
-
-        let setupOperation = ClosureOperation {
-            let metadata = try coderOperation.extractNoCancellableResultData().metadata
-            let prefixCoding = ConstantCodingPath.chainPrefix
-            let depositCoding = ConstantCodingPath.existentialDeposit
-            let prefixData = metadata.getConstant(in: prefixCoding.moduleName, constantName: prefixCoding.constantName)
-            let existentialDepositData = metadata.getConstant(in: depositCoding.moduleName, constantName: depositCoding.constantName)
-
-            let prefix = try? UInt8(scaleDecoder: ScaleDecoder(data: prefixData!.value))
-            let deposit = try? UInt16(scaleDecoder: ScaleDecoder(data: existentialDepositData!.value))
-
-            self.settings.set(value: prefix, for: SettingsKey.externalPrefix.rawValue)
-            self.settings.set(value: deposit, for: SettingsKey.externalExistentialDeposit.rawValue)
-
-            let assets = try? assetsOperation.extractNoCancellableResultData()
-            let assetManager = AssetManager.shared
-            if let whiteListData = try whiteListOperation.extractNoCancellableResultData(),
-               let assets = assets {
-                let whitelist = try JSONDecoder().decode([Whitelist].self, from: whiteListData)
-                var filteredAssets: [AssetInfo] = []
-
-                for var asset in assets {
-                    if let listed = whitelist.first(where: { (list) -> Bool in
-                        list.assetId == asset.assetId
-                    }) {
-                        asset.icon = listed.icon
-                        filteredAssets.append(asset)
-                    }
+        settings.setup(runningCompletionIn: .main) { result in
+            switch result {
+            case let .success(maybeAccount):
+                if let metaAccount = maybeAccount {
+                    chainRegistry.performHotBoot()
+                    logger.debug("Selected account: \(metaAccount.address)")
+                } else {
+                    chainRegistry.performColdBoot()
+                    logger.debug("No selected account")
                 }
-                assetManager.updateWhitelisted(filteredAssets)
-            } else {
-                assetManager.updateAssetList(assets ?? [])
+            case let .failure(error):
+                logger.error("Selected account setup failed: \(error)")
             }
-
-            self.presenter.setupComplete()
         }
 
-        setupOperation.addDependency(coderOperation)
-        setupOperation.addDependency(assetsOperation)
-        setupOperation.addDependency(whiteListOperation)
-        let operations = [coderOperation, whiteListOperation, assetsOperation, setupOperation]
-
-        OperationManagerFacade.sharedManager.enqueue(operations: operations, in: .transient)
-    }
-
-    private func createGenesisOperation(engine: JSONRPCEngine) -> BaseOperation<String> {
-        var currentBlock = 0
-        let param = Data(Data(bytes: &currentBlock, count: MemoryLayout<UInt32>.size).reversed())
-            .toHex(includePrefix: true)
-
-        return JSONRPCListOperation<String>(engine: engine,
-                                            method: RPCMethod.getBlockHash,
-                                            parameters: [param])
-    }
-
-    private func createAssetListOperation(engine: JSONRPCEngine) -> BaseOperation<[AssetInfo]> {
-        let method = RPCMethod.assetInfo
-
-        let assetOperation = JSONRPCListOperation<[AssetInfo]>(engine: engine,
-                                                               method: method)
-        return assetOperation
+        self.presenter.setupComplete()
     }
 }

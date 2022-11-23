@@ -1,0 +1,4 @@
+import Foundation
+import CommonWallet
+
+struct SingleProviderIdentifierFactory: SingleProviderIdentifierFactoryProtocol {}

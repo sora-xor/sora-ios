@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraKeystore
@@ -10,7 +5,7 @@ import SoraFoundation
 import IrohaCrypto
 
 protocol WalletPrimitiveFactoryProtocol {
-    func createAccountSettings() throws -> WalletAccountSettingsProtocol
+    func createAccountSettings(for selectedAccount: AccountItem, assetManager: AssetManagerProtocol) throws -> WalletAccountSettingsProtocol
 }
 
 enum WalletPrimitiveFactoryError: Error {
@@ -21,12 +16,9 @@ enum WalletPrimitiveFactoryError: Error {
 
 final class WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
     let keystore: KeystoreProtocol
-    let settings: SettingsManagerProtocol
 
-    init(keystore: KeystoreProtocol,
-         settings: SettingsManagerProtocol) {
+    init(keystore: KeystoreProtocol) {
         self.keystore = keystore
-        self.settings = settings
     }
 
     private func createAssetForInfo(_ info: AssetInfo) -> WalletAsset {
@@ -39,19 +31,16 @@ final class WalletPrimitiveFactory: WalletPrimitiveFactoryProtocol {
                            modes: .all)
     }
 
-    func createAccountSettings() throws -> WalletAccountSettingsProtocol {
-        guard let selectedAccount = settings.selectedAccount else {
-            throw WalletPrimitiveFactoryError.missingAccountId
-        }
+    func createAccountSettings(for selectedAccount: AccountItem, assetManager: AssetManagerProtocol) throws -> WalletAccountSettingsProtocol {
 
-        let assets = AssetManager.shared.getAssetList()?
+        let assets = assetManager.getAssetList()?
             .map {createAssetForInfo($0)}
 
         guard let assetList = assets else {
             throw WalletPrimitiveFactoryError.undefinedAssets
         }
 
-        let selectedConnectionType = settings.selectedConnection.type
+        let selectedConnectionType = selectedAccount.addressType
 
 //        let totalPriceAsset = WalletAsset(identifier: WalletAssetId.usd.rawValue,
 //                                          name: LocalizableResource { _ in "" },

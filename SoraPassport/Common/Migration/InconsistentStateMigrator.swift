@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 
@@ -19,7 +14,7 @@ final class InconsistentStateMigrator: Migrating {
     }
 
     func migrate() throws {
-        guard let selectedAccount = settings.selectedAccount else {
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             return
         }
 

@@ -1,11 +1,14 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
 final class OperationManagerFacade {
-    static let sharedManager = OperationManager()
+    static let sharedDefaultQueue = OperationQueue()
+
+    static let runtimeBuildingQueue: OperationQueue = {
+        let operationQueue = OperationQueue()
+        operationQueue.qualityOfService = .userInitiated
+        return operationQueue
+    }()
+
+    static let sharedManager = OperationManager(operationQueue: sharedDefaultQueue)
 }

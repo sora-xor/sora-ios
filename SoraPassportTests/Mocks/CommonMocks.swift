@@ -1,13 +1,12 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Cuckoo
 @testable import SoraPassport
 @testable import SoraFoundation
 
 import Foundation
+
+
+
+
 
 
 public class MockDayChangeHandlerDelegate: DayChangeHandlerDelegate, Cuckoo.ProtocolMock {
@@ -35,9 +34,13 @@ public class MockDayChangeHandlerDelegate: DayChangeHandlerDelegate, Cuckoo.Prot
     
     
     
+    
     public func handlerDidReceiveChange(_ handler: DayChangeHandlerProtocol)  {
         
-    return cuckoo_manager.call("handlerDidReceiveChange(_: DayChangeHandlerProtocol)",
+    return cuckoo_manager.call(
+    """
+    handlerDidReceiveChange(_: DayChangeHandlerProtocol)
+    """,
             parameters: (handler),
             escapingParameters: (handler),
             superclassCall:
@@ -48,44 +51,58 @@ public class MockDayChangeHandlerDelegate: DayChangeHandlerDelegate, Cuckoo.Prot
         
     }
     
+    
 
-	public struct __StubbingProxy_DayChangeHandlerDelegate: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	    public init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(DayChangeHandlerProtocol)> where M1.MatchedType == DayChangeHandlerProtocol {
-	        let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockDayChangeHandlerDelegate.self, method: "handlerDidReceiveChange(_: DayChangeHandlerProtocol)", parameterMatchers: matchers))
-	    }
-	    
-	}
+    public struct __StubbingProxy_DayChangeHandlerDelegate: Cuckoo.StubbingProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+    
+        public init(manager: Cuckoo.MockManager) {
+            self.cuckoo_manager = manager
+        }
+        
+        
+        
+        
+        func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(DayChangeHandlerProtocol)> where M1.MatchedType == DayChangeHandlerProtocol {
+            let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockDayChangeHandlerDelegate.self, method:
+    """
+    handlerDidReceiveChange(_: DayChangeHandlerProtocol)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+    }
 
-	public struct __VerificationProxy_DayChangeHandlerDelegate: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	
-	    
-	    @discardableResult
-	    func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.__DoNotUse<(DayChangeHandlerProtocol), Void> where M1.MatchedType == DayChangeHandlerProtocol {
-	        let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
-	        return cuckoo_manager.verify("handlerDidReceiveChange(_: DayChangeHandlerProtocol)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
+    public struct __VerificationProxy_DayChangeHandlerDelegate: Cuckoo.VerificationProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+        private let callMatcher: Cuckoo.CallMatcher
+        private let sourceLocation: Cuckoo.SourceLocation
+    
+        public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+            self.cuckoo_manager = manager
+            self.callMatcher = callMatcher
+            self.sourceLocation = sourceLocation
+        }
+    
+        
+    
+        
+        
+        
+        @discardableResult
+        func handlerDidReceiveChange<M1: Cuckoo.Matchable>(_ handler: M1) -> Cuckoo.__DoNotUse<(DayChangeHandlerProtocol), Void> where M1.MatchedType == DayChangeHandlerProtocol {
+            let matchers: [Cuckoo.ParameterMatcher<(DayChangeHandlerProtocol)>] = [wrap(matchable: handler) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    handlerDidReceiveChange(_: DayChangeHandlerProtocol)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+    }
 }
+
 
 public class DayChangeHandlerDelegateStub: DayChangeHandlerDelegate {
     
@@ -93,11 +110,22 @@ public class DayChangeHandlerDelegateStub: DayChangeHandlerDelegate {
     
 
     
+    
+    
+    
     public func handlerDidReceiveChange(_ handler: DayChangeHandlerProtocol)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
 }
+
+
+
+
+
+
+
 
 
 
@@ -119,6 +147,7 @@ public class MockDayChangeHandlerProtocol: DayChangeHandlerProtocol, Cuckoo.Prot
     }
     
 
+    
     
     
     
@@ -144,49 +173,57 @@ public class MockDayChangeHandlerProtocol: DayChangeHandlerProtocol, Cuckoo.Prot
         
     }
     
-
     
 
     
 
-	public struct __StubbingProxy_DayChangeHandlerProtocol: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	    public init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockDayChangeHandlerProtocol, DayChangeHandlerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate")
-	    }
-	    
-	    
-	}
+    
 
-	public struct __VerificationProxy_DayChangeHandlerProtocol: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	    
-	    var delegate: Cuckoo.VerifyOptionalProperty<DayChangeHandlerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	
-	    
-	}
+    public struct __StubbingProxy_DayChangeHandlerProtocol: Cuckoo.StubbingProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+    
+        public init(manager: Cuckoo.MockManager) {
+            self.cuckoo_manager = manager
+        }
+        
+        
+        
+        var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockDayChangeHandlerProtocol, DayChangeHandlerDelegate> {
+            return .init(manager: cuckoo_manager, name: "delegate")
+        }
+        
+        
+        
+    }
+
+    public struct __VerificationProxy_DayChangeHandlerProtocol: Cuckoo.VerificationProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+        private let callMatcher: Cuckoo.CallMatcher
+        private let sourceLocation: Cuckoo.SourceLocation
+    
+        public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+            self.cuckoo_manager = manager
+            self.callMatcher = callMatcher
+            self.sourceLocation = sourceLocation
+        }
+    
+        
+        
+        
+        var delegate: Cuckoo.VerifyOptionalProperty<DayChangeHandlerDelegate> {
+            return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+    
+        
+    }
 }
 
+
 public class DayChangeHandlerProtocolStub: DayChangeHandlerProtocol {
+    
+    
     
     
     public var delegate: DayChangeHandlerDelegate? {
@@ -198,6 +235,7 @@ public class DayChangeHandlerProtocolStub: DayChangeHandlerProtocol {
         
     }
     
+    
 
     
 
@@ -205,11 +243,18 @@ public class DayChangeHandlerProtocolStub: DayChangeHandlerProtocol {
 }
 
 
+
+
+
 import Cuckoo
 @testable import SoraPassport
 @testable import SoraFoundation
 
 import UIKit
+
+
+
+
 
 
 public class MockApplicationHandlerDelegate: ApplicationHandlerDelegate, Cuckoo.ProtocolMock {
@@ -237,9 +282,13 @@ public class MockApplicationHandlerDelegate: ApplicationHandlerDelegate, Cuckoo.
     
     
     
+    
     public func didReceiveWillResignActive(notification: Notification)  {
         
-    return cuckoo_manager.call("didReceiveWillResignActive(notification: Notification)",
+    return cuckoo_manager.call(
+    """
+    didReceiveWillResignActive(notification: Notification)
+    """,
             parameters: (notification),
             escapingParameters: (notification),
             superclassCall:
@@ -252,9 +301,14 @@ public class MockApplicationHandlerDelegate: ApplicationHandlerDelegate, Cuckoo.
     
     
     
+    
+    
     public func didReceiveDidBecomeActive(notification: Notification)  {
         
-    return cuckoo_manager.call("didReceiveDidBecomeActive(notification: Notification)",
+    return cuckoo_manager.call(
+    """
+    didReceiveDidBecomeActive(notification: Notification)
+    """,
             parameters: (notification),
             escapingParameters: (notification),
             superclassCall:
@@ -267,9 +321,14 @@ public class MockApplicationHandlerDelegate: ApplicationHandlerDelegate, Cuckoo.
     
     
     
+    
+    
     public func didReceiveWillEnterForeground(notification: Notification)  {
         
-    return cuckoo_manager.call("didReceiveWillEnterForeground(notification: Notification)",
+    return cuckoo_manager.call(
+    """
+    didReceiveWillEnterForeground(notification: Notification)
+    """,
             parameters: (notification),
             escapingParameters: (notification),
             superclassCall:
@@ -282,9 +341,14 @@ public class MockApplicationHandlerDelegate: ApplicationHandlerDelegate, Cuckoo.
     
     
     
+    
+    
     public func didReceiveDidEnterBackground(notification: Notification)  {
         
-    return cuckoo_manager.call("didReceiveDidEnterBackground(notification: Notification)",
+    return cuckoo_manager.call(
+    """
+    didReceiveDidEnterBackground(notification: Notification)
+    """,
             parameters: (notification),
             escapingParameters: (notification),
             superclassCall:
@@ -295,77 +359,127 @@ public class MockApplicationHandlerDelegate: ApplicationHandlerDelegate, Cuckoo.
         
     }
     
+    
 
-	public struct __StubbingProxy_ApplicationHandlerDelegate: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	    public init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    func didReceiveWillResignActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveWillResignActive(notification: Notification)", parameterMatchers: matchers))
-	    }
-	    
-	    func didReceiveDidBecomeActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveDidBecomeActive(notification: Notification)", parameterMatchers: matchers))
-	    }
-	    
-	    func didReceiveWillEnterForeground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveWillEnterForeground(notification: Notification)", parameterMatchers: matchers))
-	    }
-	    
-	    func didReceiveDidEnterBackground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method: "didReceiveDidEnterBackground(notification: Notification)", parameterMatchers: matchers))
-	    }
-	    
-	}
+    public struct __StubbingProxy_ApplicationHandlerDelegate: Cuckoo.StubbingProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+    
+        public init(manager: Cuckoo.MockManager) {
+            self.cuckoo_manager = manager
+        }
+        
+        
+        
+        
+        func didReceiveWillResignActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
+            let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method:
+    """
+    didReceiveWillResignActive(notification: Notification)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+        
+        
+        func didReceiveDidBecomeActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
+            let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method:
+    """
+    didReceiveDidBecomeActive(notification: Notification)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+        
+        
+        func didReceiveWillEnterForeground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
+            let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method:
+    """
+    didReceiveWillEnterForeground(notification: Notification)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+        
+        
+        func didReceiveDidEnterBackground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(Notification)> where M1.MatchedType == Notification {
+            let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockApplicationHandlerDelegate.self, method:
+    """
+    didReceiveDidEnterBackground(notification: Notification)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+    }
 
-	public struct __VerificationProxy_ApplicationHandlerDelegate: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	
-	    
-	    @discardableResult
-	    func didReceiveWillResignActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return cuckoo_manager.verify("didReceiveWillResignActive(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didReceiveDidBecomeActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return cuckoo_manager.verify("didReceiveDidBecomeActive(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didReceiveWillEnterForeground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return cuckoo_manager.verify("didReceiveWillEnterForeground(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didReceiveDidEnterBackground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
-	        let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
-	        return cuckoo_manager.verify("didReceiveDidEnterBackground(notification: Notification)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
+    public struct __VerificationProxy_ApplicationHandlerDelegate: Cuckoo.VerificationProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+        private let callMatcher: Cuckoo.CallMatcher
+        private let sourceLocation: Cuckoo.SourceLocation
+    
+        public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+            self.cuckoo_manager = manager
+            self.callMatcher = callMatcher
+            self.sourceLocation = sourceLocation
+        }
+    
+        
+    
+        
+        
+        
+        @discardableResult
+        func didReceiveWillResignActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
+            let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    didReceiveWillResignActive(notification: Notification)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        @discardableResult
+        func didReceiveDidBecomeActive<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
+            let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    didReceiveDidBecomeActive(notification: Notification)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        @discardableResult
+        func didReceiveWillEnterForeground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
+            let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    didReceiveWillEnterForeground(notification: Notification)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        @discardableResult
+        func didReceiveDidEnterBackground<M1: Cuckoo.Matchable>(notification: M1) -> Cuckoo.__DoNotUse<(Notification), Void> where M1.MatchedType == Notification {
+            let matchers: [Cuckoo.ParameterMatcher<(Notification)>] = [wrap(matchable: notification) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    didReceiveDidEnterBackground(notification: Notification)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+    }
 }
+
 
 public class ApplicationHandlerDelegateStub: ApplicationHandlerDelegate {
     
@@ -373,23 +487,46 @@ public class ApplicationHandlerDelegateStub: ApplicationHandlerDelegate {
     
 
     
+    
+    
+    
     public func didReceiveWillResignActive(notification: Notification)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
+    
+    
+    
+    
     
     public func didReceiveDidBecomeActive(notification: Notification)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
+    
+    
+    
     public func didReceiveWillEnterForeground(notification: Notification)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
+    
+    
+    
+    
     
     public func didReceiveDidEnterBackground(notification: Notification)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
 }
+
+
+
+
+
+
+
 
 
 
@@ -414,6 +551,7 @@ public class MockApplicationHandlerProtocol: ApplicationHandlerProtocol, Cuckoo.
     
     
     
+    
     public var delegate: ApplicationHandlerDelegate? {
         get {
             return cuckoo_manager.getter("delegate",
@@ -436,49 +574,57 @@ public class MockApplicationHandlerProtocol: ApplicationHandlerProtocol, Cuckoo.
         
     }
     
-
     
 
     
 
-	public struct __StubbingProxy_ApplicationHandlerProtocol: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	    public init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockApplicationHandlerProtocol, ApplicationHandlerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate")
-	    }
-	    
-	    
-	}
+    
 
-	public struct __VerificationProxy_ApplicationHandlerProtocol: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	    
-	    var delegate: Cuckoo.VerifyOptionalProperty<ApplicationHandlerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	
-	    
-	}
+    public struct __StubbingProxy_ApplicationHandlerProtocol: Cuckoo.StubbingProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+    
+        public init(manager: Cuckoo.MockManager) {
+            self.cuckoo_manager = manager
+        }
+        
+        
+        
+        var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockApplicationHandlerProtocol, ApplicationHandlerDelegate> {
+            return .init(manager: cuckoo_manager, name: "delegate")
+        }
+        
+        
+        
+    }
+
+    public struct __VerificationProxy_ApplicationHandlerProtocol: Cuckoo.VerificationProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+        private let callMatcher: Cuckoo.CallMatcher
+        private let sourceLocation: Cuckoo.SourceLocation
+    
+        public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+            self.cuckoo_manager = manager
+            self.callMatcher = callMatcher
+            self.sourceLocation = sourceLocation
+        }
+    
+        
+        
+        
+        var delegate: Cuckoo.VerifyOptionalProperty<ApplicationHandlerDelegate> {
+            return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+    
+        
+    }
 }
 
+
 public class ApplicationHandlerProtocolStub: ApplicationHandlerProtocol {
+    
+    
     
     
     public var delegate: ApplicationHandlerDelegate? {
@@ -490,6 +636,7 @@ public class ApplicationHandlerProtocolStub: ApplicationHandlerProtocol {
         
     }
     
+    
 
     
 
@@ -497,11 +644,18 @@ public class ApplicationHandlerProtocolStub: ApplicationHandlerProtocol {
 }
 
 
+
+
+
 import Cuckoo
 @testable import SoraPassport
 @testable import SoraFoundation
 
 import Foundation
+
+
+
+
 
 
 public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.ProtocolMock {
@@ -525,6 +679,7 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
     
     
     
+    
     public var delegate: CountdownTimerDelegate? {
         get {
             return cuckoo_manager.getter("delegate",
@@ -549,6 +704,8 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
     
     
     
+    
+    
     public var state: CountdownTimerState {
         get {
             return cuckoo_manager.getter("state",
@@ -560,6 +717,8 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
         }
         
     }
+    
+    
     
     
     
@@ -577,6 +736,8 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
     
     
     
+    
+    
     public var remainedInterval: TimeInterval {
         get {
             return cuckoo_manager.getter("remainedInterval",
@@ -589,15 +750,20 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
         
     }
     
+    
 
     
 
+    
     
     
     
     public func start(with interval: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)  {
         
-    return cuckoo_manager.call("start(with: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)",
+    return cuckoo_manager.call(
+    """
+    start(with: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)
+    """,
             parameters: (interval, runLoop, mode),
             escapingParameters: (interval, runLoop, mode),
             superclassCall:
@@ -610,9 +776,14 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
     
     
     
+    
+    
     public func stop()  {
         
-    return cuckoo_manager.call("stop()",
+    return cuckoo_manager.call(
+    """
+    stop()
+    """,
             parameters: (),
             escapingParameters: (),
             superclassCall:
@@ -623,97 +794,141 @@ public class MockCountdownTimerProtocol: CountdownTimerProtocol, Cuckoo.Protocol
         
     }
     
+    
 
-	public struct __StubbingProxy_CountdownTimerProtocol: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	    public init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockCountdownTimerProtocol, CountdownTimerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate")
-	    }
-	    
-	    
-	    var state: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, CountdownTimerState> {
-	        return .init(manager: cuckoo_manager, name: "state")
-	    }
-	    
-	    
-	    var notificationInterval: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "notificationInterval")
-	    }
-	    
-	    
-	    var remainedInterval: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "remainedInterval")
-	    }
-	    
-	    
-	    func start<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable, M3: Cuckoo.Matchable>(with interval: M1, runLoop: M2, mode: M3) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval, RunLoop, RunLoop.Mode)> where M1.MatchedType == TimeInterval, M2.MatchedType == RunLoop, M3.MatchedType == RunLoop.Mode {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval, RunLoop, RunLoop.Mode)>] = [wrap(matchable: interval) { $0.0 }, wrap(matchable: runLoop) { $0.1 }, wrap(matchable: mode) { $0.2 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method: "start(with: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)", parameterMatchers: matchers))
-	    }
-	    
-	    func stop() -> Cuckoo.ProtocolStubNoReturnFunction<()> {
-	        let matchers: [Cuckoo.ParameterMatcher<Void>] = []
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method: "stop()", parameterMatchers: matchers))
-	    }
-	    
-	}
+    public struct __StubbingProxy_CountdownTimerProtocol: Cuckoo.StubbingProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+    
+        public init(manager: Cuckoo.MockManager) {
+            self.cuckoo_manager = manager
+        }
+        
+        
+        
+        var delegate: Cuckoo.ProtocolToBeStubbedOptionalProperty<MockCountdownTimerProtocol, CountdownTimerDelegate> {
+            return .init(manager: cuckoo_manager, name: "delegate")
+        }
+        
+        
+        
+        
+        var state: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, CountdownTimerState> {
+            return .init(manager: cuckoo_manager, name: "state")
+        }
+        
+        
+        
+        
+        var notificationInterval: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, TimeInterval> {
+            return .init(manager: cuckoo_manager, name: "notificationInterval")
+        }
+        
+        
+        
+        
+        var remainedInterval: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockCountdownTimerProtocol, TimeInterval> {
+            return .init(manager: cuckoo_manager, name: "remainedInterval")
+        }
+        
+        
+        
+        
+        
+        func start<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable, M3: Cuckoo.Matchable>(with interval: M1, runLoop: M2, mode: M3) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval, RunLoop, RunLoop.Mode)> where M1.MatchedType == TimeInterval, M2.MatchedType == RunLoop, M3.MatchedType == RunLoop.Mode {
+            let matchers: [Cuckoo.ParameterMatcher<(TimeInterval, RunLoop, RunLoop.Mode)>] = [wrap(matchable: interval) { $0.0 }, wrap(matchable: runLoop) { $0.1 }, wrap(matchable: mode) { $0.2 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method:
+    """
+    start(with: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+        
+        
+        func stop() -> Cuckoo.ProtocolStubNoReturnFunction<()> {
+            let matchers: [Cuckoo.ParameterMatcher<Void>] = []
+            return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerProtocol.self, method:
+    """
+    stop()
+    """, parameterMatchers: matchers))
+        }
+        
+        
+    }
 
-	public struct __VerificationProxy_CountdownTimerProtocol: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	    
-	    var delegate: Cuckoo.VerifyOptionalProperty<CountdownTimerDelegate> {
-	        return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var state: Cuckoo.VerifyReadOnlyProperty<CountdownTimerState> {
-	        return .init(manager: cuckoo_manager, name: "state", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var notificationInterval: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "notificationInterval", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var remainedInterval: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "remainedInterval", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	
-	    
-	    @discardableResult
-	    func start<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable, M3: Cuckoo.Matchable>(with interval: M1, runLoop: M2, mode: M3) -> Cuckoo.__DoNotUse<(TimeInterval, RunLoop, RunLoop.Mode), Void> where M1.MatchedType == TimeInterval, M2.MatchedType == RunLoop, M3.MatchedType == RunLoop.Mode {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval, RunLoop, RunLoop.Mode)>] = [wrap(matchable: interval) { $0.0 }, wrap(matchable: runLoop) { $0.1 }, wrap(matchable: mode) { $0.2 }]
-	        return cuckoo_manager.verify("start(with: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func stop() -> Cuckoo.__DoNotUse<(), Void> {
-	        let matchers: [Cuckoo.ParameterMatcher<Void>] = []
-	        return cuckoo_manager.verify("stop()", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
+    public struct __VerificationProxy_CountdownTimerProtocol: Cuckoo.VerificationProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+        private let callMatcher: Cuckoo.CallMatcher
+        private let sourceLocation: Cuckoo.SourceLocation
+    
+        public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+            self.cuckoo_manager = manager
+            self.callMatcher = callMatcher
+            self.sourceLocation = sourceLocation
+        }
+    
+        
+        
+        
+        var delegate: Cuckoo.VerifyOptionalProperty<CountdownTimerDelegate> {
+            return .init(manager: cuckoo_manager, name: "delegate", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var state: Cuckoo.VerifyReadOnlyProperty<CountdownTimerState> {
+            return .init(manager: cuckoo_manager, name: "state", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var notificationInterval: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
+            return .init(manager: cuckoo_manager, name: "notificationInterval", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var remainedInterval: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
+            return .init(manager: cuckoo_manager, name: "remainedInterval", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+    
+        
+        
+        
+        @discardableResult
+        func start<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable, M3: Cuckoo.Matchable>(with interval: M1, runLoop: M2, mode: M3) -> Cuckoo.__DoNotUse<(TimeInterval, RunLoop, RunLoop.Mode), Void> where M1.MatchedType == TimeInterval, M2.MatchedType == RunLoop, M3.MatchedType == RunLoop.Mode {
+            let matchers: [Cuckoo.ParameterMatcher<(TimeInterval, RunLoop, RunLoop.Mode)>] = [wrap(matchable: interval) { $0.0 }, wrap(matchable: runLoop) { $0.1 }, wrap(matchable: mode) { $0.2 }]
+            return cuckoo_manager.verify(
+    """
+    start(with: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        @discardableResult
+        func stop() -> Cuckoo.__DoNotUse<(), Void> {
+            let matchers: [Cuckoo.ParameterMatcher<Void>] = []
+            return cuckoo_manager.verify(
+    """
+    stop()
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+    }
 }
 
+
 public class CountdownTimerProtocolStub: CountdownTimerProtocol {
+    
+    
     
     
     public var delegate: CountdownTimerDelegate? {
@@ -726,12 +941,18 @@ public class CountdownTimerProtocolStub: CountdownTimerProtocol {
     }
     
     
+    
+    
+    
     public var state: CountdownTimerState {
         get {
             return DefaultValueRegistry.defaultValue(for: (CountdownTimerState).self)
         }
         
     }
+    
+    
+    
     
     
     public var notificationInterval: TimeInterval {
@@ -742,6 +963,9 @@ public class CountdownTimerProtocolStub: CountdownTimerProtocol {
     }
     
     
+    
+    
+    
     public var remainedInterval: TimeInterval {
         get {
             return DefaultValueRegistry.defaultValue(for: (TimeInterval).self)
@@ -749,19 +973,35 @@ public class CountdownTimerProtocolStub: CountdownTimerProtocol {
         
     }
     
+    
 
     
 
+    
+    
+    
     
     public func start(with interval: TimeInterval, runLoop: RunLoop, mode: RunLoop.Mode)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
+    
+    
+    
     public func stop()   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
 }
+
+
+
+
+
+
+
 
 
 
@@ -790,9 +1030,13 @@ public class MockCountdownTimerDelegate: CountdownTimerDelegate, Cuckoo.Protocol
     
     
     
+    
     public func didStart(with interval: TimeInterval)  {
         
-    return cuckoo_manager.call("didStart(with: TimeInterval)",
+    return cuckoo_manager.call(
+    """
+    didStart(with: TimeInterval)
+    """,
             parameters: (interval),
             escapingParameters: (interval),
             superclassCall:
@@ -805,9 +1049,14 @@ public class MockCountdownTimerDelegate: CountdownTimerDelegate, Cuckoo.Protocol
     
     
     
+    
+    
     public func didCountdown(remainedInterval: TimeInterval)  {
         
-    return cuckoo_manager.call("didCountdown(remainedInterval: TimeInterval)",
+    return cuckoo_manager.call(
+    """
+    didCountdown(remainedInterval: TimeInterval)
+    """,
             parameters: (remainedInterval),
             escapingParameters: (remainedInterval),
             superclassCall:
@@ -820,9 +1069,14 @@ public class MockCountdownTimerDelegate: CountdownTimerDelegate, Cuckoo.Protocol
     
     
     
+    
+    
     public func didStop(with remainedInterval: TimeInterval)  {
         
-    return cuckoo_manager.call("didStop(with: TimeInterval)",
+    return cuckoo_manager.call(
+    """
+    didStop(with: TimeInterval)
+    """,
             parameters: (remainedInterval),
             escapingParameters: (remainedInterval),
             superclassCall:
@@ -833,66 +1087,104 @@ public class MockCountdownTimerDelegate: CountdownTimerDelegate, Cuckoo.Protocol
         
     }
     
+    
 
-	public struct __StubbingProxy_CountdownTimerDelegate: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	    public init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    func didStart<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method: "didStart(with: TimeInterval)", parameterMatchers: matchers))
-	    }
-	    
-	    func didCountdown<M1: Cuckoo.Matchable>(remainedInterval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method: "didCountdown(remainedInterval: TimeInterval)", parameterMatchers: matchers))
-	    }
-	    
-	    func didStop<M1: Cuckoo.Matchable>(with remainedInterval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method: "didStop(with: TimeInterval)", parameterMatchers: matchers))
-	    }
-	    
-	}
+    public struct __StubbingProxy_CountdownTimerDelegate: Cuckoo.StubbingProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+    
+        public init(manager: Cuckoo.MockManager) {
+            self.cuckoo_manager = manager
+        }
+        
+        
+        
+        
+        func didStart<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
+            let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method:
+    """
+    didStart(with: TimeInterval)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+        
+        
+        func didCountdown<M1: Cuckoo.Matchable>(remainedInterval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
+            let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method:
+    """
+    didCountdown(remainedInterval: TimeInterval)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+        
+        
+        func didStop<M1: Cuckoo.Matchable>(with remainedInterval: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(TimeInterval)> where M1.MatchedType == TimeInterval {
+            let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockCountdownTimerDelegate.self, method:
+    """
+    didStop(with: TimeInterval)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+    }
 
-	public struct __VerificationProxy_CountdownTimerDelegate: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	    public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	
-	    
-	    @discardableResult
-	    func didStart<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
-	        return cuckoo_manager.verify("didStart(with: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didCountdown<M1: Cuckoo.Matchable>(remainedInterval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
-	        return cuckoo_manager.verify("didCountdown(remainedInterval: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func didStop<M1: Cuckoo.Matchable>(with remainedInterval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
-	        let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
-	        return cuckoo_manager.verify("didStop(with: TimeInterval)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
+    public struct __VerificationProxy_CountdownTimerDelegate: Cuckoo.VerificationProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+        private let callMatcher: Cuckoo.CallMatcher
+        private let sourceLocation: Cuckoo.SourceLocation
+    
+        public init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+            self.cuckoo_manager = manager
+            self.callMatcher = callMatcher
+            self.sourceLocation = sourceLocation
+        }
+    
+        
+    
+        
+        
+        
+        @discardableResult
+        func didStart<M1: Cuckoo.Matchable>(with interval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
+            let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: interval) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    didStart(with: TimeInterval)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        @discardableResult
+        func didCountdown<M1: Cuckoo.Matchable>(remainedInterval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
+            let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    didCountdown(remainedInterval: TimeInterval)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        @discardableResult
+        func didStop<M1: Cuckoo.Matchable>(with remainedInterval: M1) -> Cuckoo.__DoNotUse<(TimeInterval), Void> where M1.MatchedType == TimeInterval {
+            let matchers: [Cuckoo.ParameterMatcher<(TimeInterval)>] = [wrap(matchable: remainedInterval) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    didStop(with: TimeInterval)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+    }
 }
+
 
 public class CountdownTimerDelegateStub: CountdownTimerDelegate {
     
@@ -900,19 +1192,34 @@ public class CountdownTimerDelegateStub: CountdownTimerDelegate {
     
 
     
+    
+    
+    
     public func didStart(with interval: TimeInterval)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
+    
+    
+    
+    
     
     public func didCountdown(remainedInterval: TimeInterval)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
+    
+    
+    
     public func didStop(with remainedInterval: TimeInterval)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
 }
+
+
+
 
 
 import Cuckoo
@@ -920,7 +1227,12 @@ import Cuckoo
 @testable import SoraFoundation
 
 import Foundation
+import SoraKeystore
 import os
+
+
+
+
 
 
  class MockApplicationConfigProtocol: ApplicationConfigProtocol, Cuckoo.ProtocolMock {
@@ -944,6 +1256,7 @@ import os
     
     
     
+    
      var projectDecentralizedId: String {
         get {
             return cuckoo_manager.getter("projectDecentralizedId",
@@ -955,6 +1268,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -972,6 +1287,8 @@ import os
     
     
     
+    
+    
      var notificationOptions: UInt8 {
         get {
             return cuckoo_manager.getter("notificationOptions",
@@ -983,6 +1300,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1000,6 +1319,8 @@ import os
     
     
     
+    
+    
      var didResolverUrl: String {
         get {
             return cuckoo_manager.getter("didResolverUrl",
@@ -1011,6 +1332,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1028,6 +1351,8 @@ import os
     
     
     
+    
+    
      var defaultCurrency: CurrencyItemData {
         get {
             return cuckoo_manager.getter("defaultCurrency",
@@ -1039,6 +1364,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1056,6 +1383,8 @@ import os
     
     
     
+    
+    
      var supportEmail: String {
         get {
             return cuckoo_manager.getter("supportEmail",
@@ -1067,6 +1396,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1084,6 +1415,8 @@ import os
     
     
     
+    
+    
      var privacyPolicyURL: URL {
         get {
             return cuckoo_manager.getter("privacyPolicyURL",
@@ -1095,6 +1428,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1112,6 +1447,8 @@ import os
     
     
     
+    
+    
      var invitationHostURL: URL {
         get {
             return cuckoo_manager.getter("invitationHostURL",
@@ -1123,6 +1460,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1140,6 +1479,8 @@ import os
     
     
     
+    
+    
      var telegramURL: URL {
         get {
             return cuckoo_manager.getter("telegramURL",
@@ -1151,6 +1492,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1168,6 +1511,8 @@ import os
     
     
     
+    
+    
      var faqURL: URL {
         get {
             return cuckoo_manager.getter("faqURL",
@@ -1179,6 +1524,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1196,6 +1543,8 @@ import os
     
     
     
+    
+    
      var combinedTransfersHandlingDelay: TimeInterval {
         get {
             return cuckoo_manager.getter("combinedTransfersHandlingDelay",
@@ -1207,6 +1556,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1224,6 +1575,8 @@ import os
     
     
     
+    
+    
      var rewardsURL: URL {
         get {
             return cuckoo_manager.getter("rewardsURL",
@@ -1235,6 +1588,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1252,6 +1607,8 @@ import os
     
     
     
+    
+    
      var phishingListURL: URL {
         get {
             return cuckoo_manager.getter("phishingListURL",
@@ -1263,6 +1620,8 @@ import os
         }
         
     }
+    
+    
     
     
     
@@ -1278,279 +1637,589 @@ import os
         
     }
     
-
+    
+    
+    
+    
+     var subqueryUrl: URL {
+        get {
+            return cuckoo_manager.getter("subqueryUrl",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.subqueryUrl)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var addressType: SNAddressType {
+        get {
+            return cuckoo_manager.getter("addressType",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.addressType)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var defaultChainNodes: Set<ChainNodeModel> {
+        get {
+            return cuckoo_manager.getter("defaultChainNodes",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.defaultChainNodes)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var assetListURL: URL? {
+        get {
+            return cuckoo_manager.getter("assetListURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.assetListURL)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var commonTypesURL: URL? {
+        get {
+            return cuckoo_manager.getter("commonTypesURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.commonTypesURL)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var chainListURL: URL? {
+        get {
+            return cuckoo_manager.getter("chainListURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.chainListURL)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var nodesURL: URL? {
+        get {
+            return cuckoo_manager.getter("nodesURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.nodesURL)
+        }
+        
+    }
+    
     
 
     
 
-	 struct __StubbingProxy_ApplicationConfigProtocol: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    var projectDecentralizedId: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "projectDecentralizedId")
-	    }
-	    
-	    
-	    var notificationDecentralizedId: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "notificationDecentralizedId")
-	    }
-	    
-	    
-	    var notificationOptions: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, UInt8> {
-	        return .init(manager: cuckoo_manager, name: "notificationOptions")
-	    }
-	    
-	    
-	    var walletDecentralizedId: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "walletDecentralizedId")
-	    }
-	    
-	    
-	    var didResolverUrl: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "didResolverUrl")
-	    }
-	    
-	    
-	    var decentralizedDomain: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "decentralizedDomain")
-	    }
-	    
-	    
-	    var defaultCurrency: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, CurrencyItemData> {
-	        return .init(manager: cuckoo_manager, name: "defaultCurrency")
-	    }
-	    
-	    
-	    var soranetExplorerTemplate: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "soranetExplorerTemplate")
-	    }
-	    
-	    
-	    var supportEmail: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "supportEmail")
-	    }
-	    
-	    
-	    var termsURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "termsURL")
-	    }
-	    
-	    
-	    var privacyPolicyURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "privacyPolicyURL")
-	    }
-	    
-	    
-	    var version: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
-	        return .init(manager: cuckoo_manager, name: "version")
-	    }
-	    
-	    
-	    var invitationHostURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "invitationHostURL")
-	    }
-	    
-	    
-	    var opensourceURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "opensourceURL")
-	    }
-	    
-	    
-	    var telegramURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "telegramURL")
-	    }
-	    
-	    
-	    var siteURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "siteURL")
-	    }
-	    
-	    
-	    var faqURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "faqURL")
-	    }
-	    
-	    
-	    var pendingFailureDelay: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "pendingFailureDelay")
-	    }
-	    
-	    
-	    var combinedTransfersHandlingDelay: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "combinedTransfersHandlingDelay")
-	    }
-	    
-	    
-	    var polkaswapURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "polkaswapURL")
-	    }
-	    
-	    
-	    var rewardsURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "rewardsURL")
-	    }
-	    
-	    
-	    var parliamentURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "parliamentURL")
-	    }
-	    
-	    
-	    var phishingListURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "phishingListURL")
-	    }
-	    
-	    
-	    var shareURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
-	        return .init(manager: cuckoo_manager, name: "shareURL")
-	    }
-	    
-	    
-	}
+    
 
-	 struct __VerificationProxy_ApplicationConfigProtocol: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	    
-	    var projectDecentralizedId: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "projectDecentralizedId", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var notificationDecentralizedId: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "notificationDecentralizedId", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var notificationOptions: Cuckoo.VerifyReadOnlyProperty<UInt8> {
-	        return .init(manager: cuckoo_manager, name: "notificationOptions", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var walletDecentralizedId: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "walletDecentralizedId", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var didResolverUrl: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "didResolverUrl", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var decentralizedDomain: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "decentralizedDomain", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var defaultCurrency: Cuckoo.VerifyReadOnlyProperty<CurrencyItemData> {
-	        return .init(manager: cuckoo_manager, name: "defaultCurrency", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var soranetExplorerTemplate: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "soranetExplorerTemplate", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var supportEmail: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "supportEmail", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var termsURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "termsURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var privacyPolicyURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "privacyPolicyURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var version: Cuckoo.VerifyReadOnlyProperty<String> {
-	        return .init(manager: cuckoo_manager, name: "version", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var invitationHostURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "invitationHostURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var opensourceURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "opensourceURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var telegramURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "telegramURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var siteURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "siteURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var faqURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "faqURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var pendingFailureDelay: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "pendingFailureDelay", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var combinedTransfersHandlingDelay: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
-	        return .init(manager: cuckoo_manager, name: "combinedTransfersHandlingDelay", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var polkaswapURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "polkaswapURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var rewardsURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "rewardsURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var parliamentURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "parliamentURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var phishingListURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "phishingListURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	    
-	    var shareURL: Cuckoo.VerifyReadOnlyProperty<URL> {
-	        return .init(manager: cuckoo_manager, name: "shareURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	
-	    
-	}
+     struct __StubbingProxy_ApplicationConfigProtocol: Cuckoo.StubbingProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+    
+         init(manager: Cuckoo.MockManager) {
+            self.cuckoo_manager = manager
+        }
+        
+        
+        
+        var projectDecentralizedId: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+            return .init(manager: cuckoo_manager, name: "projectDecentralizedId")
+        }
+        
+        
+        
+        
+        var notificationDecentralizedId: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+            return .init(manager: cuckoo_manager, name: "notificationDecentralizedId")
+        }
+        
+        
+        
+        
+        var notificationOptions: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, UInt8> {
+            return .init(manager: cuckoo_manager, name: "notificationOptions")
+        }
+        
+        
+        
+        
+        var walletDecentralizedId: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+            return .init(manager: cuckoo_manager, name: "walletDecentralizedId")
+        }
+        
+        
+        
+        
+        var didResolverUrl: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+            return .init(manager: cuckoo_manager, name: "didResolverUrl")
+        }
+        
+        
+        
+        
+        var decentralizedDomain: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+            return .init(manager: cuckoo_manager, name: "decentralizedDomain")
+        }
+        
+        
+        
+        
+        var defaultCurrency: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, CurrencyItemData> {
+            return .init(manager: cuckoo_manager, name: "defaultCurrency")
+        }
+        
+        
+        
+        
+        var soranetExplorerTemplate: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+            return .init(manager: cuckoo_manager, name: "soranetExplorerTemplate")
+        }
+        
+        
+        
+        
+        var supportEmail: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+            return .init(manager: cuckoo_manager, name: "supportEmail")
+        }
+        
+        
+        
+        
+        var termsURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "termsURL")
+        }
+        
+        
+        
+        
+        var privacyPolicyURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "privacyPolicyURL")
+        }
+        
+        
+        
+        
+        var version: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, String> {
+            return .init(manager: cuckoo_manager, name: "version")
+        }
+        
+        
+        
+        
+        var invitationHostURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "invitationHostURL")
+        }
+        
+        
+        
+        
+        var opensourceURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "opensourceURL")
+        }
+        
+        
+        
+        
+        var telegramURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "telegramURL")
+        }
+        
+        
+        
+        
+        var siteURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "siteURL")
+        }
+        
+        
+        
+        
+        var faqURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "faqURL")
+        }
+        
+        
+        
+        
+        var pendingFailureDelay: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, TimeInterval> {
+            return .init(manager: cuckoo_manager, name: "pendingFailureDelay")
+        }
+        
+        
+        
+        
+        var combinedTransfersHandlingDelay: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, TimeInterval> {
+            return .init(manager: cuckoo_manager, name: "combinedTransfersHandlingDelay")
+        }
+        
+        
+        
+        
+        var polkaswapURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "polkaswapURL")
+        }
+        
+        
+        
+        
+        var rewardsURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "rewardsURL")
+        }
+        
+        
+        
+        
+        var parliamentURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "parliamentURL")
+        }
+        
+        
+        
+        
+        var phishingListURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "phishingListURL")
+        }
+        
+        
+        
+        
+        var shareURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "shareURL")
+        }
+        
+        
+        
+        
+        var subqueryUrl: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "subqueryUrl")
+        }
+        
+        
+        
+        
+        var addressType: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, SNAddressType> {
+            return .init(manager: cuckoo_manager, name: "addressType")
+        }
+        
+        
+        
+        
+        var defaultChainNodes: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, Set<ChainNodeModel>> {
+            return .init(manager: cuckoo_manager, name: "defaultChainNodes")
+        }
+        
+        
+        
+        
+        var assetListURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL?> {
+            return .init(manager: cuckoo_manager, name: "assetListURL")
+        }
+        
+        
+        
+        
+        var commonTypesURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL?> {
+            return .init(manager: cuckoo_manager, name: "commonTypesURL")
+        }
+        
+        
+        
+        
+        var chainListURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL?> {
+            return .init(manager: cuckoo_manager, name: "chainListURL")
+        }
+        
+        
+        
+        
+        var nodesURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL?> {
+            return .init(manager: cuckoo_manager, name: "nodesURL")
+        }
+        
+        
+        
+    }
+
+     struct __VerificationProxy_ApplicationConfigProtocol: Cuckoo.VerificationProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+        private let callMatcher: Cuckoo.CallMatcher
+        private let sourceLocation: Cuckoo.SourceLocation
+    
+         init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+            self.cuckoo_manager = manager
+            self.callMatcher = callMatcher
+            self.sourceLocation = sourceLocation
+        }
+    
+        
+        
+        
+        var projectDecentralizedId: Cuckoo.VerifyReadOnlyProperty<String> {
+            return .init(manager: cuckoo_manager, name: "projectDecentralizedId", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var notificationDecentralizedId: Cuckoo.VerifyReadOnlyProperty<String> {
+            return .init(manager: cuckoo_manager, name: "notificationDecentralizedId", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var notificationOptions: Cuckoo.VerifyReadOnlyProperty<UInt8> {
+            return .init(manager: cuckoo_manager, name: "notificationOptions", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var walletDecentralizedId: Cuckoo.VerifyReadOnlyProperty<String> {
+            return .init(manager: cuckoo_manager, name: "walletDecentralizedId", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var didResolverUrl: Cuckoo.VerifyReadOnlyProperty<String> {
+            return .init(manager: cuckoo_manager, name: "didResolverUrl", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var decentralizedDomain: Cuckoo.VerifyReadOnlyProperty<String> {
+            return .init(manager: cuckoo_manager, name: "decentralizedDomain", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var defaultCurrency: Cuckoo.VerifyReadOnlyProperty<CurrencyItemData> {
+            return .init(manager: cuckoo_manager, name: "defaultCurrency", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var soranetExplorerTemplate: Cuckoo.VerifyReadOnlyProperty<String> {
+            return .init(manager: cuckoo_manager, name: "soranetExplorerTemplate", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var supportEmail: Cuckoo.VerifyReadOnlyProperty<String> {
+            return .init(manager: cuckoo_manager, name: "supportEmail", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var termsURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "termsURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var privacyPolicyURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "privacyPolicyURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var version: Cuckoo.VerifyReadOnlyProperty<String> {
+            return .init(manager: cuckoo_manager, name: "version", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var invitationHostURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "invitationHostURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var opensourceURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "opensourceURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var telegramURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "telegramURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var siteURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "siteURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var faqURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "faqURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var pendingFailureDelay: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
+            return .init(manager: cuckoo_manager, name: "pendingFailureDelay", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var combinedTransfersHandlingDelay: Cuckoo.VerifyReadOnlyProperty<TimeInterval> {
+            return .init(manager: cuckoo_manager, name: "combinedTransfersHandlingDelay", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var polkaswapURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "polkaswapURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var rewardsURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "rewardsURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var parliamentURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "parliamentURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var phishingListURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "phishingListURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var shareURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "shareURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var subqueryUrl: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "subqueryUrl", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var addressType: Cuckoo.VerifyReadOnlyProperty<SNAddressType> {
+            return .init(manager: cuckoo_manager, name: "addressType", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var defaultChainNodes: Cuckoo.VerifyReadOnlyProperty<Set<ChainNodeModel>> {
+            return .init(manager: cuckoo_manager, name: "defaultChainNodes", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var assetListURL: Cuckoo.VerifyReadOnlyProperty<URL?> {
+            return .init(manager: cuckoo_manager, name: "assetListURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var commonTypesURL: Cuckoo.VerifyReadOnlyProperty<URL?> {
+            return .init(manager: cuckoo_manager, name: "commonTypesURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var chainListURL: Cuckoo.VerifyReadOnlyProperty<URL?> {
+            return .init(manager: cuckoo_manager, name: "chainListURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var nodesURL: Cuckoo.VerifyReadOnlyProperty<URL?> {
+            return .init(manager: cuckoo_manager, name: "nodesURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+    
+        
+    }
 }
 
+
  class ApplicationConfigProtocolStub: ApplicationConfigProtocol {
+    
+    
     
     
      var projectDecentralizedId: String {
@@ -1561,12 +2230,18 @@ import os
     }
     
     
+    
+    
+    
      var notificationDecentralizedId: String {
         get {
             return DefaultValueRegistry.defaultValue(for: (String).self)
         }
         
     }
+    
+    
+    
     
     
      var notificationOptions: UInt8 {
@@ -1577,12 +2252,18 @@ import os
     }
     
     
+    
+    
+    
      var walletDecentralizedId: String {
         get {
             return DefaultValueRegistry.defaultValue(for: (String).self)
         }
         
     }
+    
+    
+    
     
     
      var didResolverUrl: String {
@@ -1593,12 +2274,18 @@ import os
     }
     
     
+    
+    
+    
      var decentralizedDomain: String {
         get {
             return DefaultValueRegistry.defaultValue(for: (String).self)
         }
         
     }
+    
+    
+    
     
     
      var defaultCurrency: CurrencyItemData {
@@ -1609,12 +2296,18 @@ import os
     }
     
     
+    
+    
+    
      var soranetExplorerTemplate: String {
         get {
             return DefaultValueRegistry.defaultValue(for: (String).self)
         }
         
     }
+    
+    
+    
     
     
      var supportEmail: String {
@@ -1625,12 +2318,18 @@ import os
     }
     
     
+    
+    
+    
      var termsURL: URL {
         get {
             return DefaultValueRegistry.defaultValue(for: (URL).self)
         }
         
     }
+    
+    
+    
     
     
      var privacyPolicyURL: URL {
@@ -1641,12 +2340,18 @@ import os
     }
     
     
+    
+    
+    
      var version: String {
         get {
             return DefaultValueRegistry.defaultValue(for: (String).self)
         }
         
     }
+    
+    
+    
     
     
      var invitationHostURL: URL {
@@ -1657,12 +2362,18 @@ import os
     }
     
     
+    
+    
+    
      var opensourceURL: URL {
         get {
             return DefaultValueRegistry.defaultValue(for: (URL).self)
         }
         
     }
+    
+    
+    
     
     
      var telegramURL: URL {
@@ -1673,12 +2384,18 @@ import os
     }
     
     
+    
+    
+    
      var siteURL: URL {
         get {
             return DefaultValueRegistry.defaultValue(for: (URL).self)
         }
         
     }
+    
+    
+    
     
     
      var faqURL: URL {
@@ -1689,12 +2406,18 @@ import os
     }
     
     
+    
+    
+    
      var pendingFailureDelay: TimeInterval {
         get {
             return DefaultValueRegistry.defaultValue(for: (TimeInterval).self)
         }
         
     }
+    
+    
+    
     
     
      var combinedTransfersHandlingDelay: TimeInterval {
@@ -1705,12 +2428,18 @@ import os
     }
     
     
+    
+    
+    
      var polkaswapURL: URL {
         get {
             return DefaultValueRegistry.defaultValue(for: (URL).self)
         }
         
     }
+    
+    
+    
     
     
      var rewardsURL: URL {
@@ -1721,12 +2450,18 @@ import os
     }
     
     
+    
+    
+    
      var parliamentURL: URL {
         get {
             return DefaultValueRegistry.defaultValue(for: (URL).self)
         }
         
     }
+    
+    
+    
     
     
      var phishingListURL: URL {
@@ -1737,12 +2472,93 @@ import os
     }
     
     
+    
+    
+    
      var shareURL: URL {
         get {
             return DefaultValueRegistry.defaultValue(for: (URL).self)
         }
         
     }
+    
+    
+    
+    
+    
+     var subqueryUrl: URL {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL).self)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var addressType: SNAddressType {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (SNAddressType).self)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var defaultChainNodes: Set<ChainNodeModel> {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (Set<ChainNodeModel>).self)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var assetListURL: URL? {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL?).self)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var commonTypesURL: URL? {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL?).self)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var chainListURL: URL? {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL?).self)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var nodesURL: URL? {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL?).self)
+        }
+        
+    }
+    
     
 
     
@@ -1751,12 +2567,19 @@ import os
 }
 
 
+
+
+
 import Cuckoo
 @testable import SoraPassport
 @testable import SoraFoundation
 
 import Foundation
 import Reachability
+
+
+
+
 
 
  class MockReachabilityListenerDelegate: ReachabilityListenerDelegate, Cuckoo.ProtocolMock {
@@ -1784,9 +2607,13 @@ import Reachability
     
     
     
+    
      func didChangeReachability(by manager: ReachabilityManagerProtocol)  {
         
-    return cuckoo_manager.call("didChangeReachability(by: ReachabilityManagerProtocol)",
+    return cuckoo_manager.call(
+    """
+    didChangeReachability(by: ReachabilityManagerProtocol)
+    """,
             parameters: (manager),
             escapingParameters: (manager),
             superclassCall:
@@ -1797,44 +2624,58 @@ import Reachability
         
     }
     
+    
 
-	 struct __StubbingProxy_ReachabilityListenerDelegate: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    func didChangeReachability<M1: Cuckoo.Matchable>(by manager: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(ReachabilityManagerProtocol)> where M1.MatchedType == ReachabilityManagerProtocol {
-	        let matchers: [Cuckoo.ParameterMatcher<(ReachabilityManagerProtocol)>] = [wrap(matchable: manager) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockReachabilityListenerDelegate.self, method: "didChangeReachability(by: ReachabilityManagerProtocol)", parameterMatchers: matchers))
-	    }
-	    
-	}
+     struct __StubbingProxy_ReachabilityListenerDelegate: Cuckoo.StubbingProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+    
+         init(manager: Cuckoo.MockManager) {
+            self.cuckoo_manager = manager
+        }
+        
+        
+        
+        
+        func didChangeReachability<M1: Cuckoo.Matchable>(by manager: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(ReachabilityManagerProtocol)> where M1.MatchedType == ReachabilityManagerProtocol {
+            let matchers: [Cuckoo.ParameterMatcher<(ReachabilityManagerProtocol)>] = [wrap(matchable: manager) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockReachabilityListenerDelegate.self, method:
+    """
+    didChangeReachability(by: ReachabilityManagerProtocol)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+    }
 
-	 struct __VerificationProxy_ReachabilityListenerDelegate: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	
-	    
-	    @discardableResult
-	    func didChangeReachability<M1: Cuckoo.Matchable>(by manager: M1) -> Cuckoo.__DoNotUse<(ReachabilityManagerProtocol), Void> where M1.MatchedType == ReachabilityManagerProtocol {
-	        let matchers: [Cuckoo.ParameterMatcher<(ReachabilityManagerProtocol)>] = [wrap(matchable: manager) { $0 }]
-	        return cuckoo_manager.verify("didChangeReachability(by: ReachabilityManagerProtocol)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
+     struct __VerificationProxy_ReachabilityListenerDelegate: Cuckoo.VerificationProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+        private let callMatcher: Cuckoo.CallMatcher
+        private let sourceLocation: Cuckoo.SourceLocation
+    
+         init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+            self.cuckoo_manager = manager
+            self.callMatcher = callMatcher
+            self.sourceLocation = sourceLocation
+        }
+    
+        
+    
+        
+        
+        
+        @discardableResult
+        func didChangeReachability<M1: Cuckoo.Matchable>(by manager: M1) -> Cuckoo.__DoNotUse<(ReachabilityManagerProtocol), Void> where M1.MatchedType == ReachabilityManagerProtocol {
+            let matchers: [Cuckoo.ParameterMatcher<(ReachabilityManagerProtocol)>] = [wrap(matchable: manager) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    didChangeReachability(by: ReachabilityManagerProtocol)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+    }
 }
+
 
  class ReachabilityListenerDelegateStub: ReachabilityListenerDelegate {
     
@@ -1842,11 +2683,22 @@ import Reachability
     
 
     
+    
+    
+    
      func didChangeReachability(by manager: ReachabilityManagerProtocol)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
 }
+
+
+
+
+
+
+
 
 
 
@@ -1871,6 +2723,7 @@ import Reachability
     
     
     
+    
      var isReachable: Bool {
         get {
             return cuckoo_manager.getter("isReachable",
@@ -1883,15 +2736,20 @@ import Reachability
         
     }
     
+    
 
     
 
+    
     
     
     
      func add(listener: ReachabilityListenerDelegate) throws {
         
-    return try cuckoo_manager.callThrows("add(listener: ReachabilityListenerDelegate) throws",
+    return try cuckoo_manager.callThrows(
+    """
+    add(listener: ReachabilityListenerDelegate) throws
+    """,
             parameters: (listener),
             escapingParameters: (listener),
             superclassCall:
@@ -1904,9 +2762,14 @@ import Reachability
     
     
     
+    
+    
      func remove(listener: ReachabilityListenerDelegate)  {
         
-    return cuckoo_manager.call("remove(listener: ReachabilityListenerDelegate)",
+    return cuckoo_manager.call(
+    """
+    remove(listener: ReachabilityListenerDelegate)
+    """,
             parameters: (listener),
             escapingParameters: (listener),
             superclassCall:
@@ -1917,67 +2780,99 @@ import Reachability
         
     }
     
+    
 
-	 struct __StubbingProxy_ReachabilityManagerProtocol: Cuckoo.StubbingProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	
-	     init(manager: Cuckoo.MockManager) {
-	        self.cuckoo_manager = manager
-	    }
-	    
-	    
-	    var isReachable: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockReachabilityManagerProtocol, Bool> {
-	        return .init(manager: cuckoo_manager, name: "isReachable")
-	    }
-	    
-	    
-	    func add<M1: Cuckoo.Matchable>(listener: M1) -> Cuckoo.ProtocolStubNoReturnThrowingFunction<(ReachabilityListenerDelegate)> where M1.MatchedType == ReachabilityListenerDelegate {
-	        let matchers: [Cuckoo.ParameterMatcher<(ReachabilityListenerDelegate)>] = [wrap(matchable: listener) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockReachabilityManagerProtocol.self, method: "add(listener: ReachabilityListenerDelegate) throws", parameterMatchers: matchers))
-	    }
-	    
-	    func remove<M1: Cuckoo.Matchable>(listener: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(ReachabilityListenerDelegate)> where M1.MatchedType == ReachabilityListenerDelegate {
-	        let matchers: [Cuckoo.ParameterMatcher<(ReachabilityListenerDelegate)>] = [wrap(matchable: listener) { $0 }]
-	        return .init(stub: cuckoo_manager.createStub(for: MockReachabilityManagerProtocol.self, method: "remove(listener: ReachabilityListenerDelegate)", parameterMatchers: matchers))
-	    }
-	    
-	}
+     struct __StubbingProxy_ReachabilityManagerProtocol: Cuckoo.StubbingProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+    
+         init(manager: Cuckoo.MockManager) {
+            self.cuckoo_manager = manager
+        }
+        
+        
+        
+        var isReachable: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockReachabilityManagerProtocol, Bool> {
+            return .init(manager: cuckoo_manager, name: "isReachable")
+        }
+        
+        
+        
+        
+        
+        func add<M1: Cuckoo.Matchable>(listener: M1) -> Cuckoo.ProtocolStubNoReturnThrowingFunction<(ReachabilityListenerDelegate)> where M1.MatchedType == ReachabilityListenerDelegate {
+            let matchers: [Cuckoo.ParameterMatcher<(ReachabilityListenerDelegate)>] = [wrap(matchable: listener) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockReachabilityManagerProtocol.self, method:
+    """
+    add(listener: ReachabilityListenerDelegate) throws
+    """, parameterMatchers: matchers))
+        }
+        
+        
+        
+        
+        func remove<M1: Cuckoo.Matchable>(listener: M1) -> Cuckoo.ProtocolStubNoReturnFunction<(ReachabilityListenerDelegate)> where M1.MatchedType == ReachabilityListenerDelegate {
+            let matchers: [Cuckoo.ParameterMatcher<(ReachabilityListenerDelegate)>] = [wrap(matchable: listener) { $0 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockReachabilityManagerProtocol.self, method:
+    """
+    remove(listener: ReachabilityListenerDelegate)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+    }
 
-	 struct __VerificationProxy_ReachabilityManagerProtocol: Cuckoo.VerificationProxy {
-	    private let cuckoo_manager: Cuckoo.MockManager
-	    private let callMatcher: Cuckoo.CallMatcher
-	    private let sourceLocation: Cuckoo.SourceLocation
-	
-	     init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
-	        self.cuckoo_manager = manager
-	        self.callMatcher = callMatcher
-	        self.sourceLocation = sourceLocation
-	    }
-	
-	    
-	    
-	    var isReachable: Cuckoo.VerifyReadOnlyProperty<Bool> {
-	        return .init(manager: cuckoo_manager, name: "isReachable", callMatcher: callMatcher, sourceLocation: sourceLocation)
-	    }
-	    
-	
-	    
-	    @discardableResult
-	    func add<M1: Cuckoo.Matchable>(listener: M1) -> Cuckoo.__DoNotUse<(ReachabilityListenerDelegate), Void> where M1.MatchedType == ReachabilityListenerDelegate {
-	        let matchers: [Cuckoo.ParameterMatcher<(ReachabilityListenerDelegate)>] = [wrap(matchable: listener) { $0 }]
-	        return cuckoo_manager.verify("add(listener: ReachabilityListenerDelegate) throws", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	    @discardableResult
-	    func remove<M1: Cuckoo.Matchable>(listener: M1) -> Cuckoo.__DoNotUse<(ReachabilityListenerDelegate), Void> where M1.MatchedType == ReachabilityListenerDelegate {
-	        let matchers: [Cuckoo.ParameterMatcher<(ReachabilityListenerDelegate)>] = [wrap(matchable: listener) { $0 }]
-	        return cuckoo_manager.verify("remove(listener: ReachabilityListenerDelegate)", callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
-	    }
-	    
-	}
+     struct __VerificationProxy_ReachabilityManagerProtocol: Cuckoo.VerificationProxy {
+        private let cuckoo_manager: Cuckoo.MockManager
+        private let callMatcher: Cuckoo.CallMatcher
+        private let sourceLocation: Cuckoo.SourceLocation
+    
+         init(manager: Cuckoo.MockManager, callMatcher: Cuckoo.CallMatcher, sourceLocation: Cuckoo.SourceLocation) {
+            self.cuckoo_manager = manager
+            self.callMatcher = callMatcher
+            self.sourceLocation = sourceLocation
+        }
+    
+        
+        
+        
+        var isReachable: Cuckoo.VerifyReadOnlyProperty<Bool> {
+            return .init(manager: cuckoo_manager, name: "isReachable", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+    
+        
+        
+        
+        @discardableResult
+        func add<M1: Cuckoo.Matchable>(listener: M1) -> Cuckoo.__DoNotUse<(ReachabilityListenerDelegate), Void> where M1.MatchedType == ReachabilityListenerDelegate {
+            let matchers: [Cuckoo.ParameterMatcher<(ReachabilityListenerDelegate)>] = [wrap(matchable: listener) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    add(listener: ReachabilityListenerDelegate) throws
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        @discardableResult
+        func remove<M1: Cuckoo.Matchable>(listener: M1) -> Cuckoo.__DoNotUse<(ReachabilityListenerDelegate), Void> where M1.MatchedType == ReachabilityListenerDelegate {
+            let matchers: [Cuckoo.ParameterMatcher<(ReachabilityListenerDelegate)>] = [wrap(matchable: listener) { $0 }]
+            return cuckoo_manager.verify(
+    """
+    remove(listener: ReachabilityListenerDelegate)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+    }
 }
 
+
  class ReachabilityManagerProtocolStub: ReachabilityManagerProtocol {
+    
+    
     
     
      var isReachable: Bool {
@@ -1987,17 +2882,29 @@ import Reachability
         
     }
     
+    
 
     
 
+    
+    
+    
     
      func add(listener: ReachabilityListenerDelegate) throws  {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
+    
+    
+    
      func remove(listener: ReachabilityListenerDelegate)   {
         return DefaultValueRegistry.defaultValue(for: (Void).self)
     }
     
+    
 }
+
+
+
 

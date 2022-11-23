@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 import SoraKeystore
 @testable import SoraPassport
@@ -49,21 +44,16 @@ class InvitationDeepLinkTests: XCTestCase {
 
     private func performTestWhenUserRegistered(for url: URL, expect code: String?) {
         var settings = InMemorySettingsManager()
-        settings.decentralizedId = Constants.dummyDid
 
         performTest(for: settings, url: url, expect: code)
 
-        XCTAssertNil(settings.invitationCode)
     }
 
     private func performTestWhenUserNotRegistered(for url: URL, expect code: String?) {
         var settings = InMemorySettingsManager()
-        settings.decentralizedId = Constants.dummyDid
-        settings.verificationState = VerificationState()
 
         performTest(for: settings, url: url, expect: code)
 
-        XCTAssertEqual(settings.invitationCode, code)
     }
 
     func performTest(for settings: SettingsManagerProtocol, url: URL, expect code: String?) {

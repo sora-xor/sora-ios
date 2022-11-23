@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -14,6 +9,7 @@ struct TransactionHistoryItem: Codable {
         case txHash
         case timestamp
         case fee
+        case lpFee
         case blockNumber
         case txIndex
         case callPath
@@ -32,6 +28,7 @@ struct TransactionHistoryItem: Codable {
     let txHash: String
     let timestamp: Int64
     let fee: String
+    let lpFee: String?
     let blockNumber: UInt64?
     let txIndex: UInt16?
     let callPath: CallCodingPath

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 final class MainTabBarViewController: UITabBarController {
@@ -25,8 +20,6 @@ final class MainTabBarViewController: UITabBarController {
             viewAppeared = true
             presenter.setup()
         }
-
-        presenter.viewDidAppear()
     }
 
     private func configureTabBar() {

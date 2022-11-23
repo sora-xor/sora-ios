@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import IrohaCrypto
@@ -31,7 +26,7 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
             let junctionResult: JunctionResult?
 
             if !request.derivationPath.isEmpty {
-                let junctionFactory = JunctionFactory()
+                let junctionFactory = SubstrateJunctionFactory()
                 junctionResult = try junctionFactory.parse(path: request.derivationPath)
             } else {
                 junctionResult = nil
@@ -77,10 +72,16 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
 
             try self.keystore.saveSeed(result.seed.miniSeed, address: address)
 
+            let settings = AccountSettings(visibleAssetIds: [], orderedAssetIds: [])
+
             return AccountItem(address: address,
                                cryptoType: request.cryptoType,
+                               networkType: SNAddressType(chain: request.type),
                                username: request.username,
-                               publicKeyData: keypair.publicKey().rawData())
+                               publicKeyData: keypair.publicKey().rawData(),
+                               settings: settings,
+                               order: 0,
+                               isSelected: true)
         }
     }
 
@@ -91,7 +92,7 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
             let junctionResult: JunctionResult?
 
             if !request.derivationPath.isEmpty {
-                let junctionFactory = JunctionFactory()
+                let junctionFactory = SubstrateJunctionFactory()
                 junctionResult = try junctionFactory.parse(path: request.derivationPath)
             } else {
                 junctionResult = nil
@@ -130,10 +131,16 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
 
             try self.keystore.saveSeed(seed, address: address)
 
+            let settings = AccountSettings(visibleAssetIds: [], orderedAssetIds: [])
+
             return AccountItem(address: address,
                                cryptoType: request.cryptoType,
+                               networkType: request.networkType.addressType(),
                                username: request.username,
-                               publicKeyData: keypair.publicKey().rawData())
+                               publicKeyData: keypair.publicKey().rawData(),
+                               settings:settings,
+                               order: 0,
+                               isSelected: true)
         }
     }
 
@@ -171,10 +178,16 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
 
             try self.keystore.saveSecretKey(keystore.secretKeyData, address: address)
 
+            let settings = AccountSettings(visibleAssetIds: [], orderedAssetIds: [])
+
             return AccountItem(address: address,
                                cryptoType: request.cryptoType,
+                               networkType: request.networkType.addressType(),
                                username: request.username,
-                               publicKeyData: keystore.publicKeyData)
+                               publicKeyData: keystore.publicKeyData,
+                               settings: settings,
+                               order: 0,
+                               isSelected: true)
         }
     }
 

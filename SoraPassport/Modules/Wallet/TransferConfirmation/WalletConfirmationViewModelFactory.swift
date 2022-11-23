@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import FearlessUtils
@@ -143,7 +138,7 @@ final class WalletConfirmationViewModelFactory {
         let selectedState = SelectedAssetState(isSelecting: false, canSelect: false)
 
         let transferInfo = payload.transferInfo
-        let sourceAsset = transferInfo.source
+        let sourceAsset = transferInfo.asset
         let targetAsset = transferInfo.destination
         
         guard transferInfo.type == .swap,
@@ -213,7 +208,7 @@ final class WalletConfirmationViewModelFactory {
                             payload: ConfirmationPayload,
                             locale: Locale) {
         let transferInfo = payload.transferInfo
-        let sourceAsset = transferInfo.source
+        let sourceAsset = transferInfo.asset
         let targetAsset = transferInfo.destination
 
         guard transferInfo.type == .swap,
@@ -258,8 +253,102 @@ final class WalletConfirmationViewModelFactory {
 
         viewModelList.append(WalletFormSeparatedViewModel(content: viewModelMinMax, borderType: [.bottom]))
     }
-    
-    func populateAddLiquidity(
+
+    func populateAddLiquidityValues(in viewModelList: inout [WalletFormViewBindingProtocol],
+                            payload: ConfirmationPayload,
+                            locale: Locale) {
+        let transferInfo = payload.transferInfo
+        let sourceAsset = transferInfo.source
+        let targetAsset = transferInfo.destination
+
+        guard
+              let firstAssetInfo = assetManager.assetInfo(for: sourceAsset),
+              let secondAssetInfo = assetManager.assetInfo(for: targetAsset),
+              let context = transferInfo.context,
+              let firstValue = context[TransactionContextKeys.firstAssetAmount],
+              let secondValue = context[TransactionContextKeys.secondAssetAmount],
+              let firstAmount = AmountDecimal(string: firstValue),
+              let secondAmount = AmountDecimal(string: secondValue),
+              let apyValue = context[TransactionContextKeys.sbApy],
+              let slippage = context[TransactionContextKeys.slippage],
+              let directPriceValue = context[TransactionContextKeys.directExchangeRateValue],
+              let inversedPriceValue = context[TransactionContextKeys.inversedExchangeRateValue],
+              let directPrice = AmountDecimal(string: directPriceValue),
+              let inversedPrice = AmountDecimal(string: inversedPriceValue)
+        else { return }
+
+        let formatter = amountFormatterFactory.createDisplayFormatter(for: WalletAsset.dummyAsset)
+        let percentageFormatter = amountFormatterFactory.createPercentageFormatter(maxPrecision: 8)
+
+        let title1 =  R.string.localizable.commonDepositSymbol(firstAssetInfo.symbol, preferredLanguages: locale.rLanguages).uppercased()
+
+        let details1 = formatter.value(for: locale).stringFromDecimal(firstAmount.decimalValue) ?? "-"
+        let viewModel1 = FeeViewModel(title: title1, details: details1, isLoading: false, allowsEditing: false)
+        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel1, borderType: [.bottom]))
+
+        let title2 = R.string.localizable.commonDepositSymbol(secondAssetInfo.symbol, preferredLanguages: locale.rLanguages).uppercased()
+        let details2 = formatter.value(for: locale).stringFromDecimal(secondAmount.decimalValue) ?? "-"
+        let viewModel2 = FeeViewModel(title: title2, details: details2, isLoading: false, allowsEditing: false)
+        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel2, borderType: [.bottom]))
+
+        let price1 = R.string.localizable.polkaswapPriceForOne(preferredLanguages: locale.rLanguages).uppercased() + " " + firstAssetInfo.symbol
+        let priceDetails1 = (formatter.value(for: locale).stringFromDecimal(directPrice.decimalValue) ?? "-") + " " + secondAssetInfo.symbol
+        let viewModel3 = FeeViewModel(title: price1, details: priceDetails1, isLoading: false, allowsEditing: false)
+        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel3, borderType: [.bottom]))
+
+        let price2 = R.string.localizable.polkaswapPriceForOne(preferredLanguages: locale.rLanguages).uppercased() + " " + secondAssetInfo.symbol
+        let priceDetails2 = (formatter.value(for: locale).stringFromDecimal(inversedPrice.decimalValue) ?? "-") + " " + firstAssetInfo.symbol
+        let viewModel4 = FeeViewModel(title: price2, details: priceDetails2, isLoading: false, allowsEditing: false)
+        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel4, borderType: [.bottom]))
+
+        let amount = AmountDecimal(string: apyValue)?.decimalValue ?? 0
+        if amount > 0 {
+            let apy = R.string.localizable.poolApyTitle(preferredLanguages: locale.rLanguages).uppercased()
+            let amount = AmountDecimal(string: apyValue)?.decimalValue ?? 0
+            let apyDetails = percentageFormatter.value(for: locale).stringFromDecimal(amount) ?? "-"
+            let viewModel5 = FeeViewModel(title: apy, details: apyDetails, isLoading: false, allowsEditing: false)
+            viewModelList.append(WalletFormSeparatedViewModel(content: viewModel5, borderType: [.bottom]))
+        }
+    }
+
+    func populateRemoveLiquidityValues(in viewModelList: inout [WalletFormViewBindingProtocol],
+                            payload: ConfirmationPayload,
+                            locale: Locale) {
+        let transferInfo = payload.transferInfo
+        let sourceAsset = transferInfo.source
+        let targetAsset = transferInfo.destination
+
+        guard
+              let firstAssetInfo = assetManager.assetInfo(for: sourceAsset),
+              let secondAssetInfo = assetManager.assetInfo(for: targetAsset),
+              let context = transferInfo.context,
+              let firstAmount = context[TransactionContextKeys.firstAssetAmount],
+              let secondAmount = context[TransactionContextKeys.secondAssetAmount],
+              let directExchangeRateValue = context[TransactionContextKeys.directExchangeRateValue],
+              let inversedExchangeRateValue = context[TransactionContextKeys.inversedExchangeRateValue],
+              let poolShare = context[TransactionContextKeys.shareOfPool],
+              let slippage = context[TransactionContextKeys.slippage]
+        else { return }
+
+        let formatter = amountFormatterFactory.createDisplayFormatter(for: WalletAsset.dummyAsset)
+
+        let title1 = firstAssetInfo.symbol + " / " + secondAssetInfo.symbol
+        let details1 = directExchangeRateValue//formatter.value(for: locale).stringFromDecimal(amount1) ?? "-"
+        let viewModel1 = FeeViewModel(title: title1, details: details1, isLoading: false, allowsEditing: false)
+        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel1, borderType: [.bottom]))
+
+        let title2 = secondAssetInfo.symbol + " / " + firstAssetInfo.symbol
+        let details2 = inversedExchangeRateValue//formatter.value(for: locale).stringFromDecimal(amount2) ?? "-"
+        let viewModel2 = FeeViewModel(title: title2, details: details2, isLoading: false, allowsEditing: false)
+        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel2, borderType: [.bottom]))
+
+        let titleShare = R.string.localizable.poolShareAfterTx(preferredLanguages: locale.rLanguages).uppercased()
+        let detailsShare = poolShare//formatter.value(for: locale).stringFromDecimal(amount2) ?? "-"
+        let viewModel3 = FeeViewModel(title: titleShare, details: detailsShare, isLoading: false, allowsEditing: false)
+        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel3, borderType: [.bottom]))
+    }
+
+    func populateRemoveLiquidityHeader(
         in viewModelList: inout [WalletFormViewBindingProtocol],
         payload: ConfirmationPayload,
         locale: Locale
@@ -268,34 +357,127 @@ final class WalletConfirmationViewModelFactory {
         let sourceAsset = transferInfo.source
         let targetAsset = transferInfo.destination
 
-        guard transferInfo.type == .liquidityAdd,
+        let selectedState = SelectedAssetState(isSelecting: false, canSelect: false)
+
+        guard
               let firstAssetInfo = assetManager.assetInfo(for: sourceAsset),
               let secondAssetInfo = assetManager.assetInfo(for: targetAsset),
-              let firstAmount = transferInfo.context![TransactionContextKeys.firstAssetAmount],
-              let secondAmount = transferInfo.context![TransactionContextKeys.secondAssetAmount],
-              let directExchangeRateValue = transferInfo.context![TransactionContextKeys.directExchangeRateValue],
-              let inversedExchangeRateValue = transferInfo.context![TransactionContextKeys.inversedExchangeRateValue],
-              let slippage = transferInfo.context![TransactionContextKeys.slippage]
+              let context = transferInfo.context,
+              let firstAmount = context[TransactionContextKeys.firstAssetAmount],
+              let secondAmount = context[TransactionContextKeys.secondAssetAmount],
+              let slippage = context[TransactionContextKeys.slippage]
         else { return }
 
-        let viewModel = AddLiquidityViewModel(
-            firstAsset: firstAssetInfo,
-            firstAssetValue: firstAmount,
-            secondAsset: secondAssetInfo,
-            secondAssetValue: secondAmount,
-            shareOfPoolValue: 0.0,
-            directExchangeRateTitle: "\(firstAssetInfo.symbol)/\(secondAssetInfo.symbol)",
-            directExchangeRateValue: directExchangeRateValue,
-            inversedExchangeRateTitle: "\(secondAssetInfo.symbol)/\(firstAssetInfo.symbol)",
-            inversedExchangeRateValue: inversedExchangeRateValue,
-            sbApyValue: 0.0,
-            networkFeeValue: 0.0,
-            slippage: slippage
+        let sourceSymbolViewModel: WalletImageViewModelProtocol?
+        if  let iconString = firstAssetInfo.icon {
+            sourceSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        } else {
+            sourceSymbolViewModel = nil
 
-            //            sbApyValue: transferInfo.context![TransactionContextKeys.sbApy],
-            //            networkFeeValue: transferInfo.context![TransactionContextKeys.shareOfPool]
-        )
-        viewModelList.append(viewModel)
+        }
+
+        let sdetails = payload.transferInfo.amount
+
+        let sourceVM = WalletTokenViewModel(state: selectedState,
+                                            header: "",
+                                            title: firstAssetInfo.symbol,
+                                            subtitle: "",
+                                            details: firstAmount,
+                                            icon: nil,
+                                            iconViewModel: sourceSymbolViewModel)
+        let targetSymbolViewModel: WalletImageViewModelProtocol?
+        if let iconString = secondAssetInfo.icon {
+            targetSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        } else {
+            targetSymbolViewModel = nil
+        }
+
+        let targetVM = WalletTokenViewModel(state: selectedState,
+                                            header: "",
+                                            title: secondAssetInfo.symbol,
+                                            subtitle: "",
+                                            details: secondAmount,
+                                            icon: nil,
+                                            iconViewModel: targetSymbolViewModel)
+
+        let estimationText = R.string.localizable.addLiquidityPoolShareDescription(slippage, preferredLanguages: locale.rLanguages)
+
+        let viewModel = SoraRemoveLiquidityHeaderViewModel(sourceAsset: sourceVM,
+                                                targetAsset: targetVM,
+                                                        estimate: estimationText)
+
+        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel, borderType: [.bottom]))
+    }
+    
+    func populateAddLiquidityHeader(
+        in viewModelList: inout [WalletFormViewBindingProtocol],
+        payload: ConfirmationPayload,
+        locale: Locale
+    ) {
+        let transferInfo = payload.transferInfo
+        let sourceAsset = transferInfo.source
+        let targetAsset = transferInfo.destination
+        let selectedState = SelectedAssetState(isSelecting: false, canSelect: false)
+        let percentFormatter = AmountFormatterFactory().createPercentageFormatter(maxPrecision: 8).value(for: locale)
+
+        guard 
+              let firstAssetInfo = assetManager.assetInfo(for: sourceAsset),
+              let secondAssetInfo = assetManager.assetInfo(for: targetAsset),
+              let context = transferInfo.context,
+              let firstAmount = context[TransactionContextKeys.firstAssetAmount],
+              let secondAmount = context[TransactionContextKeys.secondAssetAmount],
+              let poolShare = context[TransactionContextKeys.shareOfPool],
+              let slippage = context[TransactionContextKeys.slippage]
+        else { return }
+
+        let sourceSymbolViewModel: WalletImageViewModelProtocol?
+        if  let iconString = firstAssetInfo.icon {
+            sourceSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        } else {
+            sourceSymbolViewModel = nil
+
+        }
+
+        let sdetails = payload.transferInfo.amount
+
+        let sourceVM = WalletTokenViewModel(state: selectedState,
+                                            header: "",
+                                            title: firstAssetInfo.symbol,
+                                            subtitle: "",
+                                            details: "-",
+                                            icon: nil,
+                                            iconViewModel: sourceSymbolViewModel)
+        let targetSymbolViewModel: WalletImageViewModelProtocol?
+        if let iconString = secondAssetInfo.icon {
+            targetSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        } else {
+            targetSymbolViewModel = nil
+        }
+
+        let targetVM = WalletTokenViewModel(state: selectedState,
+                                            header: "",
+                                            title: secondAssetInfo.symbol,
+                                            subtitle: "",
+                                            details: "-",
+                                            icon: nil,
+                                            iconViewModel: targetSymbolViewModel)
+
+        let poolShareValue = Decimal(string: poolShare, locale: locale)
+        let poolShareText = percentFormatter.stringFromDecimal(poolShareValue ?? 0) ?? "?"
+        let poolText = R.string.localizable.addLiquidityPoolShareTitle(preferredLanguages: locale.rLanguages) + "\n" + poolShareText
+        let poolDecorated = poolText.decoratedWith( [.font: UIFont.styled(for: .paragraph1),
+                                                     .foregroundColor: R.color.neumorphism.textDark()!,
+                                                     ], adding:  [.font: UIFont.styled(for: .display1),
+                                                                  .foregroundColor: R.color.neumorphism.textDark()!,
+                                                                ], to: [poolShareText])
+
+        let estimationText = R.string.localizable.addLiquidityPoolShareDescription(slippage, preferredLanguages: locale.rLanguages)
+
+        let viewModel = SoraAddLiquidityHeaderViewModel(sourceAsset: sourceVM,
+                                                targetAsset: targetVM,
+                                                        estimate: estimationText, poolShare: poolDecorated)
+
+        viewModelList.append(WalletFormSeparatedViewModel(content: viewModel, borderType: [.bottom]))
     }
 }
 
@@ -310,8 +492,12 @@ extension WalletConfirmationViewModelFactory: TransferConfirmationViewModelFacto
             populateSwapHeader(in: &viewModelList, payload: payload, locale: locale)
             populateSwapValues(in: &viewModelList, payload: payload, locale: locale)
             populateMainFeeAmount(in: &viewModelList, payload: payload, locale: locale)
-        case .liquidityAdd:
-            populateAddLiquidity(in: &viewModelList, payload: payload, locale: locale)
+        case .liquidityAdd, .liquidityAddToExistingPoolFirstTime, .liquidityAddNewPool:
+            populateAddLiquidityHeader(in: &viewModelList, payload: payload, locale: locale)
+            populateAddLiquidityValues(in: &viewModelList, payload: payload, locale: locale)
+        case .liquidityRemoval:
+            populateRemoveLiquidityHeader(in: &viewModelList, payload: payload, locale: locale)
+            populateRemoveLiquidityValues(in: &viewModelList, payload: payload, locale: locale)
         default:
             populateAsset(in: &viewModelList, payload: payload, locale: locale)
             populateReceiver(in: &viewModelList, payload: payload, locale: locale)

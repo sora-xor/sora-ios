@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
@@ -26,6 +21,25 @@ final class SoraWindow: UIWindow {
         super.bringSubviewToFront(view)
 
         bringStatusToFront()
+    }
+    
+    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+    #if F_DEV
+        if motion == .motionShake {
+            let isNeedRedesign = UserDefaults.standard.bool(forKey: "isNeedRedesign")
+            
+            let title = isNeedRedesign ? "Redesign is disabled. Restart app please" : "Redesign is enabled. Restart app please"
+            let alertController = UIAlertController(title: title,
+                                                    message: nil,
+                                                    preferredStyle: .alert)
+            
+            let doneAction = UIAlertAction(title: "OK", style: .default) { _ in
+                UserDefaults.standard.set(!isNeedRedesign, forKey: "isNeedRedesign")
+            }
+            alertController.addAction(doneAction)
+            self.rootViewController?.present(alertController, animated: true)
+        }
+    #endif
     }
 
     private func bringStatusToFront() {

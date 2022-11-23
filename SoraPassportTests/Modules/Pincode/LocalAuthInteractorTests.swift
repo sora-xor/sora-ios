@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import Cuckoo
@@ -188,6 +183,7 @@ class LocalAuthInteractorTests: XCTestCase {
             when(stub).didChangeAccessoryState(enabled: any()).thenDoNothing()
             when(stub).didReceiveWrongPincode().thenDoNothing()
             when(stub).didRequestBiometryUsage(biometryType: any(), completionBlock: any()).thenDoNothing()
+            when(stub).updatePinCodeSymbolsCount(with: anyInt()).thenDoNothing()
         }
 
         return presenter

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 final class MainTabBarPresenter {
@@ -11,39 +6,19 @@ final class MainTabBarPresenter {
 	var wireframe: MainTabBarWireframeProtocol!
 
     var logger: LoggerProtocol?
-
-    private var shouldRequestNotificationConfiguration: Bool = true
-    private var shouldRequestDeepLinkConfiguration: Bool = true
-
-//    let children: [ChildPresenterProtocol]
-//
-//    init(children: [ChildPresenterProtocol]) {
-//        self.children = children
-//    }
 }
 
 extension MainTabBarPresenter: MainTabBarPresenterProtocol {
     func setup() {
-//        children.forEach { $0.setup() }
-//
-//        if shouldRequestNotificationConfiguration {
-//            shouldRequestNotificationConfiguration = false
-//            interactor.configureNotifications()
-//        }
         interactor.setup()
-    }
-
-    func viewDidAppear() {
-//        if shouldRequestDeepLinkConfiguration {
-//            shouldRequestDeepLinkConfiguration = false
-//            interactor.configureDeepLink()
-//        }
-//
-//        interactor.searchPendingDeepLink()
     }
 }
 
 extension MainTabBarPresenter: MainTabBarInteractorOutputProtocol {
+    func didUserChange() {
+        wireframe.recreateWalletViewController(on: view)
+    }
+    
     func didEndTransaction() {
 
     }
@@ -70,12 +45,6 @@ extension MainTabBarPresenter: MainTabBarInteractorOutputProtocol {
     func didEndMigration() {
         wireframe.removeClaim(on: view)
     }
-    func didReceive(deepLink: DeepLinkProtocol) {
-//        for child in children {
-//            if let navigator = child as? DeepLinkNavigatorProtocol, deepLink.accept(navigator: navigator) {
-//                interactor.resolvePendingDeepLink()
-//                return
-//            }
-//        }
-    }
+
+    func didReceive(deepLink: DeepLinkProtocol) {}
 }

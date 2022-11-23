@@ -1,9 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
-import CommonWallet
 import Foundation
 import Lottie
 import SoraFoundation
@@ -15,15 +9,19 @@ protocol PolkaswapPoolViewDelegate: AnyObject {
     func onRemove(pool: PoolDetails)
 }
 
-class PolkaswapPoolViewController: UIViewController & PolkaswapPoolViewProtocol {
+class PolkaswapPoolViewController: UIViewController, PolkaswapPoolViewProtocol {
 //    weak var delegate: PolkaswapPoolViewDelegate?
+    
+    private var locale: Locale {
+        localizationManager?.selectedLocale ?? Locale.current
+    }
 
     var rootView: PolkaswapPoolView {
         view as! PolkaswapPoolView // swiftlint:disable:this force_cast
     }
 
-    private lazy var model = PolkaswapPoolModel(tableView: rootView.tableView)
-    var presenter: PolkaswapPoolPresenter?
+    private lazy var model = PolkaswapPoolModel(tableView: rootView.tableView, amountFormatterFactory: AmountFormatterFactory())
+    var presenter: PolkaswapPoolPresenterProtocol?
 
     override func loadView() {
         super.loadView()
@@ -32,29 +30,30 @@ class PolkaswapPoolViewController: UIViewController & PolkaswapPoolViewProtocol 
 
     override func viewDidLoad() {
         super.viewDidLoad()
-#if F_RELEASE || F_TEST
-        let placeholder = PolkaswapPoolPlaceholderView()
-        placeholder.localizationManager = localizationManager
-        if let cover = placeholder.view {
-               cover.translatesAutoresizingMaskIntoConstraints = false
-        rootView.addSubview(cover)
-               cover.widthAnchor.constraint(equalTo: rootView.widthAnchor).isActive = true
-               cover.heightAnchor.constraint(equalTo: rootView.heightAnchor).isActive = true
-        }
-#endif
+        
         model.delegate = self
 
         rootView.onAddPool = { [unowned self] in
             self.onAddPool()
         }
+        startLoadingAnimation()
+    }
 
+    func startLoadingAnimation() {
+        rootView.isUserInteractionEnabled = false
         rootView.loadingView.start()
     }
 
-    func setPoolList(_ pools: [PoolDetails]) {
-        model.setPoolList(pools)
+    func stopLoadingAnimation() {
+        rootView.isUserInteractionEnabled = true
         rootView.loadingView.stop()
+    }
+
+    func setPoolList(_ pools: [PoolDetails]) {
+        model.setPoolList(pools, locale: locale)
+        model.delegate = self
         rootView.emptyView.isHidden = !pools.isEmpty
+        stopLoadingAnimation()
     }
 }
 
@@ -68,10 +67,8 @@ extension PolkaswapPoolViewController: PolkaswapPoolViewDelegate {
     }
 
     func onAddPool() {
-//        presenter.showAddPool()
+        presenter?.showCreateLiquidity()
     }
-
- 
 }
 
 extension PolkaswapPoolViewController: Localizable {

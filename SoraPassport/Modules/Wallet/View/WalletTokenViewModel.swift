@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -95,6 +90,34 @@ struct SoraSwapHeaderViewModel: WalletFormViewBindingProtocol {
         }
     }
 }
+struct SoraRemoveLiquidityHeaderViewModel: WalletFormViewBindingProtocol {
+    let sourceAsset: WalletTokenViewModel
+    let targetAsset: WalletTokenViewModel
+    let estimate: String
+
+    public func accept(definition: WalletFormDefining) -> WalletFormItemView? {
+        if let definition = definition as? WalletSoraFormDefining {
+            return definition.defineViewForRemoveLiquidityConfirmationHeaderViewModel(self)
+        } else {
+            return nil
+        }
+    }
+}
+
+struct SoraAddLiquidityHeaderViewModel: WalletFormViewBindingProtocol {
+    let sourceAsset: WalletTokenViewModel
+    let targetAsset: WalletTokenViewModel
+    let estimate: String
+    let poolShare: NSAttributedString
+
+    public func accept(definition: WalletFormDefining) -> WalletFormItemView? {
+        if let definition = definition as? WalletSoraFormDefining {
+            return definition.defineViewForAddLiquidityConfirmationHeaderViewModel(self)
+        } else {
+            return nil
+        }
+    }
+}
 
 struct SoraTransactionStatusViewModel: WalletFormViewBindingProtocol {
     public let title: String
@@ -120,6 +143,32 @@ struct SoraTransactionStatusViewModel: WalletFormViewBindingProtocol {
         }
     }
     
+}
+
+struct SoraReferralTransactionStatusViewModel: WalletFormViewBindingProtocol {
+    public let title: String
+    public let details: String?
+    public let detailsIcon: UIImage?
+    public let transactionTypeText: String
+
+    public init(title: String,
+                details: String? = nil,
+                detailsIcon: UIImage? = nil,
+                transactionTypeText: String = "") {
+        self.title = title
+        self.details = details
+        self.detailsIcon = detailsIcon
+        self.transactionTypeText = transactionTypeText
+    }
+
+    public func accept(definition: WalletFormDefining) -> WalletFormItemView? {
+        if let definition = definition as? WalletTransactionDetailsDefining {
+            return definition.defineViewForReferralStatus(self)
+        } else {
+            return nil
+        }
+    }
+
 }
 
 struct SoraTransactionAmountViewModel: WalletFormViewBindingProtocol {

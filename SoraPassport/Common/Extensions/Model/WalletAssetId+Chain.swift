@@ -1,37 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import IrohaCrypto
 
 extension WalletAssetId {
     var chain: Chain { .sora }
-
-    static var subqueryHistoryUrl: URL {
-        #if F_RELEASE
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora")!
-        #elseif F_STAGING
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging")!
-        #elseif F_TEST
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging")!
-        #else
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-dev")!
-        #endif
-    }
-
-    var subqueryHistoryUrl: URL? {
-        #if F_RELEASE
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora")
-        #elseif F_STAGING
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging")
-        #elseif F_TEST
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging")
-        #else
-            return URL(string: "https://subquery.q1.dev.sora2.soramitsu.co.jp/")
-        #endif
-    }
 
     var defaultSort: Int? {
         switch self {
@@ -41,8 +12,10 @@ extension WalletAssetId {
             return 1
         case .pswap:
             return 2
-        case .xstusd:
+        case .xst:
             return 3
+        case .xstusd:
+            return 4
         }
     }
 

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 struct TransferMetadataContext {
@@ -14,9 +9,9 @@ struct TransferMetadataContext {
 extension TransferMetadataContext {
     init(data: AccountData, precision: Int16) {
         let free = Decimal
-            .fromSubstrateAmount(data.free.value, precision: precision) ?? .zero
+            .fromSubstrateAmount(data.free, precision: precision) ?? .zero
         let reserved = Decimal
-            .fromSubstrateAmount(data.reserved.value, precision: precision) ?? .zero
+            .fromSubstrateAmount(data.reserved, precision: precision) ?? .zero
 
         receiverBalance = free + reserved
     }

@@ -1,37 +1,39 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import CommonWallet
 
 protocol ProfileViewProtocol: ControllerBackedProtocol {
-    func didLoad(optionViewModels: [ProfileOptionViewModelProtocol])
+    func didLoad(optionsViewModels: [ProfileOptionsHeaderViewModelProtocol])
 }
 
 protocol ProfilePresenterProtocol: AlertPresentable {
     func setup()
-    func activateOption(at index: UInt)
+    func activateOption(_ option: ProfileOption)
 }
 
-protocol ProfileInteractorInputProtocol: class {
+protocol ProfileInteractorInputProtocol: AnyObject {
+    var isThereEntropy: Bool { get }
     func logoutAndClean()
+    func getCurrentNodeName(completion: @escaping (String) -> Void)
+    func isLastAccountWithCustomNodes(completion: @escaping (Bool) -> Void)
 }
 
-protocol ProfileInteractorOutputProtocol: class {
+protocol ProfileInteractorOutputProtocol: AnyObject {
     func restart()
+    func updateScreen()
 }
 
 protocol ProfileWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPresentable, WebPresentable {
-    func showPersonalDetailsView(from view: ProfileViewProtocol?)
+    func showChangeAccountView(from view: ProfileViewProtocol?, completion: @escaping () -> Void)
+    func showPersonalDetailsView(from view: ProfileViewProtocol?, completion: @escaping () -> Void)
     func showFriendsView(from view: ProfileViewProtocol?)
     func showPassphraseView(from view: ProfileViewProtocol?)
-    func showChangePin(from view: ProfileViewProtocol?)
+    func showChangePin(from view: ProfileViewProtocol)
     func showLanguageSelection(from view: ProfileViewProtocol?)
     func showFaq(from view: ProfileViewProtocol?)
     func showAbout(from view: ProfileViewProtocol?)
     func showDisclaimer(from view: ProfileViewProtocol?)
-    func showLogout(from view: ProfileViewProtocol?, completionBlock: (() -> Void)?)
+    func showLogout(from view: ProfileViewProtocol?, isNeedCustomNodeText: Bool, completionBlock: (() -> Void)?)
+    func showNodes(from view: ProfileViewProtocol?)
     func switchBiometry(
         toValue: Bool,
         from view: ProfileViewProtocol?,
@@ -40,6 +42,6 @@ protocol ProfileWireframeProtocol: ErrorPresentable, AlertPresentable, HelpPrese
     func showRoot()
 }
 
-protocol ProfileViewFactoryProtocol: class {
-	static func createView() -> ProfileViewProtocol?
+protocol ProfileViewFactoryProtocol: AnyObject {
+    static func createView(walletContext: CommonWalletContextProtocol) -> ProfileViewProtocol?
 }

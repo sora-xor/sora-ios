@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CoreData
 import RobinHood
@@ -10,7 +5,7 @@ import RobinHood
 
 func createDefaultCoreDataCache<T, U>() -> CoreDataRepository<T, U>
     where T: Identifiable & Codable, U: NSManagedObject & CoreDataCodable {
-        let coreDataService = CoreDataCacheFacade.shared.databaseService
+        let coreDataService = CacheFacade.shared.databaseService
         let mapper = AnyCoreDataMapper(CodableCoreDataMapper<T, U>())
 
         return CoreDataRepository(databaseService: coreDataService, mapper: mapper)

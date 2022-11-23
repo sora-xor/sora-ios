@@ -1,19 +1,15 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
+import FearlessUtils
 
-protocol SubstrateOperationFactoryProtocol: class {
+protocol SubstrateOperationFactoryProtocol: AnyObject {
     func fetchChainOperation(_ url: URL) -> BaseOperation<String>
 }
 
 final class SubstrateOperationFactory: SubstrateOperationFactoryProtocol {
-    let logger: LoggerProtocol
+    let logger: SDKLoggerProtocol
 
-    init(logger: LoggerProtocol) {
+    init(logger: SDKLoggerProtocol) {
         self.logger = logger
     }
 

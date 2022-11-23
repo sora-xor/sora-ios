@@ -13,9 +13,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>Es verbleibt noch %@ Tag</string>
+        <key>other</key>
+        <string>Es verbleiben noch %@ Tage</string>
+=======
         <string>%li day left</string>
         <key>other</key>
         <string>%li days left</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>project.date.hour.plurals</key>
@@ -29,9 +35,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>Stunde verbleibt</string>
+        <key>other</key>
+        <string>Stunden verbleiben</string>
+=======
         <string>%li hour left</string>
         <key>other</key>
         <string>%li hours left</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>project.date.minute.plurals</key>
@@ -45,9 +57,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>Es verbleibt noch %@ Minute</string>
+        <key>other</key>
+        <string>Es verbleiben noch %@ Minuten</string>
+=======
         <string>%li minute left</string>
         <key>other</key>
         <string>%li minutes left</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>project.date.second.plurals</key>
@@ -61,15 +79,25 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>Es verbleibt noch %@ Sekunde</string>
+        <key>other</key>
+        <string>Es verbleiben noch %@ Sekunden</string>
+=======
         <string>%li second left</string>
         <key>other</key>
         <string>%li seconds left</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>received.invitations</key>
     <dict>
       <key>NSStringLocalizedFormatKey</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+      <string>Du hast %#@invitation@ erhalten</string>
+=======
       <string>You have received %#@invitation@</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       <key>invitation</key>
       <dict>
         <key>NSStringFormatSpecTypeKey</key>
@@ -77,9 +105,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>Einladung</string>
+        <key>other</key>
+        <string>Einladungen</string>
+=======
         <string>%li invitation</string>
         <key>other</key>
         <string>%li invitations</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>favorite.users</key>
@@ -93,9 +127,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>Favorit</string>
+        <key>other</key>
+        <string>Favoriten</string>
+=======
         <string>%li favourite</string>
         <key>other</key>
         <string>%li favourites</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>voted.friends</key>
@@ -109,9 +149,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>Freund hat abgestimmt</string>
+        <key>other</key>
+        <string>Freunde haben abgestimmt</string>
+=======
         <string>%li friend voted</string>
         <key>other</key>
         <string>%li friends voted</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>referendum.date.day.plurals</key>
@@ -125,9 +171,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>%@ Tag</string>
+        <key>other</key>
+        <string>%@ Tage</string>
+=======
         <string>%li day</string>
         <key>other</key>
         <string>%li days</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>referendum.date.hour.plurals</key>
@@ -141,9 +193,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>%li Stunde</string>
+        <key>other</key>
+        <string>%li Stunden</string>
+=======
         <string>%li hour</string>
         <key>other</key>
         <string>%li hours</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>referendum.date.minute.plurals</key>
@@ -157,9 +215,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>%@ Minute</string>
+        <key>other</key>
+        <string>%@ Minuten</string>
+=======
         <string>%li minute</string>
         <key>other</key>
         <string>%li minutes</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
     <key>referendum.date.second.plurals</key>
@@ -173,9 +237,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
+<<<<<<< HEAD:SoraPassport/de-DE.lproj/Localizable.stringsdict
+        <string>%li Sekunde</string>
+        <key>other</key>
+        <string>%li Sekunden</string>
+=======
         <string>%li second</string>
         <key>other</key>
         <string>%li seconds</string>
+>>>>>>> master:SoraPassport/sk.lproj/Localizable.stringsdict
       </dict>
     </dict>
   </dict>

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import IrohaCrypto
 import SoraFoundation
@@ -15,7 +10,7 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
 
         let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
                                                  supportedNetworkTypes: Chain.allCases,
-                                                 defaultNetwork: ConnectionItem.defaultConnection.type.chain)
+                                                 defaultNetwork: Chain.sora)
         let wireframe = AccountCreateWireframe()
 
         view.presenter = presenter
@@ -38,7 +33,7 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
 
         let interactor = AccountBackupInteractor(keystore: Keychain(),
                                                  mnemonicCreator: IRMnemonicCreator(language: .english),
-                                                 settings: SettingsManager.shared)
+                                                 settings: SelectedWalletSettings.shared)
         let wireframe = AccountCreateWireframe()
 
         view.presenter = presenter
@@ -58,7 +53,7 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
         let view = AccountCreateViewController(nib: R.nib.accountCreateViewController)
         let presenter = AccountCreatePresenter(username: username)
 
-        let defaultAddressType = SettingsManager.shared.selectedConnection.type
+        let defaultAddressType = ApplicationConfig.shared.addressType
 
         let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
                                                  supportedNetworkTypes: Chain.allCases,
@@ -70,6 +65,31 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
         presenter.interactor = interactor
         presenter.wireframe = wireframe
         interactor.presenter = presenter
+
+        let localizationManager = LocalizationManager.shared
+        view.localizationManager = localizationManager
+        presenter.localizationManager = localizationManager
+
+        return view
+    }
+    
+    static func createViewForAdding(username: String, endAddingBlock: (() -> Void)?) -> AccountCreateViewProtocol? {
+        let view = AccountCreateViewController(nib: R.nib.accountCreateViewController)
+        let presenter = AccountCreatePresenter(username: username)
+
+        let defaultAddressType = ApplicationConfig.shared.addressType
+
+        let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
+                                                 supportedNetworkTypes: Chain.allCases,
+                                                 defaultNetwork: defaultAddressType.chain)
+        let wireframe = AddCreationWireframe()
+
+        view.presenter = presenter
+        presenter.view = view
+        presenter.interactor = interactor
+        presenter.wireframe = wireframe
+        interactor.presenter = presenter
+        wireframe.endAddingBlock = endAddingBlock
 
         let localizationManager = LocalizationManager.shared
         view.localizationManager = localizationManager

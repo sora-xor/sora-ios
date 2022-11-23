@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import IrohaCrypto
@@ -40,7 +35,7 @@ class AccessBackupInteractorTests: XCTestCase {
         try? interactor.keystore.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreTag.pincode.rawValue)
 
         let mnemonic = try! interactor.mnemonicCreator.mnemonic(fromList: Constants.dummyValidMnemonic)
-        try? interactor.keystore.saveEntropy(mnemonic.entropy(), address: settings.selectedAccount!.address)
+        try? interactor.keystore.saveEntropy(mnemonic.entropy(), address: settings.currentAccount!.address)
 
         let presenter = MockAccountCreateInteractorOutputProtocol()// MockAccessBackupInteractorOutputProtocol()
         interactor.presenter = presenter
@@ -68,7 +63,7 @@ class AccessBackupInteractorTests: XCTestCase {
 
     func clearStorage() {
         do {
-            try interactor.keystore.deleteAll()
+            try interactor.keystore.deleteAll(for: "")
         } catch {
             XCTFail("\(error)")
         }

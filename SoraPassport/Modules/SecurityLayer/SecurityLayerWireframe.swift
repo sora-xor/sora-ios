@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 final class SecurityLayerWireframe: SecurityLayerWireframProtocol, AuthorizationPresentable, SecuredPresentable {
@@ -38,10 +33,20 @@ final class SecurityLayerWireframe: SecurityLayerWireframProtocol, Authorization
         }
 
         if window.rootViewController as? MainTabBarViewProtocol != nil {
-            presentModalAuthorization()
+            removeExistingAuthViewIfPresented { [weak self] in
+                self?.presentModalAuthorization()
+            }
         } else {
             presentRootAuthorization(on: window)
         }
+    }
+    
+    func showUpdatePinView(from view: UIViewController, with completion:  @escaping () -> Void) {
+        guard let pincodeViewController = PinViewFactory.createPinUpdateView(completion: completion)?.controller else {
+            return
+        }
+        pincodeViewController.modalPresentationStyle = .overFullScreen
+        view.present(pincodeViewController, animated: true)
     }
 
     private func presentModalAuthorization() {

@@ -1,39 +1,23 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import FearlessUtils
 import Foundation
 import Kingfisher
 
-let polkaswapDexID: UInt32 = 0
-
-enum PolkaswapLiquiditySourceType: String {
-    case xyk = "XYKPool"
-    case tbc = "MulticollateralBondingCurvePool"
-}
+let xorDexID: UInt32 = 0
+let xstusdDexID: UInt32 = 1
 
 struct SwapValues: Decodable {
     let amount: String
     let fee: String
     let rewards: [String]
-    let amountWithoutImpact: String
 
     enum CodingKeys: String, CodingKey {
         case amount
         case fee
         case rewards
-        case amountWithoutImpact = "amount_without_impact"
     }
 }
 
-// enum SwapVariant: String {
-//    case input  = "WithDesiredInput"
-//    case output = "WithDesiredOutput"
-// }
-
-enum FilterMode: String {
+enum FilterMode: String, CaseIterable {
     case disabled = "Disabled"
     case forbidSelected = "ForbidSelected"
     case allowSelected = "AllowSelected"
@@ -41,6 +25,7 @@ enum FilterMode: String {
 
 protocol PolkaswapNetworkOperationFactoryProtocol: AnyObject {
     var engine: JSONRPCEngine { get }
+    func dexId(for baseAssetId: String) -> UInt32
     func createIsSwapPossibleOperation(dexId: UInt32,
                                        from fromAssetId: String,
                                        to toAssetId: String) -> JSONRPCOperation<[JSONAny], Bool>
@@ -52,25 +37,37 @@ protocol PolkaswapNetworkOperationFactoryProtocol: AnyObject {
                                                   to toAssetId: String,
                                                   amount: String,
                                                   swapVariant: SwapVariant,
-                                                  liquiditySourceTypes: [PolkaswapLiquiditySourceType],
+                                                  liquiditySources: [String],
                                                   filterMode: FilterMode) -> JSONRPCOperation<[JSONAny], SwapValues>
     
     func accountPoolsApy(accountId: String) -> JSONRPCOperation<[String], [Data]>
-    func accountPools(accountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<AccountPools>>
+    func accountPools(accountId: Data, baseAssetId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<AccountPools>>
     func poolProperties(baseAsset: String, targetAsset: String) throws -> JSONRPCListOperation<JSONScaleDecodable<PoolProperties>>
     func poolProvidersBalance(reservesAccountId: Data, accountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>>
     func poolTotalIssuances(reservesAccountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>>
     func poolReserves(baseAsset: String, targetAsset: String) throws -> JSONRPCListOperation<JSONScaleDecodable<PoolReserves>>
+    func isPairEnabled(dexId: UInt32, assetId: String, tokenAddress: String) -> JSONRPCOperation<[JSONAny], Bool>
 }
 
 final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol {
+    func dexId(for baseAssetId: String) -> UInt32 {
+        if baseAssetId == WalletAssetId.xor.rawValue {
+            return xorDexID
+        } else if baseAssetId == WalletAssetId.xstusd.rawValue {
+            return xstusdDexID
+        } else {
+            assert(false)
+            return 0
+        }
+    }
+
     let engine: JSONRPCEngine
 
     init(engine: JSONRPCEngine) {
         self.engine = engine
     }
 
-    func createIsSwapPossibleOperation(dexId: UInt32 = polkaswapDexID,
+    func createIsSwapPossibleOperation(dexId: UInt32,
                                        from fromAssetId: String,
                                        to toAssetId: String) -> JSONRPCOperation<[JSONAny], Bool> {
         let paramsArray: [JSONAny] = [JSONAny(dexId),
@@ -82,7 +79,7 @@ final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryPr
                                                  parameters: paramsArray)
     }
 
-    func createGetAvailableMarketAlgorithmsOperation(dexId: UInt32 = polkaswapDexID,
+    func createGetAvailableMarketAlgorithmsOperation(dexId: UInt32,
                                                      from fromAssetId: String,
                                                      to toAssetId: String) -> JSONRPCOperation<[JSONAny], [String]> {
         let paramsArray: [JSONAny] = [JSONAny(dexId),
@@ -94,21 +91,20 @@ final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryPr
                                                      parameters: paramsArray)
     }
 
-    func createRecalculationOfSwapValuesOperation(dexId: UInt32 = polkaswapDexID,
+    func createRecalculationOfSwapValuesOperation(dexId: UInt32,
                                                   from fromAssetId: String,
                                                   to toAssetId: String,
                                                   amount: String,
                                                   swapVariant: SwapVariant,
-                                                  liquiditySourceTypes: [PolkaswapLiquiditySourceType],
+                                                  liquiditySources: [String],
                                                   filterMode: FilterMode) -> JSONRPCOperation<[JSONAny], SwapValues> {
-        let liquiditySource = liquiditySourceTypes.map({ $0.rawValue })
 
         let paramsArray: [JSONAny] = [JSONAny(dexId),
                                       JSONAny(fromAssetId),
                                       JSONAny(toAssetId),
                                       JSONAny(amount),
                                       JSONAny(swapVariant.rawValue),
-                                      JSONAny(liquiditySource),
+                                      JSONAny(liquiditySources),
                                       JSONAny(filterMode.rawValue)
         ]
 
@@ -121,11 +117,11 @@ final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryPr
         return JSONRPCOperation<[String], [Data]>(engine: engine, method: RPCMethod.accountPools, parameters: [accountId])
     }
 
-    func accountPools(accountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<AccountPools>> {
+    func accountPools(accountId: Data, baseAssetId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<AccountPools>> {
         return JSONRPCListOperation<JSONScaleDecodable<AccountPools>>(
             engine: engine,
             method: RPCMethod.getStorage, parameters: [
-                try StorageKeyFactory().accountPoolsKeyForId(accountId).toHex(includePrefix: true)
+                try StorageKeyFactory().accountPoolsKeyForId(accountId, baseAssetId: baseAssetId).toHex(includePrefix: true)
             ]
         )
     }
@@ -176,5 +172,12 @@ final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryPr
                 ).toHex(includePrefix: true)
             ]
         )
+    }
+
+    func isPairEnabled(dexId: UInt32, assetId: String, tokenAddress: String) -> JSONRPCOperation<[JSONAny], Bool> {
+        let paramsArray: [JSONAny] = [JSONAny(dexId),
+                                      JSONAny(assetId),
+                                      JSONAny(tokenAddress)]
+        return JSONRPCOperation<[JSONAny], Bool>(engine: engine, method: RPCMethod.isPairEnabled, parameters: paramsArray)
     }
 }

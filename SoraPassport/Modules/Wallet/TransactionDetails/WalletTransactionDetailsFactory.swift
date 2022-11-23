@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CommonWallet
 import FearlessUtils
 import Foundation
@@ -74,6 +69,24 @@ final class TransactionDetailsViewModelFactory {
         viewModelList.append(separator)
     }
 
+    private func populateReferralStatus(
+        into viewModelList: inout [WalletFormViewBindingProtocol],
+        data: AssetTransactionData,
+        locale: Locale
+    ) {
+
+        let typeText = data.context?[TransactionContextKeys.referralTransactionType] ?? ""
+        let type = ReferralMethodType(fromRawValue: typeText)
+
+        let viewModel = SoraReferralTransactionStatusViewModel(title: data.status.title,
+                                                               details: data.status.details,
+                                                               detailsIcon: data.status.image,
+                                                               transactionTypeText: type.detailText)
+
+        let separator = WalletFormSeparatedViewModel(content: viewModel, borderType: [.bottom])
+        viewModelList.append(separator)
+    }
+
     private func populateAmount(
         into viewModelList: inout [WalletFormViewBindingProtocol],
         data: AssetTransactionData,
@@ -100,7 +113,7 @@ final class TransactionDetailsViewModelFactory {
         case .outgoing:
             title = R.string.localizable
                 .commonSent(preferredLanguages: locale.rLanguages)
-        case .reward, .slash, .swap, .extrinsic, .liquidityRemoval, .liquidityAdd:
+        case .reward, .slash, .swap, .migration, .extrinsic, .liquidityRemoval, .liquidityAdd, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime, .referral:
             _ = title
         }
 
@@ -121,7 +134,7 @@ final class TransactionDetailsViewModelFactory {
         let formatter = amountFormatterFactory.createTokenFormatter(for: asset).value(for: locale)
 
         for fee in data.fees {
-            guard let amount = formatter.stringFromDecimal(fee.amount.decimalValue) else {
+            guard let amount = formatter.stringFromDecimal(fee.amount.decimalValue), fee.amount.decimalValue > 0 else {
                 continue
             }
 
@@ -138,21 +151,19 @@ final class TransactionDetailsViewModelFactory {
 
     private func populateTransactionId(
         in viewModelList: inout [WalletFormViewBindingProtocol],
-        data: AssetTransactionData,
+        title: String,
+        id: String,
         chain: Chain,
         commandFactory: WalletCommandFactoryProtocol,
         locale: Locale
     ) {
-        let title = R.string.localizable
-            .transactionHash(preferredLanguages: locale.rLanguages)
-
         let command = SendToContactCommand(nextAction: {
-            UIPasteboard.general.string = data.transactionId
+            UIPasteboard.general.string = id
             let success = ModalAlertFactory.createSuccessAlert(R.string.localizable.commonCopied(preferredLanguages: locale.rLanguages))
             try? commandFactory.preparePresentationCommand(for: success).execute()
         })
 
-        let viewModel = WalletSoraReceiverViewModel(text: data.transactionId, icon: nil, title: title, command: command)
+        let viewModel = WalletSoraReceiverViewModel(text: id, icon: nil, title: title, command: command)
 
         let separator = WalletFormSeparatedViewModel(content: viewModel, borderType: [.bottom])
         viewModelList.append(separator)
@@ -165,7 +176,7 @@ final class TransactionDetailsViewModelFactory {
         commandFactory: WalletCommandFactoryProtocol,
         locale: Locale
     ) {
-        let title = R.string.localizable.transactionSender(preferredLanguages: locale.rLanguages)
+        let title = R.string.localizable.commonSender(preferredLanguages: locale.rLanguages)
         populatePeerViewModel(
             in: &viewModelList,
             title: title,
@@ -182,7 +193,7 @@ final class TransactionDetailsViewModelFactory {
                                   commandFactory: WalletCommandFactoryProtocol,
                                   locale: Locale) {
         let title = R.string.localizable
-            .transactionRecipient(preferredLanguages: locale.rLanguages)
+            .commonRecipient(preferredLanguages: locale.rLanguages)
         populatePeerViewModel(in: &viewModelList,
                               title: title,
                               address: address,
@@ -250,9 +261,13 @@ final class TransactionDetailsViewModelFactory {
             displayAmount = "\(String.amountDecrease) \(displayAmount)"
         case .liquidityRemoval:
             displayAmount = "\(String.amountIncrease) \(displayAmount)"
-        case .liquidityAdd:
+        case .liquidityAdd, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime:
             displayAmount = "\(String.amountDecrease) \(displayAmount)"
-        case .reward, .slash, .swap, .extrinsic:
+        case .referral:
+            let typeText = data.context?[TransactionContextKeys.referralTransactionType] ?? ""
+            let type = ReferralMethodType(fromRawValue: typeText)
+            displayAmount = referralTitleHeader(with: type, displayAmount: displayAmount)
+        case .reward, .slash, .swap, .migration, .extrinsic:
             _ = displayAmount
         }
 
@@ -304,9 +319,9 @@ final class TransactionDetailsViewModelFactory {
             displayAmount = "\(String.amountDecrease) \(displayAmount)"
         case .liquidityRemoval:
             displayAmount = "\(String.amountIncrease) \(displayAmount)"
-        case .liquidityAdd:
+        case .liquidityAdd, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime:
             displayAmount = "\(String.amountDecrease) \(displayAmount)"
-        case .reward, .slash, .swap, .extrinsic:
+        case .reward, .slash, .swap, .migration, .extrinsic, .referral:
             _ = displayAmount
         }
 
@@ -411,10 +426,13 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
         case .swap:
             return swapTransactions(data: data, commandFactory: commandFactory)
 
-        case .liquidityAdd, .liquidityRemoval:
+        case .liquidityAdd, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime, .liquidityRemoval:
             return liquidityTransactions(data: data, commandFactory: commandFactory)
 
-        case .reward, .slash, .extrinsic:
+        case .referral:
+            return referralTransactions(data: data, commandFactory: commandFactory)
+
+        case .reward, .slash, .migration, .extrinsic:
             Logger.shared.warning("transaction details unknown")
             return []
         }
@@ -444,7 +462,8 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
         }
         populateTransactionId(
             in: &viewModels,
-            data: data,
+            title: R.string.localizable.transactionHash(preferredLanguages: locale.rLanguages),
+            id: data.transactionId,
             chain: chain,
             commandFactory: commandFactory,
             locale: locale
@@ -503,7 +522,8 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
         populateFeeAmount(in: &viewModels, data: data, locale: locale)
         populateTransactionId(
             in: &viewModels,
-            data: data,
+            title: R.string.localizable.transactionHash(preferredLanguages: locale.rLanguages),
+            id: data.transactionId,
             chain: chain,
             commandFactory: commandFactory,
             locale: locale
@@ -536,7 +556,8 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
         populateFeeAmount(in: &viewModels, data: data, locale: locale)
         populateTransactionId(
             in: &viewModels,
-            data: data,
+            title: R.string.localizable.transactionHash(preferredLanguages: locale.rLanguages),
+            id: data.transactionId,
             chain: chain,
             commandFactory: commandFactory,
             locale: locale
@@ -548,6 +569,73 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
             commandFactory: commandFactory,
             locale: locale
         )
+
+        return viewModels
+    }
+
+    private func referralTransactions(
+        data: AssetTransactionData,
+        commandFactory: WalletCommandFactoryProtocol
+    ) -> [WalletFormViewBindingProtocol]? {
+        let locale = LocalizationManager.shared.selectedLocale
+        let chain: Chain = .sora
+        var viewModels: [WalletFormViewBindingProtocol] = []
+
+        let typeText = data.context?[TransactionContextKeys.referralTransactionType] ?? ""
+        let type = ReferralMethodType(fromRawValue: typeText)
+
+        populateHeader(into: &viewModels, data: data, locale: locale)
+        populateReferralStatus(into: &viewModels, data: data, locale: locale)
+        populateDate(into: &viewModels, data: data, locale: locale)
+        if type != .setReferrer {
+            populateFeeAmount(in: &viewModels, data: data, locale: locale)
+        }
+
+        populateTransactionId(
+            in: &viewModels,
+            title: R.string.localizable.transactionHash(preferredLanguages: locale.rLanguages),
+            id: data.transactionId,
+            chain: chain,
+            commandFactory: commandFactory,
+            locale: locale
+        )
+
+        populateTransactionId(
+            in: &viewModels,
+            title: R.string.localizable.blockId(preferredLanguages: .currentLocale),
+            id: data.context?[TransactionContextKeys.blockHash] ?? "",
+            chain: chain,
+            commandFactory: commandFactory,
+            locale: locale
+        )
+
+        if type == .setReferrer {
+            populatePeerViewModel(in: &viewModels,
+                                  title: R.string.localizable.historyReferrer(preferredLanguages: .currentLocale),
+                                  address: data.context?[TransactionContextKeys.referrer] ?? "",
+                                  chain: chain,
+                                  commandFactory: commandFactory,
+                                  locale: locale)
+        }
+
+        if type == .setReferral {
+            populatePeerViewModel(in: &viewModels,
+                                  title: R.string.localizable.historyReferral(preferredLanguages: .currentLocale),
+                                  address: data.context?[TransactionContextKeys.referral] ?? "",
+                                  chain: chain,
+                                  commandFactory: commandFactory,
+                                  locale: locale)
+        }
+
+        if type != .setReferral {
+            populateSender(
+                in: &viewModels,
+                address: data.context?[TransactionContextKeys.sender] ?? "",
+                chain: chain,
+                commandFactory: commandFactory,
+                locale: locale
+            )
+        }
 
         return viewModels
     }
@@ -577,7 +665,7 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
 
         let action: String
 
-        if data.status == .rejected && data.transactionType != .swap {
+        if data.status == .rejected && data.transactionType == .outgoing {
             action = R.string.localizable.commonRetry(preferredLanguages: locale.rLanguages)
         } else {
             switch data.transactionType {
@@ -587,10 +675,23 @@ extension TransactionDetailsViewModelFactory: WalletTransactionDetailsFactoryOve
             case .outgoing:
                 action = R.string.localizable
                     .walletTxDetailsSendAgain(preferredLanguages: locale.rLanguages)
-            case .reward, .slash, .swap, .extrinsic, .liquidityAdd, .liquidityRemoval:
+            case .reward, .slash, .swap, .migration, .extrinsic, .liquidityAdd, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime, .liquidityRemoval, .referral:
                 return nil
             }
         }
         return AccessoryViewModel(title: "", action: action)
+    }
+
+    private func referralTitleHeader(with type: ReferralMethodType, displayAmount: String) -> String {
+        if type == .setReferrer {
+            return R.string.localizable.historyReferralSetReferrer(preferredLanguages: .currentLocale)
+        }
+
+        if type == .setReferral {
+            return "+ 1 " + R.string.localizable.historyReferral(preferredLanguages: .currentLocale)
+        }
+
+        let sign = type == .unbond ? String.amountIncrease : String.amountDecrease
+        return "\(sign) \(displayAmount)"
     }
 }

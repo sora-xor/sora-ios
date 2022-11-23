@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -10,6 +5,7 @@ import SoraFoundation
 protocol AmountFormatterFactoryProtocol: NumberFormatterFactoryProtocol {
     func createTokenFormatter(for asset: WalletAsset?, maxPrecision: Int) -> LocalizableResource<TokenFormatter>
     func createDisplayFormatter(for asset: WalletAsset?, maxPrecision: Int) -> LocalizableResource<NumberFormatter>
+    func createInputFormatter(for asset: AssetInfo?) -> LocalizableResource<NumberFormatter>
     func createPercentageFormatter(maxPrecision: Int) -> LocalizableResource<NumberFormatter>
     func createPolkaswapAmountFormatter() -> LocalizableResource<NumberFormatter>
 }
@@ -22,6 +18,17 @@ struct AmountFormatterFactory: AmountFormatterFactoryProtocol {
          usdPrecision: Int = 2) {
         self.assetPrecision = assetPrecision
         self.usdPrecision = usdPrecision
+    }
+
+    func createInputFormatter(for asset: AssetInfo?) -> LocalizableResource<NumberFormatter> {
+        let formatter = NumberFormatter.amount
+        formatter.roundingMode = .floor
+
+        if let asset = asset {
+            formatter.maximumFractionDigits = Int(asset.precision)
+        }
+
+        return formatter.localizableResource()
     }
 
     func createInputFormatter(for asset: WalletAsset?) -> LocalizableResource<NumberFormatter> {
@@ -62,9 +69,11 @@ struct AmountFormatterFactory: AmountFormatterFactoryProtocol {
         var precision = asset != nil  ? Int(asset!.precision) : assetPrecision
         precision = min(precision, maxPrecision)
         let numberFormatter = createTokenNumberFormatter(for: precision)
+        let tokenSymbol = asset?.symbol ?? ""
+        let separator = tokenSymbol.count > 0 ? " " : ""
         let tokenFormatter = TokenFormatter(decimalFormatter: numberFormatter,
-                                        tokenSymbol: asset?.symbol ?? "",
-                                        separator: " ",
+                                        tokenSymbol: tokenSymbol,
+                                        separator: separator,
                                         position: .suffix)
         return LocalizableResource { locale in
             tokenFormatter.locale = locale

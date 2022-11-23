@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraKeystore
 import SoraFoundation
@@ -17,7 +12,8 @@ final class PersonalUpdateViewFactory: PersonalUpdateViewFactoryProtocol {
         let presenter = PersonalUpdatePresenter(viewModelFactory: viewModelFactory)
         presenter.localizationManager = LocalizationManager.shared
 
-        let interactor = PersonalUpdateInteractor(settingsManager: SettingsManager.shared)
+        let accountSettings = SelectedWalletSettings.shared
+        let interactor = PersonalUpdateInteractor(settingsManager: accountSettings)
         let wireframe = PersonalUpdateWireframe()
 
         view.presenter = presenter

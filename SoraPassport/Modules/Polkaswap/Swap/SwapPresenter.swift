@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import BigInt
 import CommonWallet
 import Foundation
@@ -20,12 +15,13 @@ final class SwapPresenter {
     var wireframe: PolkaswapMainWireframeProtocol!
     var interactor: PolkaswapMainInteractorInputProtocol!
     var isDetailsExpanded: Bool = false
-    var marketSources: [LiquiditySourceType]?
+    var marketSourcer: SwapMarketSourcerProtocol?
     var selectedLiquiditySourceType: LiquiditySourceType = .smart {
         didSet {
             view?.setMarket(type: selectedLiquiditySourceType)
         }
     }
+    let tab: PolkaswapTab = .swap
 
     enum DetailsState {
         case disabled
@@ -35,9 +31,9 @@ final class SwapPresenter {
 
     var detailsState = DetailsState.disabled
 
-    private let assets: [WalletAsset]
-    var assetList: [WalletAsset] {
-        return assetManager.sortedAssets(self.assets, onlyVisible: true)
+    private let assets: [AssetInfo]
+    var assetList: [AssetInfo] {
+        return assets//assetManager.sortedAssets(self.assets, onlyVisible: true)
     }
 
     var poolsDetails: [PoolDetails] = []
@@ -58,15 +54,14 @@ final class SwapPresenter {
 
     var minMaxValue: Decimal = 0.0
     var lpFeeValue: Decimal = 0.0
-    let networkFeeValue: Decimal = 0.0007
 
     var fromAmount: Decimal?
     var toAmount: Decimal?
     var fromBalance: Decimal?
     var toBalance: Decimal?
 
-    var fromAsset: WalletAsset?
-    var toAsset: WalletAsset?
+    var fromAsset: AssetInfo?
+    var toAsset: AssetInfo?
     var languages: [String]? {
         view?.localizationManager?.preferredLocalizations
     }
@@ -91,8 +86,9 @@ final class SwapPresenter {
     var swapVariant: SwapVariant = .desiredInput
 
     var debounceTimer: Timer?
+    private var swapFee: Decimal?
 
-    init(assets: [WalletAsset], assetManager: AssetManagerProtocol,
+    init(assets: [AssetInfo], assetManager: AssetManagerProtocol,
          disclaimerViewFactory: DisclaimerViewFactoryProtocol,
          settingsManager: SettingsManagerProtocol,
          networkFacade: WalletNetworkOperationFactoryProtocol,
@@ -108,9 +104,9 @@ final class SwapPresenter {
         self.commandFactory = commandFactory
     }
 
-    func filteredAssetList(isFrom: Bool) -> [WalletAsset] {
+    func filteredAssetList(isFrom: Bool) -> [AssetInfo] {
         return assetList.filter { asset in
-            let assetToExclude: WalletAsset? = isFrom ? toAsset : fromAsset
+            let assetToExclude: AssetInfo? = isFrom ? toAsset : fromAsset
             return asset != assetToExclude
         }
     }
@@ -118,9 +114,9 @@ final class SwapPresenter {
 
 extension SwapPresenter: SwapPresenterProtocol {
     func setup(preferredLocalizations languages: [String]?) {
-        if fromAsset == nil {
-            fromAsset = assetList.filter({ $0.isFeeAsset }).first
-            interactor.loadBalance(asset: fromAsset!)
+        if fromAsset == nil, let feeAsset = assetList.filter({ $0.isFeeAsset }).first {
+            fromAsset = feeAsset
+            interactor.loadBalance(asset: feeAsset)
         }
 
         // TODO: group all the data to viewModel or combine it to one call
@@ -132,11 +128,12 @@ extension SwapPresenter: SwapPresenterProtocol {
                             title: nextButtonTitle(for: nextButtonState))
         updateDetailsViewModel(params: quoteParams, quote: quote)
         view?.setDetailsExpanded(isDetailsExpanded)
-
-        interactor.loadPools()
         view?.setSwapButton(isEnabled: nextButtonState == .enabled,
                             isLoading: nextButtonState == .loading,
                             title: nextButtonTitle(for: nextButtonState))
+         interactor.networkFeeValue(completion: { [weak self] fee in
+             self?.swapFee = fee
+        })
     }
 
     func didSelectAsset(atIndex index: Int, isFrom: Bool) {
@@ -146,9 +143,8 @@ extension SwapPresenter: SwapPresenterProtocol {
         didSelectAsset(selectedAsset, isFrom: isFrom)
     }
 
-    func didSelectAsset(_ selectedAsset: WalletAsset?, isFrom: Bool) {
+    func didSelectAsset(_ selectedAsset: AssetInfo?, isFrom: Bool) {
         invalidateQuoteAndParams()
-        marketSources = nil
         if isFrom {
             fromAsset = selectedAsset
             view?.setFromAsset(fromAsset, amount: fromAmount)
@@ -156,9 +152,11 @@ extension SwapPresenter: SwapPresenterProtocol {
             toAsset = selectedAsset
             view?.setToAsset(toAsset, amount: toAmount)
         }
+
         checkTokenAndAmount()
         updateDetailsState()
         if let fromAssetId = fromAsset?.identifier, let toAssetId = toAsset?.identifier {
+            marketSourcer = SwapMarketSourcer(fromAssetId: fromAssetId, toAssetId: toAssetId)
             interactor.checkIsPathAvailable(fromAssetId: fromAssetId, toAssetId: toAssetId)
         }
         if let asset = selectedAsset {
@@ -172,65 +170,39 @@ extension SwapPresenter: SwapPresenterProtocol {
 
         guard let fromAsset = fromAsset,
               let toAsset = toAsset,
-              let fromInfo = assetManager.assetInfo(for: fromAsset.identifier),
-              let toInfo = assetManager.assetInfo(for: toAsset.identifier) else {
+              let swapFee = swapFee,
+              let params = params,
+              let quote = quote else {
             return
         }
 
-        var minReceivedTitle: String = ""
-        var directExchangeRateValue: Decimal = 0.0
-        var inversedExchangeRateValue: Decimal = 0.0
+        guard let amounts = SwapQuoteAmountsFactory().createAmounts(fromAsset: fromAsset, toAsset: toAsset, params: params, quote: quote) else { return }
 
-        var minMaxToken: String = ""
-        var minMaxAlertTitle: String = ""
-        var minMaxAlertText: String = ""
+        setAndDisplayAmount(direction: params.swapVariant, amounts: amounts)
 
-        if let quote = quote, let params = params {
-            if let fromAmountBig = BigUInt(params.amount),
-               let toAmountBig = BigUInt(quote.amount),
-               let feeBig = BigUInt(quote.fee),
-               let fromAmount = Decimal.fromSubstrateAmount(fromAmountBig, precision: fromAsset.precision),
-               let toAmount = Decimal.fromSubstrateAmount(toAmountBig, precision: toAsset.precision),
-               let lpAmount = Decimal.fromSubstrateAmount(feeBig, precision: 18) {
-                if params.swapVariant == .desiredInput {
-                    view?.setToAmount(toAmount)
-                    self.toAmount = toAmount
-                    minMaxValue = toAmount * Decimal(1 - slippage / 100.0)
-                    minMaxToken = toInfo.symbol
-                    minReceivedTitle = R.string.localizable.polkaswapMinimumReceived(preferredLanguages: languages).uppercased()
-                    minMaxAlertTitle = R.string.localizable.polkaswapMinimumReceived(preferredLanguages: languages)
-                    minMaxAlertText = R.string.localizable.polkaswapMinimumReceivedInfo(preferredLanguages: languages)
-                } else {
-                    view?.setFromAmount(toAmount)
-                    self.fromAmount = toAmount
-                    minMaxValue = toAmount * Decimal(1 + slippage / 100.0)
-                    minMaxToken = fromInfo.symbol
-                    minReceivedTitle = R.string.localizable.polkaswapMaximumSold(preferredLanguages: languages).uppercased()
-                    minMaxAlertTitle = R.string.localizable.polkaswapMaximumSold(preferredLanguages: languages)
-                    minMaxAlertText = R.string.localizable.polkaswapMaximumSoldInfo(preferredLanguages: languages)
-                }
-                directExchangeRateValue = fromAmount / toAmount
-                inversedExchangeRateValue = toAmount / fromAmount
-                lpFeeValue = lpAmount
-            }
+        let detailsViewModelFactory = SwapDetailsModelFactory(fromAsset: fromAsset, toAsset: toAsset, slippage: Decimal(slippage), languages: languages, quote: amounts, direction: params.swapVariant, swapFee: swapFee)
+        let detailsViewModel = detailsViewModelFactory.createDetailsViewModel()
+        minMaxValue = detailsViewModel.minBuyOrMaxSellValue
+        view?.didReceiveDetails(viewModel: detailsViewModel)
+    }
+
+    func setAndDisplayAmount(direction: SwapVariant, amounts: SwapQuoteAmounts) {
+        switch direction {
+        case .desiredInput:
+            setAndDisplayToAmount(amounts.toAmount)
+        case .desiredOutput:
+            setAndDisplayFromAmount(amounts.toAmount)
         }
+    }
 
-        let model = PolkaswapDetailsViewModel(
-            directExchangeRateTitle: fromInfo.symbol + "/" + toInfo.symbol,
-            inversedExchangeRateTitle: toInfo.symbol + "/" + fromInfo.symbol,
-            minReceivedTitle: minReceivedTitle,
-            lpFeeTitle: R.string.localizable.polkaswapLiqudityFee(preferredLanguages: languages).uppercased(),
-            networkFeeTitle: R.string.localizable.polkaswapNetworkFee(preferredLanguages: languages).uppercased(),
-            directExchangeRateValue: directExchangeRateValue,
-            inversedExchangeRateValue: inversedExchangeRateValue,
-            minReceivedTitleValue: minMaxValue,
-            lpFeeTitleValue: lpFeeValue,
-            networkFeeTitleValue: networkFeeValue,
-            minMaxToken: minMaxToken,
-            minMaxAlertTitle: minMaxAlertTitle,
-            minMaxAlertText: minMaxAlertText
-        )
-        view?.didReceiveDetails(viewModel: model)
+    func setAndDisplayToAmount(_ newAmount: Decimal) {
+        view?.setToAmount(newAmount)
+        self.toAmount = newAmount
+    }
+
+    func setAndDisplayFromAmount(_ newAmount: Decimal) {
+        view?.setFromAmount(newAmount)
+        self.fromAmount = newAmount
     }
 
     var currentButtonTitle: String {
@@ -249,6 +221,28 @@ extension SwapPresenter: SwapPresenterProtocol {
         if fromAmount == 0.0 && toAmount == 0.0 {
             nextButtonState = .enterAmount
         }
+    }
+
+    func showSlippageController() {
+        let view = R.nib.polkaswapSlippageSelectorView(owner: nil, options: nil)!
+        view.localizationManager = LocalizationManager.shared
+        view.delegate = self
+        let presenter = PolkaswapSlippageSelectorPresenter(amountFormatterFactory: AmountFormatterFactory())
+        presenter.view = view
+        presenter.slippage = self.slippage
+        view.presenter = presenter
+        presenter.setup(preferredLocalizations: LocalizationManager.shared.preferredLocalizations)
+        let controller = UIViewController()
+        controller.view = view
+        controller.preferredContentSize = CGSize(width: 0.0, height: view.frame.height)
+
+        let factory = ModalSheetPresentationFactory(configuration: ModalSheetPresentationConfiguration.neu)
+        controller.modalTransitioningFactory = factory
+        controller.modalPresentationStyle = .custom
+
+        let presentationCommand = commandFactory.preparePresentationCommand(for: controller)
+        presentationCommand.presentationStyle = .modal(inNavigation: false)
+        try? presentationCommand.execute()
     }
 
     func didPressAsset(isFrom: Bool) {
@@ -273,8 +267,8 @@ extension SwapPresenter: SwapPresenterProtocol {
                 view?.setFromAmount(0)
             }
         }
-        if let fromAssetId = fromAsset?.identifier, let toAssetId = toAsset?.identifier {
-            if marketSources == nil || nextButtonState == .poolNotCreated {
+        if let fromAssetId = fromAsset?.identifier, let toAssetId = toAsset?.identifier, let marketSourcer = marketSourcer {
+            if !marketSourcer.isLoaded() || nextButtonState == .poolNotCreated {
                 interactor.checkIsPathAvailable(fromAssetId: fromAssetId, toAssetId: toAssetId)
             } else {
                 loadQuote()
@@ -283,11 +277,12 @@ extension SwapPresenter: SwapPresenterProtocol {
     }
 
     func didSelectPredefinedPercentage(_ percent: Decimal, isFrom: Bool) {
-        guard isFrom, let fromBalance = fromBalance else {
+        guard isFrom, let fromBalance = fromBalance, let swapFee = swapFee, let fromAsset = fromAsset else {
             return
         }
         var newAmount = fromBalance * percent / 100
-        newAmount = min(newAmount, fromBalance - networkFeeValue)
+        let minFromAmount = fromAsset.isFeeAsset ? fromBalance - swapFee : fromBalance
+        newAmount = min(newAmount, minFromAmount)
         newAmount = max(newAmount, 0)
         view?.setFromAmount(newAmount)
         didSelectAmount(newAmount, isFrom: isFrom)
@@ -308,7 +303,7 @@ extension SwapPresenter: SwapPresenterProtocol {
         }
     }
 
-    func showAssetSelectionController(isFrom: Bool, filteredAssetList: [WalletAsset], assetManager: AssetManagerProtocol) {
+    func showAssetSelectionController(isFrom: Bool, filteredAssetList: [AssetInfo], assetManager: AssetManagerProtocol) {
         self.isFrom = isFrom
 
         guard let viewController = ModalPickerFactory.createPickerForAssetList(
@@ -329,6 +324,7 @@ extension SwapPresenter: SwapPresenterProtocol {
               let toAsset = toAsset,
               let fromAmount = fromAmount,
               let toAmount = toAmount,
+              let swapFee = swapFee,
               quote != nil
         else {
             return
@@ -338,17 +334,17 @@ extension SwapPresenter: SwapPresenterProtocol {
 
         let networkFeeDescription = FeeDescription(identifier: WalletAssetId.xor.rawValue,
                                                    assetId: WalletAssetId.xor.rawValue,
-                                                   type: "",
+                                                   type: "fee",
                                                    parameters: [],
                                                    accountId: nil,
                                                    minValue: nil,
                                                    maxValue: nil,
                                                    context: nil)
-        let networkFee = Fee(value: AmountDecimal(value: networkFeeValue),
+        let networkFee = Fee(value: AmountDecimal(value: swapFee),
                              feeDescription: networkFeeDescription)
         let liquidityProviderFeeDescription = FeeDescription(identifier: WalletAssetId.xor.rawValue,
                                                              assetId: WalletAssetId.xor.rawValue,
-                                                             type: "",
+                                                             type: "lp",
                                                              parameters: [],
                                                              accountId: nil,
                                                              minValue: nil,
@@ -356,7 +352,7 @@ extension SwapPresenter: SwapPresenterProtocol {
                                                              context: ["type": TransactionType.swap.rawValue])
         let liquidityProviderFee = Fee(value: AmountDecimal(value: lpFeeValue),
                                        feeDescription: liquidityProviderFeeDescription)
-        let transferInfo = TransferInfo(source: fromAsset.identifier,
+        let transferInfo = TransferInfo(source: "",
                                         destination: toAsset.identifier,
                                         amount: AmountDecimal(value: fromAmount),
                                         asset: fromAsset.identifier,
@@ -391,7 +387,18 @@ extension SwapPresenter: SwapPresenterProtocol {
         }
     }
 
-    func needsUpdateDetails() {
+    func didUpdateLocale() {
+        // Must recreate viewModels, as they have their own formatters with locales
+        view?.setFromAsset(fromAsset, amount: fromAmount)
+        if let fromBalance = fromBalance, let fromAsset = fromAsset {
+            view?.setBalance(fromBalance, asset: fromAsset, isFrom: true)
+        }
+        view?.setToAsset(toAsset, amount: toAmount)
+        if let toBalance = toBalance, let toAsset = toAsset {
+            view?.setBalance(toBalance, asset: toAsset, isFrom: false)
+        }
+        didSelect(slippage: self.slippage)
+        view?.setMarket(type: selectedLiquiditySourceType)
         updateDetailsViewModel(params: quoteParams, quote: quote)
     }
 
@@ -452,10 +459,15 @@ extension SwapPresenter: SwapPresenterProtocol {
     }
 
     func showLiquiditySourceSelector(sourceTypes: [LiquiditySourceType], selected: LiquiditySourceType) {
-        let view = R.nib.polkaswapLiquiditySourceSelectorView(owner: nil, options: nil)!
+        guard let selectedIndex = marketSourcer?.index(of: selected) else { return }
+
+        let locale = LocalizationManager.shared.selectedLocale
+
+        let view = R.nib.sourceSelectorView(owner: nil, options: nil)!
         view.localizationManager = LocalizationManager.shared
-        view.liquiditySourceTypes = sourceTypes
-        view.selectedLiquiditySourceType = selected
+        view.titleText = R.string.localizable.polkaswapMarketTitle(preferredLanguages: locale.rLanguages).uppercased()
+        view.sourceTypes = sourceTypes
+        view.selectedSourceTypeIndex = selectedIndex
         view.delegate = self
 
         let viewController = UIViewController()
@@ -467,7 +479,7 @@ extension SwapPresenter: SwapPresenterProtocol {
         viewController.modalPresentationStyle = .custom
 
         self.view?.controller.present(viewController, animated: true, completion: nil)
-//        try commandFactory.preparePresentationCommand(for: viewController).execute()
+
     }
 
     func didPressMarket() {
@@ -476,8 +488,8 @@ extension SwapPresenter: SwapPresenterProtocol {
               nextButtonState != .poolNotCreated,
               nextButtonState != .loading
         else { return }
-        guard let marketSources = marketSources, marketSources.count > 0 else { return }
-        showLiquiditySourceSelector(sourceTypes: marketSources, selected: selectedLiquiditySourceType)
+        guard let marketSourcer = marketSourcer, !marketSourcer.isEmpty() else { return }
+        showLiquiditySourceSelector(sourceTypes: marketSourcer.getMarketSources(), selected: selectedLiquiditySourceType)
     }
 
     func subscribeToPoolUpdates() {
@@ -508,9 +520,19 @@ extension SwapPresenter: SwapPresenterProtocol {
     }
 }
 
-extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
+extension SwapPresenter: PolkaswapSlippageSelectorViewDelegate {
+    func didSelect(slippage: Double) {
+        self.slippage = slippage
+        let dismiss = commandFactory.prepareHideCommand(with: .dismiss)
+        try? dismiss.execute()
+        view?.setSlippageAmount(Decimal(self.slippage))
+        loadQuote()
+    }
+}
 
-    func didLoadBalance(_ balance: Decimal, asset: WalletAsset) {
+extension SwapPresenter: PolkaswapMainPresenterOutputProtocol {
+
+    func didLoadBalance(_ balance: Decimal, asset: AssetInfo) {
         if asset.identifier == fromAsset?.identifier {
             fromBalance = balance
             view?.setBalance(balance, asset: asset, isFrom: true)
@@ -523,32 +545,21 @@ extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
         _ = checkBalances()
     }
 
-    func didLoadMarketSources(_ marketSources: [String], fromAssetId: String, toAssetId: String) {
-        guard fromAssetId == fromAsset?.identifier, toAssetId == toAsset?.identifier else {
-            return
-        }
-        self.marketSources = marketSources.compactMap({ sourceRawValue in
-            PolkaswapLiquiditySourceType(rawValue: sourceRawValue)
-        }).compactMap({ sourceType in
-            switch sourceType {
-            case .tbc:
-                return LiquiditySourceType.tbc
-            case .xyk:
-                return LiquiditySourceType.xyk
-            }
-        })
-        guard self.marketSources != nil else { return }
-        applyXSTUSDhack(fromAssetId: fromAssetId, toAssetId: toAssetId)
-        if !self.marketSources!.isEmpty && !self.marketSources!.contains(.smart) {
-            self.marketSources!.append(.smart)
-        }
+    func didLoadMarketSources(_ serverMarketSources: [String], fromAssetId: String, toAssetId: String) {
+        guard fromAssetId == fromAsset?.identifier, toAssetId == toAsset?.identifier, let marketSourcer = marketSourcer else { return }
 
-        if !self.marketSources!.contains(selectedLiquiditySourceType) {
-            selectedLiquiditySourceType = self.marketSources!.last ?? .smart
-        }
-
+        marketSourcer.didLoad(serverMarketSources)
+        updateSelectedMarketSourceIfNecessary()
         subscribeToPoolUpdates()
         loadQuote()
+    }
+
+    func updateSelectedMarketSourceIfNecessary() {
+        guard let marketSourcer = marketSourcer else { return }
+
+        if !marketSourcer.contains(selectedLiquiditySourceType) {
+            selectedLiquiditySourceType = marketSourcer.getMarketSources().last ?? .smart
+        }
     }
 
     func checkEnteredData() -> Bool {
@@ -559,7 +570,7 @@ extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
         }
 
         // check if pool created
-        if let marketSources = marketSources, marketSources.isEmpty {
+        if let marketSourcer = marketSourcer, marketSourcer.isLoaded() && marketSourcer.isEmpty() {
             nextButtonState = .poolNotCreated
             return false
         }
@@ -590,8 +601,9 @@ extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
         if let fromBalance = fromBalance,
            let fromAmount = fromAmount,
            let fromAsset = fromAsset,
+           let swapFee = swapFee,
            fromAsset.isFeeAsset,
-           fromAmount + networkFeeValue > fromBalance {
+           fromAmount + swapFee > fromBalance {
             nextButtonState = .insufficientBalance(token: fromAsset.symbol)
             return false
         }
@@ -606,34 +618,26 @@ extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
 
         let amount: String
         if swapVariant == .desiredInput {
-            amount = String(fromAmount!.toSubstrateAmount(precision: fromAsset!.precision)!)
+            amount = String(fromAmount!.toSubstrateAmount(precision: Int16(fromAsset!.precision))!)
         } else {
-            amount = String(toAmount!.toSubstrateAmount(precision: toAsset!.precision)!)
+            amount = String(toAmount!.toSubstrateAmount(precision: Int16(toAsset!.precision))!)
         }
 
         // request quote
         guard let fromAssetId = fromAsset?.identifier,
                 let toAssetId = toAsset?.identifier,
-                let marketSources = marketSources else {
+                let marketSourcer = marketSourcer,
+                marketSourcer.isLoaded() else {
             return
         }
-        
+
         let filterMode: FilterMode = selectedLiquiditySourceType == .smart ? .disabled : .allowSelected
-        let liquiditySourceTypes: [PolkaswapLiquiditySourceType] = marketSources.compactMap { liquiditySourceType in
-            switch liquiditySourceType {
-            case .smart:
-                return nil
-            case .xyk:
-                return .xyk
-            case .tbc:
-                return .tbc
-            }
-        }
+        let liquiditySources = marketSourcer.getServerMarketSources()
         let params = PolkaswapMainInteractorQuoteParams(fromAssetId: fromAssetId,
                                                         toAssetId: toAssetId,
                                                         amount: amount,
                                                         swapVariant: swapVariant,
-                                                        liquiditySourceTypes: liquiditySourceTypes,
+                                                        liquiditySources: liquiditySources,
                                                         filterMode: filterMode)
 
         debounceTimer?.invalidate()
@@ -645,22 +649,6 @@ extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
                 self?.interactor.quote(params: params)
             }
         })
-    }
-
-    func applyXSTUSDhack(fromAssetId: String, toAssetId: String) {
-        let valId = WalletAssetId.val.rawValue
-        let pswapId = WalletAssetId.pswap.rawValue
-        let daiId = "0x0200060000000000000000000000000000000000000000000000000000000000"
-        let ethId = "0x0200070000000000000000000000000000000000000000000000000000000000"
-        let xstusdId = WalletAssetId.xstusd.rawValue
-        let hackTokenIds = [valId, pswapId, daiId, ethId]
-        guard let marketSources = marketSources else { return }
-        if marketSources.isEmpty {
-            if fromAssetId == xstusdId && hackTokenIds.contains(toAssetId) ||
-                toAssetId == xstusdId && hackTokenIds.contains(fromAssetId) {
-                self.marketSources?.append(.smart)
-            }
-        }
     }
 
     func didCheckPath(fromAssetId: String, toAssetId: String, isAvailable: Bool) {
@@ -702,9 +690,10 @@ extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
         if let toAsset = toAsset,
            toAsset.isFeeAsset,
            let toBalance = toBalance,
+           let swapFee = swapFee,
            let toAmount = toAmount {
             let xorAmountFuture = toBalance + (swapVariant == .desiredInput ? minMaxValue : toAmount)
-            guard xorAmountFuture > networkFeeValue else {
+            guard xorAmountFuture > swapFee else {
                 nextButtonState = .insufficientBalance(token: toAsset.symbol)
                 return
             }
@@ -725,6 +714,10 @@ extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
     }
 
     func didUpdateBalance() {
+        didUpdateBalance(isActiveTab: false)
+    }
+
+    func didUpdateBalance(isActiveTab: Bool) {
         if let fromAsset = fromAsset {
             interactor.loadBalance(asset: fromAsset)
         }
@@ -734,7 +727,10 @@ extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
         // TODO:
         // coudn't use toast here because this method triggers after successful swap
         // and we don't know exactly if confirmation is on screen
-        dismissConfirmation(withToast: false)
+        // isActiveTab is workaround to prevent closing "Add liquidity" screen
+        if isActiveTab {
+            dismissConfirmation(withToast: false)
+        }
     }
 
     func didCreateTransaction() {
@@ -752,17 +748,17 @@ extension SwapPresenter: PolkaswapMainInteractorOutputProtocol {
         view?.setFromAmount(0)
         view?.setToAmount(0)
         view?.setToAsset(nil, amount: 0)
-        marketSources = nil
+        marketSourcer = nil
         fromBalance = nil
         toBalance = nil
         nextButtonState = .chooseTokens
     }
 }
 
-extension SwapPresenter: PolkaswapLiquiditySourceSelectorViewDelegate {
-    func didSelectLiquiditySourceType(_ type: LiquiditySourceType) {
+extension SwapPresenter: SourceSelectorViewDelegate {
+    func didSelectSourceType(with index: Int) {
+        selectedLiquiditySourceType = marketSourcer?.getMarketSource(at: index) ?? .smart
         invalidateQuoteAndParams()
-        selectedLiquiditySourceType = type
         subscribeToPoolUpdates()
         loadQuote()
         view?.controller.dismiss(animated: true)

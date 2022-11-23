@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -76,9 +71,44 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
 
     func showTransactionSuccess(on view: MainTabBarViewProtocol?) {
         if let view = view {
-            let title = R.string.localizable.walletTransactionSubmitted(preferredLanguages:      LocalizationManager.shared.selectedLocale.rLanguages)
+            let title = R.string.localizable.walletTransactionSubmitted(preferredLanguages: LocalizationManager.shared.selectedLocale.rLanguages)
             let alert = ModalAlertFactory.createSuccessAlert(title)
             view.controller.present(alert, animated: true, completion: nil)
+        }
+    }
+    
+    func recreateWalletViewController(on view: MainTabBarViewProtocol?) {
+        guard
+            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+            let presenter = view as? UIViewController,
+            let walletContext = try? WalletContextFactory().createContext(connection: connection, presenter: presenter),
+            let walletController = MainTabBarViewFactory.createWalletController(walletContext: walletContext,
+                                                                                localizationManager: LocalizationManager.shared)
+        else {
+            return
+        }
+
+        let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
+        guard let polkaswapController = MainTabBarViewFactory.createPolkaswapController(walletContext: walletContext,
+                                                                                        polkaswapContext: polkaswapContext,
+                                                                                        localizationManager: LocalizationManager.shared) else {
+            return
+        }
+
+        guard let tabBarController = view as? UITabBarController else {
+            return
+        }
+
+        if var viewcontrollers = tabBarController.viewControllers {
+            viewcontrollers.remove(at: 0)
+            viewcontrollers.insert(walletController, at: 0)
+            tabBarController.viewControllers = viewcontrollers
+        }
+        
+        if var viewcontrollers = tabBarController.viewControllers {
+            viewcontrollers.remove(at: 1)
+            viewcontrollers.insert(polkaswapController, at: 1)
+            tabBarController.viewControllers = viewcontrollers
         }
     }
 

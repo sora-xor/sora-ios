@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CommonWallet
 import FearlessUtils
 import Foundation
@@ -57,7 +52,7 @@ final class TransactionHistoryViewModelFactory: HistoryItemViewModelFactoryProto
             amount = "\(String.amountIncrease) \(amount)"
         case .outgoing:
             amount = "\(String.amountDecrease) \(amount)"
-        case .reward, .slash, .swap, .extrinsic, .liquidityRemoval, .liquidityAdd:
+        case .reward, .slash, .swap, .extrinsic, .migration, .liquidityRemoval, .liquidityAdd, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime, .referral:
             _ = amount
         }
 
@@ -157,7 +152,7 @@ final class TransactionHistoryViewModelFactory: HistoryItemViewModelFactoryProto
                 command: command
             )
 
-        case .liquidityRemoval, .liquidityAdd:
+        case .liquidityRemoval, .liquidityAdd, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime:
             let command = commandFactory.prepareTransactionDetailsCommand(with: data)
             return LiquidityHistoryViewModel(
                 assetTransactionData: data,
@@ -166,8 +161,27 @@ final class TransactionHistoryViewModelFactory: HistoryItemViewModelFactoryProto
                 command: command,
                 locale: locale
             )
+        case .referral:
 
-        case .reward, .slash, .extrinsic:
+            let typeText = data.context?[TransactionContextKeys.referralTransactionType] ?? ""
+            let type = ReferralMethodType(fromRawValue: typeText)
+
+            title = type.title
+
+            let amount = referralAmount(with: type, amount: data.amount.decimalValue, assetSymbol: asset.symbol, locale: locale)
+
+            return HistoryItemViewModel(
+                title: title,
+                details: dateString,
+                amount: amount,
+                type: transactionType,
+                status: data.status,
+                imageViewModel: imageViewModel,
+                assetImageViewModel: assetImageViewModel,
+                peerImageViewModel: peerImageViewModel,
+                command: command
+            )
+        case .reward, .slash, .migration, .extrinsic:
             break
         }
 
@@ -192,10 +206,42 @@ final class TransactionHistoryViewModelFactory: HistoryItemViewModelFactoryProto
             return R.image.historyWalletSend()
         case .swap:
             return R.image.historyWalletSwap()
-        case .liquidityAdd, .liquidityRemoval:
+        case .liquidityAdd, .liquidityRemoval, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime:
             return R.image.historyWalletLiquidity()
-        case .reward, .slash, .extrinsic:
+        case.referral:
+            return R.image.iconSoraXor()
+        case .reward, .slash, .migration, .extrinsic:
             return nil
         }
+    }
+}
+
+private extension TransactionHistoryViewModelFactory {
+    func referralAmount(with type: ReferralMethodType, amount: Decimal, assetSymbol: String, locale: Locale) -> NSAttributedString {
+        let baseFont = UIFont.styled(for: .paragraph1, isBold: true)!
+
+        if type == .setReferrer {
+            let text = R.string.localizable.statusSuccess(preferredLanguages: .currentLocale)
+            let attributedText = NSMutableAttributedString(string: text, attributes: [.font: baseFont])
+            return attributedText
+        }
+
+        if type == .setReferral {
+            let text = "+ 1 " + R.string.localizable.historyReferral(preferredLanguages: .currentLocale)
+            let attributedText = NSMutableAttributedString(string: text, attributes: [.font: baseFont])
+            attributedText.addAttribute(.foregroundColor, value:  R.color.statusSuccess(), range: attributedText.wholeRange)
+            return attributedText
+        }
+
+        let formatter = NumberFormatter.historyAmount
+
+        let sign = type == .unbond ? String.amountIncrease : String.amountDecrease
+        let am = sign + (formatter.stringFromDecimal(amount) ?? "0")
+        let attributedAmount = am.prettyCurrency(baseFont: baseFont, smallSize: 11, locale: locale)
+        let attributedAsset = NSAttributedString(string: assetSymbol, attributes: [.font: baseFont])
+        let result = NSMutableAttributedString(attributedString: attributedAmount)
+        result.append(NSAttributedString.space)
+        result.append(attributedAsset)
+        return result
     }
 }

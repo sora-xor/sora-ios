@@ -13,7 +13,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li 剩余几天</string>
+        <string>剩余%li 天</string>
       </dict>
     </dict>
     <key>project.date.hour.plurals</key>
@@ -27,7 +27,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li 小时剩余</string>
+        <string>剩余%li 小时</string>
       </dict>
     </dict>
     <key>project.date.minute.plurals</key>
@@ -41,7 +41,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li 分钟剩余</string>
+        <string>剩余%li 分钟</string>
       </dict>
     </dict>
     <key>project.date.second.plurals</key>
@@ -55,7 +55,7 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>other</key>
-        <string>%li 秒剩余</string>
+        <string>剩余%li 秒</string>
       </dict>
     </dict>
     <key>received.invitations</key>

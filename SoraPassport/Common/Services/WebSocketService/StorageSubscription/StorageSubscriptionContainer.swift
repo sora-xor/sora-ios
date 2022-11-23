@@ -1,10 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
+import FearlessUtils
 
 final class StorageSubscriptionContainer: WebSocketSubscribing {
     let children: [StorageChildSubscribing]
@@ -13,9 +9,11 @@ final class StorageSubscriptionContainer: WebSocketSubscribing {
 
     private var subscriptionId: UInt16?
 
-    init(engine: JSONRPCEngine,
-         children: [StorageChildSubscribing],
-         logger: LoggerProtocol) {
+    init(
+        engine: JSONRPCEngine,
+        children: [StorageChildSubscribing],
+        logger: LoggerProtocol
+    ) {
         self.children = children
         self.engine = engine
         self.logger = logger
@@ -31,19 +29,20 @@ final class StorageSubscriptionContainer: WebSocketSubscribing {
         do {
             let storageKeys = children.map { $0.remoteStorageKey.toHex(includePrefix: true) }
 
-            let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = {
-                [weak self] (update) in
+            let updateClosure: (StorageSubscriptionUpdate) -> Void = { [weak self] update in
                 self?.handleUpdate(update.params.result)
             }
 
-            let failureClosure: (Error, Bool) -> Void = { [weak self] (error, unsubscribed) in
+            let failureClosure: (Error, Bool) -> Void = { [weak self] error, unsubscribed in
                 self?.logger.error("Did receive subscription error: \(error) \(unsubscribed)")
             }
 
-            subscriptionId = try engine.subscribe(RPCMethod.storageSubscribe,
-                                                  params: [storageKeys],
-                                                  updateClosure: updateClosure,
-                                                  failureClosure: failureClosure)
+            subscriptionId = try engine.subscribe(
+                RPCMethod.storageSubscribe,
+                params: [storageKeys],
+                updateClosure: updateClosure,
+                failureClosure: failureClosure
+            )
         } catch {
             logger.error("Can't subscribe to storage: \(error)")
         }
@@ -59,7 +58,9 @@ final class StorageSubscriptionContainer: WebSocketSubscribing {
         let updateData = StorageUpdateData(update: update)
 
         for change in updateData.changes {
-            let childrenToNotify = children.filter { $0.remoteStorageKey == change.key }
+            let childrenToNotify = children.filter {
+                $0.remoteStorageKey == change.key
+            }
 
             childrenToNotify.forEach {
                 $0.processUpdate(change.value, blockHash: updateData.blockHash)

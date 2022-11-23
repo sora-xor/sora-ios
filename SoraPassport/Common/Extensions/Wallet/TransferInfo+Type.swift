@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import BigInt
@@ -36,7 +31,7 @@ extension TransferInfo {
                 slip = self.amount.decimalValue.toSubstrateAmount(precision: 18) ?? 0
             }
 
-            return [desire: SwapAmount(type: desire, desired: desired, slip:slip)]
+            return [desire: SwapAmount(type: desire, desired: desired, slip: slip)]
         }
         return nil
     }

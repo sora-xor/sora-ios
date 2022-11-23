@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -30,7 +25,7 @@ class PolkaswapSlippageSelectorPresenter: PolkaswapSlippageSelectorPresenterProt
 
     func setup(preferredLocalizations languages: [String]?) {
         let formatter = amountFormatterFactory.createPercentageFormatter(maxPrecision: 2).value(for: view?.localizationManager?.selectedLocale ?? Locale.current)
-        let amountInputViewModel = AmountInputViewModel(symbol: "", amount: nil, limit: Decimal(slippageMax), formatter: formatter, inputLocale: view?.localizationManager?.selectedLocale ?? Locale.current)
+        let amountInputViewModel = SlippageAmountInputViewModel(symbol: "", amount: nil, limit: Decimal(slippageMax), formatter: formatter)
 
         let slippage = slippage ?? defaultSlippage
         let warning = warning(for: slippage)

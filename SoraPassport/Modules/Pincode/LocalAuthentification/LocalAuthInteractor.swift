@@ -1,12 +1,48 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 
+enum FailureAuthCount: Int {
+    case zero = 0
+    case first
+    case second
+    case third
+    case fourth
+    case fifth
+    case sixth
+    case seventh
+    case eighth
+    case ninth
+    case unknown
+
+    init(value: Int) {
+        if let count = FailureAuthCount(rawValue: value) {
+            self = count
+        } else {
+            self = .unknown
+        }
+    }
+
+    var cooldownMinutes: Int {
+        switch self {
+        case .third: return 1
+        case .fourth: return 5
+        case .fifth: return 15
+        case .sixth, .seventh, .eighth, .ninth, .unknown: return 30
+        case .zero, .first, .second: return 0
+        }
+    }
+
+    var isLastTry: Bool {
+        return self == .second
+    }
+
+    var isBlockedTry: Bool {
+        return self.rawValue >= FailureAuthCount.third.rawValue
+    }
+}
+
 class LocalAuthInteractor {
+
     enum LocalAuthState {
         case waitingPincode
         case checkingPincode
@@ -20,6 +56,28 @@ class LocalAuthInteractor {
     private(set) var settingsManager: SettingsManagerProtocol
     private(set) var biometryAuth: BiometryAuthProtocol
     private(set) var locale: Locale
+    private var failCounter: Int = 0 {
+        didSet {
+            settingsManager.failInputPinCount = failCounter
+
+            let failCount = FailureAuthCount(rawValue: failCounter) ?? .unknown
+
+            guard !failCount.isLastTry else {
+                presenter?.reachedLastChancePinInput()
+                return
+            }
+
+            guard failCount.isBlockedTry else {
+                return
+            }
+            
+            let blockTimeInterval = TimeInterval(60 * failCount.cooldownMinutes)
+            let date = Date().addingTimeInterval(blockTimeInterval)
+            
+            settingsManager.inputBlockTimeInterval = Int(date.timeIntervalSince1970)
+            presenter?.blockUserInputUntil(date: date)
+        }
+    }
 
     init(secretManager: SecretStoreManagerProtocol,
          settingsManager: SettingsManagerProtocol,
@@ -29,6 +87,7 @@ class LocalAuthInteractor {
         self.settingsManager = settingsManager
         self.biometryAuth = biometryAuth
         self.locale = locale
+        self.failCounter = settingsManager.failInputPinCount ?? 0
     }
 
     private(set) var state = LocalAuthState.waitingPincode {
@@ -72,6 +131,7 @@ class LocalAuthInteractor {
         if result {
            state = .completed
             presenter?.didCompleteAuth()
+            failCounter = 0
             return
         }
 
@@ -87,17 +147,32 @@ class LocalAuthInteractor {
             state = .completed
             pincode = nil
             presenter?.didCompleteAuth()
+            failCounter = 0
         } else {
             state = .waitingPincode
             pincode = nil
             presenter?.didEnterWrongPincode()
+            failCounter += 1
         }
     }
 }
 
 extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
+    func getInputBlockDate() -> Date? {
+        guard let timeInterval = settingsManager.inputBlockTimeInterval else { return nil }
+        return Date(timeIntervalSince1970: TimeInterval(timeInterval))
+    }
+
     var allowManualBiometryAuth: Bool {
         return settingsManager.biometryEnabled == true
+    }
+    
+    func getPinCodeCount() {
+        secretManager.loadSecret(for: KeystoreTag.pincode.rawValue,
+                                 completionQueue: DispatchQueue.main
+        ) { [weak self] (secret: SecretDataRepresentable?) -> Void in
+            self?.presenter?.setupPinCodeSymbols(with: secret?.toUTF8String()?.count ?? 6) 
+        }
     }
 
     func startAuth() {

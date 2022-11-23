@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 
@@ -11,6 +6,8 @@ protocol WalletSoraFormDefining: WalletFormDefining {
     func defineViewForSoraReceiverViewModel(_ model: WalletSoraReceiverViewModel) -> WalletFormItemView?
     func defineViewForFeeViewModel(_ model: FeeViewModelProtocol) -> WalletFormItemView?
     func defineViewForSwapConfirmationHeaderViewModel(_ model: SoraSwapHeaderViewModel) -> WalletFormItemView?
+    func defineViewForAddLiquidityConfirmationHeaderViewModel(_ model: SoraAddLiquidityHeaderViewModel) -> WalletFormItemView?
+    func defineViewForRemoveLiquidityConfirmationHeaderViewModel(_ model: SoraRemoveLiquidityHeaderViewModel) -> WalletFormItemView?
     func defineViewForAddLiquidityViewModel(_ model: AddLiquidityViewModel) -> WalletFormItemView?
 }
 
@@ -68,6 +65,18 @@ final class WalletSoraDefinition: WalletSoraFormDefining {
     
     func defineViewForAddLiquidityViewModel(_ model: AddLiquidityViewModel) -> WalletFormItemView? {
         let view = R.nib.poolConfirmHeaderView.firstView(owner: nil)!
+        view.bind(viewModel: model)
+        return view
+    }
+
+    func defineViewForAddLiquidityConfirmationHeaderViewModel(_ model: SoraAddLiquidityHeaderViewModel) -> WalletFormItemView? {
+        let view = R.nib.addConfirmHeaderView.firstView(owner: nil)!
+        view.bind(viewModel: model)
+        return view
+    }
+
+    func defineViewForRemoveLiquidityConfirmationHeaderViewModel(_ model: SoraRemoveLiquidityHeaderViewModel) -> WalletFormItemView? {
+        let view = R.nib.removeConfirmHeaderView.firstView(owner: nil)!
         view.bind(viewModel: model)
         return view
     }

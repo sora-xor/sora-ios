@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 public protocol PinSymbolsViewProtocol: AnyObject {
@@ -23,6 +18,8 @@ public class NeuPinSymbolsView: UIView & PinSymbolsViewProtocol {
     private(set) public var characters: [Character] = [Character]()
     @IBOutlet var symbolImages: [UIImageView]!
 
+    @IBOutlet var stackViewImages: UIStackView!
+    
     override init(frame: CGRect) {
         super.init(frame: frame)
         initNib()
@@ -54,7 +51,21 @@ public class NeuPinSymbolsView: UIView & PinSymbolsViewProtocol {
         return CGSize(width: width, height: height)
     }
 
-    public var numberOfCharacters: Int = 4
+    public var numberOfCharacters: Int = 4 {
+        didSet {
+            symbolImages = []
+            stackViewImages.subviews.forEach({ $0.removeFromSuperview() })
+            stackViewImages.spacing = numberOfCharacters == 4 ? 16 : 5
+            for _ in 0...numberOfCharacters - 1 {
+                let image = R.image.pin.pinEmpty()
+                let imageView = UIImageView(image: image)
+                imageView.widthAnchor.constraint(equalToConstant: 80).isActive = true
+
+                stackViewImages.insertArrangedSubview(imageView, at: 0)
+                symbolImages.append(imageView)
+            }
+        }
+    }
 
     open var isComplete: Bool {
         return characters.count == numberOfCharacters

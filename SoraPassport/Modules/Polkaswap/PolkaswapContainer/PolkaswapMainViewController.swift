@@ -1,13 +1,12 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Anchorage
-import CommonWallet
 import SoraFoundation
 import SoraUI
 import UIKit
+
+enum PolkaswapTab: Int {
+    case swap = 0
+    case pool = 1
+}
 
 final class PolkaswapMainViewController: UIViewController & HiddableBarWhenPushed, PolkaswapMainViewProtocol {
     var presenter: PolkaswapMainPresenterProtocol!
@@ -26,6 +25,16 @@ final class PolkaswapMainViewController: UIViewController & HiddableBarWhenPushe
         super.viewDidLoad()
 
         configure()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        presenter.didBecomeActive(true)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        presenter.didBecomeActive(false)
     }
 
     fileprivate func configure() {
@@ -55,20 +64,22 @@ final class PolkaswapMainViewController: UIViewController & HiddableBarWhenPushe
     }
 
     @objc func updateSelection() {
-        let shouldHideMarket = selectorView.selectedSegment != 0
+        let shouldHideMarket = selectorView.selectedSegment != PolkaswapTab.swap.rawValue
         marketButton.isHidden = shouldHideMarket
         marketTypeLabel.isHidden = shouldHideMarket
         marketTitleLabel.isHidden = shouldHideMarket
 
-        if selectorView.selectedSegment == 0 {
+        if selectorView.selectedSegment == PolkaswapTab.swap.rawValue {
             guard let swapView = swapView else { return }
             containerView.bringSubviewToFront(swapView.controller.view)
             addChild(swapView.controller)
+            presenter.didChangeSelectedTab(.swap)
         } else {
             guard let poolView = poolView else { return }
             containerView.bringSubviewToFront(poolView.controller.view)
             addChild(poolView.controller)
             swapView?.controller.resignFirstResponder()
+            presenter.didChangeSelectedTab(.pool)
         }
     }
 
