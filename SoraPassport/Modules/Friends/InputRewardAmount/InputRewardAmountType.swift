@@ -1,3 +1,8 @@
+/**
+* Copyright Soramitsu Co., Ltd. All Rights Reserved.
+* SPDX-License-Identifier: Apache 2.0
+*/
+
 enum InputRewardAmountType: String {
     case bond
     case unbond

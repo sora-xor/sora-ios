@@ -1,3 +1,8 @@
+/**
+* Copyright Soramitsu Co., Ltd. All Rights Reserved.
+* SPDX-License-Identifier: Apache 2.0
+*/
+
 protocol NodesViewModelProtocol {
     var nodesModels: [NodeViewModel] { get }
     var delegate: NodesCellDelegate? { get }
