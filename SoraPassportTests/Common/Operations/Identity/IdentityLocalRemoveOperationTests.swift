@@ -13,12 +13,12 @@ class IdentityLocalRemoveOperationTests: XCTestCase {
     private(set) var settings = SettingsManager.shared
 
     override func setUp() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
         settings.removeAll()
     }
 
     override func tearDown() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
         settings.removeAll()
     }
 /*

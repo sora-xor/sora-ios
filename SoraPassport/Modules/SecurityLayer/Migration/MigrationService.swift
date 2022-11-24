@@ -24,10 +24,14 @@ protocol MigrationServiceProtocol {
 
 class MigrationService: MigrationServiceProtocol {
 
-    let webSocketService: WebSocketServiceProtocol
+    var engine: JSONRPCEngine? {
+        ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash())
+    }
     private(set) var settings: SettingsManagerProtocol
     let eventCenter: EventCenterProtocol
-    let runtimeRegistry: RuntimeCodingServiceProtocol
+    var runtimeRegistry: RuntimeCodingServiceProtocol? {
+        ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())
+    }
     let operationManager: OperationManagerProtocol
     let logger: LoggerProtocol
     let keystore: KeystoreProtocol
@@ -35,23 +39,17 @@ class MigrationService: MigrationServiceProtocol {
     init(eventCenter: EventCenterProtocol,
          keystore: KeystoreProtocol,
          settings: SettingsManagerProtocol,
-         webSocketService: WebSocketServiceProtocol,
-         runtimeService: RuntimeCodingServiceProtocol,
          operationManager: OperationManagerProtocol,
          logger: LoggerProtocol) {
-        self.webSocketService = webSocketService
         self.settings = settings
         self.eventCenter = eventCenter
         self.logger = logger
-        self.runtimeRegistry = runtimeService
         self.operationManager = operationManager
         self.keystore = keystore
-        //
     }
 
     lazy var irohaKeyPair: IRCryptoKeypairProtocol? = {
-//        let keystore = Keychain()
-        if let address = settings.selectedAccount?.address,
+        if let address = SelectedWalletSettings.shared.currentAccount?.address,
             let entropy = try? keystore.fetchEntropyForAddress(address),
             let mnemonic = try? IRMnemonicCreator().mnemonic(fromEntropy: entropy),
             let irohaKey = try? IRKeypairFacade().deriveKeypair(from: mnemonic.toString()) {
@@ -66,7 +64,7 @@ class MigrationService: MigrationServiceProtocol {
 
     func checkMigration() {
         if !settings.hasMigrated {
-            _ = try? webSocketService.connection?.callMethod(RPCMethod.needsMigration,
+            _ = try? engine?.callMethod(RPCMethod.needsMigration,
                                                              params: [did],
                                                              completion: { [weak self] (result: Result<Bool, Error>) in
                 switch result {
@@ -94,11 +92,11 @@ class MigrationService: MigrationServiceProtocol {
     }
 
     func requestMigration(completion completionClosure: @escaping MigrationResultClosure) {
-        guard let account = settings.selectedAccount else {
+        guard let account = SelectedWalletSettings.shared.currentAccount else {
             logger.error("Migration account not found")
             return
         }
-        guard let engine = webSocketService.connection else {
+        guard let engine = engine else {
             logger.error("Migration connection not found")
             return
         }
@@ -108,12 +106,12 @@ class MigrationService: MigrationServiceProtocol {
             return
         }
 
-        let signer = SigningWrapper(keystore: self.keystore, settings: settings)
+        let signer = SigningWrapper(keystore: self.keystore, account: account)
         let irohaSigner = IRSigningDecorator(keystore: self.keystore, identifier: "iroha")
 
         let extrinsicService = ExtrinsicService(address: account.address,
                                                 cryptoType: account.cryptoType,
-                                                runtimeRegistry: runtimeRegistry,
+                                                runtimeRegistry: runtimeRegistry!,
                                                 engine: engine,
                                                 operationManager: operationManager)
 
@@ -139,7 +137,7 @@ class MigrationService: MigrationServiceProtocol {
             switch result {
             case .success(let hash):
                 self?.logger.info("Did receive extrinsic hash: \(extrinsicHash), subscription \(hash)")
-                let requestId = engine.generateIdentifier()
+                let requestId = engine.generateRequestId()
 
                 let subscription = JSONRPCSubscription<JSONRPCSubscriptionUpdate<ExtrinsicStatus>>(requestId: requestId, requestData: Data(),
                                                                                                    requestOptions: JSONRPCOptions(resendOnReconnect: true)) { data in
@@ -154,7 +152,7 @@ class MigrationService: MigrationServiceProtocol {
                                                     extrinsicHash: extrinsicHash!,
                                                     extrinsicProcessor: extrinsicProcessor,
                                                     engine: engine,
-                                                    coderOperation: self.runtimeRegistry.fetchCoderFactoryOperation(),
+                                                    coderOperation: self.runtimeRegistry!.fetchCoderFactoryOperation(),
                                                     completion: completionClosure)
                             }
                         }

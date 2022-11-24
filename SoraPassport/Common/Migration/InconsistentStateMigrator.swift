@@ -19,7 +19,7 @@ final class InconsistentStateMigrator: Migrating {
     }
 
     func migrate() throws {
-        guard let selectedAccount = settings.selectedAccount else {
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             return
         }
 

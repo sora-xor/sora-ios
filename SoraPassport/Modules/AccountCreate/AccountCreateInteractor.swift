@@ -46,22 +46,22 @@ class AccountBackupInteractor {
 
     let keystore: KeystoreProtocol
     let mnemonicCreator: IRMnemonicCreatorProtocol
-    let settings: SettingsManagerProtocol
+    let settings: SelectedWalletSettingsProtocol
 
-    init(keystore: KeystoreProtocol, mnemonicCreator: IRMnemonicCreatorProtocol, settings: SettingsManagerProtocol) {
+    init(keystore: KeystoreProtocol, mnemonicCreator: IRMnemonicCreatorProtocol, settings: SelectedWalletSettingsProtocol) {
         self.keystore = keystore
         self.mnemonicCreator = mnemonicCreator
         self.settings = settings
     }
-
-    private func loadPhrase() throws -> IRMnemonicProtocol {
-        let entropy = try keystore.fetchEntropyForAddress(settings.selectedAccount!.address)
-        let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy!)
-        return mnemonic
-    }
 }
 
 extension AccountBackupInteractor: AccountCreateInteractorInputProtocol {
+    private func loadPhrase() throws -> IRMnemonicProtocol {
+        let entropy = try keystore.fetchEntropyForAddress(settings.currentAccount!.address)
+        let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy!)
+        return mnemonic
+    }
+
     func setup() {
         do {
             let mnemonic = try loadPhrase()

@@ -7,9 +7,11 @@ import UIKit
 
 enum ProfileOption: UInt, CaseIterable {
     case account
+    case accountName
     case friends    // accessorible
     case passphrase
     case changePin
+    case nodes
     case biometry   // switchable
     case language   // accessorible
     case faq
@@ -23,6 +25,7 @@ extension ProfileOption {
     func iconImage() -> UIImage? {
         switch self {
         case .account:      return R.image.profile.account()
+        case .accountName:  return R.image.profile.accountName()
         case .friends:      return R.image.profile.friends()
         case .passphrase:   return R.image.profile.passphrases()
         case .changePin:    return R.image.profile.changePin()
@@ -32,12 +35,14 @@ extension ProfileOption {
         case .about:        return R.image.profile.about()
         case .disclaimer:   return R.image.profile.disclaimer()
         case .logout:       return R.image.profile.logout()
+        case .nodes:        return R.image.profile.iconNode()
         }
     }
 
     func title(for locale: Locale) -> String {
         switch self {
-        case .account:      return R.string.localizable.personalInfoUsernameV1(preferredLanguages: locale.rLanguages)
+        case .account:      return R.string.localizable.commonAccount(preferredLanguages: locale.rLanguages)
+        case .accountName:  return R.string.localizable.personalInfoUsernameV1(preferredLanguages: locale.rLanguages)
         case .friends:      return R.string.localizable.tabbarFriendsTitle(preferredLanguages: locale.rLanguages)
         case .passphrase:   return R.string.localizable.profilePassphraseTitleV1(preferredLanguages: locale.rLanguages)
         case .changePin:    return R.string.localizable.profileChangePinTitle(preferredLanguages: locale.rLanguages)
@@ -47,6 +52,7 @@ extension ProfileOption {
         case .about:        return R.string.localizable.profileAboutTitle(preferredLanguages: locale.rLanguages)
         case .disclaimer:   return R.string.localizable.polkaswapInfoTitle(preferredLanguages: locale.rLanguages)
         case .logout:       return R.string.localizable.profileLogoutTitle(preferredLanguages: locale.rLanguages)
+        case .nodes:        return R.string.localizable.commonSelectNode(preferredLanguages: locale.rLanguages)
         }
     }
 }

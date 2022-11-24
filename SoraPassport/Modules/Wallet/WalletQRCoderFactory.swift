@@ -13,7 +13,7 @@ final class WalletQREncoder: WalletQREncoderProtocol {
     let networkType: SNAddressType
     let publicKey: Data
 
-    private lazy var substrateEncoder = SubstrateQREncoder()
+    private lazy var substrateEncoder = AddressQREncoder()
     private lazy var addressFactory = SS58AddressFactory()
 
     init(networkType: SNAddressType, publicKey: Data, username: String?) {
@@ -37,11 +37,11 @@ final class WalletQREncoder: WalletQREncoderProtocol {
 
 final class WalletQRDecoder: WalletQRDecoderProtocol {
     private lazy var addressFactory = SS58AddressFactory()
-    private let substrateDecoder: SubstrateQRDecoder
+    private let substrateDecoder: AddressQRDecoder
     private let assets: [WalletAsset]
 
     init(networkType: SNAddressType, assets: [WalletAsset]) {
-        substrateDecoder = SubstrateQRDecoder(chainType: networkType)
+        substrateDecoder = AddressQRDecoder(chainType: networkType)
         self.assets = assets
     }
 

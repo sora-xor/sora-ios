@@ -115,7 +115,7 @@ final class ExtrinsicService {
             let addressType = try addressFactory.extractAddressType(from: currentAddress)
             let accountId = try addressFactory.accountId(fromAddress: currentAddress, type: addressType)
 
-            let account = accountId
+            let account = MultiAddress.accoundId(accountId)
 
             var builder: ExtrinsicBuilderProtocol =
                 try ExtrinsicBuilder(specVersion: codingFactory.specVersion,

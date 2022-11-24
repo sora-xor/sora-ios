@@ -6,7 +6,7 @@
 import Foundation
 import IrohaCrypto
 import SoraKeystore
-
+ 
 extension ConnectionItem {
     static var defaultConnection: ConnectionItem {
         #if F_RELEASE
@@ -15,11 +15,11 @@ extension ConnectionItem {
                        type: Self.addressType)
         #elseif F_STAGING
         return ConnectionItem(title: "Sora, Stage",
-                       url: URL(string: "wss://ws.stage.sora2.soramitsu.co.jp")!,
+                       url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!,
                        type: Self.addressType)
         #elseif F_TEST //soralution
         return ConnectionItem(title: "Sora, Soralution",
-                       url: URL(string: "wss://ws.stage.sora2.soramitsu.co.jp")!,
+                       url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!,
                        type: Self.addressType)
         #else
         return ConnectionItem(title: "Sora, Dev",
@@ -31,7 +31,7 @@ extension ConnectionItem {
     static var supportedConnections: [ConnectionItem] {
         [
             ConnectionItem(title: "Sora, Stage",
-                           url: URL(string: "wss://ws.stage.sora2.soramitsu.co.jp")!,
+                           url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!,
                            type: Self.addressType)
         ]
     }

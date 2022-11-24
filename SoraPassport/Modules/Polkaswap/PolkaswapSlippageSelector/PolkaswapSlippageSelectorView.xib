@@ -13,7 +13,7 @@
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
         <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
         <view contentMode="scaleToFill" id="iN0-l3-epB" customClass="PolkaswapSlippageSelectorView" customModule="SoraPassport" customModuleProvider="target">
-            <rect key="frame" x="0.0" y="0.0" width="414" height="211"/>
+            <rect key="frame" x="0.0" y="0.0" width="414" height="360"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
                 <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Kdp-5W-eyv">
@@ -34,7 +34,7 @@
                     <nil key="textColor"/>
                     <nil key="highlightedColor"/>
                 </label>
-                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="PCg-k7-voy" customClass="NeuTextField" customModule="SoraPassport" customModuleProvider="target">
+                <view userInteractionEnabled="NO" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="PCg-k7-voy" customClass="NeuTextField" customModule="SoraPassport" customModuleProvider="target">
                     <rect key="frame" x="20" y="77" width="374" height="40"/>
                     <subviews>
                         <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="iconWarning" translatesAutoresizingMaskIntoConstraints="NO" id="auD-DB-ZXt">
@@ -56,45 +56,53 @@
                         <userDefinedRuntimeAttribute type="string" keyPath="placeholderText" value="%"/>
                     </userDefinedRuntimeAttributes>
                 </view>
-                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="FzF-pE-aqE">
-                    <rect key="frame" x="20" y="125" width="374" height="20.5"/>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" textAlignment="center" lineBreakMode="wordWrap" numberOfLines="4" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="FzF-pE-aqE">
+                    <rect key="frame" x="20" y="125" width="374" height="61"/>
                     <constraints>
-                        <constraint firstAttribute="height" constant="20.5" id="6VX-O6-dSz"/>
+                        <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="20" id="6VX-O6-dSz"/>
                     </constraints>
+                    <string key="text">Label
+tlldgs
+dsfs</string>
                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
                     <nil key="textColor"/>
                     <nil key="highlightedColor"/>
                 </label>
-                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="SVW-DX-LGf">
-                    <rect key="frame" x="0.0" y="153.5" width="414" height="1"/>
-                    <color key="backgroundColor" name="Neumorphism/Separator"/>
-                    <constraints>
-                        <constraint firstAttribute="height" constant="1" id="oz1-gV-ofB"/>
-                    </constraints>
-                </view>
                 <stackView opaque="NO" contentMode="scaleToFill" distribution="fillEqually" translatesAutoresizingMaskIntoConstraints="NO" id="vOA-0M-ZKk">
-                    <rect key="frame" x="0.0" y="153.5" width="414" height="57.5"/>
+                    <rect key="frame" x="0.0" y="194" width="414" height="57"/>
                     <subviews>
                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="n4h-NH-McV">
-                            <rect key="frame" x="0.0" y="0.0" width="138" height="57.5"/>
+                            <rect key="frame" x="0.0" y="0.0" width="138" height="57"/>
                             <state key="normal" title="Button"/>
                             <buttonConfiguration key="configuration" style="plain" title="Button"/>
                         </button>
                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="dTs-gY-g1k">
-                            <rect key="frame" x="138" y="0.0" width="138" height="57.5"/>
+                            <rect key="frame" x="138" y="0.0" width="138" height="57"/>
                             <state key="normal" title="Button"/>
                             <buttonConfiguration key="configuration" style="plain" title="Button"/>
                         </button>
                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="uLh-rO-TgB">
-                            <rect key="frame" x="276" y="0.0" width="138" height="57.5"/>
+                            <rect key="frame" x="276" y="0.0" width="138" height="57"/>
                             <state key="normal" title="Button"/>
                             <buttonConfiguration key="configuration" style="plain" title="Button"/>
                         </button>
                     </subviews>
                     <constraints>
-                        <constraint firstAttribute="height" constant="57.5" id="DUx-jZ-wbD"/>
+                        <constraint firstAttribute="height" constant="57" id="DUx-jZ-wbD"/>
                     </constraints>
                 </stackView>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="SVW-DX-LGf" userLabel="Separator">
+                    <rect key="frame" x="0.0" y="251" width="414" height="1"/>
+                    <color key="backgroundColor" name="Neumorphism/Separator"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="1" id="oz1-gV-ofB"/>
+                    </constraints>
+                </view>
+                <slider opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="0.5" minValue="0.0" maxValue="1" translatesAutoresizingMaskIntoConstraints="NO" id="0Sn-Vj-JUW">
+                    <rect key="frame" x="14" y="232" width="386" height="89"/>
+                    <color key="minimumTrackTintColor" name="Neumorphism/Polkaswap Light Pink"/>
+                    <color key="thumbTintColor" name="Neumorphism/Polkaswap Light Pink"/>
+                </slider>
             </subviews>
             <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
             <color key="backgroundColor" name="Brand White"/>
@@ -102,18 +110,21 @@
                 <constraint firstItem="vOA-0M-ZKk" firstAttribute="top" secondItem="FzF-pE-aqE" secondAttribute="bottom" constant="8" symbolic="YES" id="3Ip-CM-5OW"/>
                 <constraint firstAttribute="trailing" secondItem="fkv-rc-oNY" secondAttribute="trailing" constant="20" id="A8W-bn-KxL"/>
                 <constraint firstItem="SVW-DX-LGf" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" id="E1k-us-TMi"/>
+                <constraint firstItem="0Sn-Vj-JUW" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" constant="16" id="Gsw-BI-IOD"/>
                 <constraint firstAttribute="trailing" secondItem="PCg-k7-voy" secondAttribute="trailing" constant="20" id="LSu-Nt-hQV"/>
                 <constraint firstItem="fkv-rc-oNY" firstAttribute="top" secondItem="Kdp-5W-eyv" secondAttribute="bottom" constant="8" symbolic="YES" id="Loy-cT-ZEc"/>
                 <constraint firstItem="FzF-pE-aqE" firstAttribute="top" secondItem="PCg-k7-voy" secondAttribute="bottom" constant="8" symbolic="YES" id="N0v-n5-9lu"/>
                 <constraint firstItem="Kdp-5W-eyv" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" constant="20" id="NYZ-B5-k3j"/>
-                <constraint firstItem="vOA-0M-ZKk" firstAttribute="bottom" secondItem="vUN-kp-3ea" secondAttribute="bottom" id="OlE-jj-z39"/>
+                <constraint firstItem="SVW-DX-LGf" firstAttribute="bottom" secondItem="0Sn-Vj-JUW" secondAttribute="top" constant="20" id="OlE-jj-z39"/>
                 <constraint firstAttribute="trailing" secondItem="FzF-pE-aqE" secondAttribute="trailing" constant="20" id="U4i-eS-mmT"/>
                 <constraint firstItem="SVW-DX-LGf" firstAttribute="trailing" secondItem="vUN-kp-3ea" secondAttribute="trailing" id="UuG-nA-QT8"/>
                 <constraint firstItem="PCg-k7-voy" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="20" id="X1j-u7-Fj5"/>
                 <constraint firstItem="PCg-k7-voy" firstAttribute="top" secondItem="fkv-rc-oNY" secondAttribute="bottom" constant="8" symbolic="YES" id="XxW-Bo-gut"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="0Sn-Vj-JUW" secondAttribute="trailing" constant="16" id="bfT-om-WpF"/>
                 <constraint firstItem="FzF-pE-aqE" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="20" id="iSa-TO-jX6"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="bottom" secondItem="0Sn-Vj-JUW" secondAttribute="bottom" constant="40" id="ir1-iE-FQP"/>
                 <constraint firstAttribute="trailing" secondItem="Kdp-5W-eyv" secondAttribute="trailing" constant="20" id="krM-u1-WHh"/>
-                <constraint firstItem="SVW-DX-LGf" firstAttribute="top" secondItem="FzF-pE-aqE" secondAttribute="bottom" constant="8" symbolic="YES" id="mEw-wG-6jd"/>
+                <constraint firstItem="SVW-DX-LGf" firstAttribute="top" secondItem="vOA-0M-ZKk" secondAttribute="bottom" id="mEw-wG-6jd"/>
                 <constraint firstItem="vOA-0M-ZKk" firstAttribute="trailing" secondItem="vUN-kp-3ea" secondAttribute="trailing" id="mn7-fm-rhm"/>
                 <constraint firstItem="fkv-rc-oNY" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="20" id="nUy-Xi-c1l"/>
                 <constraint firstItem="Kdp-5W-eyv" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" constant="20" id="xj8-wc-sPU"/>
@@ -123,18 +134,22 @@
             <connections>
                 <outlet property="amountField" destination="PCg-k7-voy" id="RkX-re-XQb"/>
                 <outlet property="descriptionLabel" destination="FzF-pE-aqE" id="CLQ-zt-M4K"/>
+                <outlet property="slider" destination="0Sn-Vj-JUW" id="kgz-aa-AHX"/>
                 <outlet property="stackView" destination="vOA-0M-ZKk" id="xwV-2p-E9U"/>
                 <outlet property="titleLabel" destination="Kdp-5W-eyv" id="cfA-pL-iTY"/>
                 <outlet property="warningImageView" destination="auD-DB-ZXt" id="f5I-oa-Vgg"/>
                 <outlet property="warningLabel" destination="fkv-rc-oNY" id="w1E-nB-dMD"/>
             </connections>
-            <point key="canvasLocation" x="137.68115942028987" y="201.22767857142856"/>
+            <point key="canvasLocation" x="137.68115942028987" y="229.01785714285714"/>
         </view>
     </objects>
     <resources>
         <image name="iconWarning" width="16" height="16"/>
         <namedColor name="Brand White">
             <color red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="Neumorphism/Polkaswap Light Pink">
+            <color red="0.96862745098039216" green="0.32941176470588235" blue="0.63921568627450975" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Neumorphism/Separator">
             <color red="0.89803921568627454" green="0.8666666666666667" blue="0.8666666666666667" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>

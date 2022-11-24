@@ -30,6 +30,8 @@ final class AccountImportViewController: UIViewController {
     @IBOutlet private var warningView: UIView!
     @IBOutlet private var warningLabel: UILabel!
 
+    @IBOutlet var sourceTypeView: SourceImportTypeView!
+    
     private var derivationPathModel: InputViewModelProtocol?
     private var usernameViewModel: InputViewModelProtocol?
     private var passwordViewModel: InputViewModelProtocol?
@@ -167,13 +169,20 @@ final class AccountImportViewController: UIViewController {
             }
         }
     }
-
+    @IBAction func sourceImportViewTapped(_ sender: UIControl) {
+        presenter?.openSourceTypeView()
+    }
+    
     private lazy var tapGestureRecognizer: UITapGestureRecognizer = {
         UITapGestureRecognizer(target: self, action: #selector(actionTerms(_:)))
     }()
 }
 
 extension AccountImportViewController: AccountImportViewProtocol {
+    func dissmissPresentedController() {
+        dismiss(animated: true)
+    }
+
     func setSource(type: AccountImportSource) {
         switch type {
         case .mnemonic:
@@ -189,6 +198,9 @@ extension AccountImportViewController: AccountImportViewProtocol {
         }
 
         warningView.isHidden = true
+
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+        sourceTypeView.setupValueText(with: type.titleForLocale(locale))
     }
 
     func setSource(viewModel: InputViewModelProtocol) {

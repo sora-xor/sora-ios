@@ -8,6 +8,8 @@ import Foundation
 import FearlessUtils
 import RobinHood
 
+typealias AssetModel = AssetInfo
+
 struct AssetInfo: Codable {
     enum CodingKeys: String, CodingKey {
         case symbol
@@ -35,13 +37,60 @@ struct AssetInfo: Codable {
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         visible = try container.decodeIfPresent(Bool.self, forKey: .visible) ?? false
     }
+
+    init(
+        id: String,
+        symbol: String,
+        chainId: String,
+        precision: UInt32,
+        icon: String?,
+//        priceId: AssetModel.PriceId?,
+//        price: Decimal?,
+//        transfersEnabled: Bool?,
+//        type: ChainAssetType,
+//        currencyId: String?,
+        displayName: String?,
+        visible: Bool
+//        existentialDeposit: String?
+    ) {
+        self.assetId = id
+        self.symbol = symbol
+//        self.chainId = chainId
+        self.precision = precision
+        self.icon = icon
+//        self.priceId = priceId
+//        self.price = price
+//        self.transfersEnabled = transfersEnabled
+//        self.type = type
+//        self.currencyId = currencyId
+        self.name = displayName ?? ""
+        self.visible = visible
+//        self.existentialDeposit = existentialDeposit
+    }
 }
 
 extension AssetInfo: Identifiable {
     var identifier: String { assetId }
+    var id: String { assetId }
+}
+
+extension AssetInfo {
+    var isFeeAsset: Bool {
+        if let asset = WalletAssetId(rawValue: identifier) {
+            return asset.isFeeAsset
+        } else {
+            return false
+        }
+    }
+}
+
+extension AssetModel {
+    typealias Id = String
 }
 
 extension CDAssetInfo: CoreDataCodable {
+    var entityIdentifierFieldName: String { #keyPath(CDAssetInfo.assetId) }
+
     public func populate(from decoder: Decoder, using context: NSManagedObjectContext) throws {
         let assetInfo = try AssetInfo(from: decoder)
 
@@ -63,6 +112,17 @@ extension CDAssetInfo: CoreDataCodable {
         try container.encode(icon, forKey: .icon)
         try container.encode(precision, forKey: .precision)
         try container.encode(visible, forKey: .visible)
+    }
+}
+
+extension AssetInfo: Hashable {
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(assetId)
+    }
+
+    static func ==(lhs: AssetInfo, rhs: AssetInfo) -> Bool {
+        return lhs.assetId == rhs.assetId
     }
 }
 

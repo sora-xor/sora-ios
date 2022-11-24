@@ -13,12 +13,12 @@ class SwapAmount: Codable {
     let type: SwapVariant
 
     enum CodingKeysIn: String, CodingKey {
-        case desired = "desired_amount_in"
-        case slip = "min_amount_out"
+        case desired = "desiredAmountIn"
+        case slip = "minAmountOut"
     }
     enum CodingKeysOut: String, CodingKey {
-        case desired = "desired_amount_out"
-        case slip = "max_amount_in"
+        case desired = "desiredAmountOut"
+        case slip = "maxAmountIn"
     }
 
     init(type: SwapVariant, desired: BigUInt, slip: BigUInt) {
@@ -51,7 +51,6 @@ class SwapAmount: Codable {
     }
 
     public func encode(to encoder: Encoder) throws {
-        let key: CodingKey
         switch type {
             //please, mind that we encode .description, because metadata requires string, and @stringCodable somehow fails
         case .desiredOutput:
@@ -73,20 +72,53 @@ enum SwapVariant: String, Codable {
 
 struct SwapCall: Codable {
     let dexId: String
-    @ArrayCodable var inputAssetId: String
-    @ArrayCodable var outputAssetId: String
+    var inputAssetId: AssetId
+    var outputAssetId: AssetId
 
     var amount: [SwapVariant: SwapAmount]
-    let liquiditySourceType: [UInt?] //TBD liquiditySourceType.codable
-    let filterMode: UInt
+    let liquiditySourceType: [[String?]] //TBD liquiditySourceType.codable
+    let filterMode: FilterModeType
 
     enum CodingKeys: String, CodingKey {
-        case dexId = "dex_id"
-        case inputAssetId = "input_asset_id"
-        case outputAssetId = "output_asset_id"
-        case amount = "swap_amount"
-        case liquiditySourceType = "selected_source_types"
-        case filterMode = "filter_mode"
+        case dexId = "dexId"
+        case inputAssetId = "inputAssetId"
+        case outputAssetId = "outputAssetId"
+        case amount = "swapAmount"
+        case liquiditySourceType = "selectedSourceTypes"
+        case filterMode = "filterMode"
     }
 
+}
+
+struct FilterModeType: Codable {
+    var name: String
+    var value: UInt?
+
+    public init(wrappedName: String, wrappedValue: UInt?) {
+        self.name = wrappedName
+        self.value = wrappedValue
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        do {
+            let dict = try container.decode([String?].self)
+            let val1 = dict.first ?? "-"
+            let val2 = dict.last ??  nil
+            name = val1 ?? "-"
+
+            if let value = val2 {
+                self.value = UInt(value)
+            }
+        } catch {
+            let dict = try container.decode(JSON.self)
+            name = dict.arrayValue?.first?.stringValue ?? "-"
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        let value: [String?] = [name, nil]
+        try container.encode(value)
+    }
 }

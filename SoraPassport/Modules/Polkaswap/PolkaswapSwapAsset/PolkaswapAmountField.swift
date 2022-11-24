@@ -59,7 +59,7 @@ extension PolkaswapAmountField: Localizable {
     }
 
     func applyLocalization() {
-        let doneButtonText = R.string.localizable.commonDone(preferredLanguages: languages).uppercased()
+        let doneButtonText = R.string.localizable.commonOk(preferredLanguages: languages).uppercased()
         let viewModel = PolkaswapAmountAccessoryViewModel(doneButtonText: doneButtonText, selectionButtons: predifinedValueTitles)
         accessoryView?.setViewModel(viewModel)
     }

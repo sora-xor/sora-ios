@@ -1,0 +1,16 @@
+/**
+* Copyright Soramitsu Co., Ltd. All Rights Reserved.
+* SPDX-License-Identifier: Apache 2.0
+*/
+
+protocol RewardFooterViewModelProtocol {
+}
+
+struct RewardFooterViewModel: RewardFooterViewModelProtocol {
+}
+
+extension RewardFooterViewModel: CellViewModel {
+    var cellReuseIdentifier: String {
+        return RewardFooterCell.reuseIdentifier
+    }
+}

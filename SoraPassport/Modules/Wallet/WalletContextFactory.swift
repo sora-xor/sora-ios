@@ -9,9 +9,10 @@ import CommonWallet
 import SoraKeystore
 import SoraFoundation
 import RobinHood
+import FearlessUtils
 
-protocol WalletContextFactoryProtocol: class {
-    func createContext() throws -> CommonWalletContextProtocol
+protocol WalletContextFactoryProtocol: AnyObject {
+    func createContext(connection: JSONRPCEngine, presenter: UIViewController) throws -> CommonWalletContextProtocol
 }
 
 enum WalletContextFactoryError: Error {
@@ -24,22 +25,18 @@ enum WalletContextFactoryError: Error {
 
 final class WalletContextFactory {
     let keychain: KeystoreProtocol
-    let settings: SettingsManagerProtocol
     let applicationConfig: ApplicationConfigProtocol
     let logger: LoggerProtocol
     let primitiveFactory: WalletPrimitiveFactoryProtocol
 
     init(keychain: KeystoreProtocol = Keychain(),
-         settings: SettingsManagerProtocol = SettingsManager.shared,
          applicationConfig: ApplicationConfigProtocol = ApplicationConfig.shared,
          logger: LoggerProtocol = Logger.shared) {
         self.keychain = keychain
-        self.settings = settings
         self.applicationConfig = applicationConfig
         self.logger = logger
 
-        primitiveFactory = WalletPrimitiveFactory(keystore: keychain,
-                                                  settings: settings)
+        primitiveFactory = WalletPrimitiveFactory(keystore: keychain)
     }
 
     private func subscribeContextToLanguageSwitch(_ context: CommonWalletContextProtocol,
@@ -61,38 +58,44 @@ final class WalletContextFactory {
 
 extension WalletContextFactory: WalletContextFactoryProtocol {
     //swiftlint:disable:next function_body_length
-    func createContext() throws -> CommonWalletContextProtocol {
-        guard let selectedAccount = SettingsManager.shared.selectedAccount else {
+
+    func createContext(connection: JSONRPCEngine, presenter: UIViewController) throws -> CommonWalletContextProtocol {
+
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             throw WalletContextFactoryError.missingAccount
         }
-
-        guard let connection = WebSocketService.shared.connection else {
-            throw WalletContextFactoryError.missingConnection
-        }
-
-        let accountSettings = try primitiveFactory.createAccountSettings()
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
+        assetManager.setup(for: SelectedWalletSettings.shared)
+        
+        let accountSettings = try primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager)
 
         let amountFormatterFactory = AmountFormatterFactory()
 
         logger.debug("Loading wallet account: \(selectedAccount.address)")
 
-        let networkType = SettingsManager.shared.selectedConnection.type
+        let networkType = selectedAccount.addressType
 
-        let accountSigner = SigningWrapper(keystore: Keychain(), settings: SettingsManager.shared)
+        let accountSigner = SigningWrapper(keystore: Keychain(), account: selectedAccount)
         let dummySigner = try DummySigner(cryptoType: selectedAccount.cryptoType)
 
         let substrateStorageFacade = SubstrateDataStorageFacade.shared
         let chainStorage: CoreDataRepository<ChainStorageItem, CDChainStorageItem> =
             substrateStorageFacade.createRepository()
-        let localStorageIdFactory = try ChainStorageIdFactory(chain: networkType.chain)
 
+        let localStorageIdFactory = try ChainStorageIdFactory(chain: Chain.sora)
+        let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())!
         let extrinsicService = ExtrinsicService(address: selectedAccount.address,
                                                 cryptoType: selectedAccount.cryptoType,
-                                                runtimeRegistry: RuntimeRegistryFacade.sharedService,
+                                                runtimeRegistry: runtime,
                                                 engine: connection,
                                                 operationManager: OperationManagerFacade.sharedManager)
 
         let nodeOperationFactory = WalletNetworkOperationFactory(engine: connection,
+                                                                 requestFactory: StorageRequestFactory(
+                                                                    remoteFactory: StorageKeyFactory(),
+                                                                    operationManager: OperationManagerFacade.sharedManager
+                                                                ),
+                                                                 runtimeService: runtime,
                                                                  accountSettings: accountSettings,
                                                                  cryptoType: selectedAccount.cryptoType,
                                                                  accountSigner: accountSigner, extrinsicService: extrinsicService,
@@ -102,7 +105,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
                                                                  localStorageIdFactory: localStorageIdFactory)
 
         let coingeckoOperationFactory = CoingeckoOperationFactory()
-        
+
         let polkaswapNetworkOperationFactory = PolkaswapNetworkOperationFactory(engine: connection)
 
         let txFilter = NSPredicate.filterTransactionsBy(address: selectedAccount.address)
@@ -112,13 +115,12 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
         let contactOperationFactory = WalletContactOperationFactory(storageFacade: substrateStorageFacade,
                                                                     targetAddress: selectedAccount.address)
 
-        let accountStorage: CoreDataRepository<ManagedAccountItem, CDAccountItem> =
+        let accountStorage: CoreDataRepository<AccountItem, CDAccountItem> =
             UserDataStorageFacade.shared
             .createRepository(filter: NSPredicate.filterAccountBy(networkType: networkType),
                               sortDescriptors: [NSSortDescriptor.accountsByOrder],
-                              mapper: AnyCoreDataMapper(ManagedAccountItemMapper()))
+                              mapper: AnyCoreDataMapper(AccountItemMapper()))
 
-        let assetManager = AssetManager.shared
         let networkFacade = WalletNetworkFacade(accountSettings: accountSettings,
                                                 nodeOperationFactory: nodeOperationFactory,
                                                 coingeckoOperationFactory: coingeckoOperationFactory,
@@ -187,7 +189,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
         let confirmConfigurator = WalletConfirmationConfigurator(assets: accountSettings.assets, assetManager: assetManager,
                                                               amountFormatterFactory: amountFormatterFactory,
                                                                  localizationManager: localizationManager)
-        confirmConfigurator.configure(builder: builder.transferConfirmationBuilder)
+        confirmConfigurator.configure(builder: builder.transferConfirmationBuilder, presenter: presenter)
 
         let contactsConfigurator = ContactsConfigurator(networkType: networkType)
         contactsConfigurator.configure(builder: builder.contactsModuleBuilder)

@@ -7,9 +7,9 @@ import Foundation
 
 class PoolDetailsViewModel {
     let firstAsset: AssetInfo
-    let firstAssetValue: String
+    let firstAssetValue: Decimal
     let secondAsset: AssetInfo
-    let secondAssetValue: String
+    let secondAssetValue: Decimal
     let shareOfPoolValue: Decimal
 
     let directExchangeRateTitle: String
@@ -21,9 +21,9 @@ class PoolDetailsViewModel {
 
     init(
         firstAsset: AssetInfo,
-        firstAssetValue: String,
+        firstAssetValue: Decimal,
         secondAsset: AssetInfo,
-        secondAssetValue: String,
+        secondAssetValue: Decimal,
         shareOfPoolValue: Decimal,
         directExchangeRateTitle: String,
         directExchangeRateValue: Decimal,

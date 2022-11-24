@@ -27,7 +27,7 @@ public struct SoraSubstrateQRInfo: Equatable {
     }
 }
 
-extension SubstrateQREncoder {
+extension AddressQREncoder {
 
     public func encode(info: SoraSubstrateQRInfo) throws -> Data {
         let fields: [String] = [
@@ -39,28 +39,27 @@ extension SubstrateQREncoder {
         ]
 
         let separator: String = ":"
-
         guard let data = fields.joined(separator: separator).data(using: .utf8) else {
-            throw SubstrateQREncoderError.brokenData
+            throw QREncoderError.brokenData
         }
 
         return data
     }
 }
 
-extension  SubstrateQRDecoder {
+extension AddressQRDecoder {
     public func decode(data: Data) throws -> SoraSubstrateQRInfo {
         guard let fields = String(data: data, encoding: .utf8)?
             .components(separatedBy: separator) else {
-            throw SubstrateQRDecoderError.brokenFormat
+            throw QRDecoderError.brokenFormat
         }
 
         guard fields.count == 5 else {
-            throw SubstrateQRDecoderError.unexpectedNumberOfFields
+            throw QRDecoderError.unexpectedNumberOfFields
         }
 
         guard fields[0] == prefix else {
-            throw SubstrateQRDecoderError.undefinedPrefix
+            throw QRDecoderError.undefinedPrefix
         }
 
         let addressFactory = SS58AddressFactory()
@@ -70,7 +69,7 @@ extension  SubstrateQRDecoder {
         let publicKey = try Data(hexString: fields[2])
 
         guard publicKey.matchPublicKeyToAccountId(accountId) else {
-            throw SubstrateQRDecoderError.accountIdMismatch
+            throw QRDecoderError.accountIdMismatch
         }
 
         let username = fields[3]

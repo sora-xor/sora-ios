@@ -6,15 +6,15 @@
 import Foundation
 import SoraKeystore
 
-protocol SplashPresenterProtocol: class {
+protocol SplashPresenterProtocol: AnyObject {
     func setupComplete()
 }
 
-protocol SplashInteractorProtocol: class {
+protocol SplashInteractorProtocol: AnyObject {
     func setup()
 }
 
-protocol SplashViewProtocol: class {
+protocol SplashViewProtocol: AnyObject {
     func animate(duration animationDurationBase: Double, completion: @escaping () -> Void)
 }
 
@@ -22,9 +22,7 @@ final class SplashPresenterFactory {
     static func createSplashPresenter(with window: SoraWindow) {
         let presenter = SplashPresenter(window: window)
         let interactor = SplashInteractor(settings: SettingsManager.shared,
-                                          operationManager: OperationManagerFacade.sharedManager,
-                                          socketService: WebSocketService.shared,
-                                          runtimeService: RuntimeRegistryFacade.sharedService)
+                                          socketService: WebSocketService.shared)
         let wireframe = SplashWireframe()
         let view = SplashViewController()
         view.presenter = presenter

@@ -28,19 +28,21 @@ final class WalletConfirmationConfigurator {
                                                            amountFormatterFactory: amountFormatterFactory)
     }
 
-    func configure(builder: TransferConfirmationModuleBuilderProtocol) {
+    func configure(builder: TransferConfirmationModuleBuilderProtocol, presenter: UIViewController) {
         let title = LocalizableResource { locale in
             R.string.localizable.commonConfirm(preferredLanguages: locale.rLanguages)
         }
 
-        let alertTitle = R.string.localizable.walletTransactionSubmitted(preferredLanguages:
-                                                                            self.localizationManager.selectedLocale.rLanguages)
-        let alert = ModalAlertFactory.createSuccessAlert(alertTitle)
+        let titleProvider = LocalizableResource { locale in
+            R.string.localizable.walletTransactionSubmitted(preferredLanguages: locale.rLanguages)
+        }
+
+        let alert = ModalAlertFactory.createAlert(titleProvider: titleProvider, image: R.image.success())
 
         builder
             .with(localizableTitle: title)
             .with(accessoryViewType: .onlyActionBar)
-            .with(completion: .toast(view: alert, presenter: nil))
+            .with(completion: .toast(view: alert, presenter: presenter))
             .with(viewModelFactoryOverriding: viewModelFactory)
             .with(viewBinder: WalletConfirmationViewBinder())
             .with(definitionFactory: WalletSoraDefinitionFactory())

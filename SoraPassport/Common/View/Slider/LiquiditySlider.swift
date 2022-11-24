@@ -12,4 +12,16 @@ class LiquiditySlider: UISlider {
           super.trackRect(forBounds: customBounds)
           return customBounds
       }
+
+    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+          return true
+      }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+            guard let touch = touches.first else { return }
+            let location = touch.location(in: self)
+            let conversion = minimumValue + Float(location.x / bounds.width) * maximumValue
+            setValue(conversion, animated: false)
+            sendActions(for: .valueChanged)
+        }
   }

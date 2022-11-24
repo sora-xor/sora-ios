@@ -23,13 +23,24 @@ private extension PinSetupViewController {
     }
 }
 
-class PinSetupViewController: UIViewController, AdaptiveDesignable {
+class PinSetupViewController: UIViewController, AdaptiveDesignable, HiddableBarWhenPushed {
 
     var presenter: PinSetupPresenterProtocol!
 
     var mode: NeuPinView.Mode = .create
 
     var cancellable: Bool = false
+
+    private let formatter: DateComponentsFormatter = {
+
+        var calendar = Calendar.current
+        calendar.locale = LocalizationManager.shared.selectedLocale
+
+        let formatter = DateComponentsFormatter()
+        formatter.calendar = calendar
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
 
     var barTitle: String {
         if mode == .securedInput { return "" }
@@ -48,6 +59,14 @@ class PinSetupViewController: UIViewController, AdaptiveDesignable {
     @IBOutlet weak var pinViewStack: NeuPinView!
     @IBOutlet weak var topConstraint: NSLayoutConstraint!
 
+    private lazy var updatePinRequestView: UpdateRequestPinView = {
+        let view = UpdateRequestPinView()
+        view.isHidden = true
+        view.delegate = presenter
+        view.languages = languages
+        return view
+    }()
+    
     // MARK: - Controls
 
     private lazy var navigationBar: UINavigationBar = {
@@ -96,6 +115,9 @@ class PinSetupViewController: UIViewController, AdaptiveDesignable {
         }
     }()
 
+    private var timer: Timer?
+    private var cooldownDate: Date = .init()
+
     // MARK: - Constraints
 
     // MARK: - View Setup
@@ -110,6 +132,12 @@ class PinSetupViewController: UIViewController, AdaptiveDesignable {
         setupAccessibilityIdentifiers()
 
         presenter.start()
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        timer?.invalidate()
+        timer = nil
     }
 }
 
@@ -149,6 +177,14 @@ private extension PinSetupViewController {
             $0.centerXAnchor == view.centerXAnchor
             $0.topAnchor == navigationBar.bottomAnchor
         }
+        
+        updatePinRequestView.do {
+            view.addSubview($0)
+            $0.centerXAnchor == view.centerXAnchor
+            $0.leadingAnchor == view.leadingAnchor
+            $0.topAnchor == view.safeAreaLayoutGuide.topAnchor
+            $0.bottomAnchor == view.safeAreaLayoutGuide.bottomAnchor
+        }
 
         if cancellable || presenter.isChangeMode {
             configureCancelButton()
@@ -161,6 +197,8 @@ private extension PinSetupViewController {
     }
 
     func updateTitleLabelState() {
+        guard cooldownDate.timeIntervalSinceNow <= 0 else { return }
+        
         if pinViewStack.mode == .create {
             if  pinViewStack.creationState == .normal {
                 titleLabel.text = R.string.localizable
@@ -209,6 +247,52 @@ private extension PinSetupViewController {
 }
 
 extension PinSetupViewController: PinSetupViewProtocol {
+    func showLastChanceAlert() {
+        var calendar = Calendar.current
+        calendar.locale = LocalizationManager.shared.selectedLocale
+
+        let formatter = DateComponentsFormatter()
+        formatter.calendar = calendar
+        formatter.unitsStyle = .abbreviated
+
+        let time = formatter.string(from: TimeInterval(60)) ?? ""
+
+        let title = R.string.localizable.pincodeLastTryTitle(preferredLanguages: languages)
+        let message = R.string.localizable.pincodeLastTrySubtitle(time, preferredLanguages: languages)
+        let alertView = UIAlertController(title: title, message: message, preferredStyle: .alert)
+
+        let useAction = UIAlertAction(
+            title: R.string.localizable.commonOk(preferredLanguages: languages),
+            style: .default) { (_: UIAlertAction) -> Void in
+        }
+
+        alertView.addAction(useAction)
+
+        self.present(alertView, animated: true, completion: nil)
+    }
+
+    func blockUserInputUntil(date: Date) {
+        self.cooldownDate = date
+        pinViewStack.isUserInteractionEnabled = false
+
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true, block: { [weak self] _ in
+            guard let self = self else { return }
+
+            let secondsLeft = self.cooldownDate.timeIntervalSinceNow
+
+            let cooldownText = self.formatter.string(from: secondsLeft) ?? ""
+            self.titleLabel.text = R.string.localizable.pincodeLockedTitle(cooldownText, preferredLanguages: self.languages)
+
+            guard secondsLeft <= 0 else { return }
+            self.updateTitleLabelState()
+            self.pinViewStack.isUserInteractionEnabled = true
+            self.timer?.invalidate()
+            self.timer = nil
+        })
+        self.timer = timer
+        RunLoop.current.add(timer, forMode: .common)
+    }
+
     func didRequestBiometryUsage(biometryType: AvailableBiometryType, completionBlock: @escaping (Bool) -> Void) {
         var title: String?
         var message: String?
@@ -255,6 +339,14 @@ extension PinSetupViewController: PinSetupViewProtocol {
 
     func didChangeAccessoryState(enabled: Bool) {
         pinViewStack?.numpad.supportsAccessoryControl = enabled
+    }
+    
+    func updatePinCodeSymbolsCount(with count: Int) {
+        pinViewStack?.numberOfCharacters = count
+    }
+    
+    func showUpdatePinRequestView() {
+        updatePinRequestView.isHidden = false
     }
 }
 

@@ -11,19 +11,25 @@ final class UsernameSetupPresenter {
     weak var view: UsernameSetupViewProtocol?
     var wireframe: UsernameSetupWireframeProtocol!
     var viewModel: InputViewModel!
-    let settingsManager = SettingsManager.shared
+    var successEditingBlock: (() -> Void)?
+    let settingsManager = SelectedWalletSettings.shared
+    var mode: UsernameSetupMode = .onboarding
     var userName: String? {
-        get { settingsManager.userName }
+        get { settingsManager.currentAccount?.username }
         set {
             let newUserName = newValue ?? ""
-            settingsManager.selectedAccount = settingsManager.selectedAccount?.replacingUsername(newUserName)
+            if let updated = settingsManager.currentAccount?.replacingUsername(newUserName ?? "") {
+                settingsManager.save(value: updated)
+            }
         }
     }
 }
 
 extension UsernameSetupPresenter: UsernameSetupPresenterProtocol {
     func setup() {
-        let inputHandling = InputHandler(value: userName ?? "",
+        let value = mode == .creating ? "" : userName ?? ""
+        
+        let inputHandling = InputHandler(value: value,
                                          required: false,
                                          predicate: NSPredicate.notEmpty,
                                          processor: ByteLengthProcessor.username)
@@ -47,6 +53,10 @@ extension UsernameSetupPresenter: UsernameSetupPresenterProtocol {
                                                   actions: [action],
                                                   closeAction: nil)
         wireframe.present(viewModel: viewModel, style: .alert, from: view)
+    }
+    
+    func endEditing() {
+        successEditingBlock?()
     }
 
     func activateURL(_ url: URL) {

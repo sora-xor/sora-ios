@@ -18,8 +18,9 @@ enum KeystoreTag: String, CaseIterable {
 }
 
 extension KeystoreProtocol {
-    func deleteAll() throws {
+    func deleteAll(for address: String) throws {
         try deleteKeysIfExist(for: KeystoreTag.allCases.map({ $0.rawValue }))
+        try deleteKeyIfExists(for: KeystoreTag.entropyTagForAddress(address))
     }
 
     func loadIfKeyExists(_ tag: String) throws -> Data? {

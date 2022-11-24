@@ -49,10 +49,8 @@ class PolkaswapAssetView: UIView {
 
     var isBalanceHidden: Bool = false {
         didSet {
-            if isBalanceHidden {
-                balanceLabel.isHidden = true
-                balanceValueLabel.isHidden = true
-            }
+            balanceLabel.isHidden = isBalanceHidden
+            balanceValueLabel.isHidden = isBalanceHidden
         }
     }
 
@@ -67,12 +65,8 @@ class PolkaswapAssetView: UIView {
         self.balanceValueLabel.attributedText = string?.prettyCurrency(baseFont: self.balanceValueLabel.font, locale: locale)
     }
 
-    func setAmount(_ amount: Decimal, formatter: NumberFormatter) {
-        if let replacement = formatter.stringFromDecimal(amount) {
-            let oldToAmountText = amountField.text ?? ""
-            let replacementRange = NSRange(location: 0, length: oldToAmountText.count)
-            _ = viewModel?.amountInputViewModel?.didReceiveReplacement(replacement, for: replacementRange, isNotificationEnabled: false)
-        }
+    func setAmount(_ amount: Decimal) {
+        viewModel?.amountInputViewModel?.didUpdateAmount(to: amount, isNotificationEnabled: false)
         amountField.text = viewModel?.amountInputViewModel?.displayAmount ?? "0"
     }
 
@@ -162,8 +156,8 @@ extension PolkaswapAssetView: SoraTextDelegate {
     func soraTextField(_ textField: NeuTextField,
                        shouldChangeCharactersIn range: NSRange,
                        replacementString string: String) -> Bool {
-        _ = viewModel?.amountInputViewModel?.didReceiveReplacement(string, for: range, isNotificationEnabled: true)
-        return false
+        let result = viewModel?.amountInputViewModel?.didReceiveReplacement(string, for: range, isNotificationEnabled: true)
+        return result ?? false
     }
 }
 
@@ -181,6 +175,10 @@ extension PolkaswapAssetView: PolkaswapAmountFieldAccessoryDelegate {
 
     func predefinedPressed(amountField: PolkaswapAmountField, value: Int) {
         delegate?.didChangePredefinedPercentage(Decimal(value), view: self)
+    }
+
+    override open var isFirstResponder: Bool {
+        return amountField.isFirstResponder
     }
 }
 

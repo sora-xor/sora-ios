@@ -12,6 +12,7 @@ class PinChangePresenter: PinSetupPresenterProtocol {
 
     func start() {
         view?.didChangeAccessoryState(enabled: false)
+        view?.updatePinCodeSymbolsCount(with: 6)
     }
 
     func activateBiometricAuth() {}

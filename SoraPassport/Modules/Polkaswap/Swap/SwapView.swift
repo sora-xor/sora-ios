@@ -6,10 +6,9 @@
 import Foundation
 import UIKit
 import SoraFoundation
-import CommonWallet
 import Anchorage
 
-class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptable {
+class PolkaswapSwapView: UIViewController & SwapViewProtocol & KeyboardAdoptable {
 
     @IBOutlet weak var scrollView: UIScrollView!
     @IBOutlet weak var topView: UIView!
@@ -65,9 +64,9 @@ class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptabl
     @IBOutlet var slippageHelperTextField: PolkaswapSlippageHelperTextField!
     @IBOutlet var dimView: UIView!
     var marketLabel: UILabel?
-    
-    //TODO: DI
-    let amountFormatterFactory = AmountFormatterFactory()
+
+    let amountFormatterFactory = AmountFormatterFactory() //TODO: DI
+    var swapFactory: PolkaswapSwapFactoryProtocol!
 
     var detailsViewModel: PolkaswapDetailsViewModel?
     var presenter: SwapPresenterProtocol!
@@ -75,8 +74,21 @@ class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptabl
     var locale: Locale {
         localizationManager?.selectedLocale ?? Locale.current
     }
-    
+
     var keyboardHandler: KeyboardHandler?
+
+    convenience init(nibName: String?, bundle: Bundle?, swapFactory: PolkaswapSwapFactoryProtocol) {
+        self.init(nibName: nibName, bundle: bundle)
+        self.swapFactory = swapFactory
+    }
+
+    override init(nibName: String?, bundle: Bundle?) {
+        super.init(nibName: nibName, bundle: bundle)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -180,7 +192,7 @@ class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptabl
     }
 
     @objc func didPressSlippage() {
-        showSlippageController()
+        presenter.showSlippageController()
     }
 
     func didPressMarket() {
@@ -198,17 +210,6 @@ class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptabl
         changeDimView(isHidden: true, animated: true)
     }
 
-    func showSlippageController() {
-        changeDimView(isHidden: false, animated: false)
-
-        slippageHelperTextField.becomeFirstResponder()
-        slippageHelperTextField.slippageView?.parentField = slippageHelperTextField
-        slippageHelperTextField.slippageView?.delegate = self
-        slippageHelperTextField.slippageView?.amountField.becomeFirstResponder()
-
-        slippageHelperTextField.slippageView?.slippage = presenter.slippage
-    }
-
     func hideSlippageController() {
         changeDimView(isHidden: true, animated: false)
         slippageHelperTextField.dismissSlippageView()
@@ -218,8 +219,8 @@ class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptabl
         let newAlpha = isHidden ? 0.0 : 1.0
         if animated {
             UIView.animate(withDuration: 0.6,
-                           animations: {
-                               self.dimView.alpha = newAlpha
+                           animations: { [weak self]  in
+                               self?.dimView.alpha = newAlpha
                            },
                            completion: { [weak self] _ in
                                self?.dimView.isHidden = isHidden
@@ -231,72 +232,53 @@ class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptabl
     }
 
     func setSlippage(_ newSlippage: String) {
-        slippageValueLabel.text = newSlippage
+        slippageValueLabel?.text = newSlippage
     }
 
     func setSwapButton(isEnabled: Bool, isLoading: Bool, title: String) {
-        view.isUserInteractionEnabled = !isLoading
+        guard fromSwapView != nil, toSwapView != nil, nextButton != nil else { return }
+        fromSwapView.isUserInteractionEnabled = fromSwapView.isFirstResponder || !isLoading
+        toSwapView.isUserInteractionEnabled = toSwapView.isFirstResponder || !isLoading
         nextButton.isEnabled = isEnabled
         nextButton.setTitle(title, for: .normal)
         isLoading ? nextButton.startProgress() : nextButton.stopProgress()
     }
 
-    func selectAsset(_ selectedAsset: WalletAsset?, amount: Decimal? = nil, isFrom: Bool) {
-        guard let assetView = isFrom ? fromSwapView : toSwapView else { return }
-
-        //TODO: move to presenter
-
-        guard selectedAsset != nil else {
-            let viewModel = PolkaswapAssetViewModel(isEmpty: true, assetImageViewModel: nil, amountInputViewModel: nil, assetName: nil)
-            assetView.didReceive(viewModel: viewModel)
-            return
-        }
-
-        let assetManager: AssetManagerProtocol = AssetManager.shared
-        let assetName = selectedAsset?.name.value(for: locale)
-        guard let identifier = selectedAsset?.identifier else { return }
-        let assetInfo = assetManager.assetInfo(for: identifier)
-
-        var assetImageViewModel: WalletImageViewModelProtocol
-        if let iconString = assetInfo?.icon {
-            assetImageViewModel = WalletSvgImageViewModel(svgString: iconString)
-        } else {
-            assetImageViewModel = WalletStaticImageViewModel(staticImage: R.image.assetUnkown()!)
-        }
-        let formatter = amountFormatterFactory.createInputFormatter(for: selectedAsset).value(for: locale)
-        var amountInputViewModel = PolkaswapAmountInputViewModel(symbol: "", amount: amount, limit: Decimal(Int.max),  formatter: formatter, precision: 18)
-//            amountInputViewModel?.observable.add(observer: self)
-        
-        let assetViewModel = PolkaswapAssetViewModel(isEmpty: false,
-                                                         assetImageViewModel: assetImageViewModel,
-                                                         amountInputViewModel: amountInputViewModel,
-                                                         assetName: assetName)
-        assetView.didReceive(viewModel: assetViewModel)
+    func selectAsset(_ selectedAsset: AssetInfo?, amount: Decimal? = nil, isFrom: Bool) {
+        let assetView = isFrom ? fromSwapView : toSwapView
+        let model = swapFactory.createAssetViewModel(asset: selectedAsset, amount: amount, locale: locale)
+        assetView?.didReceive(viewModel: model)
     }
 
-    func setBalance(_ balance: Decimal, asset: WalletAsset, isFrom: Bool) {
+    func setBalance(_ balance: Decimal, asset: AssetInfo, isFrom: Bool) {
         let assetView = isFrom ? fromSwapView : toSwapView
-        let formatter = amountFormatterFactory.createTokenFormatter(for: asset, maxPrecision: 8).value(for: locale)
+        let formatter = amountFormatterFactory.createTokenFormatter(for: nil, maxPrecision: 8).value(for: locale)
         let formattedString = formatter.stringFromDecimal(balance)
         assetView?.setBalance(formattedString)
     }
 
-    func setFromAsset(_ asset: WalletAsset?, amount: Decimal? = nil) {
+    func setFromAsset(_ asset: AssetInfo?, amount: Decimal? = nil) {
         selectAsset(asset, amount: amount, isFrom: true)
     }
 
-    func setToAsset(_ asset: WalletAsset?, amount: Decimal? = nil) {
+    func setToAsset(_ asset: AssetInfo?, amount: Decimal? = nil) {
         selectAsset(asset, amount: amount, isFrom: false)
     }
 
     func setFromAmount(_ amount: Decimal) {
         let formatter = amountFormatterFactory.createPolkaswapAmountFormatter().value(for: locale)
-        fromSwapView?.setAmount(amount, formatter: formatter)
+        fromSwapView?.setAmount(amount)
     }
 
     func setToAmount(_ amount: Decimal) {
         let formatter = amountFormatterFactory.createPolkaswapAmountFormatter().value(for: locale)
-        toSwapView?.setAmount(amount, formatter: formatter)
+        toSwapView?.setAmount(amount)
+    }
+
+    func setSlippageAmount(_ amount: Decimal) {
+        let percentFormatter = amountFormatterFactory.createPercentageFormatter().value(for: locale)
+        let newSlippage = percentFormatter.stringFromDecimal(amount) ?? "?"
+        setSlippage(newSlippage)
     }
 
     @objc func didPressDetails() {
@@ -324,24 +306,24 @@ class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptabl
     }
 
     func setupDetailLabels() {
-        directExchangeRateTitleLabel?.text = detailsViewModel?.directExchangeRateTitle
-        inversedExchangeRateTitleLabel?.text = detailsViewModel?.inversedExchangeRateTitle
-        minReceivedTitleLabel?.text = detailsViewModel?.minReceivedTitle
+        directExchangeRateTitleLabel?.text = detailsViewModel?.firstToSecondAssetRateTitle
+        inversedExchangeRateTitleLabel?.text = detailsViewModel?.secondToFirstAssetRateTitle
+        minReceivedTitleLabel?.text = detailsViewModel?.minBuyOrMaxSellTitle
         lpFeeTitleLabel?.text = detailsViewModel?.lpFeeTitle
         networkFeeTitleLabel?.text = detailsViewModel?.networkFeeTitle
         let formatter = amountFormatterFactory.createPolkaswapAmountFormatter().value(for: locale)
-        if let directRate = detailsViewModel?.directExchangeRateValue {
+        if let directRate = detailsViewModel?.firstToSecondAssetRateValue {
             directExchangeRateValueLabel?.text = formatter.stringFromDecimal(directRate)
         } else {
             directExchangeRateValueLabel?.text = ""
         }
-        if let inversedRate = detailsViewModel?.inversedExchangeRateValue {
+        if let inversedRate = detailsViewModel?.secondToFirstAssetRateValue {
             inversedExchangeRateValueLabel?.text = formatter.stringFromDecimal(inversedRate)
         } else {
             inversedExchangeRateValueLabel?.text = ""
         }
-        if let minReceived = detailsViewModel?.minReceivedValue, let minString = formatter.stringFromDecimal(minReceived) {
-            minReceivedValueLabel?.text = minString + " " + ( detailsViewModel?.minMaxToken ?? "" )
+        if let minReceived = detailsViewModel?.minBuyOrMaxSellValue, let minString = formatter.stringFromDecimal(minReceived) {
+            minReceivedValueLabel?.text = minString + " " + ( detailsViewModel?.minBuyOrMaxSellToken ?? "" )
         } else {
             minReceivedValueLabel?.text = ""
         }
@@ -358,8 +340,8 @@ class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptabl
     }
 
     @objc func minMaxButtonPressed() {
-        let alert = UIAlertController(title: detailsViewModel?.minMaxAlertTitle,
-                                      message: detailsViewModel?.minMaxAlertText,
+        let alert = UIAlertController(title: detailsViewModel?.minBuyOrMaxSellTitle,
+                                      message: detailsViewModel?.minBuyOrMaxSellHelpText,
                                       preferredStyle: .alert)
         let closeTitle = R.string.localizable.commonOk(preferredLanguages: languages)
         let closeAction = UIAlertAction(title: closeTitle, style: .cancel, handler: nil)
@@ -401,15 +383,7 @@ class PolkaswapSwapView: UIViewController & SwapViewProtocol  & KeyboardAdoptabl
     }
 }
 
-extension PolkaswapSwapView: PolkaswapSlippageSelectorViewDelegate {
-    func didSelect(slippage: Double) {
-        changeDimView(isHidden: true, animated: true)
-        presenter.slippage = slippage
-        let percentFormatter = amountFormatterFactory.createPercentageFormatter().value(for: locale)
-        let newSlippage = percentFormatter.stringFromDecimal(Decimal(presenter.slippage)) ?? "?"
-        setSlippage(newSlippage)
-    }
-}
+
 
 extension PolkaswapSwapView: PolkaswapAssetViewDelegate {
     func didPressAsset(_ view: PolkaswapAssetView) {
@@ -446,8 +420,11 @@ extension PolkaswapSwapView: Localizable {
 
         slippageLabel?.text = R.string.localizable.polkaswapSlippageTolerance(preferredLanguages: languages).uppercased()
         detailsLabel?.text = R.string.localizable.polkaswapDetails(preferredLanguages: languages).uppercased()
-        presenter?.needsUpdateDetails()
 
+        if let presenter = presenter {
+
+            presenter.didUpdateLocale()
+        }
         disclaimerLabel?.text = R.string.localizable.polkaswapInfoTitleMain(preferredLanguages: languages).uppercased()
     }
 }

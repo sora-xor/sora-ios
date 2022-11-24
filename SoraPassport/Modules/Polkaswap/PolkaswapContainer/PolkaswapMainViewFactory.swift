@@ -19,30 +19,29 @@ final class PolkaswapMainViewFactory: PolkaswapMainViewFactoryProtocol {
         interactor.networkFacade = walletContext.networkOperationFactory
         interactor.polkaswapNetworkFacade = polkaswapContext
 
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain(), settings: SettingsManager.shared)
-        let accountSettings = try? primitiveFactory.createAccountSettings()
-        let assets = accountSettings?.assets ?? []
-
-        let swapView = PolkaswapSwapView(nib: R.nib.swapView)
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
+        let assets = assetManager.getAssetList() ?? []
+        let swapFactory = PolkaswapSwapFactory(assetManager: assetManager, amountFormatterFactory: AmountFormatterFactory())
+        let swapView = PolkaswapSwapView(nibName: R.nib.swapView.name, bundle: R.nib.swapView.bundle, swapFactory: swapFactory)
         swapView.localizationManager = LocalizationManager.shared
         let swapPresenter = SwapPresenter(assets: assets,
-                                          assetManager: AssetManager.shared,
-                                                   disclaimerViewFactory: DisclaimerViewFactory(),
-                                                   settingsManager: SettingsManager.shared,
-                                                   networkFacade: walletContext.networkOperationFactory,
-                                                   polkaswapNetworkFacade: polkaswapContext,
-                                                   commandFactory: walletContext)
+                                          assetManager: assetManager,
+                                          disclaimerViewFactory: DisclaimerViewFactory(),
+                                          settingsManager: SettingsManager.shared,
+                                          networkFacade: walletContext.networkOperationFactory,
+                                          polkaswapNetworkFacade: polkaswapContext,
+                                          commandFactory: walletContext)
         swapView.presenter = swapPresenter
         swapPresenter.view = swapView
         swapPresenter.interactor = interactor
 
-        let poolPresenter = PolkaswapPoolPresenter(assetManager: AssetManager.shared, networkFacade: walletContext.networkOperationFactory, assets: assets, commandFactory: walletContext)
-        let poolView = PolkaswapPoolViewController()
+        let poolView = PolkaswapPoolFactory.createView(networkFacade: walletContext.networkOperationFactory,
+                                                       polkaswapNetworkFacade: polkaswapContext,
+                                                       assets: assets,
+                                                       commandFactory: walletContext)
         poolView.localizationManager = LocalizationManager.shared
-        poolPresenter.view = poolView
-        poolView.presenter = poolPresenter
 
-        let presenter = PolkaswapMainPresenter(swapPresenter: swapPresenter, poolPresenter: poolPresenter)
+        let presenter = PolkaswapMainPresenter(swapPresenter: swapPresenter, poolPresenter: poolView.presenter!)
 
         let wireframe = PolkaswapMainWireframe()
 
@@ -51,6 +50,7 @@ final class PolkaswapMainViewFactory: PolkaswapMainViewFactoryProtocol {
         containerView.presenter = presenter
         presenter.view = containerView
         presenter.wireframe = wireframe
+        presenter.interactor = interactor
         interactor.presenter = presenter
 
         return containerView

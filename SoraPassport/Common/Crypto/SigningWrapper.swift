@@ -15,27 +15,23 @@ enum SigningWrapperError: Error {
 
 final class SigningWrapper: SigningWrapperProtocol {
     let keystore: KeystoreProtocol
-    let settings: SettingsManagerProtocol
+    let account: AccountItem
 
-    init(keystore: KeystoreProtocol, settings: SettingsManagerProtocol) {
+    init(keystore: KeystoreProtocol, account: AccountItem) {
         self.keystore = keystore
-        self.settings = settings
+        self.account = account
     }
 
     func sign(_ originalData: Data) throws -> IRSignatureProtocol {
-        guard let selectedAccount = settings.selectedAccount else {
-            throw SigningWrapperError.missingSelectedAccount
-        }
-
-        guard let secretKey = try keystore.fetchSecretKeyForAddress(selectedAccount.address) else {
+        guard let secretKey = try keystore.fetchSecretKeyForAddress(account.address) else {
             throw SigningWrapperError.missingSecretKey
         }
 
-        switch selectedAccount.cryptoType {
+        switch account.cryptoType {
         case .sr25519:
             return try signSr25519(originalData,
                                    secretKeyData: secretKey,
-                                   publicKeyData: selectedAccount.publicKeyData)
+                                   publicKeyData: account.publicKeyData)
         case .ed25519:
             return try signEd25519(originalData,
                                    secretKey: secretKey)

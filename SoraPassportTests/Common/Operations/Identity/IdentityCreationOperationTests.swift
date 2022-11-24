@@ -13,11 +13,11 @@ class IdentityCreationOperationTests: XCTestCase {
     private let keystore = Keychain()
 
     override func setUp() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
     }
 
     override func tearDown() {
-        try? keystore.deleteAll()
+        try? keystore.deleteAll(for: "")
     }
 /*
     func testSuccessfullIdentityCreation() throws {

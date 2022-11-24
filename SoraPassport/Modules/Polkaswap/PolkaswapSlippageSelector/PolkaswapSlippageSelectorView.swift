@@ -9,7 +9,7 @@ import SoraFoundation
 import CommonWallet
 
 protocol PolkaswapSlippageSelectorViewProtocol: Localizable {
-    var amountInputViewModel: AmountInputViewModel? { get }
+    var amountInputViewModel: PolkaswapAmountInputViewModelProtocol? { get }
     var slippage: Double { get set }
     var warning: PolkaswapSlippageSelectorView.Warning { get set }
     func didReceive(viewModel: PolkaswapSlippageSelectorViewModel)
@@ -34,22 +34,26 @@ class PolkaswapSlippageSelectorView: UIView & PolkaswapSlippageSelectorViewProto
     @IBOutlet weak var descriptionLabel: UILabel!
     @IBOutlet weak var stackView: UIStackView!
     @IBOutlet weak var warningImageView: UIImageView!
+    @IBOutlet weak var slider: UISlider!
 
     private var viewModel: PolkaswapSlippageSelectorViewModel?
-    var amountInputViewModel: AmountInputViewModel?
+    var amountInputViewModel: PolkaswapAmountInputViewModelProtocol?
     var amountFormatter: NumberFormatter {
         return AmountFormatterFactory().createPercentageFormatter().value(for: localizationManager?.selectedLocale ?? Locale.current)
     }
 
     var amountPostfix: String {
         let empty = amountFormatter.string(from: 0)
-        return String(empty!.dropFirst())
+        let num = NumberFormatter().localizableResource().value(for: localizationManager?.selectedLocale ?? Locale.current).string(from: 0) ?? ""
+        return String(empty!.replacingOccurrences(of: num, with: ""))
     }
 
     weak var parentField: UITextField?
     var slippage: Double = 0.5 {
         didSet {
-            amountInputViewModel?.didUpdateAmount(to: Decimal(slippage))
+            slider.value = Float(slippage)
+            amountInputViewModel?.didUpdateAmount(to: Decimal(slippage), isNotificationEnabled: false)
+            amountField?.text = amountInputViewModel?.displayAmount
         }
     }
     weak var delegate: PolkaswapSlippageSelectorViewDelegate?
@@ -87,6 +91,7 @@ class PolkaswapSlippageSelectorView: UIView & PolkaswapSlippageSelectorViewProto
     func didReceive(viewModel: PolkaswapSlippageSelectorViewModel) {
         self.viewModel = viewModel
         self.amountInputViewModel = viewModel.amountInputViewModel
+        self.amountInputViewModel?.additionalSet = amountPostfix
         amountInputViewModel?.observable.add(observer: self)
 
         setup()
@@ -129,9 +134,15 @@ class PolkaswapSlippageSelectorView: UIView & PolkaswapSlippageSelectorViewProto
     }
 
     fileprivate func setupTextField() {
-        amountField.postfixLength = amountPostfix.count
+        amountField.isEnabled = false
+        amountField.isUserInteractionEnabled = false
         amountField.isChangeColorOnEdit = false
         amountField.delegate = self
+
+        slider.minimumValue = 0.01
+        slider.maximumValue = 10
+
+        slider.addTarget(self, action: #selector(sliderMoved), for: .valueChanged)
     }
 
     fileprivate func setupWarningImage() {
@@ -156,6 +167,13 @@ class PolkaswapSlippageSelectorView: UIView & PolkaswapSlippageSelectorViewProto
         button.setTitleColor(R.color.brandPolkaswapPink(), for: .normal)
         button.addTarget(self, action: #selector(donePressed), for: .touchUpInside)
         return button
+    }
+
+    @objc func sliderMoved(_ slider: UISlider) {
+        let value = round(slider.value / 0.1) * 0.1
+        slider.value = value
+
+        amountInputViewModel?.didUpdateAmount(to: Decimal(Double(value)), isNotificationEnabled: true)
     }
 
     @objc func slippagePressed(_ button: UIButton) {
@@ -206,6 +224,9 @@ extension PolkaswapSlippageSelectorView: SoraTextDelegate {
     func soraTextField(_ textField: NeuTextField,
                        shouldChangeCharactersIn range: NSRange,
                        replacementString string: String) -> Bool {
+        let result = viewModel?.amountInputViewModel.didReceiveReplacement(string, for: range, isNotificationEnabled: true)
+        return result ?? false
+
 
         guard let model = amountInputViewModel,
               let keyboardSeparator = Locale.current.decimalSeparator,
@@ -221,17 +242,17 @@ extension PolkaswapSlippageSelectorView: SoraTextDelegate {
         }
 
         if newValue == amountPostfix {
-            model.didUpdateAmount(to: 0)
+            model.didUpdateAmount(to: 0, isNotificationEnabled: false)
             return true
         }
 
         if let number = amountFormatter.number(from: newValue) {
-            model.didUpdateAmount(to: number.decimalValue)
+            model.didUpdateAmount(to: number.decimalValue, isNotificationEnabled: false)
             //dirty hack, we need to create separate input with PercentPresentable
         } else {
 
             let correctedRange = correctedForPostfix(range: range, string: string)
-            _ = model.didReceiveReplacement(string, for: correctedRange)
+            _ = model.didReceiveReplacement(string, for: correctedRange, isNotificationEnabled: false)
         }
 
         updateSlippage()

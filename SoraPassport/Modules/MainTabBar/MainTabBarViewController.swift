@@ -25,8 +25,6 @@ final class MainTabBarViewController: UITabBarController {
             viewAppeared = true
             presenter.setup()
         }
-
-        presenter.viewDidAppear()
     }
 
     private func configureTabBar() {

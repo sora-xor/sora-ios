@@ -69,6 +69,7 @@ public class NeuPinView: UIView {
                 createdCharacters = nil
                 creationState = .normal
                 symbols.clear()
+                numpad.backspaceButton.isHidden = true
             }
         }
     }
@@ -86,6 +87,19 @@ public class NeuPinView: UIView {
     public var errorAnimationDamping: CGFloat = 0.4
     public var errorAnimationInitialVelocity: CGFloat = 1.0
     public var errorAnimationAnimationOptions: UIView.AnimationOptions = .curveEaseInOut
+    
+    public var numberOfCharacters: Int = 4 {
+        didSet {
+            symbols.numberOfCharacters = numberOfCharacters
+            
+            let isSmallSizePhone = UIScreen.main.isSmallSizeScreen
+            guard isSmallSizePhone else { return }
+            let spacing = numberOfCharacters == 4 ? 16 : 5
+            let imageSymbolHeight = 24
+            let height: CGFloat = CGFloat(imageSymbolHeight * numberOfCharacters + spacing * numberOfCharacters - 1)
+            animationView.heightAnchor.constraint(equalToConstant: height).isActive = true
+        }
+    }
 
     public weak var delegate: NeuPinViewDelegate?
 
@@ -126,6 +140,7 @@ public class NeuPinView: UIView {
         symbols.leftAnchor == animationView.leftAnchor
         symbols.rightAnchor == animationView.rightAnchor
         symbols.clear()
+        numpad.backspaceButton.isHidden = true
     }
     
     // MARK: Delegate Handling
@@ -167,6 +182,7 @@ public class NeuPinView: UIView {
             if symbols.characters != createdCharacters {
                 animateWrongInputError()
                 symbols.clear()
+                numpad.backspaceButton.isHidden = true
                 notifyDelegateOnWrongInputError()
             } else {
                 notifyDelegateOnCompletion()
@@ -176,6 +192,7 @@ public class NeuPinView: UIView {
 
     private func switchToConfirmationState(animated: Bool) {
         symbols.clear()
+        numpad.backspaceButton.isHidden = true
 
         if animated {
             let animation = CATransition()
@@ -187,6 +204,7 @@ public class NeuPinView: UIView {
 
     private func switchToNormalState(animated: Bool) {
         symbols.clear()
+        numpad.backspaceButton.isHidden = true
 
         if animated {
             let animation = CATransition()
@@ -211,6 +229,7 @@ public class NeuPinView: UIView {
 
     public func reset(shouldAnimateError: Bool) {
         symbols.clear()
+        numpad.backspaceButton.isHidden = true
         if shouldAnimateError {
             animateWrongInputError()
         }
@@ -220,6 +239,7 @@ public class NeuPinView: UIView {
         guard mode == .create else { return }
 
         symbols.clear()
+        numpad.backspaceButton.isHidden = true
 
         if creationState == .confirm {
             clearCreationState()
@@ -241,6 +261,7 @@ extension NeuPinView: NeuNumpadDelegate {
             return
         }
         symbols.append(character: Character(String(index)))
+        numpad.backspaceButton.isHidden = false
         if symbols.isComplete {
             didCompleteInput()
         }
@@ -249,6 +270,7 @@ extension NeuPinView: NeuNumpadDelegate {
     public func numpadViewDidSelectBackspace(_ view: NeuNumpadView) {
         if !symbols.isEmpty {
             symbols.removeLastCharacter()
+            numpad.backspaceButton.isHidden = symbols.isEmpty
         }
     }
 

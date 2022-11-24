@@ -215,6 +215,10 @@ open class NeuTextField: UIControl {
         return input.resignFirstResponder()
     }
 
+    override open var isFirstResponder: Bool {
+        return input.isFirstResponder
+    }
+
     @objc func actionEditingChanged() {
         placeholder.isHidden = !(input.text ?? "").isEmpty
         sendActions(for: .editingChanged)
@@ -253,8 +257,8 @@ extension NeuTextField: UITextFieldDelegate {
         guard textField == input, postfixLength > 0 else { return }
 
         // disable postfix selection
-        if input.selectedTextRange?.end == input.endOfDocument {
-            let correctedPosition = input.position(from: input.endOfDocument, offset: -postfixLength)!
+        if input.selectedTextRange?.end == input.endOfDocument,
+           let correctedPosition = input.position(from: input.endOfDocument, offset: -postfixLength) {
             input.selectedTextRange = input.textRange(from: correctedPosition, to: correctedPosition)
         }
     }

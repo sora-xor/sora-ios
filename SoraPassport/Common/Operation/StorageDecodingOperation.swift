@@ -26,7 +26,8 @@ extension StorageDecodable {
         }
 
         let decoder = try codingFactory.createDecoder(from: data)
-        return try decoder.read(type: entry.type.typeName)
+        let type = try entry.type.typeName(using: codingFactory.metadata.schemaResolver)
+        return try decoder.read(type: type)
     }
 }
 
@@ -46,7 +47,8 @@ extension StorageModifierHandling {
         switch entry.modifier {
         case .defaultModifier:
             let decoder = try codingFactory.createDecoder(from: entry.defaultValue)
-            return try decoder.read(type: entry.type.typeName)
+            let type = try entry.type.typeName(using: codingFactory.metadata.schemaResolver)
+            return try decoder.read(type: type)
         case .optional:
             return nil
         }
@@ -82,7 +84,8 @@ final class StorageDecodingOperation<T: Decodable>: BaseOperation<T>, StorageDec
                 throw StorageDecodingOperationError.missingRequiredParams
             }
 
-            let item = try decode(data: data, path: path, codingFactory: factory).map(to: T.self)
+            let item = try decode(data: data, path: path, codingFactory: factory)
+                .map(to: T.self)
             result = .success(item)
         } catch {
             result = .failure(error)
@@ -200,7 +203,7 @@ final class StorageFallbackDecodingListOperation<T: Decodable>: BaseOperation<[T
         }
 
         do {
-            guard let dataList = dataList, let factory = codingFactory else {
+            guard var dataList = dataList, let factory = codingFactory else {
                 throw StorageDecodingOperationError.missingRequiredParams
             }
 
@@ -214,6 +217,7 @@ final class StorageFallbackDecodingListOperation<T: Decodable>: BaseOperation<[T
 
             result = .success(items)
         } catch {
+            print("StorageFallbackDecodingListOperation failed: ", error)
             result = .failure(error)
         }
     }
@@ -225,13 +229,13 @@ protocol ConstantDecodable {
 
 extension ConstantDecodable {
     func decode(at path: ConstantCodingPath, codingFactory: RuntimeCoderFactoryProtocol) throws -> JSON {
-        guard let entry = codingFactory.metadata
-            .getConstant(in: path.moduleName, constantName: path.constantName) else {
+        guard let entry = codingFactory.metadata.getConstant(in: path.moduleName, constantName: path.constantName) else {
             throw StorageDecodingOperationError.invalidStoragePath
         }
 
         let decoder = try codingFactory.createDecoder(from: entry.value)
-        return try decoder.read(type: entry.type)
+        let type = try entry.type(using: codingFactory.metadata.schemaResolver)
+        return try decoder.read(type: type)
     }
 }
 

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="19529" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="20037" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19519"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="20020"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <customFonts key="customFonts">
@@ -23,6 +24,7 @@
                 <outlet property="nextButton" destination="1zX-7F-5Jj" id="tDn-Eb-zVt"/>
                 <outlet property="privacyLabel" destination="NrO-dt-nfS" id="kJg-Jh-inq"/>
                 <outlet property="scrollView" destination="H0p-yD-Jul" id="NuO-CC-dE8"/>
+                <outlet property="sourceTypeView" destination="4mu-25-u0x" id="USr-ty-3zi"/>
                 <outlet property="stackView" destination="AwS-kl-7JJ" id="o8z-8e-m3K"/>
                 <outlet property="usernameTextField" destination="Qvv-Q2-KEY" id="mxr-Rm-wl3"/>
                 <outlet property="view" destination="iN0-l3-epB" id="ecI-Cl-ZGv"/>
@@ -39,7 +41,7 @@
                     <rect key="frame" x="0.0" y="44" width="414" height="722"/>
                     <subviews>
                         <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="40" translatesAutoresizingMaskIntoConstraints="NO" id="AwS-kl-7JJ">
-                            <rect key="frame" x="16" y="16" width="382" height="386"/>
+                            <rect key="frame" x="16" y="16" width="382" height="481"/>
                             <subviews>
                                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="9vS-kj-2Th">
                                     <rect key="frame" x="0.0" y="0.0" width="382" height="122"/>
@@ -130,15 +132,25 @@
                                         </userDefinedRuntimeAttribute>
                                     </userDefinedRuntimeAttributes>
                                 </view>
+                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="4mu-25-u0x" customClass="SourceImportTypeView" customModule="SoraPassport" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="162" width="382" height="55"/>
+                                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                                    <constraints>
+                                        <constraint firstAttribute="height" constant="55" id="xM3-fJ-34Z"/>
+                                    </constraints>
+                                    <connections>
+                                        <action selector="sourceImportViewTapped:" destination="-1" eventType="touchUpInside" id="hO5-6j-1fF"/>
+                                    </connections>
+                                </view>
                                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="CLH-0f-Wa1" userLabel="Mnemonic" customClass="NeuTextView" customModule="SoraPassport" customModuleProvider="target">
-                                    <rect key="frame" x="0.0" y="162" width="382" height="128"/>
+                                    <rect key="frame" x="0.0" y="257" width="382" height="128"/>
                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="128" id="Q9k-z9-rJ2"/>
                                     </constraints>
                                 </view>
                                 <view hidden="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="47P-nn-Hq9" customClass="BorderedContainerView" customModule="SoraUI">
-                                    <rect key="frame" x="0.0" y="310" width="382" height="42"/>
+                                    <rect key="frame" x="0.0" y="405" width="382" height="42"/>
                                     <subviews>
                                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="DfE-5t-PLB" customClass="AnimatedTextField" customModule="SoraUI">
                                             <rect key="frame" x="0.0" y="0.0" width="382" height="42"/>
@@ -212,7 +224,7 @@
                                     </userDefinedRuntimeAttributes>
                                 </view>
                                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Qvv-Q2-KEY" userLabel="Username" customClass="NeuTextField" customModule="SoraPassport" customModuleProvider="target">
-                                    <rect key="frame" x="0.0" y="330" width="382" height="56"/>
+                                    <rect key="frame" x="0.0" y="425" width="382" height="56"/>
                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="56" id="4rp-8V-cVv"/>
@@ -313,10 +325,10 @@
             <color red="0.59999999999999998" green="0.53333333333333333" blue="0.53333333333333333" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Neumorphism/Text Dark">
-            <color red="0.13300000131130219" green="0.067000001668930054" blue="0.067000001668930054" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.12941176470588237" green="0.066666666666666666" blue="0.066666666666666666" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Neumorphism/Text Placeholder">
-            <color red="0.8666666666666667" green="0.80000000000000004" blue="0.80000000000000004" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.86699998378753662" green="0.80000001192092896" blue="0.80000001192092896" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Status Error">
             <color red="1" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
@@ -324,5 +336,8 @@
         <namedColor name="Theme Accent">
             <color red="0.81568627450980391" green="0.0078431372549019607" blue="0.10588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
     </resources>
 </document>

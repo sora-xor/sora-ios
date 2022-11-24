@@ -9,7 +9,7 @@ import IrohaCrypto
 import RobinHood
 
 class AddAccountConfirmInteractor: BaseAccountConfirmInteractor {
-    private(set) var settings: SettingsManagerProtocol
+    private(set) var settings: SelectedWalletSettingsProtocol
     let eventCenter: EventCenterProtocol
 
     private var currentOperation: Operation?
@@ -19,7 +19,7 @@ class AddAccountConfirmInteractor: BaseAccountConfirmInteractor {
          accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
          operationManager: OperationManagerProtocol,
-         settings: SettingsManagerProtocol,
+         settings: SelectedWalletSettingsProtocol,
          eventCenter: EventCenterProtocol) {
         self.settings = settings
         self.eventCenter = eventCenter
@@ -31,17 +31,10 @@ class AddAccountConfirmInteractor: BaseAccountConfirmInteractor {
                    operationManager: operationManager)
     }
 
-    private func handleResult(_ result: Result<(AccountItem, ConnectionItem), Error>?) {
+    private func handleResult(_ result: Result<AccountItem, Error>?) {
         switch result {
-        case .success(let (accountItem, connectionItem)):
-            settings.selectedAccount = accountItem
-
-            if settings.selectedConnection != connectionItem {
-                settings.selectedConnection = connectionItem
-
-                eventCenter.notify(with: SelectedConnectionChanged())
-            }
-
+        case .success(let accountItem):
+            settings.save(value: accountItem)
             eventCenter.notify(with: SelectedAccountChanged())
 
             presenter?.didCompleteConfirmation()
@@ -58,8 +51,6 @@ class AddAccountConfirmInteractor: BaseAccountConfirmInteractor {
             return
         }
 
-        let selectedConnection = settings.selectedConnection
-
         let persistentOperation = accountRepository.saveOperation({
             let accountItem = try importOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
@@ -68,24 +59,11 @@ class AddAccountConfirmInteractor: BaseAccountConfirmInteractor {
 
         persistentOperation.addDependency(importOperation)
 
-        let connectionOperation: BaseOperation<(AccountItem, ConnectionItem)> = ClosureOperation {
+        let connectionOperation: BaseOperation<AccountItem> = ClosureOperation {
             let accountItem = try importOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 
-            let type = try SS58AddressFactory().type(fromAddress: accountItem.address)
-
-            let resultConnection: ConnectionItem
-
-            if selectedConnection.type == SNAddressType(type.uint8Value) {
-                resultConnection = selectedConnection
-            } else if let connection = ConnectionItem.supportedConnections
-                            .first(where: { $0.type == type.uint8Value}) {
-                resultConnection = connection
-            } else {
-                throw AccountCreateError.unsupportedNetwork
-            }
-
-            return (accountItem, resultConnection)
+            return accountItem
         }
 
         connectionOperation.addDependency(persistentOperation)

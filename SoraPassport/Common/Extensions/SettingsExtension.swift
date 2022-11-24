@@ -12,53 +12,33 @@ enum SettingsKey: String {
     case publicKeyId
     case biometryEnabled
     case disclaimerHidden
-    case verificationState
-    case selectedCurrency
     case invitationCode
     case isCheckedInvitation
     case selectedLocalization
     case lastStreamEventId
     case streamToken
-    case userName
     case selectedAccount
-    case selectedConnection
     case hasMigrated
     case externalGenesis
     case externalExistentialDeposit
     case externalPrefix
     case assetList
+    case inputBlockDate
+    case failInputPinCount
+    case lastSuccessfulUrl
 }
 
 extension SettingsManagerProtocol {
     var hasSelectedAccount: Bool {
-        selectedAccount != nil
+        SelectedWalletSettings.shared.hasValue
     }
 
-    var selectedAccount: AccountItem? {
+    var lastSuccessfulUrl: URL? {
         get {
-            value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)
+            value(of: URL.self, for: SettingsKey.lastSuccessfulUrl.rawValue)
         }
-
         set {
-            if let newValue = newValue {
-                set(value: newValue, for: SettingsKey.selectedAccount.rawValue)
-            } else {
-                removeValue(for: SettingsKey.selectedAccount.rawValue)
-            }
-        }
-    }
-
-    var selectedConnection: ConnectionItem {
-        get { //while we're on single network
-//            if let nodeItem = value(of: ConnectionItem.self, for: SettingsKey.selectedConnection.rawValue) {
-//                return nodeItem
-//            } else {
-                return .defaultConnection
-//            }
-        }
-
-        set {
-            set(value: newValue, for: SettingsKey.selectedConnection.rawValue)
+            set(value: newValue, for: SettingsKey.lastSuccessfulUrl.rawValue)
         }
     }
 
@@ -114,7 +94,7 @@ extension SettingsManagerProtocol {
     }
 
     var isRegistered: Bool {
-        return decentralizedId != nil && verificationState == nil
+        return decentralizedId != nil
     }
 
     var decentralizedId: String? {
@@ -171,24 +151,6 @@ extension SettingsManagerProtocol {
                 removeValue(for: SettingsKey.disclaimerHidden.rawValue)
             }
         }
-    }
-    
-    var verificationState: VerificationState? {
-        get {
-            value(of: VerificationState.self, for: SettingsKey.verificationState.rawValue)
-        }
-
-        set {
-            if let existingValue = newValue {
-                set(value: existingValue, for: SettingsKey.verificationState.rawValue)
-            } else {
-                removeValue(for: SettingsKey.verificationState.rawValue)
-            }
-        }
-    }
-
-    var hasVerificationState: Bool {
-        return data(for: SettingsKey.verificationState.rawValue) != nil
     }
 
     var invitationCode: String? {
@@ -263,7 +225,35 @@ extension SettingsManagerProtocol {
 
     var userName: String? {
         get {
-            selectedAccount?.username ?? string(for: SettingsKey.userName.rawValue)
+            SelectedWalletSettings.shared.currentAccount?.username
+        }
+    }
+
+    var inputBlockTimeInterval: Int? {
+        get {
+            integer(for: SettingsKey.inputBlockDate.rawValue)
+        }
+
+        set {
+            if let existingValue = newValue {
+                set(value: existingValue, for: SettingsKey.inputBlockDate.rawValue)
+            } else {
+                removeValue(for: SettingsKey.inputBlockDate.rawValue)
+            }
+        }
+    }
+
+    var failInputPinCount: Int? {
+        get {
+            integer(for: SettingsKey.failInputPinCount.rawValue)
+        }
+
+        set {
+            if let existingValue = newValue {
+                set(value: existingValue, for: SettingsKey.failInputPinCount.rawValue)
+            } else {
+                removeValue(for: SettingsKey.failInputPinCount.rawValue)
+            }
         }
     }
 }

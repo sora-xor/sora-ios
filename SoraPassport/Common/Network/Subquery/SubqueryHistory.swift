@@ -82,6 +82,19 @@ struct SubqueryLiquidity: Decodable {
     let type: TransactionLiquidityType
 }
 
+struct SubqueryCreatePoolLiquidity: Decodable {
+    let inputAssetA: String
+    let inputAssetB: String
+    let inputADesired: String
+    let inputBDesired: String
+}
+
+struct SubqueryReferral: Decodable {
+    let to: String
+    let from: String
+    let amount: String?
+}
+
 enum TransactionLiquidityType: String, Decodable {
     case deposit = "Deposit"
     case removal = "Removal"
@@ -90,11 +103,11 @@ enum TransactionLiquidityType: String, Decodable {
 extension TransactionType {
     var transactionLiquidityType: TransactionLiquidityType? {
         switch self {
-        case .liquidityAdd:
+        case .liquidityAdd, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime:
             return .deposit
         case .liquidityRemoval:
             return .removal
-        case .incoming, .outgoing, .reward, .slash, .swap, .extrinsic:
+        case .incoming, .outgoing, .reward, .slash, .swap, .migration, .extrinsic, .referral:
             return nil
         }
     }
@@ -105,7 +118,7 @@ extension TransactionLiquidityType {
         let preferredLanguages = LocalizationManager.shared.selectedLocale.rLanguages
         switch self {
         case .deposit:
-            return R.string.localizable.commonDeposit(preferredLanguages: preferredLanguages).uppercased()
+            return R.string.localizable.commonAddLiquidity(preferredLanguages: preferredLanguages).uppercased()
         case .removal:
             return R.string.localizable.commonRemove(preferredLanguages: preferredLanguages).uppercased()
         }

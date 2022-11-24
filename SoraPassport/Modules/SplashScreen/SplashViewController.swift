@@ -11,10 +11,6 @@ class SplashViewController: UIViewController, SplashViewProtocol {
 
     var presenter: SplashPresenter!
 
-    private lazy var splash: SplashView = {
-        return R.nib.launchScreen(owner: nil)!
-    }()
-
     private lazy var animationView = AnimationView(filePath: R.file.soraSplashJson.path()!)
 
     override func viewDidLoad() {

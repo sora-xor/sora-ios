@@ -51,7 +51,7 @@ final class KeystoreExportWrapper: KeystoreExportWrapperProtocol {
                                         publicKeyData: account.publicKeyData,
                                         cryptoType: account.cryptoType.utilsType)
 
-        let definition = try builder.build(from: keystoreData, password: password)
+        let definition = try builder.build(from: keystoreData, password: password, isEthereum: false)
 
         return try jsonEncoder.encode(definition)
     }

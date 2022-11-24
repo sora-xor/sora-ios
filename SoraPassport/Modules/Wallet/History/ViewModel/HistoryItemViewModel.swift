@@ -9,9 +9,9 @@ import Foundation
 final class HistoryItemViewModel: WalletViewModelProtocol {
     var cellReuseIdentifier: String {
         switch type {
-        case .incoming, .outgoing, .extrinsic, .reward, .slash, .swap:
+        case .incoming, .outgoing, .extrinsic, .migration, .reward, .slash, .swap, .referral:
             return HistoryConstants.historyCellId
-        case .liquidityAdd, .liquidityRemoval:
+        case .liquidityAdd, .liquidityAddNewPool, .liquidityAddToExistingPoolFirstTime, .liquidityRemoval:
             return HistoryConstants.liquidityHistoryCellId
         }
     }

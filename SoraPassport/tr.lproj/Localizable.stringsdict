@@ -13,9 +13,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li day left</string>
+        <string>gün kaldı</string>
         <key>other</key>
-        <string>%li days left</string>
+        <string>gün kaldı</string>
       </dict>
     </dict>
     <key>project.date.hour.plurals</key>
@@ -29,9 +29,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li hour left</string>
+        <string>saat kaldı</string>
         <key>other</key>
-        <string>%li hours left</string>
+        <string>saat kaldı</string>
       </dict>
     </dict>
     <key>project.date.minute.plurals</key>
@@ -45,9 +45,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li minute left</string>
+        <string>dakika kaldı</string>
         <key>other</key>
-        <string>%li minutes left</string>
+        <string>dakika kaldı</string>
       </dict>
     </dict>
     <key>project.date.second.plurals</key>
@@ -61,15 +61,15 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li second left</string>
+        <string>saniye kaldı</string>
         <key>other</key>
-        <string>%li seconds left</string>
+        <string>saniye kaldı</string>
       </dict>
     </dict>
     <key>received.invitations</key>
     <dict>
       <key>NSStringLocalizedFormatKey</key>
-      <string>You have received %#@invitation@</string>
+      <string>%#@invitation@ aldınız</string>
       <key>invitation</key>
       <dict>
         <key>NSStringFormatSpecTypeKey</key>
@@ -77,9 +77,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li invitation</string>
+        <string>davet</string>
         <key>other</key>
-        <string>%li invitations</string>
+        <string>davet</string>
       </dict>
     </dict>
     <key>favorite.users</key>
@@ -93,9 +93,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li favourite</string>
+        <string>favori</string>
         <key>other</key>
-        <string>%li favourites</string>
+        <string>favori</string>
       </dict>
     </dict>
     <key>voted.friends</key>
@@ -109,9 +109,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li friend voted</string>
+        <string>arkadaş oyladı</string>
         <key>other</key>
-        <string>%li friends voted</string>
+        <string>arkadaş oyladı</string>
       </dict>
     </dict>
     <key>referendum.date.day.plurals</key>
@@ -125,9 +125,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li day</string>
+        <string>gün</string>
         <key>other</key>
-        <string>%li days</string>
+        <string>gün</string>
       </dict>
     </dict>
     <key>referendum.date.hour.plurals</key>
@@ -141,9 +141,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li hour</string>
+        <string>saat</string>
         <key>other</key>
-        <string>%li hours</string>
+        <string>saat</string>
       </dict>
     </dict>
     <key>referendum.date.minute.plurals</key>
@@ -157,9 +157,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li minute</string>
+        <string>dakika</string>
         <key>other</key>
-        <string>%li minutes</string>
+        <string>dakika</string>
       </dict>
     </dict>
     <key>referendum.date.second.plurals</key>
@@ -173,9 +173,9 @@
         <key>NSStringFormatValueTypeKey</key>
         <string>li</string>
         <key>one</key>
-        <string>%li second</string>
+        <string>saniye</string>
         <key>other</key>
-        <string>%li seconds</string>
+        <string>saniye</string>
       </dict>
     </dict>
   </dict>

@@ -22,17 +22,25 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 
         let localizationManager = LocalizationManager.shared
 
-        let serviceCoordinator = ServiceCoordinator.createDefault()
+        let serviceCoordinator = ServiceCoordinator.shared
 
         let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
-                                              settings: SettingsManager.shared,
                                               serviceCoordinator: serviceCoordinator,
                                               keystoreImportService: keystoreImportService)
 
+        let view = MainTabBarViewController()
+        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+            return nil
+        }
+
+        //temparary feature toogle only for debuging
+        let isNeedRedesign = ApplicationConfig.shared.isNeedRedesign
         guard
-            let walletContext = try? WalletContextFactory().createContext(),
-            let walletController = createWalletController(walletContext: walletContext,
-                                                          localizationManager: localizationManager)
+            let walletContext = try? WalletContextFactory().createContext(connection: connection, presenter: view),
+            let walletController = isNeedRedesign ? createWalletRedesignController(walletContext: walletContext,
+                                                                                   localizationManager: localizationManager) :
+                    createWalletController(walletContext: walletContext,
+                                           localizationManager: localizationManager)
             else {
             return nil
         }
@@ -41,29 +49,20 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return nil
         }
 
-        guard let engine = WebSocketService.shared.connection else {
-            return nil
-        }
-        let polkaswapContext = PolkaswapNetworkOperationFactory(engine: engine)
+        let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         guard let polkaswapController = createPolkaswapController(walletContext: walletContext,
                                                                   polkaswapContext: polkaswapContext,
                                                                   localizationManager: localizationManager) else {
             return nil
         }
 
-        guard let settingsController = createProfileController(for: localizationManager) else {
+        guard let settingsController = createProfileController(for: localizationManager, walletContext: walletContext) else {
             return nil
         }
 
-        guard let parliamentController = createParliamentController(for: localizationManager) else {
-            return nil
-        }
-
-        let view = MainTabBarViewController()
         view.viewControllers = [
             walletController,
             polkaswapController,
-//            parliamentController, SN-1199
             stakingController,
             settingsController
         ]
@@ -86,7 +85,9 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let localizationManager = LocalizationManager.shared
 
         guard
-            let walletContext = try? WalletContextFactory().createContext(),
+            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+            let presenter = view as? UIViewController,
+            let walletContext = try? WalletContextFactory().createContext(connection: connection, presenter: presenter),
             let walletController = createWalletController(walletContext: walletContext,
                                                           localizationManager: localizationManager)
             else {
@@ -95,6 +96,101 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 
         wireframe.walletContext = walletContext
         view.didReplaceView(for: walletController, for: Self.walletIndex)
+    }
+    
+    static func createWalletController(walletContext: CommonWalletContextProtocol,
+                                       localizationManager: LocalizationManagerProtocol) -> UIViewController? {
+
+        guard let walletController = try? walletContext.createRootController() else {
+            return nil
+        }
+
+        let localizableTitle = LocalizableResource { locale in
+            R.string.localizable.tabbarWalletTitle(preferredLanguages: locale.rLanguages)
+        }
+
+        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+
+        walletController.navigationItem.largeTitleDisplayMode = .never
+        walletController.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.wallet())
+
+        localizationManager.addObserver(with: walletController) { [weak walletController] (_, _) in
+            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+            walletController?.tabBarItem.title = currentTitle
+        }
+
+        return walletController
+    }
+
+    static func createWalletRedesignController(walletContext: CommonWalletContextProtocol,
+                                               localizationManager: LocalizationManagerProtocol) -> UIViewController? {
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
+        assetManager.setup(for: SelectedWalletSettings.shared)
+
+        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
+
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
+            return nil
+        }
+
+        let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
+                                                     cacheFacade: CoreDataCacheFacade.shared,
+                                                     networkOperationFactory: walletContext.networkOperationFactory,
+                                                     identifierFactory: SingleProviderIdentifierFactory())
+
+        let viewModel = WalletViewModel(providerFactory: providerFactory, assetManager: assetManager)
+
+        let walletController = WalletViewController(viewModel: viewModel)
+
+        let coordinator = WalletCoordinator(rootController: walletController)
+
+        viewModel.coordinator = coordinator
+
+        let localizableTitle = LocalizableResource { locale in
+            R.string.localizable.tabbarWalletTitle(preferredLanguages: locale.rLanguages)
+        }
+
+        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+
+        walletController.navigationItem.largeTitleDisplayMode = .never
+        walletController.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.wallet())
+
+        localizationManager.addObserver(with: walletController) { [weak walletController] (_, _) in
+            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+            walletController?.tabBarItem.title = currentTitle
+        }
+
+        return walletController
+    }
+    
+    static func createPolkaswapController(walletContext: CommonWalletContextProtocol,
+                                          polkaswapContext: PolkaswapNetworkOperationFactoryProtocol,
+                                          localizationManager: LocalizationManagerProtocol) -> UIViewController? {
+        guard let view = PolkaswapMainViewFactory.createView(walletContext: walletContext, polkaswapContext: polkaswapContext) else {
+            return nil
+        }
+
+        let localizableTitle = LocalizableResource { locale in
+            R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: locale.rLanguages)
+        }
+
+        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+
+        let navigationController = SoraNavigationController().then {
+            $0.navigationBar.topItem?.title = currentTitle
+            $0.navigationBar.layoutMargins.left = 16
+            $0.navigationBar.layoutMargins.right = 16
+            $0.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.polkaswap())
+            $0.viewControllers = [view.controller]
+        }
+
+        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
+            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+            navigationController?.tabBarItem.title = currentTitle
+        }
+
+        return navigationController
     }
 }
 
@@ -132,59 +228,6 @@ private extension MainTabBarViewFactory {
 }
 
 private extension MainTabBarViewFactory {
-
-    static func createWalletController(walletContext: CommonWalletContextProtocol,
-                                       localizationManager: LocalizationManagerProtocol) -> UIViewController? {
-
-        guard let walletController = try? walletContext.createRootController() else {
-            return nil
-        }
-
-        let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.tabbarWalletTitle(preferredLanguages: locale.rLanguages)
-        }
-
-        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-
-        walletController.navigationItem.largeTitleDisplayMode = .never
-        walletController.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.wallet())
-
-        localizationManager.addObserver(with: walletController) { [weak walletController] (_, _) in
-            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-            walletController?.tabBarItem.title = currentTitle
-        }
-
-        return walletController
-    }
-
-    static func createPolkaswapController(walletContext: CommonWalletContextProtocol,
-                                          polkaswapContext: PolkaswapNetworkOperationFactoryProtocol,
-                                          localizationManager: LocalizationManagerProtocol) -> UIViewController? {
-        guard let view = PolkaswapMainViewFactory.createView(walletContext: walletContext, polkaswapContext: polkaswapContext) else {
-            return nil
-        }
-
-        let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: locale.rLanguages)
-        }
-
-        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-
-        let navigationController = SoraNavigationController().then {
-            $0.navigationBar.topItem?.title = currentTitle
-            $0.navigationBar.layoutMargins.left = 16
-            $0.navigationBar.layoutMargins.right = 16
-            $0.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.polkaswap())
-            $0.viewControllers = [view.controller]
-        }
-
-        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
-            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-            navigationController?.tabBarItem.title = currentTitle
-        }
-
-        return navigationController
-    }
 
     static func createParliamentController(for localizationManager: LocalizationManagerProtocol) -> UIViewController? {
         guard let view = ParliamentViewFactory.createView() else {
@@ -242,8 +285,9 @@ private extension MainTabBarViewFactory {
         return navigationController
     }
 
-    static func createProfileController(for localizationManager: LocalizationManagerProtocol) -> UIViewController? {
-        guard let view = ProfileViewFactory.createView() else { return nil }
+    static func createProfileController(for localizationManager: LocalizationManagerProtocol,
+                                        walletContext: CommonWalletContextProtocol) -> UIViewController? {
+        guard let view = ProfileViewFactory.createView(walletContext: walletContext) else { return nil }
 
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.commonSettings(preferredLanguages: locale.rLanguages)

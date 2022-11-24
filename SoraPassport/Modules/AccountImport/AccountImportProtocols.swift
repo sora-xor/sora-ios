@@ -13,15 +13,17 @@ protocol AccountImportViewProtocol: ControllerBackedProtocol {
     func setPassword(viewModel: InputViewModelProtocol)
     func setDerivationPath(viewModel: InputViewModelProtocol)
     func setUploadWarning(message: String)
+    func dissmissPresentedController()
 }
 
-protocol AccountImportPresenterProtocol: class {
+protocol AccountImportPresenterProtocol: AnyObject {
     func setup()
     func proceed()
     func activateURL(_ url: URL)
+    func openSourceTypeView()
 }
 
-protocol AccountImportInteractorInputProtocol: class {
+protocol AccountImportInteractorInputProtocol: AnyObject {
     func setup()
     func importAccountWithMnemonic(request: AccountImportMnemonicRequest)
     func importAccountWithSeed(request: AccountImportSeedRequest)
@@ -29,17 +31,22 @@ protocol AccountImportInteractorInputProtocol: class {
     func deriveMetadataFromKeystore(_ keystore: String)
 }
 
-protocol AccountImportInteractorOutputProtocol: class {
+protocol AccountImportInteractorOutputProtocol: AnyObject {
     func didReceiveAccountImport(metadata: AccountImportMetadata)
     func didCompleteAccountImport()
-    func didReceiveAccountImport(error: Error)
+    func didReceiveAccountImport(error: Swift.Error)
     func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?)
 }
 
 protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {
     func proceed(from view: AccountImportViewProtocol?)
+    func showAccountImportSourceSelector(from controller: UIViewController,
+                                         title: String,
+                                         sourceTypes: [AccountImportSource],
+                                         selectedIndex: Int,
+                                         delegate: SourceSelectorViewDelegate)
 }
 
-protocol AccountImportViewFactoryProtocol: class {
+protocol AccountImportViewFactoryProtocol: AnyObject {
 	static func createViewForOnboarding() -> AccountImportViewProtocol?
 }

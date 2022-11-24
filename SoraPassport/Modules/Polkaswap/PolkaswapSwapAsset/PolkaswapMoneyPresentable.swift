@@ -10,66 +10,131 @@ protocol PolkaswapMoneyPresentable {
     var formatter: NumberFormatter { get }
     var innerAmount: String { get }
     var precision: Int16 { get }
+    var additionalSet: String? { get set }
 
     func transform(input: String, from locale: Locale) -> String
+}
+
+protocol PercentPresentable : PolkaswapMoneyPresentable {
+
 }
 
 private struct MoneyPresentableConstants {
     static let singleZero = "0"
 }
 
+extension PercentPresentable {
+    private func isValid(amount: String) -> Bool {
+        return formatter.number(from: amount) != nil
+    }
+
+    func set(_ amount: String) -> String {
+        guard amount.rangeOfCharacter(from: notEligibleSet()) == nil else {
+            return self.innerAmount
+        }
+
+        if amount.hasSuffix(decimalSeparator()) {
+            return amount
+        }
+
+        var settingAmount = amount.replacingOccurrences(of: groupingSeparator(),
+                                                        with: "")
+
+        if settingAmount.hasPrefix(decimalSeparator()) {
+            settingAmount = "\(MoneyPresentableConstants.singleZero)\(settingAmount)"
+        }
+
+        return isValid(amount: settingAmount) ? settingAmount : self.innerAmount
+    }
+
+    func add(_ amount: String) -> String {
+        guard amount.rangeOfCharacter(from: notEligibleSet()) == nil else {
+            return self.innerAmount
+        }
+
+        if amount == decimalSeparator() {
+            if self.innerAmount.contains(decimalSeparator()) {
+                return self.innerAmount
+            }
+            return self.innerAmount + amount
+        }
+
+        var newAmount = (self.innerAmount + amount).replacingOccurrences(of: groupingSeparator(),
+                                                                    with: "")
+
+        if newAmount.hasPrefix(decimalSeparator()) {
+            newAmount = "\(MoneyPresentableConstants.singleZero)\(newAmount)"
+        }
+
+        return isValid(amount: newAmount) ? newAmount : self.innerAmount
+    }
+}
+
 extension PolkaswapMoneyPresentable {
-    
+
     var formattedAmount: String? {
         guard !innerAmount.isEmpty else {
             return ""
         }
 
-        guard let decimalAmount = Decimal(string: innerAmount, locale: formatter.locale) else {
+        guard innerAmount != decimalSeparator() else {
+            return "0" + decimalSeparator()
+        }
+
+        guard innerAmount.last != Character(decimalSeparator()) else {
+            return innerAmount
+        }
+
+        // TODO: fix max precision is only 16, but 18 needed!
+        guard let decimalAmount = formatter.number(from: innerAmount) else {
             return nil
         }
 
-        var amountFormatted = formatter.string(from: decimalAmount as NSDecimalNumber)
+        var amountFormatted = formatter.string(from: decimalAmount) ?? ""
         let separator = decimalSeparator()
 
         if innerAmount.hasSuffix(separator) {
-            amountFormatted?.append(separator)
+            amountFormatted.append(separator)
         } else {
             let amountParts = innerAmount.components(separatedBy: separator)
-            let formattedParts = amountFormatted?.components(separatedBy: separator)
+            let formattedParts = amountFormatted.components(separatedBy: separator)
 
-            if amountParts.count == 2 && formattedParts?.count == 1 {
+            if amountParts.count == 2 && formattedParts.count == 1 {
                 // add tralling zeros including decimal separator
                 let trallingZeros = String((0..<amountParts[1].count).map { _ in
                     Character(MoneyPresentableConstants.singleZero)
                 })
 
-                amountFormatted?.append("\(separator)\(trallingZeros)")
-            } else if amountParts.count == 2 && formattedParts?.count == 2 {
+                amountFormatted.append("\(separator)\(trallingZeros)")
+            } else if amountParts.count == 2 && formattedParts.count == 2 {
                 // check whether tralling decimal zeros were cut during formatting
-                if let decimalCount = formattedParts?[1].count, decimalCount < amountParts[1].count {
-                    let zerosCount = amountParts[1].count - decimalCount
+                if formattedParts[1].count < amountParts[1].count {
+                    let zerosCount = amountParts[1].count - formattedParts[1].count
                     let trallingZeros = String((0..<zerosCount).map { _ in
                         Character(MoneyPresentableConstants.singleZero)
                     })
 
-                    amountFormatted?.append("\(trallingZeros)")
+                    amountFormatted.append("\(trallingZeros)")
                 }
             }
         }
-        
+
         return amountFormatted
     }
 
-    private func decimalSeparator() -> String {
+    fileprivate func decimalSeparator() -> String {
         return formatter.decimalSeparator!
     }
     
-    private func groupingSeparator() -> String {
+    fileprivate func groupingSeparator() -> String {
         return formatter.groupingSeparator!
     }
+
+    fileprivate func percentSymbol() -> String {
+        formatter.percentSymbol
+    }
     
-    private func notEligibleSet() -> CharacterSet {
+    fileprivate func notEligibleSet() -> CharacterSet {
         return CharacterSet.decimalDigits
             .union(CharacterSet(charactersIn: "\(decimalSeparator())\(groupingSeparator())")).inverted
     }
@@ -87,6 +152,13 @@ extension PolkaswapMoneyPresentable {
             return self.innerAmount
         }
 
+        if amount == decimalSeparator() {
+            if self.innerAmount.contains(decimalSeparator()) {
+                return self.innerAmount
+            }
+            return self.innerAmount + amount
+        }
+
         var newAmount = (self.innerAmount + amount).replacingOccurrences(of: groupingSeparator(),
                                                                     with: "")
 
@@ -100,6 +172,10 @@ extension PolkaswapMoneyPresentable {
     func set(_ amount: String) -> String {
         guard amount.rangeOfCharacter(from: notEligibleSet()) == nil else {
             return self.innerAmount
+        }
+
+        if amount.hasSuffix(decimalSeparator()) {
+            return amount
         }
 
         var settingAmount = amount.replacingOccurrences(of: groupingSeparator(),

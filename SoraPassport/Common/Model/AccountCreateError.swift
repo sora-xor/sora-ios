@@ -16,29 +16,27 @@ enum AccountCreateError: Error {
 
 extension AccountCreateError: ErrorContentConvertible {
     func toErrorContent(for locale: Locale?) -> ErrorContent {
-        let title = R.string.localizable.mnemonicInvalidTitle(preferredLanguages: locale?.rLanguages)
+        let title: String
         let message: String
 
         switch self {
         case .invalidMnemonicSize:
+            title = R.string.localizable.mnemonicInvalidTitle(preferredLanguages: locale?.rLanguages)
             message = R.string.localizable
                 .accessRestoreWordsErrorMessage(preferredLanguages: locale?.rLanguages)
         case .invalidMnemonicFormat:
+            title = R.string.localizable.mnemonicInvalidTitle(preferredLanguages: locale?.rLanguages)
             message = R.string.localizable
                 .accessRestorePhraseErrorMessage(preferredLanguages: locale?.rLanguages)
-//        case .invalidSeed:
-//            message = R.string.localizable
-//                .accountImportInvalidSeed(preferredLanguages: locale?.rLanguages)
-//        case .invalidKeystore:
-//            message = R.string.localizable
-//                .accountImportInvalidKeystore(preferredLanguages: locale?.rLanguages)
-//        case .unsupportedNetwork:
-//            message = R.string.localizable
-//                .commonUnsupportedNetworkMessage(preferredLanguages: locale?.rLanguages)
-//        case .duplicated:
-//            message = R.string.localizable
-//                .accountAddAlreadyExistsMessage(preferredLanguages: locale?.rLanguages)
-        default: message = "Wrong"
+        case .invalidSeed:
+            title = R.string.localizable.commonErrorSeedIsNotValidTitle(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.commonErrorSeedIsNotValid(preferredLanguages: locale?.rLanguages)
+        case .duplicated:
+            title = R.string.localizable.accountAlreadyImported(preferredLanguages: locale?.rLanguages)
+            message = R.string.localizable.accountAlreadyImportedDescription(preferredLanguages: locale?.rLanguages)
+        case .invalidKeystore, .unsupportedNetwork:
+            title = R.string.localizable.accountImportDefaultError(preferredLanguages: locale?.rLanguages)
+            message = "" // TODO: no design
         }
 
         return ErrorContent(title: title, message: message)

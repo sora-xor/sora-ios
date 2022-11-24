@@ -159,6 +159,9 @@ class PolkaswapPoolCell: UITableViewCell {
             rightTitle: viewModel.bonusApy,
             rightSubtitle: ""
         )
+        
+        //TODO: Need to refactored in redesign
+        detailsViews[1].isHidden = viewModel.bonusApy == "0"
         detailsViews[2].configure(titleLabel: baseTitle, rightTitle: viewModel.baseAssetPoolded, rightSubtitle: viewModel.baseAssetFee)
         detailsViews[3].configure(titleLabel: targetTitle, rightTitle: viewModel.targetAssetPooled, rightSubtitle: viewModel.targetAssetFee)
 

@@ -26,11 +26,11 @@ final class AccountListConfigurator {
         assetStyleFactory = AssetStyleFactory()
 
         let amountFormatterFactory = AmountFormatterFactory()
-
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         viewModelFactory = AccountListViewModelFactory(address: address,
                                                        chain: chain,
                                                        assetCellStyleFactory: assetStyleFactory,
-                                                       assetManager: AssetManager.shared,
+                                                       assetManager: assetManager,
                                                        commandDecorator: commandDecorator,
                                                        amountFormatterFactory: amountFormatterFactory/*,
                                                        priceAsset: priceAsset,

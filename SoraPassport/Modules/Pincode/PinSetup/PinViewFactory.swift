@@ -67,6 +67,37 @@ class PinViewFactory: PinViewFactoryProtocol {
 
         return pinSetupView
     }
+    
+    static func createPinUpdateView(completion: @escaping () -> Void) -> PinSetupViewProtocol? {
+        let pinSetupView = PinSetupViewController(nib: R.nib.pinSetupViewController)
+
+        pinSetupView.mode = .create
+
+        let presenter = PinSetupPresenter()
+        let wireframe = PinSetupWireframe(
+            localizationManager: LocalizationManager.shared
+        )
+
+        let config = ApplicationConfig.shared!
+        let interactor = PinSetupInteractor(secretManager: KeychainManager.shared,
+                                            settingsManager: SettingsManager.shared,
+                                            biometryAuth: BiometryAuth(),
+                                            config: config as ApplicationConfigProtocol
+        )
+
+        pinSetupView.presenter = presenter
+        presenter.view = pinSetupView
+        presenter.interactor = interactor
+        presenter.wireframe = wireframe
+        presenter.isUpdateTo6Symbols = true
+        presenter.completion = completion
+
+        interactor.presenter = presenter
+
+        pinSetupView.localizationManager = LocalizationManager.shared
+
+        return pinSetupView
+    }
 
     static func createSecuredPinView() -> PinSetupViewProtocol? {
         let pinVerifyView = PinSetupViewController(nib: R.nib.pinSetupViewController)

@@ -10,3 +10,17 @@ enum AccountImportSource: CaseIterable {
     case seed
     case keystore
 }
+
+extension AccountImportSource: SourceType {
+    func titleForLocale(_ locale: Locale) -> String {
+        switch self {
+        case .mnemonic: return R.string.localizable.commonPassphraseTitle(preferredLanguages: locale.rLanguages)
+        case .seed: return R.string.localizable.commonRawSeed(preferredLanguages: locale.rLanguages)
+        case .keystore: return "JSON" // for the future
+        }
+    }
+
+    var descriptionText: String? {
+        return nil
+    }
+}

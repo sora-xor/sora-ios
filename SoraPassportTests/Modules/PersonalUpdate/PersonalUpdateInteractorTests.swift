@@ -156,10 +156,14 @@ class PersonalUpdateInteractorTests: NetworkBaseTests {
 
     private func createInteractor() -> PersonalUpdateInteractor {
         var inMemorySettingsManager = InMemorySettingsManager()
-        inMemorySettingsManager.selectedAccount = AccountItem(address: "5G71rM4RwZehaHsGNXc6FMjZoWJRCooMWARHY6YU2WDpNgpA",
-                                                               cryptoType: .sr25519,
-                                                               username: "test user",
-                                                               publicKeyData: Data())
+        inMemorySettingsManager.set(value: AccountItem(address: "5G71rM4RwZehaHsGNXc6FMjZoWJRCooMWARHY6YU2WDpNgpA",
+                                                              cryptoType: .sr25519,
+                                                              networkType: 69,
+                                                              username: "test user",
+                                                              publicKeyData: Data(),
+                                                              settings: AccountSettings(),
+                                                              order: 0,
+                                                              isSelected: true), for:  SettingsKey.selectedAccount.rawValue)
         return PersonalUpdateInteractor(settingsManager: inMemorySettingsManager)
     }
 }

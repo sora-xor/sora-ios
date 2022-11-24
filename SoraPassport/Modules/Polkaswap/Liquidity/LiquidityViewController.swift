@@ -3,22 +3,21 @@
 * SPDX-License-Identifier: Apache 2.0
 */
 
-import CommonWallet
 import SoraUI
 import UIKit
 import SoraFoundation
+import Anchorage
 
-final class LiquidityViewController: UIViewController {
+final class LiquidityViewController: UIViewController & KeyboardAdoptable {
     private enum Style {
-        static let expandedDetailsBottomConstraint: CGFloat = 340
-        static let collapsedDetailsBottomConstraint: CGFloat = 0
         static let dimViewAnimationDuration: CGFloat = 0.6
     }
 
     var presenter: LiquidityPresenterProtocol!
 
-    var amountFormatterFactory: AmountFormatterFactoryProtocol?
+    let amountFormatterFactory = AmountFormatterFactory()
 
+    @IBOutlet weak var scrollView: UIScrollView?
     @IBOutlet var dimView: UIView!
     @IBOutlet var amountLabel: UILabel!
     @IBOutlet var amountValueLabel: UILabel!
@@ -34,34 +33,37 @@ final class LiquidityViewController: UIViewController {
     @IBOutlet var slippageButton: NeumorphismButton!
     @IBOutlet var slippageHelperTextField: PolkaswapSlippageHelperTextField!
 
-    @IBOutlet var detailsView: UIView!
+    var detailsState: DetailsState = .collapsed
+    @IBOutlet var detailsView: LiquidityDetailsView?
     @IBOutlet var detailsLabel: UILabel!
     @IBOutlet var detailsButton: NeumorphismButton!
 
-    @IBOutlet var yourPositionLabel: UILabel!
-    @IBOutlet var firstAssetTitleLabel: UILabel!
-    @IBOutlet var firstAssetValueLabel: UILabel!
-    @IBOutlet var secondAssetTitleLabel: UILabel!
-    @IBOutlet var secondAssetValueLabel: UILabel!
-    @IBOutlet var shareOfPoolTitleLabel: UILabel!
-    @IBOutlet var shareOfPoolValueLabel: UILabel!
+    @IBOutlet weak var stack: UIStackView!
+    @IBOutlet var firstProviderView: UIView!
+    @IBOutlet weak var firstProviderTitleLabel: UILabel!
+    @IBOutlet weak var firstProviderDescriptionLabel: UILabel!
 
-    @IBOutlet var pricesAndFeesLabel: UILabel!
-    @IBOutlet var directExchangeRateTitleLabel: UILabel!
-    @IBOutlet var directExchangeRateValueLabel: UILabel!
-    @IBOutlet var inversedExchangeRateTitleLabel: UILabel!
-    @IBOutlet var inversedExchangeRateValueLabel: UILabel!
-    @IBOutlet var sbApyTitleLabel: UILabel!
-    @IBOutlet var sbApyValueLabel: UILabel!
-    @IBOutlet var networkFeeTitleLabel: UILabel!
-    @IBOutlet var networkFeeValueLabel: UILabel!
-
-    @IBOutlet var bottomConstraint: NSLayoutConstraint!
+    var keyboardHandler: KeyboardHandler?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setup()
         presenter.setup()
+        applyLocalization()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+
+        if keyboardHandler == nil {
+            setupKeyboardHandler()
+        }
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+
+        clearKeyboardHandler()
     }
 
     private func setup() {
@@ -72,6 +74,7 @@ final class LiquidityViewController: UIViewController {
         setupNextButton()
         setupSlippageContainer()
         setupDetailsContainer()
+        setupFirstProviderView()
     }
 
     private func setupDimView() {
@@ -92,10 +95,8 @@ final class LiquidityViewController: UIViewController {
     }
 
     private func setupHeaderContainer() {
-        if presenter.mode == .liquidityAdd {
-            sliderContainer.isHidden = true
-            return
-        }
+        sliderContainer.isHidden = presenter.isAddingLiquidity
+        if presenter.isAddingLiquidity { return }
         amountLabel.text = R.string.localizable.transactionAmountTitle(preferredLanguages: languages).uppercased()
         amountLabel.font = UIFont.styled(for: .paragraph1)
         amountLabel.textColor = R.color.neumorphism.text()
@@ -103,16 +104,18 @@ final class LiquidityViewController: UIViewController {
     }
 
     private func setupAssetsViews() {
-        firstAssetView.isAssetChangeable = false
+        firstAssetView.isAssetChangeable = presenter.isAddingLiquidity
         firstAssetView.isBalanceHidden = true
         firstAssetView.isFirstAsset = true
-        firstAssetView.fromToLabel.text = R.string.localizable.commonOutput(preferredLanguages: languages).uppercased()
-        secondAssetView.isAssetChangeable = false
+        secondAssetView.isAssetChangeable = presenter.isAddingLiquidity
         secondAssetView.isBalanceHidden = true
         secondAssetView.isFirstAsset = false
-        secondAssetView.fromToLabel.text = R.string.localizable.commonOutput(preferredLanguages: languages).uppercased()
         firstAssetView.delegate = self
         secondAssetView.delegate = self
+        firstAssetView.localizationManager = localizationManager
+        secondAssetView.localizationManager = localizationManager
+        firstAssetView.fromToLabel.text = R.string.localizable.commonDeposit(preferredLanguages: languages).uppercased()
+        secondAssetView.fromToLabel.text = R.string.localizable.commonDeposit(preferredLanguages: languages).uppercased()
     }
 
     private func setupNextButton() {
@@ -135,26 +138,17 @@ final class LiquidityViewController: UIViewController {
         detailsLabel.textColor = R.color.neumorphism.buttonTextDisabled()!
         detailsLabel.text = R.string.localizable.polkaswapDetails(preferredLanguages: languages).uppercased()
         detailsButton.addTarget(self, action: #selector(detailsButtonPressed), for: .touchUpInside)
+    }
 
-        let boldParagraphLabels: [UILabel] = [
-            detailsLabel, yourPositionLabel, pricesAndFeesLabel
-        ]
-        boldParagraphLabels.forEach { $0.font = UIFont.styled(for: .paragraph1, isBold: true) }
-        let paragraphLabels: [UILabel] = [
-            firstAssetTitleLabel, firstAssetValueLabel,
-            secondAssetTitleLabel, secondAssetValueLabel,
-            shareOfPoolTitleLabel, shareOfPoolValueLabel,
-            directExchangeRateTitleLabel, directExchangeRateValueLabel,
-            inversedExchangeRateTitleLabel, inversedExchangeRateValueLabel,
-            sbApyTitleLabel, sbApyValueLabel,
-            networkFeeTitleLabel, networkFeeValueLabel
-        ]
-        paragraphLabels.forEach { $0.font = UIFont.styled(for: .paragraph1) }
-        yourPositionLabel.text = R.string.localizable.polkaswapYourPosition(preferredLanguages: languages).uppercased()
-        shareOfPoolTitleLabel.text = R.string.localizable.poolShareTitle(preferredLanguages: languages).uppercased()
-        pricesAndFeesLabel.text = R.string.localizable.polkaswapInfoPricesAndFees(preferredLanguages: languages)
-        sbApyTitleLabel.text = R.string.localizable.polkaswapSbapy(preferredLanguages: languages)
-        networkFeeTitleLabel.text = R.string.localizable.polkaswapNetworkFee(preferredLanguages: languages).uppercased()
+    fileprivate func setupFirstProviderView() {
+        firstProviderTitleLabel?.font = UIFont.styled(for: .paragraph1, isBold: true)
+        firstProviderDescriptionLabel?.font = UIFont.styled(for: .paragraph1)
+        firstProviderTitleLabel?.text = R.string.localizable.liquidityPairCreationTitle(preferredLanguages: languages).uppercased()
+        firstProviderDescriptionLabel?.text = R.string.localizable.liquidityPairCreationDescription(preferredLanguages: languages)
+    }
+
+    private func setSlippage(_ newSlippage: String) {
+        slippageValueLabel.text = newSlippage
     }
 
     private func changeDimView(isHidden: Bool, animated: Bool) {
@@ -171,16 +165,17 @@ final class LiquidityViewController: UIViewController {
         }
     }
 
+    func updateWhileKeyboardFrameChanging(_ frame: CGRect) {
+        let offset = UIScreen.main.bounds.size.height - frame.origin.y
+        scrollView?.contentInset.bottom = offset
+    }
+
     @objc private func proceedButtonPressed() {
         presenter.didPressNextButton()
     }
 
     @objc private func didPressSlippage() {
-        changeDimView(isHidden: false, animated: false)
-        slippageHelperTextField.becomeFirstResponder()
-        slippageHelperTextField.slippageView?.parentField = slippageHelperTextField
-        slippageHelperTextField.slippageView?.delegate = self
-        slippageHelperTextField.slippageView?.amountField.becomeFirstResponder()
+        presenter.showSlippageController()
     }
 
     @objc private func actionOpenInfo() {
@@ -205,6 +200,10 @@ final class LiquidityViewController: UIViewController {
 }
 
 extension LiquidityViewController: LiquidityViewProtocol {
+    func setSliderAmount(_ amount: Int) {
+        slider.value = Float(amount)
+    }
+
     func setPercentage(_ value: Int) {
         amountValueLabel.text = "\(value)%"
     }
@@ -218,76 +217,108 @@ extension LiquidityViewController: LiquidityViewProtocol {
     }
 
     func setFirstAssetBalance(_ balance: String?) {
+        firstAssetView.isBalanceHidden = balance == nil
         firstAssetView.setBalance(balance)
     }
     func setSecondAssetBalance(_ balance: String?) {
+        secondAssetView.isBalanceHidden = balance == nil
         secondAssetView.setBalance(balance)
     }
 
     func setFirstAmount(_ amount: Decimal) {
-        let formatter = amountFormatterFactory!.createPolkaswapAmountFormatter().value(for: locale)
-        firstAssetView?.setAmount(amount, formatter: formatter)
+        firstAssetView?.setAmount(amount)
     }
 
     func setSecondAmount(_ amount: Decimal) {
-        let formatter = amountFormatterFactory!.createPolkaswapAmountFormatter().value(for: locale)
-        secondAssetView?.setAmount(amount, formatter: formatter)
+        secondAssetView?.setAmount(amount)
     }
 
-    func setDetailsEnabled(_ isEnabled: Bool) {
+    func setSlippageAmount(_ amount: Decimal) {
+        let percentFormatter = amountFormatterFactory.createPercentageFormatter().value(for: locale)
+        let newSlippage = percentFormatter.stringFromDecimal(amount) ?? "?"
+        setSlippage(newSlippage)
+    }
+
+    func setDetailsVisible(_ isEnabled: Bool) {
         [detailsLabel, detailsButton].forEach({$0.isHidden = !isEnabled})
     }
 
     func setDetails(_ detailsState: DetailsState) {
+        self.detailsState = detailsState
         switch detailsState {
         case .expanded:
-            detailsView.isHidden = false
+            detailsView?.isHidden = false
             detailsButton.setImage(R.image.arrowUp(), for: .normal)
             detailsLabel.textColor = R.color.brandPolkaswapPink()!
-            bottomConstraint.constant = Style.expandedDetailsBottomConstraint
         case .collapsed:
-            detailsView.isHidden = true
+            detailsView?.isHidden = true
             detailsButton.setImage(R.image.arrowDown(), for: .normal)
             detailsLabel.textColor = R.color.neumorphism.buttonTextDisabled()!
-            bottomConstraint.constant = Style.collapsedDetailsBottomConstraint
+
         default: break
         }
     }
 
-    func setNextButton(isEnabled: Bool, title: String) {
+    func setNextButton(isEnabled: Bool, isLoading: Bool, title: String) {
+        firstAssetView.isUserInteractionEnabled = firstAssetView.isFirstResponder || !isLoading
+        secondAssetView.isUserInteractionEnabled = secondAssetView.isFirstResponder || !isLoading
         proceedButton.isEnabled = isEnabled
+        slider.isEnabled = !isLoading
         if isEnabled {
             proceedButton.color = R.color.brandPolkaswapPink()!
             proceedButton.setTitleColor(.white, for: .normal)
         }
         proceedButton.setTitle(title, for: .normal)
+        isLoading ? proceedButton.startProgress() : proceedButton.stopProgress()
     }
 
     func didReceiveDetails(viewModel: PoolDetailsViewModel) {
-        let formatter = amountFormatterFactory!.createPolkaswapAmountFormatter().value(for: localizationManager?.selectedLocale ?? Locale.current)
-        firstAssetTitleLabel.text = viewModel.firstAsset.symbol
-        secondAssetTitleLabel.text = viewModel.secondAsset.symbol
+        removeDetailsViewFromStack()
+        createDetailsView(viewModel: viewModel)
+        addDetailsViewToStack()
+        detailsView?.isHidden = detailsState == .collapsed
+    }
 
-        directExchangeRateTitleLabel.text = viewModel.directExchangeRateTitle
-        directExchangeRateValueLabel.text = formatter.stringFromDecimal(viewModel.directExchangeRateValue)
-        inversedExchangeRateTitleLabel.text = viewModel.inversedExchangeRateTitle
-        inversedExchangeRateValueLabel.text = formatter.stringFromDecimal(viewModel.inversedExchangeRateValue)
-        if let sbApy = formatter.stringFromDecimal(viewModel.sbApyValue) {
-            sbApyValueLabel.text = "\(sbApy)%"
-        } else {
-            sbApyValueLabel.text = ""
+    func createDetailsView(viewModel: PoolDetailsViewModel) {
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+        let formatter = amountFormatterFactory.createPolkaswapAmountFormatter().value(for: locale)
+        let percentageFormatter = amountFormatterFactory.createPercentageFormatter(maxPrecision: 8).value(for: locale)
+        detailsView = LiquidityDetailsView(viewModel: viewModel, languages: languages, formatter: formatter, percentageFormatter: percentageFormatter)
+        detailsView?.delegate = self
+    }
+
+    func removeDetailsViewFromStack() {
+        if let detailsView = detailsView, stack.subviews.contains(detailsView) {
+            stack.removeArrangedSubview(detailsView)
+            detailsView.removeFromSuperview()
+            self.detailsView = nil
         }
-        if let networkFee = formatter.stringFromDecimal(viewModel.networkFeeValue) {
-            networkFeeValueLabel.text = "\(networkFee) XOR"
+    }
+
+    func addDetailsViewToStack() {
+        if let detailsView = detailsView, !stack.subviews.contains(detailsView) {
+            stack.insertArrangedSubview(detailsView, at: 7)
+            detailsView.leadingAnchor == stack.leadingAnchor
+            detailsView.trailingAnchor == stack.trailingAnchor
+            detailsView.widthAnchor == stack.widthAnchor
+        }
+    }
+
+    func setFirstProviderView(isHidden: Bool) {
+        if isHidden {
+            stack.removeArrangedSubview(firstProviderView)
+            firstProviderView.removeFromSuperview()
         } else {
-            networkFeeValueLabel.text = ""
+            stack.addArrangedSubview(firstProviderView)
         }
     }
 }
 
 extension LiquidityViewController: PolkaswapAssetViewDelegate {
     func didPressAsset(_ view: PolkaswapAssetView) {
-        //asset not changeable, but protocol requires
+
+        let isFrom = view == firstAssetView
+        presenter.didPressAsset(isFrom: isFrom)
     }
 
     func didChangeAmount(_ amount: Decimal?, view: PolkaswapAssetView) {
@@ -317,13 +348,29 @@ extension LiquidityViewController: Localizable {
     }
 
     func applyLocalization() {
-        if presenter.mode == .liquidityRemoval {
+        if !presenter.isAddingLiquidity {
             navigationItem.title = R.string.localizable
                 .removeLiquidityTitle(preferredLanguages: languages)
+            amountLabel?.text = R.string.localizable.transactionAmountTitle(preferredLanguages: languages).uppercased()
         } else {
             navigationItem.title = R.string.localizable
                 .addLiquidityTitle(preferredLanguages: languages)
         }
+        firstAssetView?.applyLocalization()
+        secondAssetView?.applyLocalization()
+        firstAssetView?.fromToLabel.text = presenter.isAddingLiquidity ? R.string.localizable.commonDeposit(preferredLanguages: languages).uppercased() :
+            R.string.localizable.commonOutput(preferredLanguages: languages).uppercased()
+        secondAssetView?.fromToLabel.text = firstAssetView?.fromToLabel.text
+        setupFirstProviderView()
+    }
+}
 
+extension LiquidityViewController: LiquidityDetailsViewDelegate {
+    func didTapSbApy() {
+        presenter.didPressSbApyButton()
+    }
+
+    func didTapFee() {
+        presenter.didPressNetworkFee()
     }
 }

@@ -17,9 +17,9 @@ class PolkaswapSlippageSelectorViewModel {
     var warning: String?
     var description: String
     var buttons: [String]
-    var amountInputViewModel: AmountInputViewModel
+    var amountInputViewModel: PolkaswapAmountInputViewModelProtocol
 
-    init(title: String, warning: String?, description: String, buttons: [String], amountInputViewModel: AmountInputViewModel) {
+    init(title: String, warning: String?, description: String, buttons: [String], amountInputViewModel: PolkaswapAmountInputViewModelProtocol) {
         self.title = title
         self.warning = warning
         self.description = description

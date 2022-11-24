@@ -5,6 +5,7 @@
 
 import Foundation
 import os
+import SoraKeystore
 
 protocol ApplicationConfigProtocol {
     var projectDecentralizedId: String { get }
@@ -29,9 +30,17 @@ protocol ApplicationConfigProtocol {
     var combinedTransfersHandlingDelay: TimeInterval { get }
     var polkaswapURL: URL { get }
     var rewardsURL: URL { get }
-    var parliamentURL: URL  { get }
+    var parliamentURL: URL { get }
     var phishingListURL: URL { get }
     var shareURL: URL { get }
+    var subqueryUrl: URL { get }
+    var addressType: SNAddressType { get }
+    var defaultChainNodes: Set<ChainNodeModel> { get }
+
+    var assetListURL: URL? { get }
+    var commonTypesURL: URL? { get }
+    var chainListURL: URL? { get }
+    var nodesURL: URL? { get }
 }
 
 private struct InternalConfig: Codable {
@@ -249,4 +258,116 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     var phishingListURL: URL {
         return URL(string: "https://polkadot.js.org/phishing/address.json")!
     }
+
+    var addressType: SNAddressType {
+        return SNAddressType(SettingsManager.shared.externalAddressPrefix ?? 69)
+    }
+
+    var defaultChainNodes: Set<ChainNodeModel> {
+    #if F_RELEASE
+        return [
+            ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "Sora", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://mof3.sora.org")!, name: "Sora", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://sora.api.onfinality.io/public-ws")!, name: "Sora onFinality", apikey: nil),
+        ]
+
+    #elseif F_STAGING || F_TEST
+        return [
+            ChainNodeModel(url: URL(string: "wss://ws.framenode-1.s1.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://ws.framenode-3.s2.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://ws.framenode-4.s2.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
+        ]
+    #else
+        return [
+            ChainNodeModel(url: URL(string: "wss://ws.framenode-1.s1.dev.sora2.soramitsu.co.jp")!, name: "framenode-1.s1.dev", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://ws.framenode-2.s2.dev.sora2.soramitsu.co.jp")!, name: "framenode-2.s2.dev", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://ws.framenode-3.s3.dev.sora2.soramitsu.co.jp")!, name: "framenode-3.s3.dev", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://ws.framenode-4.s3.dev.sora2.soramitsu.co.jp")!, name: "framenode-4.s3.dev", apikey: nil)
+        ]
+
+    #endif
+    }
+
+    var subqueryUrl: URL {
+        #if F_RELEASE
+            return URL(string: "https://subquery.q1.sora2.soramitsu.co.jp")!
+        #elseif F_STAGING || F_TEST
+            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging")!
+        #else
+            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-dev")!
+        #endif
+    }
+
+    var isNeedRedesign: Bool {
+    #if F_RELEASE || F_STAGING || F_TEST
+        return false
+    #else
+        return UserDefaults.standard.bool(forKey: "isNeedRedesign")
+    #endif
+    }
+    
+    var assetListURL: URL? {
+        return URL(string: "https://ipfs.io/ipfs/QmRApLbL174xytGCs8HwxboPRpPQC6XWJ21BggrycXpfWN?filename=whitelist.json")!
+    }
+
+    var caseName: String {
+    #if F_RELEASE || F_STAGING || F_TEST
+    return "0"
+    #else
+    return "1"
+    #endif
+    }
+
+    var nodesURL: URL? {
+        var stand = ""
+
+        #if F_RELEASE
+        stand = "prod"
+        #elseif F_STAGING || F_TEST
+        stand = "stage"
+        #else
+        stand = "dev"
+        #endif
+
+        return GitHubUrl.url(suffix: "sora2_config.json",
+                             branch: "sora2-substrate-js-library/metadata14/packages/types/src/metadata/\(stand)/")
+    }
+
+    var commonTypesURL: URL? {
+        GitHubUrl.url(suffix: "types_scalecodec_mobile.json", branch: "sora2-substrate-js-library/metadata14ios/packages/types/src/metadata/\(GitHubUrl.repoPrefix)/")
+    }
+
+    var chainListURL: URL? {
+        return GitHubUrl.url(suffix: "")
+    }
 }
+//swiftlint:enable line_length
+
+
+private enum GitHubUrl {
+
+    static var repoPrefix: String {
+        #if F_RELEASE
+            return "prod"
+        #elseif F_STAGING
+            return "stage"
+        #elseif F_TEST
+            return "test"
+        #else
+            return "dev"
+        #endif
+    }
+
+    private static var baseUrl: URL? {
+        URL(string: "https://raw.githubusercontent.com/sora-xor/")
+    }
+
+    private static let defaultBranch = repoPrefix
+
+    static func url(suffix: String, branch: String = defaultBranch) -> URL? {
+        baseUrl?.appendingPathComponent(branch).appendingPathComponent(suffix)
+    }
+}
+

@@ -38,9 +38,6 @@ final class InvitationLinkService {
     init(settings: SettingsManagerProtocol) {
         self.settings = settings
 
-        if let code = settings.invitationCode {
-            link = InvitationDeepLink(code: code)
-        }
     }
 
 }
@@ -87,10 +84,6 @@ extension InvitationLinkService: InvitationLinkServiceProtocol {
         let oldLink = link
         link = InvitationDeepLink(code: code)
 
-        if !settings.isRegistered {
-            settings.invitationCode = code
-        }
-
         self.observers.forEach { wrapper in
             if let observer = wrapper.observer {
                 observer.didUpdateInvitationLink(from: oldLink)
@@ -115,6 +108,5 @@ extension InvitationLinkService: InvitationLinkServiceProtocol {
 
     func clear() {
         link = nil
-        settings.invitationCode = nil
     }
 }

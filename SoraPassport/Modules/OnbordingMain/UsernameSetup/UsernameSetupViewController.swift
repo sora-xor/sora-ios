@@ -8,11 +8,7 @@ import SoraFoundation
 import SoraUI
 
 final class UsernameSetupViewController: UIViewController {
-    enum Mode {
-        case onboarding
-        case editing
-    }
-    var mode: Mode = .onboarding {
+    var mode: UsernameSetupMode = .onboarding {
         didSet {
             if isViewLoaded {
                 setupLocalization()
@@ -134,6 +130,7 @@ final class UsernameSetupViewController: UIViewController {
         inputField.resignFirstResponder()
         presenter.userName = inputField.text
         if mode == .editing {
+            presenter.endEditing()
             navigationController?.popViewController(animated: true)
         } else {
             presenter.proceed()
@@ -209,7 +206,7 @@ extension UsernameSetupViewController: Localizable {
         inputField.placeholderText = R.string.localizable.personalInfoUsernameV1(preferredLanguages: languages)
 
         switch mode {
-        case .onboarding:
+        case .onboarding, .creating:
             title = R.string.localizable.create_account_title(preferredLanguages: languages).capitalized
             privacyLabel.attributedText = privacyTitle
         case .editing:

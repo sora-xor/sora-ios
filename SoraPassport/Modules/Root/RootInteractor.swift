@@ -112,5 +112,6 @@ extension RootInteractor: RootInteractorInputProtocol {
         configureNetworkAvailabilityService()
         configureDeepLinkService()
         runMigrators()
+
     }
 }

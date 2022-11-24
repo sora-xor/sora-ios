@@ -21,7 +21,7 @@ final class AccountImportViewFactory: AccountImportViewFactoryProtocol {
         let presenter = AccountImportPresenter()
 
         let keystore = Keychain()
-        let settings = SettingsManager.shared
+        let settings = SelectedWalletSettings.shared
         let accountOperationFactory = AccountOperationFactory(keystore: keystore)
 
         let accountRepository: CoreDataRepository<AccountItem, CDAccountItem>
@@ -31,9 +31,12 @@ final class AccountImportViewFactory: AccountImportViewFactoryProtocol {
                                                  accountRepository: AnyDataProviderRepository(accountRepository),
                                                  operationManager: OperationManagerFacade.sharedManager,
                                                  settings: settings,
-                                                 keystoreImportService: keystoreImportService)
+                                                 keystoreImportService: keystoreImportService,
+                                                 eventCenter: EventCenter.shared)
 
-        let wireframe = AccountImportWireframe()
+        let localizationManager = LocalizationManager.shared
+        
+        let wireframe = AccountImportWireframe(localizationManager: localizationManager)
 
         view.presenter = presenter
         presenter.view = view
@@ -41,7 +44,6 @@ final class AccountImportViewFactory: AccountImportViewFactoryProtocol {
         presenter.wireframe = wireframe
         interactor.presenter = presenter
 
-        let localizationManager = LocalizationManager.shared
         view.localizationManager = localizationManager
         presenter.localizationManager = localizationManager
 
@@ -51,7 +53,7 @@ final class AccountImportViewFactory: AccountImportViewFactoryProtocol {
     static func createSilentImportInteractor() -> AccountImportInteractorInputProtocol? {
         let keystoreImportService = KeystoreImportService(logger: Logger.shared)
         let keystore = Keychain()
-        let settings = SettingsManager.shared
+        let settings = SelectedWalletSettings.shared
         let accountOperationFactory = AccountOperationFactory(keystore: keystore)
 
         let accountRepository: CoreDataRepository<AccountItem, CDAccountItem>
@@ -61,7 +63,8 @@ final class AccountImportViewFactory: AccountImportViewFactoryProtocol {
                                                  accountRepository: AnyDataProviderRepository(accountRepository),
                                                  operationManager: OperationManagerFacade.sharedManager,
                                                  settings: settings,
-                                                 keystoreImportService: keystoreImportService)
+                                                 keystoreImportService: keystoreImportService,
+                                                 eventCenter: EventCenter.shared)
         return interactor
     }
 
@@ -84,11 +87,13 @@ final class AccountImportViewFactory: AccountImportViewFactoryProtocol {
         let interactor = AddAccountImportInteractor(accountOperationFactory: accountOperationFactory,
                                                     accountRepository: AnyDataProviderRepository(accountRepository),
                                                     operationManager: OperationManagerFacade.sharedManager,
-                                                    settings: SettingsManager.shared,
+                                                    settings: SelectedWalletSettings.shared,
                                                     keystoreImportService: keystoreImportService,
                                                     eventCenter: EventCenter.shared)
 
-        let wireframe = AddImportedWireframe()
+        let localizationManager = LocalizationManager.shared
+        
+        let wireframe = AddImportedWireframe(localizationManager: localizationManager)
 
         view.presenter = presenter
         presenter.view = view
@@ -96,7 +101,46 @@ final class AccountImportViewFactory: AccountImportViewFactoryProtocol {
         presenter.wireframe = wireframe
         interactor.presenter = presenter
 
+        view.localizationManager = localizationManager
+        presenter.localizationManager = localizationManager
+
+        return view
+    }
+
+    static func createViewForAdding(endAddingBlock: (() -> Void)?) -> AccountImportViewProtocol? {
+        guard let keystoreImportService: KeystoreImportServiceProtocol =
+            URLHandlingService.shared.findService() else {
+            Logger.shared.error("Missing required keystore import service")
+            return nil
+        }
+
+        let view = AccountImportViewController(nib: R.nib.accountImportViewController)
+        let presenter = AccountImportPresenter()
+
+        let keystore = Keychain()
+        let accountOperationFactory = AccountOperationFactory(keystore: keystore)
+
+        let accountRepository: CoreDataRepository<AccountItem, CDAccountItem>
+            = UserDataStorageFacade.shared.createRepository()
+
+        let interactor = AddAccountImportInteractor(accountOperationFactory: accountOperationFactory,
+                                                    accountRepository: AnyDataProviderRepository(accountRepository),
+                                                    operationManager: OperationManagerFacade.sharedManager,
+                                                    settings: SelectedWalletSettings.shared,
+                                                    keystoreImportService: keystoreImportService,
+                                                    eventCenter: EventCenter.shared)
+
         let localizationManager = LocalizationManager.shared
+
+        let wireframe = AddImportedWireframe(localizationManager: localizationManager)
+   
+        view.presenter = presenter
+        presenter.view = view
+        presenter.interactor = interactor
+        presenter.wireframe = wireframe
+        interactor.presenter = presenter
+        wireframe.endAddingBlock = endAddingBlock
+
         view.localizationManager = localizationManager
         presenter.localizationManager = localizationManager
 

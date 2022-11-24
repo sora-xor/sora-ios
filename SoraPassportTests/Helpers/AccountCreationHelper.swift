@@ -119,14 +119,33 @@ final class AccountCreationHelper {
     static func selectAccount(_ accountItem: AccountItem, settings: SettingsManagerProtocol) throws {
         let type = try SS58AddressFactory().type(fromAddress: accountItem.address)
 
-        guard let connection = ConnectionItem.supportedConnections
-            .first(where: { $0.type == type.uint8Value }) else {
-            return
-        }
-
         var currentSettings = settings
+        currentSettings.set(value: accountItem, for: SettingsKey.selectedAccount.rawValue)
 
-        currentSettings.selectedAccount = accountItem
-        currentSettings.selectedConnection = connection
+        SelectedWalletSettings.shared.save(value: accountItem)
     }
+}
+
+extension InMemorySettingsManager: SelectedWalletSettingsProtocol {
+    public var currentAccount: SoraPassport.AccountItem? {
+        value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue)
+    }
+
+    public var hasSelectedAccount: Bool {
+        currentAccount != nil
+    }
+
+    public func performSave(value: SoraPassport.AccountItem, completionClosure: @escaping (Result<SoraPassport.AccountItem, Error>) -> Void) {
+
+    }
+
+    public func performSetup(completionClosure: @escaping (Result<SoraPassport.AccountItem?, Error>) -> Void) {
+
+    }
+
+    public func save(value: SoraPassport.AccountItem) {
+        set(value: value, for: SettingsKey.selectedAccount.rawValue)
+    }
+
+
 }

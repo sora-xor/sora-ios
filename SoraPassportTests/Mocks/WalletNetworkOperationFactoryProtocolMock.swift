@@ -7,6 +7,7 @@ import Foundation
 @testable import SoraPassport
 import CommonWallet
 import RobinHood
+import FearlessUtils
 
 final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFactoryProtocol/*, WalletRemoteHistoryOperationFactoryProtocol*/ {
     func getPoolsDetails() throws -> CompoundOperationWrapper<[PoolDetails]> {
@@ -37,6 +38,15 @@ final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFac
 //    var remoteHistoryClosure: ((OffsetPagination) -> CompoundOperationWrapper<MiddlewareTransactionPageData>)?
 
     func fetchBalanceOperation(_ assets: [String]) -> CompoundOperationWrapper<[BalanceData]?> {
+        if let closure = balanceClosure {
+            return closure(assets)
+        } else {
+            let operation = ClosureOperation<[BalanceData]?> { nil }
+            return CompoundOperationWrapper(targetOperation: operation)
+        }
+    }
+
+    func fetchBalanceOperation(_ assets: [String], onlyVisible: Bool) -> CompoundOperationWrapper<[BalanceData]?> {
         if let closure = balanceClosure {
             return closure(assets)
         } else {

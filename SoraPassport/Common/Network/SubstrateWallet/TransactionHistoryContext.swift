@@ -7,6 +7,11 @@ import Foundation
 
 enum TransactionContextKeys {
     static let extrinsicHash = "extrinsicHash"
+    static let blockHash = "blockHash"
+    static let referralTransactionType = "referralTransactionType"
+    static let sender = "sender"
+    static let referrer = "referrer"
+    static let referral = "referral"
     static let era = "era"
 
     static let transactionType: String = "transaction_type"
@@ -17,9 +22,12 @@ enum TransactionContextKeys {
     static let minMaxValue: String = "minMaxValue"
     
     //pools
+    static let dex: String = "dex"
     static let shareOfPool: String = "shareOfPoo"
     static let firstAssetAmount: String = "firstAssetAmount"
     static let secondAssetAmount: String = "secondAssetAmount"
+    static let firstReserves: String = "firstReserves"
+    static let totalIssuances: String = "totalIssuances"
     static let directExchangeRateValue: String = "directExchangeRateValue"
     static let inversedExchangeRateValue: String = "inversedExchangeRateValue"
     static let sbApy: String = "sbApy"
@@ -29,11 +37,11 @@ struct TransactionHistoryContext {
     static let cursor = "cursor"
     static let isComplete = "isComplete"
 
-    let cursor: String?
+    let cursor: Int?
     let isComplete: Bool
 
     init(
-        cursor: String?,
+        cursor: Int?,
         isComplete: Bool
     ) {
         self.isComplete = isComplete
@@ -42,13 +50,13 @@ struct TransactionHistoryContext {
 }
 
 extension TransactionHistoryContext {
-    init(context: [String: String]) {
-        cursor = context[Self.cursor] ?? nil
-        isComplete = context[Self.isComplete].map { Bool($0) ?? false } ?? false
+    init(context: [String: Any]) {
+        cursor = Int(context[Self.cursor] as? String ?? "1")
+        isComplete = context[Self.isComplete].map { Bool($0 as? String ?? "false") ?? false } ?? false
     }
 
-    func toContext() -> [String: String] {
-        var context = [Self.isComplete: String(isComplete)]
+    func toContext() -> [String: Any] {
+        var context: [String: Any] = [Self.isComplete: String(isComplete)]
 
         if let cursor = cursor {
             context[Self.cursor] = cursor

@@ -27,6 +27,7 @@ final class AccountImportPresenter {
     private(set) var selectedSourceType: AccountImportSource?
     private(set) var selectedCryptoType: CryptoType?
     private(set) var selectedNetworkType: Chain?
+    private var isRawSeedWarningShown: Bool = false
 
     private(set) var sourceViewModel: InputViewModelProtocol?
     private(set) var usernameViewModel: InputViewModelProtocol?
@@ -86,6 +87,14 @@ final class AccountImportPresenter {
                                             maxLength: AccountImportPresenter.maxMnemonicLength,
                                             validCharacterSet: CharacterSet.englishMnemonic,
                                             predicate: NSPredicate.notEmpty)
+            viewModel = InputViewModel(inputHandler: inputHandler, placeholder: placeholder)
+        case .seed:
+            let placeholder: String = R.string.localizable.recoveryInputRawSeedHint(preferredLanguages: locale.rLanguages)
+            let inputHandler = InputHandler(
+                value: value,
+                maxLength: AccountImportPresenter.maxRawSeedLength,
+                predicate: NSPredicate.seed
+            )
             viewModel = InputViewModel(inputHandler: inputHandler, placeholder: placeholder)
         default: viewModel = InputViewModel(inputHandler: InputHandler())
         }
@@ -274,6 +283,7 @@ final class AccountImportPresenter {
 }
 
 extension AccountImportPresenter: AccountImportPresenterProtocol {
+
     func setup() {
         interactor.setup()
     }
@@ -347,6 +357,21 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
                               style: .modal)
         }
     }
+
+    func openSourceTypeView() {
+        guard let view = view?.controller else { return }
+
+        let sourceTypes: [AccountImportSource] = [ .mnemonic, .seed ]
+        let selectedIndex = sourceTypes.firstIndex(of: selectedSourceType ?? .mnemonic) ?? 0
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+        let title = R.string.localizable.recoverySourceType(preferredLanguages: locale.rLanguages).uppercased()
+
+        wireframe.showAccountImportSourceSelector(from: view,
+                                                  title: title,
+                                                  sourceTypes: sourceTypes,
+                                                  selectedIndex: selectedIndex,
+                                                  delegate: self)
+    }
 }
 
 extension AccountImportPresenter: AccountImportInteractorOutputProtocol {
@@ -380,6 +405,24 @@ extension AccountImportPresenter: AccountImportInteractorOutputProtocol {
         selectedSourceType = .keystore
 
         applySourceType(text, preferredInfo: preferredInfo)
+    }
+}
+
+extension AccountImportPresenter: SourceSelectorViewDelegate {
+    func didSelectSourceType(with index: Int) {
+        selectedSourceType = metadata?.availableSources[index]
+        applySourceTextViewModel()
+        view?.setSource(type: selectedSourceType ?? .mnemonic)
+        view?.dissmissPresentedController()
+
+        if selectedSourceType == .seed, !isRawSeedWarningShown {
+            let closeAction = R.string.localizable.commonOk(preferredLanguages: localizationManager?.preferredLocalizations)
+            wireframe.present(message:  R.string.localizable.recoveryAlertRawSeedDescription(preferredLanguages: localizationManager?.preferredLocalizations),
+                              title:  R.string.localizable.recoveryAlertRawSeedTitle(preferredLanguages: localizationManager?.preferredLocalizations),
+                              closeAction: closeAction.uppercased(),
+                              from: view)
+            isRawSeedWarningShown = true
+        }
     }
 }
 

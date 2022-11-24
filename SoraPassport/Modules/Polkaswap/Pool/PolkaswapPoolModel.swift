@@ -4,7 +4,6 @@
 */
 
 import BigInt
-import CommonWallet
 import RobinHood
 import UIKit
 
@@ -15,7 +14,11 @@ class PolkaswapPoolModel: NSObject {
     private var pools: [PoolDetails] = []
     private weak var tableView: UITableView?
 
-    init(tableView: UITableView) {
+    private var amountFormatterFactory: AmountFormatterFactoryProtocol
+
+    init(tableView: UITableView, amountFormatterFactory: AmountFormatterFactoryProtocol) {
+        self.amountFormatterFactory = amountFormatterFactory
+
         super.init()
 
         tableView.delegate = self
@@ -24,37 +27,48 @@ class PolkaswapPoolModel: NSObject {
         self.tableView = tableView
     }
 
-    func setPoolList(_ pools: [PoolDetails]) {
+    func setPoolList(_ pools: [PoolDetails], locale: Locale) {
+        let oldModels = models
+        let oldPools = self.pools
         self.pools = pools
-        models = pools.map { poolModel(from: $0) }
-        tableView?.reloadData()
+        models = pools.map { newPool in
+            let newModel = poolModel(from: newPool, locale: locale)
+
+            //expand cell if it was expanded before update
+            let oldPool = oldPools.first { pool in
+                pool.targetAsset == newPool.targetAsset
+            }
+            if oldPools.count == pools.count,
+               let oldPool = oldPool,
+               let index = oldPools.firstIndex(of: oldPool),
+               oldModels[index].isExpanded {
+                newModel.onExpand({_ in })
+            }
+
+            return newModel
+        }
+
+        guard let tableView = tableView else { return }
+        UIView.performWithoutAnimation {
+            tableView.reloadData()
+        }
     }
 
     private var operationWrapper: CompoundOperationWrapper<[Data]>?
 
-    private func poolModel(from poolDetails: PoolDetails) -> PolkaswapPoolCellModel {
-        let formater = NumberFormatter.decimalFormatter(
-            precision: 7,
-            rounding: .halfUp,
-            usesIntGrouping: false
-        )
+    private func poolModel(from poolDetails: PoolDetails, locale: Locale) -> PolkaswapPoolCellModel {//
+        let formater = amountFormatterFactory.createPolkaswapAmountFormatter().value(for: locale)
+        let percentageFormatter = amountFormatterFactory.createPercentageFormatter(maxPrecision: 8).value(for: locale)
 
-        let poolShare = "\(NumberFormatter.poolShare.stringFromDecimal(Decimal(poolDetails.yourPoolShare)) ?? "0.0")%"
+        let poolShare = percentageFormatter.stringFromDecimal(poolDetails.yourPoolShare) ?? ""
+        let bonusApy = formater.stringFromDecimal(Decimal(poolDetails.sbAPYL) * 100) ?? ""
 
-        let bonusApy = "\(formater.stringFromDecimal(Decimal(poolDetails.sbAPYL) * 100) ?? "0.0")%"
+        let baseAssetPoolled = formater.stringFromDecimal(poolDetails.baseAssetPooledByAccount) ?? ""
 
-        let baseAssetPoolled = formater.stringFromDecimal(Decimal.fromSubstrateAmount(
-            BigUInt(poolDetails.xorPooled),
-            precision: 18
-        ) ?? .zero) ?? "0.0"
-
-        let targetAssetPoolled = formater.stringFromDecimal(Decimal.fromSubstrateAmount(
-            BigUInt(poolDetails.targetAssetPooled),
-            precision: 18
-        ) ?? .zero) ?? "0.0"
-
-        let baseAsset = AssetManager.shared.assetInfo(for: WalletAssetId.xor.rawValue)
-        let targetAsset = AssetManager.shared.assetInfo(for: poolDetails.targetAsset)
+        let targetAssetPoolled = formater.stringFromDecimal(poolDetails.targetAssetPooledByAccount) ?? ""
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
+        let baseAsset = assetManager.assetInfo(for: poolDetails.baseAsset)
+        let targetAsset = assetManager.assetInfo(for: poolDetails.targetAsset)
 
         return .init(
             poolShare: poolShare,

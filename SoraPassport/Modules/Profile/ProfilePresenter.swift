@@ -9,7 +9,7 @@ import SoraFoundation
 import SoraUI
 
 final class ProfilePresenter {
-	weak var view: ProfileViewProtocol?
+    weak var view: ProfileViewProtocol?
     var wireframe: ProfileWireframeProtocol!
     var interactor: ProfileInteractorInputProtocol!
 
@@ -29,22 +29,27 @@ extension ProfilePresenter: ProfilePresenterProtocol {
         updateOptionsViewModel()
     }
 
-    func activateOption(at index: UInt) {
-        guard let option = ProfileOption(rawValue: index) else {
-            return
-        }
-
+    func activateOption(_ option: ProfileOption) {
         switch option {
-        case .account:      wireframe.showPersonalDetailsView(from: view)
+        case .account:      wireframe.showChangeAccountView(from: view, completion: updateOptionsViewModel)
+        case .accountName:  wireframe.showPersonalDetailsView(from: view, completion: updateOptionsViewModel)
         case .friends:      wireframe.showFriendsView(from: view)
         case .passphrase:   wireframe.showPassphraseView(from: view)
-        case .changePin:    wireframe.showChangePin(from: view)
+        case .changePin:    wireframe.showChangePin(from: view!)
         case .biometry:     break // called by `biometryAction(_:)`
         case .language:     wireframe.showLanguageSelection(from: view)
         case .faq:          wireframe.showFaq(from: view)
         case .about:        wireframe.showAbout(from: view)
         case .disclaimer:   wireframe.showDisclaimer(from: view)
-        case .logout:       wireframe.showLogout(from: view, completionBlock: interactor.logoutAndClean)
+        case .logout:
+            interactor.isLastAccountWithCustomNodes { [weak self] result in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.wireframe.showLogout(from: self.view, isNeedCustomNodeText: result, completionBlock: self.interactor.logoutAndClean)
+                }
+            }
+
+        case .nodes:        wireframe.showNodes(from: view)
         }
     }
 }
@@ -56,12 +61,19 @@ private extension ProfilePresenter {
         viewModelFactory.biometryIsOn = settingsManager.biometryEnabled ?? false
         viewModelFactory.biometryAction = biometryAction
 
-        let optionViewModels = viewModelFactory.createOptionViewModels(
-            locale: localizationManager?.selectedLocale ?? Locale.current,
-            language: localizationManager?.selectedLanguage
-        )
+        interactor?.getCurrentNodeName(completion: { [weak self] nodeName in
 
-        view?.didLoad(optionViewModels: optionViewModels)
+            let optionsViewModels = self?.viewModelFactory.createOptionsViewModels(
+                locale:  self?.localizationManager?.selectedLocale ?? Locale.current,
+                nodeName: nodeName,
+                language:  self?.localizationManager?.selectedLanguage,
+                username:  self?.settingsManager.userName ?? "",
+                address:  SelectedWalletSettings.shared.currentAccount?.address ?? "",
+                isNeedPassphase:  self?.interactor?.isThereEntropy ?? false
+            )
+
+            self?.view?.didLoad(optionsViewModels: optionsViewModels ?? [])
+        })
     }
 
     private func biometryAction(_ isOn: Bool) {
@@ -74,6 +86,10 @@ private extension ProfilePresenter {
 extension ProfilePresenter: ProfileInteractorOutputProtocol {
     func restart() {
         wireframe.showRoot()
+    }
+
+    func updateScreen() {
+        updateOptionsViewModel()
     }
 }
 

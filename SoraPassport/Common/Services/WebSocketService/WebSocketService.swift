@@ -7,22 +7,28 @@ import Foundation
 import SoraFoundation
 import SoraKeystore
 import IrohaCrypto
+import FearlessUtils
 
 final class WebSocketService: WebSocketServiceProtocol {
+    //Should be used only once, at startup
     static let shared: WebSocketService = {
+        let lastUrl: URL
+        if let url = SettingsManager.shared.lastSuccessfulUrl {
+            lastUrl = url
+        } else {
+            lastUrl = ApplicationConfig.shared.defaultChainNodes.first!.url
+        }
 
-        let connectionItem = SettingsManager.shared.selectedConnection
-        let address = SettingsManager.shared.selectedAccount?.address
-
-        let settings = WebSocketServiceSettings(url: connectionItem.url,
-                                                addressType: connectionItem.type,
-                                                address: address)
+        let settings = WebSocketServiceSettings(
+            url: lastUrl,
+            addressType: ApplicationConfig.shared.addressType,
+            address: nil
+        )
         let storageFacade = SubstrateDataStorageFacade.shared
-        let subscriptionFactory = WebSocketSubscriptionFactory(storageFacade: storageFacade)
-        return WebSocketService(settings: settings,
-                                connectionFactory: WebSocketEngineFactory(),
-                                subscriptionsFactory: subscriptionFactory,
-                                applicationHandler: ApplicationHandler())
+        return WebSocketService(
+            settings: settings,
+            applicationHandler: ApplicationHandler()
+        )
     }()
 
     enum State {
@@ -34,26 +40,24 @@ final class WebSocketService: WebSocketServiceProtocol {
     var connection: JSONRPCEngine? { engine }
 
     let applicationHandler: ApplicationHandlerProtocol
-    let connectionFactory: WebSocketEngineFactoryProtocol
-    let subscriptionsFactory: WebSocketSubscriptionFactoryProtocol
 
     private(set) var settings: WebSocketServiceSettings
     private(set) var engine: WebSocketEngine?
+
     private(set) var subscriptions: [WebSocketSubscribing]?
 
     private(set) var isThrottled: Bool = true
     private(set) var isActive: Bool = true
 
     var networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol?
+    private var stateListeners: [WeakWrapper] = []
 
-    init(settings: WebSocketServiceSettings,
-         connectionFactory: WebSocketEngineFactoryProtocol,
-         subscriptionsFactory: WebSocketSubscriptionFactoryProtocol,
-         applicationHandler: ApplicationHandlerProtocol) {
+    init(
+        settings: WebSocketServiceSettings,
+        applicationHandler: ApplicationHandlerProtocol
+    ) {
         self.settings = settings
         self.applicationHandler = applicationHandler
-        self.connectionFactory = connectionFactory
-        self.subscriptionsFactory = subscriptionsFactory
     }
 
     func setup() {
@@ -91,11 +95,12 @@ final class WebSocketService: WebSocketServiceProtocol {
         }
     }
 
-    func performPrelaunchSusbscriptions() {
-        if let type = settings.addressType, subscriptions == nil {
-            subscriptions = try? subscriptionsFactory.createStartSubscriptions(type: type,
-                                                                               engine: self.engine!)
-        }
+    func addStateListener(_ listener: WebSocketServiceStateListener) {
+        stateListeners.append(WeakWrapper(target: listener))
+    }
+
+    func removeStateListener(_ listener: WebSocketServiceStateListener) {
+        stateListeners = stateListeners.filter { $0 !== listener }
     }
 
     private func clearConnection() {
@@ -105,25 +110,16 @@ final class WebSocketService: WebSocketServiceProtocol {
 
         subscriptions = nil
     }
-
     private func setupConnection() {
-        let engine = connectionFactory.createEngine(for: settings.url, autoconnect: isActive)
+        let engine = WebSocketEngineFactory().createEngine(for: settings.url, autoconnect: isActive)
         engine.delegate = self
         self.engine = engine
-
-        if let address = settings.address, let type = settings.addressType {
-            subscriptions = try? subscriptionsFactory.createSubscriptions(address: address,
-                                                                          type: type,
-                                                                          engine: engine)
-        } else {
-            subscriptions = nil
-        }
-
+        Logger.shared.info("start socket connected: \(settings.url)")
     }
 }
 
 extension WebSocketService: ApplicationHandlerDelegate {
-    func didReceiveDidBecomeActive(notification: Notification) {
+    func didReceiveDidBecomeActive(notification _: Notification) {
         if !isThrottled, !isActive {
             isActive = true
 
@@ -131,7 +127,7 @@ extension WebSocketService: ApplicationHandlerDelegate {
         }
     }
 
-    func didReceiveDidEnterBackground(notification: Notification) {
+    func didReceiveDidEnterBackground(notification _: Notification) {
         if !isThrottled, isActive {
             isActive = false
 
@@ -141,12 +137,19 @@ extension WebSocketService: ApplicationHandlerDelegate {
 }
 
 extension WebSocketService: WebSocketEngineDelegate {
-    func webSocketDidChangeState(from oldState: WebSocketEngine.State,
-                                 to newState: WebSocketEngine.State) {
+    func webSocketDidChangeState(
+        engine _: WebSocketEngine,
+        from _: WebSocketEngine.State,
+        to newState: WebSocketEngine.State
+    ) {
         switch newState {
-        case .connecting(let attempt):
+        case let .connecting(attempt):
             if attempt > 1 {
                 scheduleNetworkUnreachable()
+
+                stateListeners.forEach { listenerWeakWrapper in
+                    (listenerWeakWrapper.target as? WebSocketServiceStateListener)?.websocketNetworkDown(url: settings.url)
+                }
             }
         case .connected:
             scheduleNetworkReachable()

@@ -6,6 +6,7 @@
 import CommonWallet
 import FearlessUtils
 import RobinHood
+import BigInt
 
 final class PolkaswapMainInteractor {
     weak var presenter: PolkaswapMainInteractorOutputProtocol!
@@ -21,11 +22,19 @@ final class PolkaswapMainInteractor {
         self.operationManager = operationManager
         self.eventCenter = eventCenter
 
-        setup()
     }
 
     func setup() {
         eventCenter.add(observer: self)
+        updateNetworkFeeValue()
+    }
+
+    func stop() {
+        eventCenter.remove(observer: self)
+    }
+
+    fileprivate func updateNetworkFeeValue() {
+        //TODO: update networkFeeValue here
     }
 }
 
@@ -34,13 +43,20 @@ struct PolkaswapMainInteractorQuoteParams {
     let toAssetId: String
     let amount: String
     let swapVariant: SwapVariant
-    let liquiditySourceTypes: [PolkaswapLiquiditySourceType]
+    let liquiditySources: [String]
     let filterMode: FilterMode
 }
 
 extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
+
+    func networkFeeValue(completion: @escaping (Decimal) -> Void) {
+        FeeProvider().getFee(for: .swap) { resultFee in
+            completion(resultFee)
+        }
+    }
+
     func checkIsPathAvailable(fromAssetId: String, toAssetId: String) {
-        guard let operation = polkaswapNetworkFacade?.createIsSwapPossibleOperation(dexId: polkaswapDexID,
+        guard let operation = polkaswapNetworkFacade?.createIsSwapPossibleOperation(dexId: xorDexID,
                                                                                     from: fromAssetId,
                                                                                     to: toAssetId) else {
             return
@@ -56,7 +72,7 @@ extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
     }
 
     func loadMarketSources(fromAssetId: String, toAssetId: String) {
-        guard let operation = polkaswapNetworkFacade?.createGetAvailableMarketAlgorithmsOperation(dexId: polkaswapDexID,
+        guard let operation = polkaswapNetworkFacade?.createGetAvailableMarketAlgorithmsOperation(dexId: xorDexID,
                                                                                                   from: fromAssetId,
                                                                                                   to: toAssetId) else {
             return
@@ -72,12 +88,12 @@ extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
     }
 
     func quote(params: PolkaswapMainInteractorQuoteParams) {
-        guard let operation = polkaswapNetworkFacade?.createRecalculationOfSwapValuesOperation(dexId: polkaswapDexID,
+        guard let operation = polkaswapNetworkFacade?.createRecalculationOfSwapValuesOperation(dexId: xorDexID,
                                                                                                from: params.fromAssetId,
                                                                                                to: params.toAssetId,
                                                                                                amount: params.amount,
                                                                                                swapVariant: params.swapVariant,
-                                                                                               liquiditySourceTypes: params.liquiditySourceTypes,
+                                                                                               liquiditySources: params.liquiditySources,
                                                                                                filterMode: params.filterMode) else {
             return
         }
@@ -90,36 +106,20 @@ extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
         operationManager.enqueue(operations: [operation], in: .blockAfter)
     }
 
-    func loadBalance(asset: WalletAsset) {
+    func loadBalance(asset: AssetInfo) {
         let operationManager = OperationManagerFacade.sharedManager
-        if let operation = networkFacade?.fetchBalanceOperation([asset.identifier]) {
-            operation.targetOperation.completionBlock = {
-                DispatchQueue.main.async {
-                    if let balance = try? operation.targetOperation.extractResultData(), let balance = balance?.first {
-                        self.presenter.didLoadBalance(balance.balance.decimalValue, asset: asset)
-                    }
-                }
-            }
-            operationManager.enqueue(operations: operation.allOperations, in: .blockAfter)
-        }
-    }
 
-    func loadPools() {
-        let operationManager = OperationManagerFacade.sharedManager
-        do {
-            if let operation = try (networkFacade as? WalletNetworkFacade)?.getPoolsDetails() {
-                operation.targetOperation.completionBlock = {
-                    DispatchQueue.main.async {
-                        if let poolsDetails = try? operation.targetOperation.extractResultData() {
-                            self.presenter.didLoadPools(poolsDetails)
-                        }
-                    }
-                }
-                operationManager.enqueue(operations: operation.allOperations, in: .blockAfter)
-            }
-        } catch {
-            // TODO: show allert
+        guard let operation = (networkFacade as? WalletNetworkFacade)?.fetchBalanceOperation([asset.identifier], onlyVisible: false) else {
+            return
         }
+        operation.targetOperation.completionBlock = {
+            DispatchQueue.main.async {
+                if let balance = try? operation.targetOperation.extractResultData(), let balance = balance?.first {
+                    self.presenter.didLoadBalance(balance.balance.decimalValue, asset: asset)
+                }
+            }
+        }
+        operationManager.enqueue(operations: operation.allOperations, in: .blockAfter)
     }
 
     struct AssetId: ScaleCodable & Encodable {
@@ -151,14 +151,13 @@ extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
                 .xykPoolKey(asset1: Data(hex: assetId1), asset2: Data(hex: assetId2))
                 .toHex(includePrefix: true)
 
-            let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = {
-                [weak self] _ in
+            let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] _ in
                 DispatchQueue.main.async {
                     self?.presenter.didUpdatePoolSubscription()
                 }
             }
 
-            let failureClosure: (Error, Bool) -> Void = { [weak self] _, _ in
+            let failureClosure: (Error, Bool) -> Void = { _, _ in
 //                print("XYK failureClosure: \(error)")
             }
 
@@ -178,14 +177,13 @@ extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
                 .tbcPoolKey(asset: Data(hex: assetId))
                 .toHex(includePrefix: true)
 
-            let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = {
-                [weak self] _ in
+            let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] _ in
                 DispatchQueue.main.async {
                     self?.presenter.didUpdatePoolSubscription()
                 }
             }
 
-            let failureClosure: (Error, Bool) -> Void = { [weak self] _, _ in
+            let failureClosure: (Error, Bool) -> Void = { _, _ in
 //                print("TBC failureClosure: \(error)")
             }
 
@@ -220,7 +218,7 @@ extension PolkaswapMainInteractor: EventVisitorProtocol {
             self?.presenter.didUpdateBalance()
         }
     }
-    
+
     func processNewTransaction(event: WalletNewTransactionInserted) {
         DispatchQueue.main.async { [weak self] in
             self?.presenter.didCreateTransaction()

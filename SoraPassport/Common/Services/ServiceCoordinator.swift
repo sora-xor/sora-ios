@@ -16,34 +16,47 @@ protocol ServiceCoordinatorProtocol: ApplicationServiceProtocol {
 }
 
 final class ServiceCoordinator {
-    let webSocketService: WebSocketServiceProtocol
-    let runtimeService: RuntimeRegistryServiceProtocol
+    let eventCenter: EventCenterProtocol
+    let subscriptionsFactory: WebSocketSubscriptionFactoryProtocol
     let migrationService: MigrationServiceProtocol
-    let settings: SettingsManagerProtocol
+    private(set) var subscriptions: [WebSocketSubscribing]?
 
-    init(webSocketService: WebSocketServiceProtocol,
-         runtimeService: RuntimeRegistryServiceProtocol,
-         migrationService: MigrationServiceProtocol,
-         settings: SettingsManagerProtocol) {
-        self.webSocketService = webSocketService
-        self.runtimeService = runtimeService
+    init(eventCenter: EventCenterProtocol,
+         subscriptionsFactory: WebSocketSubscriptionFactoryProtocol,
+         migrationService: MigrationServiceProtocol) {
+        self.eventCenter = eventCenter
+        self.subscriptionsFactory = subscriptionsFactory
         self.migrationService = migrationService
-        self.settings = settings
+
+        eventCenter.add(observer: self, dispatchIn: .main)
+    }
+
+    private func setup(chainRegistry: ChainRegistryProtocol) {
+        
+        let semaphore = DispatchSemaphore(value: 0)
+
+        chainRegistry.chainsSubscribe(self, runningInQueue: DispatchQueue.global()) { changes in
+            if !changes.isEmpty {
+                semaphore.signal()
+            }
+        }
+
+        semaphore.wait()
     }
 
     private func updateWebSocketSettings() {
-        let connectionItem = settings.selectedConnection
-        let account = settings.selectedAccount
-
-        let settings = WebSocketServiceSettings(url: connectionItem.url,
-                                                addressType: connectionItem.type,
-                                                address: account?.address)
-        webSocketService.update(settings: settings)
+//        let connectionItem = settings.selectedConnection
+//        let account = settings.selectedAccount
+//
+//        let settings = WebSocketServiceSettings(url: connectionItem.url,
+//                                                addressType: connectionItem.type,
+//                                                address: account?.address)
+//        webSocketService.update(settings: settings)
     }
 
     private func updateRuntimeService() {
-        let connectionItem = settings.selectedConnection
-        runtimeService.update(to: connectionItem.type.chain, forced: false)
+//        let connectionItem = settings.selectedConnection
+//        runtimeService.update(to: connectionItem.type.chain, forced: false)
     }
 
     private func updateValidatorService() {
@@ -57,14 +70,29 @@ final class ServiceCoordinator {
 //        let chain = settings.selectedConnection.type.chain
 //        rewardCalculatorService.update(to: chain)
     }
+
+    private func setupSubscriptions(connection: JSONRPCEngine?) {
+        if let account = SelectedWalletSettings.shared.currentAccount, let engine = connection {
+            let address = account.address
+            let type = account.addressType
+            subscriptions = try? subscriptionsFactory.createSubscriptions(address: address,
+                                                                          type: type,
+                                                                          engine: engine)
+        } else {
+            subscriptions = nil
+        }
+    }
 }
 
 extension ServiceCoordinator: ServiceCoordinatorProtocol {
     func updateOnAccountChange() {
-        updateWebSocketSettings()
-        updateRuntimeService()
-        updateValidatorService()
-        updateRewardCalculatorService()
+        self.subscriptions = nil
+        let chainRegistry = ChainRegistryFacade.sharedRegistry
+        self.setupSubscriptions(connection: chainRegistry.getConnection(for: Chain.sora.genesisHash()))
+//        updateWebSocketSettings()
+//        updateRuntimeService()
+//        updateValidatorService()
+//        updateRewardCalculatorService()
     }
 
     func updateOnNetworkChange() {
@@ -75,13 +103,14 @@ extension ServiceCoordinator: ServiceCoordinatorProtocol {
     }
 
     func setup() {
-        webSocketService.setup()
-        runtimeService.setup()
+        let chainRegistry = ChainRegistryFacade.sharedRegistry
+        setup(chainRegistry: chainRegistry)
+
+        self.setupSubscriptions(connection: chainRegistry.getConnection(for: Chain.sora.genesisHash()))
     }
 
     func throttle() {
-        webSocketService.throttle()
-        runtimeService.throttle()
+        ChainRegistryFacade.sharedRegistry.chainsUnsubscribe(self)
     }
 
     func checkMigration() {
@@ -89,21 +118,31 @@ extension ServiceCoordinator: ServiceCoordinatorProtocol {
     }
 }
 
+extension ServiceCoordinator: EventVisitorProtocol {
+    func processSelectedAccountChanged(event: SelectedAccountChanged) {
+        updateOnAccountChange()
+    }
+
+    func processChainsUpdated(event: ChainsUpdatedEvent) {
+        updateOnAccountChange()
+    }
+}
+
 extension ServiceCoordinator {
-    static func createDefault() -> ServiceCoordinatorProtocol {
-        let webSocketService = WebSocketServiceFactory.createService()
-        let runtimeService = RuntimeRegistryFacade.sharedService
+
+    static let shared = createDefault()
+
+    private static func createDefault() -> ServiceCoordinatorProtocol {
+        let subscriptionFactory = WebSocketSubscriptionFactory(storageFacade: SubstrateDataStorageFacade.shared)
+
         let migrationService = MigrationService(eventCenter: EventCenter.shared,
                                                 keystore: Keychain(),
                                                 settings: SettingsManager.shared,
-                                                webSocketService: webSocketService,
-                                                runtimeService: RuntimeRegistryFacade.sharedService,
                                                 operationManager: OperationManagerFacade.sharedManager,
                                                 logger: Logger.shared)
 
-        return ServiceCoordinator(webSocketService: webSocketService,
-                                  runtimeService: runtimeService,
-                                  migrationService: migrationService,
-                                  settings: SettingsManager.shared)
+        return ServiceCoordinator(eventCenter: EventCenter.shared,
+                                  subscriptionsFactory: subscriptionFactory,
+                                  migrationService: migrationService)
     }
 }

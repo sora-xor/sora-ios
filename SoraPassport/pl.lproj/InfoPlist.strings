@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Aparat będzie używany do uchwycenia kodu QR.";
+"NSFaceIDUsageDescription" = "Face ID będzie używane do dokonywania autoryzacji w aplikacji.";
+"NSPhotoLibraryUsageDescription" = "Pobierz zdjęcia z biblioteki";
+"NSPhotoLibraryAddUsageDescription" = "Zapisz żądanie przelewu jako kod QR.";

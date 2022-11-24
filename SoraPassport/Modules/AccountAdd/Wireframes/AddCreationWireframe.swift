@@ -7,11 +7,13 @@ import Foundation
 import IrohaCrypto
 
 final class AddCreationWireframe: AccountCreateWireframeProtocol {
+    var endAddingBlock: (() -> Void)?
+
     func confirm(from view: AccountCreateViewProtocol?,
                  request: AccountCreationRequest,
                  metadata: AccountCreationMetadata) {
         guard let accountConfirmation = AccountConfirmViewFactory
-            .createViewForAdding(request: request, metadata: metadata)?.controller else {
+            .createViewForAdding(request: request, metadata: metadata, endAddingBlock: endAddingBlock)?.controller else {
             return
         }
 

@@ -21,7 +21,8 @@ extension WalletNetworkFacade {
         return ClosureOperation {
             let remoteTransactions = try remoteOperation?.extractNoCancellableResultData().historyItems ?? []
 
-            if let localTransactions = try localOperation?.extractNoCancellableResultData(),
+            if let localTransactions = try localOperation?.extractNoCancellableResultData()
+                .filter({ $0.sender == address || $0.receiver == address }),
                !localTransactions.isEmpty {
                 let manager = TransactionHistoryMergeManager(
                     address: address,
@@ -59,9 +60,13 @@ extension WalletNetworkFacade {
             let mergeResult = try mergeOperation.extractNoCancellableResultData()
             let newHistoryContext = try remoteOperation.extractNoCancellableResultData().context
 
+            let contextDict = [TransactionHistoryContext.isComplete: String(newHistoryContext.isComplete),
+                               TransactionHistoryContext.cursor: String(newHistoryContext.cursor ?? 1)]
+            let context = !newHistoryContext.isComplete ? contextDict : nil
+            
             return AssetTransactionPageData(
                 transactions: mergeResult.historyItems.filter { self.assetManager.assetInfo(for: $0.assetId) != nil },
-                context: !newHistoryContext.isComplete ? newHistoryContext.toContext() : nil
+                context: context
             )
         }
     }

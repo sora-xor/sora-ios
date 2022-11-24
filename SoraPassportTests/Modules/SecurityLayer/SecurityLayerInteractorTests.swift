@@ -64,7 +64,7 @@ class SecurityLayerInteractorTests: XCTestCase {
         let mockApplicationHandler = MockApplicationHandlerProtocol()
 
         var settings = InMemorySettingsManager()
-        settings.decentralizedId = Constants.dummyDid
+//        settings.decentralizedId = Constants.dummyDid
 
         let keystore = InMemoryKeychain()
         try! keystore.addKey(Data(), with: KeystoreTag.pincode.rawValue)

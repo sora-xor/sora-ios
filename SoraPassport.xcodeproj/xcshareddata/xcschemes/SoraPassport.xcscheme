@@ -20,6 +20,48 @@
                ReferencedContainer = "container:SoraPassport.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "02623EC82178C0930011250E"
+               BuildableName = "SoraPassportTests.xctest"
+               BlueprintName = "SoraPassportTests"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "02623ED32178C0930011250E"
+               BuildableName = "SoraPassportUITests.xctest"
+               BlueprintName = "SoraPassportUITests"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "84324BCA2411446000CA339A"
+               BuildableName = "SoraPassportIntegrationTests.xctest"
+               BlueprintName = "SoraPassportIntegrationTests"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -47,31 +89,24 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "84324BCA2411446000CA339A"
+               BuildableName = "SoraPassportIntegrationTests.xctest"
+               BlueprintName = "SoraPassportIntegrationTests"
+               ReferencedContainer = "container:SoraPassport.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "02623EC82178C0930011250E"
                BuildableName = "SoraPassportTests.xctest"
                BlueprintName = "SoraPassportTests"
                ReferencedContainer = "container:SoraPassport.xcodeproj">
             </BuildableReference>
-            <SkippedTests>
-               <Test
-                  Identifier = "EthereumIdentityCreationTests">
-               </Test>
-               <Test
-                  Identifier = "EthereumInitSourceTests">
-               </Test>
-               <Test
-                  Identifier = "EthereumKeypairFactoryTests">
-               </Test>
-               <Test
-                  Identifier = "EthereumOperationFactoryTests">
-               </Test>
-               <Test
-                  Identifier = "EthereumRegistrationServiceTests">
-               </Test>
-            </SkippedTests>
          </TestableReference>
          <TestableReference
-            skipped = "YES">
+            skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "02623ED32178C0930011250E"
@@ -79,33 +114,6 @@
                BlueprintName = "SoraPassportUITests"
                ReferencedContainer = "container:SoraPassport.xcodeproj">
             </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "84324BCA2411446000CA339A"
-               BuildableName = "SoraPassportIntegrationTests.xctest"
-               BlueprintName = "SoraPassportIntegrationTests"
-               ReferencedContainer = "container:SoraPassport.xcodeproj">
-            </BuildableReference>
-            <SkippedTests>
-               <Test
-                  Identifier = "EthereumRegistrationServiceTests">
-               </Test>
-               <Test
-                  Identifier = "EthereumServiceIntegrationTests">
-               </Test>
-               <Test
-                  Identifier = "EthereumWithdrawTests">
-               </Test>
-               <Test
-                  Identifier = "SoranetServiceTests">
-               </Test>
-               <Test
-                  Identifier = "WalletNetworkFacadeTests">
-               </Test>
-            </SkippedTests>
          </TestableReference>
       </Testables>
    </TestAction>

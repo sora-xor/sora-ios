@@ -26,8 +26,11 @@ final class ProfileTableViewCell: UITableViewCell, Reusable {
 
     private var accessoryTitleLabel: UILabel = {
         UILabel().then {
-            $0.font = UIFont.styled(for: .paragraph2, isBold: true)
-            $0.textColor = R.color.statusSuccess()
+            $0.font = UIFont.styled(for: .paragraph2, isBold: false)
+            $0.textColor = R.color.neumorphism.swiperTextGrey()
+            $0.setContentHuggingPriority(.required, for: .horizontal)
+            $0.widthAnchor <= 86
+            $0.lineBreakMode = .byTruncatingMiddle
             $0.isHidden = true
         }
     }()
@@ -57,6 +60,14 @@ final class ProfileTableViewCell: UITableViewCell, Reusable {
         }
     }()
 
+    private var separatorView: UIView = {
+        UIView().then {
+            $0.backgroundColor = R.color.neumorphism.separator()
+            $0.widthAnchor == UIScreen.main.bounds.width
+            $0.heightAnchor == 1.0
+        }
+    }()
+
     private(set) var viewModel: ProfileOptionViewModelProtocol?
 
     required init?(coder: NSCoder) {
@@ -68,8 +79,8 @@ final class ProfileTableViewCell: UITableViewCell, Reusable {
         configure()
     }
 
-    func bind(viewModel: ProfileOptionViewModelProtocol) {
-        self.viewModel = viewModel
+    func bind(viewModel: CellViewModel) {
+        guard let viewModel = viewModel as? ProfileOptionViewModelProtocol else { return }
 
         titleLabel.text = viewModel.title
         iconImageView.image = viewModel.iconImage?
@@ -78,6 +89,8 @@ final class ProfileTableViewCell: UITableViewCell, Reusable {
         if let accessoryContent = viewModel.accessoryContent {
             accessoryTitleLabel.text = accessoryContent.title
             accessoryTitleLabel.isHidden = false
+        } else {
+            accessoryTitleLabel.isHidden = true
         }
 
         if let switchContent = viewModel.switchContent {
@@ -102,6 +115,13 @@ private extension ProfileTableViewCell {
             addSubview($0)
             let insets = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
             $0.edgeAnchors == edgeAnchors + insets
+            $0.heightAnchor == 56
+        }
+
+        separatorView.do {
+            addSubview($0)
+            $0.centerXAnchor == centerXAnchor
+            $0.bottomAnchor == bottomAnchor
         }
     }
 

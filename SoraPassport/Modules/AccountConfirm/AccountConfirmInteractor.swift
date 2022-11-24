@@ -9,14 +9,14 @@ import IrohaCrypto
 import RobinHood
 
 class AccountConfirmInteractor: BaseAccountConfirmInteractor {
-    private(set) var settings: SettingsManagerProtocol
+    private(set) var settings: SelectedWalletSettingsProtocol
     private var currentOperation: Operation?
 
     init(request: AccountCreationRequest,
          mnemonic: IRMnemonicProtocol,
          accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
-         settings: SettingsManagerProtocol,
+         settings: SelectedWalletSettingsProtocol,
          operationManager: OperationManagerProtocol) {
         self.settings = settings
 
@@ -40,18 +40,11 @@ class AccountConfirmInteractor: BaseAccountConfirmInteractor {
 
         persistentOperation.addDependency(importOperation)
 
-        let connectionOperation: BaseOperation<(AccountItem, ConnectionItem)> = ClosureOperation {
+        let connectionOperation: BaseOperation<AccountItem> = ClosureOperation {
             let accountItem = try importOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 
-            let type = try SS58AddressFactory().type(fromAddress: accountItem.address)
-
-            guard let connectionItem = ConnectionItem.supportedConnections
-                .first(where: { $0.type == type.uint8Value }) else {
-                throw AccountCreateError.unsupportedNetwork
-            }
-
-            return (accountItem, connectionItem)
+            return accountItem
         }
 
         connectionOperation.addDependency(persistentOperation)
@@ -63,10 +56,8 @@ class AccountConfirmInteractor: BaseAccountConfirmInteractor {
                 self?.currentOperation = nil
 
                 switch connectionOperation.result {
-                case .success(let (accountItem, connectionItem)):
-                    self?.settings.selectedAccount = accountItem
-                    self?.settings.selectedConnection = connectionItem
-
+                case .success(let accountItem):
+                    self?.settings.save(value: accountItem)
                     self?.presenter?.didCompleteConfirmation()
                 case .failure(let error):
                     self?.presenter?.didReceive(error: error)

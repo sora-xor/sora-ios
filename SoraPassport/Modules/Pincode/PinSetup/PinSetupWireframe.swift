@@ -16,7 +16,12 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
     }
 
     func dismiss(from view: PinSetupViewProtocol?) {
-        view?.controller.presentingViewController?.dismiss(animated: true, completion: nil)
+        if let presentingViewController = view?.controller.presentingViewController {
+            presentingViewController.dismiss(animated: true, completion: nil)
+        }
+        if let navigationController = view?.controller.navigationController {
+            navigationController.popViewController(animated: true)
+        }
     }
 
     func showMain(from view: PinSetupViewProtocol?) {
@@ -24,7 +29,9 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
             return
         }
 
-        self.rootAnimator.animateTransition(to: mainViewController)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            self.rootAnimator.animateTransition(to: mainViewController)
+        }
     }
 
     public func showSignup(from view: PinSetupViewProtocol?) {
@@ -46,5 +53,13 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
                 completionBlock()
             }
         })
+    }
+    
+    func showUpdatePinView(from view: UIViewController, with completion: @escaping () -> Void) {
+        guard let pincodeViewController = PinViewFactory.createPinUpdateView(completion: completion)?.controller else {
+            return
+        }
+        pincodeViewController.modalPresentationStyle = .overFullScreen
+        view.present(pincodeViewController, animated: true)
     }
 }

@@ -10,13 +10,13 @@ import RobinHood
 import SoraKeystore
 //
 final class AddAccountImportInteractor: BaseAccountImportInteractor {
-    private(set) var settings: SettingsManagerProtocol
+    private(set) var settings: SelectedWalletSettingsProtocol
     let eventCenter: EventCenterProtocol
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
          operationManager: OperationManagerProtocol,
-         settings: SettingsManagerProtocol,
+         settings: SelectedWalletSettingsProtocol,
          keystoreImportService: KeystoreImportServiceProtocol,
          eventCenter: EventCenterProtocol) {
         self.settings = settings
@@ -27,7 +27,7 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                    operationManager: operationManager,
                    keystoreImportService: keystoreImportService,
                    supportedNetworks: Chain.allCases,
-                   defaultNetwork: settings.selectedConnection.type.chain)
+                   defaultNetwork: Chain.sora)
     }
 
     private func importAccountItem(_ item: AccountItem) {
@@ -45,27 +45,12 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
 
         persistentOperation.addDependency(checkOperation)
 
-        let selectedConnection = settings.selectedConnection
-
-        let connectionOperation: BaseOperation<(AccountItem, ConnectionItem)> = ClosureOperation {
+        let connectionOperation: BaseOperation<AccountItem> = ClosureOperation {
             if case .failure(let error) = persistentOperation.result {
                 throw error
             }
 
-            let type = try SS58AddressFactory().type(fromAddress: item.address)
-
-            let resultConnection: ConnectionItem
-
-            if selectedConnection.type == SNAddressType(type.uint8Value) {
-                resultConnection = selectedConnection
-            } else if let connection = ConnectionItem.supportedConnections
-                        .first(where: { $0.type == type.uint8Value}) {
-                resultConnection = connection
-            } else {
-                throw AccountCreateError.unsupportedNetwork
-            }
-
-            return (item, resultConnection)
+            return item
         }
 
         connectionOperation.addDependency(persistentOperation)
@@ -73,15 +58,8 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
         connectionOperation.completionBlock = { [weak self] in
             DispatchQueue.main.async {
                 switch connectionOperation.result {
-                case .success(let (accountItem, connectionItem)):
-                    self?.settings.selectedAccount = accountItem
-
-                    if selectedConnection != connectionItem {
-                        self?.settings.selectedConnection = connectionItem
-
-                        self?.eventCenter.notify(with: SelectedConnectionChanged())
-                    }
-
+                case .success(let accountItem):
+                    self?.settings.save(value: accountItem)
                     self?.eventCenter.notify(with: SelectedAccountChanged())
 
                     self?.presenter?.didCompleteAccountImport()

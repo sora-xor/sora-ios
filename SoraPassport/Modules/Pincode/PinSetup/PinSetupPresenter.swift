@@ -10,9 +10,12 @@ class PinSetupPresenter: PinSetupPresenterProtocol {
     weak var view: PinSetupViewProtocol?
     var interactor: PinSetupInteractorInputProtocol!
     var wireframe: PinSetupWireframeProtocol!
+    var isUpdateTo6Symbols: Bool = false
+    var completion: (() -> Void)?
 
     func start() {
         view?.didChangeAccessoryState(enabled: false)
+        view?.updatePinCodeSymbolsCount(with: 6)
     }
 
     func activateBiometricAuth() {}
@@ -36,8 +39,13 @@ extension PinSetupPresenter: PinSetupInteractorOutputProtocol {
     }
 
     func didSavePin() {
-        DispatchQueue.main.async { [weak self] in
-            self?.wireframe.showMain(from: self?.view)
+        DispatchQueue.main.async {
+            guard self.isUpdateTo6Symbols else {
+                self.wireframe.showMain(from: self.view)
+                return
+            }
+
+            self.completion?()
         }
     }
 

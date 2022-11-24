@@ -11,7 +11,7 @@ final class Constants {
     static let expectationDuration: TimeInterval = 120.0
     static let networkRequestTimeout: TimeInterval = 60.0
     static let dummyNetworkURL: URL = URL(string: "https://localhost:8888")!
-    static let dummyPincode = "1234"
+    static let dummyPincode = "123456"
     static let dummyDid = "did:sora:id"
     static let dummyPubKeyId = "did:sora:id#keys-1"
     static let dummyProjectId = "938d033f-580d-477c-a89f-fcebfcdf8eff"

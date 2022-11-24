@@ -5,6 +5,7 @@
 
 import Foundation
 import RobinHood
+import XNetworking
 
 extension SubqueryHistoryOperationFactory: WalletRemoteHistoryFactoryProtocol {
     func createOperationWrapper(
@@ -12,7 +13,9 @@ extension SubqueryHistoryOperationFactory: WalletRemoteHistoryFactoryProtocol {
         address: String,
         count: Int
     ) -> CompoundOperationWrapper<WalletRemoteHistoryData> {
-        let queryOperation = createOperation(address: address, count: count, after: context.cursor ?? "")
+        let queryOperation = SubqueryHistoryOperation<TxHistoryResult<TxHistoryItem>>(address: address,
+                                                                           count: count,
+                                                                           page: context.cursor ?? 1)
 
         let mappingOperation = ClosureOperation<WalletRemoteHistoryData> {
             guard let response = try? queryOperation.extractNoCancellableResultData()
@@ -20,12 +23,12 @@ extension SubqueryHistoryOperationFactory: WalletRemoteHistoryFactoryProtocol {
                 return WalletRemoteHistoryData(historyItems: [], context: TransactionHistoryContext(context: [:]))
             }
 
-            let pageInfo = response.historyElements.pageInfo
-            let items = response.historyElements.nodes
-
+            let items = (response.items as? [WalletRemoteHistoryItemProtocol]) ?? []
+            let cursor = (context.cursor ?? 1) + 1
+            
             let context = TransactionHistoryContext(
-                cursor: pageInfo.endCursor,
-                isComplete: !pageInfo.hasNextPage
+                cursor: cursor,
+                isComplete: response.endReached
             )
 
             return WalletRemoteHistoryData(

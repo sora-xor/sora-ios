@@ -22,7 +22,7 @@ extension SearchData {
                           context: contactContext.toContext())
     }
 
-    static func createFromAccountItem(_ accountItem: ManagedAccountItem,
+    static func createFromAccountItem(_ accountItem: AccountItem,
                                       addressFactory: SS58AddressFactory) throws -> SearchData {
         let accountId = try addressFactory.accountId(fromAddress: accountItem.address,
                                                      type: accountItem.networkType)

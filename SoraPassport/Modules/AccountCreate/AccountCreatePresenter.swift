@@ -116,6 +116,10 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                           request: request,
                           metadata: metadata)
     }
+
+    func restoredApp() {
+        wireframe.authorize()
+    }
 }
 
 extension AccountCreatePresenter: AccountCreateInteractorOutputProtocol {

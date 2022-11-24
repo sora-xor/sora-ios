@@ -79,13 +79,13 @@ extension BalanceContext {
 extension BalanceContext {
     func byChangingAccountInfo(_ accountData: AccountData, precision: Int16) -> BalanceContext {
         let free = Decimal
-            .fromSubstrateAmount(accountData.free.value, precision: precision) ?? .zero
+            .fromSubstrateAmount(accountData.free, precision: precision) ?? .zero
         let reserved = Decimal
-            .fromSubstrateAmount(accountData.reserved.value, precision: precision) ?? .zero
+            .fromSubstrateAmount(accountData.reserved, precision: precision) ?? .zero
         let miscFrozen = Decimal
-            .fromSubstrateAmount(accountData.miscFrozen.value, precision: precision) ?? .zero
+            .fromSubstrateAmount(accountData.miscFrozen, precision: precision) ?? .zero
         let feeFrozen = Decimal
-            .fromSubstrateAmount(accountData.feeFrozen.value, precision: precision) ?? .zero
+            .fromSubstrateAmount(accountData.feeFrozen, precision: precision) ?? .zero
 
         return BalanceContext(free: free,
                               reserved: reserved,

@@ -5,7 +5,7 @@
 
 import UIKit
 
-protocol ControllerBackedProtocol: class {
+protocol ControllerBackedProtocol: AnyObject {
     var isSetup: Bool { get }
     var controller: UIViewController { get }
 }

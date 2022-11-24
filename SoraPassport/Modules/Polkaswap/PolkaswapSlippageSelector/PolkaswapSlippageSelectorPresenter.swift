@@ -30,7 +30,7 @@ class PolkaswapSlippageSelectorPresenter: PolkaswapSlippageSelectorPresenterProt
 
     func setup(preferredLocalizations languages: [String]?) {
         let formatter = amountFormatterFactory.createPercentageFormatter(maxPrecision: 2).value(for: view?.localizationManager?.selectedLocale ?? Locale.current)
-        let amountInputViewModel = AmountInputViewModel(symbol: "", amount: nil, limit: Decimal(slippageMax), formatter: formatter, inputLocale: view?.localizationManager?.selectedLocale ?? Locale.current)
+        let amountInputViewModel = SlippageAmountInputViewModel(symbol: "", amount: nil, limit: Decimal(slippageMax), formatter: formatter)
 
         let slippage = slippage ?? defaultSlippage
         let warning = warning(for: slippage)

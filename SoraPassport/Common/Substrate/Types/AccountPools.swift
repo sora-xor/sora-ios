@@ -67,10 +67,27 @@ struct PoolProperties: ScaleDecodable {
     }
 }
 
-struct PoolDetails {
+struct PoolDetails: Equatable {
+    let baseAsset: String
     let targetAsset: String
-    let yourPoolShare: Double
-    let sbAPYL: Double
-    let xorPooled: Double
-    let targetAssetPooled: Double
+    let yourPoolShare: Decimal
+    var sbAPYL: Double
+    let baseAssetPooledByAccount: Decimal
+    let targetAssetPooledByAccount: Decimal
+    let baseAssetPooledTotal: Decimal
+    let targetAssetPooledTotal: Decimal
+    let totalIssuances: Decimal
+    let reserves: Decimal
+}
+
+struct OrmlAccountData: ScaleDecodable {
+    let free: Balance
+    let frozen: Balance
+    let reserved: Balance
+
+    init(scaleDecoder: ScaleDecoding) throws {
+        free = try Balance(scaleDecoder: scaleDecoder)
+        frozen = try Balance(scaleDecoder: scaleDecoder)
+        reserved = try Balance(scaleDecoder: scaleDecoder)
+    }
 }

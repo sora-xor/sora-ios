@@ -26,7 +26,7 @@ extension WalletAsset {
                            name: LocalizableResource<String> { _ in "info.symbol" },
                            platform: LocalizableResource<String> { _ in "info.name" },
                            symbol: "info.symbol",
-                           precision: Int16(18),
+                           precision: Int16(8),
                            modes: .transfer)
     }
 }

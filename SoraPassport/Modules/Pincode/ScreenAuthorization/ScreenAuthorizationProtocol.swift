@@ -5,6 +5,6 @@
 
 import Foundation
 
-protocol ScreenAuthorizationWireframeProtocol: class {
+protocol ScreenAuthorizationWireframeProtocol: AnyObject {
     func showAuthorizationCompletion(with result: Bool)
 }

@@ -21,10 +21,12 @@ final class RootPresenterFactory: RootPresenterFactoryProtocol {
                                                      localizationManager: LocalizationManager.shared,
                                                      logger: Logger.shared)
         let networkAvailabilityInteractor = NetworkAvailabilityLayerService.shared.interactor
+
         let inconsistentStateMigrator = InconsistentStateMigrator(
             settings: settings,
             keychain: keychain
         )
+
         let interactor = RootInteractor(settings: settings,
                                         keystore: keychain,
                                         migrators: [inconsistentStateMigrator],

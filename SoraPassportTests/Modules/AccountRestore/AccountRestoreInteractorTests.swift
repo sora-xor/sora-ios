@@ -31,7 +31,8 @@ class AccountImportTests: XCTestCase {
                                                  accountRepository: AnyDataProviderRepository(accountRepository),
                                                  operationManager: OperationManager(),
                                                  settings: settings,
-                                                 keystoreImportService: keystoreImportService)
+                                                 keystoreImportService: keystoreImportService,
+                                                 eventCenter: EventCenter.shared)
 
         let expectedUsername = "myname"
         let expetedMnemonic = "great fog follow obtain oyster raw patient extend use mirror fix balance blame sudden vessel"
@@ -93,7 +94,7 @@ class AccountImportTests: XCTestCase {
 
         wait(for: [expectation], timeout: Constants.defaultExpectationDuration)
 
-        guard let selectedAccount = settings.selectedAccount else {
+        guard let selectedAccount = settings.currentAccount else {
             XCTFail("Unexpected empty account")
             return
         }

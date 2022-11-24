@@ -8,12 +8,12 @@ import Foundation
 import RobinHood
 import CoreData
 
-final class CoreDataCacheTestFacade: CoreDataCacheFacadeProtocol {
+final class CoreDataCacheTestFacade: CacheFacadeProtocol {
     let databaseService: CoreDataServiceProtocol
 
     init() {
         let modelName = "Entities"
-        let bundle = Bundle(for: CoreDataCacheFacade.self)
+        let bundle = Bundle(for: CacheFacade.self)
         let modelURL = bundle.url(forResource: modelName, withExtension: "momd")
 
         let configuration = CoreDataServiceConfiguration(modelURL: modelURL!,
