@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import RobinHood
@@ -12,6 +7,29 @@ import BigInt
 import SoraKeystore
 
 extension WalletNetworkFacade {
+    func createAccountInfoFetchOperation(_ accountId: Data) -> CompoundOperationWrapper<AccountInfo?> {
+        let coderFactoryOperation = runtimeService.fetchCoderFactoryOperation()
+
+        let wrapper: CompoundOperationWrapper<[StorageResponse<AccountInfo>]> = requestFactory.queryItems(
+            engine: engine,
+            keyParams: { [accountId] },
+            factory: { try coderFactoryOperation.extractNoCancellableResultData() },
+            storagePath: StorageCodingPath.account
+        )
+
+        let mapOperation = ClosureOperation<AccountInfo?> {
+            try wrapper.targetOperation.extractNoCancellableResultData().first?.value
+        }
+
+        wrapper.allOperations.forEach { $0.addDependency(coderFactoryOperation) }
+
+        let dependencies = [coderFactoryOperation] + wrapper.allOperations
+
+        dependencies.forEach { mapOperation.addDependency($0) }
+
+        return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: dependencies)
+    }
+    
     func fetchBalanceInfoForAssets(_ assets: [WalletAsset])
         -> CompoundOperationWrapper<[BalanceData]?> {
         //swiftlint:disable force_cast
@@ -30,14 +48,16 @@ extension WalletNetworkFacade {
 
             let storageKeyFactory = StorageKeyFactory()
             let accountInfoKey = try storageKeyFactory.accountInfoKeyForId(accountId)
-            let upgradeCheckOperation: CompoundOperationWrapper<Bool?> = CompoundOperationWrapper.createWithResult(true)
-            let accountInfoOperation: CompoundOperationWrapper<AccountInfo?> = queryAccountInfoByKey(
-                accountInfoKey,
-                dependingOn: upgradeCheckOperation
-            )
+            
+            let identifier = localStorageIdFactory.createIdentifier(for: accountInfoKey)
+            
+            let accountInfoOperation: CompoundOperationWrapper<AccountInfo?> = createAccountInfoFetchOperation(accountId)
 
-            let dependencies = assets.map({ factory.createUsableBalanceOperation(accountId: selectedAccount.address, assetId: $0.identifier) })
-
+            var dependencies = assets.map({ factory.createUsableBalanceOperation(accountId: selectedAccount.address, assetId: $0.identifier) })
+            
+            let eraOperation = factory.createActiveEraOperation()
+            let stackingInfoOperation = factory.createStackingIngoOperation(accountId: accountId)
+            
             let mappingOperation = ClosureOperation<[BalanceData]?> {
 
                 let result = dependencies.map { operation -> BalanceData in
@@ -73,6 +93,13 @@ extension WalletNetworkFacade {
                         feeFrozen: feeFrozen
                     )
                     context = context.byChangingAccountInfo(accountData, precision: asset.precision)
+                    
+                    if asset.identifier == WalletAssetId.xor.rawValue,
+                       let eraInfo = try? eraOperation.targetOperation.extractNoCancellableResultData(),
+                       let stackingInfo = try? stackingInfoOperation.extractNoCancellableResultData().underlyingValue {
+                        context = context.byChangingStakingInfo(stackingInfo, activeEra: eraInfo, precision: asset.precision)
+                    }
+                    
 
                     let balanceData = BalanceData(identifier: asset.identifier,
                                                   balance: AmountDecimal(value: context.available),
@@ -82,12 +109,12 @@ extension WalletNetworkFacade {
 
                 return result
             }
-            let infoDependencies = upgradeCheckOperation.allOperations + accountInfoOperation.allOperations
+            let infoDependencies = accountInfoOperation.allOperations
             dependencies.forEach { mappingOperation.addDependency($0) }
             infoDependencies.forEach { mappingOperation.addDependency($0) }
 
             return CompoundOperationWrapper(targetOperation: mappingOperation,
-                                            dependencies: dependencies + infoDependencies)
+                                            dependencies: dependencies + infoDependencies + eraOperation.allOperations + [stackingInfoOperation])
         } catch {
             return CompoundOperationWrapper<[BalanceData]?>
                 .createWithError(error)
@@ -97,58 +124,5 @@ extension WalletNetworkFacade {
     func queryStorageByKey<T: ScaleDecodable>(_ storageKey: Data) -> CompoundOperationWrapper<T?> {
         let identifier = localStorageIdFactory.createIdentifier(for: storageKey)
         return chainStorage.queryStorageByKey(identifier)
-    }
-
-    func queryAccountInfoByKey(
-        _ storageKey: Data,
-        dependingOn upgradeOperation: CompoundOperationWrapper<Bool?>
-    ) -> CompoundOperationWrapper<AccountInfo?> {
-
-        let identifier = localStorageIdFactory.createIdentifier(for: storageKey)
-
-        let fetchOperation = chainStorage
-            .fetchOperation(by: identifier,
-                            options: RepositoryFetchOptions())
-
-        guard
-            let runtimeCodingService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(
-                for: Chain.sora.genesisHash()
-            )
-        else {
-            return CompoundOperationWrapper.createWithError(WalletNetworkFacadeError.missingTransferData)
-        }
-
-        let codingFactoryOperation = runtimeCodingService.fetchCoderFactoryOperation()
-        let decodingOperation = StorageDecodingOperation<AccountInfo?>(
-            path: .account,
-            data: nil
-        )
-        decodingOperation.configurationBlock = {
-            do {
-                decodingOperation.codingFactory = try codingFactoryOperation
-                    .extractNoCancellableResultData()
-                let item = try fetchOperation
-                    .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-                decodingOperation.data = item?.data
-            } catch {
-                decodingOperation.result = .failure(error)
-            }
-        }
-
-        decodingOperation.addDependency(codingFactoryOperation)
-        decodingOperation.addDependency(fetchOperation)
-
-
-        let decoderOperation: ClosureOperation<AccountInfo?> = ClosureOperation {
-            let item = try decodingOperation.extractResultData()
-            return item!
-        }
-
-        decoderOperation.addDependency(decodingOperation)
-
-        upgradeOperation.allOperations.forEach { decodingOperation.addDependency($0) }
-
-        return CompoundOperationWrapper(targetOperation: decoderOperation,
-                                        dependencies: [fetchOperation, codingFactoryOperation, decodingOperation])
     }
 }

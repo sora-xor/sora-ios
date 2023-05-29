@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -44,6 +39,38 @@ extension ErrorPresentable where Self: AlertPresentable {
         let closeAction = R.string.localizable.commonOk(preferredLanguages: locale?.rLanguages)
 
         present(message: content.message, title: content.title, closeAction: closeAction, from: view)
+
+        return true
+    }
+    
+    func present(error: Swift.Error, from view: ControllerBackedProtocol?, locale: Locale?, completion: @escaping () -> Void) -> Bool {
+        var optionalContent: ErrorContent?
+
+        if let contentConvertibleError = error as? ErrorContentConvertible {
+            optionalContent = contentConvertibleError.toErrorContent(for: locale)
+        }
+
+        if error as? BaseOperationError != nil {
+            let title = R.string.localizable.operationErrorTitle(preferredLanguages: locale?.rLanguages)
+            let message = R.string.localizable.operationErrorMessage(preferredLanguages: locale?.rLanguages)
+
+            optionalContent = ErrorContent(title: title, message: message)
+        }
+
+        if (error as NSError).domain == NSURLErrorDomain {
+            let title = R.string.localizable.connectionErrorTitle(preferredLanguages: locale?.rLanguages)
+            let message = R.string.localizable.connectionErrorMessage(preferredLanguages: locale?.rLanguages)
+
+            optionalContent = ErrorContent(title: title, message: message)
+        }
+
+        guard let content = optionalContent else {
+            return false
+        }
+
+        let closeAction = R.string.localizable.commonOk(preferredLanguages: locale?.rLanguages)
+
+        present(message: content.message, title: content.title, closeAction: closeAction, from: view, completion: completion)
 
         return true
     }

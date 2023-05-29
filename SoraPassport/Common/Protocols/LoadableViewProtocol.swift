@@ -1,12 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraUI
 
-protocol LoadableViewProtocol: class {
+protocol LoadableViewProtocol: AnyObject {
     var loadableContentView: UIView! { get }
     var shouldDisableInteractionWhenLoading: Bool { get }
 

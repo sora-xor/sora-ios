@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import FearlessUtils
 import Foundation
 import Kingfisher
@@ -10,15 +5,17 @@ import Kingfisher
 let xorDexID: UInt32 = 0
 let xstusdDexID: UInt32 = 1
 
-struct SwapValues: Decodable {
+struct SwapValues: Decodable, Equatable {
     let amount: String
     let fee: String
     let rewards: [String]
+    let route: [String]
 
     enum CodingKeys: String, CodingKey {
         case amount
         case fee
         case rewards
+        case route
     }
 }
 

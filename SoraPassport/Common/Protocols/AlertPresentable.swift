@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 struct AlertPresentableAction {
@@ -35,10 +30,15 @@ struct AlertPresentableViewModel {
     let closeAction: String?
 }
 
-protocol AlertPresentable: class {
+protocol AlertPresentable: AnyObject {
     func present(message: String?, title: String?,
                  closeAction: String?,
                  from view: ControllerBackedProtocol?)
+    
+    func present(message: String?, title: String?,
+                 closeAction: String?,
+                 from view: ControllerBackedProtocol?,
+                 completion: @escaping () -> Void)
 
     func present(viewModel: AlertPresentableViewModel,
                  style: UIAlertController.Style,
@@ -77,6 +77,28 @@ extension AlertPresentable {
                                   title: title,
                                   closeAction: closeAction,
                                   with: controller)
+    }
+    
+    func present(message: String?, title: String?,
+                 closeAction: String?,
+                 from view: ControllerBackedProtocol?,
+                 completion: @escaping () -> Void) {
+
+        var currentController = view?.controller
+
+        if currentController == nil {
+            currentController = UIApplication.shared.delegate?.window??.rootViewController
+        }
+
+        guard let controller = currentController else {
+            return
+        }
+
+        UIAlertController.present(message: message,
+                                  title: title,
+                                  closeAction: closeAction,
+                                  with: controller,
+                                  completion: completion)
     }
 
     func present(viewModel: AlertPresentableViewModel,
@@ -118,9 +140,11 @@ extension AlertPresentable {
 
 extension UIAlertController {
     public static func present(message: String?, title: String?,
-                               closeAction: String?, with presenter: UIViewController) {
+                               closeAction: String?, with presenter: UIViewController, completion: (() -> Void)? = nil) {
         let alertView = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        let action = UIAlertAction(title: closeAction, style: .cancel, handler: nil)
+        let action = UIAlertAction(title: closeAction, style: .cancel, handler: { _ in
+            completion?()
+        })
         alertView.addAction(action)
         presenter.present(alertView, animated: true, completion: nil)
     }

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import SoraKeystore
@@ -111,7 +106,7 @@ private extension FriendsInteractor {
         let referrer = address
 
         let networkOperation = SubqueryReferralRewardsOperation<ReferrerRewardsInfo>(address: referrer,
-                                                                                     baseUrl: config.subqueryUrl)
+                                                                                     baseUrl: ConfigService.shared.config.subqueryURL)
         networkOperation.completionBlock = { [weak self] in
             do {
                 self?.rewardData = try networkOperation.extractNoCancellableResultData()

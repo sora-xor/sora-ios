@@ -1,14 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import SoraKeystore
 
 protocol SelectedWalletSettingsProtocol: AnyObject {
-    var currentAccount: AccountItem? {get}
+    var currentAccount: AccountItem? { get }
     func performSave(
         value: AccountItem,
         completionClosure: @escaping (Result<AccountItem, Error>) -> Void

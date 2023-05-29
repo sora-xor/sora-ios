@@ -1,9 +1,5 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
+import SoraUIKit
 
 typealias AuthorizationCompletionBlock = (Bool) -> Void
 
@@ -51,10 +47,10 @@ extension AuthorizationPresentable {
         }
     }
 
-    private var authorizationView: PinSetupViewProtocol? {
+    private var authorizationView: UIViewController? {
         get {
             return objc_getAssociatedObject(authorization, &AuthorizationConstants.authorizationViewKey)
-                as? PinSetupViewProtocol
+                as? UIViewController
         }
 
         set {
@@ -99,26 +95,31 @@ extension AuthorizationPresentable {
             return
         }
 
-        guard let authorizationView = PinViewFactory.createScreenAuthorizationView(
-            with: self,
-            cancellable: cancellable)
-        else {
+        let view: UIViewController?
+
+        let auhorizeView = PinViewFactory.createRedesignScreenAuthorizationView(with: self, cancellable: cancellable)
+        view = BlurViewController()
+        view?.modalPresentationStyle = .overFullScreen
+        view?.add(auhorizeView?.controller)
+        
+        guard let authorizationView = view else {
             completionBlock(false)
             return
         }
 
         self.completionBlock = completionBlock
-        self.authorizationView = authorizationView
+        self.authorizationView = view
         self.inView = inView
 
-        authorizationView.controller.modalTransitionStyle = .crossDissolve
-        authorizationView.controller.modalPresentationStyle = .fullScreen
+        authorizationView.modalTransitionStyle = .crossDissolve
+        authorizationView.modalPresentationStyle = .fullScreen
 
         if let inView = inView {
-            authorizationView.controller.hidesBottomBarWhenPushed = true
-            inView.pushViewController(authorizationView.controller, animated: animated)
+            authorizationView.navigationItem.hidesBackButton = true
+            authorizationView.hidesBottomBarWhenPushed = true
+            inView.pushViewController(authorizationView, animated: animated)
         } else {
-            presentingController.present(authorizationView.controller, animated: animated, completion: nil)
+            presentingController.present(authorizationView, animated: animated, completion: nil)
         }
     }
 
@@ -149,18 +150,18 @@ extension AuthorizationPresentable {
         dismissAuthorizationView(authorizationView, completionBlock: completionBlock, result: result)
     }
 
-    func dismissAuthorizationView(_ authorizationView:  PinSetupViewProtocol, completionBlock: AuthorizationCompletionBlock?, result: Bool) {
+    func dismissAuthorizationView(_ authorizationView:  UIViewController, completionBlock: AuthorizationCompletionBlock?, result: Bool) {
         if let inView = self.inView {
 
             completionBlock?(result)
             let controllerToRemove = inView.viewControllers.remove(at: 1)
-            self.authorizationView?.controller.dismiss(animated: false)
+            self.authorizationView?.dismiss(animated: false)
 
             self.authorizationView = nil
             self.inView = nil
 
         } else {
-            authorizationView.controller.presentingViewController?.dismiss(animated: true) {
+            authorizationView.presentingViewController?.dismiss(animated: true) {
                 self.authorizationView = nil
                 completionBlock?(result)
             }

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -78,7 +73,6 @@ final class ChainRegistryFactory {
 
         let chainSyncService = ChainSyncService(
             typesUrl: ApplicationConfig.shared.commonTypesURL,
-            nodesUrl: ApplicationConfig.shared.nodesURL,
             assetsUrl: ApplicationConfig.shared.assetListURL,
             dataFetchFactory: dataFetchOperationFactory,
             repository: AnyDataProviderRepository(chainRepository),
@@ -93,7 +87,7 @@ final class ChainRegistryFactory {
         )
 
         let commonTypesSyncService = CommonTypesSyncService(
-            url: URL(string:  "https://raw.githubusercontent.com/soramitsu/fearless-utils/master/type_registry/default.json")!,// "https://raw.githubusercontent.com/soramitsu/fearless-utils/master/type_registry/sora.json")!,
+            url: ConfigService.shared.config.typesURL,
             filesOperationFactory: filesOperationFactory,
             dataOperationFactory: dataFetchOperationFactory,
             eventCenter: EventCenter.shared,

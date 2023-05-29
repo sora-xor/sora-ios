@@ -1,17 +1,13 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraKeystore
 import CommonWallet
 import RobinHood
 
-protocol  AssetManagerProtocol: AnyObject {
+protocol AssetManagerProtocol: AnyObject {
     func assetInfo(for identifier: String) -> AssetInfo?
     func getAssetList() -> [AssetInfo]?
     func updateAssetList(_ list: [AssetInfo])
+    func saveAssetList(_ list: [AssetInfo])
     func sortedAssets(_ list: [WalletAsset], onlyVisible: Bool) -> [WalletAsset]
     func visibleCount() -> UInt
     static var networkAssets: [AssetInfo] { get set }
@@ -56,7 +52,7 @@ final class AssetManager: AssetManagerProtocol {
             self?.handle(changes: changes)
         }
 
-        let failureClosure: (Error) -> Void = { [weak self] error in
+        let failureClosure: (Error) -> Void = { error in
             Logger.shared.error("Unexpected error chains listener setup: \(error)")
         }
 
@@ -90,7 +86,7 @@ final class AssetManager: AssetManagerProtocol {
                     return
                 }
                 self.chain = chain
-            case let .delete(chainId):
+            case let .delete(_):
                 break
             }
         }
@@ -114,7 +110,7 @@ final class AssetManager: AssetManagerProtocol {
                 }
                 return true
             }
-            if let topAsset = visible.first { $0.isFeeAsset },
+            if let topAsset = visible.first(where: { $0.isFeeAsset }),
                let info = assetInfo(for: topAsset.identifier),
                info.visible {
                     visible.append(WalletAsset.dummyAsset)
@@ -126,8 +122,8 @@ final class AssetManager: AssetManagerProtocol {
     }
 
     private func orderSort(_ asset0: WalletAsset, _ asset1: WalletAsset) -> Bool {
-        if let index0 = settings?.orderedAssetIds?.firstIndex {$0 == asset0.identifier },
-        let index1 = settings?.orderedAssetIds?.firstIndex {$0 == asset1.identifier } {
+        if let index0 = settings?.orderedAssetIds?.firstIndex(where: {$0 == asset0.identifier }),
+           let index1 = settings?.orderedAssetIds?.firstIndex(where: {$0 == asset1.identifier }) {
             return index0 < index1
         } else {
             return asset0.symbol < asset1.symbol
@@ -157,9 +153,9 @@ final class AssetManager: AssetManagerProtocol {
         if let assetA = defAssetA?.defaultSort,
            let assetB = defAssetB?.defaultSort {
             return assetA < assetB
-        } else if let assetA = defAssetA {
+        } else if defAssetA != nil {
             return true
-        } else if let assetB = defAssetB {
+        } else if defAssetB != nil {
             return false
         } else {
             return a0.symbol < a1.symbol
@@ -167,7 +163,7 @@ final class AssetManager: AssetManagerProtocol {
     }
 
     private func updateWhitelisted(_ list: [AssetInfo]) {
-        let updated: [AssetInfo]
+        var updated: [AssetInfo] = list
 
         if let settings = self.settings,
            let order = settings.orderedAssetIds,  //they are always ordered
@@ -183,6 +179,9 @@ final class AssetManager: AssetManagerProtocol {
                 }
                 return nil
             }
+            
+            let updatedIds = updated.map { $0.assetId }
+            self.assets = updated + list.filter { !updatedIds.contains($0.identifier) }
         } else { //default sort
             updated =  list.sorted(by: defaultSort).map { asset in
                 var item = asset
@@ -193,12 +192,29 @@ final class AssetManager: AssetManagerProtocol {
                 }
                 return item as AssetInfo
             }
+            self.assets = updated
         }
         updateAssetList(updated)
     }
     
     func updateAssetList(_ list: [AssetInfo]) {
+        print("list = \(list)")
+
+        Logger.shared.info("ASSETS UPDATE \(self.assets?.count)")
+        var newOrder: [String] = []
+        var newVisible: [String] = []
+        if let assets = assets, assets.count > 0 {
+            newOrder = assets.enumerated().map { $0.element.identifier }
+            newVisible = assets.compactMap { return $0.visible ? $0.identifier : nil}
+        }
+        settings?.orderedAssetIds = newOrder
+        settings?.visibleAssetIds = newVisible
+        self.persistAssets()
+    }
+    
+    func saveAssetList(_ list: [AssetInfo]) {
         self.assets = list
+
         Logger.shared.info("ASSETS UPDATE \(self.assets?.count)")
         var newOrder: [String] = []
         var newVisible: [String] = []

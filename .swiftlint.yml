@@ -4,3 +4,15 @@ excluded:
   - R.generated.swift
   - SoraPassportTests
   - SoraPassportUITests
+  - SoraPassportIntegrationTests
+
+disabled_rules: # rule identifiers to exclude from running
+ - inclusive_language
+ - comment_spacing
+
+# configurable rules can be customized from this configuration file
+# binary rules can set their severity level
+line_length: 145
+type_body_length: 400
+function_body_length: 55
+file_length: 500

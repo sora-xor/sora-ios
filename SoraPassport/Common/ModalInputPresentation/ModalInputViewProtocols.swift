@@ -1,14 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
-public protocol ModalInputViewProtocol: class {
+public protocol ModalInputViewProtocol: AnyObject {
     var presenter: ModalInputViewPresenterProtocol? { get set }
 }
 
-public protocol ModalInputViewPresenterProtocol: class {
+public protocol ModalInputViewPresenterProtocol: AnyObject {
     func hide(view: ModalInputViewProtocol, animated: Bool)
 }

@@ -1,11 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
-protocol InputFieldViewModelDelegate: class {
+protocol InputFieldViewModelDelegate: AnyObject {
     func inputFieldDidCompleteInput(to viewModel: InputFieldViewModelProtocol)
     func inputFieldDidCancelInput(to viewModel: InputFieldViewModelProtocol)
 }

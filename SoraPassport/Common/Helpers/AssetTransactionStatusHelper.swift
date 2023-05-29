@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CommonWallet
 import UIKit
 
@@ -21,9 +16,9 @@ extension AssetTransactionStatus {
 
     var image: UIImage? {
         switch self {
-        case .pending: return R.image.iconTxPending()
-        case .commited: return R.image.iconTxStatusSuccess()
-        case .rejected: return R.image.iconTxStatusError()
+        case .pending: return nil
+        case .commited: return nil
+        case .rejected: return nil
         }
     }
 }

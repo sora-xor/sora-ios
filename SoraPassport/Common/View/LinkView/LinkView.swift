@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import Anchorage
 import SoraUI
@@ -98,7 +93,6 @@ final class LinkView: BackgroundedContentControl {
         super.prepareForInterfaceBuilder()
         configure()
 
-        iconImage = R.image.assetVal()
         titleAttributedText = R.string.localizable.comingSoon()
         linkTitleAttributedText = R.string.localizable.stakingComingSoon()
     }

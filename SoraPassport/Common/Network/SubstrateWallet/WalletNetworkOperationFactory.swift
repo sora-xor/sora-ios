@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import BigInt
 import CommonWallet
 import FearlessUtils
@@ -76,6 +71,31 @@ final class WalletNetworkOperationFactory {
                         asset: Data(hex: assetId)
                     ).toHex(includePrefix: true)
                 ]
+            )
+        } catch {
+            return .init(engine: engine, method: "")
+        }
+    }
+    
+    func createActiveEraOperation() -> CompoundOperationWrapper<UInt32?> {
+        do {
+            let activeEraKey = try StorageKeyFactory().activeEra()
+            let localKey = localStorageIdFactory.createIdentifier(for: activeEraKey)
+
+            return chainStorage.queryStorageByKey(localKey)
+        } catch {
+            return  createCompoundOperation(result: .failure(error))
+        }
+    }
+    
+    func createStackingIngoOperation(accountId: Data) -> JSONRPCListOperation<JSONScaleDecodable<StakingLedger>> {
+        do {
+            let stackingKey = try StorageKeyFactory().stakingInfoForControllerId(accountId)
+            
+            return JSONRPCListOperation<JSONScaleDecodable<StakingLedger>>(
+                engine: engine,
+                method: RPCMethod.getStorage,
+                parameters: [stackingKey.toHex()]
             )
         } catch {
             return .init(engine: engine, method: "")

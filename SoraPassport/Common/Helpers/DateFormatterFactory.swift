@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
@@ -15,11 +10,11 @@ struct EventListDateFormatterFactory: DateFormatterFactoryProtocol {
         let dateFormatterBuilder = CompoundDateFormatterBuilder(baseDate: Date())
 
         let today = LocalizableResource { locale in
-            R.string.localizable.commonToday(preferredLanguages: locale.rLanguages)
+            R.string.localizable.commonToday(preferredLanguages: LocalizationManager.shared.preferredLocalizations)
         }
 
         let yesterday = LocalizableResource { locale in
-            R.string.localizable.commonYesterday(preferredLanguages: locale.rLanguages)
+            R.string.localizable.commonYesterday(preferredLanguages: LocalizationManager.shared.preferredLocalizations)
         }
 
         let defaultFormat = R.string.localizable

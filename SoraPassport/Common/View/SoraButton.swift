@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraUI
 
@@ -90,7 +85,7 @@ extension SoraButton {
 
 import Lottie
 class ButtonProgressCover: RoundedView {
-    lazy var progressIcon: AnimationView = AnimationView(filePath: R.file.soraLoaderJson.path()!)
+    lazy var progressIcon: LottieAnimationView = LottieAnimationView(filePath: R.file.soraLoaderJson.path()!)
 
     override init(frame: CGRect) {
         super.init(frame: frame)

@@ -1,12 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Kingfisher
 
-protocol ImageViewModelProtocol: class {
+protocol ImageViewModelProtocol: AnyObject {
     var image: UIImage? { get }
 
     var targetSize: CGSize? { get set }

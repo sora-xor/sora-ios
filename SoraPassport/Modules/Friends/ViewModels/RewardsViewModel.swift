@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraFoundation
 
@@ -26,7 +21,7 @@ struct RewardsViewModel: RewardsViewModelProtocol {
 
 // MARK: - ViewModel Factory
 
-protocol RewardsViewModelFactoryProtocol: class {
+protocol RewardsViewModelFactoryProtocol: AnyObject {
     func createActivatedInvitationViewModel(from data: ActivatedInvitationsData,
                                             dateFormatter: LocalizableResource<DateFormatter>,
                                             locale: Locale) -> [RewardsViewModelProtocol]

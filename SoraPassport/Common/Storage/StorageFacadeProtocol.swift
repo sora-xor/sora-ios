@@ -1,13 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import CoreData
 
-protocol StorageFacadeProtocol: class {
+protocol StorageFacadeProtocol: AnyObject {
     var databaseService: CoreDataServiceProtocol { get }
 
     func createRepository<T, U>(filter: NSPredicate?,

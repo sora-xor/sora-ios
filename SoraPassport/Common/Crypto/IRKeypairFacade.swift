@@ -1,14 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import IrohaCrypto
 
 typealias IRKeypairFacadeResult = (keypair: IRCryptoKeypairProtocol, mnemonic: IRMnemonicProtocol)
 
-protocol IRKeypairFacadeProtocol: class {
+protocol IRKeypairFacadeProtocol: AnyObject {
 //    func createKeypair(from password: String) throws -> IRKeypairFacadeResult
     func deriveKeypair(from mnemonic: String, password: String) throws -> IRCryptoKeypairProtocol
 }

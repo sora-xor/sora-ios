@@ -1,16 +1,11 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import SoraFoundation
 
-protocol DateFormatterProviderDelegate: class {
+protocol DateFormatterProviderDelegate: AnyObject {
     func providerDidChangeDateFormatter(_ provider: DateFormatterProviderProtocol)
 }
 
-protocol DateFormatterProviderProtocol: class {
+protocol DateFormatterProviderProtocol: AnyObject {
     var delegate: DateFormatterProviderDelegate? { get set }
     var dateFormatter: LocalizableResource<DateFormatter> { get }
 }

@@ -1,12 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import Reachability
 
-protocol ReachabilityListenerDelegate: class {
+protocol ReachabilityListenerDelegate: AnyObject {
     func didChangeReachability(by manager: ReachabilityManagerProtocol)
 }
 

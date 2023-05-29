@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import CommonWallet
@@ -11,6 +6,7 @@ class BalanceProviderFactory {
 
     static let executionQueue: OperationQueue = OperationQueue()
     static let balanceSyncQueue = DispatchQueue(label: "co.jp.soramitsu.wallet.cache.balance.queue")
+    static let contactsSyncQueue = DispatchQueue(label: "co.jp.soramitsu.wallet.cache.contact.queue")
 
     let accountId: String
     let networkOperationFactory: WalletNetworkOperationFactoryProtocol
@@ -47,6 +43,27 @@ class BalanceProviderFactory {
                                    executionQueue: BalanceProviderFactory.executionQueue,
                                    serialSyncQueue: BalanceProviderFactory.balanceSyncQueue)
     }
+    
+    func createContactsDataProvider() throws -> SingleValueProvider<[SearchData]> {
+        let source: AnySingleValueProviderSource<[SearchData]> = AnySingleValueProviderSource {
+            let operation = self.networkOperationFactory.contactsOperation()
+            return operation
+        }
+        
+        let cache = createSingleValueCache()
+        
+        let updateTrigger = DataProviderEventTrigger.onAddObserver
+
+        let targetId = identifierFactory.contactsIdentifierForAccountId(accountId)
+
+        return SingleValueProvider(targetIdentifier: targetId,
+                                   source: source,
+                                   repository: AnyDataProviderRepository(cache),
+                                   updateTrigger: updateTrigger,
+                                   executionQueue: BalanceProviderFactory.executionQueue,
+                                   serialSyncQueue: BalanceProviderFactory.contactsSyncQueue)
+    }
+    
 
     private func createSingleValueCache()
         -> CoreDataRepository<SingleValueProviderObject, CDCWSingleValue> {

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import BigInt
 import FearlessUtils
 
@@ -77,7 +72,8 @@ struct PoolDetails: Equatable {
     let baseAssetPooledTotal: Decimal
     let targetAssetPooledTotal: Decimal
     let totalIssuances: Decimal
-    let reserves: Decimal
+    let baseAssetReserves: Decimal
+    let targetAssetReserves: Decimal
 }
 
 struct OrmlAccountData: ScaleDecodable {
