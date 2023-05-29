@@ -1,10 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import RobinHood
 import XNetworking
+
+struct SubqueryKmmError: Swift.Error {
+    
+}
 
 public final class SubqueryHistoryOperation<ResultType>: BaseOperation<ResultType> {
     
@@ -14,14 +13,20 @@ public final class SubqueryHistoryOperation<ResultType>: BaseOperation<ResultTyp
     private let address: String
     private let count: Int
     private let page: Int
+    private var filter: ((TxHistoryItem) -> KotlinBoolean)? = nil
 
-    public init(address: String, count: Int, page: Int) {
+    public init(address: String, count: Int, page: Int, filter: ((TxHistoryItem) -> KotlinBoolean)? = nil) {
         self.httpProvider = SoramitsuHttpClientProviderImpl()
+        self.filter = filter
         self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
+        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
+                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
+                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
+        let configBuilder = provider.provide()
 
         self.subQueryClient = SubQueryClientForSoraWalletFactory().create(soramitsuNetworkClient: self.soraNetworkClient,
-                                                                          baseUrl: ApplicationConfig.shared.subqueryUrl.absoluteString,
-                                                                          pageSize: Int32(count))
+                                                                          pageSize: Int32(count),
+                                                                          soraRemoteConfigBuilder: configBuilder)
         self.address = address
         self.count = count
         self.page = page
@@ -45,12 +50,20 @@ public final class SubqueryHistoryOperation<ResultType>: BaseOperation<ResultTyp
         //TODO: delete after kotlin 1.7.0 released, now we should call method from main queue
         DispatchQueue.main.async {
             self.subQueryClient.getTransactionHistoryPaged(address: self.address,
-                                                           networkName: "Sora",
                                                            page: Int64(self.page),
-                                                           url: ApplicationConfig.shared.subqueryUrl.absoluteString,
-                                                           filter: nil,
+                                                           filter: self.filter,
                                                            completionHandler: { [self] requestResult, error in
-                guard let data = requestResult as? ResultType else { return }
+                if let error = error {
+                    self.result = .failure(error)
+                    semaphore.signal()
+                    return
+                }
+
+                guard let data = requestResult as? ResultType else {
+                    self.result = .failure(SubqueryKmmError())
+                    semaphore.signal()
+                    return
+                }
 
                 if self.isCancelled {
                     return

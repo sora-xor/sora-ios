@@ -1,16 +1,11 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
-protocol SchedulerProtocol: class {
+protocol SchedulerProtocol: AnyObject {
     func notifyAfter(_ seconds: TimeInterval)
     func cancel()
 }
 
-protocol SchedulerDelegate: class {
+protocol SchedulerDelegate: AnyObject {
     func didTrigger(scheduler: SchedulerProtocol)
 }
 

@@ -1,13 +1,8 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import UIKit
 import SoraUI
 import CommonWallet
-import SoraSwiftUI
+import SoraUIKit
 
 struct AppearanceFactory {
     static func applyGlobalAppearance() {
@@ -49,7 +44,13 @@ struct AppearanceFactory {
                                                             .font: UIFont.styled(for: .title1) as Any]
 
         //TODO: Add navigation bar to design system
-        UINavigationBar.appearance().tintColor = UIColor(hex: "EE2233")
-        UINavigationBar.appearance().backgroundColor = R.color.neumorphism.base()
+        UINavigationBar.appearance().tintColor = UIColor(hex: "#EE2233")
+        UINavigationBar.appearance().backgroundColor = .clear
+        
+        let backImage = R.image.wallet.backArrow()
+        
+        UINavigationBar.appearance().backIndicatorImage = backImage
+        UINavigationBar.appearance().backIndicatorTransitionMaskImage = backImage
+        UIBarButtonItem.appearance().setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
     }
 }

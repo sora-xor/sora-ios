@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import UIKit
 import CommonWallet
@@ -84,7 +79,7 @@ extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol 
 
         items.append(SpaceViewModel(height: 24, backgroundColor: .clear))
 
-        let feeText = R.string.localizable.polkaswapNetworkFee(preferredLanguages: .currentLocale) + ": \(fee) \(feeAsset.symbol)"
+        let feeText = R.string.localizable.networkFee(preferredLanguages: .currentLocale) + ": \(fee) \(feeAsset.symbol)"
         items.append(TextViewModel(title: feeText,
                                    textColor: R.color.neumorphism.brown(),
                                    font: UIFont.styled(for: .paragraph1),

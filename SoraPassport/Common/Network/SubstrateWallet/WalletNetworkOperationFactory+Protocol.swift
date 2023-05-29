@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import BigInt
 import CommonWallet
 import FearlessUtils
@@ -365,6 +360,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
         }
 
         let sourceType: String = context[TransactionContextKeys.marketType] ?? ""
+        let dexId: String = context[TransactionContextKeys.dex] ?? "0"
         let marketType: LiquiditySourceType = LiquiditySourceType(rawValue: sourceType) ?? .smart
         let marketCode = marketType.code
         let filter = marketType.filter
@@ -373,6 +369,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             let call = try SubstrateCallFactory().swap(
                 from: asset.identifier,
                 to: info.destination,
+                dexId: dexId,
                 amountCall: amountCall,
                 type: marketCode,
                 filter: filter

@@ -1,14 +1,12 @@
 platform :ios, '13.0'
 
-source 'https://github.com/CocoaPods/Specs.git'
-
 abstract_target 'SoraPassportAll' do
   use_frameworks!
 
+  pod 'Sourcery', '~> 1.4'
   pod 'SwiftLint', '~> 0.49.0'
-  pod 'R.swift', :inhibit_warnings => true
+  pod 'R.swift', '~> 6.1.0'
   pod 'FireMock', :inhibit_warnings => true
-  pod 'GCDWebServer', :inhibit_warnings => true
   pod 'SoraDocuments'
   pod 'IrohaCrypto', '~> 0.9.0'
   pod 'SoraKeystore'
@@ -24,16 +22,17 @@ abstract_target 'SoraPassportAll' do
   pod 'ReachabilitySwift'
   pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :branch => 'feature/without-origin'
   pod 'SwiftyBeaver'
-  pod 'SKPhotoBrowser'
   pod 'SoraFoundation'
-  pod 'IKEventSource'
   pod 'Anchorage'
   pod 'Then'
-  pod 'lottie-ios'
+  pod 'lottie-ios', '~> 3.5.0'  
   pod 'Nantes'
   pod 'SnapKit'
-  pod 'SoraSwiftUI', :path => './SoraSwiftUI'
-  pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.37/AppCommonNetworking/XNetworking/XNetworking.podspec'
+  pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui.git', :tag => '1.0.1'
+  pod 'IdensicMobileSDK', :http => 'https://github.com/paywings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.0.0.tar.gz'
+  pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.0.0' # :tag => '1.0.0' # :path => '../sora-card-ios'
+  pod 'FLEX', :configurations => ['Debug', 'Dev']
+  pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.56/AppCommonNetworking/XNetworking/XNetworking.podspec'
 
   target 'SoraPassportTests' do
       inherit! :search_paths
@@ -49,7 +48,7 @@ abstract_target 'SoraPassportAll' do
       pod 'FearlessUtils', :git => 'https://github.com/soramitsu/fearless-utils-iOS.git', :branch => 'feature/fearless-utils-for-sora'
       pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :branch => 'feature/sora-propositions'
       pod 'SoraFoundation'
-      pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.37/AppCommonNetworking/XNetworking/XNetworking.podspec'
+      pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.56/AppCommonNetworking/XNetworking/XNetworking.podspec'
   end
   
   target 'SoraPassportUITests' do
@@ -71,17 +70,27 @@ post_install do |installer|
       config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
       config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
       if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 9.0
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '9.0'
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       end
     end
     project.targets.each do |target|
       target.build_configurations.each do |config|
         config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+        config.build_settings["DEVELOPMENT_TEAM"] = "YLWWUD25VZ"
         if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 9.0
-          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '9.0'
+          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
           config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
         end
       end
+    end
+  end
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+        config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+        config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+        config.build_settings["DEVELOPMENT_TEAM"] = "YLWWUD25VZ"
+        config.build_settings['CODE_SIGN_STYLE'] = "Manual"
+        config.build_settings['CODE_SIGN_IDENTITY'] = "iPhone Developer"
     end
   end
 end

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import FearlessUtils
 import BigInt
 import Foundation
@@ -68,6 +63,20 @@ class SwapAmount: Codable {
 enum SwapVariant: String, Codable {
     case desiredInput = "WithDesiredInput"
     case desiredOutput = "WithDesiredOutput"
+    
+    var title: String {
+        switch self {
+        case .desiredInput: return R.string.localizable.polkaswapMinimumReceived(preferredLanguages: .currentLocale)
+        case .desiredOutput: return R.string.localizable.polkaswapMaximumSold(preferredLanguages: .currentLocale)
+        }
+    }
+    
+    var message: String {
+        switch self {
+        case .desiredInput: return R.string.localizable.polkaswapMinimumReceivedInfo(preferredLanguages: .currentLocale)
+        case .desiredOutput: return R.string.localizable.polkaswapMaximumSoldInfo(preferredLanguages: .currentLocale)
+        }
+    }
 }
 
 struct SwapCall: Codable {

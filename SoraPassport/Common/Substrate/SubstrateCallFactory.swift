@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import BigInt
 import FearlessUtils
 import Foundation
@@ -34,10 +29,11 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
 
     func swap(from asset: String,
               to targetAsset: String,
+              dexId: String,
               amountCall: [SwapVariant: SwapAmount],
               type: [[String?]], filter: UInt) throws -> RuntimeCall<SwapCall> {
         let filterMode = FilterMode.allCases[Int(filter)].rawValue
-        let call = SwapCall(dexId: "0",
+        let call = SwapCall(dexId: dexId,
                             inputAssetId: AssetId(wrappedValue:asset),
                             outputAssetId: AssetId(wrappedValue:targetAsset),
                             amount: amountCall,

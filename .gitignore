@@ -38,10 +38,11 @@ Carthage/Build
 # screenshots whenever they are needed.
 # For more information about the recommended setup visit:
 # https://docs.fastlane.tools/best-practices/source-control/#source-control
-fastlane/report.xml
-fastlane/Preview.html
-fastlane/screenshots
-fastlane/test_output
+#fastlane/report.xml
+#fastlane/Preview.html
+#fastlane/screenshots
+#fastlane/test_output
+fastlane/
 # Code Injection
 #
 # After new code Injection tools there's a generated folder /iOSInjectionProject
@@ -49,10 +50,10 @@ fastlane/test_output
 iOSInjectionProject/
 #
 # Custom scripts
+SoraPassport/env-vars.sh
 *.generated.swift
 #
 # Generamba
 Templates/
 # Misc
 **/.DS_Store
-adding_license.sh

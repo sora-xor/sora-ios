@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import BigInt
 import CommonWallet
 import FearlessUtils
@@ -112,7 +107,7 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
         let remoteHistoryWrapper: CompoundOperationWrapper<WalletRemoteHistoryData>
 
         let remoteHistoryFactory = SubqueryHistoryOperationFactory(
-            url: ApplicationConfig.shared.subqueryUrl,
+            url: ConfigService.shared.config.subqueryURL,
             filter: filter
         )
 

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import FearlessUtils
 import Foundation
 
@@ -157,5 +152,10 @@ extension StorageKeyFactoryProtocol {
                              storageName: "Referrals",
                              key: identifier,
                              hasher: .blake128Concat)
+    }
+    
+    func xstPoolBaseFee() throws -> Data {
+        try createStorageKey(moduleName: "XstPool",
+                             storageName: "BaseFee")
     }
  }

@@ -1,12 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import SoraFoundation
 
-protocol KeyboardAdoptable: class {
+protocol KeyboardAdoptable: AnyObject {
     var keyboardHandler: KeyboardHandler? { get set }
 
     func updateWhileKeyboardFrameChanging(_ frame: CGRect)

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import RobinHood
 import XNetworking
 import Foundation
@@ -18,8 +13,12 @@ public final class SubqueryApyInfoOperation<ResultType>: BaseOperation<ResultTyp
         self.baseUrl = baseUrl
         self.httpProvider = SoramitsuHttpClientProviderImpl()
         self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
+        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
+                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
+                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
+        let configBuilder = provider.provide()
 
-        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, baseUrl: baseUrl.absoluteString)
+        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, soraRemoteConfigBuilder: configBuilder)
 
         super.init()
     }
@@ -41,9 +40,7 @@ public final class SubqueryApyInfoOperation<ResultType>: BaseOperation<ResultTyp
 
         DispatchQueue.main.async {
 
-            self.subQueryClient.getSpApy(url: self.baseUrl.absoluteString,
-                                         caseName: ApplicationConfig.shared.caseName,
-                                         completionHandler: { [self] requestResult, error in
+            self.subQueryClient.getSpApy(completionHandler: { [self] requestResult, error in
 
                 if let data = requestResult as? ResultType {
                     optionalCallResult = .success(data)

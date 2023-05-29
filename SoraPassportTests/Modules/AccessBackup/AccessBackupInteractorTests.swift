@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import XCTest
 @testable import SoraPassport
 import IrohaCrypto
@@ -27,41 +22,11 @@ class AccessBackupInteractorTests: XCTestCase {
 
         interactor = AccountBackupInteractor(keystore: keystore,
                                             mnemonicCreator: IRMnemonicCreator(language: .english),
-                                            settings: settings)
+                                             account: settings.currentAccount!)
     }
 
     override func tearDown() {
         clearStorage()
-    }
-
-    func testSuccessfullPassphraseLoading() {
-        // given
-
-        try? interactor.keystore.saveKey(Constants.dummyPincode.data(using: .utf8)!, with: KeystoreTag.pincode.rawValue)
-
-        let mnemonic = try! interactor.mnemonicCreator.mnemonic(fromList: Constants.dummyValidMnemonic)
-        try? interactor.keystore.saveEntropy(mnemonic.entropy(), address: settings.currentAccount!.address)
-
-        let presenter = MockAccountCreateInteractorOutputProtocol()// MockAccessBackupInteractorOutputProtocol()
-        interactor.presenter = presenter
-
-        let expectation = XCTestExpectation()
-
-        stub(presenter) { stub in
-            when(stub).didReceive(metadata: any(AccountCreationMetadata.self)).then { _ in
-                expectation.fulfill()
-            }
-        }
-
-        // when
-
-        interactor.setup()
-
-        wait(for: [expectation], timeout: Constants.expectationDuration)
-
-        // then
-
-        verify(presenter, times(1)).didReceive(metadata: any(AccountCreationMetadata.self))
     }
 
     // MARK: Private

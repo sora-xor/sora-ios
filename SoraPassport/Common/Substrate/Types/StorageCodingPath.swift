@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 struct StorageCodingPath {
@@ -57,5 +52,9 @@ extension StorageCodingPath {
 
     static var unappliedSlashes: StorageCodingPath {
         StorageCodingPath(moduleName: "Staking", itemName: "UnappliedSlashes")
+    }
+    
+    static var xstPoolFee: StorageCodingPath {
+        StorageCodingPath(moduleName: "xstPool", itemName: "baseFee")
     }
 }

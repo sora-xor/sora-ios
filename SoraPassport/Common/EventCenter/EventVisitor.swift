@@ -1,11 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
-protocol EventVisitorProtocol: class {
+protocol EventVisitorProtocol: AnyObject {
 //    func processPushNotification(event: PushNotificationEvent)
     func processProjectVote(event: ProjectVoteEvent)
     func processProjectFavoriteToggle(event: ProjectFavoriteToggleEvent)
@@ -21,6 +16,7 @@ protocol EventVisitorProtocol: class {
     func processBalanceChanged(event: WalletBalanceChanged)
     func processStakingChanged(event: WalletStakingInfoChanged)
     func processNewTransaction(event: WalletNewTransactionInserted)
+    func processNewTransactionCreated(event: NewTransactionCreatedEvent)
 //    func processPurchaseCompletion(event: PurchaseCompleted)
     func processTypeRegistryPrepared(event: TypeRegistryPrepared)
     func processMigration(event: MigrationEvent)
@@ -64,6 +60,7 @@ extension EventVisitorProtocol {
     func processTypeRegistryPrepared(event: TypeRegistryPrepared) {}
     func processMigration(event: MigrationEvent) {}
     func processSuccsessMigration(event: MigrationSuccsessEvent) {}
+    func processNewTransactionCreated(event: NewTransactionCreatedEvent) {}
 //    func processPurchaseCompletion(event: PurchaseCompleted) {}
 
     func processChainSyncDidStart(event _: ChainSyncDidStart) {}

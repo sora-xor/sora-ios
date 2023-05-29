@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import RobinHood
 import XNetworking
 import Foundation
@@ -20,8 +15,12 @@ public final class SubqueryReferralRewardsOperation<ResultType>: BaseOperation<R
         self.baseUrl = baseUrl
         self.httpProvider = SoramitsuHttpClientProviderImpl()
         self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
+        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
+                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
+                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
+        let configBuilder = provider.provide()
 
-        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, baseUrl: baseUrl.absoluteString)
+        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, soraRemoteConfigBuilder: configBuilder)
         self.address = address
         self.count = count
 
@@ -42,10 +41,7 @@ public final class SubqueryReferralRewardsOperation<ResultType>: BaseOperation<R
         let semaphore = DispatchSemaphore(value: 0)
 
         DispatchQueue.main.async {
-            self.subQueryClient.getReferrerRewards(address: self.address,
-                                                   caseName: ApplicationConfig.shared.caseName,
-                                                   url: self.baseUrl.absoluteString,
-                                                   completionHandler: { [self] requestResult, error in
+            self.subQueryClient.getReferrerRewards(address: self.address, completionHandler: { [self] requestResult, error in
                 guard let data = requestResult as? ResultType else { return }
 
                 if isCancelled {

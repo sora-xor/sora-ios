@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import IrohaCrypto
@@ -23,6 +18,9 @@ final class WalletNetworkFacade {
     let contactsOperationFactory: WalletContactOperationFactoryProtocol
     let accountsRepository: AnyDataProviderRepository<AccountItem>
     let assetManager: AssetManagerProtocol
+    let runtimeService: RuntimeCodingServiceProtocol
+    let requestFactory: StorageRequestFactoryProtocol
+    let engine: JSONRPCEngine
 
     lazy var localStorageKeyFactory = LocalStorageKeyFactory()
     lazy var remoteStorageKeyFactory = StorageKeyFactory()
@@ -39,7 +37,10 @@ final class WalletNetworkFacade {
          address: String,
          networkType: SNAddressType,
          assetManager: AssetManagerProtocol,
-         totalPriceAssetId: WalletAssetId?) {
+         totalPriceAssetId: WalletAssetId?,
+         runtimeService: RuntimeCodingServiceProtocol,
+         requestFactory: StorageRequestFactoryProtocol,
+         engine: JSONRPCEngine) {
         self.accountSettings = accountSettings
         self.nodeOperationFactory = nodeOperationFactory
         self.coingeckoOperationFactory = coingeckoOperationFactory
@@ -53,5 +54,8 @@ final class WalletNetworkFacade {
         self.contactsOperationFactory = contactsOperationFactory
         self.accountsRepository = accountsRepository
         self.assetManager = assetManager
+        self.runtimeService = runtimeService
+        self.requestFactory = requestFactory
+        self.engine = engine
     }
 }

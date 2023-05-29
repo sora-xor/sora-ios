@@ -1,9 +1,4 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
-import CommonWallet
+import Foundation
 
 struct SubqueryReferrerRewardsData: Decodable {
     struct ReferrerRewardsElements: Decodable {
@@ -30,5 +25,5 @@ struct SubqueryReferrerRewardsElement: Decodable {
     let blockHeight: String
     let referral: String
     let referrer: String
-    let amount: AmountDecimal
+    let amount: Amount
 }

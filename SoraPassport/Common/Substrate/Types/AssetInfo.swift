@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import CoreData
 import Foundation
 import FearlessUtils
@@ -44,28 +39,15 @@ struct AssetInfo: Codable {
         chainId: String,
         precision: UInt32,
         icon: String?,
-//        priceId: AssetModel.PriceId?,
-//        price: Decimal?,
-//        transfersEnabled: Bool?,
-//        type: ChainAssetType,
-//        currencyId: String?,
         displayName: String?,
         visible: Bool
-//        existentialDeposit: String?
     ) {
         self.assetId = id
         self.symbol = symbol
-//        self.chainId = chainId
         self.precision = precision
         self.icon = icon
-//        self.priceId = priceId
-//        self.price = price
-//        self.transfersEnabled = transfersEnabled
-//        self.type = type
-//        self.currencyId = currencyId
         self.name = displayName ?? ""
         self.visible = visible
-//        self.existentialDeposit = existentialDeposit
     }
 }
 
@@ -82,6 +64,18 @@ extension AssetInfo {
             return false
         }
     }
+}
+
+extension AssetInfo {
+    static let xor = AssetInfo(
+        id: WalletAssetId.xor.rawValue,
+        symbol: "XOR",
+        chainId: "",
+        precision: 18,
+        icon: nil,
+        displayName: nil,
+        visible: true
+    )
 }
 
 extension AssetModel {

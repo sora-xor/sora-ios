@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 enum AccountImportSource: CaseIterable {
@@ -22,5 +17,21 @@ extension AccountImportSource: SourceType {
 
     var descriptionText: String? {
         return nil
+    }
+    
+    var navigationTitle: String {
+        switch self {
+        case .mnemonic: return R.string.localizable.onboardingEnterPassphrase(preferredLanguages: .currentLocale)
+        case .seed: return R.string.localizable.onboardingEnterSeed(preferredLanguages: .currentLocale)
+        case .keystore: return "JSON" // for the future
+        }
+    }
+    
+    var containerTitle: String {
+        switch self {
+        case .mnemonic: return R.string.localizable.recoveryEnterPassphraseTitle(preferredLanguages: .currentLocale)
+        case .seed: return R.string.localizable.recoveryEnterSeedTitle(preferredLanguages: .currentLocale)
+        case .keystore: return "JSON" // for the future
+        }
     }
 }

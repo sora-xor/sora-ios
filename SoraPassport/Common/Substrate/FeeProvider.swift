@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import FearlessUtils
 import SoraKeystore
@@ -45,11 +40,12 @@ final class FeeProvider: FeeProviderProtocol {
         switch type {
 
         case .outgoing:
-            builderClosure = { builder in
+            builderClosure = { [weak self] builder in
                 let callFactory = SubstrateCallFactory()
 
-                let transferCall = try callFactory.transfer(to: "receiverAccountId",
-                                                            asset: WalletAssetId.xor.chainId,
+                let accountId = try SS58AddressFactory().accountId(from: self?.selectedAccount?.address ?? "").toHex()
+                let transferCall = try callFactory.transfer(to: accountId,
+                                                            asset: WalletAssetId.xor.rawValue,
                                                             amount: 0)
 
                 return try builder
@@ -63,6 +59,7 @@ final class FeeProvider: FeeProviderProtocol {
                 let swapCall = try callFactory.swap(
                     from: WalletAssetId.xor.chainId,
                     to: WalletAssetId.val.chainId,
+                    dexId: "0",
                     amountCall: [SwapVariant.desiredInput: SwapAmount(type: .desiredInput, desired: 0, slip: 0)],
                     type: [],
                     filter: 0

@@ -1,19 +1,14 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 protocol ApplicationSettingsPresentable {
-    func askOpenApplicationSettins(with message: String,
+    func askOpenApplicationSettings(with message: String,
                                    title: String?,
                                    from view: ControllerBackedProtocol?,
                                    locale: Locale?)
 }
 
 extension ApplicationSettingsPresentable {
-    func askOpenApplicationSettins(with message: String,
+    func askOpenApplicationSettings(with message: String,
                                    title: String?,
                                    from view: ControllerBackedProtocol?,
                                    locale: Locale?) {

@@ -1,9 +1,5 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
+import SoraFoundation
 
 extension NumberFormatter {
     static var vote: NumberFormatter {
@@ -75,5 +71,53 @@ extension NumberFormatter {
         numberFormatter.roundingMode = .floor
         numberFormatter.usesGroupingSeparator = true
         return numberFormatter
+    }
+    
+    static var fiat: NumberFormatter {
+        let formatter = NumberFormatter.amount
+        formatter.roundingMode = .floor
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        formatter.locale = LocalizationManager.shared.selectedLocale
+        return formatter
+    }
+    
+    static var polkaswapBalance: NumberFormatter {
+        let formatter = NumberFormatter.amount
+        formatter.roundingMode = .floor
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 3
+        formatter.locale = LocalizationManager.shared.selectedLocale
+        return formatter
+    }
+    
+    static var apy: NumberFormatter {
+        let formatter = NumberFormatter.amount
+        formatter.roundingMode = .floor
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 7
+        formatter.locale = LocalizationManager.shared.selectedLocale
+        return formatter
+    }
+    
+    static var cryptoAssets: NumberFormatter {
+        let formatter = NumberFormatter.amount
+        formatter.roundingMode = .floor
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 8
+        formatter.locale = LocalizationManager.shared.selectedLocale
+        return formatter
+    }
+    
+    static func inputedAmoutFormatter(with precision: UInt32) -> NumberFormatter {
+        let formatter = NumberFormatter()
+        formatter.roundingMode = .floor
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = Int(precision)
+        formatter.roundingMode = .floor
+        formatter.usesGroupingSeparator = true
+        formatter.alwaysShowsDecimalSeparator = false
+        formatter.locale = LocalizationManager.shared.selectedLocale
+        return formatter
     }
 }

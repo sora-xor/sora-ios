@@ -1,10 +1,9 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Firebase
+import SCard
+#if F_DEV
+import FLEX
+#endif
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -19,6 +18,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         if !isUnitTesting {
             FirebaseApp.configure()
+
+            initFlex()
 
             let rootWindow = SoraWindow()
             window = rootWindow
@@ -46,5 +47,109 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         } else {
             return false
         }
+    }
+
+    private func initFlex() {
+        #if F_DEV
+        FLEXManager.shared.registerGlobalEntry(withName: "Toggle Sora Card") { tableViewController in
+
+            let isSoraCardOn = !ApplicationConfig.isNeededSoraCard
+
+            let title = isSoraCardOn ? "Enable Sora Card?" : "Disable Sora Card? "
+            let alertController = UIAlertController(title: title, message: "Restart the app to apply changes", preferredStyle: .alert)
+
+            let doneAction = UIAlertAction(title: "OK",  style: .destructive) { _ in
+                UserDefaults.standard.set(isSoraCardOn, forKey: ApplicationConfig.isNeededSoraCardKey)
+                exit(0)
+            }
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
+
+            alertController.addAction(doneAction)
+            alertController.addAction(cancelAction)
+
+            tableViewController.present(alertController, animated: true)
+        }
+
+        FLEXManager.shared.registerGlobalEntry(withName: "Reset SORA Card Token") { tableViewController in
+            Task {
+                let token = await SCard.shared?.accessToken()
+                let title = "Reset SORA Card Token"
+                let alertController = UIAlertController(title: title, message: token, preferredStyle: .alert)
+
+                let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
+                    UIPasteboard.general.string = token
+                }
+                let removeAction = UIAlertAction(title: "Remove",  style: .destructive) { _ in
+                    Task { await SCard.shared?.removeToken() }
+                }
+                let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
+
+                alertController.addAction(cancelAction)
+                alertController.addAction(copyAction)
+                alertController.addAction(removeAction)
+
+                DispatchQueue.main.async {
+                    tableViewController.present(alertController, animated: true)
+                }
+            }
+        }
+
+        guard let url = Bundle.main.url(forResource: "/Podfile", withExtension: "lock") else { return }
+        let data = try? String(contentsOf: url, encoding: .utf8)
+
+        let scardInfo = data?.groups(for: "SCard:\n\\s*:[a-z]*:.*\n\\s*:[a-z]*:.*")
+        let commit = scardInfo?[safe: 1]?[safe: 0]?.groups(for: ":commit: (.*)")[safe: 0]?[safe: 1]?.prefix(10) ?? "-"
+        let scardInfoMessage = scardInfo?.flatMap{ $0 }.joined()
+
+        FLEXManager.shared.registerGlobalEntry(withName: "SCard commit:\(commit)") { tableViewController in
+
+            let title = "SCard pod version"
+            let alertController = UIAlertController(title: title, message: scardInfoMessage, preferredStyle: .alert)
+
+            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
+                UIPasteboard.general.string = data
+            }
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
+
+            alertController.addAction(cancelAction)
+            alertController.addAction(copyAction)
+
+            DispatchQueue.main.async {
+                tableViewController.present(alertController, animated: true)
+            }
+        }
+        #endif
+    }
+}
+
+fileprivate extension String {
+    func groups(for regexPattern: String) -> [[String]] {
+        do {
+            let text = self
+            let regex = try NSRegularExpression(pattern: regexPattern)
+            let matches = regex.matches(in: text,
+                                        range: NSRange(text.startIndex..., in: text))
+            return matches.map { match in
+                return (0..<match.numberOfRanges).map {
+                    let rangeBounds = match.range(at: $0)
+                    guard let range = Range(rangeBounds, in: text) else {
+                        return ""
+                    }
+                    return String(text[range])
+                }
+            }
+        } catch let error {
+            print("invalid regex: \(error.localizedDescription)")
+            return []
+        }
+    }
+}
+
+fileprivate extension Array {
+    subscript(safe index: Int) -> Element? {
+        guard index >= 0, index < endIndex else {
+            return nil
+        }
+        return self[index]
     }
 }

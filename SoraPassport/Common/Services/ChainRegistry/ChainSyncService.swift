@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import FearlessUtils
@@ -20,7 +15,6 @@ final class ChainSyncService {
 
     let typesUrl: URL?
     let assetsUrl: URL?
-    let nodesUrl: URL?
     let repository: AnyDataProviderRepository<ChainModel>
     let dataFetchFactory: DataOperationFactoryProtocol
     let eventCenter: EventCenterProtocol
@@ -36,7 +30,6 @@ final class ChainSyncService {
 
     init(
         typesUrl: URL?,
-        nodesUrl: URL?,
         assetsUrl: URL?,
         dataFetchFactory: DataOperationFactoryProtocol,
         repository: AnyDataProviderRepository<ChainModel>,
@@ -46,7 +39,6 @@ final class ChainSyncService {
         logger: LoggerProtocol? = nil
     ) {
         self.typesUrl = typesUrl
-        self.nodesUrl = nodesUrl
         self.assetsUrl = assetsUrl
         self.dataFetchFactory = dataFetchFactory
         self.repository = repository
@@ -74,21 +66,17 @@ final class ChainSyncService {
     }
 
     private func executeSync() {
-        guard let typesUrl = typesUrl, let assetsUrl = assetsUrl, let nodesUrl = nodesUrl else {
+        guard let typesUrl = typesUrl, let assetsUrl = assetsUrl else {
             assertionFailure()
             return
         }
 
         let remoteFetchAssetsOperation = dataFetchFactory.fetchData(from: assetsUrl)
-        let remoteFetchOperation = dataFetchFactory.fetchData(from: nodesUrl)
         let localFetchOperation = repository.fetchAllOperation(with: RepositoryFetchOptions())
-        let processingOperation: BaseOperation<SyncChanges> = ClosureOperation { [weak self] in
+        let processingOperation: BaseOperation<SyncChanges> = ClosureOperation {
             let assets = AssetManager.networkAssets
             let assetsRemoteData = try remoteFetchAssetsOperation.extractNoCancellableResultData()
             let whiteList: [Whitelist] = try JSONDecoder().decode([Whitelist].self, from: assetsRemoteData)
-
-            let jsonData = try remoteFetchOperation.extractNoCancellableResultData()
-            let nodesResponse = try JSONDecoder().decode(NodesResponse.self, from: jsonData)
 
             var filteredAssets: [AssetInfo] = []
 
@@ -107,7 +95,7 @@ final class ChainSyncService {
             let typesSettings  = ChainModel.TypesSettings(url: typesUrl, overridesCommon: true)
             let defaultChain = ChainModel(chainId: Chain.sora.genesisHash(),
                                           name: Chain.sora.rawValue,
-                                          nodes: Set(nodesResponse.nodes),
+                                          nodes: ConfigService.shared.config.defaultNodes,
                                           addressPrefix: ApplicationConfig.shared.addressType,
                                           types: typesSettings,
                                           icon: nil,
@@ -164,7 +152,6 @@ final class ChainSyncService {
         }
 
         processingOperation.addDependency(remoteFetchAssetsOperation)
-        processingOperation.addDependency(remoteFetchOperation)
         processingOperation.addDependency(localFetchOperation)
 
         let localSaveOperation = repository.saveOperation({
@@ -192,7 +179,7 @@ final class ChainSyncService {
         }
 
         operationQueue.addOperations([
-            remoteFetchAssetsOperation, remoteFetchOperation, localFetchOperation, processingOperation, localSaveOperation, mapOperation
+            remoteFetchAssetsOperation, localFetchOperation, processingOperation, localSaveOperation, mapOperation
         ], waitUntilFinished: false)
     }
 

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
 public enum CompactBarScrollingMode {
@@ -16,7 +11,7 @@ public enum CompactBarScrollingDirection {
     case bottom
 }
 
-public protocol CompactBarFloating: class {
+public protocol CompactBarFloating: AnyObject {
     var compactBar: UIView { get }
     var compactBarSupportScrollView: UIScrollView { get }
 

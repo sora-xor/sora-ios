@@ -1,15 +1,10 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 import Then
 import Anchorage
 import SoraFoundation
 import SoraUI
 
-protocol RewardsSuperviewProtocol: class {
+protocol RewardsSuperviewProtocol: AnyObject {
     var maximumHeightLimit: CGFloat { get }
     var middleHeightLimit: CGFloat { get }
     var minimumHeightLimit: CGFloat { get }
@@ -279,7 +274,7 @@ extension RewardsViewController: EmptyStateDataSource {
     }
 
     var imageForEmptyState: UIImage? {
-        return R.image.emptyStateIcon()//invitationsEmptyIconV2()
+        return nil
     }
 
     var titleForEmptyState: String? {

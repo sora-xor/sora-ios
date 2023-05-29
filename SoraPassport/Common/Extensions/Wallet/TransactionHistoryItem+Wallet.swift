@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import CommonWallet
 import SoraKeystore
@@ -31,10 +26,12 @@ extension TransactionHistoryItem {
             let receiver = info.destination
             let amountCall = info.amountCall ?? [:]
             let sourceType: String = info.context?[TransactionContextKeys.marketType] ?? ""
+            let dexId: String = info.context?[TransactionContextKeys.dex] ?? "0"
             let marketType: LiquiditySourceType = LiquiditySourceType(rawValue: sourceType) ?? .smart
             let call = try? SubstrateCallFactory().swap(
                 from: sender,
                 to: receiver,
+                dexId: dexId,
                 amountCall: amountCall,
                 type: marketType.code,
                 filter: marketType.filter

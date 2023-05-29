@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 import BigInt
@@ -45,7 +40,7 @@ extension WalletNetworkFacade {
 
     fileprivate func loadPoolsDetails(accountPools: [String: [String]]) -> [PoolDetails] {
         var poolsDetails: [PoolDetails] = []
-        let strategicBonusAPYOperation = SubqueryApyInfoOperation<[SbApyInfo]>(baseUrl: ApplicationConfig.shared.subqueryUrl)
+        let strategicBonusAPYOperation = SubqueryApyInfoOperation<[SbApyInfo]>(baseUrl: ConfigService.shared.config.subqueryURL)
 
         OperationQueue().addOperations([strategicBonusAPYOperation], waitUntilFinished: true)
 
@@ -55,7 +50,7 @@ extension WalletNetworkFacade {
             for targetAsset in pool.value {
                 do {
                     var poolDetails = try getPoolDetails(baseAsset: pool.key, targetAsset: targetAsset)
-                    let info = apyResult?.first(where: { $0.tokenId == targetAsset })
+                    let info = apyResult?.first(where: { $0.id == targetAsset })
                     poolDetails.sbAPYL = Double(info?.sbApy ?? 0)
                     poolsDetails.append(poolDetails)
                 } catch {
@@ -136,8 +131,9 @@ extension WalletNetworkFacade {
             targetAssetPooledByAccount: targetPooled,
             baseAssetPooledTotal: reservesDecimal,
             targetAssetPooledTotal: targetAssetPooledTotalDecimal,
-            totalIssuances: Decimal(string: String(totalIssuances.value)) ?? .zero,
-            reserves: Decimal(string: String(reserves.reserves.value)) ?? .zero
+            totalIssuances: Decimal.fromSubstrateAmount(totalIssuances.value, precision: 18) ?? 0.0,
+            baseAssetReserves: Decimal.fromSubstrateAmount(reserves.reserves.value, precision: 18) ?? 0.0,
+            targetAssetReserves: Decimal.fromSubstrateAmount(reserves.fees.value, precision: 18) ?? 0.0
         )
     }
 }

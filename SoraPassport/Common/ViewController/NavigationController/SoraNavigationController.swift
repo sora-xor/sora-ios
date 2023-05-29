@@ -1,11 +1,6 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import UIKit
 
-protocol HiddableBarWhenPushed: class {}
+protocol HiddableBarWhenPushed: AnyObject {}
 
 final class SoraNavigationController: UINavigationController, UINavigationControllerDelegate {
     override func viewDidLoad() {

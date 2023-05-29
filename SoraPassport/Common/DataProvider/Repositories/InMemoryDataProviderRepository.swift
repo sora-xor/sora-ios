@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 import RobinHood
 
@@ -11,6 +6,14 @@ enum InMemoryDataProviderRepositoryError: Error {
 }
 
 final class InMemoryDataProviderRepository<T: Identifiable>: DataProviderRepositoryProtocol {
+    func fetchOperation(
+        by modelIdsClosure: @escaping () throws -> [String],
+        options: RobinHood.RepositoryFetchOptions) -> RobinHood.BaseOperation<[T]>
+    {
+        // TODO: Ivan impl
+        return .init()
+    }
+
     typealias Model = T
 
     private var itemsById: [String: Model] = [:]

@@ -1,8 +1,3 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 protocol LinkDecoratorProtocol {
@@ -43,6 +38,20 @@ class LinkDecoratorFactory {
                     URL(string: "https://wiki.sora.org/polkaswap/privacy")!
         ]
 
+        return LinkDecorator(pattern: pattern, urls: urls)
+    }
+    
+    static func contactDecorator() -> LinkDecorator {
+        let pattern = "(%%.*?%%)" //detects substrings like %%Polkaswap FAQ%%
+        let urls = [URL(string: "https://wiki.sora.org/polkaswap/polkaswap-faq")!
+        ]
+
+        return LinkDecorator(pattern: pattern, urls: urls)
+    }
+    
+    static func termsDecorator() -> LinkDecorator {
+        let pattern = "(%%.*?%%)" //detects substrings like %%Polkaswap FAQ%%
+        let urls = [ ApplicationConfig.shared.termsURL, ApplicationConfig.shared.privacyPolicyURL ]
         return LinkDecorator(pattern: pattern, urls: urls)
     }
 }

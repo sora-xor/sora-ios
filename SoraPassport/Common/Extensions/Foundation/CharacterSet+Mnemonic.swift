@@ -1,13 +1,7 @@
-/**
-* Copyright Soramitsu Co., Ltd. All Rights Reserved.
-* SPDX-License-Identifier: Apache 2.0
-*/
-
 import Foundation
 
 extension CharacterSet {
     static var englishMnemonic: CharacterSet {
-        return CharacterSet(charactersIn: "a"..."z")
-            .union(.whitespaces)
+        return CharacterSet(charactersIn: "a"..."z").union(.whitespaces).union(.newlines).union(CharacterSet(charactersIn: "\t"))
     }
 }
