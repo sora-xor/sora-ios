@@ -128,9 +128,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
         interactor.skipConfirmation(request: request, mnemonic: mnemonic)
     }
 
-    func restoredApp() {
-        wireframe.authorize()
-    }
+    func restoredApp() {}
 }
 
 extension AccountCreatePresenter: AccountCreateInteractorOutputProtocol {
