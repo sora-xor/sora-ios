@@ -182,11 +182,13 @@ extension ConfirmSwapViewModel {
         
         let symbol = swapVariant == .desiredInput ? "\(secondAsset?.symbol ?? "")" : "\(firstAsset.symbol)"
         let amount = swapVariant == .desiredInput ? amounts.toAmount * (1 - Decimal(Double(slippageTolerance)) / 100.0) : amounts.toAmount * (1 + Decimal(Double(slippageTolerance)) / 100.0)
-        let amountText =  "\(amount) \(symbol)"
         
-        let minReward = R.string.localizable.polkaswapOutputEstimated(amountText,
+        let amountText = NumberFormatter.cryptoAssets.stringFromDecimal(amount) ?? ""
+        let minMaxAmountText =  "\(amountText) \(symbol)"
+        
+        let minReward = R.string.localizable.polkaswapOutputEstimated(minMaxAmountText,
                                                                       preferredLanguages: .currentLocale)
-        let maxSold = R.string.localizable.polkaswapInputEstimated(amountText,
+        let maxSold = R.string.localizable.polkaswapInputEstimated(minMaxAmountText,
                                                                    preferredLanguages: .currentLocale)
         let minimalRewardText = swapVariant == .desiredInput ? minReward : maxSold
         
@@ -199,7 +201,7 @@ extension ConfirmSwapViewModel {
                                                  range: NSRange(location: 0, length: minimalRewardAttributedText.length))
         minimalRewardAttributedText.addAttribute(.font,
                                                  value: FontType.paragraphBoldS.font,
-                                                 range: NSString(string: minimalRewardAttributedText.string).range(of: amountText))
+                                                 range: NSString(string: minimalRewardAttributedText.string).range(of: minMaxAmountText))
         
         let minimalRewardTextItem = SoraTextItem(text: minimalRewardAttributedText)
         
