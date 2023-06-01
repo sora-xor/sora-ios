@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>project.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li יום נותר</string>
+        <key>two</key>
+        <string>%li ימים נותרו</string>
+        <key>many</key>
+        <string>%li ימים נותרו</string>
+        <key>other</key>
+        <string>%li ימים נותרו</string>
+      </dict>
+    </dict>
+    <key>project.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li שעה נותרה</string>
+        <key>two</key>
+        <string>%li שעות נותרו</string>
+        <key>many</key>
+        <string>%li שעות נותרו</string>
+        <key>other</key>
+        <string>%li שעות נותרו</string>
+      </dict>
+    </dict>
+    <key>project.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li דקה נותרה</string>
+        <key>two</key>
+        <string>%li דקות נותרו</string>
+        <key>many</key>
+        <string>%li דקות נותרו</string>
+        <key>other</key>
+        <string>%li דקות נותרו</string>
+      </dict>
+    </dict>
+    <key>project.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li שנייה נותרה</string>
+        <key>two</key>
+        <string>%li שניות נותרו</string>
+        <key>many</key>
+        <string>%li שניות נותרו</string>
+        <key>other</key>
+        <string>%li שניות נותרו</string>
+      </dict>
+    </dict>
+    <key>received.invitations</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>קיבלת %#@invitation@</string>
+      <key>invitation</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li הזמנה</string>
+        <key>two</key>
+        <string>%li הזמנות</string>
+        <key>many</key>
+        <string>%li הזמנות</string>
+        <key>other</key>
+        <string>%li הזמנות</string>
+      </dict>
+    </dict>
+    <key>favorite.users</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@favorite@</string>
+      <key>favorite</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li מועדף</string>
+        <key>two</key>
+        <string>%li מועדפים</string>
+        <key>many</key>
+        <string>%li מועדפים</string>
+        <key>other</key>
+        <string>%li מועדפים</string>
+      </dict>
+    </dict>
+    <key>voted.friends</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@voted@</string>
+      <key>voted</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li חבר הצביע</string>
+        <key>two</key>
+        <string>%li חברים הצביעו</string>
+        <key>many</key>
+        <string>%li חברים הצביעו</string>
+        <key>other</key>
+        <string>%li חברים הצביעו</string>
+      </dict>
+    </dict>
+    <key>referendum.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li שעה</string>
+        <key>two</key>
+        <string>%li שעות</string>
+        <key>many</key>
+        <string>%li שעות</string>
+        <key>other</key>
+        <string>%li שעות</string>
+      </dict>
+    </dict>
+    <key>referendum.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li דקה</string>
+        <key>two</key>
+        <string>%li דקות</string>
+        <key>many</key>
+        <string>%li דקות</string>
+        <key>other</key>
+        <string>%li דקות</string>
+      </dict>
+    </dict>
+    <key>referendum.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li שנייה</string>
+        <key>two</key>
+        <string>%li שניות</string>
+        <key>many</key>
+        <string>%li שניות</string>
+        <key>other</key>
+        <string>%li שניות</string>
+      </dict>
+    </dict>
+    <key>referral.invitations</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@format@</string>
+      <key>format</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>הזמנה</string>
+        <key>two</key>
+        <string>הזמנות</string>
+        <key>many</key>
+        <string>הזמנות</string>
+        <key>other</key>
+        <string>הזמנות</string>
+      </dict>
+    </dict>
+  </dict>
+</plist>
