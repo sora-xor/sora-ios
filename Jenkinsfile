@@ -9,8 +9,8 @@ def jobParams = [
 def pipline = new org.ios.AppPipeline(
     steps: this,
     sonar: true,
-    sonarProjectName: 'sora-passport-ios',
-    sonarProjectKey: 'jp.co.soramitsu:sora-passport-ios',
+    sonarProjectName: 'sora-ios',
+    sonarProjectKey: 'jp.co.soramitsu.sora-xor:sora-ios',
     // appTests: false,
     sonarTestsDirs: './SoraPassportTests,./SoraPassportIntegrationTests,./SoraPassportUITests',
     jobParams: jobParams,
