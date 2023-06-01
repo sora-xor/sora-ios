@@ -831,3 +831,11 @@
 "commom.scan.qr" = "扫描二维码";
 "common.request" = "请求";
 "common.create.qr.request" = "创建QR请求";
+"node.offline" = "Node offline";
+"switch.node" = "Switch node";
+"node.connection.issue" = "Your account has been successfully created. But the app can not connect to a default node. Try to switch to an alternative.";
+"common.hebrew" = "Hebrew";
+"common.persian" = "Persian";
+"common.serbian" = "Serbian";
+"common.vietnamese" = "Vietnamese";
+"common.hindi" = "Hindi";

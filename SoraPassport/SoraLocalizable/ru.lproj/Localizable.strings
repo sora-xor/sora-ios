@@ -831,3 +831,11 @@
 "commom.scan.qr" = "Scan QR code";
 "common.request" = "Request";
 "common.create.qr.request" = "Create QR-request";
+"node.offline" = "Нода недоступна";
+"switch.node" = "Переключить ноду";
+"node.connection.issue" = "Ваш аккаунт успешно создан. Но приложение не может подключиться к ноде по-умолчанию. Попробуйте подключиться к другой ноде.";
+"common.hebrew" = "Иврит";
+"common.persian" = "Персидский";
+"common.serbian" = "Сербский";
+"common.vietnamese" = "Вьетнамский";
+"common.hindi" = "Хинди";
