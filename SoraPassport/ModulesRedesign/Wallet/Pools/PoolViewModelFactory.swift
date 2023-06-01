@@ -47,7 +47,7 @@ extension PoolViewModelFactory: PoolViewModelFactoryProtocol {
         if let firstPriceUsd = fiatData.first(where: { $0.id == baseAsset.identifier })?.priceUsd?.decimalValue,
            let secondPriceUsd = fiatData.first(where: { $0.id == targetAsset.identifier })?.priceUsd?.decimalValue {
             
-            let fiatDecimal = (pool.baseAssetPooledByAccount ?? Decimal(0)) * firstPriceUsd + (pool.targetAssetPooledByAccount ?? Decimal(0)) + secondPriceUsd
+            let fiatDecimal = (pool.baseAssetPooledByAccount ?? Decimal(0)) * firstPriceUsd + (pool.targetAssetPooledByAccount ?? Decimal(0)) * secondPriceUsd
             fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
         }
         
