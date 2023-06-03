@@ -838,4 +838,5 @@
 "common.persian" = "פרסית";
 "common.serbian" = "סרבית";
 "common.vietnamese" = "וייטנאמית";
-"common.hindi" = "Hindi";
+"common.hindi" = "הינדי";
+"confirn.supply.liquidity.first.provider.warning" = "You are the first liquidity provider. The ratio of tokens you add will set the price of this pool.";
