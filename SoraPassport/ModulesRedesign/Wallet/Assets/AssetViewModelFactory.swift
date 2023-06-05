@@ -56,7 +56,8 @@ extension AssetViewModelFactory: AssetViewModelFactoryProtocol {
     func createAssetViewModel(with asset: AssetInfo, fiatData: [FiatData], mode: WalletViewMode) -> AssetViewModel? {
         var fiatText = ""
         if let usdPrice = fiatData.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue {
-            fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(usdPrice) ?? "")
+            let formatter = usdPrice > 0.01 ? NumberFormatter.fiat : NumberFormatter.cryptoAssets
+            fiatText = "$" + (formatter.stringFromDecimal(usdPrice) ?? "")
         }
 
         return AssetViewModel(identifier: asset.assetId,
