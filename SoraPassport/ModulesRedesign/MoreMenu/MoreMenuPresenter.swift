@@ -61,7 +61,7 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                                     onTap: { self.showSoraCard() })
         items.append(accounts)
 
-        if ApplicationConfig.isNeededSoraCard {
+        if ConfigService.shared.config.isSoraCardEnabled {
             items.append(soraCard)
         }
 

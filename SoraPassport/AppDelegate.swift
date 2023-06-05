@@ -51,24 +51,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private func initFlex() {
         #if F_DEV
-        FLEXManager.shared.registerGlobalEntry(withName: "Toggle Sora Card") { tableViewController in
-
-            let isSoraCardOn = !ApplicationConfig.isNeededSoraCard
-
-            let title = isSoraCardOn ? "Enable Sora Card?" : "Disable Sora Card? "
-            let alertController = UIAlertController(title: title, message: "Restart the app to apply changes", preferredStyle: .alert)
-
-            let doneAction = UIAlertAction(title: "OK",  style: .destructive) { _ in
-                UserDefaults.standard.set(isSoraCardOn, forKey: ApplicationConfig.isNeededSoraCardKey)
-                exit(0)
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(doneAction)
-            alertController.addAction(cancelAction)
-
-            tableViewController.present(alertController, animated: true)
-        }
 
         FLEXManager.shared.registerGlobalEntry(withName: "Reset SORA Card Token") { tableViewController in
             Task {
