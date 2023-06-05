@@ -246,7 +246,7 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
         transferableContainerView.sora.isHidden = !item.isNeedTransferable
         separatorView.sora.isHidden = !item.isNeedTransferable
         sendButton.sora.isHidden = item.balance.decimalValue.isZero
-        buyFiatButton.sora.isHidden = item.assetInfo != .xor || !ApplicationConfig.isNeededSoraCard
+        buyFiatButton.sora.isHidden = item.assetInfo != .xor || !ConfigService.shared.config.isSoraCardEnabled
         frozenContainerView.sora.isHidden = (item.frozenAmount?.decimalValue ?? Decimal(0)).isZero
         frozenAmountLabel.sora.text = (item.frozenAmount?.stringValue ?? "") + " " + item.assetInfo.symbol
         frozenFiatAmountLabel.sora.text = item.frozenFiatAmount

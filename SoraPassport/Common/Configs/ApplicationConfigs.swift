@@ -293,16 +293,6 @@ extension ApplicationConfig: ApplicationConfigProtocol {
             return URL(string: "https://api.subquery.network/sq/sora-xor/sora-dev")!
         #endif
     }
-
-    static let isNeededSoraCardKey = "isNeededSoraCard"
-
-    static var isNeededSoraCard: Bool {
-        #if DEBUG
-        return UserDefaults.standard.bool(forKey: isNeededSoraCardKey)
-        #else
-        return false
-        #endif
-    }
     
     var isDisclamerShown: Bool {
         return UserDefaults.standard.bool(forKey: "isDisclamerShown")
