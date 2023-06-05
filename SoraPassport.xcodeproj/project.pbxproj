@@ -199,6 +199,8 @@
 		3603A3962917E1FD00DF6EFE /* PoolsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3603A3922917E1FD00DF6EFE /* PoolsItem.swift */; };
 		3603A3972917E1FD00DF6EFE /* PoolViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3603A3932917E1FD00DF6EFE /* PoolViewModelFactory.swift */; };
 		3603A3992917E63500DF6EFE /* PoolInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3603A3982917E63500DF6EFE /* PoolInfo.swift */; };
+		36069F0C2A2BA3CA00439ADE /* WarningCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36069F0A2A2BA3CA00439ADE /* WarningCell.swift */; };
+		36069F0D2A2BA3CA00439ADE /* WarningItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36069F0B2A2BA3CA00439ADE /* WarningItem.swift */; };
 		3608328A28F8820800E57418 /* ProductListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3608328928F8820800E57418 /* ProductListViewController.swift */; };
 		3611062B29784A23003A6352 /* SetupAccountNameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3611062929784A1F003A6352 /* SetupAccountNameViewController.swift */; };
 		3611062C29784A23003A6352 /* SetupAccountNameViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3611062A29784A22003A6352 /* SetupAccountNameViewFactory.swift */; };
@@ -1418,6 +1420,8 @@
 		36069F072A28C40700439ADE /* hi-IN */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "hi-IN"; path = "hi-IN.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		36069F082A28C40700439ADE /* hi-IN */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "hi-IN"; path = "hi-IN.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		36069F092A28C40700439ADE /* hi-IN */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "hi-IN"; path = "hi-IN.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
+		36069F0A2A2BA3CA00439ADE /* WarningCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WarningCell.swift; sourceTree = "<group>"; };
+		36069F0B2A2BA3CA00439ADE /* WarningItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WarningItem.swift; sourceTree = "<group>"; };
 		3608328928F8820800E57418 /* ProductListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductListViewController.swift; sourceTree = "<group>"; };
 		3611062929784A1F003A6352 /* SetupAccountNameViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SetupAccountNameViewController.swift; sourceTree = "<group>"; };
 		3611062A29784A22003A6352 /* SetupAccountNameViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SetupAccountNameViewFactory.swift; sourceTree = "<group>"; };
@@ -3960,6 +3964,8 @@
 		364BB468292A3B1C00DE90A6 /* Confirm */ = {
 			isa = PBXGroup;
 			children = (
+				36069F0A2A2BA3CA00439ADE /* WarningCell.swift */,
+				36069F0B2A2BA3CA00439ADE /* WarningItem.swift */,
 				364BB487292A491D00DE90A6 /* SoramitsuButtonCell.swift */,
 				364BB486292A491D00DE90A6 /* SoramitsuButtonItem.swift */,
 				364BB483292A47F500DE90A6 /* ConfirmOptionsCell.swift */,
@@ -6572,6 +6578,7 @@
 				02E3199B21D2AEAE00B33B66 /* NetworkDataError+TextConvertible.swift in Sources */,
 				9440FBB126974EC000ADC68E /* WhitelistOperationFactory.swift in Sources */,
 				945A571A25DE7F63003E4023 /* RuntimeRegistryService.swift in Sources */,
+				36069F0D2A2BA3CA00439ADE /* WarningItem.swift in Sources */,
 				8BF428792940A66E00590F92 /* LanguageItem.swift in Sources */,
 				364D61CC2993D47E004938FA /* BalanceDetailView.swift in Sources */,
 				364526A728C2B02F00260340 /* NodeView.swift in Sources */,
@@ -7001,6 +7008,7 @@
 				3694D45B2971F5450045A295 /* ActivityErrorItem.swift in Sources */,
 				368E2CA828F3332A0071A324 /* SingleProviderIdentifierFactory.swift in Sources */,
 				84F8B245243360B3005911F7 /* WalletEthereumRegistrationMock.swift in Sources */,
+				36069F0C2A2BA3CA00439ADE /* WarningCell.swift in Sources */,
 				948F2BEC27E4E79E005A4CBF /* SwapCall.swift in Sources */,
 				364BA321293D07360099CB0D /* WalletServiceProtocols.swift in Sources */,
 				0292034C2199AF8000D9BACD /* ResultStatusError.swift in Sources */,

@@ -74,6 +74,8 @@ extension ConfirmSupplyLiquidityViewModel: ConfirmViewModelProtocol {
 
 extension ConfirmSupplyLiquidityViewModel {
     func updateContent() {
+        var items: [SoramitsuTableViewItemProtocol] = []
+
         let firstAsset = assetManager.assetInfo(for: baseAssetId)
         let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: 8)
         
@@ -91,14 +93,28 @@ extension ConfirmSupplyLiquidityViewModel {
         let confirmAssetsItem = ConfirmAssetsItem(firstAssetImageModel: firstAssetImageModel,
                                                   secondAssetImageModel: secondAssetImageModel,
                                                   operationImageName: "roundPlus")
+        items.append(confirmAssetsItem)
+        items.append(SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)))
         
-        let text = R.string.localizable.polkaswapOutputEstimated("\(self.slippageTolerance)%", preferredLanguages: .currentLocale)
+        let text = R.string.localizable.polkaswapOutputEstimated("\(slippageTolerance)%", preferredLanguages: .currentLocale)
         let textItem = SoramitsuTextItem(text: text, fontData: FontType.paragraphS, textColor: .fgPrimary, alignment: .center)
         let slippageTextItem = SoraTextItem(text: textItem.attributedString)
+        items.append(slippageTextItem)
+        items.append(SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)))
         
-        let detailItem = ConfirmDetailsItem(detailViewModels: self.details)
+        let detailItem = ConfirmDetailsItem(detailViewModels: details)
+        items.append(detailItem)
+        items.append(SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)))
         
-        let slipageItem = ConfirmOptionsItem(toleranceText: "\(self.slippageTolerance)%")
+        let slipageItem = ConfirmOptionsItem(toleranceText: "\(slippageTolerance)%")
+        items.append(slipageItem)
+        items.append(SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)))
+        
+        if transactionType == .liquidityAddNewPool || transactionType == .liquidityAddToExistingPoolFirstTime {
+            let warning = WarningItem()
+            items.append(warning)
+            items.append(SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)))
+        }
         
         let buttonText = SoramitsuTextItem(text: R.string.localizable.commonConfirm(preferredLanguages: .currentLocale),
                                            fontData: FontType.buttonM,
@@ -107,16 +123,9 @@ extension ConfirmSupplyLiquidityViewModel {
         let buttonItem = SoramitsuButtonItem(title: buttonText) { [weak self] in
             self?.submit()
         }
+        items.append(buttonItem)
         
-        self.setupItems?([confirmAssetsItem,
-                          SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)),
-                          slippageTextItem,
-                          SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)),
-                          detailItem,
-                          SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)),
-                          slipageItem,
-                          SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)),
-                          buttonItem])
+        setupItems?(items)
     }
     
     
