@@ -207,7 +207,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 completion(items)
             })
 
-        if soraCard.isSCBannerHidden || !ApplicationConfig.isNeededSoraCard {
+        if soraCard.isSCBannerHidden || !ConfigService.shared.config.isSoraCardEnabled {
             walletItems = [accountItem, assetItem, poolItem]
         } else {
             walletItems = [accountItem, soraCardItem, assetItem, poolItem]
@@ -307,8 +307,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
             return nil
         }
-
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
 
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
 
