@@ -128,25 +128,22 @@ final class AccountOptionsViewController: SoramitsuViewController {
                     self.passphraseTapped()
                 }
             }),
-//Buisness logic not implemented yet, so hidden
             MenuItem().then({
                 $0.titleLabel.sora.text = R.string.localizable.exportAccountDetailsShowRawSeed(preferredLanguages: languages)
                 $0.leftImageView.image = R.image.profile.seed()
                 $0.addArrow()
                 $0.addTapGesture { recognizer in
-                    self.passphraseTapped()
+                    self.rawSeedTapped()
                 }
-                $0.isHidden = true
             }),
             MenuItem().then({
                 $0.titleLabel.sora.text = R.string.localizable.exportProtectionJsonTitle(preferredLanguages: languages)
                 $0.leftImageView.image = R.image.profile.export()
                 $0.addArrow()
                 $0.addTapGesture { recognizer in
-                    self.passphraseTapped()
+                    self.jsoneTapped()
                 }
-                $0.isHidden = true
-            }),
+            })
         ]
 
         usernameField.do {
@@ -168,6 +165,16 @@ final class AccountOptionsViewController: SoramitsuViewController {
     @objc
     func passphraseTapped() {
         presenter.showPassphrase()
+    }
+
+    @objc
+    func rawSeedTapped() {
+        presenter.showRawSeed()
+    }
+
+    @objc
+    func jsoneTapped() {
+        presenter.showJson()
     }
 
     @objc

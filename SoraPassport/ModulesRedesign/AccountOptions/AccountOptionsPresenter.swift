@@ -21,6 +21,14 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     func showPassphrase() {
         wireframe.showPassphrase(from: view, account: interactor.currentAccount)
     }
+
+    func showRawSeed() {
+        wireframe.showRawSeed(from: view, account: interactor.currentAccount)
+    }
+
+    func showJson() {
+        wireframe.showJson(account: interactor.currentAccount, from: view)
+    }
     
     func doLogout() {
         interactor.isLastAccountWithCustomNodes { [weak self] result in

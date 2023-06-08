@@ -30,7 +30,7 @@ final class AddUsernameWireframe: UsernameSetupWireframeProtocol {
     }
     
     func showWarning(from view: UsernameSetupViewProtocol?, completion: @escaping () -> Void) {
-        let warning = AccountWarningViewController()
+        let warning = AccountWarningViewController(warningType: .passphrase)
         warning.localizationManager = self.localizationManager
         warning.completion = completion
         view?.controller.navigationController?.pushViewController(warning.controller, animated: true)
