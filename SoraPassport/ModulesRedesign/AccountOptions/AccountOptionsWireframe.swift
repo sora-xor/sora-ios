@@ -1,4 +1,7 @@
 import Foundation
+import IrohaCrypto
+import SoraKeystore
+import SCard
 import SoraFoundation
 import SoraUIKit
 
@@ -11,7 +14,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
     }
 
     func showPassphrase(from view: AccountOptionsViewProtocol?, account: AccountItem) {
-        let warning = AccountWarningViewController()
+        let warning = AccountWarningViewController(warningType: .passphrase)
         warning.localizationManager = self.localizationManager
         warning.completion = { [weak self] in
             self?.authorize(animated: true, cancellable: true, inView: nil) { (isAuthorized) in
@@ -24,6 +27,52 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
                     navigationArray.remove(at: navigationArray.count - 1)
                     view?.controller.navigationController?.viewControllers = navigationArray
                     view?.controller.navigationController?.pushViewController(passphraseView.controller, animated: true)
+                }
+            }
+        }
+        if let navigationController = view?.controller.navigationController {
+            warning.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(warning.controller, animated: true)
+        }
+    }
+
+    func showRawSeed(from view: AccountOptionsViewProtocol?, account: AccountItem) {
+        let warning = AccountWarningViewController(warningType: .rawSeed)
+        warning.localizationManager = self.localizationManager
+        warning.completion = { [weak self] in
+            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
+                if isAuthorized {
+                    guard let jsonExportVC = AccountExportRawSeedViewFactory.createView(account: account) as? UIViewController else {
+                        return
+                    }
+
+                    var navigationArray = view?.controller.navigationController?.viewControllers ?? []
+                    navigationArray.remove(at: navigationArray.count - 1)
+                    view?.controller.navigationController?.viewControllers = navigationArray
+                    view?.controller.navigationController?.pushViewController(jsonExportVC, animated: true)
+                }
+            }
+        }
+        if let navigationController = view?.controller.navigationController {
+            warning.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(warning.controller, animated: true)
+        }
+    }
+
+    func showJson(account: AccountItem, from view: AccountOptionsViewProtocol?) {
+        let warning = AccountWarningViewController(warningType: .json)
+        warning.localizationManager = self.localizationManager
+        warning.completion = { [weak self] in
+            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
+                if isAuthorized {
+                    guard let jsonExportVC = AccountExportViewFactory.createView(account: account) as? UIViewController else {
+                        return
+                    }
+
+                    var navigationArray = view?.controller.navigationController?.viewControllers ?? []
+                    navigationArray.remove(at: navigationArray.count - 1)
+                    view?.controller.navigationController?.viewControllers = navigationArray
+                    view?.controller.navigationController?.pushViewController(jsonExportVC, animated: true)
                 }
             }
         }

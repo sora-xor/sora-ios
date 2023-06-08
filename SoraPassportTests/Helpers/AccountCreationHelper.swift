@@ -63,8 +63,9 @@ final class AccountCreationHelper {
 
     static func createAccountFromKeystore(_ filename: String,
                                           password: String,
+                                          username: String,
                                           keychain: KeystoreProtocol,
-                                          settings: SettingsManagerProtocol) throws {
+                                          settings: SettingsManagerProtocol ) throws {
         guard let url = Bundle(for: AccountCreationHelper.self).url(forResource: filename, withExtension: "json") else {
             return
         }
@@ -80,7 +81,8 @@ final class AccountCreationHelper {
                                                  keychain: keychain,
                                                  settings: settings,
                                                  networkType: info.networkType ?? .polkadot,
-                                                 cryptoType: info.cryptoType ?? .sr25519)
+                                                 cryptoType: info.cryptoType ?? .sr25519,
+                                                 username: username)
     }
 
     static func createAccountFromKeystoreData(_ data: Data,
@@ -89,7 +91,7 @@ final class AccountCreationHelper {
                                               settings: SettingsManagerProtocol,
                                               networkType: Chain,
                                               cryptoType: SoraPassport.CryptoType,
-                                              username: String = "username") throws {
+                                              username: String) throws {
         guard let keystoreString = String(data: data, encoding: .utf8) else {
             return
         }
