@@ -1,6 +1,5 @@
 import XCTest
 import SoraKeystore
-import RobinHood
 import FearlessUtils
 @testable import SoraPassport
 
