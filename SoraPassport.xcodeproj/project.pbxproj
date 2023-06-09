@@ -559,6 +559,9 @@
 		5E138FF12830218C0010AB54 /* DepositLiquidityCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E138FF02830218C0010AB54 /* DepositLiquidityCall.swift */; };
 		5E138FF3283023CB0010AB54 /* WithdrawLiquidityCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E138FF2283023CB0010AB54 /* WithdrawLiquidityCall.swift */; };
 		5E18558427EDD8EA0007F6ED /* SubqueryPoolsFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E18558327EDD8EA0007F6ED /* SubqueryPoolsFactory.swift */; };
+		5E2855522A33498D0054BA92 /* KeystoreExportWrapperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E28554E2A33498D0054BA92 /* KeystoreExportWrapperTests.swift */; };
+		5E2855532A33498D0054BA92 /* validSingleAccountWeb.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E2855502A33498D0054BA92 /* validSingleAccountWeb.json */; };
+		5E2855542A33498D0054BA92 /* validSingleAccountIOS.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E2855512A33498D0054BA92 /* validSingleAccountIOS.json */; };
 		5E340DFC280D422300D62669 /* AccountPools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E340DFB280D422300D62669 /* AccountPools.swift */; };
 		5E587ED227F62D9100CA71A6 /* PolkaswapMainInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E587ECB27F62D9000CA71A6 /* PolkaswapMainInteractor.swift */; };
 		5E587ED327F62D9100CA71A6 /* PolkaswapMainProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E587ECC27F62D9100CA71A6 /* PolkaswapMainProtocols.swift */; };
@@ -1791,6 +1794,9 @@
 		5E138FF02830218C0010AB54 /* DepositLiquidityCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositLiquidityCall.swift; sourceTree = "<group>"; };
 		5E138FF2283023CB0010AB54 /* WithdrawLiquidityCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WithdrawLiquidityCall.swift; sourceTree = "<group>"; };
 		5E18558327EDD8EA0007F6ED /* SubqueryPoolsFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubqueryPoolsFactory.swift; sourceTree = "<group>"; };
+		5E28554E2A33498D0054BA92 /* KeystoreExportWrapperTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KeystoreExportWrapperTests.swift; sourceTree = "<group>"; };
+		5E2855502A33498D0054BA92 /* validSingleAccountWeb.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = validSingleAccountWeb.json; sourceTree = "<group>"; };
+		5E2855512A33498D0054BA92 /* validSingleAccountIOS.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = validSingleAccountIOS.json; sourceTree = "<group>"; };
 		5E340DFB280D422300D62669 /* AccountPools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPools.swift; sourceTree = "<group>"; };
 		5E587ECB27F62D9000CA71A6 /* PolkaswapMainInteractor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PolkaswapMainInteractor.swift; sourceTree = "<group>"; };
 		5E587ECC27F62D9100CA71A6 /* PolkaswapMainProtocols.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PolkaswapMainProtocols.swift; sourceTree = "<group>"; };
@@ -2964,6 +2970,7 @@
 		02623F0E2179FAF90011250E /* Modules */ = {
 			isa = PBXGroup;
 			children = (
+				5E28554D2A33498D0054BA92 /* Export */,
 				840F207E237E0B9400EBE714 /* InvitationHandle */,
 				84F00FEB22C4AB3A001927A1 /* OnboardingMain */,
 				84E8DEB8225DC75200640754 /* Wallet */,
@@ -4681,6 +4688,24 @@
 			path = Pools;
 			sourceTree = "<group>";
 		};
+		5E28554D2A33498D0054BA92 /* Export */ = {
+			isa = PBXGroup;
+			children = (
+				5E28554E2A33498D0054BA92 /* KeystoreExportWrapperTests.swift */,
+				5E28554F2A33498D0054BA92 /* Resources */,
+			);
+			path = Export;
+			sourceTree = "<group>";
+		};
+		5E28554F2A33498D0054BA92 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				5E2855502A33498D0054BA92 /* validSingleAccountWeb.json */,
+				5E2855512A33498D0054BA92 /* validSingleAccountIOS.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		5E9774E12A31AE030047BCA2 /* ExportJson */ = {
 			isa = PBXGroup;
 			children = (
@@ -6101,7 +6126,9 @@
 			files = (
 				945A576525DE8541003E4023 /* runtimeTestMetadata in Resources */,
 				840F207C237E03A500EBE714 /* customerWithExpiredParentMoment.json in Resources */,
+				5E2855542A33498D0054BA92 /* validSingleAccountIOS.json in Resources */,
 				840F2079237E014500EBE714 /* customerWithoutParent.json in Resources */,
+				5E2855532A33498D0054BA92 /* validSingleAccountWeb.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -7600,6 +7627,7 @@
 				026AEA4B21B10FE7002EEB67 /* IdentityCreationOperationTests.swift in Sources */,
 				840F2081237E0C3100EBE714 /* InvitationHandlePresenterTests.swift in Sources */,
 				0253FD0A2218A8C000D3AD49 /* PredicateExtensionTests.swift in Sources */,
+				5E2855522A33498D0054BA92 /* KeystoreExportWrapperTests.swift in Sources */,
 				8409324623453BA80013C871 /* DecimalOperationsTest.swift in Sources */,
 				945A575925DE852D003E4023 /* NetworkBaseTests.swift in Sources */,
 				02CFA4E121898DCC000E9483 /* DecimalExtensionTests.swift in Sources */,
