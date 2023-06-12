@@ -24,7 +24,6 @@ final class Card: SoramitsuView {
     private let stackView: SoramitsuStackView = {
         SoramitsuStackView().then {
             $0.sora.axis = .vertical
-            $0.spacing = 8
             $0.sora.distribution = .fill
         }
     }()
