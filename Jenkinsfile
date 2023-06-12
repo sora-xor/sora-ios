@@ -15,6 +15,7 @@ def pipline = new org.ios.AppPipeline(
     sonarTestsDirs: './SoraPassportTests,./SoraPassportIntegrationTests,./SoraPassportUITests',
     jobParams: jobParams,
     label: "macos-ios-1-2",
-    appPushNoti: true
+    appPushNoti: true,
+    gpgFiles: ['./SoraPassport/Configs/SoraPassport.debug.xcconfig', './SoraPassport/Configs/SoraPassport.dev.xcconfig', './SoraPassport/Configs/SoraPassport.release.xcconfig', './SoraPassport/Configs/SoraPassport.staging.xcconfig', './SoraPassport/Configs/SoraPassport.test.xcconfig']
 )
 pipline.runPipeline('sora')

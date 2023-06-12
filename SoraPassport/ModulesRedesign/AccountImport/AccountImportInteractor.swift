@@ -3,6 +3,7 @@ import IrohaCrypto
 import FearlessUtils
 import RobinHood
 import SoraKeystore
+import SSFCloudStorage
 
 final class AccountImportInteractor: BaseAccountImportInteractor {
     private(set) var settings: SelectedWalletSettingsProtocol
@@ -13,7 +14,8 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
          operationManager: OperationManagerProtocol,
          settings: SelectedWalletSettingsProtocol,
          keystoreImportService: KeystoreImportServiceProtocol,
-         eventCenter: EventCenterProtocol
+         eventCenter: EventCenterProtocol,
+         cloudStorage: CloudStorageServiceProtocol? = nil
     ) {
         self.settings = settings
         self.eventCenter = eventCenter
@@ -23,7 +25,8 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                    operationManager: operationManager,
                    keystoreImportService: keystoreImportService,
                    supportedNetworks: Chain.allCases,
-                   defaultNetwork: Chain.sora)
+                   defaultNetwork: Chain.sora,
+                   cloudStorage: cloudStorage)
     }
 
     override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>) {

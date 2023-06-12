@@ -1,6 +1,8 @@
 import UIKit
 import Firebase
 import SCard
+import GoogleSignIn
+import SoraUIKit
 #if F_DEV
 import FLEX
 #endif
@@ -19,9 +21,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if !isUnitTesting {
             FirebaseApp.configure()
 
+            let infoDictionary: [String: Any] = Bundle.main.infoDictionary ?? [:]
+            if let mySecretApiKey = infoDictionary["GoogleToken"] as? String {
+                GIDSignIn.sharedInstance().clientID = mySecretApiKey
+            }
+
             initFlex()
 
             let rootWindow = SoraWindow()
+            rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
             window = rootWindow
 
             SplashPresenterFactory.createSplashPresenter(with: rootWindow)

@@ -3,9 +3,10 @@ import IrohaCrypto
 import SoraFoundation
 import SoraKeystore
 import RobinHood
+import SSFCloudStorage
 
-final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
-    static func createViewForOnboarding(username: String) -> AccountCreateViewProtocol? {
+final class AccountCreateViewFactory {
+    static func createViewForCreateAccount(username: String, endAddingBlock: (() -> Void)?) -> AccountCreateViewProtocol? {
         let keychain = Keychain()
         let settings = SelectedWalletSettings.shared
 
@@ -14,6 +15,8 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
             UserDataStorageFacade.shared.createRepository()
         
         let view = AccountCreateViewController()
+        let cloudStorageService = CloudStorageService(uiDelegate: view)
+        view.mode = cloudStorageService.isUserAuthorized ? .registration : .registrationWithoutAccessToGoogle
         let presenter = AccountCreatePresenter(username: username)
         
         let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
@@ -22,7 +25,8 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
                                                  accountOperationFactory: accountOperationFactory,
                                                  accountRepository: AnyDataProviderRepository(accountRepository),
                                                  settings: settings,
-                                                 eventCenter: EventCenter.shared)
+                                                 eventCenter: EventCenter.shared,
+                                                 cloudStorageService: cloudStorageService)
         
         let wireframe = AccountCreateWireframe()
         
@@ -39,7 +43,7 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
         return view
     }
 
-    static func createViewForBackup(_ account: AccountItem) -> AccountCreateViewProtocol? {
+    static func createViewForShowPassthrase(_ account: AccountItem) -> AccountCreateViewProtocol? {
         let view = AccountCreateViewController()
         view.mode = .view
         let presenter = AccountCreatePresenter(username: account.username)
@@ -62,7 +66,7 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
         return view
     }
     
-    static func createViewForAdding(username: String, endAddingBlock: (() -> Void)?) -> AccountCreateViewProtocol? {
+    static func createViewForImportAccount(username: String, endAddingBlock: (() -> Void)?) -> AccountCreateViewProtocol? {
         let keychain = Keychain()
         let settings = SelectedWalletSettings.shared
         
@@ -71,6 +75,8 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
         UserDataStorageFacade.shared.createRepository()
         
         let view = AccountCreateViewController()
+        let cloudStorageService = CloudStorageService(uiDelegate: view)
+        view.mode = cloudStorageService.isUserAuthorized ? .registration : .registrationWithoutAccessToGoogle
         let presenter = AccountCreatePresenter(username: username)
         
         let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
@@ -79,7 +85,8 @@ final class AccountCreateViewFactory: AccountCreateViewFactoryProtocol {
                                                  accountOperationFactory: accountOperationFactory,
                                                  accountRepository: AnyDataProviderRepository(accountRepository),
                                                  settings: settings,
-                                                 eventCenter: EventCenter.shared)
+                                                 eventCenter: EventCenter.shared,
+                                                 cloudStorageService: cloudStorageService)
         
         let wireframe = AddCreationWireframe()
         

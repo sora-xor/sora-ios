@@ -64,7 +64,7 @@ extension ConfirmPassphraseViewModel: AccountConfirmInteractorOutputProtocol {
         
     }
 
-    func didCompleteConfirmation() {
+    func didCompleteConfirmation(for account: AccountItem) {
         wireframe?.proceed(on: view?.controller)
     }
 

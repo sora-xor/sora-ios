@@ -1,5 +1,8 @@
 platform :ios, '13.0'
 
+source 'https://github.com/soramitsu/SSFSpecs.git'
+source 'https://github.com/CocoaPods/Specs.git'
+
 abstract_target 'SoraPassportAll' do
   use_frameworks!
 
@@ -28,11 +31,12 @@ abstract_target 'SoraPassportAll' do
   pod 'lottie-ios', '~> 3.5.0'  
   pod 'Nantes'
   pod 'SnapKit'
-  pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui.git', :tag => '1.0.1'
+  pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui.git', :tag => '1.0.2'
   pod 'IdensicMobileSDK', :http => 'https://github.com/paywings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.0.0.tar.gz'
   pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.0.0' # :tag => '1.0.0' # :path => '../sora-card-ios'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
   pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.57/AppCommonNetworking/XNetworking/XNetworking.podspec'
+  pod 'SSFCloudStorage'
 
   target 'SoraPassportTests' do
       inherit! :search_paths

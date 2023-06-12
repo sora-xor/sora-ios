@@ -39,13 +39,21 @@ struct AppearanceFactory {
     // TODO: SN-264. UINavigationBar configuration to decorator ??
     private static func configureGlobalNavigationBar() {
 
-        // title color
         UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: R.color.neumorphism.textDark() as Any,
                                                             .font: UIFont.styled(for: .title1) as Any]
-
-        //TODO: Add navigation bar to design system
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundColor = UIColor.clear
+        appearance.backgroundEffect = UIBlurEffect(style: .light)
+        
+        let scrollingAppearance = UINavigationBarAppearance()
+        scrollingAppearance.configureWithTransparentBackground()
+        scrollingAppearance.backgroundColor = .clear
+        
+        UINavigationBar.appearance().standardAppearance = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = scrollingAppearance
+        UINavigationBar.appearance().compactAppearance = scrollingAppearance
         UINavigationBar.appearance().tintColor = UIColor(hex: "#EE2233")
-        UINavigationBar.appearance().backgroundColor = .clear
         
         let backImage = R.image.wallet.backArrow()
         

@@ -1,6 +1,8 @@
 import UIKit
 import RobinHood
 import SoraKeystore
+import IrohaCrypto
+import SSFCloudStorage
 
 final class AccountOptionsInteractor {
     weak var presenter: AccountOptionsInteractorOutputProtocol!
@@ -15,6 +17,8 @@ final class AccountOptionsInteractor {
     private let operationManager: OperationManagerProtocol
     private let eventCenter: EventCenterProtocol
     private var chain: ChainModel
+    private let mnemonicCreator: IRMnemonicCreatorProtocol
+    private var cloudStorageService: CloudStorageServiceProtocol
 
     init(keystore: KeystoreProtocol,
          settings: SettingsManagerProtocol,
@@ -25,8 +29,9 @@ final class AccountOptionsInteractor {
          account: AccountItem,
          accountRepository: AnyDataProviderRepository<AccountItem>,
          operationManager: OperationManagerProtocol,
-         eventCenter: EventCenterProtocol) {
-
+         eventCenter: EventCenterProtocol,
+         mnemonicCreator: IRMnemonicCreatorProtocol,
+         cloudStorageService: CloudStorageServiceProtocol) {
         self.keystore = keystore
         self.settings = settings
         self.cacheFacade = cacheFacade
@@ -37,7 +42,15 @@ final class AccountOptionsInteractor {
         self.operationManager = operationManager
         self.eventCenter = eventCenter
         self.chain = chain
+        self.mnemonicCreator = mnemonicCreator
+        self.cloudStorageService = cloudStorageService
         self.eventCenter.add(observer: self)
+    }
+    
+    private func loadPhrase() throws -> IRMnemonicProtocol {
+        let entropy = try keystore.fetchEntropyForAddress(account.address)
+        let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy!)
+        return mnemonic
     }
 }
 
@@ -51,6 +64,17 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
         guard let result = try? keystore.checkEntropyForAddress(account.address) else { return false }
         return result
 
+    }
+
+    func getMetadata() -> AccountCreationMetadata? {
+        guard let mnemonic = try? loadPhrase() else { return nil }
+        
+        let metadata = AccountCreationMetadata(mnemonic: mnemonic.allWords(),
+                                               availableNetworks: Chain.allCases,
+                                               defaultNetwork: .sora,
+                                               availableCryptoTypes: CryptoType.allCases,
+                                               defaultCryptoType: .sr25519)
+        return metadata
     }
 
     func updateUsername(_ username: String) {
@@ -75,6 +99,33 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
         }
     }
     
+    func deleteBackup(completion: @escaping (Error?) -> Void) {
+        let account = OpenBackupAccount(address: currentAccount.address)
+        cloudStorageService.deleteBackupAccount(account: account) { [weak self] result in
+            switch result {
+            case .success:
+                let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
+                ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != self?.currentAccount.address }
+                completion(nil)
+            case .failure(let error):
+                completion(error)
+            }
+        }
+    }
+
+    func signInToGoogleIfNeeded(completion: ((OpenBackupAccount) -> Void)?) {
+        cloudStorageService.signInIfNeeded { [weak self] result in
+            guard result == .authorized, let self = self, let metadata = self.getMetadata() else { return }
+            
+            let account = OpenBackupAccount(name: self.currentAccount.username,
+                                            address: self.currentAccount.address,
+                                            passphrase: metadata.mnemonic.joined(separator: " "),
+                                            cryptoType: metadata.defaultCryptoType.rawValue,
+                                            derivationPath: "")
+            completion?(account)
+        }
+    }
+
     func logoutAndClean() {
         let idToRemove = self.account.identifier
         let forgetOperation = accountRepository.saveOperation {
@@ -84,8 +135,10 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
         }
 
         forgetOperation.completionBlock = { [weak self] in
+            var backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
+            ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != self?.account.address }
+            
             self?.cleanKeystore(leavingPin: true)
-
         }
 
         let countOperation =  accountRepository.fetchAllOperation(with: RepositoryFetchOptions())

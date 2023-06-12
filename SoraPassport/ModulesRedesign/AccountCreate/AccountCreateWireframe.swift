@@ -1,10 +1,17 @@
 import Foundation
 import IrohaCrypto
 import SoraUIKit
+import SSFCloudStorage
 
 final class AccountCreateWireframe {
     private var authorizationView: PinSetupViewProtocol?
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
+    var endAddingBlock: (() -> Void)?
+    var activityIndicatorWindow: UIWindow?
+    
+    init(endAddingBlock: (() -> Void)? = nil) {
+        self.endAddingBlock = endAddingBlock
+    }
 }
 
 extension AccountCreateWireframe: AccountCreateWireframeProtocol {
@@ -22,13 +29,15 @@ extension AccountCreateWireframe: AccountCreateWireframeProtocol {
     func confirm(from view: AccountCreateViewProtocol?,
                  request: AccountCreationRequest,
                  metadata: AccountCreationMetadata) {
-        let confirmationView = AccountConfirmViewFactory.createViewForOnboardingRedesign(request: request, metadata: metadata)?.controller
-        
-        guard let accountConfirmation = confirmationView else { return }
-
-        if let navigationController = view?.controller.navigationController {
-            navigationController.pushViewController(accountConfirmation, animated: true)
-        }
+        guard let confirmationView = AccountConfirmViewFactory.createViewForOnboardingRedesign(request: request,
+                                                                                               metadata: metadata) else { return }
+        view?.controller.navigationController?.pushViewController(confirmationView.controller, animated: true)
+    }
+    
+    func setupBackupAccountPassword(on controller: AccountCreateViewProtocol?, account: OpenBackupAccount) {
+        guard let setupPasswordView = SetupPasswordViewFactory.createView(with: account,
+                                                                          completion: endAddingBlock)?.controller else { return }
+        controller?.controller.navigationController?.pushViewController(setupPasswordView, animated: true)
     }
 }
 
