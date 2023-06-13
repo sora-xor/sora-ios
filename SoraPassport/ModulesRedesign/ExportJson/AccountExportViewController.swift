@@ -112,8 +112,8 @@ final class AccountExportViewController: SoramitsuViewController, ControllerBack
         // TODO: add password requirements
         passwordInputField.sora.state = isPasswordEmpty ? .fail : .success
 
-        // TODO: add error state text
-        confirmPasswordInputField.sora.descriptionLabelText = isMatching ? "" : isConfirmEmpty ? "" : "Passwords do not match!"
+        confirmPasswordInputField.sora.descriptionLabelText = isMatching ? "" : isConfirmEmpty ? "" :
+            R.string.localizable.exportJsonInputMatchError(preferredLanguages: languages)
         confirmPasswordInputField.sora.state = isMatching ? .success : isConfirmEmpty ? .default : .fail
 
         downloadButton.sora.isEnabled = !isPasswordEmpty && isMatching

@@ -805,3 +805,4 @@
 "common.remove.liquidity" = "Remove liquidity";
 "common.disclamer" = "Disclamer";
 "common.transaction.fee" = "Transaction fee";
+"export.json.input.match.error" = "Passwords do not match!";

@@ -108,14 +108,23 @@ final class AccountOptionsViewController: SoramitsuViewController {
             addressLabel.centerXAnchor.constraint(equalTo: addressView.centerXAnchor),
             addressLabel.bottomAnchor.constraint(equalTo: addressView.bottomAnchor, constant: -24),
         ])
+
+        let scrollView = UIScrollView()
+        scrollView.addSubview(stackView)
         
-        view.addSubview(stackView)
-        
+        view.addSubview(scrollView)
+
+        scrollView.do {
+            $0.topAnchor == view.soraSafeTopAnchor
+            $0.bottomAnchor == view.bottomAnchor
+            $0.horizontalAnchors == view.horizontalAnchors
+        }
+
         stackView.addArrangedSubviews(usernameField, addressView, optionsCard, logoutButton)
         stackView.setCustomSpacing(12, after: usernameField)
 
         stackView.do {
-            $0.topAnchor == view.soraSafeTopAnchor
+            $0.verticalAnchors == scrollView.verticalAnchors
             $0.horizontalAnchors == view.horizontalAnchors
         }
 

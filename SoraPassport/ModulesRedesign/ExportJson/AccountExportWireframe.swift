@@ -63,8 +63,10 @@ final class AccountExportWireframe: AccountExportWireframeProtocol, Authorizatio
     func showShareFile(url: NSURL, in viewController: AccountExportViewProtocol?) {
         let activityViewController = UIActivityViewController(activityItems: [url], applicationActivities: nil)
 
-        activityViewController.completionWithItemsHandler = { (activityType, completed:Bool, returnedItems:[Any]?, error: Error?) in
-            viewController?.controller.navigationController?.popViewController(animated: true)
+        activityViewController.completionWithItemsHandler = { (_, completed: Bool, _, _) in
+            if completed {
+                viewController?.controller.navigationController?.popViewController(animated: true)
+            }
         }
 
         viewController?.controller.present(activityViewController, animated: true)

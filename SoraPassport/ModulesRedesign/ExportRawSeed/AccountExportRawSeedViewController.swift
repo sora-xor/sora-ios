@@ -63,8 +63,8 @@ final class AccountExportRawSeedViewController: SoramitsuViewController, Control
     private func configure() {
         navigationItem.backButtonTitle = ""
         navigationItem.largeTitleDisplayMode = .never
-        navigationItem.title = R.string.localizable.exportJsonDownloadJson(preferredLanguages: languages)
-        titleLabel.sora.text = R.string.localizable.exportJsonDescription(preferredLanguages: languages)
+        navigationItem.title = R.string.localizable.commonRawSeed(preferredLanguages: languages)
+        titleLabel.sora.text = R.string.localizable.mnemonicText(preferredLanguages: languages)
 
         view.addSubview(containerView)
 
