@@ -14,6 +14,7 @@ protocol GenerateQRViewModelProtocol {
     var setupRequestView: ((InputSendInfoViewModel) -> Void)? { get set }
     var updateContent: ((GenerateQRMode) -> Void)? { get set }
     var showShareContent: (([Any]) -> Void)? { get set }
+    var closeHadler: (() -> Void)? { get }
     func viewDidLoad()
 }
 
@@ -23,6 +24,7 @@ final class GenerateQRViewModel {
     var setupRequestView: ((InputSendInfoViewModel) -> Void)?
     var updateContent: ((GenerateQRMode) -> Void)?
     var showShareContent: (([Any]) -> Void)?
+    var closeHadler: (() -> Void)?
     
     weak var view: GenerateQRViewProtocol?
     var wireframe: GenerateQRWireframeProtocol?

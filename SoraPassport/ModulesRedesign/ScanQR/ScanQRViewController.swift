@@ -60,6 +60,7 @@ final class ScanQRViewController: SoramitsuViewController {
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .bgSurface
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.viewModel.handleDismiss()
             self?.viewModel.showMyQrCode()
         }
         return button

@@ -377,13 +377,17 @@ extension ScanQRViewModel: ScanQRViewModelProtocol {
         guard let currentAccount = SelectedWalletSettings.shared.currentAccount else { return }
         let accountId = try? SS58AddressFactory().accountId(fromAddress: currentAccount.identifier,
                                                             type: currentAccount.addressType).toHex(includePrefix: true)
-        wireframe.showGenerateQR(on: view?.controller,
-                                 accountId: accountId ?? "",
-                                 address: currentAccount.address,
-                                 qrEncoder: qrEncoder,
-                                 sharingFactory: sharingFactory,
-                                 assetManager: assetManager,
-                                 assetsProvider: assetsProvider)
+        wireframe.showGenerateQR(
+            on: view?.controller,
+            accountId: accountId ?? "",
+            address: currentAccount.address,
+            qrEncoder: qrEncoder,
+            sharingFactory: sharingFactory,
+            assetManager: assetManager,
+            assetsProvider: assetsProvider
+        ) { [weak self] in
+            self?.qrScanService.start()
+        }
     }
 }
 
