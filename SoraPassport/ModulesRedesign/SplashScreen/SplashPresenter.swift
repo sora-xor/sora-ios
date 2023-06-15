@@ -18,6 +18,12 @@ final class SplashPresenter: SplashPresenterProtocol {
             })
         }
     }
+    
+    func showIsLoading(after duration: TimeInterval, execute: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+            execute()
+        }
+    }
 }
 
 final class SplashWireframe {
