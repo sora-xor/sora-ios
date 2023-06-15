@@ -332,29 +332,29 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
     
     func recalculate(field: FocusedField) {
         if focusedField == .one {
-            if let poolInfo = poolInfo {
-                let scale = (poolInfo.targetAssetPooledTotal ?? 0) / (poolInfo.baseAssetPooledTotal ?? 0)
+            if let poolInfo = poolInfo, let baseAssetPooled = poolInfo.baseAssetPooledTotal, baseAssetPooled > 0 {
+                let targetAssetPooled = poolInfo.targetAssetPooledTotal ?? 0
+                let scale = targetAssetPooled / baseAssetPooled
                 inputedSecondAmount = inputedFirstAmount * scale
             }
 
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
-            updateButtonState()
-            debouncer.perform { [weak self] in
-                self?.updateDetails()
-            }
+            
         } else {
-            if let poolInfo = poolInfo {
-                let scale = (poolInfo.baseAssetPooledTotal ?? 0) / (poolInfo.targetAssetPooledTotal ?? 0)
+            if let poolInfo = poolInfo, let targetAssetPooled = poolInfo.targetAssetPooledTotal, targetAssetPooled > 0 {
+                let baseAssetPooled = poolInfo.baseAssetPooledTotal ?? 0
+                let scale =  baseAssetPooled / targetAssetPooled
                 inputedFirstAmount = inputedSecondAmount * scale
             }
-            
+
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
             view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
-            updateButtonState()
-            debouncer.perform { [weak self] in
-                self?.updateDetails()
-            }
+        }
+        
+        updateButtonState()
+        debouncer.perform { [weak self] in
+            self?.updateDetails()
         }
     }
 }
