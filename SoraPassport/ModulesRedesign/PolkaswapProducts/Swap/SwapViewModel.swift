@@ -115,14 +115,14 @@ final class SwapViewModel {
             }
 
             let inputedFiatText = setupInputedFiatText(from: inputedFirstAmount, assetId: firstAssetId)
-            let text = self.isEnoughtFirstAssetLiquidity ? inputedFiatText : R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale)
-            let amountColor: SoramitsuColor = self.isEnoughtFirstAssetLiquidity ? .fgPrimary : .statusError
-            let fiatColor: SoramitsuColor = self.isEnoughtFirstAssetLiquidity ? .fgSecondary : .statusError
-            var state: InputFieldState = self.focusedField == .one ? .focused : .default
-            state = self.isEnoughtFirstAssetLiquidity ? state : .fail
+            let text = isEnoughtFirstAssetLiquidity ? inputedFiatText : R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale)
+            let amountColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgPrimary : .statusError
+            let fiatColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgSecondary : .statusError
+            var state: InputFieldState = focusedField == .one ? .focused : .default
+            state = isEnoughtFirstAssetLiquidity ? state : .fail
             
-            self.view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
-            self.view?.updateFirstAsset(fiatText: text)
+            view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
+            view?.updateFirstAsset(fiatText: text)
         }
     }
     
@@ -196,7 +196,17 @@ final class SwapViewModel {
     private var lpServiceFee: LPFeeServiceProtocol
     
     private var isEnoughtFirstAssetLiquidity: Bool {
-        return inputedFirstAmount + fee <= firstAssetBalance.balance.decimalValue
+        if inputedFirstAmount > firstAssetBalance.balance.decimalValue {
+            return false
+        }
+
+        if let fromAsset = assetManager?.assetInfo(for: firstAssetId),
+           fromAsset.isFeeAsset,
+           inputedFirstAmount + fee > firstAssetBalance.balance.decimalValue {
+            return false
+        }
+
+        return true
     }
     
     init(
