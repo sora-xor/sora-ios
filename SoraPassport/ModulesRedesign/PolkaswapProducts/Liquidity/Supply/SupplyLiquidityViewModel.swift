@@ -213,6 +213,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
         }
+
+        recalculate(field: focusedField)
     }
     
     func viewDidLoad() {
