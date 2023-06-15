@@ -16,7 +16,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         return animationView
     }()
     
-    private lazy var messageLabel: SoramitsuLabel = {
+    private var messageLabel: SoramitsuLabel = {
         let title = SoramitsuTextItem(text: R.string.localizable.launchScreenLoadingTitle(preferredLanguages: .currentLocale),
                                       fontData: FontType.headline3,
                                       textColor: .fgPrimary,
@@ -28,13 +28,13 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         return label
     }()
     
-    private lazy var spinnerView: UIActivityIndicatorView = {
+    private var spinnerView: UIActivityIndicatorView = {
         let spinnerView = UIActivityIndicatorView(style: .large)
         spinnerView.translatesAutoresizingMaskIntoConstraints = false
         return spinnerView
     }()
     
-    private lazy var containerView: SoramitsuView = {
+    private var containerView: SoramitsuView = {
         let containerView = SoramitsuView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
         containerView.sora.isHidden = true
