@@ -119,6 +119,11 @@ final class GenerateQRViewController: SoramitsuViewController {
         
         viewModel.viewDidLoad()
     }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        viewModel.closeHadler?()
+    }
 
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
