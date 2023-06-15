@@ -398,6 +398,9 @@ private extension DetailViewModelFactory {
     }
     
     func estimateRemoveShareOfPool(amount: Decimal, pooled: Decimal, reserves: Decimal) -> Decimal {
+        if (amount - reserves) == 0 {
+            return 0
+        }
         return abs((pooled - amount) / (amount - reserves) * 100) 
     }
     
