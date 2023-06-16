@@ -74,7 +74,7 @@ final class InputSendInfoView: SoramitsuView {
                 .sink { [weak self] _ in
                     guard let self = self else { return }
                     self.recipientView.contactView.usernameTitle.sora.text = viewModel.username
-                    self.recipientView.contactView.setHidden()
+                    self.recipientView.contactView.usernameTitle.sora.isHidden = viewModel.username?.isEmpty ?? true
                 }
                 .store(in: &cancellables)
 
