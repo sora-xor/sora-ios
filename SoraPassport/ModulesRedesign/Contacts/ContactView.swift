@@ -96,13 +96,4 @@ final class ContactView: SoramitsuView {
             make.centerY.equalTo(accountImageView)
         }
     }
-    
-    func setHidden() {
-        if let text = usernameTitle.sora.text, !text.isEmpty {
-            usernameTitle.sora.isHidden = false
-            return
-        }
-        
-        usernameTitle.sora.isHidden = true
-    }
 }
