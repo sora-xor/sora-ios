@@ -49,7 +49,13 @@ final class ContactView: SoramitsuView {
         return view
     }()
     
-    private let contactView: SoramitsuView = SoramitsuView()
+    private let contactStackView: SoramitsuStackView = {
+        let stackView = SoramitsuStackView()
+        stackView.sora.axis = .vertical
+        stackView.sora.distribution = .equalSpacing
+        stackView.spacing = 4
+        return stackView
+    }()
     
     override init(frame: CGRect = .zero) {
         super.init(frame: frame)
@@ -63,12 +69,9 @@ final class ContactView: SoramitsuView {
         addSubview(accountImageView)
         addSubview(arrowImageView)
         addSubview(button)
-        addSubview(contactView)
+        addSubview(contactStackView)
         
-        contactView.addSubview(accountTitle)
-        if !usernameTitle.sora.isHidden {
-            contactView.addSubview(usernameTitle)
-        }
+        contactStackView.addArrangedSubviews([usernameTitle, accountTitle])
     }
 
     private func setupConstrains() {
@@ -87,27 +90,11 @@ final class ContactView: SoramitsuView {
             make.centerY.equalTo(accountImageView)
         }
         
-        contactView.snp.makeConstraints { make in
+        contactStackView.snp.makeConstraints { make in
             make.leading.equalTo(accountImageView.snp.trailing).offset(8)
             make.trailing.equalTo(arrowImageView.snp.leading).offset(-8)
             make.centerY.equalTo(accountImageView)
         }
-        
-        if !usernameTitle.sora.isHidden {
-            usernameTitle.snp.makeConstraints { make in
-                make.top.leading.trailing.equalTo(contactView)
-            }
-            
-            accountTitle.snp.makeConstraints { make in
-                make.top.equalTo(usernameTitle.snp.bottom).offset(4)
-                make.leading.trailing.bottom.equalTo(contactView)
-            }
-        } else {
-            accountTitle.snp.makeConstraints { make in
-                make.edges.equalTo(contactView)
-            }
-        }
-
     }
     
     func setHidden() {
