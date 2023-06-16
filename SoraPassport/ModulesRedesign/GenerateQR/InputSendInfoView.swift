@@ -68,6 +68,16 @@ final class InputSendInfoView: SoramitsuView {
                                             contentScale: UIScreen.main.scale)
                 }
                 .store(in: &cancellables)
+            
+            viewModel.$username
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    guard let self = self else { return }
+                    self.recipientView.contactView.usernameTitle.sora.text = viewModel.username
+                    self.recipientView.contactView.usernameTitle.sora.isHidden = viewModel.username?.isEmpty ?? true
+                }
+                .store(in: &cancellables)
+
         }
     }
     

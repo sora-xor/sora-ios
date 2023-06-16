@@ -14,6 +14,7 @@ final class InputSendInfoViewModel {
     enum Output { }
     
     @Published var address: String?
+    @Published var username: String?
     @Published var assetSymbol: String?
     @Published var assetImage: UIImage?
     @Published var balanceFiatText: String?
@@ -65,6 +66,7 @@ final class InputSendInfoViewModel {
     init(
         address: String,
         accountId: String,
+        username: String,
         fiatService: FiatServiceProtocol?,
         assetManager: AssetManagerProtocol?,
         assetsProvider: AssetProviderProtocol?,
@@ -74,6 +76,7 @@ final class InputSendInfoViewModel {
     ) {
         self.address = address
         self.accountId = accountId
+        self.username = username
         self.fiatService = fiatService
         self.assetManager = assetManager
         self.assetsProvider = assetsProvider

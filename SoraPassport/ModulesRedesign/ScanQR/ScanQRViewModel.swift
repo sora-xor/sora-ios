@@ -381,6 +381,7 @@ extension ScanQRViewModel: ScanQRViewModelProtocol {
             on: view?.controller,
             accountId: accountId ?? "",
             address: currentAccount.address,
+            username: currentAccount.username,
             qrEncoder: qrEncoder,
             sharingFactory: sharingFactory,
             assetManager: assetManager,
