@@ -1,8 +1,9 @@
 import Foundation
+import SSFCloudStorage
 
 final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
-
+    var activityIndicatorWindow: UIWindow?
     var endAddingBlock: (() -> Void)?
 
     func showSignup(from view: OnboardingMainViewProtocol?) {
@@ -66,5 +67,13 @@ final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
             navigationController.presentedViewController == nil {
             showAccountRestore(from: view)
         }
+    }
+    
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) {
+        guard let viewController = BackupedAccountsViewFactory.createView(with: accounts,
+                                                                          endAddingBlock: endAddingBlock)?.controller else {
+            return
+        }
+        view?.controller.navigationController?.pushViewController(viewController, animated: true)
     }
 }

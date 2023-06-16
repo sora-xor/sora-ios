@@ -1,10 +1,13 @@
 import Foundation
 import IrohaCrypto
 import SoraUIKit
+import SSFCloudStorage
 
 final class AddCreationWireframe: AccountCreateWireframeProtocol {
+    
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
     var endAddingBlock: (() -> Void)?
+    var activityIndicatorWindow: UIWindow?
 
     func confirm(from view: AccountCreateViewProtocol?,
                  request: AccountCreationRequest,
@@ -32,5 +35,13 @@ final class AddCreationWireframe: AccountCreateWireframeProtocol {
         containerView.add(view?.controller)
         
         controller?.present(containerView, animated: true)
+    }
+    
+    func setupBackupAccountPassword(on controller: AccountCreateViewProtocol?, account: OpenBackupAccount) {
+        guard let setupPasswordView = SetupPasswordViewFactory.createView(
+            with: account,
+            completion: endAddingBlock
+        )?.controller else { return }
+        controller?.controller.navigationController?.pushViewController(setupPasswordView, animated: true)
     }
 }

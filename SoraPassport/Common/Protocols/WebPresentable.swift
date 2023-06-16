@@ -7,7 +7,7 @@ enum WebPresentableStyle {
     case modal
 }
 
-protocol WebPresentable: class {
+protocol WebPresentable: AnyObject {
     func showWeb(url: URL, from view: ControllerBackedProtocol, style: WebPresentableStyle)
 }
 
