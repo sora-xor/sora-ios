@@ -1,15 +1,22 @@
 import Foundation
 import SoraFoundation
 import SoraUIKit
+
 final class UsernameSetupWireframe: UsernameSetupWireframeProtocol {
     private(set) var localizationManager: LocalizationManagerProtocol
+    private var endAddingBlock: (() -> Void)? = nil
 
-    init(localizationManager: LocalizationManagerProtocol) {
+    init(localizationManager: LocalizationManagerProtocol,
+         endAddingBlock: (() -> Void)? = nil) {
         self.localizationManager = localizationManager
+        self.endAddingBlock = endAddingBlock
     }
     
     func proceed(from view: UsernameSetupViewProtocol?, username: String) {
-        guard let accountCreation = AccountCreateViewFactory.createViewForOnboarding(username: username) else { return }
+        guard let accountCreation = AccountCreateViewFactory.createViewForCreateAccount(
+            username: username,
+            endAddingBlock: endAddingBlock
+        ) else { return }
         view?.controller.navigationController?.pushViewController(accountCreation.controller, animated: true)
     }
     

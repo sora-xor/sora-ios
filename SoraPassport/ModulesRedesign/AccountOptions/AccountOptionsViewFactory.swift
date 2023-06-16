@@ -2,6 +2,8 @@ import Foundation
 import SoraKeystore
 import RobinHood
 import SoraFoundation
+import SSFCloudStorage
+import IrohaCrypto
 
 final class AccountOptionsViewFactory: AccountOptionsViewFactoryProtocol {
     static func createView(account: AccountItem) -> AccountOptionsViewProtocol? {
@@ -11,7 +13,7 @@ final class AccountOptionsViewFactory: AccountOptionsViewFactoryProtocol {
         let chain = ChainRegistryFacade.sharedRegistry.getChain(for: Chain.sora.genesisHash())!
 
         let view = AccountOptionsViewController()
-        let presenter = AccountOptionsPresenter()
+        let cloudStorageService = CloudStorageService(uiDelegate: view)
         let interactor = AccountOptionsInteractor(keystore: Keychain(),
                                                   settings: SettingsManager.shared,
                                                   chain: chain,
@@ -21,7 +23,14 @@ final class AccountOptionsViewFactory: AccountOptionsViewFactoryProtocol {
                                                   account: account,
                                                   accountRepository: AnyDataProviderRepository(accountRepository),
                                                   operationManager: OperationManagerFacade.sharedManager,
-                                                  eventCenter: EventCenter.shared)
+                                                  eventCenter: EventCenter.shared,
+                                                  mnemonicCreator: IRMnemonicCreator(language: .english),
+                                                  cloudStorageService: cloudStorageService)
+        
+        let backedupAddresses = ApplicationConfig.shared.backupedAccountAddresses
+        let backupState: BackupState = backedupAddresses.contains(interactor.currentAccount.address) ? .backedUp : .notBackedUp
+        let presenter = AccountOptionsPresenter(backupState: backupState)
+        
         let wireframe = AccountOptionsWireframe(localizationManager: LocalizationManager.shared)
         
         view.localizationManager = LocalizationManager.shared

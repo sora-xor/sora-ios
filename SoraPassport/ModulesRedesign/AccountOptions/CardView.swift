@@ -24,6 +24,7 @@ final class Card: SoramitsuView {
     private let stackView: SoramitsuStackView = {
         SoramitsuStackView().then {
             $0.sora.axis = .vertical
+            $0.spacing = 0
             $0.sora.distribution = .fill
         }
     }()
@@ -42,6 +43,7 @@ final class Card: SoramitsuView {
 
     public var stackContents: [UIView] = [] {
         didSet {
+            stackView.removeArrangedSubviews()
             stackView.addArrangedSubviews(stackContents)
         }
     }

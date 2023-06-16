@@ -333,6 +333,15 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         return GitHubUrl.url(suffix: "")
     }
     
+    var backupedAccountAddresses: [String] {
+        get {
+            return UserDefaults.standard.array(forKey: "backupedAccountAddresses") as? [String] ?? []
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "backupedAccountAddresses")
+        }
+    }
+    
     var commonConfigUrl: String {
         #if F_RELEASE
         return "https://config.polkaswap2.io/prod/common.json"

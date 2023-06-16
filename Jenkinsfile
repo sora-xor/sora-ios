@@ -6,7 +6,7 @@ def jobParams = [
   booleanParam(defaultValue: false, description: 'allow quality gate', name: 'sonarQualityGate'),
 ]
 
-def pipline = new org.ios.AppPipeline(
+def pipeline = new org.ios.AppPipeline(
     steps: this,
     sonar: false,
     sonarProjectName: 'sora-ios',
@@ -17,4 +17,5 @@ def pipline = new org.ios.AppPipeline(
     label: "macos-ios-1-2",
     appPushNoti: true
 )
-pipline.runPipeline('sora')
+
+pipeline.runPipeline('sora')

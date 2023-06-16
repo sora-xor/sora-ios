@@ -27,13 +27,13 @@ PODS:
     - Starscream
     - TweetNacl (~> 1.0.0)
     - xxHash-Swift (~> 1.0.0)
-  - Firebase/CoreOnly (10.9.0):
-    - FirebaseCore (= 10.9.0)
-  - Firebase/Crashlytics (10.9.0):
+  - Firebase/CoreOnly (10.10.0):
+    - FirebaseCore (= 10.10.0)
+  - Firebase/Crashlytics (10.10.0):
     - Firebase/CoreOnly
-    - FirebaseCrashlytics (~> 10.9.0)
-  - FirebaseAnalytics (10.9.0):
-    - FirebaseAnalytics/AdIdSupport (= 10.9.0)
+    - FirebaseCrashlytics (~> 10.10.0)
+  - FirebaseAnalytics (10.10.0):
+    - FirebaseAnalytics/AdIdSupport (= 10.10.0)
     - FirebaseCore (~> 10.0)
     - FirebaseInstallations (~> 10.0)
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
@@ -41,24 +41,24 @@ PODS:
     - GoogleUtilities/Network (~> 7.11)
     - "GoogleUtilities/NSData+zlib (~> 7.11)"
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - FirebaseAnalytics/AdIdSupport (10.9.0):
+  - FirebaseAnalytics/AdIdSupport (10.10.0):
     - FirebaseCore (~> 10.0)
     - FirebaseInstallations (~> 10.0)
-    - GoogleAppMeasurement (= 10.9.0)
+    - GoogleAppMeasurement (= 10.10.0)
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
     - GoogleUtilities/MethodSwizzler (~> 7.11)
     - GoogleUtilities/Network (~> 7.11)
     - "GoogleUtilities/NSData+zlib (~> 7.11)"
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - FirebaseCore (10.9.0):
+  - FirebaseCore (10.10.0):
     - FirebaseCoreInternal (~> 10.0)
     - GoogleUtilities/Environment (~> 7.8)
     - GoogleUtilities/Logger (~> 7.8)
-  - FirebaseCoreExtension (10.9.0):
+  - FirebaseCoreExtension (10.10.0):
     - FirebaseCore (~> 10.0)
-  - FirebaseCoreInternal (10.9.0):
+  - FirebaseCoreInternal (10.10.0):
     - "GoogleUtilities/NSData+zlib (~> 7.8)"
-  - FirebaseCrashlytics (10.9.0):
+  - FirebaseCrashlytics (10.10.0):
     - FirebaseCore (~> 10.5)
     - FirebaseInstallations (~> 10.0)
     - FirebaseSessions (~> 10.5)
@@ -66,12 +66,12 @@ PODS:
     - GoogleUtilities/Environment (~> 7.8)
     - nanopb (< 2.30910.0, >= 2.30908.0)
     - PromisesObjC (~> 2.1)
-  - FirebaseInstallations (10.9.0):
+  - FirebaseInstallations (10.10.0):
     - FirebaseCore (~> 10.0)
     - GoogleUtilities/Environment (~> 7.8)
     - GoogleUtilities/UserDefaults (~> 7.8)
     - PromisesObjC (~> 2.1)
-  - FirebaseMessaging (10.9.0):
+  - FirebaseMessaging (10.10.0):
     - FirebaseCore (~> 10.0)
     - FirebaseInstallations (~> 10.0)
     - GoogleDataTransport (~> 9.2)
@@ -80,7 +80,7 @@ PODS:
     - GoogleUtilities/Reachability (~> 7.8)
     - GoogleUtilities/UserDefaults (~> 7.8)
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - FirebaseSessions (10.9.0):
+  - FirebaseSessions (10.10.0):
     - FirebaseCore (~> 10.5)
     - FirebaseCoreExtension (~> 10.0)
     - FirebaseInstallations (~> 10.0)
@@ -90,21 +90,26 @@ PODS:
     - PromisesSwift (~> 2.1)
   - FireMock (3.1)
   - FLEX (5.22.10)
-  - GoogleAppMeasurement (10.9.0):
-    - GoogleAppMeasurement/AdIdSupport (= 10.9.0)
+  - GoogleAPIClientForREST/Core (1.2.1):
+    - GTMSessionFetcher (>= 1.1.7)
+  - GoogleAPIClientForREST/Drive (1.2.1):
+    - GoogleAPIClientForREST/Core
+    - GTMSessionFetcher (>= 1.1.7)
+  - GoogleAppMeasurement (10.10.0):
+    - GoogleAppMeasurement/AdIdSupport (= 10.10.0)
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
     - GoogleUtilities/MethodSwizzler (~> 7.11)
     - GoogleUtilities/Network (~> 7.11)
     - "GoogleUtilities/NSData+zlib (~> 7.11)"
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - GoogleAppMeasurement/AdIdSupport (10.9.0):
-    - GoogleAppMeasurement/WithoutAdIdSupport (= 10.9.0)
+  - GoogleAppMeasurement/AdIdSupport (10.10.0):
+    - GoogleAppMeasurement/WithoutAdIdSupport (= 10.10.0)
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
     - GoogleUtilities/MethodSwizzler (~> 7.11)
     - GoogleUtilities/Network (~> 7.11)
     - "GoogleUtilities/NSData+zlib (~> 7.11)"
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - GoogleAppMeasurement/WithoutAdIdSupport (10.9.0):
+  - GoogleAppMeasurement/WithoutAdIdSupport (10.10.0):
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
     - GoogleUtilities/MethodSwizzler (~> 7.11)
     - GoogleUtilities/Network (~> 7.11)
@@ -114,6 +119,19 @@ PODS:
     - GoogleUtilities/Environment (~> 7.7)
     - nanopb (< 2.30910.0, >= 2.30908.0)
     - PromisesObjC (< 3.0, >= 1.2)
+  - GoogleSignIn (4.1.2):
+    - "GoogleToolboxForMac/NSDictionary+URLArguments (~> 2.1)"
+    - "GoogleToolboxForMac/NSString+URLArguments (~> 2.1)"
+    - GTMOAuth2 (~> 1.0)
+    - GTMSessionFetcher/Core (~> 1.1)
+  - GoogleToolboxForMac/DebugUtils (2.3.2):
+    - GoogleToolboxForMac/Defines (= 2.3.2)
+  - GoogleToolboxForMac/Defines (2.3.2)
+  - "GoogleToolboxForMac/NSDictionary+URLArguments (2.3.2)":
+    - GoogleToolboxForMac/DebugUtils (= 2.3.2)
+    - GoogleToolboxForMac/Defines (= 2.3.2)
+    - "GoogleToolboxForMac/NSString+URLArguments (= 2.3.2)"
+  - "GoogleToolboxForMac/NSString+URLArguments (2.3.2)"
   - GoogleUtilities/AppDelegateSwizzler (7.11.1):
     - GoogleUtilities/Environment
     - GoogleUtilities/Logger
@@ -133,6 +151,13 @@ PODS:
     - GoogleUtilities/Logger
   - GoogleUtilities/UserDefaults (7.11.1):
     - GoogleUtilities/Logger
+  - GTMOAuth2 (1.1.6):
+    - GTMSessionFetcher (~> 1.1)
+  - GTMSessionFetcher (1.7.2):
+    - GTMSessionFetcher/Full (= 1.7.2)
+  - GTMSessionFetcher/Core (1.7.2)
+  - GTMSessionFetcher/Full (1.7.2):
+    - GTMSessionFetcher/Core (= 1.7.2)
   - IdensicMobileSDK (1.19.6)
   - IrohaCrypto (0.9.0):
     - IrohaCrypto/BIP39 (= 0.9.0)
@@ -246,10 +271,15 @@ PODS:
   - SoraUI/PinView (1.10.3):
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
-  - SoraUIKit (1.0.1)
+  - SoraUIKit (1.0.2)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
+  - SSFCloudStorage (0.1.0):
+    - GoogleAPIClientForREST/Drive (~> 1.2.1)
+    - GoogleSignIn (~> 4.1.1)
+    - IrohaCrypto/Scrypt
+    - TweetNacl (~> 1.0.0)
   - Starscream (4.0.8)
   - SVGKit (2.1.0):
     - CocoaLumberjack (~> 3.0)
@@ -286,8 +316,9 @@ DEPENDENCIES:
   - SoraFoundation
   - SoraKeystore
   - SoraUI
-  - SoraUIKit (from `https://github.com/soramitsu/ios-ui.git`, tag `1.0.1`)
+  - SoraUIKit (from `https://github.com/soramitsu/ios-ui.git`, tag `1.0.2`)
   - Sourcery (~> 1.4)
+  - SSFCloudStorage
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
   - SVGKit (from `https://github.com/SVGKit/SVGKit.git`, tag `3.0.0`)
   - SwiftLint (~> 0.49.0)
@@ -296,7 +327,7 @@ DEPENDENCIES:
   - XNetworking (from `https://raw.githubusercontent.com/soramitsu/x-networking/0.0.57/AppCommonNetworking/XNetworking/XNetworking.podspec`)
 
 SPEC REPOS:
-  trunk:
+  https://github.com/CocoaPods/Specs.git:
     - Anchorage
     - BigInt
     - CocoaLumberjack
@@ -313,9 +344,14 @@ SPEC REPOS:
     - FirebaseSessions
     - FireMock
     - FLEX
+    - GoogleAPIClientForREST
     - GoogleAppMeasurement
     - GoogleDataTransport
+    - GoogleSignIn
+    - GoogleToolboxForMac
     - GoogleUtilities
+    - GTMOAuth2
+    - GTMSessionFetcher
     - IrohaCrypto
     - lottie-ios
     - nanopb
@@ -342,6 +378,8 @@ SPEC REPOS:
     - TweetNacl
     - VideoID
     - xxHash-Swift
+  https://github.com/soramitsu/SSFSpecs.git:
+    - SSFCloudStorage
 
 EXTERNAL SOURCES:
   CommonWallet:
@@ -360,7 +398,7 @@ EXTERNAL SOURCES:
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.1
+    :tag: 1.0.2
   Starscream:
     :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -387,7 +425,7 @@ CHECKOUT OPTIONS:
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.1
+    :tag: 1.0.2
   Starscream:
     :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -403,20 +441,25 @@ SPEC CHECKSUMS:
   Cuckoo: 1b6793fe60fac29af50b0a5915bc309a4a1ac673
   eIDRTC: debca63e4c367be509c77292df65b9527d695f10
   FearlessUtils: 29225af385d297526e802d5218fa111763ff10de
-  Firebase: bd152f0f3d278c4060c5c71359db08ebcfd5a3e2
-  FirebaseAnalytics: 5ea0db4893825e7b0149d575352cd838236313dc
-  FirebaseCore: b68d3616526ec02e4d155166bbafb8eca64af557
-  FirebaseCoreExtension: d3e9bba2930a8033042112397cd9f006a1bb203d
-  FirebaseCoreInternal: d2b4acb827908e72eca47a9fd896767c3053921e
-  FirebaseCrashlytics: b60329455285aff853e54139d8ddbfe1e5f2b9f9
-  FirebaseInstallations: c58489c9caacdbf27d1da60891a87318e20218e0
-  FirebaseMessaging: 6b7052cc3da7bc8e5f72bef871243e8f04a14eed
-  FirebaseSessions: 44a6782502eb279a214d4adca20891353278760c
+  Firebase: facd334e557a979bd03a0b58d90fd56b52b8aba0
+  FirebaseAnalytics: 7bc7de519111dae802f5bc0c9c083918f8b8870d
+  FirebaseCore: d027ff503d37edb78db98429b11f580a24a7df2a
+  FirebaseCoreExtension: 8d93ebbf6838a874b4ed82a564c9d6705f8365dd
+  FirebaseCoreInternal: 971029061d326000d65bfdc21f5502c75c8b0893
+  FirebaseCrashlytics: bc8f3bed7f4d04be79d87391455efb4c9b163131
+  FirebaseInstallations: 52153982b057d3afcb4e1fbb3eb0b6d00611e681
+  FirebaseMessaging: 8a3b9a8b98ce72a42d22e69865cf662e38d2d6f5
+  FirebaseSessions: 5f9e62cd4096e24d2011cbd845b0efceffaee1ec
   FireMock: 3eed872059c12f94855413347da83b9d6d1a6fac
   FLEX: f21ee4f498eed3f8a1eded66b21939fd3b7a22ce
-  GoogleAppMeasurement: 373bcbead1bb6a85be7a64d5d8f96284b762ea9c
+  GoogleAPIClientForREST: a8b95a252014ce2e618df6b75dc72eca2c00b4af
+  GoogleAppMeasurement: bbbfd4bcb2b40ae9b772c3b0823a58c1e3d618f9
   GoogleDataTransport: f0308f5905a745f94fb91fea9c6cbaf3831cb1bd
+  GoogleSignIn: d9ef55b10f0aa401a5de2747f59b725e4b9732ac
+  GoogleToolboxForMac: 8bef7c7c5cf7291c687cf5354f39f9db6399ad34
   GoogleUtilities: 9aa0ad5a7bc171f8bae016300bfcfa3fb8425749
+  GTMOAuth2: e8b6512c896235149df975c41d9a36c868ab7fba
+  GTMSessionFetcher: 5595ec75acf5be50814f81e9189490412bad82ba
   IdensicMobileSDK: 03ade0371c3b579ca7e6129dc59cf43341b74e98
   IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3
   Kingfisher: 8b783c3d7be73a99b2172a743a5bc0a4dd331d79
@@ -439,8 +482,9 @@ SPEC CHECKSUMS:
   SoraFoundation: 988d90ee3159311b02e42aeba0cf7e85d8bc724c
   SoraKeystore: 92cff6e2a12f212dd64ed089970ff7c365247b1c
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
-  SoraUIKit: d23f2c122974e5700c8c646ba4d314fa3db12f6f
+  SoraUIKit: 258aa43f318cb306b29cdadb52139d794c184333
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
+  SSFCloudStorage: 5027f8379d186a3790cf0684eb23e8359aceff97
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5
@@ -451,6 +495,6 @@ SPEC CHECKSUMS:
   XNetworking: cda32e6337d2a18edfdb1a39a2e65aa4a1993280
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: fbe1649e1e22a7c6ef9287a3bfd09aaa22e228cb
+PODFILE CHECKSUM: ff8632bae2691b2a3834c2694879abeac43fa2a2
 
 COCOAPODS: 1.12.1

@@ -3,14 +3,26 @@ import SoraFoundation
 import SoraUI
 import SoraUIKit
 import Anchorage
+import SSFCloudStorage
 
 final class AccountCreateViewController: SoramitsuViewController {
     enum Mode {
         case registration
+        case registrationWithoutAccessToGoogle
         case view
+        
+        var nextButtonTitle: String {
+            switch self {
+            case .registrationWithoutAccessToGoogle:
+                return R.string.localizable.accountConfirmationTitleV2(preferredLanguages: .currentLocale)
+            case .view, .registration:
+                return R.string.localizable.transactionContinue(preferredLanguages: .currentLocale)
+            }
+        }
     }
 
     var presenter: AccountCreatePresenterProtocol!
+    var mode: Mode = .registration
 
     private let containerView: SoramitsuStackView = {
         var view = SoramitsuStackView()
@@ -58,15 +70,27 @@ final class AccountCreateViewController: SoramitsuViewController {
         }
     }()
     
-    private var skipButton: SoramitsuButton = {
-        SoramitsuButton().then {
-            $0.sora.cornerRadius = .circle
-            $0.addTarget(nil, action: #selector(actionSkip), for: .touchUpInside)
-            $0.sora.backgroundColor = .accentPrimaryContainer
+    private lazy var googleButton: SoramitsuButton = {
+        let title = SoramitsuTextItem(
+            text: R.string.localizable.onboardingContinueWithGoogle(preferredLanguages: .currentLocale),
+            fontData: FontType.buttonM,
+            textColor: .accentSecondary,
+            alignment: .center
+        )
+        
+        let button = SoramitsuButton()
+        button.sora.cornerRadius = .circle
+        button.sora.backgroundColor = .custom(uiColor: .clear)
+        button.sora.attributedText = title
+        button.sora.imageSize = 37
+        button.sora.leftImage = R.image.googleIcon()
+        button.sora.borderColor = .accentSecondary
+        button.sora.borderWidth = 1
+        button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.presenter.backupToGoogle()
         }
+        return button
     }()
-
-    var mode: Mode = .registration
 
     private var derivationPathModel: InputViewModelProtocol?
 
@@ -115,7 +139,7 @@ final class AccountCreateViewController: SoramitsuViewController {
             mnemonicView,
             shareButton,
             nextButton,
-            skipButton
+            googleButton
         ])
 
         containerView.setCustomSpacing(16, after: nextButton)
@@ -127,18 +151,13 @@ final class AccountCreateViewController: SoramitsuViewController {
 
         view.backgroundColor = .clear
 
-        shareButton.isHidden = mode == .registration
-        skipButton.isHidden = mode == .view
-        nextButton.isHidden = !shareButton.isHidden
+        shareButton.isHidden = mode == .registration || mode == .registrationWithoutAccessToGoogle
+        googleButton.isHidden = mode == .view || mode == .registration
+        nextButton.isHidden = mode == .view
     }
 
     private func setupNavigationItem() {
-        let infoItem = UIBarButtonItem(image: R.image.linkInfo(),
-                                       style: .plain,
-                                       target: self,
-                                       action: #selector(actionOpenInfo))
-        navigationItem.rightBarButtonItem = mode == .view ? infoItem : nil
-        navigationItem.rightBarButtonItem?.tintColor = SoramitsuUI.shared.theme.palette.color(.accentTertiary)
+        navigationItem.rightBarButtonItem = createRightButtonItem()
     }
 
     private func setupLocalization() {
@@ -146,16 +165,9 @@ final class AccountCreateViewController: SoramitsuViewController {
 
         title = R.string.localizable.mnemonicTitle(preferredLanguages: locale.rLanguages).capitalized
         titleLabel.sora.text = R.string.localizable.mnemonicText(preferredLanguages: locale.rLanguages)
-        nextButton.sora.title = R.string.localizable
-            .transactionContinue(preferredLanguages: locale.rLanguages)
-        shareButton.sora.title = R.string.localizable
-            .copyToClipboard(preferredLanguages: locale.rLanguages)
+        nextButton.sora.title = mode.nextButtonTitle
         
-        let skipText = R.string.localizable.commonSkip(preferredLanguages: locale.rLanguages).uppercased()
-        skipButton.sora.attributedText = SoramitsuTextItem(text: skipText,
-                                                           fontData: FontType.buttonM ,
-                                                           textColor: .accentPrimary,
-                                                           alignment: .center)
+        navigationItem.rightBarButtonItem = createRightButtonItem()
     }
 
     @IBAction private func actionNext() {
@@ -172,7 +184,47 @@ final class AccountCreateViewController: SoramitsuViewController {
     }
 
     @objc private func actionSkip() {
-        presenter.skip()
+        let title = R.string.localizable.importAccountNotBackedUp(preferredLanguages: .currentLocale)
+        let message = R.string.localizable.importAccountNotBackedUpAlertDescription(preferredLanguages: .currentLocale)
+        let alertView = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        
+        let cancelAction = UIAlertAction(
+            title: R.string.localizable.commonCancel(preferredLanguages: .currentLocale),
+            style: .cancel) { (_: UIAlertAction) -> Void in
+            }
+        let useAction = UIAlertAction(
+            title: R.string.localizable.importAccountNotBackedUpAlertActionTitle(preferredLanguages: .currentLocale),
+            style: .destructive) { [weak self] (_: UIAlertAction) -> Void in
+                self?.presenter.skip()
+            }
+        alertView.addAction(useAction)
+        alertView.addAction(cancelAction)
+        
+        present(alertView, animated: true)
+    }
+    
+    private func createRightButtonItem() -> UIBarButtonItem? {
+        switch mode {
+        case .registrationWithoutAccessToGoogle:
+            let skipButton = UIBarButtonItem(title: R.string.localizable.commonSkip(preferredLanguages: .currentLocale),
+                                             style: .plain,
+                                             target: self,
+                                             action: #selector(actionSkip))
+            skipButton.setTitleTextAttributes([
+                .font: FontType.textBoldS.font,
+                .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)
+            ], for: .normal)
+            return skipButton
+        case .view:
+            let infoItem = UIBarButtonItem(image: R.image.linkInfo(),
+                                           style: .plain,
+                                           target: self,
+                                           action: #selector(actionOpenInfo))
+            infoItem.tintColor = SoramitsuUI.shared.theme.palette.color(.accentTertiary)
+            return infoItem
+        case .registration:
+            return nil
+        }
     }
 }
 
@@ -194,3 +246,5 @@ extension AccountCreateViewController: Localizable {
         }
     }
 }
+
+extension AccountCreateViewController: CloudStorageUIDelegate {}
