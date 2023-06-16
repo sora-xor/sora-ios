@@ -53,6 +53,8 @@ abstract_target 'SoraPassportAll' do
       pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :branch => 'feature/sora-propositions'
       pod 'SoraFoundation'
       pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.57/AppCommonNetworking/XNetworking/XNetworking.podspec'
+      pod 'GoogleAPIClientForREST/Core'
+      pod 'GoogleAPIClientForREST/Drive'
   end
   
   target 'SoraPassportUITests' do
