@@ -7,8 +7,12 @@ final class ProductListViewController: SoramitsuViewController {
     private let searchController = UISearchController(searchResultsController: nil)
 
     private lazy var tableView: SoramitsuTableView = {
-        let tableView = SoramitsuTableView()
-        tableView.sora.backgroundColor = .bgPage
+        let tableView = SoramitsuTableView(type: .plain)
+        tableView.sora.backgroundColor = .bgSurface
+        tableView.sectionHeaderHeight = 0
+        tableView.sora.cornerMask = .all
+        tableView.sora.cornerRadius = .extraLarge
+        tableView.sora.shadow = .default
         tableView.sora.estimatedRowHeight = UITableView.automaticDimension
         tableView.sora.context = SoramitsuTableViewContext(scrollView: tableView, viewController: self)
         tableView.sectionHeaderHeight = .zero
@@ -134,10 +138,14 @@ final class ProductListViewController: SoramitsuViewController {
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+//            tableView.topAnchor.constraint(equalTo: view.topAnchor),
+//            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+//            tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+//            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])
     }
 }

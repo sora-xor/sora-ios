@@ -17,7 +17,7 @@ final class PoolListItem: NSObject {
 extension PoolListItem: SoramitsuTableViewItemProtocol {
     var cellType: AnyClass { PoolListCell.self }
 
-    var backgroundColor: SoramitsuColor { .bgPage }
+    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
 
     var clipsToBounds: Bool { false }
 

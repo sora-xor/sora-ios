@@ -302,6 +302,8 @@ DEPENDENCIES:
   - FirebaseMessaging
   - FireMock
   - FLEX
+  - GoogleAPIClientForREST/Core
+  - GoogleAPIClientForREST/Drive
   - "IdensicMobileSDK (from `{:http=>\"https://github.com/paywings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.0.0.tar.gz\"}`)"
   - IrohaCrypto (~> 0.9.0)
   - Kingfisher (from `https://github.com/onevcat/Kingfisher`, branch `version6-xcode13`)
@@ -495,6 +497,6 @@ SPEC CHECKSUMS:
   XNetworking: cda32e6337d2a18edfdb1a39a2e65aa4a1993280
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: ff8632bae2691b2a3834c2694879abeac43fa2a2
+PODFILE CHECKSUM: 6d4001584f311f580c2fcffd8463336f76a325ea
 
 COCOAPODS: 1.12.1
