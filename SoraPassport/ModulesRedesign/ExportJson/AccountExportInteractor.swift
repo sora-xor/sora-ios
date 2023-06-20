@@ -26,7 +26,7 @@ extension AccountExportInteractor: AccountExportInteractorInputProtocol {
     func exportToFileWith(password: String) -> NSURL? {
         guard !accounts.isEmpty else { return nil }
         if accounts.count == 1 {
-            return exportAccountToFile(account: accounts[0], password: password)
+            return exportAccountToFile(account: accounts.first!, password: password)
         } else {
             return exportAccountsToFile(accounts: accounts, password: password)
         }

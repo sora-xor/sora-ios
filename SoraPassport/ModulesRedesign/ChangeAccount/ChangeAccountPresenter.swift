@@ -146,8 +146,12 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
             .enumerated()
             .filter { $1.isSelected }
             .enumerated()
-            .map { intex, _ in
-                accounts[intex]
+            .compactMap { index, _ in
+                if accounts.indices.contains(index) {
+                    return accounts[index]
+                } else {
+                    return nil
+                }
             }
 
         wireframe?.showExportAccounts(accounts: accountItemsToExport, from: view)

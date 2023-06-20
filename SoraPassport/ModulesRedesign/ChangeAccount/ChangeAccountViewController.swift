@@ -9,6 +9,42 @@ final class ChangeAccountViewController: SoramitsuViewController {
     enum Mode {
         case view
         case edit
+
+        var title: String {
+            switch self {
+            case .view:
+                return R.string.localizable.commonEdit(preferredLanguages: .currentLocale)
+            case .edit:
+                return R.string.localizable.commonDone(preferredLanguages: .currentLocale)
+            }
+        }
+
+        var action: Selector {
+            switch self {
+            case .view:
+                return #selector(onEdit)
+            case .edit:
+                return #selector(onDone)
+            }
+        }
+
+        var actionTitle: String {
+            switch self {
+            case .view:
+                return R.string.localizable.accountAdd(preferredLanguages: .currentLocale)
+            case .edit:
+                return R.string.localizable.backupAccountTitle(preferredLanguages: .currentLocale)
+            }
+        }
+
+        var actionIcon: UIImage? {
+            switch self {
+            case .view:
+                return R.image.iconPlus()
+            case .edit:
+                return nil
+            }
+        }
     }
     
     private struct Constants {
@@ -91,23 +127,11 @@ final class ChangeAccountViewController: SoramitsuViewController {
 
     private func setupNavbarButton(mode: Mode) {
 
-        let title: String
-        let action: Selector
-
-        switch mode {
-        case .view:
-            title = R.string.localizable.commonEdit(preferredLanguages: .currentLocale)
-            action = #selector(onEdit)
-        case .edit:
-            title = R.string.localizable.commonDone(preferredLanguages: .currentLocale)
-            action = #selector(onDone)
-        }
-
         let button = UIBarButtonItem(
-            title: title,
+            title: mode.title,
             style: .plain,
             target: self,
-            action: action
+            action: mode.action
         )
         button.setTitleTextAttributes(
             [
@@ -121,15 +145,8 @@ final class ChangeAccountViewController: SoramitsuViewController {
 
     private func setup(mode: Mode) {
         setupNavbarButton(mode: mode)
-
-        switch mode {
-        case .view:
-            actionButton.sora.title = R.string.localizable.accountAdd(preferredLanguages: languages)
-            actionButton.sora.leftImage = R.image.iconPlus()
-        case .edit:
-            actionButton.sora.title = R.string.localizable.backupAccountTitle(preferredLanguages: languages)
-            actionButton.sora.leftImage = nil
-        }
+        actionButton.sora.title = mode.actionTitle
+        actionButton.sora.leftImage = mode.actionIcon
         presenter?.set(mode: mode)
     }
 
