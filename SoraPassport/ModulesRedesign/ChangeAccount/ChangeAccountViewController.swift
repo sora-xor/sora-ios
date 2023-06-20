@@ -5,6 +5,11 @@ import SoraUIKit
 import SoraUI
 
 final class ChangeAccountViewController: SoramitsuViewController {
+
+    enum Mode {
+        case view
+        case edit
+    }
     
     private struct Constants {
         static let inset: CGFloat = 16
@@ -29,12 +34,12 @@ final class ChangeAccountViewController: SoramitsuViewController {
         return view
     }()
 
-    private lazy var addButton: SoramitsuButton = {
+    private lazy var actionButton: SoramitsuButton = {
         let button = SoramitsuButton(size: .large, type: .bleached(.primary))
         button.sora.leftImage = R.image.iconPlus()
         button.sora.cornerRadius = .circle
         button.sora.shadow = .small
-        button.addTarget(nil, action: #selector(actionCreateAccount), for: .touchUpInside)
+        button.addTarget(nil, action: #selector(onAction), for: .touchUpInside)
         return button
     }()
 
@@ -65,10 +70,11 @@ final class ChangeAccountViewController: SoramitsuViewController {
         
         navigationItem.largeTitleDisplayMode = .never
         addCloseButton()
+        setup(mode: .view)
         
         tableBg.addSubview(tableView)
         view.addSubview(tableBg)
-        view.addSubview(addButton)
+        view.addSubview(actionButton)
     }
     
     private func setupConstraints() {
@@ -79,12 +85,64 @@ final class ChangeAccountViewController: SoramitsuViewController {
         
         tableView.edgeAnchors == tableBg.edgeAnchors
 
-        addButton.horizontalAnchors == view.horizontalAnchors + Constants.inset
-        addButton.topAnchor == tableBg.bottomAnchor + Constants.inset
+        actionButton.horizontalAnchors == view.horizontalAnchors + Constants.inset
+        actionButton.topAnchor == tableBg.bottomAnchor + Constants.inset
     }
-    
-    @objc func actionCreateAccount() {
-        presenter?.addOrCreateAccount()
+
+    private func setupNavbarButton(mode: Mode) {
+
+        let title: String
+        let action: Selector
+
+        switch mode {
+        case .view:
+            title = R.string.localizable.commonEdit(preferredLanguages: .currentLocale)
+            action = #selector(onEdit)
+        case .edit:
+            title = R.string.localizable.commonDone(preferredLanguages: .currentLocale)
+            action = #selector(onDone)
+        }
+
+        let button = UIBarButtonItem(
+            title: title,
+            style: .plain,
+            target: self,
+            action: action
+        )
+        button.setTitleTextAttributes(
+            [
+            .font: UIFont.systemFont(ofSize: 13, weight: .bold),
+            .foregroundColor: UIColor(hex: "#EE2233")
+            ],
+            for: .normal
+        )
+        navigationItem.leftBarButtonItem = button
+    }
+
+    private func setup(mode: Mode) {
+        setupNavbarButton(mode: mode)
+
+        switch mode {
+        case .view:
+            actionButton.sora.title = R.string.localizable.accountAdd(preferredLanguages: languages)
+            actionButton.sora.leftImage = R.image.iconPlus()
+        case .edit:
+            actionButton.sora.title = R.string.localizable.backupAccountTitle(preferredLanguages: languages)
+            actionButton.sora.leftImage = nil
+        }
+        presenter?.set(mode: mode)
+    }
+
+    @objc private func onEdit() {
+        setup(mode: .edit)
+    }
+
+    @objc private func onDone() {
+        setup(mode: .view)
+    }
+
+    @objc private func onAction() {
+        presenter?.onAction()
     }
 }
 
@@ -96,7 +154,7 @@ extension ChangeAccountViewController: ChangeAccountViewProtocol {
         tableView.sora.sections = [SoramitsuTableViewSection(rows: viewModel)]
         
         let height = CGFloat(accountViewModels.count) * AccountMenuItem.itemHeight
-        let maxHeight = view.safeAreaLayoutGuide.layoutFrame.height - 3 * Constants.inset - addButton.sora.size.height
+        let maxHeight = view.safeAreaLayoutGuide.layoutFrame.height - 3 * Constants.inset - actionButton.sora.size.height
         
         tableConstraint?.constant = height < maxHeight ? height : maxHeight
         view.layoutSubviews()
@@ -110,6 +168,6 @@ extension ChangeAccountViewController: Localizable {
 
     func applyLocalization() {
         navigationItem.title = R.string.localizable.commonAccount(preferredLanguages: languages)
-        addButton.sora.title = R.string.localizable.accountAdd(preferredLanguages: languages)
+        actionButton.sora.title = R.string.localizable.accountAdd(preferredLanguages: languages)
     }
 }

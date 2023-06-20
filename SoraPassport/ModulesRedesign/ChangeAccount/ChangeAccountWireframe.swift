@@ -1,7 +1,8 @@
 import UIKit
+import SoraFoundation
 import SoraUIKit
 
-final class ChangeAccountWireframe: ChangeAccountWireframeProtocol {
+final class ChangeAccountWireframe: ChangeAccountWireframeProtocol, AuthorizationPresentable {
     
     func showSignUp(from view: UIViewController, completion: @escaping () -> Void) {
         let navigationController = SoraNavigationController()
@@ -50,4 +51,27 @@ final class ChangeAccountWireframe: ChangeAccountWireframeProtocol {
         }
     }
 
+    func showExportAccounts(accounts: [AccountItem], from controller: UIViewController) {
+
+        let warning = AccountWarningViewController(warningType: .json)
+        warning.localizationManager = LocalizationManager.shared
+        warning.completion = { [weak self] in
+            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
+                if isAuthorized {
+                    guard let jsonExportVC = AccountExportViewFactory.createView(accounts: accounts) as? UIViewController else {
+                        return
+                    }
+
+                    var navigationArray = controller.navigationController?.viewControllers ?? []
+                    navigationArray.remove(at: navigationArray.count - 1)
+                    controller.navigationController?.viewControllers = navigationArray
+                    controller.navigationController?.pushViewController(jsonExportVC, animated: true)
+                }
+            }
+        }
+        if let navigationController = controller.navigationController {
+            warning.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(warning.controller, animated: true)
+        }
+    }
 }

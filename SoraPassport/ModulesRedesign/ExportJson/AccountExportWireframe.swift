@@ -13,13 +13,13 @@ final class AccountExportWireframe: AccountExportWireframeProtocol, Authorizatio
         self.localizationManager = localizationManager
     }
 
-    func showJson(from view: AccountExportViewProtocol?, account: AccountItem) {
+    func showJson(from view: AccountExportViewProtocol?, accounts: [AccountItem]) {
         let warning = AccountWarningViewController(warningType: .json)
         warning.localizationManager = self.localizationManager
         warning.completion = { [weak self] in
             self?.authorize(animated: true, cancellable: true, inView: nil) { [weak self] (isAuthorized) in
                 if isAuthorized {
-                    guard let accountExportView = self?.createAccountExportView(account) else {
+                    guard let accountExportView = self?.createAccountExportView(accounts) else {
                         return
                     }
 
@@ -36,7 +36,7 @@ final class AccountExportWireframe: AccountExportWireframeProtocol, Authorizatio
         }
     }
 
-    private func createAccountExportView(_ account: AccountItem) -> AccountExportViewProtocol? {
+    private func createAccountExportView(_ accounts: [AccountItem]) -> AccountExportViewProtocol? {
         let view = AccountExportViewController()
 
         let presenter = AccountExportPresenter()
@@ -44,7 +44,7 @@ final class AccountExportWireframe: AccountExportWireframeProtocol, Authorizatio
         let interactor = AccountExportInteractor(
             keystore: Keychain(),
             settings: SettingsManager.shared,
-            account: account
+            accounts: accounts
         )
         let wireframe = AccountExportWireframe(localizationManager: self.localizationManager)
 

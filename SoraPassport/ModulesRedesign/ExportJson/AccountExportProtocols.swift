@@ -20,5 +20,5 @@ protocol AccountExportWireframeProtocol: AnyObject {
 }
 
 protocol AccountExportViewFactoryProtocol: AnyObject {
-    static func createView(account: AccountItem) -> AccountExportViewProtocol?
+    static func createView(accounts: [AccountItem]) -> AccountExportViewProtocol?
 }

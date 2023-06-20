@@ -12,6 +12,7 @@ final class ChangeAccountPresenter {
 
     private let settingsManager: SelectedWalletSettingsProtocol
     private let eventCenter: EventCenterProtocol
+    private var mode: ChangeAccountViewController.Mode = .view
     private var accounts: [AccountItem] = []
     private var accountViewModels: [AccountMenuItem] = []
     private let accountRepository: AnyDataProviderRepository<AccountItem>
@@ -67,6 +68,7 @@ final class ChangeAccountPresenter {
             return AccountMenuItem(title: account.username.isEmpty ? account.address : account.username,
                                    image: icon,
                                    isSelected: account.address == selectedAccountAddress,
+                                   isMultiselectionMode: mode == .edit,
                                    onTap: { self?.selectItem(at: index) },
                                    onMore: { self?.editItem(at: index) })
         }
@@ -76,24 +78,57 @@ final class ChangeAccountPresenter {
 }
 
 extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
+
+    func onAction() {
+        switch mode {
+        case .view:
+            addOrCreateAccount()
+        case .edit:
+            exportAccounts()
+        }
+    }
+    func set(mode: ChangeAccountViewController.Mode) {
+        self.mode = mode
+
+        switch mode {
+        case .view:
+            getAccounts()
+        case .edit:
+            for currentIndex in 0...accountViewModels.count - 1 {
+                accountViewModels[currentIndex].isSelected = false
+            }
+            _ = accountViewModels.map { $0.isMultiselectionMode = true }
+            view?.update(with: accountViewModels)
+        }
+    }
+
     func reload() {
         getAccounts()
     }
     
     func selectItem(at index: Int) {
-        guard settingsManager.currentAccount != accounts[index] else {
-            return
-        }
 
-        for currentIndex in 0...accountViewModels.count - 1 {
-            accountViewModels[currentIndex].isSelected = currentIndex == index
-        }
-        view?.update(with: accountViewModels)
-        
-        let accountItem = accounts[index]
+        switch mode {
+        case .view:
+            guard settingsManager.currentAccount != accounts[index] else {
+                return
+            }
 
-        settingsManager.save(value: accountItem)
-        eventCenter.notify(with: SelectedAccountChanged())
+            for currentIndex in 0...accountViewModels.count - 1 {
+                accountViewModels[currentIndex].isSelected = currentIndex == index
+            }
+            view?.update(with: accountViewModels)
+
+            let accountItem = accounts[index]
+
+            settingsManager.save(value: accountItem)
+            eventCenter.notify(with: SelectedAccountChanged())
+
+        case .edit:
+            guard accountViewModels.indices.contains(index) else { return }
+            accountViewModels[index].isSelected.toggle()
+            view?.update(with: accountViewModels)
+        }
     }
 
     func editItem(at index: Int) {
@@ -105,7 +140,20 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
         wireframe.showEdit(account: accountItem, from: view)
     }
 
-    func addOrCreateAccount() {
+    private func exportAccounts() {
+        guard let view = view?.controller else { return }
+        let accountItemsToExport: [AccountItem] = accountViewModels
+            .enumerated()
+            .filter { $1.isSelected }
+            .enumerated()
+            .map { intex, _ in
+                accounts[intex]
+            }
+
+        wireframe?.showExportAccounts(accounts: accountItemsToExport, from: view)
+    }
+
+    private func addOrCreateAccount() {
         guard let view = view?.controller else {
             return
         }
@@ -116,7 +164,7 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
         }
     }
     
-    func createAccount() {
+    private func createAccount() {
         guard let view = view?.controller else {
             return
         }
@@ -126,7 +174,7 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
         }
     }
 
-    func importAccount() {
+    private func importAccount() {
         guard let view = view?.controller else {
             return
         }

@@ -375,7 +375,7 @@ CHECKOUT OPTIONS:
     :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137
     :git: https://github.com/soramitsu/Capital-iOS.git
   FearlessUtils:
-    :commit: c1d17ccfbd8217612fdb56e588b1dec9cbe23bf5
+    :commit: e6aaeb177713793c18902d45e4e8264b8734665b
     :git: https://github.com/soramitsu/fearless-utils-iOS.git
   IdensicMobileSDK:
     :http: https://github.com/paywings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.0.0.tar.gz
