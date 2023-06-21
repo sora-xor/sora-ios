@@ -23,7 +23,7 @@ final class AssetListItem: NSObject {
 extension AssetListItem: SoramitsuTableViewItemProtocol {
     var cellType: AnyClass { AssetListCell.self }
 
-    var backgroundColor: SoramitsuColor { .bgPage }
+    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
 
     var clipsToBounds: Bool { false }
 

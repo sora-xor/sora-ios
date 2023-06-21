@@ -3,6 +3,7 @@ import UIKit
 import RobinHood
 import CommonWallet
 import XNetworking
+import SoraUIKit
 
 protocol LiquidityWireframeProtocol: AlertPresentable {
     func showChoiсeBaseAsset(on controller: UIViewController?,
@@ -92,9 +93,14 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
 
         let assetListController = ProductListViewController(viewModel: viewModel)
         
-        let navigationController = UINavigationController(rootViewController: assetListController)
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
         
-        controller?.present(navigationController, animated: true)
+        let navigationController = UINavigationController(rootViewController: assetListController)
+        navigationController.navigationBar.backgroundColor = .clear
+        
+        containerView.add(navigationController)
+        controller?.present(containerView, animated: true)
     }
     
     func showSlippageTolerance(on controller: UINavigationController?, currentLocale: Float, completion: @escaping (Float) -> Void) {
