@@ -581,7 +581,7 @@
 "polkaswap.swap.details.have.changed" = "Změnily se podrobnosti swapu";
 "common.back" = "Zpět";
 "referral.title" = "Získejte 10 % ze síťových poplatků za doporučení";
-"referral.subtitle" = "Kdykoli váš doporučený uživatel provede transakci, 10 % z jeho síťových poplatků vám připadne jako odměna.";
+"referral.subtitle" = "Kdykoli váš doporučený uživatel provede transakci, 10% z jeho síťových poplatků vám připadne jako odměna.";
 "referral.toolbar.title" = "Program doporučení";
 "referral.your.referrals" = "Vaše doporučení";
 "referral.total.rewards" = "Odměny celkem";
@@ -786,7 +786,6 @@
 "swap.want.to" = "Chcete směnit za";
 "common.supply.liquidity.title" = "Dodat likviditu";
 "common.not.enough.balance" = "Nedostatečný zůstatek";
-"common.remove.liquidity" = "Odstranit likviditu";
 "receive.tokens" = "Příjem tokenů";
 "common.scan.qr" = "Skenovat QR";
 "scan.qr.from.receiver" = "Skenovat kód příjemce";
@@ -872,3 +871,4 @@
 "common.dutch" = "Dutch";
 "common.portuguese" = "Portuguese";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";

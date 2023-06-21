@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kamera QR kodunu çəkmək üçün istifadə olunur";
+"NSFaceIDUsageDescription" = "Face ID tətbiqdə icazə vermək üçün istifadə olunur";
+"NSPhotoLibraryUsageDescription" = "Kitabxanadan foto yükləyin";
+"NSPhotoLibraryAddUsageDescription" = "Transfer tələbini qr kodu kimi qeyd edin";

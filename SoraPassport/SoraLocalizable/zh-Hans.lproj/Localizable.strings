@@ -581,7 +581,7 @@
 "polkaswap.swap.details.have.changed" = "兑换的详细信息已更改";
 "common.back" = "返回";
 "referral.title" = "获得推荐人网络费用的 10%";
-"referral.subtitle" = "每当您的推荐人进行交易时，所支付的网络费用的10%将作为奖励发送给您。";
+"referral.subtitle" = "每当您的推荐人进行交易时，所支付的网络费用的 10% 将作为奖励发送给您。";
 "referral.toolbar.title" = "推荐计划";
 "referral.your.referrals" = "您的推荐人";
 "referral.total.rewards" = "总奖励";
@@ -599,7 +599,7 @@
 "import.account.raw.seed" = "你已经通过种子词导入这个账户";
 "referral.your.referrer" = "您的推荐人";
 "referral.referrer.address" = "推荐人的地址";
-"referral.referrer.description" = "无论何时，您每做一笔转账，都有10%的网络费给予您的推荐人作为奖励";
+"referral.referrer.description" = "无论何时，您每做一笔转账，都有 10% 的网络费给予您的推荐人作为奖励";
 "referral.invitation.link.title" = "可用的邀请";
 "referral.your.invitation.link.title" = "您的邀请链接";
 "referral.get.more.invitation.button.title" = "获得更多邀请";
@@ -607,7 +607,7 @@
 "referral.enter.link.title" = "输入推荐人的链接";
 "referral.activate.button.title" = "激活";
 "referral.input.reward.title" = "输入想要的邀请数量";
-"referral.input.reward.description" = "%s会根据每个邀请进行绑定，以支付您的朋友加入的网络费用。 \n \n对于未使用的邀请，您可以随时取消绑定 XOR。";
+"referral.input.reward.description" = "%s 会根据每个邀请进行绑定，以支付您的朋友加入的网络费用。 \n \n对于未使用的邀请，您可以随时取消绑定 XOR。";
 "referral.bond.button.title" = "绑定XOR";
 "referral.unbond.xor.description" = "每一个邀请您可以取消绑定%s。您要撤回多少个邀请？";
 "referral.referral.link" = "推荐人的链接或地址";
@@ -786,7 +786,6 @@
 "swap.want.to" = "你想要兑换到";
 "common.supply.liquidity.title" = "提供流动性";
 "common.not.enough.balance" = "余额不足";
-"common.remove.liquidity" = "移除流动性";
 "receive.tokens" = "接收代币";
 "common.scan.qr" = "扫描二维码";
 "scan.qr.from.receiver" = "从接收器扫描代码";
@@ -872,3 +871,4 @@
 "common.dutch" = "荷兰语";
 "common.portuguese" = "葡萄牙语";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";

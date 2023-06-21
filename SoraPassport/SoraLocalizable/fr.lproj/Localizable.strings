@@ -581,7 +581,7 @@
 "polkaswap.swap.details.have.changed" = "Les détails de l'échange ont changé";
 "common.back" = "Retour";
 "referral.title" = "Recevez 10 % des frais de réseau des adresses que vous parrainez.";
-"referral.subtitle" = "Chaque fois qu'une adresse que vous parrainez effectue une transaction, 10 % des frais de réseau payés vous reviennent à titre de récompense.";
+"referral.subtitle" = "Chaque fois qu'une adresse que vous parrainez effectue une transaction, 10% des frais de réseau payés vous reviennent à titre de récompense.";
 "referral.toolbar.title" = "Programme de parrainage";
 "referral.your.referrals" = "Vos parrainés";
 "referral.total.rewards" = "Total des récompenses";
@@ -786,7 +786,6 @@
 "swap.want.to" = "Je veux échanger vers";
 "common.supply.liquidity.title" = "Fournir des liquidités";
 "common.not.enough.balance" = "Solde insuffisant";
-"common.remove.liquidity" = "Retirer des liquidités";
 "receive.tokens" = "Recevoir des jetons";
 "common.scan.qr" = "Scanner code QR";
 "scan.qr.from.receiver" = "Scanner un code du bénéficiaire";
@@ -872,3 +871,4 @@
 "common.dutch" = "Dutch";
 "common.portuguese" = "Portuguese";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";

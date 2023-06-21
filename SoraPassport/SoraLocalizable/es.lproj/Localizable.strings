@@ -546,7 +546,7 @@
 "common.insufficient.balance" = "Insufficient balance";
 "common.output" = "Output";
 "pool.share.after.tx" = "Pool share after tx";
-"remove.liquidity.title" = "Remove Liquidity";
+"remove.liquidity.title" = "Remove liquidity";
 "remove.liquidity.info.text" = "Removing liquidity converts your position back at the current rate, proportional to your share of the pool.";
 "common.remove" = "Remove";
 "liquidity.added" = "Added %@ liquidity";
@@ -786,7 +786,6 @@
 "swap.want.to" = "Quieres cambiar a";
 "common.supply.liquidity.title" = "Suministrar liquidez";
 "common.not.enough.balance" = "No hay balance suficiente";
-"common.remove.liquidity" = "Retirar liquidez";
 "receive.tokens" = "Recibir tokens";
 "common.scan.qr" = "Escanear QR";
 "scan.qr.from.receiver" = "Escanear código del destinatario";
@@ -872,3 +871,4 @@
 "common.dutch" = "Dutch";
 "common.portuguese" = "Portuguese";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";
