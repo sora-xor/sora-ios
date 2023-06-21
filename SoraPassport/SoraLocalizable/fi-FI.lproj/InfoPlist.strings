@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Kameraa käytetään QR-koodin sieppaamiseen";
+"NSFaceIDUsageDescription" = "Face ID:tä käytetään sovelluksen valtuuttamiseen";
+"NSPhotoLibraryUsageDescription" = "Valokuvien lataaminen kirjastosta";
+"NSPhotoLibraryAddUsageDescription" = "Tallenna siirtopyyntö qr-koodina";

@@ -786,7 +786,6 @@
 "swap.want.to" = "تريد التبديل إلى";
 "common.supply.liquidity.title" = "إضافة سيولة";
 "common.not.enough.balance" = "لا يوجد رصيد كاف";
-"common.remove.liquidity" = "إزالة السيولة";
 "receive.tokens" = "تلقي العملات";
 "common.scan.qr" = "مسح QR";
 "scan.qr.from.receiver" = "مسح الكود من جهاز الاستقبال";
@@ -872,3 +871,4 @@
 "common.dutch" = "Dutch";
 "common.portuguese" = "Portuguese";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";
