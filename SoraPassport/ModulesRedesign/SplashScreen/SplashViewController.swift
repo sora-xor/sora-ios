@@ -45,15 +45,11 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         view.backgroundColor = R.color.baseBackground()
         setupHierarchy()
         setupLayout()
-        animationView.play(fromProgress: 0, toProgress: 0.8, loopMode: .playOnce)
-        presenter.showIsLoading(after: 5.0) { [weak self] in
-            self?.showLoader()
+        animationView.play(fromProgress: 0, toProgress: 0.8, loopMode: .playOnce) { [weak self] _ in
+            self?.presenter.showIsLoading(after: 5.0) { [weak self] in
+                self?.showLoader()
+            }
         }
-    }
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        hideLoader()
     }
     
     private func setupHierarchy() {
@@ -99,6 +95,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     }
     
     func animate(duration animationDurationBase: Double, completion: @escaping () -> Void) {
+        hideLoader()
         animationView.play(fromProgress: 0.8, toProgress: 1, loopMode: .playOnce) { (_) in
             completion()
         }
