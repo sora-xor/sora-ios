@@ -786,7 +786,6 @@
 "swap.want.to" = "आप  इसमें स्वैप करना चाहते हैं";
 "common.supply.liquidity.title" = "Liquidity    दें";
 "common.not.enough.balance" = "पर्याप्त राशि नहीं";
-"common.remove.liquidity" = "Liquidity  को हटा दें";
 "receive.tokens" = "टोकन प्राप्त करें";
 "common.scan.qr" = "QR स्कैन करें";
 "scan.qr.from.receiver" = "रिसीवर से कोड स्कैन करें";
@@ -872,3 +871,4 @@
 "common.dutch" = "Dutch";
 "common.portuguese" = "Portuguese";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";

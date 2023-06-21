@@ -581,7 +581,7 @@
 "polkaswap.swap.details.have.changed" = "Swap-Details haben sich geändert";
 "common.back" = "Zurück";
 "referral.title" = "Erhalte 10 % der Netzwerkgebühren für deine Empfehlungen";
-"referral.subtitle" = "Jedes Mal, wenn deine Empfehlung eine Transaktion durchführt, erhälst du 10 % der gezahlten Netzwerkgebühr als Belohnung.";
+"referral.subtitle" = "Jedes Mal, wenn deine Empfehlung eine Transaktion durchführt, erhälst du 10% der gezahlten Netzwerkgebühr als Belohnung.";
 "referral.toolbar.title" = "Empfehlungsprogramm";
 "referral.your.referrals" = "Deine Empfehlungen";
 "referral.total.rewards" = "Gesamte Belohnung";

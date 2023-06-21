@@ -292,6 +292,7 @@
 "copy.xor.title" = "Copia l'indirizzo del wallet Sora (XOR)";
 "copy.eth.title" = "Copia l'indirizzo del wallet Ethereum (ETH)";
 "view_balance" = "Visualizza l'allocazione dei token Sora (XOR)";
+"referendum.date.day.plurals" = "%#@value@";
 "tabbar.voting.title" = "Voto";
 "wallet.erc20" = "ERC20";
 "about.website" = "Sito web";
@@ -786,7 +787,6 @@
 "swap.want.to" = "You want to swap to";
 "common.supply.liquidity.title" = "Supply liquidity";
 "common.not.enough.balance" = "Not enough balance";
-"common.remove.liquidity" = "Remove liquidity";
 "receive.tokens" = "Receive tokens";
 "common.scan.qr" = "Scan QR";
 "scan.qr.from.receiver" = "Scan code from receiever";
@@ -867,3 +867,9 @@
 "create.backup.password.not.matched" = "Passwords do not match";
 "create.backup.weak.password" = "Weak password";
 "enter.password.incorect.title" = "Incorrect password";
+"export.json.input.match.error" = "Passwords do not match!";
+"common.azerbaijani" = "Azerbaijani";
+"common.dutch" = "Dutch";
+"common.portuguese" = "Portuguese";
+"launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";

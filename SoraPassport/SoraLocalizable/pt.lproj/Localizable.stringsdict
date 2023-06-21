@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>project.date.day.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li dia restante</string>
+        <key>other</key>
+        <string>%li dias restantes</string>
+      </dict>
+    </dict>
+    <key>project.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li hora restante</string>
+        <key>other</key>
+        <string>%li horas restantes</string>
+      </dict>
+    </dict>
+    <key>project.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li minuto restante</string>
+        <key>other</key>
+        <string>%li minutos restantes</string>
+      </dict>
+    </dict>
+    <key>project.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li segundo restante</string>
+        <key>other</key>
+        <string>%li segundos restantes</string>
+      </dict>
+    </dict>
+    <key>received.invitations</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>Recebeu um %#@invitation@</string>
+      <key>invitation</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li convite</string>
+        <key>other</key>
+        <string>%li convites</string>
+      </dict>
+    </dict>
+    <key>favorite.users</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@favorite@</string>
+      <key>favorite</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li favorito</string>
+        <key>other</key>
+        <string>%li favoritos</string>
+      </dict>
+    </dict>
+    <key>voted.friends</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@voted@</string>
+      <key>voted</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li amigo votou</string>
+        <key>other</key>
+        <string>%li amigos votaram</string>
+      </dict>
+    </dict>
+    <key>referendum.date.hour.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li hora</string>
+        <key>other</key>
+        <string>%li horas</string>
+      </dict>
+    </dict>
+    <key>referendum.date.minute.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li minuto</string>
+        <key>other</key>
+        <string>%li minutos</string>
+      </dict>
+    </dict>
+    <key>referendum.date.second.plurals</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@value@</string>
+      <key>value</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>%li segundo</string>
+        <key>other</key>
+        <string>%li segundos</string>
+      </dict>
+    </dict>
+    <key>referral.invitations</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@format@</string>
+      <key>format</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>invitation</string>
+        <key>other</key>
+        <string>invitations</string>
+      </dict>
+    </dict>
+  </dict>
+</plist>

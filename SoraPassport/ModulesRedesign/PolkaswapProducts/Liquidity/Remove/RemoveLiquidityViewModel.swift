@@ -26,7 +26,7 @@ final class RemoveLiquidityViewModel {
     var providerFactory: BalanceProviderFactory
 
     var title: String? {
-        return R.string.localizable.commonRemoveLiquidity(preferredLanguages: .currentLocale)
+        return R.string.localizable.removeLiquidityTitle(preferredLanguages: .currentLocale)
     }
     
     var imageName: String? {

@@ -786,7 +786,6 @@
 "swap.want.to" = "You want to swap to";
 "common.supply.liquidity.title" = "Supply liquidity";
 "common.not.enough.balance" = "Not enough balance";
-"common.remove.liquidity" = "Remove liquidity";
 "receive.tokens" = "Receive tokens";
 "common.scan.qr" = "Scan QR";
 "scan.qr.from.receiver" = "Scan code from receiever";
@@ -872,3 +871,4 @@
 "common.dutch" = "Dutch";
 "common.portuguese" = "Portuguese";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";
