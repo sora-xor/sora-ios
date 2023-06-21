@@ -606,6 +606,7 @@
 		5E5DF6E9283D64420009505D /* WalletNetworkFacade+Liquidity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5DF6E8283D64420009505D /* WalletNetworkFacade+Liquidity.swift */; };
 		5E5FBB6C280DC19C00DD092B /* WalletNetworkFacade+Pools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5FBB6B280DC19C00DD092B /* WalletNetworkFacade+Pools.swift */; };
 		5E6587EB28CA1CEA000E7234 /* DispatchQueue+debounce.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */; };
+		5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */; };
 		5E7DCAA028D880B500C37182 /* Decima+Substrate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */; };
 		5E9774EE2A31AE040047BCA2 /* AccountExportPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E22A31AE030047BCA2 /* AccountExportPresenter.swift */; };
 		5E9774EF2A31AE040047BCA2 /* AccountExportViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E32A31AE030047BCA2 /* AccountExportViewFactory.swift */; };
@@ -1894,6 +1895,7 @@
 		5E5DF6E8283D64420009505D /* WalletNetworkFacade+Liquidity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletNetworkFacade+Liquidity.swift"; sourceTree = "<group>"; };
 		5E5FBB6B280DC19C00DD092B /* WalletNetworkFacade+Pools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletNetworkFacade+Pools.swift"; sourceTree = "<group>"; };
 		5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DispatchQueue+debounce.swift"; sourceTree = "<group>"; };
+		5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountExporter.swift; sourceTree = "<group>"; };
 		5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Decima+Substrate.swift"; sourceTree = "<group>"; };
 		5E9774E22A31AE030047BCA2 /* AccountExportPresenter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountExportPresenter.swift; sourceTree = "<group>"; };
 		5E9774E32A31AE030047BCA2 /* AccountExportViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountExportViewFactory.swift; sourceTree = "<group>"; };
@@ -4877,6 +4879,7 @@
 				5E9774E52A31AE030047BCA2 /* AccountExportViewController.swift */,
 				5E9774E62A31AE030047BCA2 /* AccountExportWireframe.swift */,
 				5E9774E72A31AE030047BCA2 /* AccountExportInteractor.swift */,
+				5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */,
 			);
 			path = ExportJson;
 			sourceTree = "<group>";
@@ -7043,6 +7046,7 @@
 				029879262181E38C0085E605 /* ProjectData.swift in Sources */,
 				84AA44B3249FF49A00C09E0F /* DateFormatter+Wallet.swift in Sources */,
 				94653DE928870FBB00311EC7 /* MultiAddress+Query.swift in Sources */,
+				5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */,
 				8481A5DC2302F3290056D3D4 /* DateFormatterFactory.swift in Sources */,
 				949C789625D3EB1D00E260B9 /* WalletQRCoderFactory.swift in Sources */,
 				9441F95325C9707200775559 /* CompoundOperationWrapper+Result.swift in Sources */,
