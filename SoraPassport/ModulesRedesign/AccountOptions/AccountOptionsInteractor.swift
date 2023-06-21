@@ -121,7 +121,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                                             address: self.currentAccount.address,
                                             passphrase: metadata.mnemonic.joined(separator: " "),
                                             cryptoType: metadata.defaultCryptoType.rawValue,
-                                            derivationPath: "")
+                                            substrateDerivationPath: "")
             completion?(account)
         }
     }
