@@ -21,7 +21,7 @@ final class ProductListViewController: SoramitsuViewController {
         tableView.tableViewObserver = self
         tableView.scrollViewDelegate = self
         tableView.keyboardDismissMode = .onDrag
-        tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 200, right: 0)
+        tableView.contentInset = UIEdgeInsets(top: 16, left: 0, bottom: -16, right: 0)
         return tableView
     }()
 
@@ -132,16 +132,12 @@ final class ProductListViewController: SoramitsuViewController {
     }
 
     private func setupView() {
-        soramitsuView.sora.backgroundColor = .bgPage
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
     }
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-//            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-//            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-//            tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-//            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
