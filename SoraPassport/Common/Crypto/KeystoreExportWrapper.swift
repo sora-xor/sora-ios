@@ -34,7 +34,7 @@ final class KeystoreExportWrapper: KeystoreExportWrapperProtocol {
         return try jsonEncoder.encode(definition)
     }
 
-    func export(account: AccountItem, password: String?) throws -> KeystoreDefinition {
+    private func export(account: AccountItem, password: String?) throws -> KeystoreDefinition {
         guard let secretKey = try keystore.fetchSecretKeyForAddress(account.address) else {
             throw KeystoreExportWrapperError.missingSecretKey
         }
