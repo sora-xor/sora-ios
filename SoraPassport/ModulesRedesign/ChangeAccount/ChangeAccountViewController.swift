@@ -134,11 +134,12 @@ final class ChangeAccountViewController: SoramitsuViewController {
             action: mode.action
         )
         button.setTitleTextAttributes(
-            [
-            .font: UIFont.systemFont(ofSize: 13, weight: .bold),
-            .foregroundColor: UIColor(hex: "#EE2233")
-            ],
+            [ .font: FontType.textBoldS.font, .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
             for: .normal
+        )
+        button.setTitleTextAttributes(
+            [ .font: FontType.textBoldS.font],
+            for: .selected
         )
         navigationItem.leftBarButtonItem = button
     }
