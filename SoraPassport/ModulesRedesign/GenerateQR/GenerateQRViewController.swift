@@ -6,8 +6,6 @@ protocol GenerateQRViewProtocol: ControllerBackedProtocol {}
 
 final class GenerateQRViewController: SoramitsuViewController {
 
-    private var spaceConstraint: NSLayoutConstraint?
-
     private let stackView: SoramitsuStackView = {
         let stackView = SoramitsuStackView()
         stackView.sora.alignment = .center
@@ -121,6 +119,11 @@ final class GenerateQRViewController: SoramitsuViewController {
         
         viewModel.viewDidLoad()
     }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        viewModel.closeHadler?()
+    }
 
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
@@ -132,23 +135,16 @@ final class GenerateQRViewController: SoramitsuViewController {
         stackView.addArrangedSubview(switcherView)
         stackView.addArrangedSubview(receiveView)
         stackView.addArrangedSubview(inputSendInfoView)
-
-        let spaceView = SoramitsuView()
-        spaceConstraint = spaceView.heightAnchor.constraint(equalToConstant: 0)
-        spaceConstraint?.isActive = true
-        stackView.addArrangedSubviews(spaceView)
-    }
-    
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        spaceConstraint?.constant = UIScreen.main.bounds.height - 300
     }
 
     private func setupConstraints() {
+        let scanQrButtonTopOffset: CGFloat = 16
+        let scanQrButtonHeight: CGFloat = 56
+        
         NSLayoutConstraint.activate([
             scanQrButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
             scanQrButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            scanQrButton.heightAnchor.constraint(equalToConstant: 56),
+            scanQrButton.heightAnchor.constraint(equalToConstant: scanQrButtonHeight),
             scanQrButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
             
             stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
@@ -156,11 +152,12 @@ final class GenerateQRViewController: SoramitsuViewController {
             stackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             stackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-
+            
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.heightAnchor.constraint(equalTo: view.heightAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor,
+                                               constant: -scanQrButtonHeight - scanQrButtonTopOffset),
             
             inputSendInfoView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 24),
             inputSendInfoView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),

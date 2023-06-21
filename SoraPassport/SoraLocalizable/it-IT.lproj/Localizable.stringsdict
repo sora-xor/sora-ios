@@ -114,22 +114,6 @@
         <string>%li Alcuni amici hanno votato</string>
       </dict>
     </dict>
-    <key>referendum.date.day.plurals</key>
-    <dict>
-      <key>NSStringLocalizedFormatKey</key>
-      <string>%#@value@</string>
-      <key>value</key>
-      <dict>
-        <key>NSStringFormatSpecTypeKey</key>
-        <string>NSStringPluralRuleType</string>
-        <key>NSStringFormatValueTypeKey</key>
-        <string>li</string>
-        <key>one</key>
-        <string>%li giorno</string>
-        <key>other</key>
-        <string>%li giorni</string>
-      </dict>
-    </dict>
     <key>referendum.date.hour.plurals</key>
     <dict>
       <key>NSStringLocalizedFormatKey</key>
@@ -176,6 +160,22 @@
         <string>%li secondo</string>
         <key>other</key>
         <string>%li secondi</string>
+      </dict>
+    </dict>
+    <key>referral.invitations</key>
+    <dict>
+      <key>NSStringLocalizedFormatKey</key>
+      <string>%#@format@</string>
+      <key>format</key>
+      <dict>
+        <key>NSStringFormatSpecTypeKey</key>
+        <string>NSStringPluralRuleType</string>
+        <key>NSStringFormatValueTypeKey</key>
+        <string>li</string>
+        <key>one</key>
+        <string>invitation</string>
+        <key>other</key>
+        <string>invitations</string>
       </dict>
     </dict>
   </dict>

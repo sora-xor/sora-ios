@@ -3,11 +3,11 @@ import SoraFoundation
 import RobinHood
 
 final class SetupAccountNameViewFactory {
-    static func createViewForOnboarding() -> UsernameSetupViewProtocol? {
+    static func createViewForOnboarding(endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
         let localizationManager = LocalizationManager.shared
         let view = SetupAccountNameViewController()
         let presenter = UsernameSetupPresenter()
-        let wireframe = UsernameSetupWireframe(localizationManager: localizationManager)
+        let wireframe = UsernameSetupWireframe(localizationManager: localizationManager, endAddingBlock: endAddingBlock)
 
         view.presenter = presenter
         presenter.view = view

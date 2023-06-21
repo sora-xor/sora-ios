@@ -1,4 +1,5 @@
 import UIKit
+import SSFCloudStorage
 
 final class WelcomeBackgroundViewController: UIViewController {
     lazy var imageView: UIImageView = {
@@ -36,3 +37,5 @@ final class WelcomeBackgroundViewController: UIViewController {
         ])
     }
 }
+
+extension WelcomeViewController: CloudStorageUIDelegate {}

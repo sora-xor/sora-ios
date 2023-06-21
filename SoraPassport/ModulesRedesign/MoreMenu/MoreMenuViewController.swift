@@ -18,7 +18,6 @@ final class MoreMenuViewController: SoramitsuViewController & MoreMenuViewProtoc
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.estimatedSectionFooterHeight = 16
         tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
         return tableView
     }()

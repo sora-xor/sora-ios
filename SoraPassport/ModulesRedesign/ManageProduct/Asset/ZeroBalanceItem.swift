@@ -14,7 +14,7 @@ final class ZeroBalanceItem: NSObject {
 extension ZeroBalanceItem: SoramitsuTableViewItemProtocol {
     var cellType: AnyClass { ZeroBalanceCell.self }
 
-    var backgroundColor: SoramitsuColor { .bgPage }
+    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
 
     var clipsToBounds: Bool { false }
 }

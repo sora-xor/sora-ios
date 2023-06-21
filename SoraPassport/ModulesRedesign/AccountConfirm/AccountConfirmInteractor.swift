@@ -53,7 +53,7 @@ class AccountConfirmInteractor: BaseAccountConfirmInteractor {
                 switch connectionOperation.result {
                 case .success(let accountItem):
                     self?.settings.save(value: accountItem)
-                    self?.presenter?.didCompleteConfirmation()
+                    self?.presenter?.didCompleteConfirmation(for: accountItem)
                 case .failure(let error):
                     self?.presenter?.didReceive(error: error)
                 case .none:

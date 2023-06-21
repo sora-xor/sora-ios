@@ -20,9 +20,7 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
     }
 
     func showMain(from view: PinSetupViewProtocol?) {
-        guard let mainViewController = MainTabBarViewFactory.createView()?.controller else {
-            return
-        }
+        guard let mainViewController = MainTabBarViewFactory.createView()?.controller else { return }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             self.rootAnimator.animateTransition(to: mainViewController)

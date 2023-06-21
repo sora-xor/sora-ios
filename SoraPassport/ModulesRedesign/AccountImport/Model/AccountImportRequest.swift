@@ -1,4 +1,5 @@
 import Foundation
+import SSFCloudStorage
 
 struct AccountImportMnemonicRequest {
     let mnemonic: String
@@ -22,4 +23,9 @@ struct AccountImportKeystoreRequest {
     let username: String
     let networkType: Chain
     let cryptoType: CryptoType
+}
+
+struct AccountImportBackedupRequest {
+    let account: OpenBackupAccount
+    let password: String
 }
