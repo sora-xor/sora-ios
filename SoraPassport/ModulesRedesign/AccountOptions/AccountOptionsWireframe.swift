@@ -84,7 +84,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
         warning.completion = { [weak self] in
             self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
                 if isAuthorized {
-                    guard let jsonExportVC = AccountExportViewFactory.createView(account: account) as? UIViewController else {
+                    guard let jsonExportVC = AccountExportViewFactory.createView(accounts: [account]) as? UIViewController else {
                         return
                     }
 

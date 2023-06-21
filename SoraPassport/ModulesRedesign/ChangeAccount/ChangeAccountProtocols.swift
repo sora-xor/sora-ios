@@ -12,15 +12,15 @@ protocol ChangeAccountPresenterProtocol: AnyObject {
     func reload()
     func selectItem(at index: Int)
     func editItem(at index: Int)
-    func createAccount()
-    func importAccount()
-    func addOrCreateAccount()
+    func onAction()
+    func set(mode: ChangeAccountViewController.Mode)
     func endUpdating()
 }
 
 protocol ChangeAccountWireframeProtocol: AnyObject {
     func showStart(from view: UIViewController, completion: @escaping () -> Void)
     func showEdit(account: AccountItem, from controller: UIViewController)
+    func showExportAccounts(accounts: [AccountItem], from controller: UIViewController)
     func showSignUp(from view: UIViewController, completion: @escaping () -> Void)
     func showAccountRestore(from view: UIViewController, completion: @escaping () -> Void)
 }
