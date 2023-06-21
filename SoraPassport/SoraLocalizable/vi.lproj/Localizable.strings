@@ -786,7 +786,6 @@
 "swap.want.to" = "Bạn muốn đổi sang";
 "common.supply.liquidity.title" = "Thanh khoản cung cấp";
 "common.not.enough.balance" = "Không đủ số dư";
-"common.remove.liquidity" = "Xóa thanh khoản";
 "receive.tokens" = "Nhận token";
 "common.scan.qr" = "Quét mã QR";
 "scan.qr.from.receiver" = "Quét mã từ người nhận";
@@ -872,3 +871,4 @@
 "common.dutch" = "Dutch";
 "common.portuguese" = "Portuguese";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";
