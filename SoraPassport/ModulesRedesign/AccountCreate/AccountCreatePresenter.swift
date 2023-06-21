@@ -106,7 +106,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
                                               cryptoType: cryptoType.rawValue,
-                                              derivationPath: viewModel.inputHandler.value)
+                                              substrateDerivationPath: viewModel.inputHandler.value)
             interactor.skipConfirmation(request: request, mnemonic: mnemonic)
         } else {
             wireframe.confirm(from: view,
@@ -135,7 +135,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
                                               cryptoType: cryptoType.rawValue,
-                                              derivationPath: viewModel.inputHandler.value)
+                                              substrateDerivationPath: viewModel.inputHandler.value)
         }
        
         
