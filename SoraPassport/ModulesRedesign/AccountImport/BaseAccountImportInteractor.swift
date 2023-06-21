@@ -122,7 +122,7 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
                 let request = AccountImportMnemonicRequest(mnemonic: account.passphrase ?? "",
                                                            username: account.name ?? "",
                                                            networkType: .sora,
-                                                           derivationPath: account.derivationPath ?? "",
+                                                           derivationPath: account.substrateDerivationPath ?? "",
                                                            cryptoType: CryptoType(rawValue: account.cryptoType ?? 0)!)
                 self.importAccountWithMnemonic(request: request)
             case .failure(let error):
