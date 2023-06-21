@@ -28,10 +28,10 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         return label
     }()
     
-    private var spinnerView: UIActivityIndicatorView = {
-        let spinnerView = UIActivityIndicatorView(style: .large)
-        spinnerView.translatesAutoresizingMaskIntoConstraints = false
-        return spinnerView
+    private var loaderView: UIActivityIndicatorView = {
+        let loaderView = UIActivityIndicatorView(style: .large)
+        loaderView.translatesAutoresizingMaskIntoConstraints = false
+        return loaderView
     }()
     
     private var containerView: SoramitsuView = {
@@ -45,12 +45,15 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         view.backgroundColor = R.color.baseBackground()
         setupHierarchy()
         setupLayout()
-        animationView.play(fromProgress: 0, toProgress: 0.8, loopMode: .playOnce) { [weak self] _ in
-            self?.hideMessage()
+        animationView.play(fromProgress: 0, toProgress: 0.8, loopMode: .playOnce)
+        presenter.showIsLoading(after: 5.0) { [weak self] in
+            self?.showLoader()
         }
-        presenter.showIsLoading(after: 0.5) { [weak self] in
-            self?.showMessage()
-        }
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        hideLoader()
     }
     
     private func setupHierarchy() {
@@ -58,7 +61,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         view.addSubview(containerView)
         
         containerView.addSubview(messageLabel)
-        containerView.addSubview(spinnerView)
+        containerView.addSubview(loaderView)
     }
     
     private func setupLayout() {
@@ -79,20 +82,20 @@ class SplashViewController: UIViewController, SplashViewProtocol {
             make.top.leading.trailing.equalTo(containerView)
         }
         
-        spinnerView.snp.makeConstraints { make in
+        loaderView.snp.makeConstraints { make in
             make.top.equalTo(messageLabel.snp.bottom).offset(spinnerViewTopOffset)
             make.centerX.bottom.equalTo(containerView)
         }
     }
     
-    private func showMessage() {
+    private func showLoader() {
         containerView.sora.isHidden = false
-        spinnerView.startAnimating()
+        loaderView.startAnimating()
     }
     
-    private func hideMessage() {
+    private func hideLoader() {
         containerView.sora.isHidden = true
-        spinnerView.stopAnimating()
+        loaderView.stopAnimating()
     }
     
     func animate(duration animationDurationBase: Double, completion: @escaping () -> Void) {
