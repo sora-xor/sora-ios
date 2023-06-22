@@ -4,6 +4,8 @@ enum SoraCardCIKeys {
     static var endpoint: String = "{{ argument.soraCardKycEndpoint }}"
     static var username: String = "{{ argument.soraCardKycUsername }}"
     static var password: String = "{{ argument.soraCardKycPassword }}"
+    static var soraGoogleUrlScheme: String = "{{ argument.soraGoogleUrlScheme }}"
+    static var soraGoogleToken: String = "{{ argument.soraGoogleToken }}"
 }
 
 enum PayWingsCIKeys {
