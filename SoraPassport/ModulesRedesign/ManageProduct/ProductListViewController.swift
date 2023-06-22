@@ -51,13 +51,17 @@ final class ProductListViewController: SoramitsuViewController {
 
         navigationItem.title = viewModel.mode == .selection ? R.string.localizable.chooseToken(preferredLanguages: .currentLocale) : ""
 
+        UIBarButtonItem.appearance(whenContainedInInstancesOf: [UISearchBar.self]).setTitleTextAttributes([
+            .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
+                                             for: .normal)
+        
         if viewModel.mode == .selection {
             addCloseButton(position: .left)
             
             let editButton = UIBarButtonItem(title: R.string.localizable.commonEdit(preferredLanguages: .currentLocale), style: .plain, target: self, action: #selector(editTapped))
             editButton.setTitleTextAttributes([
                 .font: UIFont.systemFont(ofSize: 13, weight: .bold),
-                .foregroundColor: UIColor(hex: "#EE2233")],
+                .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
                                               for: .normal)
             navigationItem.rightBarButtonItem = editButton
         }
