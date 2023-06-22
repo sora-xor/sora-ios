@@ -3,7 +3,7 @@ import UIKit
 import SoraUIKit
 import FearlessUtils
 
-protocol InputAssetAmountViewProtocol: ControllerBackedProtocol {
+protocol InputAssetAmountViewProtocol: ControllerBackedProtocol, Warningable {
     func updateFirstAsset(balance: String)
     func updateFirstAsset(symbol: String, image: UIImage?)
     func updateFirstAsset(fiatText: String)
@@ -68,7 +68,7 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         field.textField.keyboardType = .decimalPad
         field.textField.inputAccessoryView = accessoryView
         field.textField.sora.addHandler(for: .editingChanged) { [weak self] in
-            self?.viewModel.inputedFirstAmount = Decimal(string: field.textField.text ?? "") ?? 0
+            self?.viewModel.inputedFirstAmount = Decimal(string: field.textField.text ?? "", locale: Locale.current) ?? 0
         }
         field.sora.assetChoiceHandler = { [weak self] in
             self?.viewModel.choiceBaseAssetButtonTapped()
@@ -76,6 +76,12 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         return field
     }()
     
+    private lazy var warningView: WarningView = {
+        let view = WarningView()
+        view.sora.isHidden = true
+        return view
+    }()
+
     private lazy var reviewLiquidity: SoramitsuButton = {
         let button = SoramitsuButton()
         button.sora.horizontalOffset = 0
@@ -124,6 +130,7 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         
         stackView.addArrangedSubview(recipientView)
         stackView.addArrangedSubview(assetView)
+        stackView.addArrangedSubview(warningView)
         stackView.addArrangedSubview(reviewLiquidity)
         let spaceView = SoramitsuView()
         spaceConstraint = spaceView.heightAnchor.constraint(equalToConstant: 0)
@@ -149,6 +156,9 @@ final class InputAssetAmountViewController: SoramitsuViewController {
             
             assetView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             assetView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
+            
+            warningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
+            warningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
             
             reviewLiquidity.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             reviewLiquidity.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
@@ -204,5 +214,9 @@ extension InputAssetAmountViewController: InputAssetAmountViewProtocol {
             .imageWithFillColor(.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)
+    }
+    
+    func updateWarinignView(model: WarningViewModel) {
+        warningView.setupView(with: model)
     }
 }

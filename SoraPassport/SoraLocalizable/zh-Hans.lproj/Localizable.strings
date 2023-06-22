@@ -581,7 +581,7 @@
 "polkaswap.swap.details.have.changed" = "兑换的详细信息已更改";
 "common.back" = "返回";
 "referral.title" = "获得推荐人网络费用的 10%";
-"referral.subtitle" = "每当您的推荐人进行交易时，所支付的网络费用的 10% 将作为奖励发送给您。";
+"referral.subtitle" = "每当您的推荐人进行交易时，所支付的网络费用的10%将作为奖励发送给您。";
 "referral.toolbar.title" = "推荐计划";
 "referral.your.referrals" = "您的推荐人";
 "referral.total.rewards" = "总奖励";
@@ -599,7 +599,7 @@
 "import.account.raw.seed" = "你已经通过种子词导入这个账户";
 "referral.your.referrer" = "您的推荐人";
 "referral.referrer.address" = "推荐人的地址";
-"referral.referrer.description" = "无论何时，您每做一笔转账，都有 10% 的网络费给予您的推荐人作为奖励";
+"referral.referrer.description" = "无论何时，您每做一笔转账，都有10%的网络费给予您的推荐人作为奖励";
 "referral.invitation.link.title" = "可用的邀请";
 "referral.your.invitation.link.title" = "您的邀请链接";
 "referral.get.more.invitation.button.title" = "获得更多邀请";
@@ -830,6 +830,8 @@
 "commom.scan.qr" = "扫描二维码";
 "common.request" = "请求";
 "common.create.qr.request" = "创建QR请求";
+"common.title.warning" = "警告！";
+"swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "此次交易后，您的%@余额将少于%@。您将无法支付另一笔交易的网络费用。";
 "node.offline" = "节点离线";
 "switch.node" = "切换节点";
 "node.connection.issue" = "您的账户已成功创建。但是应用程序无法连接到默认节点。请尝试切换到备选节点。";
@@ -872,3 +874,10 @@
 "common.portuguese" = "葡萄牙语";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
 "polkaswap.reward.payout" = "Rewards payout in";
+"polkaswap.farming.staked.for" = "Staked for %@";
+"polkaswap.farming.demeter.power" = "Powered by Demeter Farming";
+"polkaswap.farming.pool.share" = "Your pool share staked";
+"common.google.authorization.error" = "Google authorization failed";
+"common.google.backup.decryption.failed" = "Backup decryption failed. Please check password and try again";
+"polkaswap.farming.unstake.to.remove" = "To remove liquidity you need to unstake it first";
+"polkaswap.farming.pool.in.farming.hint" = "Some portion of your pool share is staked. To have access to it you have to unstake it first.";
