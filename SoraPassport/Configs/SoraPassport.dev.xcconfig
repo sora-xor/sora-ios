@@ -6,5 +6,5 @@ SORA_APPLICATION_CONFIG = Dev
 FIREBASE_CONFIG = GoogleService-Info-Dev.plist
 SORA_NAME = Sora Dev
 
-SORA_GOOGLE_URL_SCHEME = {{ argument. SORA_GOOGLE_URL_SCHEME }}
-SORA_GOOGLE_TOKEN = {{ argument. SORA_GOOGLE_TOKEN }}
+SORA_GOOGLE_URL_SCHEME = {{ argument.soraGoogleUrlScheme }}
+SORA_GOOGLE_TOKEN = {{ argument.soraGoogleToken }}
