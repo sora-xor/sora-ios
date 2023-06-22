@@ -8,7 +8,7 @@ struct AppearanceFactory {
     static func applyGlobalAppearance() {
         configureGlobalNavigationBar()
         configureButtons()
-//        configureSearchBar()
+        configureSearchBar()
     }
 
     private static func configureButtons() {
@@ -22,18 +22,9 @@ struct AppearanceFactory {
     }
 
     private static func configureSearchBar() {
-        let searchTextStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
-                                              color: R.color.neumorphism.textDark()!)
-        let searchPlaceholderStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
-                                                     color: R.color.neumorphism.textDark()!)
-
-        let searchStroke = WalletStrokeStyle(color: R.color.neumorphism.backgroundLightGrey()!,
-                                             lineWidth: 1.0)
-        let searchFieldStyle = WalletRoundedViewStyle(fill: R.color.neumorphism.backgroundLightGrey()!,
-                                                      cornerRadius: 24.0,
-                                                      stroke: searchStroke)
-//        UISearchBar.appearance().searchTextField.textColor = .red
-
+        UIBarButtonItem.appearance(whenContainedInInstancesOf: [UISearchBar.self]).setTitleTextAttributes([
+            .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
+                                             for: .normal)
     }
 
     // TODO: SN-264. UINavigationBar configuration to decorator ??
