@@ -50,10 +50,6 @@ final class ProductListViewController: SoramitsuViewController {
         navigationItem.searchController = searchController
 
         navigationItem.title = viewModel.mode == .selection ? R.string.localizable.chooseToken(preferredLanguages: .currentLocale) : ""
-
-        UIBarButtonItem.appearance(whenContainedInInstancesOf: [UISearchBar.self]).setTitleTextAttributes([
-            .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
-                                             for: .normal)
         
         if viewModel.mode == .selection {
             addCloseButton(position: .left)
