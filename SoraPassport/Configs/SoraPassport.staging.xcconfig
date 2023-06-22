@@ -6,5 +6,5 @@ SORA_APPLICATION_CONFIG = Staging
 FIREBASE_CONFIG = GoogleService-Info-Staging.plist
 SORA_NAME = Sora Staging
 
-SORA_GOOGLE_URL_SCHEME = {{ argument.soraGoogleUrlScheme }}
-SORA_GOOGLE_TOKEN = {{ argument.soraGoogleToken }}
+SORA_GOOGLE_URL_SCHEME = "{{ argument.soraGoogleUrlScheme }}"
+SORA_GOOGLE_TOKEN = "{{ argument.soraGoogleToken }}"
