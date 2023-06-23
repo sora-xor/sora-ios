@@ -830,6 +830,8 @@
 "commom.scan.qr" = "סרוק קוד QR";
 "common.request" = "בקשה";
 "common.create.qr.request" = "צור בקשת QR";
+"common.title.warning" = "אזהרה!";
+"swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "היתרה שלך ב %@ תהיה פחות מ- %@ לאחר הטרנזקציה הזו. לא תוכל לשלם עבור עמלת הרשת עבור טרנזקציה נוספת.";
 "node.offline" = "צומת במצב לא מקוון";
 "switch.node" = "החלף צומת";
 "node.connection.issue" = "החשבון שלך נוצר בהצלחה. אך האפליקציה אינה יכולה להתחבר לצומת ברירת מחדל. נסה לעבור לחלופה אחרת.";
@@ -872,3 +874,10 @@
 "common.portuguese" = "פורטוגזית";
 "launch.screen.loading.title" = "זה נטען לעוד קצת זמן הפעם";
 "polkaswap.reward.payout" = "Rewards payout in";
+"polkaswap.farming.staked.for" = "Staked for %@";
+"polkaswap.farming.demeter.power" = "Powered by Demeter Farming";
+"polkaswap.farming.pool.share" = "Your pool share staked";
+"common.google.authorization.error" = "Google authorization failed";
+"common.google.backup.decryption.failed" = "Backup decryption failed. Please check password and try again";
+"polkaswap.farming.unstake.to.remove" = "To remove liquidity you need to unstake it first";
+"polkaswap.farming.pool.in.farming.hint" = "Some portion of your pool share is staked. To have access to it you have to unstake it first.";

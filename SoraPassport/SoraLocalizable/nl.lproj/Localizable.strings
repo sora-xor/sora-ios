@@ -607,7 +607,7 @@
 "referral.enter.link.title" = "Voer de link van de verwijzer in";
 "referral.activate.button.title" = "Activeer";
 "referral.input.reward.title" = "Voer het gewenste aantal uitnodigingen in";
-"referral.input.reward.description" = "%s is bonded per each invitation to cover the network fee for your friends to join.\n\nYou can unbond your XOR at any time for unused invitations.";
+"referral.input.reward.description" = "%s wordt per uitnodiging gebonden om de netwerkkosten te dekken waar uw vrienden lid van kunnen worden.\n\nU kunt uw XOR op elk gewenst moment unbonden voor ongebruikte uitnodigingen.";
 "referral.bond.button.title" = "Bond XOR";
 "referral.unbond.xor.description" = "U kunt %s per 1 uitnodigingen unbonden. Hoeveel uitnodigingen wil je intrekken?";
 "referral.referral.link" = "Link of adres van de verwijzer";
@@ -830,6 +830,8 @@
 "commom.scan.qr" = "Scan QR code";
 "common.request" = "Request";
 "common.create.qr.request" = "Create QR-request";
+"common.title.warning" = "Warning!";
+"swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "Your %@ balance will be less than %@ after this transaction. You won’t be able to pay for the network fee for another transaction.";
 "node.offline" = "Node offline";
 "switch.node" = "Switch node";
 "node.connection.issue" = "Your account has been successfully created. But the app can not connect to a default node. Try to switch to an alternative.";
@@ -872,3 +874,10 @@
 "common.portuguese" = "Portuguese";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
 "polkaswap.reward.payout" = "Rewards payout in";
+"polkaswap.farming.staked.for" = "Staked for %@";
+"polkaswap.farming.demeter.power" = "Powered by Demeter Farming";
+"polkaswap.farming.pool.share" = "Your pool share staked";
+"common.google.authorization.error" = "Google authorization failed";
+"common.google.backup.decryption.failed" = "Backup decryption failed. Please check password and try again";
+"polkaswap.farming.unstake.to.remove" = "To remove liquidity you need to unstake it first";
+"polkaswap.farming.pool.in.farming.hint" = "Some portion of your pool share is staked. To have access to it you have to unstake it first.";
