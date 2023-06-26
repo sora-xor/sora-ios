@@ -21,10 +21,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if !isUnitTesting {
             FirebaseApp.configure()
 
-            let infoDictionary: [String: Any] = Bundle.main.infoDictionary ?? [:]
-            if let mySecretApiKey = infoDictionary["GoogleToken"] as? String {
-                GIDSignIn.sharedInstance().clientID = mySecretApiKey
-            }
+            GIDSignIn.sharedInstance().clientID = SoraCardCIKeys.soraGoogleToken
 
             initFlex()
 

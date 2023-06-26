@@ -154,7 +154,13 @@ final class SupplyLiquidityViewModel {
             setupBalanceDataProvider()
         }
     }
-    private var fee: Decimal = 0
+
+    private var fee: Decimal = 0 {
+        didSet {
+            let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
+            warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(feeAssetSymbol: feeAssetSymbol, feeAmount: fee)
+        }
+    }
     
     private var isPairEnabled: Bool = true
     private var isPairPresented: Bool = true
@@ -162,6 +168,14 @@ final class SupplyLiquidityViewModel {
     private let operationFactory: WalletNetworkOperationFactoryProtocol
     private weak var assetsProvider: AssetProviderProtocol?
     private let regex = try? NSRegularExpression(pattern: "0[xX]03[0-9a-fA-F]+")
+    
+    private var warningViewModelFactory: WarningViewModelFactory
+    private var warningViewModel: WarningViewModel? {
+        didSet {
+            guard let warningViewModel else { return }
+            view?.updateWarinignView(model: warningViewModel)
+        }
+    }
     
     private var isEnoughtFirstAssetLiquidity: Bool {
         return inputedFirstAmount + fee <= firstAssetBalance.balance.decimalValue
@@ -180,7 +194,8 @@ final class SupplyLiquidityViewModel {
         assetManager: AssetManagerProtocol?,
         detailsFactory: DetailViewModelFactoryProtocol,
         operationFactory: WalletNetworkOperationFactoryProtocol,
-        assetsProvider: AssetProviderProtocol?
+        assetsProvider: AssetProviderProtocol?,
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
     ) {
         self.poolInfo = poolInfo
         self.fiatService = fiatService
@@ -192,6 +207,7 @@ final class SupplyLiquidityViewModel {
         self.feeProvider = FeeProvider()
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
+        self.warningViewModelFactory = warningViewModelFactory
     }
 }
 
@@ -466,6 +482,10 @@ extension SupplyLiquidityViewModel {
         
         group.notify(queue: .main) { [weak self] in
             guard let self = self else { return }
+            
+            if let fromAsset = self.assetManager?.assetInfo(for: self.firstAssetId), fromAsset.isFeeAsset {
+                self.warningViewModel?.isHidden = self.firstAssetBalance.balance.decimalValue - self.inputedFirstAmount - self.fee > self.fee
+            }
             
             let basedAmount = self.focusedField == .one ? self.inputedFirstAmount : self.inputedSecondAmount
             let targetAmount = self.focusedField == .one ? self.inputedSecondAmount : self.inputedFirstAmount

@@ -171,20 +171,8 @@ final class FeeProvider: FeeProviderProtocol {
         }
 
         if let builderClosure = builderClosure {
-            extrinsicService.estimateFee(builderClosure, runningIn: .main, completion: { result in
-                switch result {
-                case let .success(info):
-                    let fee = BigUInt(info.fee)!
-                    let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18)!
-                    self.feeStore[type.rawValue] = decimalFee
-                    completion(decimalFee)
-                case let .failure(error):
-                    print("fee error: \(error)")
-                }
-
-            })
+            estimateFee(for: type.rawValue, builderClosure: builderClosure, runningIn: .main, completion: completion)
         }
-
     }
 
     func getFee(for type: InputRewardAmountType, completion: @escaping (Decimal) -> Void) {
@@ -198,13 +186,22 @@ final class FeeProvider: FeeProviderProtocol {
             let call = try type == .bond ? callFactory.reserveReferralBalance(balance: 0) : callFactory.unreserveReferralBalance(balance: 0)
             return try builder.adding(call: call)
         }
-        extrinsicService.estimateFee(builderClosure, runningIn: .main, completion: { result in
+        
+        estimateFee(for: type.rawValue, builderClosure: builderClosure, runningIn: .main, completion: completion)
+    }
+    
+    private func estimateFee(
+        for type: String,
+        builderClosure: @escaping ExtrinsicBuilderClosure,
+        runningIn queue: DispatchQueue,
+        completion completionClosure: @escaping (Decimal) -> Void
+    ) {
+        extrinsicService.estimateFee(builderClosure, runningIn: queue, completion: { [weak self] result in
             switch result {
             case let .success(info):
-                let fee = BigUInt(info.fee)!
-                let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18)!
-                self.feeStore[type.rawValue] = decimalFee
-                completion(decimalFee)
+                guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else { return }
+                self?.feeStore[type] = decimalFee
+                completionClosure(decimalFee)
             case let .failure(error):
                 print("fee error: \(error)")
             }

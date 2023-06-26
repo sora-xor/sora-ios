@@ -786,7 +786,6 @@
 "swap.want.to" = "You want to swap to";
 "common.supply.liquidity.title" = "Supply liquidity";
 "common.not.enough.balance" = "Not enough balance";
-"common.remove.liquidity" = "Remove liquidity";
 "receive.tokens" = "Receive tokens";
 "common.scan.qr" = "Scan QR";
 "scan.qr.from.receiver" = "Scan code from receiever";
@@ -831,6 +830,8 @@
 "commom.scan.qr" = "Scan QR code";
 "common.request" = "Request";
 "common.create.qr.request" = "Create QR-request";
+"common.title.warning" = "Warning!";
+"swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "Your %@ balance will be less than %@ after this transaction. You won’t be able to pay for the network fee for another transaction.";
 "node.offline" = "Node offline";
 "switch.node" = "Switch node";
 "node.connection.issue" = "Your account has been successfully created. But the app can not connect to a default node. Try to switch to an alternative.";
@@ -867,3 +868,16 @@
 "create.backup.password.not.matched" = "Passwords do not match";
 "create.backup.weak.password" = "Weak password";
 "enter.password.incorect.title" = "Incorrect password";
+"export.json.input.match.error" = "Passwords do not match!";
+"common.azerbaijani" = "Azerbaijani";
+"common.dutch" = "Dutch";
+"common.portuguese" = "Portuguese";
+"launch.screen.loading.title" = "It's loading for a little longer this time";
+"polkaswap.reward.payout" = "Rewards payout in";
+"polkaswap.farming.staked.for" = "Staked for %@";
+"polkaswap.farming.demeter.power" = "Powered by Demeter Farming";
+"polkaswap.farming.pool.share" = "Your pool share staked";
+"common.google.authorization.error" = "Google authorization failed";
+"common.google.backup.decryption.failed" = "Backup decryption failed. Please check password and try again";
+"polkaswap.farming.unstake.to.remove" = "To remove liquidity you need to unstake it first";
+"polkaswap.farming.pool.in.farming.hint" = "Some portion of your pool share is staked. To have access to it you have to unstake it first.";

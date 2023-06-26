@@ -53,6 +53,10 @@ final class InputAssetAmountViewModel {
     
     var inputedFirstAmount: Decimal = 0 {
         didSet {
+            if let fromAsset = assetManager?.assetInfo(for: firstAssetId), fromAsset.isFeeAsset {
+                warningViewModel?.isHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
+            }
+            
             let fiatText = setupInputedFiatText(from: inputedFirstAmount, assetId: firstAssetId)
             let text = validationText(with: fiatText, isEnoghtAssetBalance: checkBalances(), isEnoghtXorBalance: checkXorBalance())
 
@@ -60,9 +64,17 @@ final class InputAssetAmountViewModel {
             let fiatColor: SoramitsuColor = checkBalances() && checkXorBalance() ? .fgSecondary : .statusError
             let state: InputFieldState = checkBalances() && checkXorBalance() ? .focused : .fail
             
-            self.view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
-            self.view?.updateFirstAsset(fiatText: text)
-            self.updateButtonState()
+            view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
+            view?.updateFirstAsset(fiatText: text)
+            updateButtonState()
+        }
+    }
+    
+    private var warningViewModelFactory: WarningViewModelFactory
+    private var warningViewModel: WarningViewModel? {
+        didSet {
+            guard let warningViewModel else { return }
+            view?.updateWarinignView(model: warningViewModel)
         }
     }
     
@@ -70,6 +82,9 @@ final class InputAssetAmountViewModel {
     private var apy: [SbApyInfo] = []
     private var fee: Decimal = 0 {
         didSet {
+            let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
+            warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(feeAssetSymbol: feeAssetSymbol, feeAmount: fee)
+            
             guard !checkXorBalance() else { return }
             
             let fiatText = setupInputedFiatText(from: inputedFirstAmount, assetId: firstAssetId)
@@ -100,7 +115,8 @@ final class InputAssetAmountViewModel {
         wireframe: InputAssetAmountWireframeProtocol,
         assetsProvider: AssetProviderProtocol?,
         qrEncoder: WalletQREncoderProtocol,
-        sharingFactory: AccountShareFactoryProtocol
+        sharingFactory: AccountShareFactoryProtocol,
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
     ) {
         self.selectedAddress = selectedAddress
         self.fiatService = fiatService
@@ -113,6 +129,7 @@ final class InputAssetAmountViewModel {
         self.assetsProvider = assetsProvider
         self.qrEncoder = qrEncoder
         self.sharingFactory = sharingFactory
+        self.warningViewModelFactory = warningViewModelFactory
     }
 }
 

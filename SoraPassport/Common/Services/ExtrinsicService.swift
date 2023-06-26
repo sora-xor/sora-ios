@@ -6,7 +6,7 @@ import BigInt
 
 typealias FeeExtrinsicResult = Result<RuntimeDispatchInfo, Error>
 typealias ExtrinsicBuilderClosure = (ExtrinsicBuilderProtocol) throws -> (ExtrinsicBuilderProtocol)
-typealias EstimateFeeClosure = (Result<RuntimeDispatchInfo, Error>) -> Void
+typealias EstimateFeeClosure = (Result<String, Error>) -> Void
 typealias ExtrinsicSubmitClosure = (Result<String, Error>, _ extrinsicHash: String?) -> Void
 typealias SubmitAndWatchExtrinsicResult = (result: Result<String, Error>, extrinsicHash: String?)
 typealias SubmitExtrinsicResult = Result<String, Error>
@@ -159,8 +159,19 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         builderOperation.addDependency(hashAndEraOperation)
         builderOperation.addDependency(codingFactoryOperation)
 
-        let infoOperation = JSONRPCListOperation<RuntimeDispatchInfo>(engine: engine,
-                                                                      method: RPCMethod.paymentInfo, timeout: 60)
+        let infoOperation = feeDetailsOperation(queue: queue, builderOperation: builderOperation, completionClosure: completionClosure)
+
+        let operations = [nonceOperation, headOperation, eraOperation, hashAndEraOperation,
+                          codingFactoryOperation, builderOperation, infoOperation]
+        operationManager.enqueue(operations: operations, in: .transient)
+    }
+    
+    private func feeDetailsOperation(queue: DispatchQueue,
+                                      builderOperation: BaseOperation<Data>,
+                                      completionClosure: @escaping EstimateFeeClosure) -> JSONRPCListOperation<InclusionFeeInfo> {
+        let infoOperation = JSONRPCListOperation<InclusionFeeInfo>(engine: engine,
+                                                                   method: RPCMethod.feeDetails,
+                                                                   timeout: 60)
         infoOperation.configurationBlock = {
             do {
                 let extrinsic = try builderOperation.extractNoCancellableResultData().toHex(includePrefix: true)
@@ -174,17 +185,21 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
 
         infoOperation.completionBlock = {
             queue.async {
-                if let result = infoOperation.result {
-                    completionClosure(result)
-                } else {
-                    completionClosure(.failure(BaseOperationError.parentOperationCancelled))
+                if case let .success(model) = infoOperation.result {
+                    completionClosure(.success(model.fee))
+                    return
                 }
+                
+                if case let .failure(error) = infoOperation.result {
+                    completionClosure(.failure(error))
+                    return
+                }
+
+                completionClosure(.failure(BaseOperationError.parentOperationCancelled))
             }
         }
 
-        let operations = [nonceOperation, headOperation, eraOperation, hashAndEraOperation,
-                          codingFactoryOperation, builderOperation, infoOperation]
-        operationManager.enqueue(operations: operations, in: .transient)
+        return infoOperation
     }
 
     func submit(_ closure: @escaping ExtrinsicBuilderClosure,
