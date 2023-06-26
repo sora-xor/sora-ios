@@ -84,6 +84,11 @@ final class SoraWindow: UIWindow {
 }
 
 extension SoraWindow: ApplicationStatusPresentable {
+
+    func presentAlert(alert: UIAlertController, animated: Bool) {
+        self.topController?.present(alert, animated: true)
+    }
+
     func presentStatus(title: String, style: ApplicationStatusStyle, animated: Bool) {
         if statusView != nil {
             changeStatus(title: title, style: style, animated: animated)
@@ -141,5 +146,17 @@ extension SoraWindow: ApplicationStatusPresentable {
         } else {
             statusView.removeFromSuperview()
         }
+    }
+}
+
+extension UIWindow {
+    var topController: UIViewController? {
+        if var controller = self.rootViewController {
+            while let presentedViewController = controller.presentedViewController {
+                controller = presentedViewController
+            }
+            return controller
+        }
+        return nil
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import RobinHood
+import SoraFoundation
 
 /**
  *  Class is designed to handle creation of `ChainRegistryProtocol` instance for application.
@@ -103,6 +104,11 @@ final class ChainRegistryFactory {
             logger: Logger.shared
         )
 
+        let window = UIApplication.shared.keyWindow as? ApplicationStatusPresentable
+        let networkStatusPresenter = NetworkAvailabilityLayerPresenter()
+        networkStatusPresenter.localizationManager = LocalizationManager.shared
+        networkStatusPresenter.view = window
+
         return ChainRegistry(
             snapshotHotBootBuilder: snapshotHotBootBuilder,
             runtimeProviderPool: runtimeProviderPool,
@@ -115,7 +121,8 @@ final class ChainRegistryFactory {
             logger: Logger.shared,
             eventCenter: EventCenter.shared,
             chainRepository: AnyDataProviderRepository(ChainRepositoryFactory().createRepository()),
-            operationManager: OperationManager(operationQueue: OperationManagerFacade.runtimeBuildingQueue)
+            operationManager: OperationManager(operationQueue: OperationManagerFacade.runtimeBuildingQueue),
+            networkStatusPresenter: networkStatusPresenter
         )
     }
 

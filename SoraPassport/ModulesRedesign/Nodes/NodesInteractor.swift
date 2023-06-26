@@ -16,7 +16,8 @@ final class NodesInteractor {
          chain: ChainModel,
          repository: AnyDataProviderRepository<ChainModel>,
          eventCenter: EventCenterProtocol,
-         operationManager: OperationManagerProtocol) {
+         operationManager: OperationManagerProtocol
+    ) {
         self.settings = settings
         self.eventCenter = eventCenter
         self.operationManager = operationManager
