@@ -35,6 +35,7 @@ final class ImportAccountViewController: SoramitsuViewController {
             $0.textView.returnKeyType = .done
             $0.textView.autocapitalizationType = .none
             $0.delegate = self
+            $0.accessibilityIdentifier = "textView"
         }
     }()
 
