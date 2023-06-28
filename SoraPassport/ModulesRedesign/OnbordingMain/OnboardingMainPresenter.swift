@@ -13,6 +13,7 @@ final class OnboardingMainPresenter {
     }
     
     private func showScreenAfterSelection(_ result: (Result<[OpenBackupAccount], Error>)) {
+        wireframe.hideActivityIndicator()
         switch result {
         case .success(let accounts):
             if accounts.isEmpty {
@@ -23,7 +24,6 @@ final class OnboardingMainPresenter {
         case .failure:
             break
         }
-        wireframe.hideActivityIndicator()
     }
 }
 
