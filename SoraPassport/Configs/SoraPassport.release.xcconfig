@@ -5,6 +5,3 @@ OTHER_SWIFT_FLAGS = $(inherited) "-DF_RELEASE"
 SORA_APPLICATION_CONFIG = Release
 FIREBASE_CONFIG = GoogleService-Info-Release.plist
 SORA_NAME = SORA
-
-SORA_GOOGLE_URL_SCHEME = $(SoraCardCIKeys.soraGoogleUrlScheme)
-SORA_GOOGLE_TOKEN = $(SoraCardCIKeys.soraGoogleToken)

@@ -5,6 +5,3 @@ OTHER_SWIFT_FLAGS = $(inherited) "-DENABLE_UITUNNEL" "-DF_DEV"
 SORA_APPLICATION_CONFIG = Dev
 FIREBASE_CONFIG = GoogleService-Info-Dev.plist
 SORA_NAME = SORA Dev
-
-SORA_GOOGLE_URL_SCHEME = com.googleusercontent.apps.246186134552-vbelbc2sln99ad244e2gbctkn7e042af
-SORA_GOOGLE_TOKEN = 246186134552-vbelbc2sln99ad244e2gbctkn7e042af.apps.googleusercontent.com

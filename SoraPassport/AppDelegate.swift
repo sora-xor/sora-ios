@@ -21,10 +21,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if !isUnitTesting {
             FirebaseApp.configure()
 
-            let infoDictionary: [String: Any] = Bundle.main.infoDictionary ?? [:]
-            if let mySecretApiKey = infoDictionary["GoogleToken"] as? String {
-                GIDSignIn.sharedInstance().clientID = mySecretApiKey
-            }
+            GIDSignIn.sharedInstance().clientID = SoraCardCIKeys.soraGoogleToken
 
             initFlex()
 
@@ -108,6 +105,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 tableViewController.present(alertController, animated: true)
             }
         }
+
+        FLEXManager.shared.registerGlobalEntry(withName: "SCard Config") { tableViewController in
+
+            let scConfig = SCard.Config(
+                backendUrl: SoraCardCIKeys.endpoint,
+                pwAuthDomain: SoraCardCIKeys.domain,
+                pwApiKey: SoraCardCIKeys.apiKey,
+                kycUrl: PayWingsCIKeys.paywingsRepositoryUrl,
+                kycUsername: SoraCardCIKeys.username,
+                kycPassword: SoraCardCIKeys.password,
+                environmentType: .test,
+                themeMode: SoramitsuUI.shared.themeMode
+            )
+
+            let title = "SCard Config"
+
+            let alertController = UIAlertController(title: title, message: scConfig.debugDescription, preferredStyle: .alert)
+
+            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
+                UIPasteboard.general.string = data
+            }
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
+
+            alertController.addAction(cancelAction)
+            alertController.addAction(copyAction)
+
+            DispatchQueue.main.async {
+                tableViewController.present(alertController, animated: true)
+            }
+        }
         #endif
     }
 }
@@ -141,5 +168,23 @@ fileprivate extension Array {
             return nil
         }
         return self[index]
+    }
+}
+
+
+extension SCard.Config: CustomDebugStringConvertible {
+    public var debugDescription: String {
+
+        """
+        SCard.Config
+        backendUrl: \(backendUrl)
+        pwAuthDomain: \(pwAuthDomain)
+        pwApiKey: \(pwApiKey)
+        kycUrl: \(kycUrl)
+        kycUsername: \(kycUsername)
+        kycPassword: \(kycPassword)
+        environmentType: \(environmentType)
+        themeMode: \(themeMode)
+        """
     }
 }

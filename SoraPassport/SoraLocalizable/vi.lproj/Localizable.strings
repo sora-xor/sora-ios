@@ -830,6 +830,8 @@
 "commom.scan.qr" = "Quét mã QR";
 "common.request" = "Yêu cầu";
 "common.create.qr.request" = "Tạo QR yêu cầu";
+"common.title.warning" = "Cảnh báo!";
+"swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "Số dư %@ của bạn sẽ ít hơn %@ sau giao dịch này. Bạn sẽ không thể thanh toán phí mạng cho một giao dịch khác.";
 "node.offline" = "Node ngoại tuyến";
 "switch.node" = "Chuyển node";
 "node.connection.issue" = "Tài khoản của bạn đã được tạo thành công. Nhưng ứng dụng không thể kết nối với một node mặc định. Cố gắng chuyển sang một node khác.";
@@ -872,3 +874,10 @@
 "common.portuguese" = "Portuguese";
 "launch.screen.loading.title" = "It's loading for a little longer this time";
 "polkaswap.reward.payout" = "Rewards payout in";
+"polkaswap.farming.staked.for" = "Staked for %@";
+"polkaswap.farming.demeter.power" = "Powered by Demeter Farming";
+"polkaswap.farming.pool.share" = "Your pool share staked";
+"common.google.authorization.error" = "Google authorization failed";
+"common.google.backup.decryption.failed" = "Backup decryption failed. Please check password and try again";
+"polkaswap.farming.unstake.to.remove" = "To remove liquidity you need to unstake it first";
+"polkaswap.farming.pool.in.farming.hint" = "Some portion of your pool share is staked. To have access to it you have to unstake it first.";

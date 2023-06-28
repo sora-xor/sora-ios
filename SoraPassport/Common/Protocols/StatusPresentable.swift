@@ -8,6 +8,7 @@ struct ApplicationStatusStyle {
 }
 
 protocol ApplicationStatusPresentable: AnyObject {
+    func presentAlert(alert: UIAlertController, animated: Bool)
     func presentStatus(title: String, style: ApplicationStatusStyle, animated: Bool)
     func dismissStatus(title: String?, style: ApplicationStatusStyle?, animated: Bool)
 }
