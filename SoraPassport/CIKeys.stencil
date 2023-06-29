@@ -1,6 +1,7 @@
 enum SoraCardCIKeys {
     static var apiKey: String = "{{ argument.soraCardAPIKey }}"
     static var domain: String = "{{ argument.soraCardDomain }}"
+    static var backendDevUrl: String = "{{ argument.soraCardBackendDevUrl }}"
     static var endpoint: String = "{{ argument.soraCardKycEndpoint }}"
     static var username: String = "{{ argument.soraCardKycUsername }}"
     static var password: String = "{{ argument.soraCardKycPassword }}"

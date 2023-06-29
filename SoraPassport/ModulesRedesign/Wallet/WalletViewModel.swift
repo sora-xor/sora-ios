@@ -255,10 +255,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         }
 
         let scConfig = SCard.Config(
-            backendUrl: SoraCardCIKeys.endpoint,
+            backendUrl: SoraCardCIKeys.backendDevUrl,
             pwAuthDomain: SoraCardCIKeys.domain,
             pwApiKey: SoraCardCIKeys.apiKey,
-            kycUrl: PayWingsCIKeys.paywingsRepositoryUrl,
+            kycUrl: SoraCardCIKeys.endpoint,
             kycUsername: SoraCardCIKeys.username,
             kycPassword: SoraCardCIKeys.password,
             environmentType: .test,
