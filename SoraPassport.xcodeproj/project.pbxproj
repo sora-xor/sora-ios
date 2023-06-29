@@ -611,6 +611,7 @@
 		5E5FBB6C280DC19C00DD092B /* WalletNetworkFacade+Pools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5FBB6B280DC19C00DD092B /* WalletNetworkFacade+Pools.swift */; };
 		5E6587EB28CA1CEA000E7234 /* DispatchQueue+debounce.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */; };
 		5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */; };
+		5E691DCE2A4D9B5B00D10E86 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3632D0F42A1F4ACF00C9B688 /* CIKeys.generated.swift */; };
 		5E7DCAA028D880B500C37182 /* Decima+Substrate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */; };
 		5E9774EE2A31AE040047BCA2 /* AccountExportPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E22A31AE030047BCA2 /* AccountExportPresenter.swift */; };
 		5E9774EF2A31AE040047BCA2 /* AccountExportViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E32A31AE030047BCA2 /* AccountExportViewFactory.swift */; };
@@ -6332,7 +6333,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				"$PROJECT_DIR/R.generated.swift",
+				$PROJECT_DIR/R.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6448,7 +6449,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
+				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -7918,6 +7919,7 @@
 				026AEA4F21B1237D002EEB67 /* IdentityVerifyOperationTests.swift in Sources */,
 				84324BAE240FB91200CA339A /* SecondaryIdentityCreateOperationTests.swift in Sources */,
 				84146E2B22B15ACC00F18F1C /* CoreDataCacheTestFacade.swift in Sources */,
+				5E691DCE2A4D9B5B00D10E86 /* CIKeys.generated.swift in Sources */,
 				026AEA5121B15E95002EEB67 /* IdentityLocalRemoveOperationTests.swift in Sources */,
 				02BBD84121CBD47A00C7A1E3 /* NotificationInteractorTests.swift in Sources */,
 				843BBB0723B1F5370047100A /* LanguageGenerator.swift in Sources */,
