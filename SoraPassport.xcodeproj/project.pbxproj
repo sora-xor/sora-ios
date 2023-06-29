@@ -611,6 +611,7 @@
 		5E5FBB6C280DC19C00DD092B /* WalletNetworkFacade+Pools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5FBB6B280DC19C00DD092B /* WalletNetworkFacade+Pools.swift */; };
 		5E6587EB28CA1CEA000E7234 /* DispatchQueue+debounce.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */; };
 		5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */; };
+		5E691DCE2A4D9B5B00D10E86 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3632D0F42A1F4ACF00C9B688 /* CIKeys.generated.swift */; };
 		5E7DCAA028D880B500C37182 /* Decima+Substrate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */; };
 		5E9774EE2A31AE040047BCA2 /* AccountExportPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E22A31AE030047BCA2 /* AccountExportPresenter.swift */; };
 		5E9774EF2A31AE040047BCA2 /* AccountExportViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E32A31AE030047BCA2 /* AccountExportViewFactory.swift */; };
@@ -6332,7 +6333,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				"$PROJECT_DIR/R.generated.swift",
+				$PROJECT_DIR/R.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6448,11 +6449,11 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
+				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKey=$SORA_CARD_API_KEY,soraCardDomain=$SORA_CARD_DOMAIN,soraCardKycEndpoint=$SORA_CARD_KYC_ENDPOINT_URL,soraCardKycUsername=$SORA_CARD_KYC_USERNAME,soraCardKycPassword=$SORA_CARD_KYC_PASSWORD,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_GOOGLE_URL_SCHEME,soraGoogleToken=$SORA_GOOGLE_TOKEN\n#add params to the xcconfig files\nvariableNames=(\"SORA_GOOGLE_TOKEN\" \"SORA_GOOGLE_URL_SCHEME\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n    done\ndone\n";
+			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKey=$SORA_CARD_API_KEY,soraCardDomain=$SORA_CARD_DOMAIN,soraCardBackendDevUrl=$SORA_CARD_BACKEND_DEV_URL,soraCardKycEndpoint=$SORA_CARD_KYC_ENDPOINT_URL,soraCardKycUsername=$SORA_CARD_KYC_USERNAME,soraCardKycPassword=$SORA_CARD_KYC_PASSWORD,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_GOOGLE_URL_SCHEME,soraGoogleToken=$SORA_GOOGLE_TOKEN\n#add params to the xcconfig files\nvariableNames=(\"SORA_GOOGLE_TOKEN\" \"SORA_GOOGLE_URL_SCHEME\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n    done\ndone\n";
 		};
 		43BCE38ED05A569F77314E6D /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -7918,6 +7919,7 @@
 				026AEA4F21B1237D002EEB67 /* IdentityVerifyOperationTests.swift in Sources */,
 				84324BAE240FB91200CA339A /* SecondaryIdentityCreateOperationTests.swift in Sources */,
 				84146E2B22B15ACC00F18F1C /* CoreDataCacheTestFacade.swift in Sources */,
+				5E691DCE2A4D9B5B00D10E86 /* CIKeys.generated.swift in Sources */,
 				026AEA5121B15E95002EEB67 /* IdentityLocalRemoveOperationTests.swift in Sources */,
 				02BBD84121CBD47A00C7A1E3 /* NotificationInteractorTests.swift in Sources */,
 				843BBB0723B1F5370047100A /* LanguageGenerator.swift in Sources */,
