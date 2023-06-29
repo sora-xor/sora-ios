@@ -5129,6 +5129,26 @@ import UIKit
     
     
     
+     func presentAlert(alert: UIAlertController, animated: Bool)  {
+        
+    return cuckoo_manager.call(
+    """
+    presentAlert(alert: UIAlertController, animated: Bool)
+    """,
+            parameters: (alert, animated),
+            escapingParameters: (alert, animated),
+            superclassCall:
+                
+                Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                ,
+            defaultCall: __defaultImplStub!.presentAlert(alert: alert, animated: animated))
+        
+    }
+    
+    
+    
+    
+    
      func presentStatus(title: String, style: ApplicationStatusStyle, animated: Bool)  {
         
     return cuckoo_manager.call(
@@ -5177,6 +5197,17 @@ import UIKit
         
         
         
+        func presentAlert<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(alert: M1, animated: M2) -> Cuckoo.ProtocolStubNoReturnFunction<(UIAlertController, Bool)> where M1.MatchedType == UIAlertController, M2.MatchedType == Bool {
+            let matchers: [Cuckoo.ParameterMatcher<(UIAlertController, Bool)>] = [wrap(matchable: alert) { $0.0 }, wrap(matchable: animated) { $0.1 }]
+            return .init(stub: cuckoo_manager.createStub(for: MockApplicationStatusPresentable.self, method:
+    """
+    presentAlert(alert: UIAlertController, animated: Bool)
+    """, parameterMatchers: matchers))
+        }
+        
+        
+        
+        
         func presentStatus<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable, M3: Cuckoo.Matchable>(title: M1, style: M2, animated: M3) -> Cuckoo.ProtocolStubNoReturnFunction<(String, ApplicationStatusStyle, Bool)> where M1.MatchedType == String, M2.MatchedType == ApplicationStatusStyle, M3.MatchedType == Bool {
             let matchers: [Cuckoo.ParameterMatcher<(String, ApplicationStatusStyle, Bool)>] = [wrap(matchable: title) { $0.0 }, wrap(matchable: style) { $0.1 }, wrap(matchable: animated) { $0.2 }]
             return .init(stub: cuckoo_manager.createStub(for: MockApplicationStatusPresentable.self, method:
@@ -5216,6 +5247,18 @@ import UIKit
         
         
         @discardableResult
+        func presentAlert<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable>(alert: M1, animated: M2) -> Cuckoo.__DoNotUse<(UIAlertController, Bool), Void> where M1.MatchedType == UIAlertController, M2.MatchedType == Bool {
+            let matchers: [Cuckoo.ParameterMatcher<(UIAlertController, Bool)>] = [wrap(matchable: alert) { $0.0 }, wrap(matchable: animated) { $0.1 }]
+            return cuckoo_manager.verify(
+    """
+    presentAlert(alert: UIAlertController, animated: Bool)
+    """, callMatcher: callMatcher, parameterMatchers: matchers, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        @discardableResult
         func presentStatus<M1: Cuckoo.Matchable, M2: Cuckoo.Matchable, M3: Cuckoo.Matchable>(title: M1, style: M2, animated: M3) -> Cuckoo.__DoNotUse<(String, ApplicationStatusStyle, Bool), Void> where M1.MatchedType == String, M2.MatchedType == ApplicationStatusStyle, M3.MatchedType == Bool {
             let matchers: [Cuckoo.ParameterMatcher<(String, ApplicationStatusStyle, Bool)>] = [wrap(matchable: title) { $0.0 }, wrap(matchable: style) { $0.1 }, wrap(matchable: animated) { $0.2 }]
             return cuckoo_manager.verify(
@@ -5246,6 +5289,14 @@ import UIKit
 
     
 
+    
+    
+    
+    
+     func presentAlert(alert: UIAlertController, animated: Bool)   {
+        return DefaultValueRegistry.defaultValue(for: (Void).self)
+    }
+    
     
     
     
