@@ -22,6 +22,8 @@ protocol WalletItemFactoryProtocol: AnyObject {
                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                          assetManager: AssetManagerProtocol,
                          fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol
+    
+    func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol) -> SoramitsuTableViewItemProtocol
 }
 
 final class WalletItemFactory: WalletItemFactoryProtocol {
@@ -43,6 +45,22 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
 
         return soraCardItem
+    }
+    
+    func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol) -> SoramitsuTableViewItemProtocol {
+
+        let friendsItem = FriendsItem()
+
+        friendsItem.removeViewButtonHandler = {
+            fatalError("remove view button pressed")
+        }
+        
+        friendsItem.tapViewHandler = { [weak walletViewModel] in
+            guard let walletViewModel = walletViewModel else { return }
+            walletViewModel.showReferralProgram()
+        }
+
+        return friendsItem
     }
 
     func createAssetsItem(with walletViewModel: RedesignWalletViewModelProtocol,
