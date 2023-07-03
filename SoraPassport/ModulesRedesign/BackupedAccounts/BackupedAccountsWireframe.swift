@@ -30,6 +30,7 @@ extension BackupedAccountsWireframe: BackupedAccountsWireframeProtocol {
     
     func showCreateAccount() {
         guard let setupAccountNameView = SetupAccountNameViewFactory.createViewForOnboarding(
+            mode: .creating,
             endAddingBlock: endAddingBlock
         ) else { return }
         currentController?.controller.navigationController?.pushViewController(setupAccountNameView.controller, animated: true)
