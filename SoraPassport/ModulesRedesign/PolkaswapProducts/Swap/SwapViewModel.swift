@@ -288,11 +288,6 @@ extension SwapViewModel: LiquidityViewModelProtocol {
             self.firstAssetId = self.secondAssetId
             self.secondAssetId = tmpAssetId
             
-            let tmpBalance = self.firstAssetBalance
-            self.firstAssetBalance = self.secondAssetBalance
-            self.secondAssetBalance = tmpBalance
-            
-            
             let firstFormatter = NumberFormatter.inputedAmoutFormatter(with: self.assetManager?.assetInfo(for: self.firstAssetId)?.precision ?? 0)
             self.view?.set(secondAmountText: firstFormatter.stringFromDecimal(self.inputedFirstAmount) ?? "")
             
