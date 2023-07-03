@@ -81,7 +81,7 @@ final class AccountCreateViewFactory {
         let view = AccountCreateViewController()
         let cloudStorageService = CloudStorageService(uiDelegate: view)
         view.mode = .registrationWithoutAccessToGoogle
-        let presenter = AccountCreatePresenter(username: username)
+        let presenter = AccountCreatePresenter(username: username, shouldCreatedWithGoogle: false)
         
         let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
                                                  supportedNetworkTypes: Chain.allCases,
