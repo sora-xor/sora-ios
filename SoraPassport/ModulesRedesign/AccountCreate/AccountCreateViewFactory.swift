@@ -29,6 +29,7 @@ final class AccountCreateViewFactory {
                                                  cloudStorageService: cloudStorageService)
         
         let wireframe = AccountCreateWireframe()
+        wireframe.endAddingBlock = endAddingBlock
         
         view.presenter = presenter
         presenter.view = view
