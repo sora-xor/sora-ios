@@ -16,8 +16,9 @@ final class OnboardingMainPresenter {
         wireframe.hideActivityIndicator()
         switch result {
         case .success(let accounts):
+            let accounts = accounts.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
             if accounts.isEmpty {
-                wireframe.showSignup(from: view)
+                wireframe.showSignup(from: view, isGoogleBackupSelected: true)
                 return
             }
             wireframe.showBackupedAccounts(from: view, accounts: accounts)
@@ -34,7 +35,7 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     }
 
     func activateSignup() {
-        wireframe.showSignup(from: view)
+        wireframe.showSignup(from: view, isGoogleBackupSelected: false)
     }
 
     func activateAccountRestore() {

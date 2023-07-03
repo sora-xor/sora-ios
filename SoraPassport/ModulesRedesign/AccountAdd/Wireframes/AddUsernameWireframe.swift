@@ -4,9 +4,11 @@ import SoraUIKit
 
 final class AddUsernameWireframe: UsernameSetupWireframeProtocol {
     private(set) var localizationManager: LocalizationManagerProtocol
+    private var isGoogleBackupSelected: Bool
 
-    init(localizationManager: LocalizationManagerProtocol) {
+    init(localizationManager: LocalizationManagerProtocol, isGoogleBackupSelected: Bool = false) {
         self.localizationManager = localizationManager
+        self.isGoogleBackupSelected = isGoogleBackupSelected
     }
 
     var endAddingBlock: (() -> Void)?
@@ -14,6 +16,7 @@ final class AddUsernameWireframe: UsernameSetupWireframeProtocol {
     func proceed(from view: UsernameSetupViewProtocol?, username: String) {
         guard let accountCreation = AccountCreateViewFactory.createViewForImportAccount(
             username: username,
+            isGoogleBackupSelected: isGoogleBackupSelected,
             endAddingBlock: endAddingBlock
         ) else { return }
         view?.controller.navigationController?.pushViewController(accountCreation.controller,

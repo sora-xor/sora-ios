@@ -69,6 +69,7 @@ final class AccountCreateViewFactory {
     
     static func createViewForImportAccount(
         username: String,
+        isGoogleBackupSelected: Bool = false,
         endAddingBlock: (() -> Void)?
     ) -> AccountCreateViewProtocol? {
         let keychain = Keychain()
@@ -80,8 +81,8 @@ final class AccountCreateViewFactory {
         
         let view = AccountCreateViewController()
         let cloudStorageService = CloudStorageService(uiDelegate: view)
-        view.mode = .registrationWithoutAccessToGoogle
-        let presenter = AccountCreatePresenter(username: username, shouldCreatedWithGoogle: false)
+        view.mode = isGoogleBackupSelected ? .registration : .registrationWithoutAccessToGoogle
+        let presenter = AccountCreatePresenter(username: username, shouldCreatedWithGoogle: isGoogleBackupSelected)
         
         let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
                                                  supportedNetworkTypes: Chain.allCases,

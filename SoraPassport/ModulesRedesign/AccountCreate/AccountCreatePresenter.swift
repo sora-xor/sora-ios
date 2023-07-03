@@ -132,7 +132,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                              derivationPath: viewModel.inputHandler.value,
                                              cryptoType: cryptoType)
 
-        if interactor.isSignedInGoogleAccount {
+        if interactor.isSignedInGoogleAccount && shouldCreatedWithGoogle {
             backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
