@@ -67,7 +67,10 @@ final class AccountCreateViewFactory {
         return view
     }
     
-    static func createViewForImportAccount(username: String, endAddingBlock: (() -> Void)?) -> AccountCreateViewProtocol? {
+    static func createViewForImportAccount(
+        username: String,
+        endAddingBlock: (() -> Void)?
+    ) -> AccountCreateViewProtocol? {
         let keychain = Keychain()
         let settings = SelectedWalletSettings.shared
         
@@ -77,7 +80,7 @@ final class AccountCreateViewFactory {
         
         let view = AccountCreateViewController()
         let cloudStorageService = CloudStorageService(uiDelegate: view)
-        view.mode = cloudStorageService.isUserAuthorized ? .registration : .registrationWithoutAccessToGoogle
+        view.mode = .registrationWithoutAccessToGoogle
         let presenter = AccountCreatePresenter(username: username)
         
         let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
