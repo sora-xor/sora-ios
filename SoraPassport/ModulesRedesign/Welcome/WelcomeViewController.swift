@@ -72,7 +72,7 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
     }()
     
     private lazy var createAccountButton: SoramitsuButton = {
-        let title = SoramitsuTextItem(text: R.string.localizable.createNewAccountTitle(preferredLanguages: .currentLocale),
+        let title = SoramitsuTextItem(text: R.string.localizable.create_account_title(preferredLanguages: .currentLocale),
                                       fontData: FontType.buttonM,
                                       textColor: .bgSurface,
                                       alignment: .center)
