@@ -123,7 +123,7 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
                                                            username: account.name ?? "",
                                                            networkType: .sora,
                                                            derivationPath: account.substrateDerivationPath ?? "",
-                                                           cryptoType: CryptoType(rawValue: account.cryptoType ?? 0)!)
+                                                           cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
                 self.importAccountWithMnemonic(request: request)
             case .failure(let error):
                 self.presenter.didReceiveAccountImport(error: error)

@@ -80,4 +80,3 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
 
 extension EnterPasswordViewController: UITableViewDelegate {}
 
-extension EnterPasswordViewController: CloudStorageUIDelegate {}

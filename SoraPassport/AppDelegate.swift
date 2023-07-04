@@ -21,8 +21,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if !isUnitTesting {
             FirebaseApp.configure()
 
-            GIDSignIn.sharedInstance().clientID = SoraCardCIKeys.soraGoogleToken
-
             initFlex()
 
             let rootWindow = SoraWindow()

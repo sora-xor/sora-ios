@@ -107,7 +107,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
             backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
-                                              cryptoType: cryptoType.rawValue,
+                                              cryptoType: cryptoType.googleIdentifier,
                                               substrateDerivationPath: viewModel.inputHandler.value)
             interactor.skipConfirmation(request: request, mnemonic: mnemonic)
         } else {
@@ -136,7 +136,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
             backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
-                                              cryptoType: cryptoType.rawValue,
+                                              cryptoType: cryptoType.googleIdentifier,
                                               substrateDerivationPath: viewModel.inputHandler.value)
         }
        
@@ -147,10 +147,8 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
     func restoredApp() {}
     
     func backupToGoogle() {
-        wireframe?.showActivityIndicator()
         interactor.signInToGoogleIfNeeded(completion: { [weak self] state in
             guard state == .authorized else { return }
-            self?.wireframe?.hideActivityIndicator()
             self?.skip()
         })
     }
