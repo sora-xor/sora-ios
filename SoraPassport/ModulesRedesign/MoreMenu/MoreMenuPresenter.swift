@@ -60,10 +60,7 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                                     picture: .icon(image: R.image.iconCard()!, color: .fgSecondary),
                                     onTap: { self.showSoraCard() })
         items.append(accounts)
-
-        if ConfigService.shared.config.isSoraCardEnabled {
-            items.append(soraCard)
-        }
+        items.append(soraCard)
 
         return MoreMenuSection(items: items)
     }

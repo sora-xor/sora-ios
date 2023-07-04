@@ -3,10 +3,11 @@ import SoraFoundation
 import RobinHood
 
 final class SetupAccountNameViewFactory {
-    static func createViewForOnboarding(endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
+    static func createViewForOnboarding(mode: UsernameSetupMode = .onboarding, endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
         let localizationManager = LocalizationManager.shared
         let view = SetupAccountNameViewController()
         let presenter = UsernameSetupPresenter()
+        presenter.mode = mode
         let wireframe = UsernameSetupWireframe(localizationManager: localizationManager, endAddingBlock: endAddingBlock)
 
         view.presenter = presenter
@@ -41,11 +42,12 @@ final class SetupAccountNameViewFactory {
         return view
     }
 
-    static func createViewForAdding(endEditingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
+    static func createViewForAdding(isGoogleBackupSelected: Bool = false, endEditingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
         let localizationManager = LocalizationManager.shared
         let view = SetupAccountNameViewController()
         let presenter = UsernameSetupPresenter()
-        let wireframe = AddUsernameWireframe(localizationManager: localizationManager)
+        let wireframe = AddUsernameWireframe(localizationManager: localizationManager,
+                                             isGoogleBackupSelected: isGoogleBackupSelected)
 
         view.presenter = presenter
         presenter.view = view

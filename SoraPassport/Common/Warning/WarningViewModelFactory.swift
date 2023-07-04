@@ -9,12 +9,12 @@
 import Foundation
 
 final class WarningViewModelFactory {
-    func insufficientBalanceViewModel(feeAssetSymbol: String, feeAmount: Decimal) -> WarningViewModel {
+    func insufficientBalanceViewModel(feeAssetSymbol: String, feeAmount: Decimal, isHidden: Bool = true) -> WarningViewModel {
         let feeAmount = NumberFormatter.cryptoAssets.stringFromDecimal(feeAmount) ?? ""
         let title = R.string.localizable.commonTitleWarning(preferredLanguages: .currentLocale)
         let descriptionText = R.string.localizable.swapConfirmationScreenWarningBalanceAfterwardsTransactionIsTooSmall(feeAssetSymbol,
                                                                                                                        feeAmount,
                                                                                                                        preferredLanguages: .currentLocale)
-        return WarningViewModel(title: title, descriptionText: descriptionText, isHidden: true)
+        return WarningViewModel(title: title, descriptionText: descriptionText, isHidden: isHidden)
     }
 }

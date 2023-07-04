@@ -38,4 +38,3 @@ final class WelcomeBackgroundViewController: UIViewController {
     }
 }
 
-extension WelcomeViewController: CloudStorageUIDelegate {}

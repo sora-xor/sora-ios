@@ -306,10 +306,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
                   
                   var assetFilter = assetId != firstAssetId
                   
-                  if firstAssetId == WalletAssetId.xstusd.rawValue {
-                      let unAcceptableAssetIds = [WalletAssetId.xst.rawValue, WalletAssetId.xor.rawValue]
-                      assetFilter = assetFilter && !unAcceptableAssetIds.contains(assetId)
-                  }
+                  let unAcceptableAssetIds = [WalletAssetId.xst.rawValue, WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
+                  assetFilter = assetFilter && !unAcceptableAssetIds.contains(assetId)
                   
                   let range = NSRange(location: 0, length: assetId.count)
                   return assetFilter && regex?.firstMatch(in: assetId, range: range) == nil

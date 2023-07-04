@@ -18,7 +18,6 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func showPoolDetails(with pool: PoolInfo)
     func showSoraCardDetails()
     func showInternerConnectionAlert()
-    func showReferralProgram()
 }
 
 final class RedesignWalletViewModel {
@@ -183,8 +182,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 OperationManagerFacade.runtimeBuildingQueue.addOperation(persistentOperation)
             })
         }
-        
-        let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self)
 
         let assetItem: SoramitsuTableViewItemProtocol = itemFactory.createAssetsItem(with: self,
                                                                                      assetManager: assetManager,
@@ -210,10 +207,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 completion(items)
             })
 
-        if soraCard.isSCBannerHidden || !ConfigService.shared.config.isSoraCardEnabled {
-            walletItems = [accountItem, friendsItem, assetItem, poolItem]
+        if soraCard.isSCBannerHidden {
+            walletItems = [accountItem, assetItem, poolItem]
         } else {
-            walletItems = [accountItem, soraCardItem, friendsItem, assetItem, poolItem]
+            walletItems = [accountItem, soraCardItem, assetItem, poolItem]
         }
 
         completion(walletItems)
@@ -416,10 +413,5 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                    providerFactory: providerFactory,
                                    operationFactory: networkFacade,
                                    assetsProvider: assetsProvider)
-    }
-    
-    func showReferralProgram() {
-//        wireframe?.showReferralProgram(from: <#T##MoreMenuViewProtocol?#>,
-//                                       walletContext: <#T##CommonWalletContextProtocol#>)
     }
 }

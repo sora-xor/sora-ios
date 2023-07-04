@@ -22,7 +22,7 @@ protocol OnboardingMainInteractorOutputProtocol: AnyObject {
 }
 
 protocol OnboardingMainWireframeProtocol: WebPresentable, ErrorPresentable, AlertPresentable, Loadable {
-    func showSignup(from view: OnboardingMainViewProtocol?)
+    func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool)
     func showAccountRestore(from view: OnboardingMainViewProtocol?)
     func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource)
     func showKeystoreImport(from view: OnboardingMainViewProtocol?)
