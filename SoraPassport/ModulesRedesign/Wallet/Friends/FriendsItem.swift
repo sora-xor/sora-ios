@@ -2,8 +2,8 @@ import SoraUIKit
 
 final class FriendsItem: NSObject {
     
-    var removeViewButtonHandler: (() -> Void)?
-    var tapViewHandler: (() -> Void)?
+    var onClose: (() -> Void)?
+    var onTap: (() -> Void)?
     
     override init() {
         super.init()
@@ -16,4 +16,8 @@ extension FriendsItem: SoramitsuTableViewItemProtocol {
     var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
     
     var clipsToBounds: Bool { false }
+    
+    func itemActionTap(with context: SoramitsuTableViewContext?) {
+        onTap?()
+    }
 }

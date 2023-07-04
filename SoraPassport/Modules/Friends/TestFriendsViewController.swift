@@ -46,6 +46,19 @@ final class TestFriendsViewController: UIViewController {
         return imageView
     }()
     
+//    private lazy var gradientLayer: CAGradientLayer = {
+//        let gradient = CAGradientLayer()
+//        gradient.type = .axial
+//        gradient.colors = [
+//            UIColor.clear.cgColor,
+//            UIColor.black.cgColor
+//        ]
+//        gradient.locations = [0.1714, 0.4098]
+//
+//
+//        return gradient
+//    }()
+    
     private lazy var buttonStackView: SoramitsuStackView = {
         let stackView = SoramitsuStackView()
         stackView.sora.axis = .vertical

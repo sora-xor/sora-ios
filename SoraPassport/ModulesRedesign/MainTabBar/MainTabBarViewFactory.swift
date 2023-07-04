@@ -26,8 +26,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return nil
         }
         
-        guard let walletContext = try? WalletContextFactory().createContext(connection: connection,
-                                                                            presenter: view) else {
+        guard let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
             return nil
         }
         
@@ -58,8 +57,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 
         guard
             let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-            let presenter = view as? UIViewController,
-            let walletContext = try? WalletContextFactory().createContext(connection: connection, presenter: presenter) else {
+            let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
             return
         }
         
@@ -227,7 +225,8 @@ extension MainTabBarViewFactory {
                                                assetsProvider: AssetProviderProtocol,
                                                localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) -> UIViewController? {
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
+              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
+              let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
             return nil
         }
         
@@ -272,7 +271,8 @@ extension MainTabBarViewFactory {
                                                                     sharingFactory: shareFactory,
                                                                     poolsService: poolsService,
                                                                     referralFactory: referralFactory,
-                                                                    assetsProvider: assetsProvider)
+                                                                    assetsProvider: assetsProvider,
+                                                                    walletContext: walletContext)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)

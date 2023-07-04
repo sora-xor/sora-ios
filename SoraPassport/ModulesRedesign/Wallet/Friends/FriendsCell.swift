@@ -53,26 +53,17 @@ final class FriendsCell: SoramitsuTableViewCell {
         return button
     }()
     
-    private lazy var removeViewButton: SoramitsuButton = {
-        let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
+    private lazy var closeButton: ImageButton = {
+        let button = ImageButton(size: CGSize(width: 24, height: 24))
         button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .fgPrimary
-        button.sora.leftImage = R.image.wallet.qrScan()
+        button.sora.backgroundColor = .custom(uiColor: .clear)
+        button.sora.image = R.image.roundClose()
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.friendsItem?.removeViewButtonHandler?()
+            self?.friendsItem?.onClose?()
         }
         return button
     }()
     
-    private let tappableArea: SoramitsuControl = {
-        let control = SoramitsuControl()
-        control.sora.backgroundColor = .custom(uiColor: .clear)
-        control.sora.addHandler(for: .touchUpInside) { [weak self] in
-//            self?.friendsItem?.tapViewHandler?()
-        }
-        return control
-    }()
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -86,9 +77,9 @@ final class FriendsCell: SoramitsuTableViewCell {
     
     private func setupHierarchy() {
         contentView.addSubview(containerView)
-        contentView.addSubview(removeViewButton)
-        
-        containerView.addSubviews([tappableArea, titleLabel, descriptionLabel, startInvitingButton, pictureView])
+        contentView.addSubview(closeButton)
+
+        containerView.addSubviews([titleLabel, descriptionLabel, startInvitingButton, pictureView])
     }
     
     private func setupLayout() {
@@ -97,10 +88,6 @@ final class FriendsCell: SoramitsuTableViewCell {
             make.top.equalTo(contentView).offset(8)
             make.leading.equalTo(contentView).offset(16)
             make.center.equalTo(contentView)
-        }
-        
-        tappableArea.snp.makeConstraints { make in
-            make.edges.equalTo(containerView)
         }
         
         titleLabel.snp.makeConstraints { make in
@@ -128,10 +115,9 @@ final class FriendsCell: SoramitsuTableViewCell {
             make.height.equalTo(164)
         }
         
-        removeViewButton.snp.makeConstraints { make in
+        closeButton.snp.makeConstraints { make in
             make.top.equalTo(contentView).offset(24)
             make.trailing.equalTo(contentView).offset(-32)
-            make.height.width.equalTo(24)
         }
     }
 }

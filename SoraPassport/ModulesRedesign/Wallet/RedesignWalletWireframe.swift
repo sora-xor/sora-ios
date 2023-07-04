@@ -94,7 +94,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                                  fee: Decimal,
                                  assetsProvider: AssetProviderProtocol?)
     
-    func showReferralProgram(from view: MoreMenuViewProtocol?,
+    func showReferralProgram(from view: RedesignWalletViewProtocol?,
                              walletContext: CommonWalletContextProtocol)
 }
 
@@ -367,20 +367,23 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showReferralProgram(from view: MoreMenuViewProtocol?,
+    func showReferralProgram(from view: RedesignWalletViewProtocol?,
                              walletContext: CommonWalletContextProtocol) {
-        guard let friendsView = FriendsViewFactory.createTestView(walletContext: walletContext) else {
+        guard
+            let friendsView = FriendsViewFactory.createTestView(walletContext: walletContext),
+            let navigationController = view?.controller.navigationController
+        else {
             return
         }
-        if let navigationController = view?.controller.navigationController {
-            let containerView = BlurViewController()
-            containerView.modalPresentationStyle = .overFullScreen
-
-            let newNav = SoraNavigationController(rootViewController: friendsView.controller)
-            newNav.navigationBar.backgroundColor = .clear
-            newNav.addCustomTransitioning()
-            containerView.add(newNav)
-            navigationController.present(containerView, animated: true)
-        }
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        
+        let newNav = SoraNavigationController(rootViewController: friendsView.controller)
+        newNav.navigationBar.backgroundColor = .clear
+        newNav.addCustomTransitioning()
+        containerView.add(newNav)
+        navigationController.present(containerView, animated: true)
+        
     }
 }
