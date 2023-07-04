@@ -278,7 +278,13 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
               let xorAsset = assetManager.assetInfo(for: WalletAssetId.xor.rawValue),
               let xstUsdAsset = assetManager.assetInfo(for: WalletAssetId.xstusd.rawValue) else { return }
 
-        let assets = [xorAsset, xstUsdAsset].filter({ asset in
+        var acceptableAssets = [xorAsset]
+        
+        if secondAssetId != WalletAssetId.xst.rawValue {
+            acceptableAssets.append(xstUsdAsset)
+        }
+        
+        let assets = acceptableAssets.filter({ asset in
             let assetId = asset.identifier
             let range = NSRange(location: 0, length: assetId.count)
             return assetId != secondAssetId && regex?.firstMatch(in: assetId, range: range) == nil
@@ -306,7 +312,12 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
                   
                   var assetFilter = assetId != firstAssetId
                   
-                  let unAcceptableAssetIds = [WalletAssetId.xst.rawValue, WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
+                  var unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
+
+                  if firstAssetId == WalletAssetId.xstusd.rawValue {
+                      unAcceptableAssetIds.append(WalletAssetId.xst.rawValue)
+                  }
+                  
                   assetFilter = assetFilter && !unAcceptableAssetIds.contains(assetId)
                   
                   let range = NSRange(location: 0, length: assetId.count)
