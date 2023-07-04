@@ -247,4 +247,3 @@ extension AccountCreateViewController: Localizable {
     }
 }
 
-extension AccountCreateViewController: CloudStorageUIDelegate {}

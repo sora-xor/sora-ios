@@ -49,8 +49,6 @@ final class EnterPasswordViewModel {
     }
     
     private func checkPassword(password: String) {
-        wireframe?.showActivityIndicator()
-        
         guard let selectedAccount = selectedAccount else { return }
         let request = AccountImportBackedupRequest(account: selectedAccount, password: password)
         interactor.importBackedupAccount(request: request)
@@ -66,8 +64,6 @@ extension EnterPasswordViewModel: EnterPasswordViewModelProtocol {
 
 extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
     func didCompleteAccountImport() {
-        wireframe?.hideActivityIndicator()
-        
         guard let selectedAccount = selectedAccount else { return }
         
         var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
@@ -78,7 +74,6 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
     }
     
     func didReceiveAccountImport(error: Error) {
-        wireframe?.hideActivityIndicator()
         errorText = error.localizedDescription
         reload()
     }

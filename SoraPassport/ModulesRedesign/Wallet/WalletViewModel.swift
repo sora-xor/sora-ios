@@ -207,7 +207,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 completion(items)
             })
 
-        if soraCard.isSCBannerHidden || !ConfigService.shared.config.isSoraCardEnabled {
+        if soraCard.isSCBannerHidden {
             walletItems = [accountItem, assetItem, poolItem]
         } else {
             walletItems = [accountItem, soraCardItem, assetItem, poolItem]

@@ -190,10 +190,12 @@ final class SwapViewModel {
     private var fee: Decimal = 0 {
         didSet {
             let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
+            let isHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee ||
+            firstAssetId.isEmpty || secondAssetId.isEmpty || inputedFirstAmount == 0 || inputedSecondAmount == 0 || firstAssetBalance.balance.decimalValue == 0
             warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(
                 feeAssetSymbol: feeAssetSymbol,
                 feeAmount: fee,
-                isHidden: firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
+                isHidden: isHidden
             )
         }
     }

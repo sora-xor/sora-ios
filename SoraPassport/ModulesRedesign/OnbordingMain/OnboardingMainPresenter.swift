@@ -13,7 +13,6 @@ final class OnboardingMainPresenter {
     }
     
     private func showScreenAfterSelection(_ result: (Result<[OpenBackupAccount], Error>)) {
-        wireframe.hideActivityIndicator()
         switch result {
         case .success(let accounts):
             let accounts = accounts.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
@@ -43,7 +42,6 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     }
     
     func activateCloudStorageConnection() {
-        wireframe?.showActivityIndicator()
         interactor.getBackupedAccounts(completion: showScreenAfterSelection)
     }
 }

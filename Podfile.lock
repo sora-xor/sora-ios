@@ -1,5 +1,11 @@
 PODS:
   - Anchorage (4.5.0)
+  - AppAuth (1.6.2):
+    - AppAuth/Core (= 1.6.2)
+    - AppAuth/ExternalUserAgent (= 1.6.2)
+  - AppAuth/Core (1.6.2)
+  - AppAuth/ExternalUserAgent (1.6.2):
+    - AppAuth/Core
   - BigInt (5.2.0)
   - CocoaLumberjack (3.8.0):
     - CocoaLumberjack/Core (= 3.8.0)
@@ -119,19 +125,10 @@ PODS:
     - GoogleUtilities/Environment (~> 7.7)
     - nanopb (< 2.30910.0, >= 2.30908.0)
     - PromisesObjC (< 3.0, >= 1.2)
-  - GoogleSignIn (4.1.2):
-    - "GoogleToolboxForMac/NSDictionary+URLArguments (~> 2.1)"
-    - "GoogleToolboxForMac/NSString+URLArguments (~> 2.1)"
-    - GTMOAuth2 (~> 1.0)
-    - GTMSessionFetcher/Core (~> 1.1)
-  - GoogleToolboxForMac/DebugUtils (2.3.2):
-    - GoogleToolboxForMac/Defines (= 2.3.2)
-  - GoogleToolboxForMac/Defines (2.3.2)
-  - "GoogleToolboxForMac/NSDictionary+URLArguments (2.3.2)":
-    - GoogleToolboxForMac/DebugUtils (= 2.3.2)
-    - GoogleToolboxForMac/Defines (= 2.3.2)
-    - "GoogleToolboxForMac/NSString+URLArguments (= 2.3.2)"
-  - "GoogleToolboxForMac/NSString+URLArguments (2.3.2)"
+  - GoogleSignIn (7.0.0):
+    - AppAuth (~> 1.5)
+    - GTMAppAuth (< 3.0, >= 1.3)
+    - GTMSessionFetcher/Core (< 4.0, >= 1.1)
   - GoogleUtilities/AppDelegateSwizzler (7.11.1):
     - GoogleUtilities/Environment
     - GoogleUtilities/Logger
@@ -151,13 +148,14 @@ PODS:
     - GoogleUtilities/Logger
   - GoogleUtilities/UserDefaults (7.11.1):
     - GoogleUtilities/Logger
-  - GTMOAuth2 (1.1.6):
-    - GTMSessionFetcher (~> 1.1)
-  - GTMSessionFetcher (1.7.2):
-    - GTMSessionFetcher/Full (= 1.7.2)
-  - GTMSessionFetcher/Core (1.7.2)
-  - GTMSessionFetcher/Full (1.7.2):
-    - GTMSessionFetcher/Core (= 1.7.2)
+  - GTMAppAuth (2.0.0):
+    - AppAuth/Core (~> 1.6)
+    - GTMSessionFetcher/Core (< 4.0, >= 1.5)
+  - GTMSessionFetcher (3.1.1):
+    - GTMSessionFetcher/Full (= 3.1.1)
+  - GTMSessionFetcher/Core (3.1.1)
+  - GTMSessionFetcher/Full (3.1.1):
+    - GTMSessionFetcher/Core
   - IdensicMobileSDK (1.25.0)
   - IrohaCrypto (0.9.0):
     - IrohaCrypto/BIP39 (= 0.9.0)
@@ -277,7 +275,7 @@ PODS:
   - Sourcery/CLI-Only (1.9.2)
   - SSFCloudStorage (0.1.0):
     - GoogleAPIClientForREST/Drive (~> 1.2.1)
-    - GoogleSignIn (~> 4.1.1)
+    - GoogleSignIn (~> 7.0.0)
     - IrohaCrypto/Scrypt
     - TweetNacl (~> 1.0.0)
   - Starscream (4.0.8)
@@ -331,6 +329,7 @@ DEPENDENCIES:
 SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
     - Anchorage
+    - AppAuth
     - BigInt
     - CocoaLumberjack
     - Cuckoo
@@ -350,9 +349,8 @@ SPEC REPOS:
     - GoogleAppMeasurement
     - GoogleDataTransport
     - GoogleSignIn
-    - GoogleToolboxForMac
     - GoogleUtilities
-    - GTMOAuth2
+    - GTMAppAuth
     - GTMSessionFetcher
     - IrohaCrypto
     - lottie-ios
@@ -423,7 +421,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: 04108bd1bd5e575420635568643500f0206b750b
+    :commit: f9aebb423d2b6031fb991da873a309d6f5085c47
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui.git
@@ -437,6 +435,7 @@ CHECKOUT OPTIONS:
 
 SPEC CHECKSUMS:
   Anchorage: 1961bc81c84aeed54ad7ffc697c50cd9de748ba6
+  AppAuth: 3bb1d1cd9340bd09f5ed189fb00b1cc28e1e8570
   BigInt: f668a80089607f521586bbe29513d708491ef2f7
   CocoaLumberjack: 78abfb691154e2a9df8ded4350d504ee19d90732
   CommonWallet: 3c67d5fd85593a20f6b55777c2660ff886fc4148
@@ -457,11 +456,10 @@ SPEC CHECKSUMS:
   GoogleAPIClientForREST: a8b95a252014ce2e618df6b75dc72eca2c00b4af
   GoogleAppMeasurement: d3dabccdb336fc0ae44b633c8abaa26559893cd9
   GoogleDataTransport: f0308f5905a745f94fb91fea9c6cbaf3831cb1bd
-  GoogleSignIn: d9ef55b10f0aa401a5de2747f59b725e4b9732ac
-  GoogleToolboxForMac: 8bef7c7c5cf7291c687cf5354f39f9db6399ad34
+  GoogleSignIn: b232380cf495a429b8095d3178a8d5855b42e842
   GoogleUtilities: 9aa0ad5a7bc171f8bae016300bfcfa3fb8425749
-  GTMOAuth2: e8b6512c896235149df975c41d9a36c868ab7fba
-  GTMSessionFetcher: 5595ec75acf5be50814f81e9189490412bad82ba
+  GTMAppAuth: 99fb010047ba3973b7026e45393f51f27ab965ae
+  GTMSessionFetcher: e8647203b65cee28c5f73d0f473d096653945e72
   IdensicMobileSDK: 724b75dbb204a9c1ae1dafe5c1366b8aeb00b6cf
   IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3
   Kingfisher: 8b783c3d7be73a99b2172a743a5bc0a4dd331d79
@@ -486,7 +484,7 @@ SPEC CHECKSUMS:
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   SoraUIKit: 2156cae4af9a34314e1f5c5277eed10bf8411b66
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
-  SSFCloudStorage: 5027f8379d186a3790cf0684eb23e8359aceff97
+  SSFCloudStorage: 165a033d4656b25bf67e3d61b472423666ab6b03
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5

@@ -62,9 +62,7 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     }
     
     func deleteBackup() {
-        wireframe?.showActivityIndicator()
         interactor.deleteBackup { [weak self] error in
-            self?.wireframe?.hideActivityIndicator()
             guard let error = error else {
                 self?.backupState = .notBackedUp
                 return
@@ -77,9 +75,7 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     }
     
     func createBackup() {
-        wireframe?.showActivityIndicator()
         interactor.signInToGoogleIfNeeded { [weak self] account in
-            self?.wireframe?.hideActivityIndicator()
            
             self?.wireframe?.setupBackupAccountPassword(on: self?.view, account: account, completion: { [weak self] in
                 guard let self = self else { return }
