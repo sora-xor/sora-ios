@@ -190,7 +190,11 @@ final class SwapViewModel {
     private var fee: Decimal = 0 {
         didSet {
             let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
-            warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(feeAssetSymbol: feeAssetSymbol, feeAmount: fee)
+            warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(
+                feeAssetSymbol: feeAssetSymbol,
+                feeAmount: fee,
+                isHidden: firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
+            )
         }
     }
     private var dexId: UInt32 = 0
@@ -207,7 +211,7 @@ final class SwapViewModel {
             view?.updateWarinignView(model: warningViewModel)
         }
     }
-    
+
     private var isEnoughtFirstAssetLiquidity: Bool {
         if inputedFirstAmount > firstAssetBalance.balance.decimalValue {
             return false
@@ -415,10 +419,6 @@ extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
     }
     
     func didLoadQuote(_ quote: SwapValues?, dexId: UInt32, params: PolkaswapMainInteractorQuoteParams) {
-        if let fromAsset = assetManager?.assetInfo(for: firstAssetId), fromAsset.isFeeAsset {
-            warningViewModel?.isHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
-        }
-        
         guard let quote = quote else {
             view?.setupButton(isEnabled: false)
             view?.update(isNeedLoadingState: false)
