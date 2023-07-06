@@ -7,7 +7,7 @@ final class SetupNameImportAccountPresenter {
     weak var view: UsernameSetupViewProtocol?
     var wireframe: UsernameSetupWireframeProtocol!
     var viewModel: InputViewModel!
-    var successEditingBlock: (() -> Void)?
+    var completion: (() -> Void)?
     let settingsManager = SelectedWalletSettings.shared
     var mode: UsernameSetupMode = .onboarding
     var userName: String?
@@ -42,14 +42,17 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
 
     func proceed() {
         if let updated = settingsManager.currentAccount?.replacingUsername(userName ?? "") {
-            settingsManager.save(value: updated)
-            wireframe.showPinCode(from: view)
+            settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
+                if case .success = result {
+                    self?.eventCenter.notify(with: SelectedUsernameChanged())
+                }
+            }
+            
+            completion == nil ? wireframe.showPinCode(from: view) : view?.controller.dismiss(animated: true, completion: completion)
         }
     }
     
-    func endEditing() {
-        successEditingBlock?()
-    }
+    func endEditing() {}
 
     func activateURL(_ url: URL) {
         if let view = view {
