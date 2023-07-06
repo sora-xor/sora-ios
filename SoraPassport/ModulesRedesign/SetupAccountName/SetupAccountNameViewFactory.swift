@@ -19,7 +19,7 @@ final class SetupAccountNameViewFactory {
         return view
     }
     
-    static func createViewForImport() -> UsernameSetupViewProtocol? {
+    static func createViewForImport(endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
         guard let accountItem = SelectedWalletSettings.shared.currentAccount else { return nil }
         
         let localizationManager = LocalizationManager.shared
@@ -38,7 +38,8 @@ final class SetupAccountNameViewFactory {
         presenter.wireframe = wireframe
 
         presenter.localizationManager = localizationManager
-
+        presenter.completion = endAddingBlock
+        
         return view
     }
 
