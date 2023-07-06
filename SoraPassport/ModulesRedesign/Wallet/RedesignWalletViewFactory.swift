@@ -14,7 +14,8 @@ protocol RedesignWalletViewFactoryProtocol: AnyObject {
                            sharingFactory: AccountShareFactoryProtocol,
                            poolsService: PoolsServiceInputProtocol,
                            referralFactory: ReferralsOperationFactoryProtocol,
-                           assetsProvider: AssetProviderProtocol) -> RedesignWalletViewController
+                           assetsProvider: AssetProviderProtocol,
+                           walletContext: CommonWalletContextProtocol) -> RedesignWalletViewController
 }
 
 final class RedesignWalletViewFactory: RedesignWalletViewFactoryProtocol {
@@ -29,7 +30,8 @@ final class RedesignWalletViewFactory: RedesignWalletViewFactoryProtocol {
                            sharingFactory: AccountShareFactoryProtocol,
                            poolsService: PoolsServiceInputProtocol,
                            referralFactory: ReferralsOperationFactoryProtocol,
-                           assetsProvider: AssetProviderProtocol) -> RedesignWalletViewController {
+                           assetsProvider: AssetProviderProtocol,
+                           walletContext: CommonWalletContextProtocol) -> RedesignWalletViewController {
         let viewModel = RedesignWalletViewModel(wireframe: RedesignWalletWireframe(),
                                                 providerFactory: providerFactory,
                                                 assetManager: assetManager,
@@ -43,7 +45,8 @@ final class RedesignWalletViewFactory: RedesignWalletViewFactoryProtocol {
                                                 sharingFactory: sharingFactory,
                                                 poolsService: poolsService,
                                                 referralFactory: referralFactory,
-                                                assetsProvider: assetsProvider)
+                                                assetsProvider: assetsProvider,
+                                                walletContext: walletContext)
         
         let view = RedesignWalletViewController(viewModel: viewModel)
         viewModel.view = view

@@ -84,8 +84,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     func recreateWalletViewController(on view: MainTabBarViewProtocol?) {
         guard
             let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-            let presenter = view as? UIViewController,
-            let walletContext = try? WalletContextFactory().createContext(connection: connection, presenter: presenter) else {
+            let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
             return
         }
         
