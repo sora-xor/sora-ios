@@ -83,6 +83,19 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
     }
 
     func showFriendsView(from view: MoreMenuViewProtocol?) {
+        guard let friendsView = FriendsViewFactory.createView(walletContext: walletContext) else {
+            return
+        }
+        if let navigationController = view?.controller.navigationController {
+            let containerView = BlurViewController()
+            containerView.modalPresentationStyle = .overFullScreen
+
+            let newNav = SoraNavigationController(rootViewController: friendsView.controller)
+            newNav.navigationBar.backgroundColor = .clear
+            newNav.addCustomTransitioning()
+            containerView.add(newNav)
+            navigationController.present(containerView, animated: true)
+        }
     }
 
     func showAppSettings(from view: MoreMenuViewProtocol?) {

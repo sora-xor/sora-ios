@@ -15,7 +15,7 @@ final class FriendsViewFactory: FriendsViewFactoryProtocol {
               let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let feeAsset = assetManager.getAssetList()?.first(where: { $0.isFeeAsset })  else { return nil }
 
-        let view = FriendsViewController(nib: R.nib.friendsViewController)
+        let view = FriendsViewController()
         view.localizationManager = LocalizationManager.shared
 
         let presenter = FriendsPresenter(settings: settings,
