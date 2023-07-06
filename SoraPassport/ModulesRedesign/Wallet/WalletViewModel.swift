@@ -34,7 +34,7 @@ final class RedesignWalletViewModel {
     
     var walletItems: [SoramitsuTableViewItemProtocol] = []
     
-    var isReferralProgramHidden: Bool = true
+    var isReferralProgramHidden: Bool = false
     
     weak var view: RedesignWalletViewProtocol?
     var wireframe: RedesignWalletWireframeProtocol?

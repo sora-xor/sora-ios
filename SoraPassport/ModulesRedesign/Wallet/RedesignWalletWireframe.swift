@@ -369,21 +369,23 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
     
     func showReferralProgram(from view: RedesignWalletViewProtocol?,
                              walletContext: CommonWalletContextProtocol) {
+
         guard
-            let friendsView = FriendsViewFactory.createTestView(walletContext: walletContext),
-            let navigationController = view?.controller.navigationController
+            let friendsView = FriendsViewFactory.createView(walletContext: walletContext),
+            let controller = view?.controller
         else {
             return
         }
         
+        let navigationController = SoraNavigationController(rootViewController: friendsView.controller)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.addCustomTransitioning()
+        
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
+        containerView.add(navigationController)
         
-        let newNav = SoraNavigationController(rootViewController: friendsView.controller)
-        newNav.navigationBar.backgroundColor = .clear
-        newNav.addCustomTransitioning()
-        containerView.add(newNav)
-        navigationController.present(containerView, animated: true)
+        controller.present(containerView, animated: true)
         
     }
 }

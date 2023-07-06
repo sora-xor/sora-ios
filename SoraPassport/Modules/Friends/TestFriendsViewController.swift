@@ -6,7 +6,7 @@ import SoraFoundation
 import SoraUIKit
 import SnapKit
 
-final class TestFriendsViewController: UIViewController {
+final class FriendsViewController: UIViewController {
     
     private lazy var tableView: SoramitsuTableView = {
         let tableView = SoramitsuTableView()
@@ -32,7 +32,7 @@ final class TestFriendsViewController: UIViewController {
     
     private lazy var descriptionLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.text = R.string.localizable.referralReferrerDescription(preferredLanguages: .currentLocale)
+        label.sora.text = R.string.localizable.referralSubtitle(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.paragraphM
         label.numberOfLines = 6
@@ -46,18 +46,17 @@ final class TestFriendsViewController: UIViewController {
         return imageView
     }()
     
-//    private lazy var gradientLayer: CAGradientLayer = {
-//        let gradient = CAGradientLayer()
-//        gradient.type = .axial
-//        gradient.colors = [
-//            UIColor.clear.cgColor,
-//            UIColor.black.cgColor
-//        ]
-//        gradient.locations = [0.1714, 0.4098]
-//
-//
-//        return gradient
-//    }()
+    private lazy var gradientView: GradientView = {
+        let view = GradientView()
+        
+        view.startColor = SoramitsuUI.shared.theme.palette.color(.bgSurface)
+        view.endColor = SoramitsuUI.shared.theme.palette.color(.bgSurface).withAlphaComponent(0.0)
+        
+        view.startPoint = CGPoint(x: 0, y: 0.5)
+        view.endPoint = CGPoint(x: 1, y: 0.5)
+        
+        return view
+    }()
     
     private lazy var buttonStackView: SoramitsuStackView = {
         let stackView = SoramitsuStackView()
@@ -130,7 +129,6 @@ final class TestFriendsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        activityIndicator.startAnimating()
 
         presenter.setup()
 
@@ -140,6 +138,8 @@ final class TestFriendsViewController: UIViewController {
         addCloseButton()
         setupHierarchy()
         setupLayout()
+        
+        activityIndicator.startAnimating()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -155,11 +155,14 @@ final class TestFriendsViewController: UIViewController {
 
 // MARK: - Private Functions
 
-private extension TestFriendsViewController {
+private extension FriendsViewController {
     
     private func setupHierarchy() {
         view.addSubview(containerView)
+        view.addSubview(activityIndicator)
         containerView.addSubviews([imageView, titleLabel, descriptionLabel, buttonStackView])
+        
+        imageView.addSubview(gradientView)
         
         buttonStackView.addArrangedSubviews([startInvitingButton, enterLinkButton])
     }
@@ -167,14 +170,24 @@ private extension TestFriendsViewController {
     private func setupLayout() {
         containerView.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide)
-            make.left.equalTo(view).offset(16)
+            make.leading.equalTo(view).offset(16)
             make.centerX.equalTo(view)
+        }
+        
+        activityIndicator.snp.makeConstraints { make in
+            make.center.equalTo(view)
         }
         
         imageView.snp.makeConstraints { make in
             make.top.trailing.equalTo(containerView)
+            make.trailing.equalTo(containerView)
             make.height.equalTo(325)
             make.width.equalTo(204)
+        }
+        
+        gradientView.snp.makeConstraints { make in
+            make.top.bottom.leading.equalTo(imageView)
+            make.trailing.equalTo(imageView).multipliedBy(0.4098)
         }
         
         titleLabel.snp.makeConstraints { make in
@@ -246,7 +259,7 @@ private extension TestFriendsViewController {
 
 // MARK: - FriendsViewProtocol
 
-extension TestFriendsViewController: FriendsViewProtocol {
+extension FriendsViewController: FriendsViewProtocol {
     func setup(with models: [CellViewModel]) {
         tableView.isHidden = false
         activityIndicator.isHidden = true
@@ -291,7 +304,7 @@ extension TestFriendsViewController: FriendsViewProtocol {
     }
 }
 
-extension TestFriendsViewController: UITableViewDataSource {
+extension FriendsViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return contentViewModels.count
     }
@@ -308,7 +321,7 @@ extension TestFriendsViewController: UITableViewDataSource {
     }
 }
 
-extension TestFriendsViewController: UITableViewDelegate {
+extension FriendsViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
     }
@@ -316,7 +329,7 @@ extension TestFriendsViewController: UITableViewDelegate {
 
 // MARK: - Localizable
 
-extension TestFriendsViewController: Localizable {
+extension FriendsViewController: Localizable {
     private var languages: [String]? {
         localizationManager?.preferredLocalizations
     }

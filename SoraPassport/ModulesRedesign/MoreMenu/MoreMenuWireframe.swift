@@ -83,7 +83,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
     }
 
     func showFriendsView(from view: MoreMenuViewProtocol?) {
-        guard let friendsView = FriendsViewFactory.createTestView(walletContext: walletContext) else {
+        guard let friendsView = FriendsViewFactory.createView(walletContext: walletContext) else {
             return
         }
         if let navigationController = view?.controller.navigationController {
