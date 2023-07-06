@@ -190,7 +190,13 @@ final class SwapViewModel {
     private var fee: Decimal = 0 {
         didSet {
             let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
-            warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(feeAssetSymbol: feeAssetSymbol, feeAmount: fee)
+            let isHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee ||
+            firstAssetId.isEmpty || secondAssetId.isEmpty || inputedFirstAmount == 0 || inputedSecondAmount == 0 || firstAssetBalance.balance.decimalValue == 0
+            warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(
+                feeAssetSymbol: feeAssetSymbol,
+                feeAmount: fee,
+                isHidden: isHidden
+            )
         }
     }
     private var dexId: UInt32 = 0
@@ -207,7 +213,7 @@ final class SwapViewModel {
             view?.updateWarinignView(model: warningViewModel)
         }
     }
-    
+
     private var isEnoughtFirstAssetLiquidity: Bool {
         if inputedFirstAmount > firstAssetBalance.balance.decimalValue {
             return false
@@ -287,11 +293,6 @@ extension SwapViewModel: LiquidityViewModelProtocol {
             let tmpAssetId = self.firstAssetId
             self.firstAssetId = self.secondAssetId
             self.secondAssetId = tmpAssetId
-            
-            let tmpBalance = self.firstAssetBalance
-            self.firstAssetBalance = self.secondAssetBalance
-            self.secondAssetBalance = tmpBalance
-            
             
             let firstFormatter = NumberFormatter.inputedAmoutFormatter(with: self.assetManager?.assetInfo(for: self.firstAssetId)?.precision ?? 0)
             self.view?.set(secondAmountText: firstFormatter.stringFromDecimal(self.inputedFirstAmount) ?? "")
@@ -420,10 +421,6 @@ extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
     }
     
     func didLoadQuote(_ quote: SwapValues?, dexId: UInt32, params: PolkaswapMainInteractorQuoteParams) {
-        if let fromAsset = assetManager?.assetInfo(for: firstAssetId), fromAsset.isFeeAsset {
-            warningViewModel?.isHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
-        }
-        
         guard let quote = quote else {
             view?.setupButton(isEnabled: false)
             view?.update(isNeedLoadingState: false)

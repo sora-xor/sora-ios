@@ -33,9 +33,7 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     }
     
     func backupAccount(with password: String) {
-        wireframe?.showActivityIndicator()
         cloudStorageService.saveBackupAccount(account: account, password: password) { [weak self] result in
-            self?.wireframe?.hideActivityIndicator()
             self?.handler(result)
         }
     }

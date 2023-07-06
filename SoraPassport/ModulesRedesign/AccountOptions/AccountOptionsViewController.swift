@@ -281,6 +281,3 @@ extension AccountOptionsViewController: UIScrollViewDelegate {
         }
     }
 }
-
-
-extension AccountOptionsViewController: CloudStorageUIDelegate {}

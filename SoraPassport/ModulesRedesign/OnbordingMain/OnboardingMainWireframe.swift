@@ -6,10 +6,11 @@ final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
     var activityIndicatorWindow: UIWindow?
     var endAddingBlock: (() -> Void)?
 
-    func showSignup(from view: OnboardingMainViewProtocol?) {
+    func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) {
         if let endBlock = endAddingBlock {
 
-            let usernameSetup = SetupAccountNameViewFactory.createViewForAdding(endEditingBlock: endBlock)
+            let usernameSetup = SetupAccountNameViewFactory.createViewForAdding(isGoogleBackupSelected: isGoogleBackupSelected,
+                                                                                endEditingBlock: endBlock)
             guard let usernameSetup = usernameSetup else {
                 return
             }

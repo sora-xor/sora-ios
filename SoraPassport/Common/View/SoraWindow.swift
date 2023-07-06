@@ -86,6 +86,15 @@ final class SoraWindow: UIWindow {
 extension SoraWindow: ApplicationStatusPresentable {
 
     func presentAlert(alert: UIAlertController, animated: Bool) {
+        if let topController = self.topController {
+            if topController is UIAlertController {
+                topController.dismiss(animated: true) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                        self.topController?.present(alert, animated: true)
+                    }
+                }
+            }
+        }
         self.topController?.present(alert, animated: true)
     }
 

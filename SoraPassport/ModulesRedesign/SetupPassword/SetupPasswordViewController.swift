@@ -81,4 +81,3 @@ final class SetupPasswordViewController: SoramitsuViewController & SetupPassword
 
 extension SetupPasswordViewController: UITableViewDelegate {}
 
-extension SetupPasswordViewController: CloudStorageUIDelegate {}

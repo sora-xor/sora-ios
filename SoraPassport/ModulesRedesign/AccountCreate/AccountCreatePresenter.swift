@@ -16,9 +16,11 @@ final class AccountCreatePresenter: SharingPresentable {
     private var selectedNetworkType: Chain?
     private var derivationPathViewModel: InputViewModelProtocol?
     private var backupAccount: OpenBackupAccount?
+    private var shouldCreatedWithGoogle: Bool
 
-    init(username: String) {
+    init(username: String, shouldCreatedWithGoogle: Bool = true) {
         self.username = username
+        self.shouldCreatedWithGoogle = shouldCreatedWithGoogle
     }
 
     private func applyDerivationPathViewModel() {
@@ -101,11 +103,11 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                              derivationPath: viewModel.inputHandler.value,
                                              cryptoType: cryptoType)
 
-        if interactor.isSignedInGoogleAccount {
+        if interactor.isSignedInGoogleAccount && shouldCreatedWithGoogle {
             backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
-                                              cryptoType: cryptoType.rawValue,
+                                              cryptoType: cryptoType.googleIdentifier,
                                               substrateDerivationPath: viewModel.inputHandler.value)
             interactor.skipConfirmation(request: request, mnemonic: mnemonic)
         } else {
@@ -130,11 +132,11 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                              derivationPath: viewModel.inputHandler.value,
                                              cryptoType: cryptoType)
 
-        if interactor.isSignedInGoogleAccount {
+        if interactor.isSignedInGoogleAccount && shouldCreatedWithGoogle {
             backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
-                                              cryptoType: cryptoType.rawValue,
+                                              cryptoType: cryptoType.googleIdentifier,
                                               substrateDerivationPath: viewModel.inputHandler.value)
         }
        
@@ -145,10 +147,8 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
     func restoredApp() {}
     
     func backupToGoogle() {
-        wireframe?.showActivityIndicator()
         interactor.signInToGoogleIfNeeded(completion: { [weak self] state in
             guard state == .authorized else { return }
-            self?.wireframe?.hideActivityIndicator()
             self?.skip()
         })
     }
