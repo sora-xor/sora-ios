@@ -1204,7 +1204,6 @@
 		A849A67F47A83F55BFA8124E /* ProjectsInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */; };
 		A9A0F171348707CF04DAFE37 /* AccountOptionsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */; };
 		AD7EAB4CC39BA3CBD8892075 /* AccountOptionsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */; };
-		B25EF3182A558AF600E7A2C8 /* FriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B25EF3172A558AF600E7A2C8 /* FriendsViewController.swift */; };
 		B27FFC3F2A52A53B006D4C19 /* TestFriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC3E2A52A53B006D4C19 /* TestFriendsViewController.swift */; };
 		B27FFC432A52A569006D4C19 /* FriendsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC412A52A568006D4C19 /* FriendsCell.swift */; };
 		B27FFC442A52A569006D4C19 /* FriendsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC422A52A568006D4C19 /* FriendsItem.swift */; };
@@ -2542,7 +2541,6 @@
 		A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractor.swift; sourceTree = "<group>"; };
 		AA3C6B3BF9715A5DC0869D4A /* Pods-SoraPassportTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.debug.xcconfig"; sourceTree = "<group>"; };
 		AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutTests.swift; sourceTree = "<group>"; };
-		B25EF3172A558AF600E7A2C8 /* FriendsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FriendsViewController.swift; path = ../../../../FriendsViewController.swift; sourceTree = "<group>"; };
 		B27FFC3E2A52A53B006D4C19 /* TestFriendsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestFriendsViewController.swift; sourceTree = "<group>"; };
 		B27FFC412A52A568006D4C19 /* FriendsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsCell.swift; sourceTree = "<group>"; };
 		B27FFC422A52A568006D4C19 /* FriendsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsItem.swift; sourceTree = "<group>"; };
@@ -5952,7 +5950,6 @@
 				103CCD1E25643E0D0028345D /* Views */,
 				81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */,
 				36ACC95E2864AF9000DA98EC /* ReferralViewFactory.swift */,
-				B25EF3172A558AF600E7A2C8 /* FriendsViewController.swift */,
 				B27FFC3E2A52A53B006D4C19 /* TestFriendsViewController.swift */,
 				D2B8D00970071364A04264BD /* FriendsPresenter.swift */,
 				C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */,
@@ -6953,7 +6950,6 @@
 				361EF58A2912D8C700D0DCCF /* ActivityDateItem.swift in Sources */,
 				845F38312486C51B006A7F36 /* WalletUpdateEvent.swift in Sources */,
 				36356B5629194F4000CD3E9E /* PoolRepositoryFactory.swift in Sources */,
-				B25EF3182A558AF600E7A2C8 /* FriendsViewController.swift in Sources */,
 				3632D0F52A1F4ACF00C9B688 /* CIKeys.generated.swift in Sources */,
 				366A78362A3227AC00A6DDF9 /* SetupPasswordProtocol.swift in Sources */,
 				02A053012222A4E200CA290F /* AnnouncementData.swift in Sources */,
