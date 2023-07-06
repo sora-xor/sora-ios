@@ -210,24 +210,11 @@ private extension FriendsViewController {
     }
 
     func configureNew() {
-//        titleLabel.font = UIFont.styled(for: .title4)
-//        titleLabel.textColor = R.color.neumorphism.textDark()
-//
-//        descriptionLabel.font = UIFont.styled(for: .paragraph1)
-//        descriptionLabel.textColor = R.color.neumorphism.textDark()
-//
-//        enterLinkButton.setTitleColor(R.color.neumorphism.text(), for: .normal)
         setupTableView()
     }
 
     func setupLocalization() {
         title = R.string.localizable.referralToolbarTitle(preferredLanguages: localizationManager?.preferredLocalizations)
-
-//        titleLabel.text = R.string.localizable.referralTitle(preferredLanguages: languages)
-//        descriptionLabel.text = R.string.localizable.referralSubtitle(preferredLanguages: languages)
-
-//        startInvitingButton.buttonTitle = R.string.localizable.referralStartInviting(preferredLanguages: languages)
-//        enterLinkButton.buttonTitle = R.string.localizable.referralEnterLinkTitle(preferredLanguages: languages)
     }
 
     func setupTableView() {
