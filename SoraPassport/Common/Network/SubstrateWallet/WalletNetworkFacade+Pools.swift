@@ -133,7 +133,8 @@ extension WalletNetworkFacade {
             targetAssetPooledTotal: targetAssetPooledTotalDecimal,
             totalIssuances: Decimal.fromSubstrateAmount(totalIssuances.value, precision: 18) ?? 0.0,
             baseAssetReserves: Decimal.fromSubstrateAmount(reserves.reserves.value, precision: 18) ?? 0.0,
-            targetAssetReserves: Decimal.fromSubstrateAmount(reserves.fees.value, precision: 18) ?? 0.0
+            targetAssetReserves: Decimal.fromSubstrateAmount(reserves.fees.value, precision: 18) ?? 0.0,
+            accountPoolBalance: accountPoolBalanceDecimal
         )
     }
 }
