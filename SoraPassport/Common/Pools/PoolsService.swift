@@ -179,7 +179,8 @@ extension PoolsService: PoolsServiceInputProtocol {
                         targetAssetPooledTotal: poolDetails.targetAssetPooledTotal,
                         totalIssuances: poolDetails.totalIssuances,
                         baseAssetReserves: poolDetails.baseAssetReserves,
-                        targetAssetReserves: poolDetails.targetAssetReserves)
+                        targetAssetReserves: poolDetails.targetAssetReserves,
+                        accountPoolBalance: poolDetails.accountPoolBalance)
     }
 
     func subscribePoolsReserves(_ poolsDetails: [PoolInfo]) {
@@ -251,7 +252,8 @@ extension PoolsService: PoolsServiceInputProtocol {
                                 targetAssetPooledTotal: poolDetail.targetAssetPooledTotal,
                                 totalIssuances: poolDetail.totalIssuances,
                                 baseAssetReserves: poolDetail.baseAssetReserves,
-                                targetAssetReserves: poolDetail.targetAssetReserves)
+                                targetAssetReserves: poolDetail.targetAssetReserves,
+                                accountPoolBalance: poolDetail.accountPoolBalance)
             }.sorted { $0.isFavorite && !$1.isFavorite }
             
             if self.currentOrder.isEmpty {

@@ -74,6 +74,7 @@ struct PoolDetails: Equatable {
     let totalIssuances: Decimal
     let baseAssetReserves: Decimal
     let targetAssetReserves: Decimal
+    let accountPoolBalance: Decimal
 }
 
 struct OrmlAccountData: ScaleDecodable {

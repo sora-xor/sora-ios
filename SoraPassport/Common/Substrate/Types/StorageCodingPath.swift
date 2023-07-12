@@ -57,4 +57,8 @@ extension StorageCodingPath {
     static var xstPoolFee: StorageCodingPath {
         StorageCodingPath(moduleName: "xstPool", itemName: "baseFee")
     }
+    
+    static var demeterFarming: StorageCodingPath {
+        StorageCodingPath(moduleName: "DemeterFarmingPlatform", itemName: "UserInfos")
+    }
 }

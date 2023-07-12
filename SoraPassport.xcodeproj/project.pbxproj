@@ -200,6 +200,11 @@
 		36069F0C2A2BA3CA00439ADE /* WarningCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36069F0A2A2BA3CA00439ADE /* WarningCell.swift */; };
 		36069F0D2A2BA3CA00439ADE /* WarningItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36069F0B2A2BA3CA00439ADE /* WarningItem.swift */; };
 		3608328A28F8820800E57418 /* ProductListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3608328928F8820800E57418 /* ProductListViewController.swift */; };
+		360FF4192A557BD500D94BA9 /* StakedCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF4172A557BD500D94BA9 /* StakedCell.swift */; };
+		360FF41A2A557BD500D94BA9 /* StakedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF4182A557BD500D94BA9 /* StakedItem.swift */; };
+		360FF41C2A557F6400D94BA9 /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF41B2A557F6400D94BA9 /* ProgressView.swift */; };
+		360FF41F2A568E4800D94BA9 /* DemeterFarmingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF41E2A568E4800D94BA9 /* DemeterFarmingService.swift */; };
+		360FF4212A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF4202A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift */; };
 		3611062B29784A23003A6352 /* SetupAccountNameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3611062929784A1F003A6352 /* SetupAccountNameViewController.swift */; };
 		3611062C29784A23003A6352 /* SetupAccountNameViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3611062A29784A22003A6352 /* SetupAccountNameViewFactory.swift */; };
 		361106312978A4A7003A6352 /* ConfirmPassphraseViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3611062E2978A4A6003A6352 /* ConfirmPassphraseViewModel.swift */; };
@@ -494,6 +499,8 @@
 		36C370EE2823E0370027BA77 /* ReferrerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370ED2823E0370027BA77 /* ReferrerCell.swift */; };
 		36C370F128250E6D0027BA77 /* SubqueryReferrerRewardsOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370F028250E6D0027BA77 /* SubqueryReferrerRewardsOperationFactory.swift */; };
 		36C370F3282531980027BA77 /* SubqueryReferrerRewards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370F2282531980027BA77 /* SubqueryReferrerRewards.swift */; };
+		36C66EAC2A5D6E7700ADAD5E /* StakedPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C66EAB2A5D6E7700ADAD5E /* StakedPool.swift */; };
+		36C66EAE2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */; };
 		36C88A262A32EAA800B3CF39 /* AccountOptionSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88A252A32EAA800B3CF39 /* AccountOptionSeparator.swift */; };
 		36C88DF8281A7CCC0038B7F9 /* InputLinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88DF7281A7CCC0038B7F9 /* InputLinkView.swift */; };
 		36C88DFA281AA1C80038B7F9 /* RoundTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88DF9281AA1C80038B7F9 /* RoundTextField.swift */; };
@@ -610,7 +617,6 @@
 		5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */; };
 		5E691DCE2A4D9B5B00D10E86 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3632D0F42A1F4ACF00C9B688 /* CIKeys.generated.swift */; };
 		5E7DCAA028D880B500C37182 /* Decima+Substrate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */; };
-		5E8680DFE33BE862A1F1D620 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5987C65CEC59DAEE585F0E85 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */; };
 		5E9774EE2A31AE040047BCA2 /* AccountExportPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E22A31AE030047BCA2 /* AccountExportPresenter.swift */; };
 		5E9774EF2A31AE040047BCA2 /* AccountExportViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E32A31AE030047BCA2 /* AccountExportViewFactory.swift */; };
 		5E9774F02A31AE040047BCA2 /* AccountExportProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E42A31AE030047BCA2 /* AccountExportProtocols.swift */; };
@@ -1413,7 +1419,6 @@
 		02E319A421D39FE700B33B66 /* TextSharingSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSharingSource.swift; sourceTree = "<group>"; };
 		02E319A721D3C07E00B33B66 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		02E319B021D4BAFA00B33B66 /* R.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = R.generated.swift; sourceTree = SOURCE_ROOT; };
-		050E58209759303BC97A3601 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
 		05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractorTests.swift; sourceTree = "<group>"; };
 		09C531F503784BEC9245689B /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
 		0BC14252909B919A70DA9DB9 /* MainTabBarPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarPresenter.swift; sourceTree = "<group>"; };
@@ -1478,6 +1483,11 @@
 		36069F0A2A2BA3CA00439ADE /* WarningCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WarningCell.swift; sourceTree = "<group>"; };
 		36069F0B2A2BA3CA00439ADE /* WarningItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WarningItem.swift; sourceTree = "<group>"; };
 		3608328928F8820800E57418 /* ProductListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductListViewController.swift; sourceTree = "<group>"; };
+		360FF4172A557BD500D94BA9 /* StakedCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StakedCell.swift; sourceTree = "<group>"; };
+		360FF4182A557BD500D94BA9 /* StakedItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StakedItem.swift; sourceTree = "<group>"; };
+		360FF41B2A557F6400D94BA9 /* ProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressView.swift; sourceTree = "<group>"; };
+		360FF41E2A568E4800D94BA9 /* DemeterFarmingService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DemeterFarmingService.swift; sourceTree = "<group>"; };
+		360FF4202A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemeterFarmingOperationFactory.swift; sourceTree = "<group>"; };
 		3611062929784A1F003A6352 /* SetupAccountNameViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SetupAccountNameViewController.swift; sourceTree = "<group>"; };
 		3611062A29784A22003A6352 /* SetupAccountNameViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SetupAccountNameViewFactory.swift; sourceTree = "<group>"; };
 		3611062E2978A4A6003A6352 /* ConfirmPassphraseViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfirmPassphraseViewModel.swift; sourceTree = "<group>"; };
@@ -1793,6 +1803,8 @@
 		36C370ED2823E0370027BA77 /* ReferrerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerCell.swift; sourceTree = "<group>"; };
 		36C370F028250E6D0027BA77 /* SubqueryReferrerRewardsOperationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubqueryReferrerRewardsOperationFactory.swift; sourceTree = "<group>"; };
 		36C370F2282531980027BA77 /* SubqueryReferrerRewards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubqueryReferrerRewards.swift; sourceTree = "<group>"; };
+		36C66EAB2A5D6E7700ADAD5E /* StakedPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StakedPool.swift; sourceTree = "<group>"; };
+		36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailsItemFactory.swift; sourceTree = "<group>"; };
 		36C88A252A32EAA800B3CF39 /* AccountOptionSeparator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountOptionSeparator.swift; sourceTree = "<group>"; };
 		36C88DF7281A7CCC0038B7F9 /* InputLinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputLinkView.swift; sourceTree = "<group>"; };
 		36C88DF9281AA1C80038B7F9 /* RoundTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundTextField.swift; sourceTree = "<group>"; };
@@ -2999,6 +3011,7 @@
 		02623EF92179D0B50011250E /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				360FF41D2A568E2400D94BA9 /* DemeterFarming */,
 				368E73202A4484F7001B7BAF /* Warning */,
 				84E8DEB0225CCDBD00640754 /* WalletContext */,
 				36E0BB8B29F5288F000510D9 /* LoadImage */,
@@ -3639,6 +3652,25 @@
 			path = ManageProduct;
 			sourceTree = "<group>";
 		};
+		360FF4162A557BA100D94BA9 /* Staked */ = {
+			isa = PBXGroup;
+			children = (
+				360FF4172A557BD500D94BA9 /* StakedCell.swift */,
+				360FF4182A557BD500D94BA9 /* StakedItem.swift */,
+			);
+			path = Staked;
+			sourceTree = "<group>";
+		};
+		360FF41D2A568E2400D94BA9 /* DemeterFarming */ = {
+			isa = PBXGroup;
+			children = (
+				360FF41E2A568E4800D94BA9 /* DemeterFarmingService.swift */,
+				360FF4202A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift */,
+				36C66EAB2A5D6E7700ADAD5E /* StakedPool.swift */,
+			);
+			path = DemeterFarming;
+			sourceTree = "<group>";
+		};
 		3611062829784971003A6352 /* SetupAccountName */ = {
 			isa = PBXGroup;
 			children = (
@@ -3729,11 +3761,13 @@
 		36165516291D76BE00060A8D /* PoolDetails */ = {
 			isa = PBXGroup;
 			children = (
+				360FF4162A557BA100D94BA9 /* Staked */,
 				3616552B291D927700060A8D /* DetailsView */,
 				3616551D291D7F4100060A8D /* PoolDetailsViewController.swift */,
 				3616552F291DAB9800060A8D /* PoolDetailsViewFactory.swift */,
 				3616551E291D7F4100060A8D /* PoolDetailsViewModel.swift */,
 				3616551F291D7F4100060A8D /* PoolDetailsWireframe.swift */,
+				36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */,
 			);
 			path = PoolDetails;
 			sourceTree = "<group>";
@@ -3743,6 +3777,7 @@
 			children = (
 				36165529291D8D1500060A8D /* DetailViewModel.swift */,
 				3616552D291D92FE00060A8D /* DetailView.swift */,
+				360FF41B2A557F6400D94BA9 /* ProgressView.swift */,
 			);
 			path = DetailsView;
 			sourceTree = "<group>";
@@ -5109,17 +5144,6 @@
 			path = SecurityLayer;
 			sourceTree = "<group>";
 		};
-		84678464B2C73DB283A391AA /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				E45ED4AD84CBADD8EB6B26A8 /* Pods_SoraPassportAll_SoraPassport.framework */,
-				5987C65CEC59DAEE585F0E85 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
-				E5C414E4AEC75D96EAF819E5 /* Pods_SoraPassportTests.framework */,
-				FF4FD36C64C768F19B148841 /* Pods_SoraPassportUITests.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		847A17B423795814003BA71A /* InputFieldViewController */ = {
 			isa = PBXGroup;
 			children = (
@@ -6129,7 +6153,7 @@
 				84324BC72411446000CA339A /* Sources */,
 				84324BC82411446000CA339A /* Frameworks */,
 				84324BC92411446000CA339A /* Resources */,
-				21E64EDAFF33AA76C0D696EC /* [CP] Embed Pods Frameworks */,
+				FCB1F87DD230172BC8CE1EE4 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6417,126 +6441,6 @@
 			shellPath = /bin/sh;
 			shellScript = "# Name of the resource we're selectively copying\nGOOGLESERVICE_INFO_PLIST=GoogleService-Info.plist\n\n# Get references to a version of the GoogleService-Info.plist based on config\nGOOGLESERVICE_INFO_CONFIG=${PROJECT_DIR}/${TARGET_NAME}/Configs/${FIREBASE_CONFIG}\n\n# Make sure that plist exists\necho \"Looking for ${GOOGLESERVICE_INFO_CONFIG}\"\nif [ ! -f $GOOGLESERVICE_INFO_CONFIG ]\nthen\necho \"No ${FIREBASE_CONFIG} found. Please ensure it's in the proper directory.\"\nexit 1\nfi\n\n# Get a reference to the destination location for the GoogleService-Info.plist\nPLIST_DESTINATION=${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/${GOOGLESERVICE_INFO_PLIST}\necho \"Will copy ${GOOGLESERVICE_INFO_PLIST} to final destination: ${PLIST_DESTINATION}\"\n\n# Copy GoogleService-Info.plist\necho \"Using ${FIREBASE_CONFIG}\"\ncp \"${GOOGLESERVICE_INFO_CONFIG}\" \"${PLIST_DESTINATION}\"\n";
 		};
-		21E64EDAFF33AA76C0D696EC /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh",
-				"${BUILT_PRODUCTS_DIR}/Anchorage/Anchorage.framework",
-				"${BUILT_PRODUCTS_DIR}/AppAuth/AppAuth.framework",
-				"${BUILT_PRODUCTS_DIR}/BigInt/BigInt.framework",
-				"${BUILT_PRODUCTS_DIR}/CocoaLumberjack/CocoaLumberjack.framework",
-				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
-				"${BUILT_PRODUCTS_DIR}/FLEX/FLEX.framework",
-				"${BUILT_PRODUCTS_DIR}/FearlessUtils/FearlessUtils.framework",
-				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCore/FirebaseCore.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCoreExtension/FirebaseCoreExtension.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCoreInternal/FirebaseCoreInternal.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCrashlytics/FirebaseCrashlytics.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseInstallations/FirebaseInstallations.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseMessaging/FirebaseMessaging.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseSessions/FirebaseSessions.framework",
-				"${BUILT_PRODUCTS_DIR}/GTMAppAuth/GTMAppAuth.framework",
-				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleAPIClientForREST/GoogleAPIClientForREST.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleDataTransport/GoogleDataTransport.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleSignIn/GoogleSignIn.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleUtilities/GoogleUtilities.framework",
-				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
-				"${BUILT_PRODUCTS_DIR}/Kingfisher/Kingfisher.framework",
-				"${BUILT_PRODUCTS_DIR}/Nantes/Nantes.framework",
-				"${BUILT_PRODUCTS_DIR}/PromisesObjC/FBLPromises.framework",
-				"${BUILT_PRODUCTS_DIR}/PromisesSwift/Promises.framework",
-				"${BUILT_PRODUCTS_DIR}/R.swift.Library/Rswift.framework",
-				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
-				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
-				"${BUILT_PRODUCTS_DIR}/SCard/SCard.framework",
-				"${BUILT_PRODUCTS_DIR}/SVGKit/SVGKit.framework",
-				"${BUILT_PRODUCTS_DIR}/SnapKit/SnapKit.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUIKit/SoraUIKit.framework",
-				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
-				"${BUILT_PRODUCTS_DIR}/SwiftyBeaver/SwiftyBeaver.framework",
-				"${BUILT_PRODUCTS_DIR}/Then/Then.framework",
-				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
-				"${PODS_ROOT}/eIDRTC/WebRTC/WebRTC.framework",
-				"${BUILT_PRODUCTS_DIR}/lottie-ios/Lottie.framework",
-				"${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework",
-				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
-				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
-				"${BUILT_PRODUCTS_DIR}/xxHash-Swift/xxHash_Swift.framework",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/IdensicMobileSDK/IdensicMobileSDK.framework/IdensicMobileSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOAuthSDK/PayWingsOAuthSDK.framework/PayWingsOAuthSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOnboardingKYC/PayWingsOnboardingKYC.framework/PayWingsOnboardingKYC",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/VideoID/VideoID.framework/VideoID",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/XNetworking/XNetworking.framework/XNetworking",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Anchorage.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AppAuth.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BigInt.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CocoaLumberjack.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FLEX.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FearlessUtils.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreExtension.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreInternal.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCrashlytics.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseInstallations.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseMessaging.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseSessions.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMAppAuth.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMSessionFetcher.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleAPIClientForREST.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleDataTransport.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleSignIn.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleUtilities.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Kingfisher.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Nantes.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBLPromises.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Promises.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Rswift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SCard.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SVGKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SnapKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUIKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SwiftyBeaver.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Then.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/WebRTC.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Lottie.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/nanopb.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/xxHash_Swift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IdensicMobileSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOAuthSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOnboardingKYC.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/VideoID.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/XNetworking.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		364EA8442A094205001A0FD4 /* Inject Secrets */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -6818,6 +6722,126 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		FCB1F87DD230172BC8CE1EE4 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh",
+				"${BUILT_PRODUCTS_DIR}/Anchorage/Anchorage.framework",
+				"${BUILT_PRODUCTS_DIR}/AppAuth/AppAuth.framework",
+				"${BUILT_PRODUCTS_DIR}/BigInt/BigInt.framework",
+				"${BUILT_PRODUCTS_DIR}/CocoaLumberjack/CocoaLumberjack.framework",
+				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
+				"${BUILT_PRODUCTS_DIR}/FLEX/FLEX.framework",
+				"${BUILT_PRODUCTS_DIR}/FearlessUtils/FearlessUtils.framework",
+				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
+				"${BUILT_PRODUCTS_DIR}/FirebaseCore/FirebaseCore.framework",
+				"${BUILT_PRODUCTS_DIR}/FirebaseCoreExtension/FirebaseCoreExtension.framework",
+				"${BUILT_PRODUCTS_DIR}/FirebaseCoreInternal/FirebaseCoreInternal.framework",
+				"${BUILT_PRODUCTS_DIR}/FirebaseCrashlytics/FirebaseCrashlytics.framework",
+				"${BUILT_PRODUCTS_DIR}/FirebaseInstallations/FirebaseInstallations.framework",
+				"${BUILT_PRODUCTS_DIR}/FirebaseMessaging/FirebaseMessaging.framework",
+				"${BUILT_PRODUCTS_DIR}/FirebaseSessions/FirebaseSessions.framework",
+				"${BUILT_PRODUCTS_DIR}/GTMAppAuth/GTMAppAuth.framework",
+				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
+				"${BUILT_PRODUCTS_DIR}/GoogleAPIClientForREST/GoogleAPIClientForREST.framework",
+				"${BUILT_PRODUCTS_DIR}/GoogleDataTransport/GoogleDataTransport.framework",
+				"${BUILT_PRODUCTS_DIR}/GoogleSignIn/GoogleSignIn.framework",
+				"${BUILT_PRODUCTS_DIR}/GoogleUtilities/GoogleUtilities.framework",
+				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
+				"${BUILT_PRODUCTS_DIR}/Kingfisher/Kingfisher.framework",
+				"${BUILT_PRODUCTS_DIR}/Nantes/Nantes.framework",
+				"${BUILT_PRODUCTS_DIR}/PromisesObjC/FBLPromises.framework",
+				"${BUILT_PRODUCTS_DIR}/PromisesSwift/Promises.framework",
+				"${BUILT_PRODUCTS_DIR}/R.swift.Library/Rswift.framework",
+				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
+				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
+				"${BUILT_PRODUCTS_DIR}/SCard/SCard.framework",
+				"${BUILT_PRODUCTS_DIR}/SVGKit/SVGKit.framework",
+				"${BUILT_PRODUCTS_DIR}/SnapKit/SnapKit.framework",
+				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
+				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
+				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
+				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
+				"${BUILT_PRODUCTS_DIR}/SoraUIKit/SoraUIKit.framework",
+				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
+				"${BUILT_PRODUCTS_DIR}/SwiftyBeaver/SwiftyBeaver.framework",
+				"${BUILT_PRODUCTS_DIR}/Then/Then.framework",
+				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
+				"${PODS_ROOT}/eIDRTC/WebRTC/WebRTC.framework",
+				"${BUILT_PRODUCTS_DIR}/lottie-ios/Lottie.framework",
+				"${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework",
+				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
+				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
+				"${BUILT_PRODUCTS_DIR}/xxHash-Swift/xxHash_Swift.framework",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/IdensicMobileSDK/IdensicMobileSDK.framework/IdensicMobileSDK",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOAuthSDK/PayWingsOAuthSDK.framework/PayWingsOAuthSDK",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOnboardingKYC/PayWingsOnboardingKYC.framework/PayWingsOnboardingKYC",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/VideoID/VideoID.framework/VideoID",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/XNetworking/XNetworking.framework/XNetworking",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Anchorage.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AppAuth.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BigInt.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CocoaLumberjack.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FLEX.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FearlessUtils.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCore.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreExtension.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreInternal.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCrashlytics.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseInstallations.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseMessaging.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseSessions.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMAppAuth.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMSessionFetcher.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleAPIClientForREST.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleDataTransport.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleSignIn.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleUtilities.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Kingfisher.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Nantes.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBLPromises.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Promises.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Rswift.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SCard.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SVGKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SnapKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUIKit.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SwiftyBeaver.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Then.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/WebRTC.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Lottie.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/nanopb.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/xxHash_Swift.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IdensicMobileSDK.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOAuthSDK.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOnboardingKYC.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/VideoID.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/XNetworking.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -7156,6 +7180,7 @@
 				36356B5F2919B23300CD3E9E /* PoolListCell.swift in Sources */,
 				84A90A152431D06D00F5CB76 /* WalletSearchDataError+TextConvertible.swift in Sources */,
 				9441F89625C957C400775559 /* WalletNetworkOperationFactory+Protocol.swift in Sources */,
+				360FF41C2A557F6400D94BA9 /* ProgressView.swift in Sources */,
 				3653BD1A2A02B60A003C71A4 /* ReceiveQRView.swift in Sources */,
 				364D61B829928D33004938FA /* AssetIdCell.swift in Sources */,
 				8BF42861293B98EA00590F92 /* MoreMenuProtocol.swift in Sources */,
@@ -7298,6 +7323,7 @@
 				9441FC0325CC089200775559 /* WalletStakingChanged.swift in Sources */,
 				366A78262A31FE3700A6DDF9 /* AccountImportedCell.swift in Sources */,
 				02E319A521D39FE700B33B66 /* TextSharingSource.swift in Sources */,
+				360FF4192A557BD500D94BA9 /* StakedCell.swift in Sources */,
 				364BB495292A4F5F00DE90A6 /* ActivityDetailViewModel.swift in Sources */,
 				9441FC2025D1536300775559 /* AddConfirmationWireframe.swift in Sources */,
 				36E5DB7828CC8CF000AB8E28 /* CustomNodeInteractor.swift in Sources */,
@@ -7314,6 +7340,7 @@
 				364BB493292A4F0900DE90A6 /* ActivityDetailsCell.swift in Sources */,
 				553069E0290A82CD00F265A3 /* AppSettingsFactory.swift in Sources */,
 				02920330219746E300D9BACD /* AlertPresentable.swift in Sources */,
+				36C66EAE2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift in Sources */,
 				36165510291D639000060A8D /* DiscoverViewModel.swift in Sources */,
 				36477A4729AF8BC8005EDAD4 /* ConfigService.swift in Sources */,
 				9441F93325C96CC300775559 /* ExportOption+ViewModel.swift in Sources */,
@@ -7373,6 +7400,7 @@
 				363BDAFF2938CCF6000F5608 /* HeaderActivityDetailsCell.swift in Sources */,
 				366A782B2A31FE3700A6DDF9 /* AccountImportedWireframe.swift in Sources */,
 				9441F8E925C9699400775559 /* LegalData.swift in Sources */,
+				360FF41A2A557BD500D94BA9 /* StakedItem.swift in Sources */,
 				361EF580291170CC00D0DCCF /* UIViewController+ChildViewController.swift in Sources */,
 				361EF59C2915533D00D0DCCF /* AssetDetailsWireframe.swift in Sources */,
 				3645269728C1286E00260340 /* NodesViewFactory.swift in Sources */,
@@ -7706,6 +7734,7 @@
 				36C370EE2823E0370027BA77 /* ReferrerCell.swift in Sources */,
 				3611062C29784A23003A6352 /* SetupAccountNameViewFactory.swift in Sources */,
 				36C370E42823B0890027BA77 /* AvailableInvitationsCell.swift in Sources */,
+				360FF4212A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift in Sources */,
 				366A782A2A31FE3700A6DDF9 /* AccountImportedViewFactory.swift in Sources */,
 				849C5690237C8A6500350CB0 /* InvitationAppliedEvent.swift in Sources */,
 				3692D69B2910719200B8B274 /* ActivityViewModel.swift in Sources */,
@@ -7713,6 +7742,7 @@
 				9441FA9F25CAC42F00775559 /* AccountImportJsonFactory.swift in Sources */,
 				84AA44A5249FD63900C09E0F /* SearchData+User.swift in Sources */,
 				94497DDA25EF89A700FD4F14 /* UnlockChunk.swift in Sources */,
+				36C66EAC2A5D6E7700ADAD5E /* StakedPool.swift in Sources */,
 				0253FCC322115BE100D3AD49 /* ReputationData.swift in Sources */,
 				84BBF81F2306A8FC007E8AA1 /* DispatchQueueHelper.swift in Sources */,
 				9441F92D25C96CC300775559 /* SNAddressType+ViewModel.swift in Sources */,
@@ -7839,6 +7869,7 @@
 				367C55A328FCA631008FC55F /* AssetViewModelFactory.swift in Sources */,
 				361EF59A2915513400D0DCCF /* AssetDetailsViewFactory.swift in Sources */,
 				364BB47A292A445F00DE90A6 /* SoraTextCell.swift in Sources */,
+				360FF41F2A568E4800D94BA9 /* DemeterFarmingService.swift in Sources */,
 				5599B6E129264C6C00567396 /* ProfileLoginModel.swift in Sources */,
 				9481B47B286EFC4600A472E2 /* RuntimeSnapshot.swift in Sources */,
 				36C3708628228F450027BA77 /* ButtonCell.swift in Sources */,

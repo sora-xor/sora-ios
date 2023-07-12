@@ -66,6 +66,15 @@ final class DetailView: SoramitsuControl {
         return label
     }()
     
+    let progressView: ProgressView = {
+        let view = ProgressView()
+        view.sora.isHidden = true
+        view.sora.cornerRadius = .circle
+        view.setContentCompressionResistancePriority(.required, for: .horizontal)
+        view.heightAnchor.constraint(equalToConstant: 4).isActive = true
+        return view
+    }()
+    
     init() {
         super.init(frame: .zero)
         setup()
@@ -82,7 +91,7 @@ final class DetailView: SoramitsuControl {
         addSubviews(leftInfoStackView, rightInfoStackView)
         
         leftInfoStackView.addArrangedSubviews(titleLabel, infoButton)
-        rightInfoStackView.addArrangedSubviews(assetImageView, valueLabel, fiatValueLabel)
+        rightInfoStackView.addArrangedSubviews(progressView, assetImageView, valueLabel, fiatValueLabel)
     }
 
     private func setupLayout() {
