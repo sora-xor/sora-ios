@@ -6,22 +6,25 @@ import RobinHood
 final class PoolDetailsItem: NSObject {
 
     var title: String
-    let firstAssetImage: WalletImageViewModelProtocol?
-    let secondAssetImage: WalletImageViewModelProtocol?
-    let rewardAssetImage: WalletImageViewModelProtocol?
+    let firstAssetImage: String?
+    let secondAssetImage: String?
+    let rewardAssetImage: String?
     var detailsViewModel: [DetailViewModel] = []
+    var isRemoveLiquidityEnabled: Bool
     var handler: ((Liquidity.TransactionLiquidityType) -> Void)?
 
     init(title: String,
-         firstAssetImage: WalletImageViewModelProtocol?,
-         secondAssetImage: WalletImageViewModelProtocol?,
-         rewardAssetImage: WalletImageViewModelProtocol?,
-         detailsViewModel: [DetailViewModel]) {
+         firstAssetImage: String?,
+         secondAssetImage: String?,
+         rewardAssetImage: String?,
+         detailsViewModel: [DetailViewModel],
+         isRemoveLiquidityEnabled: Bool) {
         self.title = title
         self.firstAssetImage = firstAssetImage
         self.secondAssetImage = secondAssetImage
         self.rewardAssetImage = rewardAssetImage
         self.detailsViewModel = detailsViewModel
+        self.isRemoveLiquidityEnabled = isRemoveLiquidityEnabled
     }
 }
 

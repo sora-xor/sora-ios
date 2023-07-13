@@ -5,7 +5,6 @@ import RobinHood
 import SoraFoundation
 import XNetworking
 
-
 final class RemoveLiquidityViewModel {
     var detailsItem: PoolDetailsItem?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
@@ -107,11 +106,12 @@ final class RemoveLiquidityViewModel {
     
     var inputedFirstAmount: Decimal = 0 {
         didSet {
-            guard let poolInfo = poolInfo, let firstAssetPooled = poolInfo.baseAssetPooledByAccount else { return }
+            guard poolInfo != nil else { return }
+
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             
-            if firstAssetPooled <= inputedFirstAmount {
-                inputedFirstAmount = firstAssetPooled
+            if availableBaseAssetPooledByAccount <= inputedFirstAmount {
+                inputedFirstAmount = availableBaseAssetPooledByAccount
                 view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
             }
 
@@ -128,11 +128,12 @@ final class RemoveLiquidityViewModel {
     
     var inputedSecondAmount: Decimal = 0 {
         didSet {
-            guard let poolInfo = poolInfo, let secondAssetPooled = poolInfo.targetAssetPooledByAccount else { return }
+            guard poolInfo != nil else { return }
+
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
             
-            if secondAssetPooled  <= inputedFirstAmount {
-                inputedSecondAmount = secondAssetPooled
+            if availableTargetAssetPooledByAccount  <= inputedFirstAmount {
+                inputedSecondAmount = availableTargetAssetPooledByAccount
                 view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
             }
 
@@ -155,6 +156,14 @@ final class RemoveLiquidityViewModel {
     }
     
     var focusedField: FocusedField = .one
+    
+    private var warningViewModel: WarningViewModel? {
+        didSet {
+            guard let warningViewModel else { return }
+            view?.updateWarinignView(model: warningViewModel)
+        }
+    }
+    
     private let feeProvider: FeeProviderProtocol
     private var fiatData: [FiatData] = [] {
         didSet {
@@ -168,6 +177,20 @@ final class RemoveLiquidityViewModel {
     private var isPairPresented: Bool = true
     
     private weak var assetsProvider: AssetProviderProtocol?
+    private let farmingService: DemeterFarmingServiceProtocol
+    private var stakedPools: [StakedPool] = []
+    private var warningViewModelFactory: WarningViewModelFactory
+    private var stackedPercentage: Decimal = .zero
+    
+    private var availableBaseAssetPooledByAccount: Decimal {
+        guard let poolInfo = poolInfo, let baseAssetPooledByAccount = poolInfo.baseAssetPooledByAccount else { return .zero }
+        return baseAssetPooledByAccount - baseAssetPooledByAccount * stackedPercentage
+    }
+    
+    private var availableTargetAssetPooledByAccount: Decimal {
+        guard let poolInfo = poolInfo, let targetAssetPooledByAccount = poolInfo.targetAssetPooledByAccount else { return .zero }
+        return targetAssetPooledByAccount - targetAssetPooledByAccount * stackedPercentage
+    }
     
     init(
         wireframe: LiquidityWireframeProtocol?,
@@ -179,7 +202,9 @@ final class RemoveLiquidityViewModel {
         detailsFactory: DetailViewModelFactoryProtocol,
         providerFactory: BalanceProviderFactory,
         operationFactory: WalletNetworkOperationFactoryProtocol,
-        assetsProvider: AssetProviderProtocol?
+        assetsProvider: AssetProviderProtocol?,
+        farmingService: DemeterFarmingServiceProtocol,
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
     ) {
         self.poolInfo = poolInfo
         self.apyService = apyService
@@ -192,22 +217,24 @@ final class RemoveLiquidityViewModel {
         self.feeProvider = FeeProvider()
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
+        self.farmingService = farmingService
+        self.warningViewModelFactory = warningViewModelFactory
     }
 }
 
 extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
     func didSelect(variant: Float) {
         if focusedField == .one {
-            guard let poolInfo = poolInfo, let firstAssetPooled = poolInfo.baseAssetPooledByAccount else { return }
-            let value = firstAssetPooled * (Decimal(string: "\(variant)") ?? 0)
+            guard poolInfo != nil else { return }
+            let value = availableBaseAssetPooledByAccount * (Decimal(string: "\(variant)") ?? 0)
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(firstAmountText: formatter.stringFromDecimal(value) ?? "")
             inputedFirstAmount = value
         }
         
         if focusedField == .two {
-            guard let poolInfo = poolInfo, let secondAssetPooled = poolInfo.targetAssetPooledByAccount else { return }
-            let value = secondAssetPooled * (Decimal(string: "\(variant)") ?? 0)
+            guard poolInfo != nil else { return }
+            let value = availableTargetAssetPooledByAccount * (Decimal(string: "\(variant)") ?? 0)
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
             view?.set(secondAmountText: formatter.stringFromDecimal(value) ?? "")
             inputedSecondAmount = value
@@ -425,8 +452,23 @@ extension RemoveLiquidityViewModel {
             group.leave()
         }
         
+        group.enter()
+        farmingService.getFarmedPools(baseAssetId: poolInfo?.baseAssetId, targetAssetId: poolInfo?.targetAssetId) { [weak self] pools in
+            self?.stakedPools = pools
+            group.leave()
+        }
+        
         group.notify(queue: .main) { [weak self] in
             guard let self = self, let poolInfo = self.poolInfo else { return }
+            
+            self.warningViewModel = self.warningViewModelFactory.poolShareStackedViewModel(isHidden: self.stakedPools.isEmpty)
+            
+            self.stackedPercentage = self.stakedPools.map {
+                let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
+                let pooledTokens = Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero
+                return accountPoolBalance > 0 ? (pooledTokens / accountPoolBalance) : 0
+            }.max() ?? .zero
+
             self.details = self.detailsFactory.createRemoveLiquidityViewModels(with: self.inputedFirstAmount,
                                                                                targetAssetAmount: self.inputedSecondAmount,
                                                                                pool: poolInfo,

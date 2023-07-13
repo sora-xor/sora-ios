@@ -5,6 +5,20 @@ struct WarningViewModel {
     let title: String
     let descriptionText: String
     var isHidden: Bool
+    let containterBackgroundColor: SoramitsuColor
+    let contentColor: SoramitsuColor
+    
+    init(title: String = "",
+         descriptionText: String,
+         isHidden: Bool,
+         containterBackgroundColor: SoramitsuColor,
+         contentColor: SoramitsuColor) {
+        self.title = title
+        self.descriptionText = descriptionText
+        self.isHidden = isHidden
+        self.containterBackgroundColor = containterBackgroundColor
+        self.contentColor = contentColor
+    }
 }
 
 final class WarningView: SoramitsuView {
@@ -12,8 +26,6 @@ final class WarningView: SoramitsuView {
     let containterView: SoramitsuView = {
         let view = SoramitsuView()
         view.sora.borderWidth = 1
-        view.sora.borderColor = .statusError
-        view.sora.backgroundColor = .statusErrorContainer
         view.sora.cornerRadius = .max
         return view
     }()
@@ -32,7 +44,7 @@ final class WarningView: SoramitsuView {
         label.numberOfLines = 1
         label.sora.alignment = .center
         label.sora.font = FontType.paragraphBoldS
-        label.sora.textColor = .statusError
+
         return label
     }()
     
@@ -53,13 +65,19 @@ final class WarningView: SoramitsuView {
     
     func setupView(with model: WarningViewModel) {
         titleLabel.sora.text = model.title
+        titleLabel.sora.textColor = model.contentColor
+        titleLabel.sora.isHidden = model.title.isEmpty
+        
         descriptionLabel.sora.text = model.descriptionText
+        descriptionLabel.sora.textColor = model.contentColor
+        
+        containterView.sora.borderColor = model.contentColor
+        containterView.sora.backgroundColor = model.containterBackgroundColor
         
         sora.isHidden = model.isHidden
     }
 
     private func setupSubviews() {
-
         addSubview(containterView)
         containterView.addSubviews(stackView)
         stackView.addArrangedSubviews(titleLabel, descriptionLabel)

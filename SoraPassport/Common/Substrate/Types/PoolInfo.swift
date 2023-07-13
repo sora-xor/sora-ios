@@ -28,6 +28,7 @@ struct PoolInfo: Codable {
     var totalIssuances: Decimal?
     var baseAssetReserves: Decimal?
     var targetAssetReserves: Decimal?
+    var accountPoolBalance: Decimal?
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -52,7 +53,8 @@ struct PoolInfo: Codable {
         targetAssetPooledTotal: Decimal? = nil,
         totalIssuances: Decimal? = nil,
         baseAssetReserves: Decimal? = nil,
-        targetAssetReserves: Decimal? = nil
+        targetAssetReserves: Decimal? = nil,
+        accountPoolBalance: Decimal? = nil
     ) {
         self.baseAssetId = baseAssetId
         self.targetAssetId = targetAssetId
@@ -67,6 +69,7 @@ struct PoolInfo: Codable {
         self.totalIssuances = totalIssuances
         self.baseAssetReserves = baseAssetReserves
         self.targetAssetReserves = targetAssetReserves
+        self.accountPoolBalance = accountPoolBalance
     }
     
     public func replacingVisible(_ newPoolInfo: PoolInfo) -> PoolInfo {

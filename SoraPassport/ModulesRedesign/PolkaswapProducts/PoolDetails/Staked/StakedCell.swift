@@ -1,8 +1,8 @@
 import SoraUIKit
 
-final class ConfirmDetailsCell: SoramitsuTableViewCell {
+final class StakedCell: SoramitsuTableViewCell {
     
-    private var poolDetailsItem: ConfirmDetailsItem?
+    private var stakedItem: StakedItem?
     
     private let stackView: SoramitsuStackView = {
         var view = SoramitsuStackView()
@@ -17,6 +17,23 @@ final class ConfirmDetailsCell: SoramitsuTableViewCell {
         return view
     }()
 
+    public let titleLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.headline2
+        label.sora.textColor = .fgPrimary
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return label
+    }()
+    
+    public let subtitleLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.textBoldXS
+        label.sora.textColor = .fgTertiary
+        label.sora.text = R.string.localizable.polkaswapFarmingDemeterPower(preferredLanguages: .currentLocale)
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return label
+    }()
+
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupView()
@@ -28,6 +45,9 @@ final class ConfirmDetailsCell: SoramitsuTableViewCell {
 
     private func setupView() {
         contentView.addSubview(stackView)
+        
+        stackView.addArrangedSubviews(titleLabel, subtitleLabel)
+        stackView.setCustomSpacing(24, after: subtitleLabel)
     }
 
     private func setupConstraints() {
@@ -35,34 +55,47 @@ final class ConfirmDetailsCell: SoramitsuTableViewCell {
             stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             stackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             stackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            stackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            stackView.topAnchor.constraint(equalTo: contentView.topAnchor),
         ])
     }
 }
 
-extension ConfirmDetailsCell: SoramitsuTableViewCellProtocol {
+extension StakedCell: SoramitsuTableViewCellProtocol {
     func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
-        guard let item = item as? ConfirmDetailsItem else {
+        guard let item = item as? StakedItem else {
             assertionFailure("Incorect type of item")
             return
         }
+        stakedItem = item
+        
+        titleLabel.sora.text = item.title
 
-        stackView.arrangedSubviews.forEach { subview in
+        stackView.arrangedSubviews.filter { $0 is DetailView || $0 is SoramitsuView }.forEach { subview in
             stackView.removeArrangedSubview(subview)
             subview.removeFromSuperview()
         }
         
-        let detailsViews = item.detailViewModels.map { detailModel -> DetailView in
+        let detailsViews = item.detailsViewModel.map { detailModel -> DetailView in
             let view = DetailView()
 
             view.assetImageView.isHidden = detailModel.rewardAssetImage == nil
-            view.assetImageView.image = RemoteSerializer.shared.image(with: detailModel.rewardAssetImage ?? "")
+            
+            DispatchQueue.global(qos: .userInitiated).async {
+                let icon = RemoteSerializer.shared.image(with: detailModel.rewardAssetImage ?? "")
+                DispatchQueue.main.async {
+                    view.assetImageView.image = icon
+                }
+            }
 
             view.titleLabel.sora.text = detailModel.title
             view.valueLabel.sora.attributedText = detailModel.assetAmountText
             view.fiatValueLabel.sora.attributedText = detailModel.fiatAmountText
             view.fiatValueLabel.sora.isHidden = detailModel.fiatAmountText == nil
             view.infoButton.sora.isHidden = detailModel.infoHandler == nil
+            if case .progress(let progress) = detailModel.type {
+                view.progressView.sora.isHidden = false
+                view.progressView.set(progressPercentage: progress)
+            }
             view.infoButton.sora.addHandler(for: .touchUpInside) { [weak detailModel] in
                 detailModel?.infoHandler?()
             }

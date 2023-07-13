@@ -158,4 +158,11 @@ extension StorageKeyFactoryProtocol {
         try createStorageKey(moduleName: "XstPool",
                              storageName: "BaseFee")
     }
+    
+    func demeterFarmingUserInfo(identifier: Data) throws -> Data {
+        try createStorageKey(moduleName: "DemeterFarmingPlatform",
+                             storageName: "UserInfos",
+                             key: identifier,
+                             hasher: .blake128Concat)
+    }
  }

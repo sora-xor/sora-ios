@@ -45,6 +45,16 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
         }
         return button
     }()
+    
+    public let limitationLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.paragraphBoldXS
+        label.sora.textColor = .fgSecondary
+        label.sora.text = R.string.localizable.polkaswapFarmingUnstakeToRemove(preferredLanguages: .currentLocale)
+        label.sora.alignment = .center
+        label.sora.numberOfLines = 0
+        return label
+    }()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -65,9 +75,9 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            stackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             stackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             stackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            stackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
     }
 }
@@ -80,30 +90,53 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
         }
         poolDetailsItem = item
         
+        removeLiquidity.sora.isEnabled = item.isRemoveLiquidityEnabled
+        
+        let titleColor: SoramitsuColor = item.isRemoveLiquidityEnabled ? .additionalPolkaswap : .fgTertiary
+        removeLiquidity.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonRemove(preferredLanguages: .currentLocale),
+                                                                fontData: FontType.buttonM ,
+                                                                textColor: titleColor,
+                                                                alignment: .center)
+        removeLiquidity.sora.backgroundColor = item.isRemoveLiquidityEnabled ? .additionalPolkaswapContainer : .bgSurfaceVariant
+
         headerView.titleLabel.sora.text = item.title
-        item.firstAssetImage?.loadImage { [weak self] (icon, _) in
-            self?.headerView.firstCurrencyImageView.image = icon
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let icon = RemoteSerializer.shared.image(with: item.firstAssetImage ?? "")
+            DispatchQueue.main.async {
+                self.headerView.firstCurrencyImageView.image = icon
+            }
         }
         
-        item.secondAssetImage?.loadImage { [weak self] (icon, _) in
-            self?.headerView.secondCurrencyImageView.image = icon
+        DispatchQueue.global(qos: .userInitiated).async {
+            let icon = RemoteSerializer.shared.image(with: item.secondAssetImage ?? "")
+            DispatchQueue.main.async {
+                self.headerView.secondCurrencyImageView.image = icon
+            }
         }
-        
-        item.rewardAssetImage?.loadImage { [weak self] (icon, _) in
-            self?.headerView.rewardImageView.image = icon
+    
+        DispatchQueue.global(qos: .userInitiated).async {
+            let icon = RemoteSerializer.shared.image(with: item.rewardAssetImage ?? "")
+            DispatchQueue.main.async {
+                self.headerView.rewardImageView.image = icon
+            }
         }
 
-        stackView.arrangedSubviews.filter { $0 is DetailView || $0 is SoramitsuButton }.forEach { subview in
+        stackView.arrangedSubviews.filter { $0 is DetailView || $0 is SoramitsuButton || $0 is SoramitsuView }.forEach { subview in
             stackView.removeArrangedSubview(subview)
             subview.removeFromSuperview()
         }
+        stackView.removeArrangedSubview(limitationLabel)
         
         let detailsViews = item.detailsViewModel.map { detailModel -> DetailView in
             let view = DetailView()
 
             view.assetImageView.isHidden = detailModel.rewardAssetImage == nil
-            detailModel.rewardAssetImage?.loadImage { (icon, _) in
-                view.assetImageView.image = icon
+            DispatchQueue.global(qos: .userInitiated).async {
+                let icon = RemoteSerializer.shared.image(with: detailModel.rewardAssetImage ?? "")
+                DispatchQueue.main.async {
+                    view.assetImageView.image = icon
+                }
             }
 
             view.titleLabel.sora.text = detailModel.title
@@ -140,6 +173,10 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
 
         stackView.addArrangedSubviews(supplyLiquidity, removeLiquidity)
         stackView.setCustomSpacing(16, after: supplyLiquidity)
+        stackView.setCustomSpacing(16, after: removeLiquidity)
+        
+        stackView.addArrangedSubview(limitationLabel)
+        limitationLabel.sora.isHidden = item.isRemoveLiquidityEnabled
     }
 }
 

@@ -3,6 +3,7 @@ import SoraUIKit
 import CommonWallet
 import RobinHood
 import SoraFoundation
+import XNetworking
 
 protocol PoolDetailsViewModelProtocol: AnyObject {
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
@@ -10,6 +11,7 @@ protocol PoolDetailsViewModelProtocol: AnyObject {
     var dismiss: (() -> Void)? { get set }
     func viewDidLoad()
     func apyInfoButtonTapped()
+    func infoButtonTapped(with type: Liquidity.TransactionLiquidityType)
     func dismissed()
 }
 
@@ -36,6 +38,11 @@ final class PoolDetailsViewModel {
     let operationFactory: WalletNetworkOperationFactoryProtocol
     private var isDeletedPool = false
     private weak var assetsProvider: AssetProviderProtocol?
+    private let farmingService: DemeterFarmingServiceProtocol
+    private let itemFactory = PoolDetailsItemFactory()
+    private let group = DispatchGroup()
+    private var apy: SbApyInfo?
+    private var pools: [StakedPool] = []
     
     init(
         wireframe: PoolDetailsWireframeProtocol?,
@@ -46,7 +53,8 @@ final class PoolDetailsViewModel {
         detailsFactory: DetailViewModelFactoryProtocol,
         providerFactory: BalanceProviderFactory,
         operationFactory: WalletNetworkOperationFactoryProtocol,
-        assetsProvider: AssetProviderProtocol?
+        assetsProvider: AssetProviderProtocol?,
+        farmingService: DemeterFarmingServiceProtocol
     ) {
         self.poolInfo = poolInfo
         self.apyService = APYService.shared
@@ -58,6 +66,7 @@ final class PoolDetailsViewModel {
         self.providerFactory = providerFactory
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
+        self.farmingService = farmingService
         self.poolsService?.appendDelegate(delegate: self)
         self.poolsService?.subscribePoolsReserves([poolInfo])
     }
@@ -86,6 +95,19 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func dismissed() {
         dismissHandler?()
     }
+    
+    func infoButtonTapped(with type: Liquidity.TransactionLiquidityType) {
+        wireframe?.showLiquidity(on: view?.controller,
+                                 poolInfo: poolInfo,
+                                 type: type,
+                                 assetManager: assetManager,
+                                 poolsService: poolsService,
+                                 fiatService: fiatService,
+                                 providerFactory: providerFactory,
+                                 operationFactory: operationFactory,
+                                 assetsProvider: assetsProvider,
+                                 completionHandler: dissmissIfNeeded)
+    }
 }
 
 extension PoolDetailsViewModel: PoolsServiceOutput {
@@ -102,56 +124,43 @@ extension PoolDetailsViewModel: PoolsServiceOutput {
 
 extension PoolDetailsViewModel {
     func updateContent() {
+        group.enter()
         apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] apy in
+            self?.apy = apy
+            self?.group.leave()
+        }
+        
+        group.enter()
+        farmingService.getFarmedPools(baseAssetId: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] pools in
+            self?.pools = pools
+            self?.group.leave()
+        }
+
+        group.notify(queue: .main) { [weak self] in
             guard let self = self else { return }
+            var items: [SoramitsuTableViewItemProtocol] = []
             
-            let baseAsset = self.assetManager.assetInfo(for: self.poolInfo.baseAssetId)
-            let targetAsset = self.assetManager.assetInfo(for: self.poolInfo.targetAssetId)
-            let rewardAsset = self.assetManager.assetInfo(for: WalletAssetId.pswap.rawValue)
+            let poolDetailsItem = self.itemFactory.createAccountItem(with: self.assetManager,
+                                                                     poolInfo: self.poolInfo,
+                                                                     apy: self.apy,
+                                                                     detailsFactory: self.detailsFactory,
+                                                                     viewModel: self,
+                                                                     pools: self.pools)
+            items.append(poolDetailsItem)
+            items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
             
-            let baseAssetSymbol = baseAsset?.symbol.uppercased() ?? ""
-            let targetAssetSymbol = targetAsset?.symbol.uppercased() ?? ""
-            
-            var firstAssetImage: WalletImageViewModelProtocol?
-            if let iconString = baseAsset?.icon {
-                firstAssetImage = WalletSvgImageViewModel(svgString: iconString)
+            let stakedItems = self.pools.map {
+                self.itemFactory.stakedItem(with: self.assetManager, poolInfo: self.poolInfo, stakedPool: $0)
             }
             
-            var secondAssetImage: WalletImageViewModelProtocol?
-            if let iconString = targetAsset?.icon {
-                secondAssetImage = WalletSvgImageViewModel(svgString: iconString)
+            stakedItems.enumerated().forEach { (index, item) in
+                items.append(item)
+                if index != stakedItems.count - 1 {
+                    items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
+                }
             }
-            
-            var rewardAssetImage: WalletImageViewModelProtocol?
-            if let iconString = rewardAsset?.icon {
-                rewardAssetImage = WalletSvgImageViewModel(svgString: iconString)
-            }
-            
-            let poolText = R.string.localizable.polkaswapPoolTitle(preferredLanguages: .currentLocale)
-            
-            let title = "\(baseAssetSymbol)-\(targetAssetSymbol) \(poolText)"
-            
-            let detailsViewModels = self.detailsFactory.createPoolDetailViewModels(with: self.poolInfo, apy: apy, viewModel: self)
-            
-            let detailsItem = PoolDetailsItem(title: title,
-                                              firstAssetImage: firstAssetImage,
-                                              secondAssetImage: secondAssetImage,
-                                              rewardAssetImage: rewardAssetImage,
-                                              detailsViewModel: detailsViewModels)
-            detailsItem.handler = { [weak self] type in
-                guard let self = self else { return }
-                self.wireframe?.showLiquidity(on: self.view?.controller,
-                                              poolInfo: self.poolInfo,
-                                              type: type,
-                                              assetManager: self.assetManager,
-                                              poolsService: self.poolsService,
-                                              fiatService: self.fiatService,
-                                              providerFactory: self.providerFactory,
-                                              operationFactory: self.operationFactory,
-                                              assetsProvider: self.assetsProvider,
-                                              completionHandler: self.dissmissIfNeeded)
-            }
-            self.setupItems?([ detailsItem ])
+
+            self.setupItems?(items)
         }
     }
 }
