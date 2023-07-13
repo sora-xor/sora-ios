@@ -465,7 +465,6 @@
 		36ACC95A2863CC4700DA98EC /* ReferrerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC9592863CC4700DA98EC /* ReferrerView.swift */; };
 		36ACC95D28649A3400DA98EC /* KeyboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC95C28649A3400DA98EC /* KeyboardService.swift */; };
 		36ACC95F2864AF9000DA98EC /* ReferralViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC95E2864AF9000DA98EC /* ReferralViewFactory.swift */; };
-		36ACC9612867B6AB00DA98EC /* InputRewardAmountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC9602867B6AB00DA98EC /* InputRewardAmountView.swift */; };
 		36ACC9652869E60400DA98EC /* TextViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC9632869E60400DA98EC /* TextViewModel.swift */; };
 		36ACC9662869E60400DA98EC /* TextCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC9642869E60400DA98EC /* TextCell.swift */; };
 		36ACC968286A04DA00DA98EC /* InputRewardAmountType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC967286A04DA00DA98EC /* InputRewardAmountType.swift */; };
@@ -610,7 +609,6 @@
 		5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */; };
 		5E691DCE2A4D9B5B00D10E86 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3632D0F42A1F4ACF00C9B688 /* CIKeys.generated.swift */; };
 		5E7DCAA028D880B500C37182 /* Decima+Substrate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */; };
-		5E8680DFE33BE862A1F1D620 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5987C65CEC59DAEE585F0E85 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */; };
 		5E9774EE2A31AE040047BCA2 /* AccountExportPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E22A31AE030047BCA2 /* AccountExportPresenter.swift */; };
 		5E9774EF2A31AE040047BCA2 /* AccountExportViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E32A31AE030047BCA2 /* AccountExportViewFactory.swift */; };
 		5E9774F02A31AE040047BCA2 /* AccountExportProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E42A31AE030047BCA2 /* AccountExportProtocols.swift */; };
@@ -1205,9 +1203,15 @@
 		A849A67F47A83F55BFA8124E /* ProjectsInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */; };
 		A9A0F171348707CF04DAFE37 /* AccountOptionsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */; };
 		AD7EAB4CC39BA3CBD8892075 /* AccountOptionsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */; };
-		B27FFC3F2A52A53B006D4C19 /* TestFriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC3E2A52A53B006D4C19 /* TestFriendsViewController.swift */; };
+		B27FFC3F2A52A53B006D4C19 /* FriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */; };
 		B27FFC432A52A569006D4C19 /* FriendsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC412A52A568006D4C19 /* FriendsCell.swift */; };
 		B27FFC442A52A569006D4C19 /* FriendsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC422A52A568006D4C19 /* FriendsItem.swift */; };
+		B293C3522A57E6BB00FC7601 /* InputRewardAmountViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B293C3512A57E6BB00FC7601 /* InputRewardAmountViewController.swift */; };
+		B2A56EF42A5C08B500844A35 /* FeeCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EF32A5C08B500844A35 /* FeeCell.swift */; };
+		B2A56EF62A5C08CA00844A35 /* FeeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EF52A5C08CA00844A35 /* FeeViewModel.swift */; };
+		B2A56EF92A5E815200844A35 /* InvitationsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EF82A5E815200844A35 /* InvitationsCell.swift */; };
+		B2A56EFD2A5E955E00844A35 /* FeeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EFC2A5E955E00844A35 /* FeeView.swift */; };
+		B2A56EFF2A5EB51700844A35 /* InvitationsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EFE2A5EB51600844A35 /* InvitationsViewModel.swift */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
@@ -1413,7 +1417,6 @@
 		02E319A421D39FE700B33B66 /* TextSharingSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSharingSource.swift; sourceTree = "<group>"; };
 		02E319A721D3C07E00B33B66 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		02E319B021D4BAFA00B33B66 /* R.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = R.generated.swift; sourceTree = SOURCE_ROOT; };
-		050E58209759303BC97A3601 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
 		05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractorTests.swift; sourceTree = "<group>"; };
 		09C531F503784BEC9245689B /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
 		0BC14252909B919A70DA9DB9 /* MainTabBarPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarPresenter.swift; sourceTree = "<group>"; };
@@ -1763,7 +1766,6 @@
 		36ACC9592863CC4700DA98EC /* ReferrerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerView.swift; sourceTree = "<group>"; };
 		36ACC95C28649A3400DA98EC /* KeyboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardService.swift; sourceTree = "<group>"; };
 		36ACC95E2864AF9000DA98EC /* ReferralViewFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralViewFactory.swift; sourceTree = "<group>"; };
-		36ACC9602867B6AB00DA98EC /* InputRewardAmountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRewardAmountView.swift; sourceTree = "<group>"; };
 		36ACC9632869E60400DA98EC /* TextViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TextViewModel.swift; sourceTree = "<group>"; };
 		36ACC9642869E60400DA98EC /* TextCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TextCell.swift; sourceTree = "<group>"; };
 		36ACC967286A04DA00DA98EC /* InputRewardAmountType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRewardAmountType.swift; sourceTree = "<group>"; };
@@ -2543,9 +2545,15 @@
 		A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractor.swift; sourceTree = "<group>"; };
 		AA3C6B3BF9715A5DC0869D4A /* Pods-SoraPassportTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.debug.xcconfig"; sourceTree = "<group>"; };
 		AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutTests.swift; sourceTree = "<group>"; };
-		B27FFC3E2A52A53B006D4C19 /* TestFriendsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestFriendsViewController.swift; sourceTree = "<group>"; };
+		B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsViewController.swift; sourceTree = "<group>"; };
 		B27FFC412A52A568006D4C19 /* FriendsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsCell.swift; sourceTree = "<group>"; };
 		B27FFC422A52A568006D4C19 /* FriendsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsItem.swift; sourceTree = "<group>"; };
+		B293C3512A57E6BB00FC7601 /* InputRewardAmountViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRewardAmountViewController.swift; sourceTree = "<group>"; };
+		B2A56EF32A5C08B500844A35 /* FeeCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeCell.swift; sourceTree = "<group>"; };
+		B2A56EF52A5C08CA00844A35 /* FeeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeViewModel.swift; sourceTree = "<group>"; };
+		B2A56EF82A5E815200844A35 /* InvitationsCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationsCell.swift; sourceTree = "<group>"; };
+		B2A56EFC2A5E955E00844A35 /* FeeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeView.swift; sourceTree = "<group>"; };
+		B2A56EFE2A5EB51600844A35 /* InvitationsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationsViewModel.swift; sourceTree = "<group>"; };
 		B2DDE720DF41FF459734E384 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; sourceTree = "<group>"; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
 		B6596D0165F491397D1A9AEB /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -4524,6 +4532,7 @@
 			isa = PBXGroup;
 			children = (
 				36ACC9622869E51E00DA98EC /* Text */,
+				B2A56EF22A5C087D00844A35 /* Fee */,
 				36C370952822977E0027BA77 /* Space */,
 				36C37094282297710027BA77 /* Button */,
 				36C37093282297650027BA77 /* Amount */,
@@ -4614,11 +4623,12 @@
 		36C88E0028217F390038B7F9 /* InputRewardAmount */ = {
 			isa = PBXGroup;
 			children = (
+				B2A56EF72A5E811D00844A35 /* Invitations */,
 				36C37089282295B90027BA77 /* Cells */,
 				36C370DF282304460027BA77 /* InputRewardAmountPresenter.swift */,
-				36ACC9602867B6AB00DA98EC /* InputRewardAmountView.swift */,
 				36ACC967286A04DA00DA98EC /* InputRewardAmountType.swift */,
 				364AD3AC286A243D000DBDFB /* InputRewardAmountInteractor.swift */,
+				B293C3512A57E6BB00FC7601 /* InputRewardAmountViewController.swift */,
 			);
 			path = InputRewardAmount;
 			sourceTree = "<group>";
@@ -5107,17 +5117,6 @@
 				84530A4C223BF7D200AD7598 /* SecurityLayerService.swift */,
 			);
 			path = SecurityLayer;
-			sourceTree = "<group>";
-		};
-		84678464B2C73DB283A391AA /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				E45ED4AD84CBADD8EB6B26A8 /* Pods_SoraPassportAll_SoraPassport.framework */,
-				5987C65CEC59DAEE585F0E85 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
-				E5C414E4AEC75D96EAF819E5 /* Pods_SoraPassportTests.framework */,
-				FF4FD36C64C768F19B148841 /* Pods_SoraPassportUITests.framework */,
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		847A17B423795814003BA71A /* InputFieldViewController */ = {
@@ -5963,7 +5962,7 @@
 				103CCD1E25643E0D0028345D /* Views */,
 				81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */,
 				36ACC95E2864AF9000DA98EC /* ReferralViewFactory.swift */,
-				B27FFC3E2A52A53B006D4C19 /* TestFriendsViewController.swift */,
+				B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */,
 				D2B8D00970071364A04264BD /* FriendsPresenter.swift */,
 				C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */,
 				02D10B6F46781199B35B755C /* FriendsWireframe.swift */,
@@ -5996,6 +5995,25 @@
 				B27FFC422A52A568006D4C19 /* FriendsItem.swift */,
 			);
 			path = Friends;
+			sourceTree = "<group>";
+		};
+		B2A56EF22A5C087D00844A35 /* Fee */ = {
+			isa = PBXGroup;
+			children = (
+				B2A56EF32A5C08B500844A35 /* FeeCell.swift */,
+				B2A56EF52A5C08CA00844A35 /* FeeViewModel.swift */,
+			);
+			path = Fee;
+			sourceTree = "<group>";
+		};
+		B2A56EF72A5E811D00844A35 /* Invitations */ = {
+			isa = PBXGroup;
+			children = (
+				B2A56EF82A5E815200844A35 /* InvitationsCell.swift */,
+				B2A56EFC2A5E955E00844A35 /* FeeView.swift */,
+				B2A56EFE2A5EB51600844A35 /* InvitationsViewModel.swift */,
+			);
+			path = Invitations;
 			sourceTree = "<group>";
 		};
 		B8A4AE2318F935BBA3F481A0 /* ChangeAccount */ = {
@@ -6910,6 +6928,7 @@
 				9441F8EC25C9699400775559 /* ContactItem.swift in Sources */,
 				9481B4A628746FFB00A472E2 /* Logger+FearlessUtils.swift in Sources */,
 				94B3010426FDF41D00F239D7 /* PriceData.swift in Sources */,
+				B2A56EFD2A5E955E00844A35 /* FeeView.swift in Sources */,
 				02E319A221D2B16A00B33B66 /* DecentralizedDocumentRequestError+TextConvertible.swift in Sources */,
 				94497DDE25EF89A700FD4F14 /* ActiveEraInfo.swift in Sources */,
 				84E8DEAD225B6B1700640754 /* CacheFacade.swift in Sources */,
@@ -7046,6 +7065,7 @@
 				029879182181AE760085E605 /* DecentralizedDocumentCreateMock.swift in Sources */,
 				3661C9E22851FC4000660434 /* RewardFooterViewModel.swift in Sources */,
 				363DA8092A08E15700806A5B /* SendAssetView.swift in Sources */,
+				B293C3522A57E6BB00FC7601 /* InputRewardAmountViewController.swift in Sources */,
 				361106322978A4A7003A6352 /* ConfirmPassphraseWireframe.swift in Sources */,
 				3666CBCB29056E420098F4AC /* AssetDetailsViewModel.swift in Sources */,
 				94D4B66428C0B7DB007F98EB /* StorageMigrator+Sync.swift in Sources */,
@@ -7138,6 +7158,7 @@
 				36E5DB7C28CC8CF000AB8E28 /* CustomNodePresenter.swift in Sources */,
 				02D656DB2204D7CC00AAA66A /* ProjectsVotedFetchMock.swift in Sources */,
 				36E5DB8028CE81EB00AB8E28 /* CustomNodeOperationFactory.swift in Sources */,
+				B2A56EF42A5C08B500844A35 /* FeeCell.swift in Sources */,
 				36F94EDB291E545000E211FE /* LiquidityWireframe.swift in Sources */,
 				5E9774F02A31AE040047BCA2 /* AccountExportProtocols.swift in Sources */,
 				36C88A262A32EAA800B3CF39 /* AccountOptionSeparator.swift in Sources */,
@@ -7149,6 +7170,7 @@
 				02CFA4EB2189D370000E9483 /* ProjectsCustomerMock.swift in Sources */,
 				364BA325293FC0470099CB0D /* AccountCell.swift in Sources */,
 				9441F93F25C96D0600775559 /* SearchData+Contacts.swift in Sources */,
+				B2A56EF62A5C08CA00844A35 /* FeeViewModel.swift in Sources */,
 				02920358219AA6AB00D9BACD /* UserServiceData.swift in Sources */,
 				3694D457296EF7A10045A295 /* PoolListWireframe.swift in Sources */,
 				94497DA625EF891C00FD4F14 /* RuntimeCall+Known.swift in Sources */,
@@ -7217,6 +7239,7 @@
 				02920354219AA68800D9BACD /* UserData.swift in Sources */,
 				3213A3092237DAB4001BE041 /* VerificationCodeData.swift in Sources */,
 				02D7B65E2219B86A00171A91 /* ActivityOneOfEventData.swift in Sources */,
+				B2A56EFF2A5EB51700844A35 /* InvitationsViewModel.swift in Sources */,
 				94497D8825EE99A300FD4F14 /* SS58FactoryExtensions.swift in Sources */,
 				9441F9F925C9823800775559 /* JSONRPCInfo.swift in Sources */,
 				02BBD83821CB8E0B00C7A1E3 /* NotificationTokenExchangeMock.swift in Sources */,
@@ -7328,7 +7351,7 @@
 				36DB198629EDC5CB00B3E3BF /* AccountCreateViewFactory.swift in Sources */,
 				364BB47F292A469B00DE90A6 /* ConfirmDetailsCell.swift in Sources */,
 				94497EAF25EFDE5B00FD4F14 /* WeakWrapper.swift in Sources */,
-				B27FFC3F2A52A53B006D4C19 /* TestFriendsViewController.swift in Sources */,
+				B27FFC3F2A52A53B006D4C19 /* FriendsViewController.swift in Sources */,
 				024B002C2194704E00671679 /* MessageViewFactory.swift in Sources */,
 				949A952F2923E1EE00C63781 /* CardView.swift in Sources */,
 				94497DDD25EF89A700FD4F14 /* ConstantCodingPath.swift in Sources */,
@@ -7338,6 +7361,7 @@
 				944929A32908051B00897A56 /* ChangeAccountViewController.swift in Sources */,
 				36DB198B29EDC5CB00B3E3BF /* AccountCreationError.swift in Sources */,
 				843D543424FC4F52000E0DE1 /* ReferendumDetailsFetchMock.swift in Sources */,
+				B2A56EF92A5E815200844A35 /* InvitationsCell.swift in Sources */,
 				3611E7092979CDA400D2CF6F /* SetupPincodePresenter.swift in Sources */,
 				9441FC4125D1790B00775559 /* KeyboardAdoptable.swift in Sources */,
 				94497E1D25EF9E5E00FD4F14 /* MigrateCall.swift in Sources */,
@@ -7657,7 +7681,6 @@
 				3661C9F1286227B100660434 /* InputLinkPresenter.swift in Sources */,
 				DB806A2B9031562D790C9435 /* MainTabBarProtocol.swift in Sources */,
 				3635B7252936F99D00B2B728 /* ConfirmRemoveLiquidityViewModel.swift in Sources */,
-				36ACC9612867B6AB00DA98EC /* InputRewardAmountView.swift in Sources */,
 				366A78382A3227AC00A6DDF9 /* SetupPasswordViewController.swift in Sources */,
 				94497DD625EF89A700FD4F14 /* AccountId.swift in Sources */,
 				36ADDDAB28EC83D40080A41C /* WalletViewModel.swift in Sources */,

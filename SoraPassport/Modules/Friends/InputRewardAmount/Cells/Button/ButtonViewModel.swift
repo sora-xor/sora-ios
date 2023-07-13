@@ -1,24 +1,25 @@
 import UIKit
+import SoraUIKit
 
 protocol ButtonViewModelProtocol: AnyObject {
     var title: String { get }
     var isEnabled: Bool { get }
     var delegate: ButtonCellDelegate { get }
-    var titleColor: UIColor? { get }
-    var backgroundColor: UIColor? { get }
+    var titleColor: SoramitsuColor? { get }
+    var backgroundColor: SoramitsuColor? { get }
 }
 
 class ButtonViewModel: ButtonViewModelProtocol {
     var title: String
-    var titleColor: UIColor?
-    var backgroundColor: UIColor?
+    var titleColor: SoramitsuColor?
+    var backgroundColor: SoramitsuColor?
     var isEnabled: Bool
     var delegate: ButtonCellDelegate
 
     init(title: String,
          isEnabled: Bool = true,
-         titleColor: UIColor? = nil,
-         backgroundColor: UIColor? = R.color.neumorphism.tint(),
+         titleColor: SoramitsuColor? = .bgSurface ,
+         backgroundColor: SoramitsuColor? = .accentPrimary ,
          delegate: ButtonCellDelegate) {
         self.title = title
         self.isEnabled = isEnabled

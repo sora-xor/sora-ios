@@ -1,4 +1,5 @@
 import UIKit
+import SoraUIKit
 import Then
 import Anchorage
 
@@ -11,13 +12,13 @@ final class ButtonCell: UITableViewCell {
     private var delegate: ButtonCellDelegate?
 
     // MARK: - Outlets
-    private lazy var button: NeumorphismButton = {
-        NeumorphismButton().then {
-            $0.heightAnchor == 56
-            $0.tintColor = R.color.brandWhite()
-            $0.font = UIFont.styled(for: .button)
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.addTarget(self, action: #selector(buttonTapped), for: .touchUpInside)
+    private lazy var button: SoramitsuButton = {
+        SoramitsuButton().then {
+            $0.sora.backgroundColor = .additionalPolkaswap
+            $0.sora.cornerRadius = .circle
+            $0.sora.addHandler(for: .touchUpInside) { [weak self] in
+                self?.buttonTapped()
+            }
         }
     }()
 
@@ -32,7 +33,6 @@ final class ButtonCell: UITableViewCell {
         configure()
     }
 
-    @objc
     func buttonTapped() {
         delegate?.buttonTapped()
     }
@@ -41,14 +41,8 @@ final class ButtonCell: UITableViewCell {
 extension ButtonCell: Reusable {
     func bind(viewModel: CellViewModel) {
         guard let model = viewModel as? ButtonViewModelProtocol else { return }
-        button.setTitle(model.title, for: .normal)
-        button.isEnabled = model.isEnabled
-        button.color = model.backgroundColor ?? .white
-
-        if let color = model.titleColor {
-            button.setTitleColor(color, for: .normal)
-        }
-
+        button.sora.title = model.title
+        button.sora.isEnabled = model.isEnabled
         self.delegate = model.delegate
     }
 }

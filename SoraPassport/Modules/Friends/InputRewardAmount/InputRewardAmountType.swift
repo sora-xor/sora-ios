@@ -4,7 +4,7 @@ enum InputRewardAmountType: String {
 
     var screenTitle: String {
         switch self {
-        case .bond: return R.string.localizable.referralStartInviting(preferredLanguages: .currentLocale)
+        case .bond: return R.string.localizable.referralAddInvitationsTitle(preferredLanguages: .currentLocale)
         case .unbond: return R.string.localizable.referralUnbondButtonTitle(preferredLanguages: .currentLocale)
         }
     }

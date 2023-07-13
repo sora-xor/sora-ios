@@ -841,14 +841,14 @@
 "common.vietnamese" = "Vietnamese";
 "common.hindi" = "Hindi";
 "confirn.supply.liquidity.first.provider.warning" = "You are the first liquidity provider. The ratio of tokens you add will set the price of this pool.";
-"backup.password.title" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.title" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.\nMinimum password length is 6 characters.";
 "create.backup.password.title" = "Create backup password";
 "create.backup.set.password" = "Set password";
 "create.backup.password.warning.text" = "Je comprends que si j'oublie mon mot de passe, il n'y a aucun moyen de le récupérer";
 "create.backup.password.button.text" = "Définir un mot de passe pour la sauvegarde";
 "create.backup.password.is.secure" = "Mot de passe très fort";
 "create.backup.password.matched" = "Les mots de passe correspondent";
-"onboarding.description" = "SORA est un système de gouvernance sur la blockchain dans lequel les producteurs peuvent proposer de financer un project, et tous les détenteurs de token XOR peuvent décider des meilleurs biens et services à produire. Accepter XOR comme moyen d'échange permet de construire l'économie de SORA.";
+"onboarding.description" = "SORA est un système de gouvernance sur la blockchain dans lequel les producteurs peuvent proposer de financer un projet, et tous les détenteurs de token XOR peuvent décider des meilleurs biens et services à produire. Accepter XOR comme moyen d'échange permet de construire l'économie de SORA.";
 "select.account.import" = "Sélectionnez un compte à importer";
 "enter.password.title" = "Entrer le mot de passe";
 "enter.password.description" = "Entrez le mot de passe de la sauvegarde pour le compte que vous souhaitez importer";
@@ -881,3 +881,6 @@
 "common.google.backup.decryption.failed" = "Backup decryption failed. Please check password and try again";
 "polkaswap.farming.unstake.to.remove" = "To remove liquidity you need to unstake it first";
 "polkaswap.farming.pool.in.farming.hint" = "Some portion of your pool share is staked. To have access to it you have to unstake it first.";
+"explore.swap.tokens.on.sora" = "Swap tokens on SORA network";
+"common.currencies" = "Currencies";
+"explore.provide.and.earn" = "Provide liquidity and earn rewards";

@@ -881,3 +881,6 @@
 "common.google.backup.decryption.failed" = "Backup decryption failed. Please check password and try again";
 "polkaswap.farming.unstake.to.remove" = "To remove liquidity you need to unstake it first";
 "polkaswap.farming.pool.in.farming.hint" = "Some portion of your pool share is staked. To have access to it you have to unstake it first.";
+"explore.swap.tokens.on.sora" = "Swap tokens on SORA network";
+"common.currencies" = "Currencies";
+"explore.provide.and.earn" = "Provide liquidity and earn rewards";
