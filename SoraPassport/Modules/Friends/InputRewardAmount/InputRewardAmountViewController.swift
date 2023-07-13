@@ -63,7 +63,6 @@ final class InputRewardAmountViewController: SoramitsuViewController {
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         addCloseButton()
-        addBackButton()
     }
     
     private func setupHierarchy() {
