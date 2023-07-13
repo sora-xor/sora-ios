@@ -41,7 +41,7 @@ final class InputRewardAmountPresenter: InvitationsCellDelegate {
 extension InputRewardAmountPresenter: InputRewardAmountViewOutput {
     func willMove() {
         interactor.getBalance()
-        view?.setupTitle(with: type.screenTitle.uppercased())
+        view?.setupTitle(with: type.screenTitle)
     }
 }
 
