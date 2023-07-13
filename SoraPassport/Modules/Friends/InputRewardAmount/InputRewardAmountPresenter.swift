@@ -51,46 +51,15 @@ extension InputRewardAmountPresenter: InputRewardAmountViewDelegate {
 
 extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol {
     func received(_ balance: Decimal) {
-//        items.append(SpaceViewModel(height: 24, backgroundColor: .clear))
-//
-//        if type == .bond {
-//            items.append(TextViewModel(title: type.title,
-//                                       textColor: .fgPrimary ,
-//                                       font: FontType.headline2))
-//
-//            items.append(SpaceViewModel(height: 16, backgroundColor: .clear))
-//        }
-//
-//        items.append(TextViewModel(title: type.descriptionText(with: "\(fee) \(feeAsset.symbol)"),
-//                                   textColor: .fgPrimary ,
-//                                   font: FontType.paragraphM))
-//
-//        items.append(SpaceViewModel(height: 24, backgroundColor: .clear))
-
         let formatter = NumberFormatter.amount
         formatter.roundingMode = .floor
         formatter.maximumFractionDigits = Int(feeAsset.precision)
         formatter.decimalSeparator = "."
+        
         let balanceText = (formatter.stringFromDecimal(balance) ?? "") + " \(feeAsset.symbol)"
-
-//        items.append(AmountViewModel(currentBalance: balanceText,
-//                                     bondedAmount: type == .bond ? 0 : currentBondedAmount,
-//                                     fee: fee,
-//                                     delegate: self))
-//
-//        items.append(SpaceViewModel(height: 16, backgroundColor: .clear))
-
-//        let feeText = R.string.localizable.networkFee(preferredLanguages: .currentLocale)
         let feeAmount = "\(fee) \(feeAsset.symbol)"
-//        items.append(FeeViewModel(title: feeText,
-//                                  feeAmount: feeAmount))
-//
-//        items.append(SpaceViewModel(height: 24, backgroundColor: .clear))
-
         let actionButtonIsEnabled = type == .unbond ? fee <= balance : false
-//        items.append(ButtonViewModel(title: type.buttonTitle,
-//                                     isEnabled: actionButtonIsEnabled,
-//                                     delegate: self))
+
         
         items.append(InvitationsViewModel(title: type.title,
                                           description: type.descriptionText(with: feeAmount) ,
