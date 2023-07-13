@@ -2,13 +2,14 @@ import Foundation
 import UIKit
 import CommonWallet
 import BigInt
+import SoraUIKit
 
 protocol InputRewardAmountPresenterOutput: AnyObject {
     func updateReferral(balance: Decimal)
     func showAlert(withSuccess isSuccess: Bool)
 }
 
-final class InputRewardAmountPresenter {
+final class InputRewardAmountPresenter: InvitationsCellDelegate {
     weak var view: InputRewardAmountViewInput?
     weak var output: InputRewardAmountPresenterOutput?
     private var fee: Decimal
@@ -40,7 +41,7 @@ final class InputRewardAmountPresenter {
 extension InputRewardAmountPresenter: InputRewardAmountViewOutput {
     func willMove() {
         interactor.getBalance()
-        view?.setupTitle(with: type.screenTitle.uppercased())
+        view?.setupTitle(with: type.screenTitle)
     }
 }
 
@@ -50,48 +51,26 @@ extension InputRewardAmountPresenter: InputRewardAmountViewDelegate {
 
 extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol {
     func received(_ balance: Decimal) {
-        items.append(SpaceViewModel(height: 24, backgroundColor: .clear))
-
-        if type == .bond {
-            items.append(TextViewModel(title: type.title,
-                                       textColor: R.color.baseContentPrimary(),
-                                       font: UIFont.styled(for: .title4)))
-
-            items.append(SpaceViewModel(height: 16, backgroundColor: .clear))
-        }
-
-        items.append(TextViewModel(title: type.descriptionText(with: "\(fee) \(feeAsset.symbol)"),
-                                   textColor: R.color.baseContentPrimary(),
-                                   font: UIFont.styled(for: .paragraph1)))
-
-        items.append(SpaceViewModel(height: 24, backgroundColor: .clear))
-
         let formatter = NumberFormatter.amount
         formatter.roundingMode = .floor
         formatter.maximumFractionDigits = Int(feeAsset.precision)
         formatter.decimalSeparator = "."
+        
         let balanceText = (formatter.stringFromDecimal(balance) ?? "") + " \(feeAsset.symbol)"
-
-        items.append(AmountViewModel(currentBalance: balanceText,
-                                     bondedAmount: type == .bond ? 0 : currentBondedAmount,
-                                     fee: fee,
-                                     delegate: self))
-
-        items.append(SpaceViewModel(height: 24, backgroundColor: .clear))
-
-        let feeText = R.string.localizable.networkFee(preferredLanguages: .currentLocale) + ": \(fee) \(feeAsset.symbol)"
-        items.append(TextViewModel(title: feeText,
-                                   textColor: R.color.neumorphism.brown(),
-                                   font: UIFont.styled(for: .paragraph1),
-                                   textAligment: .center))
-
-        items.append(SpaceViewModel(height: 8, backgroundColor: .clear))
-
+        let feeAmount = "\(fee) \(feeAsset.symbol)"
         let actionButtonIsEnabled = type == .unbond ? fee <= balance : false
-        items.append(ButtonViewModel(title: type.buttonTitle,
-                                     isEnabled: actionButtonIsEnabled,
-                                     delegate: self))
 
+        
+        items.append(InvitationsViewModel(title: type.title,
+                                          description: type.descriptionText(with: feeAmount) ,
+                                          fee: fee,
+                                          feeSymbol: feeAsset.symbol,
+                                          balance: balanceText,
+                                          bondedAmount: type == .bond ? 0 : currentBondedAmount,
+                                          buttonTitle: type.buttonTitle,
+                                          isEnabled: actionButtonIsEnabled,
+                                          delegate: self))
+        
         DispatchQueue.main.async {
             self.view?.setup(with: self.items)
         }
@@ -120,10 +99,7 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
     func buttonTapped() {
         interactor.sendReferralBalanceRequest(with: type, decimalBalance: currentBondedAmount)
     }
-}
-
-extension InputRewardAmountPresenter: AmountCellDelegate {
-
+    
     func isMinusEnabled(_ currentInvitationCount: Decimal) -> Bool {
         currentInvitationCount > 0
     }

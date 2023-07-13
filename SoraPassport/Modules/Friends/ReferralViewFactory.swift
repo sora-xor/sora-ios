@@ -142,59 +142,9 @@ final class ReferralViewFactory: ReferralViewFactoryProtocol {
         presenter.output = delegate
         interactor.presenter = presenter
 
-        let view = InputRewardAmountView(frame: .zero)
-        view.presenter = presenter
-
-        let preferredTitleSize = CGSize(width: UIScreen.main.bounds.width - 24 * 2, height: .greatestFiniteMagnitude)
-        let screenTitleOffset: CGFloat = 20
-        let screenTitleHeight: CGFloat = 11
-        let titleTopOffset: CGFloat = 32
-        let titleHeight = type.title?.drawingSize(for: preferredTitleSize,
-                                                  font: UIFont.styled(for: .title4),
-                                                  options: .usesLineFragmentOrigin).height ?? CGFloat(0)
-        let descriptionTopOffset: CGFloat = 16
-
-        let feeText = type.descriptionText(with: "\(fee) \(feeAsset.symbol)")
-        let descriptionHeight: CGFloat = feeText.drawingSize(for: preferredTitleSize,
-                                                             font: UIFont.styled(for: .paragraph1),
-                                                             options: .usesLineFragmentOrigin).height
-        let amountTopOffet: CGFloat = 32
-        let amountHeight: CGFloat = 80
-        let feeTopOffset: CGFloat = 24
-        let feeHeigth: CGFloat = 24
-        let buttonTopOffset: CGFloat = 8
-        let buttonHeight: CGFloat = 56
-        let buttonBottomOffset: CGFloat = 0
-
-        var totalHeight: CGFloat = [ screenTitleOffset,
-                                     screenTitleHeight,
-                                     titleTopOffset,
-                                     descriptionHeight,
-                                     amountTopOffet,
-                                     amountHeight,
-                                     feeTopOffset,
-                                     feeHeigth,
-                                     buttonTopOffset,
-                                     buttonHeight,
-                                     buttonBottomOffset,
-                                     KeyboardService.keyboardHeight() ].reduce(CGFloat(0), +)
-
-        if type == .bond {
-            totalHeight += titleHeight
-            totalHeight += descriptionTopOffset
-        }
-
-        let viewController = UIViewController()
-        viewController.view = view
-        viewController.preferredContentSize = CGSize(width: 0.0, height: totalHeight)
-
+        let view = InputRewardAmountViewController(presenter: presenter)
         presenter.view = view
-        view.viewController = viewController
-
-        let factory = ModalSheetPresentationFactory(configuration: ModalSheetPresentationConfiguration.neu)
-        viewController.modalTransitioningFactory = factory
-        viewController.modalPresentationStyle = .custom
-
-        return viewController
+        
+        return view
     }
 }

@@ -1,123 +1,98 @@
 import UIKit
+import SoraUIKit
 import Anchorage
 
-final class AmountView: UIView {
+final class AmountView: SoramitsuView {
 
-    let plusButton: NeumorphismButton = {
-        NeumorphismButton().then {
-            $0.setImage(R.image.roundPlus(), for: .normal)
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    let plusButton: ImageButton = {
+        ImageButton(size: CGSize(width: 24, height: 24)).then {
+            $0.sora.image = R.image.roundPlus()
         }
     }()
 
-    let minusButton: NeumorphismButton = {
-        NeumorphismButton().then {
-            $0.setImage(R.image.roundMinus(), for: .normal)
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    let minusButton: ImageButton = {
+        ImageButton(size: CGSize(width: 24, height: 24)).then {
+            $0.sora.image = R.image.roundMinus()
         }
     }()
 
-    let textField: UITextField = {
-        UITextField().then {
-            $0.font = UIFont.styled(for: .title1)
-            $0.textColor = R.color.neumorphism.textDark()
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.placeholder = "0"
-            $0.tintColor = R.color.neumorphism.textDark()
+    let textField: SoramitsuTextField = {
+        SoramitsuTextField().then {
+            $0.sora.font = FontType.displayM
+            $0.sora.placeholder = "0"
+            $0.sora.tintColor = .custom(uiColor: .clear)
+            $0.sora.textColor = .fgPrimary
+            $0.sora.placeholderColor = .fgSecondary
+            $0.textAlignment = .center
             $0.keyboardType = .numberPad
         }
     }()
 
-    let underMinusLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .paragraph4)
-            $0.textColor = R.color.neumorphism.borderBase()
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.textAlignment = .left
+    let underMinusLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.font = FontType.textXS
+            $0.sora.textColor = .fgSecondary
+            $0.sora.alignment = .left
         }
     }()
 
-    let underPlusLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .paragraph4)
-            $0.textColor = R.color.neumorphism.borderBase()
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.textAlignment = .right
+    let underPlusLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.font = FontType.textXS
+            $0.sora.textColor = .fgSecondary
+            $0.sora.alignment = .right
         }
     }()
 
-    private lazy var gradient: CAGradientLayer = {
-        let gradient = CAGradientLayer()
-        gradient.type = .radial
-        gradient.colors = [
-            R.color.neumorphism.shadowLightGray()!.cgColor,
-            R.color.neumorphism.shadowSuperLightGray()!.cgColor
-        ]
-        gradient.cornerRadius = 24
-        gradient.startPoint = CGPoint(x: 0.5, y: 0.5)
-        gradient.locations = [ 0.5, 1 ]
-        return gradient
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    init() {
+        super.init(frame: .zero)
         configure()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-
-        let endX = 1 + bounds.size.height / bounds.size.width
-        gradient.endPoint = CGPoint(x: endX, y: 1)
-        gradient.frame = bounds
-    }
 }
 
 private extension AmountView {
     func configure() {
-        translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = R.color.neumorphism.buttonLightGrey()
-        layer.cornerRadius = 24
+        sora.backgroundColor = .bgSurface
+        sora.borderColor = .fgPrimary
+        sora.cornerRadius = .max
+        sora.borderWidth = 1.0
 
-        layer.addSublayer(gradient)
         addSubview(plusButton)
         addSubview(minusButton)
         addSubview(textField)
         addSubview(underPlusLabel)
         addSubview(underMinusLabel)
 
-        plusButton.do {
-            $0.trailingAnchor == trailingAnchor - 16
-            $0.heightAnchor == 24
-            $0.widthAnchor == 24
-            $0.topAnchor == topAnchor + 16
-        }
-
         minusButton.do {
-            $0.leadingAnchor == leadingAnchor + 16
-            $0.heightAnchor == 24
-            $0.widthAnchor == 24
             $0.topAnchor == topAnchor + 16
+            $0.leadingAnchor == leadingAnchor + 16
+        }
+        
+        plusButton.do {
+            $0.topAnchor == minusButton.topAnchor
+            $0.trailingAnchor == trailingAnchor - 16
         }
 
         textField.do {
             $0.centerXAnchor == centerXAnchor
             $0.centerYAnchor == plusButton.centerYAnchor
-            $0.heightAnchor == 24
+            $0.heightAnchor == 32
         }
 
         underMinusLabel.do {
-            $0.leadingAnchor == leadingAnchor + 24
-            $0.bottomAnchor == bottomAnchor - 16
+            $0.topAnchor == minusButton.bottomAnchor + 12
+            $0.leadingAnchor == leadingAnchor + 16
             $0.trailingAnchor == underPlusLabel.leadingAnchor - 10
+            $0.bottomAnchor == bottomAnchor - 16
         }
 
         underPlusLabel.do {
-            $0.trailingAnchor == trailingAnchor - 24
+            $0.topAnchor == plusButton.bottomAnchor + 12
+            $0.trailingAnchor == trailingAnchor - 16
             $0.bottomAnchor == bottomAnchor - 16
         }
     }

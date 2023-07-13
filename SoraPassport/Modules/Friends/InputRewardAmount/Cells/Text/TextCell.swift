@@ -1,13 +1,14 @@
 import UIKit
+import SoraUIKit
 import Then
 import Anchorage
 
 final class TextCell: UITableViewCell {
 
     // MARK: - Outlets
-    private var titleLabel: UILabel = {
-        UILabel().then {
-            $0.numberOfLines = 0
+    private var titleLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.numberOfLines = 0
         }
     }()
 
@@ -26,10 +27,10 @@ final class TextCell: UITableViewCell {
 extension TextCell: Reusable {
     func bind(viewModel: CellViewModel) {
         guard let viewModel = viewModel as? TextViewModel else { return }
-        titleLabel.text = viewModel.title
-        titleLabel.font = viewModel.font
-        titleLabel.textColor = viewModel.textColor
-        titleLabel.textAlignment = viewModel.textAligment
+        titleLabel.sora.text = viewModel.title
+        titleLabel.sora.font = viewModel.font ?? titleLabel.sora.font
+        titleLabel.sora.textColor = viewModel.textColor ?? titleLabel.sora.textColor
+        titleLabel.sora.alignment = viewModel.textAligment
     }
 }
 

@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import CommonWallet
+import SoraUIKit
 
 final class FriendsWireframe: FriendsWireframeProtocol {
 
@@ -25,11 +26,13 @@ final class FriendsWireframe: FriendsWireframeProtocol {
                                                                                    bondedAmount: bondedAmount,
                                                                                    type: type,
                                                                                    walletContext: walletContext,
-                                                                                   delegate: delegate) else {
+                                                                                   delegate: delegate),
+              let navigationController = controller.navigationController
+        else {
             return
         }
-
-        controller.present(viewController, animated: true, completion: nil)
+        
+        navigationController.pushViewController(viewController, animated: true)
     }
 
     func showReferrerScreen(from controller: UIViewController, referrer: String) {

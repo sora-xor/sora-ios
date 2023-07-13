@@ -203,7 +203,7 @@
     <key>referendum.date.second.plurals</key>
     <dict>
       <key>NSStringLocalizedFormatKey</key>
-      <string>%#@value@</string>
+      <string></string>
       <key>value</key>
       <dict>
         <key>NSStringFormatSpecTypeKey</key>

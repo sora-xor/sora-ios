@@ -18,13 +18,25 @@ extension UIViewController {
         case .right: navigationItem.rightBarButtonItem = closeButton
         case .left:  navigationItem.leftBarButtonItem = closeButton
         }
+    }
+    
+    func addBackButton() {
+        let backButton = UIBarButtonItem(image: R.image.wallet.backArrow(),
+                                     style: .plain,
+                                     target: self,
+                                     action: #selector(backward))
         
-
+        navigationItem.leftBarButtonItem = backButton
     }
     
     @objc
     func close() {
         dismiss(animated: true)
     }
-
+    
+    @objc
+    func backward() {
+        guard let navigationController = self.navigationController else { return }
+        navigationController.popViewController(animated: true)
+    }
 }

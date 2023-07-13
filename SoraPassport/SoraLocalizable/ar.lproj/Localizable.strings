@@ -841,7 +841,7 @@
 "common.vietnamese" = "Vietnamese";
 "common.hindi" = "Hindi";
 "confirn.supply.liquidity.first.provider.warning" = "You are the first liquidity provider. The ratio of tokens you add will set the price of this pool.";
-"backup.password.title" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.title" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.\nMinimum password length is 6 characters.";
 "create.backup.password.title" = "Create backup password";
 "create.backup.set.password" = "Set password";
 "create.backup.password.warning.text" = "I understand that if I forget my password there is no way to retrieve it.";
@@ -881,3 +881,6 @@
 "common.google.backup.decryption.failed" = "Backup decryption failed. Please check password and try again";
 "polkaswap.farming.unstake.to.remove" = "To remove liquidity you need to unstake it first";
 "polkaswap.farming.pool.in.farming.hint" = "Some portion of your pool share is staked. To have access to it you have to unstake it first.";
+"explore.swap.tokens.on.sora" = "Swap tokens on SORA network";
+"common.currencies" = "Currencies";
+"explore.provide.and.earn" = "Provide liquidity and earn rewards";

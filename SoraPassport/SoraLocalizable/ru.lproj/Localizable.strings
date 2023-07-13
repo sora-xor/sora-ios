@@ -830,8 +830,8 @@
 "commom.scan.qr" = "Scan QR code";
 "common.request" = "Request";
 "common.create.qr.request" = "Create QR-request";
-"common.title.warning" = "Warning!";
-"swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "Your %@ balance will be less than %@ after this transaction. You won’t be able to pay for the network fee for another transaction.";
+"common.title.warning" = "Предупреждение!";
+"swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "После этой транзакции ваш баланс %@ будет меньше, чем %@. Вы не сможете оплатить комиссию сети за другую транзакцию.";
 "node.offline" = "Нода недоступна";
 "switch.node" = "Переключить ноду";
 "node.connection.issue" = "Ваш аккаунт успешно создан. Но приложение не может подключиться к ноде по-умолчанию. Попробуйте подключиться к другой ноде.";
@@ -841,7 +841,7 @@
 "common.vietnamese" = "Вьетнамский";
 "common.hindi" = "Хинди";
 "confirn.supply.liquidity.first.provider.warning" = "You are the first liquidity provider. The ratio of tokens you add will set the price of this pool.";
-"backup.password.title" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.title" = "Установка пароля зашифрует резервную копию Google. Его нужно будет ввести при восстановлении кошелька.\nМинимальная длина пароля - 6 символов.";
 "create.backup.password.title" = "Create backup password";
 "create.backup.set.password" = "Set password";
 "create.backup.password.warning.text" = "I understand that if I forget my password there is no way to retrieve it.";
@@ -881,3 +881,6 @@
 "common.google.backup.decryption.failed" = "Ошибка расшифровки аккаунта. Проверьте пароль и попробуйте снова.";
 "polkaswap.farming.unstake.to.remove" = "Чтобы забрать ликвидность, необходимо сначала разблокировать ее";
 "polkaswap.farming.pool.in.farming.hint" = "Некоторая часть вашей доли в пуле находится в стейкинге. Чтобы получить к ней доступ, вы должны сначала разблокировать ее.";
+"explore.swap.tokens.on.sora" = "Меняйте токены в сети SORA";
+"common.currencies" = "Токены";
+"explore.provide.and.earn" = "Предоставляйте ликвидность и получайте вознаграждения";
