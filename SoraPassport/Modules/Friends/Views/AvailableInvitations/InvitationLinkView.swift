@@ -1,34 +1,42 @@
 import UIKit
 import Anchorage
 import SoraUI
+import SoraUIKit
 
 protocol InvitationLinkViewDelegate: AnyObject {
     func shareButtonTapped(with text: String)
 }
 
-final class InvitationLinkView: UIView {
+final class InvitationLinkView: SoramitsuView {
 
     weak var delegate: InvitationLinkViewDelegate?
 
-    private let shareButton: NeumorphismButton = {
-        NeumorphismButton().then {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.layer.cornerRadius = 20
-            $0.image = R.image.shareIcon()
-            $0.color = R.color.neumorphism.shareButtonGrey()!
-            $0.tintColor = .black
-            $0.topShadowColor = .clear
-            $0.addTarget(nil, action: #selector(buttonTapped), for: .touchUpInside)
+    private let shareButton: ImageButton = {
+        ImageButton(size: CGSize(width: 24, height: 24)).then {
+            $0.sora.image = R.image.shareIcon()
+            $0.sora.backgroundColor = .custom(uiColor: .clear)
+            $0.sora.addHandler(for: .touchUpInside) { [weak self] in
+                self?.buttonTapped()
+            }
+//            $0.translatesAutoresizingMaskIntoConstraints = false
+//            $0.layer.cornerRadius = 20
+//            $0.image = R.image.shareIcon()
+//            $0.color = R.color.neumorphism.shareButtonGrey()!
+//            $0.tintColor = .black
+//            $0.topShadowColor = .clear
+//            $0.addTarget(nil, action: #selector(buttonTapped), for: .touchUpInside)
         }
     }()
 
-    let titleLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .paragraph3)
-            $0.textColor = R.color.neumorphism.borderBase()
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.textAlignment = .right
-            $0.text = R.string.localizable.referralYourInvitationLinkTitle(preferredLanguages: .currentLocale)
+    let titleLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.text = R.string.localizable.referralYourInvitationLinkTitle(preferredLanguages: .currentLocale)
+//            $0.sora.textColor =
+//            $0.font = UIFont.styled(for: .paragraph3)
+//            $0.textColor = R.color.neumorphism.borderBase()
+//            $0.translatesAutoresizingMaskIntoConstraints = false
+//            $0.textAlignment = .right
+//            $0.text = R.string.localizable.referralYourInvitationLinkTitle(preferredLanguages: .currentLocale)
         }
     }()
 
@@ -72,7 +80,6 @@ final class InvitationLinkView: UIView {
         gradient.frame = bounds
     }
 
-    @objc
     func buttonTapped() {
         delegate?.shareButtonTapped(with: linkLabel.text ?? "")
         UIPasteboard.general.string = linkLabel.text

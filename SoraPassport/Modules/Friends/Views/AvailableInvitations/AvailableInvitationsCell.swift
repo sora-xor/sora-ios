@@ -2,6 +2,7 @@ import UIKit
 import Then
 import Anchorage
 import SoraUI
+import SoraUIKit
 
 protocol AvailableInvitationsCellDelegate: InvitationLinkViewDelegate {
     func changeBoundedAmount(to type: InputRewardAmountType)
@@ -16,34 +17,44 @@ final class AvailableInvitationsCell: UITableViewCell {
     }
 
     // MARK: - Outlets
-    private var containerView: UIView = {
-        RoundedView().then {
-            $0.fillColor = R.color.neumorphism.backgroundLightGrey() ?? .white
-            $0.cornerRadius = 24
-            $0.roundingCorners = [ .topLeft, .topRight, .bottomLeft, .bottomRight ]
-            $0.shadowRadius = 3
-            $0.shadowOpacity = 0.3
-            $0.shadowOffset = CGSize(width: 0, height: -1)
-            $0.shadowColor = UIColor(white: 0, alpha: 0.3)
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var containerView: SoramitsuView = {
+        SoramitsuView().then {
+            $0.sora.backgroundColor = .bgSurface
+            $0.sora.cornerRadius = .large
+            $0.sora.cornerMask = .all
+            $0.sora.shadow = .default
+//            $0.fillColor = R.color.neumorphism.backgroundLightGrey() ?? .white
+//            $0.cornerRadius = 24
+//            $0.roundingCorners = [ .topLeft, .topRight, .bottomLeft, .bottomRight ]
+//            $0.shadowRadius = 3
+//            $0.shadowOpacity = 0.3
+//            $0.shadowOffset = CGSize(width: 0, height: -1)
+//            $0.shadowColor = UIColor(white: 0, alpha: 0.3)
+//            $0.translatesAutoresizingMaskIntoConstraints = false
         }
     }()
 
-    private var titleLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .title4)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.text = R.string.localizable.referralInvitationLinkTitle(preferredLanguages: .currentLocale)
+    private var titleLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.text = R.string.localizable.referralInvitationLinkTitle(preferredLanguages: .currentLocale)
+            $0.sora.textColor = .fgPrimary
+            $0.sora.font = FontType.headline2
+//            $0.font = UIFont.styled(for: .title4)
+//            $0.textColor = R.color.baseContentPrimary()
+//            $0.translatesAutoresizingMaskIntoConstraints = false
+//            $0.text = R.string.localizable.referralInvitationLinkTitle(preferredLanguages: .currentLocale)
         }
     }()
 
-    private var amountInvitationsLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .title4)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.textAlignment = .right
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var amountInvitationsLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.textColor = .fgPrimary
+            $0.sora.alignment = .right
+            $0.sora.font = FontType.headline2
+//            $0.font = UIFont.styled(for: .title4)
+//            $0.textColor = R.color.baseContentPrimary()
+//            $0.textAlignment = .right
+//            $0.translatesAutoresizingMaskIntoConstraints = false
         }
     }()
 
@@ -113,6 +124,22 @@ final class AvailableInvitationsCell: UITableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         configure()
     }
+    
+    // MARK: - Setup
+    
+    private func setupCell() {
+        selectionStyle = .none
+        backgroundColor = R.color.baseBackground()
+    }
+    
+    private func setupHierarchy() {
+        
+    }
+    
+    private func setupLayout() {
+        
+    }
+    
 }
 
 extension AvailableInvitationsCell: Reusable {

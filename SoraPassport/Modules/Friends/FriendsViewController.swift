@@ -10,6 +10,7 @@ final class FriendsViewController: UIViewController {
     
     private lazy var tableView: SoramitsuTableView = {
         let tableView = SoramitsuTableView()
+        tableView.isHidden = true
         return tableView
     }()
     
@@ -18,6 +19,7 @@ final class FriendsViewController: UIViewController {
         view.sora.backgroundColor = .bgSurface
         view.sora.cornerRadius = .max
         view.sora.clipsToBounds = false
+        view.sora.isHidden = true
         return view
     }()
    
@@ -158,6 +160,7 @@ final class FriendsViewController: UIViewController {
 private extension FriendsViewController {
     
     private func setupHierarchy() {
+        view.addSubview(tableView)
         view.addSubview(containerView)
         view.addSubview(activityIndicator)
         containerView.addSubviews([imageView, titleLabel, descriptionLabel, buttonStackView])
@@ -206,6 +209,10 @@ private extension FriendsViewController {
             make.leading.equalTo(containerView).offset(24)
             make.centerX.equalTo(containerView)
             make.bottom.equalTo(containerView).offset(-24)
+        }
+        
+        tableView.snp.makeConstraints { make in
+            make.edges.equalTo(view)
         }
     }
 
@@ -272,12 +279,7 @@ extension FriendsViewController: FriendsViewProtocol {
     func startInvitingScreen(with referrer: String) {
         activityIndicator.isHidden = true
         tableView.isHidden = true
-        titleLabel.isHidden = false
-        descriptionLabel.isHidden = false
-        enterLinkButton.isHidden = false
-        startInvitingButton.isHidden = false
-        imageView.isHidden = false
-        containerView.isHidden = false
+        containerView.sora.isHidden = false
 
         if !referrer.isEmpty {
             let title = R.string.localizable.referralYourReferrer(preferredLanguages: .currentLocale)
