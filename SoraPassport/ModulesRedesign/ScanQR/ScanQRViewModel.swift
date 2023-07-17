@@ -61,8 +61,13 @@ final class ScanQRViewModel: NSObject {
     private let sharingFactory: AccountShareFactoryProtocol
     private let assetManager: AssetManagerProtocol?
     private let assetsProvider: AssetProviderProtocol?
-
+    private let networkFacade: WalletNetworkOperationFactoryProtocol?
+    private let providerFactory: BalanceProviderFactory
+    private let feeProvider: FeeProviderProtocol
+    
+    
     var qrExtractionService: WalletQRExtractionServiceProtocol?
+    private let isGeneratedQRCodeScreenShown: Bool
 
     init(networkService: WalletServiceProtocol,
          localSearchEngine: InvoiceLocalSearchEngineProtocol?,
@@ -73,6 +78,10 @@ final class ScanQRViewModel: NSObject {
          sharingFactory: AccountShareFactoryProtocol,
          assetManager: AssetManagerProtocol?,
          assetsProvider: AssetProviderProtocol?,
+         networkFacade: WalletNetworkOperationFactoryProtocol?,
+         isGeneratedQRCodeScreenShown: Bool,
+         providerFactory: BalanceProviderFactory,
+         feeProvider: FeeProviderProtocol,
          completion: ((ScanQRResult) -> Void)?) {
         self.networkService = networkService
         self.localSearchEngine = localSearchEngine
@@ -84,6 +93,10 @@ final class ScanQRViewModel: NSObject {
         self.sharingFactory = sharingFactory
         self.assetManager = assetManager
         self.assetsProvider = assetsProvider
+        self.networkFacade = networkFacade
+        self.isGeneratedQRCodeScreenShown = isGeneratedQRCodeScreenShown
+        self.providerFactory = providerFactory
+        self.feeProvider = feeProvider
 
         let qrDecoder = qrCoderFactory.createDecoder()
         self.qrScanMatcher = InvoiceScanMatcher(decoder: qrDecoder)
@@ -374,6 +387,11 @@ extension ScanQRViewModel: ScanQRViewModelProtocol {
     }
     
     func showMyQrCode() {
+        if isGeneratedQRCodeScreenShown {
+            view?.controller.dismiss(animated: true)
+            return
+        }
+
         guard let currentAccount = SelectedWalletSettings.shared.currentAccount else { return }
         let accountId = try? SS58AddressFactory().accountId(fromAddress: currentAccount.identifier,
                                                             type: currentAccount.addressType).toHex(includePrefix: true)
@@ -385,7 +403,10 @@ extension ScanQRViewModel: ScanQRViewModelProtocol {
             qrEncoder: qrEncoder,
             sharingFactory: sharingFactory,
             assetManager: assetManager,
-            assetsProvider: assetsProvider
+            assetsProvider: assetsProvider,
+            networkFacade: networkFacade,
+            providerFactory: providerFactory,
+            feeProvider: feeProvider
         ) { [weak self] in
             self?.qrScanService.start()
         }

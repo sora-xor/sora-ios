@@ -65,13 +65,19 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
     
     func showManageAccount(on view: UIViewController, completion: @escaping () -> Void)
     
-    func showScanQR(on view: UIViewController,
-                    networkFacade: WalletNetworkOperationFactoryProtocol,
-                    assetManager: AssetManagerProtocol,
-                    qrEncoder: WalletQREncoderProtocol,
-                    sharingFactory: AccountShareFactoryProtocol,
-                    assetsProvider: AssetProviderProtocol?,
-                    completion: @escaping (ScanQRResult) -> Void)
+    func showGenerateQR(on controller: UIViewController?,
+                        accountId: String,
+                        address: String,
+                        username: String,
+                        qrEncoder: WalletQREncoderProtocol,
+                        sharingFactory: AccountShareFactoryProtocol,
+                        assetManager: AssetManagerProtocol?,
+                        assetsProvider: AssetProviderProtocol?,
+                        networkFacade: WalletNetworkOperationFactoryProtocol,
+                        providerFactory: BalanceProviderFactory,
+                        feeProvider: FeeProviderProtocol,
+                        isScanQRShown: Bool,
+                        closeHandler: (() -> Void)?)
     
     func showSend(on controller: UIViewController?,
                   selectedTokenId: String?,
@@ -83,16 +89,6 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                   assetsProvider: AssetProviderProtocol,
                   qrEncoder: WalletQREncoderProtocol,
                   sharingFactory: AccountShareFactoryProtocol)
-    
-    func showConfirmSendingAsset(on controller: UIViewController?,
-                                 assetId: String,
-                                 walletService: WalletServiceProtocol,
-                                 assetManager: AssetManagerProtocol,
-                                 fiatService: FiatServiceProtocol,
-                                 recipientAddress: String,
-                                 firstAssetAmount: Decimal,
-                                 fee: Decimal,
-                                 assetsProvider: AssetProviderProtocol?)
     
     func showReferralProgram(from view: RedesignWalletViewProtocol?,
                              walletContext: CommonWalletContextProtocol)
@@ -275,27 +271,50 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         view.present(containerView, animated: true)
     }
     
-    func showScanQR(on view: UIViewController,
-                    networkFacade: WalletNetworkOperationFactoryProtocol,
-                    assetManager: AssetManagerProtocol,
-                    qrEncoder: WalletQREncoderProtocol,
-                    sharingFactory: AccountShareFactoryProtocol,
-                    assetsProvider: AssetProviderProtocol?,
-                    completion: @escaping (ScanQRResult) -> Void) {
-        guard let currentUser = SelectedWalletSettings.shared.currentAccount else { return }
+    func showGenerateQR(on controller: UIViewController?,
+                        accountId: String,
+                        address: String,
+                        username: String,
+                        qrEncoder: WalletQREncoderProtocol,
+                        sharingFactory: AccountShareFactoryProtocol,
+                        assetManager: AssetManagerProtocol?,
+                        assetsProvider: AssetProviderProtocol?,
+                        networkFacade: WalletNetworkOperationFactoryProtocol,
+                        providerFactory: BalanceProviderFactory,
+                        feeProvider: FeeProviderProtocol,
+                        isScanQRShown: Bool,
+                        closeHandler: (() -> Void)?) {
+        let qrService = WalletQRService(operationFactory: WalletQROperationFactory(), encoder: qrEncoder)
+       
+        let viewModel = GenerateQRViewModel(
+            qrService: qrService,
+            sharingFactory: sharingFactory,
+            accountId: accountId,
+            address: address,
+            username: username,
+            fiatService: FiatService.shared,
+            assetManager: assetManager,
+            assetsProvider: assetsProvider,
+            qrEncoder: qrEncoder,
+            networkFacade: networkFacade,
+            providerFactory: providerFactory,
+            feeProvider: feeProvider,
+            isScanQRShown: isScanQRShown
+        )
+        viewModel.closeHadler = closeHandler
+        let viewController = GenerateQRViewController(viewModel: viewModel)
+        viewModel.view = viewController
+        viewModel.wireframe = GenerateQRWireframe(controller: viewController)
+
+        let navigationController = UINavigationController(rootViewController: viewController)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.addCustomTransitioning()
         
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
+        containerView.add(navigationController)
         
-        let scanView = ScanQRViewFactory.createView(assetManager: assetManager,
-                                                    currentUser: currentUser,
-                                                    networkFacade: networkFacade,
-                                                    qrEncoder: qrEncoder,
-                                                    sharingFactory: sharingFactory,
-                                                    assetsProvider: assetsProvider,
-                                                    completion: completion)
-        containerView.add(scanView.controller)
-        view.present(containerView, animated: true)
+        controller?.present(containerView, animated: true)
     }
     
     func showSend(on controller: UIViewController?,
@@ -322,41 +341,6 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         viewModel.view = inputAmountController
         
         let navigationController = UINavigationController(rootViewController: inputAmountController)
-        navigationController.navigationBar.backgroundColor = .clear
-        navigationController.addCustomTransitioning()
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        containerView.add(navigationController)
-        
-        controller?.present(containerView, animated: true)
-    }
-    
-    
-    func showConfirmSendingAsset(on controller: UIViewController?,
-                                 assetId: String,
-                                 walletService: WalletServiceProtocol,
-                                 assetManager: AssetManagerProtocol,
-                                 fiatService: FiatServiceProtocol,
-                                 recipientAddress: String,
-                                 firstAssetAmount: Decimal,
-                                 fee: Decimal,
-                                 assetsProvider: AssetProviderProtocol?) {
-        let viewModel = ConfirmSendingViewModel(wireframe: ConfirmWireframe(),
-                                                fiatService: fiatService,
-                                                assetManager: assetManager,
-                                                detailsFactory: DetailViewModelFactory(assetManager: assetManager),
-                                                assetId: assetId,
-                                                recipientAddress: recipientAddress,
-                                                firstAssetAmount: firstAssetAmount,
-                                                transactionType: .outgoing,
-                                                fee: fee,
-                                                walletService: walletService,
-                                                assetsProvider: assetsProvider)
-        let view = ConfirmViewController(viewModel: viewModel)
-        viewModel.view = view
-        
-        let navigationController = UINavigationController(rootViewController: view)
         navigationController.navigationBar.backgroundColor = .clear
         navigationController.addCustomTransitioning()
         

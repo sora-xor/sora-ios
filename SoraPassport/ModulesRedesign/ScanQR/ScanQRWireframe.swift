@@ -12,6 +12,9 @@ protocol ScanQRWireframeProtocol {
                         sharingFactory: AccountShareFactoryProtocol,
                         assetManager: AssetManagerProtocol?,
                         assetsProvider: AssetProviderProtocol?,
+                        networkFacade: WalletNetworkOperationFactoryProtocol?,
+                        providerFactory: BalanceProviderFactory,
+                        feeProvider: FeeProviderProtocol,
                         closeHandler: (() -> Void)?)
 }
 
@@ -25,6 +28,9 @@ final class ScanQRWireframe: ScanQRWireframeProtocol {
                         sharingFactory: AccountShareFactoryProtocol,
                         assetManager: AssetManagerProtocol?,
                         assetsProvider: AssetProviderProtocol?,
+                        networkFacade: WalletNetworkOperationFactoryProtocol?,
+                        providerFactory: BalanceProviderFactory,
+                        feeProvider: FeeProviderProtocol,
                         closeHandler: (() -> Void)?) {
         let qrService = WalletQRService(operationFactory: WalletQROperationFactory(), encoder: qrEncoder)
        
@@ -37,7 +43,10 @@ final class ScanQRWireframe: ScanQRWireframeProtocol {
             fiatService: FiatService.shared,
             assetManager: assetManager,
             assetsProvider: assetsProvider,
-            qrEncoder: qrEncoder
+            qrEncoder: qrEncoder,
+            networkFacade: networkFacade,
+            providerFactory: providerFactory,
+            feeProvider: feeProvider
         )
         viewModel.closeHadler = closeHandler
         let viewController = GenerateQRViewController(viewModel: viewModel)
