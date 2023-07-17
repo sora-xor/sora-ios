@@ -2,35 +2,31 @@ import UIKit
 import Then
 import Anchorage
 import SoraUI
+import SoraUIKit
 
-final class RewardRawCell: UITableViewCell {
+final class RewardRawCell: SoramitsuTableViewCell {
 
     // MARK: - Outlets
-    private var containerView: UIView = {
-        ShadowShapeView().then {
-            $0.fillColor = R.color.neumorphism.backgroundLightGrey() ?? .white
-            $0.shadowOpacity = 0.3
-            $0.shadowColor = UIColor(white: 0, alpha: 0.3)
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var containerView: SoramitsuView = {
+        SoramitsuView().then {
+            $0.sora.backgroundColor = .bgSurface
         }
     }()
     
-    private var titleLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .paragraph1)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.lineBreakMode = .byTruncatingMiddle
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var titleLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.textColor = .fgPrimary
+            $0.sora.font = FontType.textM
+            $0.sora.lineBreakMode = .byTruncatingMiddle
         }
     }()
 
-    private var amountLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .paragraph1)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.textAlignment = .right
-            $0.lineBreakMode = .byTruncatingMiddle
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var amountLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.textColor = .fgPrimary
+            $0.sora.alignment = .right
+            $0.sora.font = FontType.textM
+            $0.sora.lineBreakMode = .byTruncatingMiddle
             $0.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
     }()
@@ -68,17 +64,17 @@ final class RewardRawCell: UITableViewCell {
 extension RewardRawCell: Reusable {
     func bind(viewModel: CellViewModel) {
         guard let viewModel = viewModel as? RewardRawViewModel else { return }
-        titleLabel.text = viewModel.title
-        amountLabel.text = "\(viewModel.amount) " + viewModel.assetSymbol
+        titleLabel.sora.text = viewModel.title
+        amountLabel.sora.text = "\(viewModel.amount) " + viewModel.assetSymbol
     }
 }
 
 private extension RewardRawCell {
 
     func configure() {
-        selectionStyle = .none
-        backgroundColor = R.color.baseBackground()
-        clipsToBounds = true
+        sora.backgroundColor = .custom(uiColor: .clear)
+        sora.selectionStyle = .none
+        sora.clipsToBounds = true
 
         contentView.addSubview(containerView)
         containerView.addSubview(titleLabel)

@@ -20,7 +20,6 @@ final class ReferrerCell: SoramitsuTableViewCell {
             $0.sora.backgroundColor = .bgSurface
             $0.sora.cornerRadius = .max
             $0.sora.cornerMask = .all
-            $0.sora.shadow = .small
             $0.spacing = 16
             $0.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
             $0.isLayoutMarginsRelativeArrangement = true

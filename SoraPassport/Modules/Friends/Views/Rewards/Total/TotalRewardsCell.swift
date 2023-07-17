@@ -20,7 +20,6 @@ final class TotalRewardsCell: SoramitsuTableViewCell {
             $0.sora.backgroundColor = .bgSurface
             $0.sora.cornerRadius = .max
             $0.sora.cornerMask = .top
-            $0.sora.shadow = .small
         }
     }()
     
@@ -30,15 +29,6 @@ final class TotalRewardsCell: SoramitsuTableViewCell {
             $0.sora.textColor = .fgPrimary
             $0.sora.font = FontType.headline2
             $0.sora.numberOfLines = 0
-        }
-    }()
-
-    lazy var expandLabelButton: SoramitsuButton = {
-        SoramitsuButton().then {
-            $0.sora.backgroundColor = .custom(uiColor: .clear)
-            $0.sora.addHandler(for: .touchUpInside) { [weak self] in
-                self?.expandButtonTap()
-            }
         }
     }()
     
@@ -67,10 +57,17 @@ final class TotalRewardsCell: SoramitsuTableViewCell {
         }
     }()
 
-    lazy var expandButton: ImageButton = {
+    private lazy var expandButton: ImageButton = {
         ImageButton(size: CGSize(width: 24, height: 24)).then {
             $0.sora.image = R.image.arrow()
             $0.sora.transform = CGAffineTransform(rotationAngle: .pi)
+        }
+    }()
+    
+    private lazy var expandableArea: SoramitsuControl = {
+        SoramitsuControl().then {
+            $0.sora.backgroundColor = .custom(uiColor: .clear)
+            $0.sora.isHidden = true
             $0.sora.addHandler(for: .touchUpInside) { [weak self] in
                 self?.expandButtonTap()
             }
@@ -105,6 +102,7 @@ extension TotalRewardsCell: Reusable {
         guard let viewModel = viewModel as? TotalRewardsViewModel else { return }
         amountInvitationsLabel.sora.text = "\(viewModel.invetationCount)"
         xorLabel.sora.text = "\(viewModel.totalRewardsAmount) " + viewModel.assetSymbol
+        expandableArea.sora.isHidden = false
         delegate = viewModel.delegate
     }
 }
@@ -122,7 +120,7 @@ private extension TotalRewardsCell {
         containerView.addSubview(bondedLabel)
         containerView.addSubview(xorLabel)
         containerView.addSubview(expandButton)
-        containerView.addSubview(expandLabelButton)
+        containerView.addSubview(expandableArea)
 
         containerView.do {
             $0.topAnchor == contentView.topAnchor + 10
@@ -141,16 +139,10 @@ private extension TotalRewardsCell {
             $0.centerYAnchor == titleLabel.centerYAnchor
         }
 
-        expandLabelButton.do {
-            $0.topAnchor == amountInvitationsLabel.topAnchor
-            $0.leadingAnchor == amountInvitationsLabel.leadingAnchor
-            $0.centerYAnchor == amountInvitationsLabel.centerYAnchor
-            $0.centerXAnchor == amountInvitationsLabel.centerXAnchor
-        }
-
         amountInvitationsLabel.do {
             $0.topAnchor == containerView.topAnchor + 24
             $0.trailingAnchor == containerView.trailingAnchor - 24
+            $0.heightAnchor == titleLabel.heightAnchor
         }
 
         bondedLabel.do {
@@ -164,6 +156,10 @@ private extension TotalRewardsCell {
             $0.trailingAnchor == containerView.trailingAnchor - 24
             $0.leadingAnchor == bondedLabel.trailingAnchor + 10
             $0.centerYAnchor == bondedLabel.centerYAnchor
+        }
+        
+        expandableArea.do {
+            $0.edgeAnchors == containerView.edgeAnchors
         }
     }
 }
