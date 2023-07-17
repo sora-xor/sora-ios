@@ -4,6 +4,7 @@ import CommonWallet
 import SoraUIKit
 import SoraFoundation
 import SCard
+import IrohaCrypto
 
 protocol WalletItemFactoryProtocol: AnyObject {
     
@@ -61,61 +62,41 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
         
         let accountItem: AccountTableViewItem = AccountTableViewItem(accountName: accountName)
-        accountItem.scanQRHandler = { [weak self] in
+        accountItem.scanQRHandler = {
             guard let view = view?.controller else { return }
             
-            let completion: (ScanQRResult) -> Void = { [weak self] result in
-                guard let self = self else { return }
-                
-                if let amount = result.receiverInfo?.amount {
-                    feeProvider.getFee(for: .outgoing) { fee in
-                        wireframe?.showConfirmSendingAsset(on: view,
-                                                           assetId: result.receiverInfo?.assetId ?? .xor,
-                                                           walletService: WalletService(operationFactory: networkFacade),
-                                                           assetManager: assetManager,
-                                                           fiatService: fiatService,
-                                                           recipientAddress: result.firstName,
-                                                           firstAssetAmount: amount.decimalValue,
-                                                           fee: fee,
-                                                           assetsProvider: assetsProvider)
-                    }
-                    
-                    return
-                }
-                wireframe?.showSend(on: view,
-                                    selectedTokenId: result.receiverInfo?.assetId ?? .xor,
-                                    selectedAddress: result.firstName,
-                                    fiatService: fiatService,
-                                    assetManager: assetManager,
-                                    providerFactory: providerFactory,
-                                    networkFacade: networkFacade,
-                                    assetsProvider: assetsProvider,
-                                    qrEncoder: qrEncoder,
-                                    sharingFactory: sharingFactory)
-            }
+            let accountId = try? SS58AddressFactory().accountId(
+                fromAddress: currentAccount?.identifier ?? "",
+                type: currentAccount?.addressType ?? 69).toHex(includePrefix: true)
             
-            wireframe?.showScanQR(on: view,
-                                  networkFacade: networkFacade,
-                                  assetManager: assetManager,
-                                  qrEncoder: qrEncoder,
-                                  sharingFactory: sharingFactory,
-                                  assetsProvider: assetsProvider,
-                                  completion: completion)
+            wireframe?.showGenerateQR(on: view,
+                                      accountId: accountId ?? "",
+                                      address: currentAccount?.address ?? "",
+                                      username: accountName,
+                                      qrEncoder: qrEncoder,
+                                      sharingFactory: sharingFactory,
+                                      assetManager: assetManager,
+                                      assetsProvider: assetsProvider,
+                                      networkFacade: networkFacade,
+                                      providerFactory: providerFactory,
+                                      feeProvider: feeProvider,
+                                      isScanQRShown: false,
+                                      closeHandler: nil)
         }
         
-        accountItem.updateHandler = { [weak accountItem, weak self] in
+        accountItem.updateHandler = { [weak accountItem] in
             guard let accountItem = accountItem else { return }
             reloadItem?([accountItem])
         }
 
-        accountItem.accountHandler = { [weak self] item in
+        accountItem.accountHandler = { item in
             guard let view = view?.controller else { return }
             
             wireframe?.showManageAccount(on: view, completion: { [weak item] in
                 
                 let persistentOperation = accountRepository.fetchAllOperation(with: RepositoryFetchOptions())
                 
-                persistentOperation.completionBlock = { [weak self] in
+                persistentOperation.completionBlock = {
                     guard let accounts = try? persistentOperation.extractNoCancellableResultData() else { return }
                     
                     let selectedAccountAddress = SelectedWalletSettings.shared.currentAccount?.address ?? ""

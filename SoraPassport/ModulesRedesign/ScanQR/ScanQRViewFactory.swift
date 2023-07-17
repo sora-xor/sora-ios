@@ -8,6 +8,9 @@ final class ScanQRViewFactory {
                            qrEncoder: WalletQREncoderProtocol,
                            sharingFactory: AccountShareFactoryProtocol,
                            assetsProvider: AssetProviderProtocol?,
+                           isGeneratedQRCodeScreenShown: Bool = false,
+                           providerFactory: BalanceProviderFactory,
+                           feeProvider: FeeProviderProtocol,
                            completion: ((ScanQRResult) -> Void)?) -> ScanQRViewProtocol {
         let qrScanServiceFactory = WalletQRCaptureServiceFactory()
         let assets = assetManager.getAssetList()?.map { asset in
@@ -33,6 +36,10 @@ final class ScanQRViewFactory {
                                         sharingFactory: sharingFactory,
                                         assetManager: assetManager,
                                         assetsProvider: assetsProvider,
+                                        networkFacade: networkFacade,
+                                        isGeneratedQRCodeScreenShown: isGeneratedQRCodeScreenShown,
+                                        providerFactory: providerFactory,
+                                        feeProvider: feeProvider,
                                         completion: completion)
         
         let scanView = ScanQRViewController(viewModel: viewModel)

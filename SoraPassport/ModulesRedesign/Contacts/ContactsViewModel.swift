@@ -38,6 +38,8 @@ final class ContactsViewModel: NSObject {
     private let qrEncoder: WalletQREncoderProtocol
     private let sharingFactory: AccountShareFactoryProtocol
     private let assetsProvider: AssetProviderProtocol?
+    private let providerFactory: BalanceProviderFactory
+    private let feeProvider: FeeProviderProtocol
 
     private let assetId: String
 
@@ -63,7 +65,10 @@ final class ContactsViewModel: NSObject {
          settingsManager: SelectedWalletSettingsProtocol,
          qrEncoder: WalletQREncoderProtocol,
          sharingFactory: AccountShareFactoryProtocol,
-         assetsProvider: AssetProviderProtocol?) {
+         assetsProvider: AssetProviderProtocol?,
+         providerFactory: BalanceProviderFactory,
+         feeProvider: FeeProviderProtocol
+    ) {
         self.dataProvider = dataProvider
         self.walletService = walletService
         self.assetId = assetId
@@ -75,6 +80,8 @@ final class ContactsViewModel: NSObject {
         self.qrEncoder = qrEncoder
         self.sharingFactory = sharingFactory
         self.assetsProvider = assetsProvider
+        self.providerFactory = providerFactory
+        self.feeProvider = feeProvider
     }
     
 
@@ -257,6 +264,8 @@ extension ContactsViewModel: ContactsViewModelProtocol {
                              qrEncoder: qrEncoder,
                              sharingFactory: sharingFactory,
                              assetsProvider: assetsProvider,
+                             providerFactory: providerFactory,
+                             feeProvider: feeProvider,
                              completion: { [weak self] result in
             guard result.firstName != self?.settingsManager.currentAccount?.address else {
                 self?.view?.show(error: R.string.localizable.invoiceScanErrorMatch(preferredLanguages: .currentLocale))
