@@ -230,7 +230,7 @@ private extension FriendsViewController {
         if #available(iOS 15.0, *) {
             tableView.sectionHeaderTopPadding = 0
         }
-        tableView.backgroundColor = R.color.neumorphism.backgroundLightGrey()
+        tableView.backgroundColor = .clear
         tableView.estimatedRowHeight = 100
         tableView.register(SpaceCell.self,
                            forCellReuseIdentifier: SpaceCell.reuseIdentifier)

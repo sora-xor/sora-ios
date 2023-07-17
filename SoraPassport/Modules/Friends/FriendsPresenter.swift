@@ -157,15 +157,13 @@ private extension FriendsPresenter {
             return totalReward + decimalReward
         }
 
-        var items: [CellViewModel] = [SpaceViewModel(height: 6, backgroundColor: R.color.baseBackground()!)]
+        var items: [CellViewModel] = []
 
         let invitationCount = (referralBalance / setReferrerFee).rounded(mode: .down)
         items.append(AvailableInvitationsViewModel(accountAddress: selectedAccount.address,
                                                    invitationCount: invitationCount,
                                                    bondedAmount: referralBalance,
                                                    delegate: self))
-
-        items.append(SpaceViewModel(height: 6, backgroundColor: R.color.baseBackground()!))
 
         items.append(ReferrerViewModel(address: referrer, delegate: self))
 
