@@ -11,6 +11,8 @@ protocol ContactsWireframeProtocol {
                     qrEncoder: WalletQREncoderProtocol,
                     sharingFactory: AccountShareFactoryProtocol,
                     assetsProvider: AssetProviderProtocol?,
+                    providerFactory: BalanceProviderFactory,
+                    feeProvider: FeeProviderProtocol,
                     completion: ((ScanQRResult) -> Void)?)
 }
 
@@ -21,6 +23,8 @@ final class ContactsWireframe: ContactsWireframeProtocol {
                     qrEncoder: WalletQREncoderProtocol,
                     sharingFactory: AccountShareFactoryProtocol,
                     assetsProvider: AssetProviderProtocol?,
+                    providerFactory: BalanceProviderFactory,
+                    feeProvider: FeeProviderProtocol,
                     completion: ((ScanQRResult) -> Void)?) {
         guard let currentUser = SelectedWalletSettings.shared.currentAccount else { return }
         
@@ -33,6 +37,8 @@ final class ContactsWireframe: ContactsWireframeProtocol {
                                                     qrEncoder: qrEncoder,
                                                     sharingFactory: sharingFactory,
                                                     assetsProvider: assetsProvider,
+                                                    providerFactory: providerFactory,
+                                                    feeProvider: feeProvider,
                                                     completion: completion)
         containerView.add(scanView.controller)
         view?.present(containerView, animated: true)

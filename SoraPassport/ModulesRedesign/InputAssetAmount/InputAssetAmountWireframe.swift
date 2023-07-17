@@ -22,6 +22,8 @@ protocol InputAssetAmountWireframeProtocol: AlertPresentable {
                            qrEncoder: WalletQREncoderProtocol,
                            sharingFactory: AccountShareFactoryProtocol,
                            assetsProvider: AssetProviderProtocol?,
+                           providerFactory: BalanceProviderFactory,
+                           feeProvider: FeeProviderProtocol,
                            completion: ((ScanQRResult) -> Void)?)
     
     func showConfirmSendingAsset(on controller: UINavigationController?,
@@ -67,6 +69,8 @@ final class InputAssetAmountWireframe: InputAssetAmountWireframeProtocol {
                            qrEncoder: WalletQREncoderProtocol,
                            sharingFactory: AccountShareFactoryProtocol,
                            assetsProvider: AssetProviderProtocol?,
+                           providerFactory: BalanceProviderFactory,
+                           feeProvider: FeeProviderProtocol,
                            completion: ((ScanQRResult) -> Void)?) {
         guard let currentUser = SelectedWalletSettings.shared.currentAccount else { return }
         let viewModelFactory = ContactsViewModelFactory(dataStorageFacade: SubstrateDataStorageFacade.shared)
@@ -84,7 +88,10 @@ final class InputAssetAmountWireframe: InputAssetAmountWireframeProtocol {
                                           settingsManager: settingsManager,
                                           qrEncoder: qrEncoder,
                                           sharingFactory: sharingFactory,
-                                          assetsProvider: assetsProvider)
+                                          assetsProvider: assetsProvider,
+                                          providerFactory: providerFactory,
+                                          feeProvider: feeProvider
+        )
         viewModel.completion = completion
         let receiveController = ContactsViewController(viewModel: viewModel)
         viewModel.view = receiveController
