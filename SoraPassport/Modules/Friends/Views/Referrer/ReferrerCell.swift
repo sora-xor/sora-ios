@@ -2,68 +2,60 @@ import UIKit
 import Then
 import Anchorage
 import SoraUI
+import SoraUIKit
 
 protocol ReferrerCellDelegate: AnyObject {
     func enterLinkButtonTapped()
 }
 
-final class ReferrerCell: UITableViewCell {
+final class ReferrerCell: SoramitsuTableViewCell {
 
     private var delegate: ReferrerCellDelegate?
 
     // MARK: - Outlets
-    private var containerView: UIView = {
-        RoundedView().then {
-            $0.fillColor = R.color.neumorphism.backgroundLightGrey() ?? .white
-            $0.cornerRadius = 24
-            $0.roundingCorners = [ .topLeft, .topRight, .bottomLeft, .bottomRight ]
-            $0.shadowRadius = 3
-            $0.shadowOpacity = 0.3
-            $0.shadowOffset = CGSize(width: 0, height: -1)
-            $0.shadowColor = UIColor(white: 0, alpha: 0.3)
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var containerView: SoramitsuStackView = {
+        SoramitsuStackView().then {
+            $0.sora.axis = .vertical
+            $0.sora.distribution = .fill
+            $0.sora.backgroundColor = .bgSurface
+            $0.sora.cornerRadius = .max
+            $0.sora.cornerMask = .all
+            $0.spacing = 16
+            $0.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
+            $0.isLayoutMarginsRelativeArrangement = true
         }
     }()
 
-    private var titleLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .title4)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.text = R.string.localizable.referralYourReferrer(preferredLanguages: .currentLocale)
-        }
-    }()
-    
-    private var subtitleLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .paragraph3)
-            $0.textColor = R.color.neumorphism.textGray()
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.text = R.string.localizable.referralReferrerAddress(preferredLanguages: .currentLocale)
+    private lazy var titleLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.text = R.string.localizable.referralYourReferrer(preferredLanguages: .currentLocale)
+            $0.sora.textColor = .fgPrimary
+            $0.sora.font = FontType.headline2
         }
     }()
 
-    private var addressLabel: UILabel = {
-        UILabel().then {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.font = UIFont.styled(for: .paragraph1)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.lineBreakMode = .byTruncatingMiddle
+    private lazy var addressLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.textColor = .fgPrimary
+            $0.sora.font = FontType.paragraphXS
+            $0.sora.lineBreakMode = .byTruncatingMiddle
         }
     }()
 
-    private var enterLinkButton: NeumorphismButton = {
-        NeumorphismButton().then {
-            if let color = R.color.neumorphism.shareButtonGrey() {
-                $0.color = color
+    private lazy var enterLinkButton: SoramitsuButton = {
+        SoramitsuButton().then {
+            let title = SoramitsuTextItem(text: R.string.localizable.referralEnterLinkTitle(preferredLanguages: .currentLocale) ,
+                                          fontData: FontType.buttonM ,
+                                          textColor: .accentPrimary ,
+                                          alignment: .center)
+            
+            $0.sora.horizontalOffset = 0
+            $0.sora.cornerRadius = .circle
+            $0.sora.backgroundColor = .accentPrimaryContainer
+            $0.sora.attributedText = title
+            $0.sora.addHandler(for: .touchUpInside) { [weak self] in
+                self?.enterLinkButtonTapped()
             }
-            $0.heightAnchor == 56
-            $0.setTitleColor(R.color.neumorphism.brown(), for: .normal)
-            $0.font = UIFont.styled(for: .button)
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.forceUppercase = false
-            $0.setTitle(R.string.localizable.referralReferralLink(preferredLanguages: .currentLocale), for: .normal)
-            $0.addTarget(nil, action: #selector(enterLinkButtonTapped), for: .touchUpInside)
         }
     }()
 
@@ -87,11 +79,9 @@ final class ReferrerCell: UITableViewCell {
 extension ReferrerCell: Reusable {
     func bind(viewModel: CellViewModel) {
         guard let viewModel = viewModel as? ReferrerViewModel else { return }
-
-        addressLabel.text = viewModel.address
-        addressLabel.isHidden = viewModel.address.isEmpty
-        subtitleLabel.isHidden = viewModel.address.isEmpty
-        enterLinkButton.isHidden = !viewModel.address.isEmpty
+        addressLabel.sora.text = viewModel.address
+        addressLabel.sora.isHidden = viewModel.address.isEmpty
+        enterLinkButton.sora.isHidden = !viewModel.address.isEmpty
         delegate = viewModel.delegate
     }
 }
@@ -99,47 +89,25 @@ extension ReferrerCell: Reusable {
 private extension ReferrerCell {
 
     func configure() {
-        backgroundColor = R.color.baseBackground()
-        selectionStyle = .none
+        sora.backgroundColor = .custom(uiColor: .clear)
+        sora.selectionStyle = .none
 
         contentView.addSubview(containerView)
-        containerView.addSubview(titleLabel)
-        containerView.addSubview(subtitleLabel)
-        containerView.addSubview(addressLabel)
-        containerView.addSubview(enterLinkButton)
-
+        containerView.addArrangedSubviews([
+            titleLabel,
+            addressLabel,
+            enterLinkButton
+        ])
+        
         containerView.do {
             $0.topAnchor == contentView.topAnchor + 6
             $0.bottomAnchor == contentView.bottomAnchor - 10
             $0.centerXAnchor == contentView.centerXAnchor
             $0.leadingAnchor == contentView.leadingAnchor + 16
         }
-
-        titleLabel.do {
-            $0.topAnchor == containerView.topAnchor + 24
-            $0.leadingAnchor == containerView.leadingAnchor + 24
-            $0.centerXAnchor == containerView.centerXAnchor
-        }
-
-        subtitleLabel.do {
-            $0.topAnchor == titleLabel.bottomAnchor + 16
-            $0.leadingAnchor == containerView.leadingAnchor + 24
-            $0.centerXAnchor == containerView.centerXAnchor
-        }
-
-        addressLabel.do {
-            $0.topAnchor == subtitleLabel.bottomAnchor + 4
-            $0.leadingAnchor == containerView.leadingAnchor + 24
-            $0.centerXAnchor == containerView.centerXAnchor
-            $0.bottomAnchor == containerView.bottomAnchor - 32
-        }
-
+        
         enterLinkButton.do {
-            $0.topAnchor == titleLabel.bottomAnchor + 16
-            $0.leadingAnchor == containerView.leadingAnchor + 24
-            $0.centerXAnchor == containerView.centerXAnchor
             $0.heightAnchor == 56
-            $0.bottomAnchor == containerView.bottomAnchor - 24
         }
     }
 }

@@ -2,81 +2,76 @@ import UIKit
 import Then
 import Anchorage
 import SoraUI
+import SoraUIKit
 
 protocol TotalRewardsCellDelegate: AnyObject {
     func expandButtonTapped()
 }
 
-final class TotalRewardsCell: UITableViewCell {
+final class TotalRewardsCell: SoramitsuTableViewCell {
 
     weak var delegate: TotalRewardsCellDelegate?
 
     private var rotated: Bool = false
 
     // MARK: - Outlets
-    private var containerView: UIView = {
-        RoundedView().then {
-            $0.fillColor = R.color.neumorphism.backgroundLightGrey() ?? .white
-            $0.cornerRadius = 24
-            $0.roundingCorners = [ .topLeft, .topRight ]
-            $0.shadowRadius = 3
-            $0.shadowOpacity = 0.3
-            $0.shadowOffset = CGSize(width: 1, height: 0)
-            $0.shadowColor = UIColor(white: 0, alpha: 0.3)
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var containerView: SoramitsuView = {
+        SoramitsuView().then {
+            $0.sora.backgroundColor = .bgSurface
+            $0.sora.cornerRadius = .max
+            $0.sora.cornerMask = .top
         }
     }()
     
-    private var titleLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .title4)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.numberOfLines = 0
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.text = R.string.localizable.referralYourReferrals(preferredLanguages: .currentLocale)
-        }
-    }()
-
-    lazy var expandLabelButton: UIButton = {
-        let view = UIButton()
-        view.addTarget(self, action: #selector(expandButtonTap), for: .touchUpInside)
-        return view
-    }()
-    
-    private var amountInvitationsLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .title4)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.textAlignment = .right
-            $0.numberOfLines = 0
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var titleLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.text = R.string.localizable.referralYourReferrals(preferredLanguages: .currentLocale)
+            $0.sora.textColor = .fgPrimary
+            $0.sora.font = FontType.headline2
+            $0.sora.numberOfLines = 0
         }
     }()
     
-    private var bondedLabel: UILabel = {
-        UILabel().then {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.font = UIFont.styled(for: .paragraph1)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.text = R.string.localizable.referralTotalRewards(preferredLanguages: .currentLocale)
+    private var amountInvitationsLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.textColor = .fgPrimary
+            $0.sora.alignment = .right
+            $0.sora.font = FontType.headline2
+            $0.sora.numberOfLines = 0
+        }
+    }()
+    
+    private var bondedLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.text = R.string.localizable.referralTotalRewards(preferredLanguages: .currentLocale)
+            $0.sora.textColor = .fgPrimary
+            $0.sora.font = FontType.textM
         }
     }()
 
-    private var xorLabel: UILabel = {
-        UILabel().then {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.font = UIFont.styled(for: .paragraph1)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.lineBreakMode = .byTruncatingMiddle
+    private var xorLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.textColor = .fgPrimary
+            $0.sora.font = FontType.textM
+            $0.sora.lineBreakMode = .byTruncatingMiddle
         }
     }()
 
-    lazy var expandButton: UIButton = {
-        let view = UIButton()
-        view.transform = CGAffineTransform(rotationAngle: .pi)
-        view.setImage(R.image.arrow(), for: .normal)
-        view.addTarget(self, action: #selector(expandButtonTap), for: .touchUpInside)
-        return view
+    private lazy var expandButton: ImageButton = {
+        ImageButton(size: CGSize(width: 24, height: 24)).then {
+            $0.sora.image = R.image.arrow()
+            $0.sora.transform = CGAffineTransform(rotationAngle: .pi)
+        }
+    }()
+    
+    private lazy var expandableArea: SoramitsuControl = {
+        SoramitsuControl().then {
+            $0.sora.backgroundColor = .custom(uiColor: .clear)
+            $0.sora.isHidden = true
+            $0.sora.addHandler(for: .touchUpInside) { [weak self] in
+                self?.expandButtonTap()
+            }
+        }
     }()
 
     // MARK: - Init
@@ -95,7 +90,7 @@ final class TotalRewardsCell: UITableViewCell {
         rotated = !rotated
 
         UIView.animate(withDuration: 0.3) {
-            self.expandButton.transform = self.rotated ? CGAffineTransform.identity : CGAffineTransform(rotationAngle: .pi)
+            self.expandButton.sora.transform = self.rotated ? CGAffineTransform.identity : CGAffineTransform(rotationAngle: .pi)
         }
 
         delegate?.expandButtonTapped()
@@ -105,8 +100,9 @@ final class TotalRewardsCell: UITableViewCell {
 extension TotalRewardsCell: Reusable {
     func bind(viewModel: CellViewModel) {
         guard let viewModel = viewModel as? TotalRewardsViewModel else { return }
-        amountInvitationsLabel.text = "\(viewModel.invetationCount)"
-        xorLabel.text = "\(viewModel.totalRewardsAmount) " + viewModel.assetSymbol
+        amountInvitationsLabel.sora.text = "\(viewModel.invetationCount)"
+        xorLabel.sora.text = "\(viewModel.totalRewardsAmount) " + viewModel.assetSymbol
+        expandableArea.sora.isHidden = false
         delegate = viewModel.delegate
     }
 }
@@ -114,9 +110,9 @@ extension TotalRewardsCell: Reusable {
 private extension TotalRewardsCell {
 
     func configure() {
-        selectionStyle = .none
-        backgroundColor = R.color.baseBackground()
-        clipsToBounds = true
+        sora.backgroundColor = .custom(uiColor: .clear)
+        sora.selectionStyle = .none
+        sora.clipsToBounds = true
 
         contentView.addSubview(containerView)
         containerView.addSubview(titleLabel)
@@ -124,7 +120,7 @@ private extension TotalRewardsCell {
         containerView.addSubview(bondedLabel)
         containerView.addSubview(xorLabel)
         containerView.addSubview(expandButton)
-        containerView.addSubview(expandLabelButton)
+        containerView.addSubview(expandableArea)
 
         containerView.do {
             $0.topAnchor == contentView.topAnchor + 10
@@ -139,22 +135,14 @@ private extension TotalRewardsCell {
         }
 
         expandButton.do {
-            $0.heightAnchor == 24
-            $0.widthAnchor == 24
             $0.leadingAnchor == titleLabel.trailingAnchor + 8
             $0.centerYAnchor == titleLabel.centerYAnchor
-        }
-
-        expandLabelButton.do {
-            $0.topAnchor == amountInvitationsLabel.topAnchor
-            $0.leadingAnchor == amountInvitationsLabel.leadingAnchor
-            $0.centerYAnchor == amountInvitationsLabel.centerYAnchor
-            $0.centerXAnchor == amountInvitationsLabel.centerXAnchor
         }
 
         amountInvitationsLabel.do {
             $0.topAnchor == containerView.topAnchor + 24
             $0.trailingAnchor == containerView.trailingAnchor - 24
+            $0.heightAnchor == titleLabel.heightAnchor
         }
 
         bondedLabel.do {
@@ -168,6 +156,10 @@ private extension TotalRewardsCell {
             $0.trailingAnchor == containerView.trailingAnchor - 24
             $0.leadingAnchor == bondedLabel.trailingAnchor + 10
             $0.centerYAnchor == bondedLabel.centerYAnchor
+        }
+        
+        expandableArea.do {
+            $0.edgeAnchors == containerView.edgeAnchors
         }
     }
 }

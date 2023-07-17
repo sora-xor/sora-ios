@@ -2,12 +2,13 @@ import UIKit
 import Then
 import Anchorage
 import SoraUI
+import SoraUIKit
 
 protocol AvailableInvitationsCellDelegate: InvitationLinkViewDelegate {
     func changeBoundedAmount(to type: InputRewardAmountType)
 }
 
-final class AvailableInvitationsCell: UITableViewCell {
+final class AvailableInvitationsCell: SoramitsuTableViewCell {
 
     private var delegate: AvailableInvitationsCellDelegate? {
         didSet {
@@ -16,90 +17,79 @@ final class AvailableInvitationsCell: UITableViewCell {
     }
 
     // MARK: - Outlets
-    private var containerView: UIView = {
-        RoundedView().then {
-            $0.fillColor = R.color.neumorphism.backgroundLightGrey() ?? .white
-            $0.cornerRadius = 24
-            $0.roundingCorners = [ .topLeft, .topRight, .bottomLeft, .bottomRight ]
-            $0.shadowRadius = 3
-            $0.shadowOpacity = 0.3
-            $0.shadowOffset = CGSize(width: 0, height: -1)
-            $0.shadowColor = UIColor(white: 0, alpha: 0.3)
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var containerView: SoramitsuView = {
+        SoramitsuView().then {
+            $0.sora.backgroundColor = .bgSurface
+            $0.sora.cornerRadius = .extraLarge
+            $0.sora.cornerMask = .all
+            $0.sora.shadow = .small
+            $0.sora.clipsToBounds = true
         }
     }()
 
-    private var titleLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .title4)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.text = R.string.localizable.referralInvitationLinkTitle(preferredLanguages: .currentLocale)
+    private var titleLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.text = R.string.localizable.referralInvitationLinkTitle(preferredLanguages: .currentLocale)
+            $0.sora.textColor = .fgPrimary
+            $0.sora.font = FontType.headline2
         }
     }()
 
-    private var amountInvitationsLabel: UILabel = {
-        UILabel().then {
-            $0.font = UIFont.styled(for: .title4)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.textAlignment = .right
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private var amountInvitationsLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.textColor = .fgPrimary
+            $0.sora.alignment = .right
+            $0.sora.font = FontType.headline2
         }
     }()
 
     private var linkView: InvitationLinkView = {
         InvitationLinkView().then {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.backgroundColor = R.color.neumorphism.buttonLightGrey()
+            $0.sora.backgroundColor = .custom(uiColor: .clear)
         }
     }()
 
-    private var bondedLabel: UILabel = {
-        UILabel().then {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.font = UIFont.styled(for: .paragraph1)
-            $0.textColor = R.color.baseContentPrimary()
-            $0.text = R.string.localizable.walletBonded(preferredLanguages: .currentLocale)
+    private var bondedLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.text = R.string.localizable.walletBonded(preferredLanguages: .currentLocale)
+            $0.sora.textColor = .fgSecondary
+            $0.sora.font = FontType.textBoldXS
         }
     }()
 
-    private var xorLabel: UILabel = {
-        UILabel().then {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.font = UIFont.styled(for: .paragraph1)
-            $0.textAlignment = .right
-            $0.lineBreakMode = .byTruncatingMiddle
-            $0.textColor = R.color.baseContentPrimary()
+    private var xorLabel: SoramitsuLabel = {
+        SoramitsuLabel().then {
+            $0.sora.textColor = .fgPrimary
+            $0.sora.alignment = .right
+            $0.sora.lineBreakMode = .byTruncatingMiddle
+            $0.sora.font = FontType.textS
         }
     }()
 
-    private lazy var getInvitationButton: NeumorphismButton = {
-        NeumorphismButton().then {
-            if let color = R.color.neumorphism.tint() {
-                $0.color = color
+    private lazy var getInvitationButton: SoramitsuButton = {
+        SoramitsuButton().then {
+            $0.sora.title = R.string.localizable.referralGetMoreInvitationButtonTitle(preferredLanguages: .currentLocale)
+            $0.sora.backgroundColor = .accentPrimary
+            $0.sora.cornerRadius = .circle
+            $0.sora.addHandler(for: .touchUpInside) { [weak self] in
+                self?.getInvitationButtonTapped()
             }
-            $0.heightAnchor == 56
-            $0.tintColor = R.color.brandWhite()
-            $0.font = UIFont.styled(for: .button)
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.forceUppercase = false
-            $0.setTitle(R.string.localizable.referralGetMoreInvitationButtonTitle(preferredLanguages: .currentLocale), for: .normal)
-            $0.addTarget(self, action: #selector(getInvitationButtonTapped), for: .touchUpInside)
         }
     }()
     
-    private lazy var unbondXorButton: NeumorphismButton = {
-        NeumorphismButton().then {
-            if let color = R.color.neumorphism.shareButtonGrey() {
-                $0.color = color
+    private lazy var unbondXorButton: SoramitsuButton = {
+        SoramitsuButton().then {
+            let title = SoramitsuTextItem(text: R.string.localizable.referralUnbondButtonTitle(preferredLanguages: .currentLocale),
+                                          fontData: FontType.buttonM,
+                                          textColor: .accentPrimary,
+                                          alignment: .center)
+            
+            $0.sora.attributedText = title
+            $0.sora.backgroundColor = .custom(uiColor: .clear)
+            $0.sora.cornerRadius = .circle
+            $0.sora.addHandler(for: .touchUpInside) { [weak self] in
+                self?.unbondXorButtonTapped()
             }
-            $0.heightAnchor == 56
-            $0.setTitleColor(R.color.neumorphism.brown(), for: .normal) 
-            $0.font = UIFont.styled(for: .button)
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.forceUppercase = false
-            $0.setTitle(R.string.localizable.referralUnbondButtonTitle(preferredLanguages: .currentLocale), for: .normal)
-            $0.addTarget(self, action: #selector(unbondXorButtonTapped), for: .touchUpInside)
         }
     }()
 
@@ -111,26 +101,19 @@ final class AvailableInvitationsCell: UITableViewCell {
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
-        configure()
+        setupCell()
+        setupHierarchy()
+        setupLayout()
     }
-}
-
-extension AvailableInvitationsCell: Reusable {
-    func bind(viewModel: CellViewModel) {
-        guard let viewModel = viewModel as? AvailableInvitationsViewModel else { return }
-        linkView.linkLabel.text = "polkaswap.io/#/referral/" + viewModel.accountAddress
-        amountInvitationsLabel.text = "\(viewModel.invitationCount)"
-        xorLabel.text = "\(viewModel.bondedAmount) XOR"
-        delegate = viewModel.delegate
+    
+    // MARK: - Setup
+    
+    private func setupCell() {
+        sora.selectionStyle = .none
+        sora.backgroundColor = .custom(uiColor: .clear)
     }
-}
-
-private extension AvailableInvitationsCell {
-
-    func configure() {
-        selectionStyle = .none
-        backgroundColor = R.color.baseBackground()
-
+    
+    private func setupHierarchy() {
         contentView.addSubview(containerView)
         containerView.addSubview(titleLabel)
         containerView.addSubview(amountInvitationsLabel)
@@ -139,9 +122,11 @@ private extension AvailableInvitationsCell {
         containerView.addSubview(xorLabel)
         containerView.addSubview(getInvitationButton)
         containerView.addSubview(unbondXorButton)
-
+    }
+    
+    private func setupLayout() {
         containerView.do {
-            $0.topAnchor == contentView.topAnchor + 10
+            $0.topAnchor == contentView.topAnchor
             $0.bottomAnchor == contentView.bottomAnchor - 6
             $0.centerXAnchor == contentView.centerXAnchor
             $0.leadingAnchor == contentView.leadingAnchor + 16
@@ -193,14 +178,24 @@ private extension AvailableInvitationsCell {
             $0.bottomAnchor == containerView.bottomAnchor - 24
         }
     }
-
-    @objc
+    
+    // MARK: - Methods
+    
     func getInvitationButtonTapped() {
         delegate?.changeBoundedAmount(to: .bond)
     }
 
-    @objc
     func unbondXorButtonTapped() {
         delegate?.changeBoundedAmount(to: .unbond)
+    }
+}
+
+extension AvailableInvitationsCell: Reusable {
+    func bind(viewModel: CellViewModel) {
+        guard let viewModel = viewModel as? AvailableInvitationsViewModel else { return }
+        linkView.linkLabel.sora.text = "polkaswap.io/#/referral/" + viewModel.accountAddress
+        amountInvitationsLabel.sora.text = "\(viewModel.invitationCount)"
+        xorLabel.sora.text = "\(viewModel.bondedAmount) XOR"
+        delegate = viewModel.delegate
     }
 }
