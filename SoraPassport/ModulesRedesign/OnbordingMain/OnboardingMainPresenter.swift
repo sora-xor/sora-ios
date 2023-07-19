@@ -33,6 +33,10 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     func setup() {
         interactor.setup()
     }
+    
+    func viewWillAppear() {
+        interactor.resetGoogleState()
+    }
 
     func activateSignup() {
         wireframe.showSignup(from: view, isGoogleBackupSelected: false)

@@ -157,6 +157,11 @@ final class WelcomeViewController: SoramitsuViewController {
         presenter.setup()
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        presenter.viewWillAppear()
+    }
+    
     func setupView() {
         view.addSubview(containerView)
         containerView.addSubviews(logo, titleLabel, subtitleLabel, googleButton, createAccountButton, importAccountButton, termsLabel)
