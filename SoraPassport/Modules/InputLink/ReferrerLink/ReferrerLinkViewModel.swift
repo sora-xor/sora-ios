@@ -8,6 +8,7 @@ protocol ReferrerLinkViewModelProtocol {
 
 class ReferrerLinkViewModel: ReferrerLinkViewModelProtocol {
     var isEnabled: Bool
+    var text: String = ""
     var delegate: ReferrerLinkCellDelegate?
 
     init(isEnabled: Bool = false,

@@ -10,7 +10,6 @@ final class ReferrerLinkView: SoramitsuView {
         stackView.sora.axis = .vertical
         stackView.sora.backgroundColor = .custom(uiColor: .clear)
         stackView.sora.distribution = .fill
-        stackView.sora.isUserInteractionEnabled = false
         stackView.spacing = 0
         return stackView
     }()

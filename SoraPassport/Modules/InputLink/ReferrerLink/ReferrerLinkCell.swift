@@ -11,6 +11,7 @@ protocol ReferrerLinkCellDelegate: AnyObject {
 final class ReferrerLinkCell: SoramitsuTableViewCell {
     
     private weak var delegate: ReferrerLinkCellDelegate?
+    private weak var viewModel: ReferrerLinkViewModel?
     
     private lazy var containerView: SoramitsuStackView = {
         SoramitsuStackView().then {
@@ -34,12 +35,12 @@ final class ReferrerLinkCell: SoramitsuTableViewCell {
     }()
 
     private lazy var linkView: ReferrerLinkView = {
-        ReferrerLinkView().then {
-            $0.sora.backgroundColor = .custom(uiColor: .clear)
-            $0.textField.sora.addHandler(for: .editingChanged) { [weak self] in
-                self?.textFieldDidChange()
-            }
+        let view = ReferrerLinkView()
+        view.sora.backgroundColor = .custom(uiColor: .clear)
+        view.textField.sora.addHandler(for: .editingChanged) { [weak self] in
+            self?.textFieldDidChange()
         }
+        return view
     }()
 
     private lazy var activateButton: SoramitsuButton = {
@@ -83,9 +84,11 @@ final class ReferrerLinkCell: SoramitsuTableViewCell {
         containerView.snp.makeConstraints { make in
             make.edges.equalTo(contentView)
         }
+        linkView.textField.becomeFirstResponder()
     }
     
     private func textFieldDidChange() {
+        viewModel?.text = linkView.textField.sora.text ?? ""
         delegate?.userChangeTextField(with: linkView.textField.sora.text ?? "")
     }
 
@@ -98,8 +101,9 @@ extension ReferrerLinkCell: Reusable {
     func bind(viewModel: CellViewModel) {
         guard let viewModel = viewModel as? ReferrerLinkViewModel else { return }
         activateButton.sora.isEnabled = viewModel.isEnabled
-        linkView.textField.becomeFirstResponder()
+        linkView.textField.sora.text = viewModel.text
         self.delegate = viewModel.delegate
+        self.viewModel = viewModel
     }
 }
 
