@@ -501,8 +501,6 @@
 		36C66EAC2A5D6E7700ADAD5E /* StakedPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C66EAB2A5D6E7700ADAD5E /* StakedPool.swift */; };
 		36C66EAE2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */; };
 		36C88A262A32EAA800B3CF39 /* AccountOptionSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88A252A32EAA800B3CF39 /* AccountOptionSeparator.swift */; };
-		36C88DF8281A7CCC0038B7F9 /* InputLinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88DF7281A7CCC0038B7F9 /* InputLinkView.swift */; };
-		36C88DFA281AA1C80038B7F9 /* RoundTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88DF9281AA1C80038B7F9 /* RoundTextField.swift */; };
 		36C88DFF2821283E0038B7F9 /* InputLinkViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88DFE2821283E0038B7F9 /* InputLinkViewController.swift */; };
 		36DB198429EDC5CB00B3E3BF /* AccountCreateWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197529EDC5CA00B3E3BF /* AccountCreateWireframe.swift */; };
 		36DB198529EDC5CB00B3E3BF /* AccountCreateInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197629EDC5CA00B3E3BF /* AccountCreateInteractor.swift */; };
@@ -1216,6 +1214,9 @@
 		B2A56EF92A5E815200844A35 /* InvitationsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EF82A5E815200844A35 /* InvitationsCell.swift */; };
 		B2A56EFD2A5E955E00844A35 /* FeeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EFC2A5E955E00844A35 /* FeeView.swift */; };
 		B2A56EFF2A5EB51700844A35 /* InvitationsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EFE2A5EB51600844A35 /* InvitationsViewModel.swift */; };
+		B2A56F012A66903800844A35 /* ReferrerLinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F002A66903800844A35 /* ReferrerLinkView.swift */; };
+		B2A56F042A67A44000844A35 /* ReferrerLinkCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F032A67A44000844A35 /* ReferrerLinkCell.swift */; };
+		B2A56F062A67A7A600844A35 /* ReferrerLinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F052A67A7A500844A35 /* ReferrerLinkViewModel.swift */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
@@ -1808,8 +1809,6 @@
 		36C66EAB2A5D6E7700ADAD5E /* StakedPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StakedPool.swift; sourceTree = "<group>"; };
 		36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailsItemFactory.swift; sourceTree = "<group>"; };
 		36C88A252A32EAA800B3CF39 /* AccountOptionSeparator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountOptionSeparator.swift; sourceTree = "<group>"; };
-		36C88DF7281A7CCC0038B7F9 /* InputLinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputLinkView.swift; sourceTree = "<group>"; };
-		36C88DF9281AA1C80038B7F9 /* RoundTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundTextField.swift; sourceTree = "<group>"; };
 		36C88DFE2821283E0038B7F9 /* InputLinkViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputLinkViewController.swift; sourceTree = "<group>"; };
 		36DB197529EDC5CA00B3E3BF /* AccountCreateWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountCreateWireframe.swift; sourceTree = "<group>"; };
 		36DB197629EDC5CA00B3E3BF /* AccountCreateInteractor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountCreateInteractor.swift; sourceTree = "<group>"; };
@@ -2564,6 +2563,9 @@
 		B2A56EF82A5E815200844A35 /* InvitationsCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationsCell.swift; sourceTree = "<group>"; };
 		B2A56EFC2A5E955E00844A35 /* FeeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeView.swift; sourceTree = "<group>"; };
 		B2A56EFE2A5EB51600844A35 /* InvitationsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationsViewModel.swift; sourceTree = "<group>"; };
+		B2A56F002A66903800844A35 /* ReferrerLinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerLinkView.swift; sourceTree = "<group>"; };
+		B2A56F032A67A44000844A35 /* ReferrerLinkCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerLinkCell.swift; sourceTree = "<group>"; };
+		B2A56F052A67A7A500844A35 /* ReferrerLinkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerLinkViewModel.swift; sourceTree = "<group>"; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
 		B6060AA9ACE9DE050A4F3D5B /* Pods-SoraPassportTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.test.xcconfig"; sourceTree = "<group>"; };
 		BF46BCE3BB2860C9A56151BF /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
@@ -2998,6 +3000,7 @@
 			isa = PBXGroup;
 			children = (
 				A55ECAD499FAB4C39A9F3A84 /* Friends */,
+				36C88DF6281A7B3B0038B7F9 /* InputLink */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -4643,8 +4646,7 @@
 		36C88DF6281A7B3B0038B7F9 /* InputLink */ = {
 			isa = PBXGroup;
 			children = (
-				36C88DF7281A7CCC0038B7F9 /* InputLinkView.swift */,
-				36C88DF9281AA1C80038B7F9 /* RoundTextField.swift */,
+				B2A56F022A67A41500844A35 /* ReferrerLink */,
 				36C88DFE2821283E0038B7F9 /* InputLinkViewController.swift */,
 				3661C9F0286227B000660434 /* InputLinkPresenter.swift */,
 				3661C9F2286326F700660434 /* InputLinkInteractor.swift */,
@@ -5978,7 +5980,6 @@
 			children = (
 				36ACC9582863CC2900DA98EC /* Referrer Screen */,
 				36C88E0028217F390038B7F9 /* InputRewardAmount */,
-				36C88DF6281A7B3B0038B7F9 /* InputLink */,
 				104BD284256686E1007719DF /* ViewModels */,
 				103CCD1E25643E0D0028345D /* Views */,
 				81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */,
@@ -6022,10 +6023,20 @@
 			isa = PBXGroup;
 			children = (
 				B2A56EF82A5E815200844A35 /* InvitationsCell.swift */,
-				B2A56EFC2A5E955E00844A35 /* FeeView.swift */,
 				B2A56EFE2A5EB51600844A35 /* InvitationsViewModel.swift */,
+				B2A56EFC2A5E955E00844A35 /* FeeView.swift */,
 			);
 			path = Invitations;
+			sourceTree = "<group>";
+		};
+		B2A56F022A67A41500844A35 /* ReferrerLink */ = {
+			isa = PBXGroup;
+			children = (
+				B2A56F032A67A44000844A35 /* ReferrerLinkCell.swift */,
+				B2A56F052A67A7A500844A35 /* ReferrerLinkViewModel.swift */,
+				B2A56F002A66903800844A35 /* ReferrerLinkView.swift */,
+			);
+			path = ReferrerLink;
 			sourceTree = "<group>";
 		};
 		B8A4AE2318F935BBA3F481A0 /* ChangeAccount */ = {
@@ -6395,7 +6406,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				"$PROJECT_DIR/R.generated.swift",
+				$PROJECT_DIR/R.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6493,7 +6504,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
+				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6961,7 +6972,6 @@
 				9481B46D286EFC2200A472E2 /* ChainRegistryError.swift in Sources */,
 				36527D9029B73DE7006D2042 /* LocalTransactionStorage.swift in Sources */,
 				553069EA290BD4AF00F265A3 /* AppSettingsCardItem.swift in Sources */,
-				36C88DF8281A7CCC0038B7F9 /* InputLinkView.swift in Sources */,
 				026AEA3221AAFED8002EEB67 /* SoraLoadingViewPresenter.swift in Sources */,
 				9441FBEF25CC035700775559 /* StakingInfoSubscription.swift in Sources */,
 				55D06AD028BFEBFD00256B98 /* SwapMarketSourcerProtocol.swift in Sources */,
@@ -7265,6 +7275,7 @@
 				94497D8825EE99A300FD4F14 /* SS58FactoryExtensions.swift in Sources */,
 				9441F9F925C9823800775559 /* JSONRPCInfo.swift in Sources */,
 				02BBD83821CB8E0B00C7A1E3 /* NotificationTokenExchangeMock.swift in Sources */,
+				B2A56F012A66903800844A35 /* ReferrerLinkView.swift in Sources */,
 				3661C9DD2850CE6500660434 /* RewardRawCell.swift in Sources */,
 				366A78372A3227AC00A6DDF9 /* SetupPasswordPresenter.swift in Sources */,
 				02CFA4A92187A45A000E9483 /* ActionPresentationController.swift in Sources */,
@@ -7432,7 +7443,6 @@
 				02D656E12205776200AAA66A /* ProjectsToggleFavoriteMock.swift in Sources */,
 				02A052F92221C95600CA290F /* DateFormatter+Verification.swift in Sources */,
 				9441FBF725CC065600775559 /* WalletNewTransactionInserted.swift in Sources */,
-				36C88DFA281AA1C80038B7F9 /* RoundTextField.swift in Sources */,
 				3611063A29798AFC003A6352 /* Quiz.swift in Sources */,
 				9441F88E25C957C400775559 /* WalletNetworkFacade+Protocol.swift in Sources */,
 				94497CF625E946C600FD4F14 /* MigrationEvent.swift in Sources */,
@@ -7496,6 +7506,7 @@
 				029879202181D7310085E605 /* IRSigningDecorator.swift in Sources */,
 				366D53D02952B4A20094CE36 /* ScanQRViewModel.swift in Sources */,
 				9441F9FB25C9823800775559 /* RuntimeDispatchInfo.swift in Sources */,
+				B2A56F062A67A7A600844A35 /* ReferrerLinkViewModel.swift in Sources */,
 				9441F8FC25C9699400775559 /* AccountCreateError.swift in Sources */,
 				3603A3942917E1FD00DF6EFE /* PoolViewModel.swift in Sources */,
 				7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */,
@@ -7619,6 +7630,7 @@
 				9441F9AF25C9801300775559 /* SubstrateDataStorageFacade.swift in Sources */,
 				5599B6D42925724900567396 /* SettingsInformationViewController.swift in Sources */,
 				84A0DA012265B0AF006EF85C /* CompactBarFloating.swift in Sources */,
+				B2A56F042A67A44000844A35 /* ReferrerLinkCell.swift in Sources */,
 				36DB199329EDCCBC00B3E3BF /* MnemonicDisplayView.swift in Sources */,
 				36E0BB8A29F52821000510D9 /* WalletStaticImageViewModel.swift in Sources */,
 				9441F89325C957C400775559 /* WalletNetworkFacade+TxHistory.swift in Sources */,

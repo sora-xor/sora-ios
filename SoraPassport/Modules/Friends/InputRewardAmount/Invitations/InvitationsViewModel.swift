@@ -13,7 +13,7 @@ protocol InvitationsViewModelProtocol {
     var delegate: InvitationsCellDelegate? { get }
 }
 
-struct InvitationsViewModel: InvitationsViewModelProtocol {
+class InvitationsViewModel: InvitationsViewModelProtocol {
     var title: String?
     var description: String
     var fee: Decimal
