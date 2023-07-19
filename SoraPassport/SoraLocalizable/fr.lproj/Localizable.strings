@@ -768,7 +768,7 @@
 "sora.card.annual.service.fee" = "0€ de frais de service annuels";
 "sora.card.free.card.issuance" = "Émission gratuite de la carte";
 "sora.card.free.card.issuance.conditions.xor" = "Si vous détenez, stakez, ou fournissez des liquidités pour un montant d'au moins 100€ de XOR avec votre compte SORA";
-"sora.card.free.card.issuance.conditions.euro" = "ou 12€ de frais de demande";
+"sora.card.free.card.issuance.conditions.euro" = "ou 20€ de frais de demande";
 "sora.card.enable.card.title" = "Activer la carte";
 "recovery.enter.passphrase.title" = "Entrez votre phrase secrète";
 "onboarding.enter.passphrase" = "Entrez votre phrase secrète";
@@ -830,6 +830,7 @@
 "commom.scan.qr" = "Scan QR code";
 "common.request" = "Request";
 "common.create.qr.request" = "Create QR-request";
+"sora.card.see.details" = "Détails";
 "common.title.warning" = "Warning!";
 "swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "Your %@ balance will be less than %@ after this transaction. You won’t be able to pay for the network fee for another transaction.";
 "node.offline" = "Node offline";
@@ -884,3 +885,9 @@
 "explore.swap.tokens.on.sora" = "Swap tokens on SORA network";
 "common.currencies" = "Currencies";
 "explore.provide.and.earn" = "Provide liquidity and earn rewards";
+"backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
+"backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
+"backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"edit.view" = "Edit view";
+"common.enabled" = "Enabled";
+"common.disabled" = "Disabled";

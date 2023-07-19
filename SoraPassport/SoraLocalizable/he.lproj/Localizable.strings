@@ -768,7 +768,7 @@
 "sora.card.annual.service.fee" = "€0 דמי שירות שנתיים";
 "sora.card.free.card.issuance" = "הנפקת כרטיס חינם";
 "sora.card.free.card.issuance.conditions.xor" = "אם אתה מחזיק, נועל או מספק נזילות בשווי של לפחות 100 אירו של XOR בחשבון סורה שלך";
-"sora.card.free.card.issuance.conditions.euro" = "או 12 € דמי רישום";
+"sora.card.free.card.issuance.conditions.euro" = "או 20 € דמי רישום";
 "sora.card.enable.card.title" = "הפוך כרטיס לזמין";
 "recovery.enter.passphrase.title" = "הזן את מילות המפתח הסודיות שלך";
 "onboarding.enter.passphrase" = "הזן את מילות המפתח שלך";
@@ -830,6 +830,7 @@
 "commom.scan.qr" = "סרוק קוד QR";
 "common.request" = "בקשה";
 "common.create.qr.request" = "צור בקשת QR";
+"sora.card.see.details" = "ראה את הפרטים";
 "common.title.warning" = "אזהרה!";
 "swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "היתרה שלך ב %@ תהיה פחות מ- %@ לאחר הטרנזקציה הזו. לא תוכל לשלם עבור עמלת הרשת עבור טרנזקציה נוספת.";
 "node.offline" = "צומת במצב לא מקוון";
@@ -884,3 +885,9 @@
 "explore.swap.tokens.on.sora" = "Swap tokens on SORA network";
 "common.currencies" = "Currencies";
 "explore.provide.and.earn" = "Provide liquidity and earn rewards";
+"backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
+"backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
+"backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"edit.view" = "Edit view";
+"common.enabled" = "Enabled";
+"common.disabled" = "Disabled";

@@ -768,7 +768,7 @@
 "sora.card.annual.service.fee" = "Phí dịch vụ hàng năm € 0";
 "sora.card.free.card.issuance" = "Miễn phí phát hành thẻ";
 "sora.card.free.card.issuance.conditions.xor" = "Nếu bạn nắm giữ, stake hoặc cung cấp thanh khoản cho XOR trị giá ít nhất €100 trong tài khoản SORA của mình";
-"sora.card.free.card.issuance.conditions.euro" = "hoặc phí đăng ký 12 €";
+"sora.card.free.card.issuance.conditions.euro" = "hoặc phí đăng ký 20 €";
 "sora.card.enable.card.title" = "Mở khóa thẻ";
 "recovery.enter.passphrase.title" = "Nhập cụm mật khẩu ví gốc (Raw seed)";
 "onboarding.enter.passphrase" = "Nhập chuỗi từ khóa khôi phục";
@@ -830,6 +830,7 @@
 "commom.scan.qr" = "Quét mã QR";
 "common.request" = "Yêu cầu";
 "common.create.qr.request" = "Tạo QR yêu cầu";
+"sora.card.see.details" = "Xem chi tiết";
 "common.title.warning" = "Cảnh báo!";
 "swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "Số dư %@ của bạn sẽ ít hơn %@ sau giao dịch này. Bạn sẽ không thể thanh toán phí mạng cho một giao dịch khác.";
 "node.offline" = "Node ngoại tuyến";
@@ -884,3 +885,9 @@
 "explore.swap.tokens.on.sora" = "Swap tokens on SORA network";
 "common.currencies" = "Currencies";
 "explore.provide.and.earn" = "Provide liquidity and earn rewards";
+"backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
+"backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
+"backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"edit.view" = "Edit view";
+"common.enabled" = "Enabled";
+"common.disabled" = "Disabled";

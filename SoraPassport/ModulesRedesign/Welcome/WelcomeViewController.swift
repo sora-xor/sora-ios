@@ -2,7 +2,7 @@ import UIKit
 import SoraUIKit
 import Nantes
 
-final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewProtocol {
+final class WelcomeViewController: SoramitsuViewController {
     var presenter: OnboardingMainPresenterProtocol!
     
     let logo: SoramitsuImageView = {
@@ -111,6 +111,12 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
         CompoundAttributedStringDecorator.legalRedesign(for: Locale.current)
     }()
     
+    let loadingView: SoramitsuLoadingView = {
+        let view = SoramitsuLoadingView()
+        view.isHidden = true
+        return view
+    }()
+
     public lazy var termsLabel: NantesLabel = {
         let label = NantesLabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -151,10 +157,16 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
         presenter.setup()
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        presenter.viewWillAppear()
+    }
+    
     func setupView() {
         view.addSubview(containerView)
         containerView.addSubviews(logo, titleLabel, subtitleLabel, googleButton, createAccountButton, importAccountButton, termsLabel)
         decorate(label: termsLabel)
+        view.addSubview(loadingView)
     }
     
     func setupConstraints() {
@@ -190,6 +202,11 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
             termsLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             termsLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             termsLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -24),
+
+            loadingView.widthAnchor.constraint(equalTo: view.widthAnchor),
+            loadingView.heightAnchor.constraint(equalTo: view.heightAnchor),
+            loadingView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
     }
 }
@@ -197,5 +214,15 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
 extension WelcomeViewController: NantesLabelDelegate {
     func attributedLabel(_ label: NantesLabel, didSelectLink link: URL) {
         UIApplication.shared.open(link, options: [:], completionHandler: nil)
+    }
+}
+
+extension WelcomeViewController: OnboardingMainViewProtocol {
+    func showLoading() {
+        loadingView.isHidden = false
+    }
+    
+    func hideLoading() {
+        loadingView.isHidden = true
     }
 }
