@@ -160,6 +160,7 @@ final class WelcomeViewController: SoramitsuViewController {
     func setupView() {
         view.addSubview(containerView)
         containerView.addSubviews(logo, titleLabel, subtitleLabel, googleButton, createAccountButton, importAccountButton, termsLabel)
+        decorate(label: termsLabel)
         view.addSubview(loadingView)
     }
     
