@@ -2,7 +2,8 @@ import Foundation
 import SSFCloudStorage
 
 protocol OnboardingMainViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
-
+    func showLoading()
+    func hideLoading()
 }
 
 protocol OnboardingMainPresenterProtocol: AlertPresentable {
