@@ -768,7 +768,7 @@
 "sora.card.annual.service.fee" = "€ 0 Yuran Perkhidmatan Tahunan";
 "sora.card.free.card.issuance" = "Pengeluaran kad percuma";
 "sora.card.free.card.issuance.conditions.xor" = "Jika anda memegang, mempertaruhkan atau menyediakan kecairan untuk sekurang-kurangnya €100 nilai XOR dalam akaun SORA anda";
-"sora.card.free.card.issuance.conditions.euro" = "atau 12 € yuran permohonan";
+"sora.card.free.card.issuance.conditions.euro" = "atau 20 € yuran permohonan";
 "sora.card.enable.card.title" = "Dayakan kad";
 "recovery.enter.passphrase.title" = "Masukkan frasa laluan rahsia anda";
 "onboarding.enter.passphrase" = "Masukkan frasa laluan";
@@ -830,6 +830,7 @@
 "commom.scan.qr" = "Imbas kod QR";
 "common.request" = "Permintaan";
 "common.create.qr.request" = "Buat permintaan QR";
+"sora.card.see.details" = "Lihat butirannya";
 "common.title.warning" = "Amaran!";
 "swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "Baki %@ anda akan kurang daripada %@ selepas transaksi ini. Anda tidak akan dapat membayar yuran rangkaian untuk transaksi lain.";
 "node.offline" = "Nod luar talian";
@@ -884,3 +885,9 @@
 "explore.swap.tokens.on.sora" = "Swap tokens on SORA network";
 "common.currencies" = "Currencies";
 "explore.provide.and.earn" = "Provide liquidity and earn rewards";
+"backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
+"backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
+"backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"edit.view" = "Edit view";
+"common.enabled" = "Enabled";
+"common.disabled" = "Disabled";

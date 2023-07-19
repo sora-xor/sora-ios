@@ -166,6 +166,8 @@ final class SwapViewModel {
                 let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
                 view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
             }
+            
+            updateWarningModel()
         }
     }
     
@@ -189,14 +191,7 @@ final class SwapViewModel {
     }
     private var fee: Decimal = 0 {
         didSet {
-            let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
-            let isHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee ||
-            firstAssetId.isEmpty || secondAssetId.isEmpty || inputedFirstAmount == 0 || inputedSecondAmount == 0 || firstAssetBalance.balance.decimalValue == 0
-            warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(
-                feeAssetSymbol: feeAssetSymbol,
-                feeAmount: fee,
-                isHidden: isHidden
-            )
+
         }
     }
     private var dexId: UInt32 = 0
@@ -673,6 +668,26 @@ extension SwapViewModel {
         }
 
         return true
+    }
+    
+    func updateWarningModel() {
+        let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
+        
+        var isDisclamerHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
+        
+        if firstAssetId.isEmpty ||
+            secondAssetId.isEmpty ||
+            inputedFirstAmount == 0 ||
+            inputedSecondAmount == 0 ||
+            firstAssetBalance.balance.decimalValue == 0 {
+            isDisclamerHidden = true
+        }
+
+        warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(
+            feeAssetSymbol: feeAssetSymbol,
+            feeAmount: fee,
+            isHidden: isDisclamerHidden
+        )
     }
 }
 
