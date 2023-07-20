@@ -6,7 +6,6 @@ import SoraUIKit
 
 protocol InputLinkViewInput: AnyObject {
     func setup(with models: [CellViewModel])
-    func reloadCell(at indexPath: IndexPath, models: [CellViewModel])
     func dismiss(with completion: @escaping () -> Void)
 }
 
@@ -111,11 +110,6 @@ extension InputLinkViewController: InputLinkViewInput {
     func setup(with models: [CellViewModel]) {
         self.models = models
         tableView.reloadData()
-    }
-    
-    func reloadCell(at indexPath: IndexPath, models: [CellViewModel]) {
-        self.models = models
-        tableView.reloadRows(at: [indexPath], with: .automatic)
     }
     
     func dismiss(with completion: @escaping () -> Void) {

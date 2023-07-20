@@ -2,16 +2,23 @@ import UIKit
 import SoraUIKit
 import SoraFoundation
 import SnapKit
-
-protocol ReferrerLinkCellDelegate: AnyObject {
-    func userTappedonActivete(with text: String)
-    func userChangeTextField(with text: String)
-}
+import Combine
 
 final class ReferrerLinkCell: SoramitsuTableViewCell {
     
-    private weak var delegate: ReferrerLinkCellDelegate?
-    private weak var viewModel: ReferrerLinkViewModel?
+    private var cancellables: Set<AnyCancellable> = []
+    private weak var viewModel: ReferrerLinkViewModel? {
+        didSet {
+            guard let viewModel = viewModel else { return }
+            viewModel.$isEnabled
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    guard let self = self else { return }
+                    self.activateButton.sora.isEnabled = viewModel.isEnabled ?? false
+                }
+                .store(in: &cancellables)
+        }
+    }
     
     private lazy var containerView: SoramitsuStackView = {
         SoramitsuStackView().then {
@@ -88,21 +95,21 @@ final class ReferrerLinkCell: SoramitsuTableViewCell {
     }
     
     private func textFieldDidChange() {
-        viewModel?.text = linkView.textField.sora.text ?? ""
-        delegate?.userChangeTextField(with: linkView.textField.sora.text ?? "")
+        guard let viewModel = viewModel else { return }
+        viewModel.userChangeTextField(with: linkView.textField.sora.text ?? "")
     }
 
     private func activeLinkTapped() {
-        delegate?.userTappedonActivete(with: linkView.textField.sora.text ?? "")
+        guard let viewModel = viewModel else { return }
+        viewModel.userTappedOnActivate()
     }
 }
 
 extension ReferrerLinkCell: Reusable {
     func bind(viewModel: CellViewModel) {
         guard let viewModel = viewModel as? ReferrerLinkViewModel else { return }
-        activateButton.sora.isEnabled = viewModel.isEnabled
-        linkView.textField.sora.text = viewModel.text
-        self.delegate = viewModel.delegate
+        activateButton.sora.isEnabled = viewModel.isEnabled ?? false
+        linkView.textField.sora.text = viewModel.address
         self.viewModel = viewModel
     }
 }
