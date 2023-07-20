@@ -10,7 +10,7 @@ def pipeline = new org.ios.AppPipeline(
     steps: this,
     sonar: true,
     sonarProjectName: 'sora-ios',
-    sonarProjectKey: 'jp.co.soramitsu.sora-xor:sora-ios',
+    sonarProjectKey: 'sora:sora-ios',
     // appTests: false,
     sonarTestsDirs: './SoraPassportTests,./SoraPassportIntegrationTests,./SoraPassportUITests',
     jobParams: jobParams,
