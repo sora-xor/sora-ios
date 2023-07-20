@@ -12,21 +12,16 @@ final class InputLinkPresenter {
 
     private var items: [CellViewModel] = []
     private var actionButtonIsEnabled: Bool = false
-    private var address: String = ""
 }
 
 extension InputLinkPresenter: InputLinkViewOutput {
     func willMove() {
-        let actionButtonIsEnabled = !address.isEmpty
-        
         items.append(ReferrerLinkViewModel(isEnabled: actionButtonIsEnabled,
                                            interactor: interactor))
         
         DispatchQueue.main.async {
             self.view?.setup(with: self.items)
         }
-        
-        self.actionButtonIsEnabled = actionButtonIsEnabled
     }
 }
 
@@ -38,7 +33,6 @@ extension InputLinkPresenter: InputLinkInteractorOutputProtocol {
                     let self = self,
                     let viewModel = items.first(where: {$0 is ReferrerLinkViewModel}) as? ReferrerLinkViewModel
                 else { return }
-                self.address = viewModel.address
                 self.output?.setupReferrer(viewModel.address)
                 self.output?.showAlert(withSuccess: isSuccess)
             }
