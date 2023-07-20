@@ -292,7 +292,6 @@
 "copy.xor.title" = "Kopier Sora (XOR) lommebokadresse";
 "copy.eth.title" = "Kopier Ethereum (ETH) lommebokadresse";
 "view_balance" = "Vis Sora (XOR) token allokering";
-"referendum.date.day.plurals" = "%#@value@";
 "tabbar.voting.title" = "Avstemning";
 "wallet.erc20" = "ERC20";
 "about.website" = "Offisielt Nettsted";
@@ -608,7 +607,7 @@
 "referral.enter.link.title" = "Enter referrer's link";
 "referral.activate.button.title" = "Activate";
 "referral.input.reward.title" = "Enter desired amount of invitations";
-"referral.input.reward.description" = "%s is bonded per each invitation to cover the network fee for your friends to join.\n\nYou can unbond your XOR at any time for unused invitations.";
+"referral.input.reward.description" = "%s is bonded per each invitation to cover the network fee for your friends to join.\nYou can unbond unused XOR at any time.";
 "referral.bond.button.title" = "Bond XOR";
 "referral.unbond.xor.description" = "You can unbond %s per 1 invitations. How many invitations do you want to withdraw?";
 "referral.referral.link" = "Referrer’s link or address";
@@ -769,7 +768,7 @@
 "sora.card.annual.service.fee" = "€0 annual service fee";
 "sora.card.free.card.issuance" = "Free card issuance";
 "sora.card.free.card.issuance.conditions.xor" = "If you hold, stake or provide liquidity for at least €100 worth of XOR in your SORA account";
-"sora.card.free.card.issuance.conditions.euro" = "or 12 € application fee";
+"sora.card.free.card.issuance.conditions.euro" = "or €20 application fee";
 "sora.card.enable.card.title" = "Enable card";
 "recovery.enter.passphrase.title" = "Enter your secret Passphrase";
 "onboarding.enter.passphrase" = "Enter Passphrase";
@@ -831,6 +830,7 @@
 "commom.scan.qr" = "Scan QR code";
 "common.request" = "Request";
 "common.create.qr.request" = "Create QR-request";
+"sora.card.see.details" = "View details";
 "common.title.warning" = "Warning!";
 "swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "Your %@ balance will be less than %@ after this transaction. You won’t be able to pay for the network fee for another transaction.";
 "node.offline" = "Node offline";
@@ -842,7 +842,7 @@
 "common.vietnamese" = "Vietnamese";
 "common.hindi" = "Hindi";
 "confirn.supply.liquidity.first.provider.warning" = "You are the first liquidity provider. The ratio of tokens you add will set the price of this pool.";
-"backup.password.title" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"backup.password.title" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.\nMinimum password length is 6 characters.";
 "create.backup.password.title" = "Create backup password";
 "create.backup.set.password" = "Set password";
 "create.backup.password.warning.text" = "I understand that if I forget my password there is no way to retrieve it.";
@@ -882,3 +882,12 @@
 "common.google.backup.decryption.failed" = "Backup decryption failed. Please check password and try again";
 "polkaswap.farming.unstake.to.remove" = "To remove liquidity you need to unstake it first";
 "polkaswap.farming.pool.in.farming.hint" = "Some portion of your pool share is staked. To have access to it you have to unstake it first.";
+"explore.swap.tokens.on.sora" = "Swap tokens on SORA network";
+"common.currencies" = "Currencies";
+"explore.provide.and.earn" = "Provide liquidity and earn rewards";
+"backup.password.requirments" = "Minimum six characters. Optionally, for better security, include uppercase letters, numbers and non-alphabetic characters.";
+"backup.password.mandatory.reqs.fulfilled" = "Mandatory requirement for the password fulfilled";
+"backup.password.title.2" = "Setting a password will encrypt your Google backup. You’ll need to enter this when restoring your wallet.";
+"edit.view" = "Edit view";
+"common.enabled" = "Enabled";
+"common.disabled" = "Disabled";

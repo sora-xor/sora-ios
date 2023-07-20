@@ -116,9 +116,13 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                                                                           poolsService: poolService,
                                                                                           assetsProvider: assetsProvider,
                                                                                           localizationManager: LocalizationManager.shared)
-        
-        let oldWalletViewController = MainTabBarViewFactory.createWalletController(walletContext: walletContext,
-                                                                                  localizationManager: LocalizationManager.shared)
+
+        let investController = MainTabBarViewFactory.createInvestController(walletContext: walletContext,
+                                                            assetManager: assetManager,
+                                                            networkFacade: walletContext.networkOperationFactory,
+                                                            poolService: poolService,
+                                                            polkaswapNetworkFacade: polkaswapContext,
+                                                            assetsProvider: assetsProvider)
 
         guard let tabBarController = view as? UITabBarController else {
             return
@@ -127,6 +131,12 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         if var viewcontrollers = tabBarController.viewControllers {
             viewcontrollers.remove(at: 0)
             viewcontrollers.insert(redesignViewController ?? UIViewController(), at: 0)
+            tabBarController.viewControllers = viewcontrollers
+        }
+        
+        if var viewcontrollers = tabBarController.viewControllers {
+            viewcontrollers.remove(at: 1)
+            viewcontrollers.insert(investController ?? UIViewController(), at: 1)
             tabBarController.viewControllers = viewcontrollers
         }
         

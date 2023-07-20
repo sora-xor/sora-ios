@@ -117,7 +117,7 @@ extension NumberFormatter {
         formatter.roundingMode = .floor
         formatter.usesGroupingSeparator = true
         formatter.alwaysShowsDecimalSeparator = false
-        formatter.locale = LocalizationManager.shared.selectedLocale
+        formatter.locale = Locale.current
         return formatter
     }
 }

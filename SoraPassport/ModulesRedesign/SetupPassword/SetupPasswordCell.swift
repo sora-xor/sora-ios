@@ -16,11 +16,11 @@ final class SetupPasswordCell: SoramitsuTableViewCell {
                 .sink { [weak self] event in
                     switch event {
                     case .lowSecurityPassword:
-                        let descriptionLabelText = R.string.localizable.createBackupWeakPassword(preferredLanguages: .currentLocale)
+                        let descriptionLabelText = R.string.localizable.backupPasswordRequirments(preferredLanguages: .currentLocale)
                         self?.setPasswordInputField.sora.descriptionLabelText = descriptionLabelText
                         self?.setPasswordInputField.sora.state = .fail
                     case .securedPassword:
-                        let descriptionLabelText = R.string.localizable.createBackupPasswordIsSecure(preferredLanguages: .currentLocale)
+                        let descriptionLabelText = R.string.localizable.backupPasswordMandatoryReqsFulfilled(preferredLanguages: .currentLocale)
                         self?.setPasswordInputField.sora.descriptionLabelText = descriptionLabelText
                         self?.setPasswordInputField.sora.state = .success
                     case .notMatchPasswords:
@@ -63,6 +63,7 @@ final class SetupPasswordCell: SoramitsuTableViewCell {
         view.sora.textFieldPlaceholder = R.string.localizable.createBackupSetPassword(preferredLanguages: .currentLocale)
         view.textField.returnKeyType = .next
         view.textField.isSecureTextEntry = true
+        view.sora.descriptionLabelText = R.string.localizable.backupPasswordRequirments(preferredLanguages: .currentLocale)
         view.textField.sora.addHandler(for: .editingChanged) { [weak self] in
             self?.input.send(.passwordChanged(view.textField.text ?? ""))
         }
@@ -157,7 +158,6 @@ final class SetupPasswordCell: SoramitsuTableViewCell {
             setPasswordInputField.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             setPasswordInputField.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             setPasswordInputField.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 24),
-            setPasswordInputField.heightAnchor.constraint(equalToConstant: 76),
             
             confirmPasswordInputField.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             confirmPasswordInputField.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),

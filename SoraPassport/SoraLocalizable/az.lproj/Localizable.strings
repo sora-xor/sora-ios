@@ -768,7 +768,7 @@
 "sora.card.annual.service.fee" = "€0 annual service fee";
 "sora.card.free.card.issuance" = "Free card issuance";
 "sora.card.free.card.issuance.conditions.xor" = "If you hold, stake or provide liquidity for at least €100 worth of XOR in your SORA account";
-"sora.card.free.card.issuance.conditions.euro" = "or 12 € application fee";
+"sora.card.free.card.issuance.conditions.euro" = "və ya €20 ərizə haqqı";
 "sora.card.enable.card.title" = "Enable card";
 "recovery.enter.passphrase.title" = "Enter your secret Passphrase";
 "onboarding.enter.passphrase" = "Enter Passphrase";
@@ -830,6 +830,7 @@
 "commom.scan.qr" = "Scan QR code";
 "common.request" = "Request";
 "common.create.qr.request" = "Create QR-request";
+"sora.card.see.details" = "Detallara baxın";
 "common.title.warning" = "Warning!";
 "swap.confirmation.screen.warning.balance.afterwards.transaction.is.too.small" = "Your %@ balance will be less than %@ after this transaction. You won’t be able to pay for the network fee for another transaction.";
 "node.offline" = "Node offline";
@@ -884,3 +885,9 @@
 "explore.swap.tokens.on.sora" = "SORA şəbəkəsində tokenləri dəyişdirin";
 "common.currencies" = "Valyutalar";
 "explore.provide.and.earn" = "Likvidliyi təmin edin və mükafatlar qazanın";
+"backup.password.requirments" = "Minimum altı simvol. İsteğe bağlı olaraq, daha yaxşı təhlükəsizlik üçün böyük hərflər, rəqəmlər və qeyri-əlifba simvolları daxil edin.";
+"backup.password.mandatory.reqs.fulfilled" = "Parol üçün məcburi tələb yerinə yetirildi";
+"backup.password.title.2" = "Parolun təyin edilməsi Google ehtiyat nüsxənizi şifrələyəcək. Pul kisəsini bərpa edərkən bunu daxil etməlisiniz.";
+"edit.view" = "Görünüşü redaktə edin";
+"common.enabled" = "Aktivdir";
+"common.disabled" = "Əlil";

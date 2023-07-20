@@ -357,6 +357,7 @@
 		364D61CE2993DAA5004938FA /* BalanceDetailsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D61CD2993DAA5004938FA /* BalanceDetailsViewController.swift */; };
 		36527D8E29B7341A006D2042 /* NewTransactionCreatedEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36527D8D29B7341A006D2042 /* NewTransactionCreatedEvent.swift */; };
 		36527D9029B73DE7006D2042 /* LocalTransactionStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36527D8F29B73DE7006D2042 /* LocalTransactionStorage.swift */; };
+		3652E10A2A679E4E0073AFBA /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3652E1092A679E4E0073AFBA /* LoadingView.swift */; };
 		3653BD0C2A028CE5003C71A4 /* QRFrameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD0B2A028CE5003C71A4 /* QRFrameView.swift */; };
 		3653BD0E2A029A66003C71A4 /* ScanQRWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD0D2A029A66003C71A4 /* ScanQRWireframe.swift */; };
 		3653BD142A029D5A003C71A4 /* GenerateQRViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD102A029D5A003C71A4 /* GenerateQRViewController.swift */; };
@@ -1647,6 +1648,7 @@
 		364D61CD2993DAA5004938FA /* BalanceDetailsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalanceDetailsViewController.swift; sourceTree = "<group>"; };
 		36527D8D29B7341A006D2042 /* NewTransactionCreatedEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTransactionCreatedEvent.swift; sourceTree = "<group>"; };
 		36527D8F29B73DE7006D2042 /* LocalTransactionStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTransactionStorage.swift; sourceTree = "<group>"; };
+		3652E1092A679E4E0073AFBA /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
 		3653BD0B2A028CE5003C71A4 /* QRFrameView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QRFrameView.swift; sourceTree = "<group>"; };
 		3653BD0D2A029A66003C71A4 /* ScanQRWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScanQRWireframe.swift; sourceTree = "<group>"; };
 		3653BD102A029D5A003C71A4 /* GenerateQRViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GenerateQRViewController.swift; sourceTree = "<group>"; };
@@ -4753,6 +4755,7 @@
 			children = (
 				36E5CF13295B49F90098D4D2 /* WelcomeViewController.swift */,
 				36E5CF0F295B46200098D4D2 /* WelcomeBackgroundViewController.swift */,
+				3652E1092A679E4E0073AFBA /* LoadingView.swift */,
 			);
 			path = Welcome;
 			sourceTree = "<group>";
@@ -6932,6 +6935,7 @@
 				9441D2A22678FD0700FDD374 /* ExtrinsicProcessing.swift in Sources */,
 				366D53B2295249280094CE36 /* ContactsViewModel.swift in Sources */,
 				362F49BA2A36FF0F00163091 /* SignInGoogle.swift in Sources */,
+				3652E10A2A679E4E0073AFBA /* LoadingView.swift in Sources */,
 				362F49B62A36388300163091 /* Loadable.swift in Sources */,
 				9441F89425C957C400775559 /* WalletContactOperationFactory.swift in Sources */,
 				5E9774F42A31AE040047BCA2 /* AccountExportRawSeedInteractor.swift in Sources */,
