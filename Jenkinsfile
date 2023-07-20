@@ -8,14 +8,15 @@ def jobParams = [
 
 def pipeline = new org.ios.AppPipeline(
     steps: this,
-    sonar: false,
+    sonar: true,
     sonarProjectName: 'sora-ios',
     sonarProjectKey: 'jp.co.soramitsu.sora-xor:sora-ios',
     // appTests: false,
     sonarTestsDirs: './SoraPassportTests,./SoraPassportIntegrationTests,./SoraPassportUITests',
     jobParams: jobParams,
     label: "macos-ios-1-2",
-    appPushNoti: true
+    appPushNoti: true,
+    dojoProductType: 'sora'
 )
 
 pipeline.runPipeline('sora')
