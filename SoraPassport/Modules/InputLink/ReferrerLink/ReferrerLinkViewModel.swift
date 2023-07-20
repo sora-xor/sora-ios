@@ -10,7 +10,7 @@ protocol ReferrerLinkViewModelProtocol {
 final class ReferrerLinkViewModel: ReferrerLinkViewModelProtocol {
     
     @Published var isEnabled: Bool?
-    var interactor: InputLinkInteractorInputProtocol?
+    private weak var interactor: InputLinkInteractorInputProtocol?
     var address: String = ""
 
     init(isEnabled: Bool?,

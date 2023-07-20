@@ -34,8 +34,12 @@ extension InputLinkPresenter: InputLinkInteractorOutputProtocol {
     func setReferralRequestReceived(withSuccess isSuccess: Bool) {
         DispatchQueue.main.async {
             self.view?.dismiss { [weak self] in
-                guard let self = self else { return }
-                self.output?.setupReferrer(self.address)
+                guard
+                    let self = self,
+                    let viewModel = items.first(where: {$0 is ReferrerLinkViewModel}) as? ReferrerLinkViewModel
+                else { return }
+                self.address = viewModel.address
+                self.output?.setupReferrer(viewModel.address)
                 self.output?.showAlert(withSuccess: isSuccess)
             }
         }

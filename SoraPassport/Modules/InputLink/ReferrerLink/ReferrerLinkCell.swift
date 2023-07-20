@@ -4,6 +4,7 @@ import SoraFoundation
 import SnapKit
 import Combine
 
+
 final class ReferrerLinkCell: SoramitsuTableViewCell {
     
     private var cancellables: Set<AnyCancellable> = []
@@ -53,7 +54,7 @@ final class ReferrerLinkCell: SoramitsuTableViewCell {
     private lazy var activateButton: SoramitsuButton = {
         SoramitsuButton().then {
             $0.sora.backgroundColor = .accentPrimary
-            $0.sora.cornerRadius = .max
+            $0.sora.cornerRadius = .extraLarge
             $0.sora.isEnabled = false
             $0.sora.addHandler(for: .touchUpInside) { [weak self] in
                 self?.activeLinkTapped()
