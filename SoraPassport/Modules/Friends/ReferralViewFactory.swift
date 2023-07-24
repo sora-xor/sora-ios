@@ -95,20 +95,10 @@ final class ReferralViewFactory: ReferralViewFactoryProtocol {
 
         interactor.presenter = presenter
 
-        let viewController = InputLinkViewController(presenter: presenter)
+        let view = InputLinkViewController(presenter: presenter)
+        presenter.view = view
 
-        var viewHeight = viewController.inputLinkView.intrinsicContentSize.height
-        viewHeight += KeyboardService.keyboardHeight()
-
-        viewController.preferredContentSize = CGSize(width: 0.0, height: viewHeight)
-
-        presenter.view = viewController
-
-        let factory = ModalSheetPresentationFactory(configuration: ModalSheetPresentationConfiguration.neu)
-        viewController.modalTransitioningFactory = factory
-        viewController.modalPresentationStyle = .custom
-
-        return viewController
+        return view
     }
 
     static func createInputRewardAmountView(with fee: Decimal,

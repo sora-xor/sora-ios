@@ -59,7 +59,6 @@ extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol 
         let balanceText = (formatter.stringFromDecimal(balance) ?? "") + " \(feeAsset.symbol)"
         let feeAmount = "\(fee) \(feeAsset.symbol)"
         let actionButtonIsEnabled = type == .unbond ? fee <= balance : false
-
         
         items.append(InvitationsViewModel(title: type.title,
                                           description: type.descriptionText(with: feeAmount) ,
@@ -143,10 +142,11 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
     }
 
     private func setActionButtonEnabled(_ isEnabled: Bool) {
-        guard let buttonCellRow = items.firstIndex(where: { $0 is ButtonViewModel }),
+        guard let buttonCellRow = items.firstIndex(where: { $0 is InvitationsViewModel }),
                 self.actionButtonIsEnabled != isEnabled else { return }
 
-        (items[buttonCellRow] as? ButtonViewModel)?.isEnabled = isEnabled
+        (items[buttonCellRow] as? InvitationsViewModel)?.isEnabled = isEnabled
+        (items[buttonCellRow] as? InvitationsViewModel)?.bondedAmount = currentBondedAmount
         self.actionButtonIsEnabled = isEnabled
 
         let buttonCellIndexPath = IndexPath(row: buttonCellRow, section: 0)
