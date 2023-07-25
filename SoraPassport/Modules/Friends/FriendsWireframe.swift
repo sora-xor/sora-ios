@@ -6,9 +6,12 @@ import SoraUIKit
 final class FriendsWireframe: FriendsWireframeProtocol {
 
     private(set) var walletContext: CommonWalletContextProtocol
+    private(set) var assetManager: AssetManagerProtocol
 
-    init(walletContext: CommonWalletContextProtocol) {
+    init(walletContext: CommonWalletContextProtocol,
+         assetManager: AssetManagerProtocol) {
         self.walletContext = walletContext
+        self.assetManager = assetManager
     }
 
     func showLinkInputViewController(from controller: UIViewController, delegate: InputLinkPresenterOutput) {
@@ -53,5 +56,21 @@ final class FriendsWireframe: FriendsWireframeProtocol {
         let activityViewController = UIActivityViewController(activityItems: textToShare, applicationActivities: nil)
         activityViewController.excludedActivityTypes = [ UIActivity.ActivityType.airDrop, UIActivity.ActivityType.postToFacebook ]
         controller.present(activityViewController, animated: true, completion: nil)
+    }
+    
+    func showActivityDetails(from controller: UIViewController?, model: Transaction, completion: (() -> Void)?) {
+        guard let activityDetailsController = ReferralViewFactory.createActivityDetailsView(assetManager: assetManager,
+                                                                                            model: model,
+                                                                                            completion: completion),
+              let controller = controller
+        else {
+            return
+        }
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        containerView.completionHandler = completion
+        containerView.add(activityDetailsController)
+        
+        controller.present(containerView, animated: true)
     }
 }

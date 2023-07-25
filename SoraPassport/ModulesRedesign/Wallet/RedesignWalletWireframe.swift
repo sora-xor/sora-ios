@@ -91,7 +91,8 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                   sharingFactory: AccountShareFactoryProtocol)
     
     func showReferralProgram(from view: RedesignWalletViewProtocol?,
-                             walletContext: CommonWalletContextProtocol)
+                             walletContext: CommonWalletContextProtocol,
+                             assetManager: AssetManagerProtocol)
 }
 
 final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
@@ -352,10 +353,12 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
     }
     
     func showReferralProgram(from view: RedesignWalletViewProtocol?,
-                             walletContext: CommonWalletContextProtocol) {
+                             walletContext: CommonWalletContextProtocol,
+                             assetManager: AssetManagerProtocol) {
 
         guard
-            let friendsView = FriendsViewFactory.createView(walletContext: walletContext),
+            let friendsView = FriendsViewFactory.createView(walletContext: walletContext,
+                                                            assetManager: assetManager),
             let controller = view?.controller
         else {
             return

@@ -9,7 +9,7 @@ protocol InputLinkInteractorInputProtocol: AnyObject {
 }
 
 protocol InputLinkInteractorOutputProtocol: AnyObject {
-    func setReferralRequestReceived(withSuccess isSuccess: Bool)
+    func setReferralRequestReceived(with result: Result<String, Swift.Error>)
 }
 
 final class InputLinkInteractor {
@@ -37,11 +37,13 @@ extension InputLinkInteractor: InputLinkInteractorInputProtocol {
         let operation = operationFactory.createExtrinsicSetReferrerOperation(with: referrerAddress)
 
         operation.completionBlock = { [weak self] in
-            guard case .success = operation.result else {
-                self?.presenter?.setReferralRequestReceived(withSuccess: false)
-                return
-            }
-            self?.presenter?.setReferralRequestReceived(withSuccess: true)
+//            guard case .success = operation.result else {
+//                self?.presenter?.setReferralRequestReceived(withSuccess: false)
+//                return
+//            }
+//            self?.presenter?.setReferralRequestReceived(withSuccess: true)
+            guard let result = operation.result else { return }
+            self?.presenter?.setReferralRequestReceived(with: result)
         }
 
         operationManager.enqueue(operations: [operation], in: .transient)

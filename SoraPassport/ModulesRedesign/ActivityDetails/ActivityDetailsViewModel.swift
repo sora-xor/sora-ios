@@ -294,8 +294,10 @@ extension ActivityDetailsViewModel {
             symbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
         }
         
+        let balance = NumberFormatter.historyAmount.stringFromDecimal(setReferrer.base.fee.decimalValue) ?? ""
+        let xorText = "\(balance) \(assetInfo?.symbol ?? "")"
         let invitationText = R.string.localizable.activityInvitationCount("1", preferredLanguages: .currentLocale)
-        let balanceText = SoramitsuTextItem(text: setReferrer.isMyReferrer ? "--" : invitationText,
+        let balanceText = SoramitsuTextItem(text: setReferrer.isMyReferrer ? xorText : invitationText,
                                             fontData: FontType.headline3,
                                             textColor: .fgPrimary,
                                             alignment: .right)
@@ -381,15 +383,15 @@ extension ActivityDetailsViewModel {
         }
         
         if setReferrer.isMyReferrer {
-            let referral = ActivityDetailViewModel(title: R.string.localizable.historyReferral(preferredLanguages: .currentLocale),
-                                                   value: SelectedWalletSettings.shared.currentAccount?.address ?? "")
-            details.append(referral)
-            
             let referrer = ActivityDetailViewModel(title: R.string.localizable.historyReferrer(preferredLanguages: .currentLocale),
                                                    value: setReferrer.who)
             details.append(referrer)
+            
+            let referral = ActivityDetailViewModel(title: R.string.localizable.commonSender(preferredLanguages: .currentLocale),
+                                                   value: SelectedWalletSettings.shared.currentAccount?.address ?? "")
+            details.append(referral)
         } else {
-            let referral = ActivityDetailViewModel(title: R.string.localizable.historyReferral(preferredLanguages: .currentLocale),
+            let referral = ActivityDetailViewModel(title: R.string.localizable.commonSender(preferredLanguages: .currentLocale),
                                                    value: setReferrer.who)
             details.append(referral)
         }

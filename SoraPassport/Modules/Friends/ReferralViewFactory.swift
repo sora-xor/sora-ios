@@ -12,6 +12,7 @@ protocol ReferralViewFactoryProtocol {
                                             type: InputRewardAmountType,
                                             walletContext: CommonWalletContextProtocol,
                                             delegate: InputRewardAmountPresenterOutput) -> UIViewController?
+    static func createActivityDetailsView(assetManager: AssetManagerProtocol, model: Transaction, completion: (() -> Void)?) -> UIViewController?
 }
 
 final class ReferralViewFactory: ReferralViewFactoryProtocol {
@@ -134,6 +135,30 @@ final class ReferralViewFactory: ReferralViewFactoryProtocol {
 
         let view = InputRewardAmountViewController(presenter: presenter)
         presenter.view = view
+        
+        return view
+    }
+    
+    static func createActivityDetailsView(assetManager: AssetManagerProtocol, model: Transaction, completion: (() -> Void)?) -> UIViewController? {
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+              let assetList = assetManager.getAssetList()
+        else { return nil }
+        
+        let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
+                                            address: selectedAccount.address,
+                                            assets: assetList)
+        
+        let factory = ActivityDetailsViewModelFactory(assetManager: assetManager)
+        let viewModel = ActivityDetailsViewModel(model: model,
+                                                 wireframe: ActivityDetailsWireframe(),
+                                                 assetManager: assetManager,
+                                                 detailsFactory: factory,
+                                                 historyService: historyService,
+                                                 lpServiceFee: LPFeeService())
+        viewModel.completion = completion
+        
+        let view = ActivityDetailsViewController(viewModel: viewModel)
+        viewModel.view = view
         
         return view
     }
