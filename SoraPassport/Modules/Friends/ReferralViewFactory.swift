@@ -16,58 +16,10 @@ protocol ReferralViewFactoryProtocol {
 
 final class ReferralViewFactory: ReferralViewFactoryProtocol {
     static func createReferrerView(with referrer: String) -> UIViewController {
-        let titleText = R.string.localizable.referralYourReferrer(preferredLanguages: .currentLocale)
-        let descriptionText = R.string.localizable.referralReferrerDescription(preferredLanguages: .currentLocale)
-
-        let view = ReferrerView(frame: .zero)
-        view.titleLabel.text = titleText
-        view.descriptionLabel.text = descriptionText
-        view.referrersTitleLabel.text = R.string.localizable.referralReferrerAddress(preferredLanguages: .currentLocale)
-        view.referrersAddressLabel.text = referrer
-
-        let preferredTitleSize = CGSize(width: UIScreen.main.bounds.width - 24 * 2, height: .greatestFiniteMagnitude)
-
-        let topHeaderOffset: CGFloat = 20
-
-        let headerHeight: CGFloat = titleText.drawingSize(for: preferredTitleSize,
-                                                          font: UIFont.styled(for: .title4).withSize(11.0),
-                                                          options: .usesLineFragmentOrigin).height
-
-        let bottomHeaderOffset: CGFloat = 16
-
-        let descriptionHeight = descriptionText.drawingSize(for: preferredTitleSize,
-                                                            font: UIFont.styled(for: .paragraph1),
-                                                            options: .usesLineFragmentOrigin).height
-
-        let descriptionBottomOffset: CGFloat = 24
-
-        let titleHeight: CGFloat = 16
-
-        let titleBottomOffset: CGFloat = 4
-
-        let addressHeight: CGFloat = 16
-
-        let addressBottomOffset: CGFloat = 52
-
-        let height = [topHeaderOffset,
-                      headerHeight,
-                      bottomHeaderOffset,
-                      descriptionHeight,
-                      descriptionBottomOffset,
-                      titleHeight,
-                      titleBottomOffset,
-                      addressHeight,
-                      addressBottomOffset].reduce(0, +)
-
-        let viewController = UIViewController()
-        viewController.view = view
-        viewController.preferredContentSize = CGSize(width: 0.0, height: height)
-
-        let factory = ModalSheetPresentationFactory(configuration: ModalSheetPresentationConfiguration.neu)
-        viewController.modalTransitioningFactory = factory
-        viewController.modalPresentationStyle = .custom
-
-        return viewController
+        let presenter = YourReferrerPresenter(referrer: referrer)
+        let view = YourReferrerViewController(presenter: presenter)
+        presenter.view = view
+        return view
     }
 
     static func createInputLinkView(with delegate: InputLinkPresenterOutput) -> UIViewController? {
