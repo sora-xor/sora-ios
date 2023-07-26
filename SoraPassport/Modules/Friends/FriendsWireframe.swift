@@ -15,16 +15,12 @@ final class FriendsWireframe: FriendsWireframeProtocol {
     }
 
     func showLinkInputViewController(from controller: UIViewController, delegate: InputLinkPresenterOutput) {
-        guard let inputLinkController = ReferralViewFactory.createInputLinkView(with: delegate) else { return }
+        guard
+            let inputLinkController = ReferralViewFactory.createInputLinkView(with: delegate),
+            let navigationController = controller.navigationController
+        else { return }
         
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        
-        let navigationController = UINavigationController(rootViewController: inputLinkController)
-        navigationController.navigationBar.backgroundColor = .clear
-        
-        containerView.add(navigationController)
-        controller.present(containerView, animated: true)
+        navigationController.pushViewController(inputLinkController, animated: true)
     }
 
     func showInputRewardAmountViewController(from controller: UIViewController,
