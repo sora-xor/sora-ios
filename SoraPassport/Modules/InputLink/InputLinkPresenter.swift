@@ -31,7 +31,7 @@ extension InputLinkPresenter: InputLinkInteractorOutputProtocol {
             self.view?.dismiss { [weak self] in
                 guard
                     let self = self,
-                    let viewModel = items.first(where: {$0 is ReferrerLinkViewModel}) as? ReferrerLinkViewModel
+                    let viewModel = self.items.first(where: {$0 is ReferrerLinkViewModel}) as? ReferrerLinkViewModel
                 else { return }
                 self.output?.setupReferrer(viewModel.address)
                 self.output?.showAlert(withSuccess: isSuccess)

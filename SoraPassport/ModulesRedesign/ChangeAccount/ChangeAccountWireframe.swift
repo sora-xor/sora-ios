@@ -29,21 +29,10 @@ final class ChangeAccountWireframe: ChangeAccountWireframeProtocol, Authorizatio
     }
 
     func showStart(from view: UIViewController, completion: @escaping () -> Void) {
-        let endAddingBlock: (() -> Void)? = {
-            guard
-                let setupNameView = SetupAccountNameViewFactory.createViewForImport(endAddingBlock: completion)?.controller,
-                let navigationController = view.navigationController?.topModalViewController.children.first as? UINavigationController
-            else {
-                return
-            }
-
-            navigationController.setViewControllers([setupNameView], animated: true)
-        }
-        
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
         
-        let onboardingView = OnboardingMainViewFactory.createWelcomeView(endAddingBlock: endAddingBlock)
+        let onboardingView = OnboardingMainViewFactory.createWelcomeView(endAddingBlock: completion)
         
         let nc = UINavigationController(rootViewController: onboardingView?.controller ?? UIViewController())
         nc.navigationBar.backgroundColor = .clear
