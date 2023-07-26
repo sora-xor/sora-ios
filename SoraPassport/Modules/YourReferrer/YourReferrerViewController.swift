@@ -44,7 +44,6 @@ final class YourReferrerViewController: SoramitsuViewController {
         setupHierarchy()
         setupLayout()
         applyLocalization()
-        addObservers()
         presenter.willMove()
     }
     
@@ -75,33 +74,6 @@ final class YourReferrerViewController: SoramitsuViewController {
             make.top.equalTo(view.safeAreaLayoutGuide)
             make.leading.equalTo(view).offset(tableViewLeadingOffset)
             make.center.equalTo(view)
-        }
-    }
-    
-    private func addObservers() {
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(keyboardWillShow),
-                                               name: UIResponder.keyboardWillShowNotification,
-                                               object: nil)
-        
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(keyboardWillHide),
-                                               name: UIResponder.keyboardWillHideNotification,
-                                               object: nil)
-    }
-
-    @objc
-    private func keyboardWillShow(_ notification:Notification) {
-        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
-            tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: keyboardSize.height, right: 0)
-            
-        }
-    }
-
-    @objc
-    private func keyboardWillHide(_ notification:Notification) {
-        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
-            tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
         }
     }
 }
