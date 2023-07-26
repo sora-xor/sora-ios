@@ -66,6 +66,7 @@ final class WelcomeViewController: SoramitsuViewController {
         button.sora.borderColor = .accentSecondary
         button.sora.borderWidth = 1
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.loadingView.isHidden = false
             self?.presenter.activateCloudStorageConnection()
         }
         return button

@@ -43,8 +43,9 @@ final class FriendsWireframe: FriendsWireframeProtocol {
     }
 
     func showReferrerScreen(from controller: UIViewController, referrer: String) {
+        guard let navigationController = controller.navigationController else { return }
         let viewController = ReferralViewFactory.createReferrerView(with: referrer)
-        controller.present(viewController, animated: true, completion: nil)
+        navigationController.pushViewController(viewController, animated: true)
     }
 
     func showActivityViewController(from controller: UIViewController, shareText: String) {

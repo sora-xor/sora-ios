@@ -1,9 +1,9 @@
 import SSFCloudStorage
 
 protocol AccountOptionsViewProtocol: ControllerBackedProtocol, AlertPresentable {
-    func didReceive(username: String, hasEntropy: Bool)
+    func didReceive(username: String)
     func didReceive(address: String)
-    func setupOptions(with backUpState: BackupState)
+    func setupOptions(with backUpState: BackupState, hasEntropy: Bool)
 }
 
 protocol AccountOptionsPresenterProtocol: AnyObject {

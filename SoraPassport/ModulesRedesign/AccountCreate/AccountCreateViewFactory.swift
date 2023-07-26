@@ -17,13 +17,19 @@ final class AccountCreateViewFactory {
         let view = AccountCreateViewController()
         let cloudStorageService = CloudStorageService(uiDelegate: view)
         view.mode = cloudStorageService.isUserAuthorized ? .registration : .registrationWithoutAccessToGoogle
-        let presenter = AccountCreatePresenter(username: username)
+        
+        let accountProvider = AnyDataProviderRepository(accountRepository)
+        let createAccountService = CreateAccountService(accountRepository: accountProvider,
+                                                        accountOperationFactory: accountOperationFactory,
+                                                        settings: settings,
+                                                        eventCenter: EventCenter.shared)
+        let presenter = AccountCreatePresenter(username: username, createAccountService: createAccountService)
         
         let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
                                                  supportedNetworkTypes: Chain.allCases,
                                                  defaultNetwork: Chain.sora,
                                                  accountOperationFactory: accountOperationFactory,
-                                                 accountRepository: AnyDataProviderRepository(accountRepository),
+                                                 accountRepository: accountProvider,
                                                  settings: settings,
                                                  eventCenter: EventCenter.shared,
                                                  cloudStorageService: cloudStorageService)
@@ -45,9 +51,19 @@ final class AccountCreateViewFactory {
     }
 
     static func createViewForShowPassthrase(_ account: AccountItem) -> AccountCreateViewProtocol? {
+        let accountRepository: CoreDataRepository<AccountItem, CDAccountItem> =
+            UserDataStorageFacade.shared.createRepository()
+        let accountProvider = AnyDataProviderRepository(accountRepository)
+        let accountOperationFactory = AccountOperationFactory(keystore: Keychain())
+        
+        let createAccountService = CreateAccountService(accountRepository: accountProvider,
+                                                        accountOperationFactory: accountOperationFactory,
+                                                        settings: SelectedWalletSettings.shared,
+                                                        eventCenter: EventCenter.shared)
+        
         let view = AccountCreateViewController()
         view.mode = .view
-        let presenter = AccountCreatePresenter(username: account.username)
+        let presenter = AccountCreatePresenter(username: account.username, createAccountService: createAccountService)
         
         let interactor = AccountBackupInteractor(keystore: Keychain(),
                                                  mnemonicCreator: IRMnemonicCreator(language: .english),
@@ -70,6 +86,7 @@ final class AccountCreateViewFactory {
     static func createViewForImportAccount(
         username: String,
         isGoogleBackupSelected: Bool = false,
+        isNeedSetupName: Bool,
         endAddingBlock: (() -> Void)?
     ) -> AccountCreateViewProtocol? {
         let keychain = Keychain()
@@ -78,22 +95,32 @@ final class AccountCreateViewFactory {
         let accountOperationFactory = AccountOperationFactory(keystore: keychain)
         let accountRepository: CoreDataRepository<AccountItem, CDAccountItem> =
         UserDataStorageFacade.shared.createRepository()
+        let accountProvider = AnyDataProviderRepository(accountRepository)
         
         let view = AccountCreateViewController()
         let cloudStorageService = CloudStorageService(uiDelegate: view)
         view.mode = isGoogleBackupSelected ? .registration : .registrationWithoutAccessToGoogle
-        let presenter = AccountCreatePresenter(username: username, shouldCreatedWithGoogle: isGoogleBackupSelected)
+        
+        let createAccountService = CreateAccountService(accountRepository: accountProvider,
+                                                        accountOperationFactory: accountOperationFactory,
+                                                        settings: SelectedWalletSettings.shared,
+                                                        eventCenter: EventCenter.shared)
+        
+        let presenter = AccountCreatePresenter(username: username,
+                                               shouldCreatedWithGoogle: isGoogleBackupSelected,
+                                               createAccountService: createAccountService)
         
         let interactor = AccountCreateInteractor(mnemonicCreator: IRMnemonicCreator(),
                                                  supportedNetworkTypes: Chain.allCases,
                                                  defaultNetwork: Chain.sora,
                                                  accountOperationFactory: accountOperationFactory,
-                                                 accountRepository: AnyDataProviderRepository(accountRepository),
+                                                 accountRepository: accountProvider,
                                                  settings: settings,
                                                  eventCenter: EventCenter.shared,
                                                  cloudStorageService: cloudStorageService)
         
         let wireframe = AddCreationWireframe()
+        wireframe.isNeedSetupName = isNeedSetupName
         
         view.presenter = presenter
         presenter.view = view
