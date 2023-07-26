@@ -1,21 +1,21 @@
 import UIKit
+import SoraUIKit
 import SoraFoundation
 import SnapKit
-import Then
-import SoraUIKit
 
-protocol InputLinkViewInput: ControllerBackedProtocol {
+protocol YourReferrerViewInput: AnyObject {
     func setup(with models: [CellViewModel])
     func dismiss(with completion: @escaping () -> Void)
+    func moveBack()
 }
 
-protocol InputLinkViewOutput {
+protocol YourReferrerViewOutput {
     func willMove()
 }
 
-final class InputLinkViewController: SoramitsuViewController {
-
-    var presenter: InputLinkViewOutput
+final class YourReferrerViewController: SoramitsuViewController {
+    
+    var presenter: YourReferrerViewOutput
     private var models: [CellViewModel] = []
     
     private lazy var tableView: UITableView = {
@@ -29,13 +29,13 @@ final class InputLinkViewController: SoramitsuViewController {
         tableView.estimatedRowHeight = 100
         tableView.rowHeight = UITableView.automaticDimension
         tableView.register(
-            ReferrerLinkCell.self,
-            forCellReuseIdentifier: ReferrerLinkCell.reuseIdentifier)
+            YourReferrerCell.self,
+            forCellReuseIdentifier: YourReferrerCell.reuseIdentifier)
         tableView.dataSource = self
         tableView.delegate = self
         return tableView
     }()
-
+    
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
@@ -44,11 +44,10 @@ final class InputLinkViewController: SoramitsuViewController {
         setupHierarchy()
         setupLayout()
         applyLocalization()
-        addObservers()
         presenter.willMove()
     }
     
-    init(presenter: InputLinkViewOutput) {
+    init(presenter: YourReferrerViewOutput) {
         self.presenter = presenter
         super.init()
     }
@@ -77,36 +76,9 @@ final class InputLinkViewController: SoramitsuViewController {
             make.center.equalTo(view)
         }
     }
-    
-    private func addObservers() {
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(keyboardWillShow),
-                                               name: UIResponder.keyboardWillShowNotification,
-                                               object: nil)
-        
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(keyboardWillHide),
-                                               name: UIResponder.keyboardWillHideNotification,
-                                               object: nil)
-    }
-
-    @objc
-    private func keyboardWillShow(_ notification:Notification) {
-        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
-            tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: keyboardSize.height, right: 0)
-            
-        }
-    }
-
-    @objc
-    private func keyboardWillHide(_ notification:Notification) {
-        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
-            tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
-        }
-    }
 }
 
-extension InputLinkViewController: InputLinkViewInput {
+extension YourReferrerViewController: YourReferrerViewInput {
     func setup(with models: [CellViewModel]) {
         self.models = models
         tableView.reloadData()
@@ -115,9 +87,13 @@ extension InputLinkViewController: InputLinkViewInput {
     func dismiss(with completion: @escaping () -> Void) {
         dismiss(animated: true, completion: completion)
     }
+    
+    func moveBack() {
+        navigationController?.popViewController(animated: true)
+    }
 }
 
-extension InputLinkViewController: UITableViewDelegate, UITableViewDataSource {
+extension YourReferrerViewController: UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
@@ -132,19 +108,20 @@ extension InputLinkViewController: UITableViewDelegate, UITableViewDataSource {
         guard let cell = tableView.dequeueReusableCell(
             withIdentifier: viewModel.cellReuseIdentifier, for: indexPath
         ) as? Reusable else {
-            fatalError("Could not dequeue cell with identifier: InputLinkTableViewCell")
+            fatalError("Could not dequeue cell with identifier: YourReferrerTableViewCell")
         }
         cell.bind(viewModel: models[indexPath.row])
         return cell
     }
 }
 
-extension InputLinkViewController: Localizable {
+extension YourReferrerViewController: Localizable {
     private var languages: [String]? {
         localizationManager?.preferredLocalizations
     }
 
     func applyLocalization() {
-        title = R.string.localizable.referralEnterLinkTitle(preferredLanguages: languages)
+        title = R.string.localizable.referralYourReferrer(preferredLanguages: languages)
     }
 }
+

@@ -192,7 +192,7 @@ final class AccountOptionsViewController: SoramitsuViewController {
 }
 
 extension AccountOptionsViewController: AccountOptionsViewProtocol {
-    func didReceive(username: String, hasEntropy: Bool) {
+    func didReceive(username: String) {
         self.usernameField.sora.text = username
     }
     
@@ -200,17 +200,22 @@ extension AccountOptionsViewController: AccountOptionsViewProtocol {
         addressLabel.sora.text = address
     }
     
-    func setupOptions(with backUpState: BackupState) {
-        let options = [
-            AccountOptionItem().then({
+    func setupOptions(with backUpState: BackupState, hasEntropy: Bool) {
+        var options: [SoramitsuView] = []
+        
+        if hasEntropy {
+            options.append(AccountOptionItem().then({
                 $0.titleLabel.sora.text = R.string.localizable.exportAccountDetailsShowPassphrase(preferredLanguages: languages)
                 $0.leftImageView.image = R.image.profile.passPhrase()
                 $0.addArrow()
                 $0.addTapGesture { [weak self] recognizer in
                     self?.passphraseTapped()
                 }
-            }),
-            AccountOptionSeparator(),
+            }))
+            options.append(AccountOptionSeparator())
+        }
+            
+        options.append(contentsOf: [
             AccountOptionItem().then({
                 $0.titleLabel.sora.text = R.string.localizable.exportAccountDetailsShowRawSeed(preferredLanguages: languages)
                 $0.leftImageView.image = R.image.profile.seed()
@@ -242,7 +247,7 @@ extension AccountOptionsViewController: AccountOptionsViewProtocol {
                     }
                 }
             })
-        ]
+        ])
 
         optionsCard.stackContents = options
     }

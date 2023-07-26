@@ -41,6 +41,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
                                     completion: @escaping () -> Void) {
         guard let setupPasswordView = SetupPasswordViewFactory.createView(
             with: account,
+            entryPoint: .profile,
             completion: completion)?.controller else { return }
         
         let containerView = BlurViewController()

@@ -34,7 +34,13 @@ protocol AccountCreateWireframeProtocol: AlertPresentable, ErrorPresentable, Mod
     func confirm(from view: AccountCreateViewProtocol?,
                  request: AccountCreationRequest,
                  metadata: AccountCreationMetadata)
-    func setupBackupAccountPassword(on controller: AccountCreateViewProtocol?, account: OpenBackupAccount)
+    func setupBackupAccountPassword(
+        on controller: AccountCreateViewProtocol?,
+        account: OpenBackupAccount,
+        createAccountRequest: AccountCreationRequest,
+        createAccountService: CreateAccountServiceProtocol,
+        mnemonic: IRMnemonicProtocol
+    )
 }
 
 protocol Authorizable {

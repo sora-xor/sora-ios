@@ -29,7 +29,7 @@ final class AccountOptionsPresenter {
     private var appEventService = AppEventService()
     private var backupState: BackupState {
         didSet {
-            view?.setupOptions(with: backupState)
+            view?.setupOptions(with: backupState, hasEntropy: interactor.accountHasEntropy)
         }
     }
 
@@ -40,9 +40,9 @@ final class AccountOptionsPresenter {
 
 extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     func setup() {
-        view?.didReceive(username: interactor.currentAccount.username, hasEntropy: interactor.accountHasEntropy)
+        view?.didReceive(username: interactor.currentAccount.username)
         view?.didReceive(address: interactor.currentAccount.address)
-        view?.setupOptions(with: backupState)
+        view?.setupOptions(with: backupState, hasEntropy: interactor.accountHasEntropy)
     }
 
     func didUpdateUsername(_ new: String) {
@@ -77,10 +77,12 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     func createBackup() {
         interactor.signInToGoogleIfNeeded { [weak self] account in
            
-            self?.wireframe?.setupBackupAccountPassword(on: self?.view, account: account, completion: { [weak self] in
+            self?.wireframe?.setupBackupAccountPassword(on: self?.view,
+                                                        account: account,
+                                                        completion: { [weak self] in
                 guard let self = self else { return }
                 self.backupState = ApplicationConfig.shared.backupedAccountAddresses.contains(account.address) ? .backedUp : .notBackedUp
-                self.view?.setupOptions(with: self.backupState)
+                self.view?.setupOptions(with: self.backupState, hasEntropy: self.interactor.accountHasEntropy)
             })
         }
     }
