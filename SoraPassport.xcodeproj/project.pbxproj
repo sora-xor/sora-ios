@@ -1218,6 +1218,10 @@
 		B2A56F012A66903800844A35 /* ReferrerLinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F002A66903800844A35 /* ReferrerLinkView.swift */; };
 		B2A56F042A67A44000844A35 /* ReferrerLinkCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F032A67A44000844A35 /* ReferrerLinkCell.swift */; };
 		B2A56F062A67A7A600844A35 /* ReferrerLinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F052A67A7A500844A35 /* ReferrerLinkViewModel.swift */; };
+		B2A56F082A6FD64200844A35 /* YourReferrerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F072A6FD64200844A35 /* YourReferrerViewController.swift */; };
+		B2A56F0A2A6FD69E00844A35 /* YourReferrerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */; };
+		B2A56F0C2A6FD6B100844A35 /* YourReferrerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */; };
+		B2A56F0E2A6FD8FD00844A35 /* YourReferrerPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
@@ -2568,6 +2572,10 @@
 		B2A56F002A66903800844A35 /* ReferrerLinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerLinkView.swift; sourceTree = "<group>"; };
 		B2A56F032A67A44000844A35 /* ReferrerLinkCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerLinkCell.swift; sourceTree = "<group>"; };
 		B2A56F052A67A7A500844A35 /* ReferrerLinkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerLinkViewModel.swift; sourceTree = "<group>"; };
+		B2A56F072A6FD64200844A35 /* YourReferrerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerViewController.swift; sourceTree = "<group>"; };
+		B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerCell.swift; sourceTree = "<group>"; };
+		B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerViewModel.swift; sourceTree = "<group>"; };
+		B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerPresenter.swift; sourceTree = "<group>"; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
 		B6060AA9ACE9DE050A4F3D5B /* Pods-SoraPassportTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.test.xcconfig"; sourceTree = "<group>"; };
 		BF46BCE3BB2860C9A56151BF /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
@@ -3003,6 +3011,7 @@
 			children = (
 				A55ECAD499FAB4C39A9F3A84 /* Friends */,
 				36C88DF6281A7B3B0038B7F9 /* InputLink */,
+				36ACC9582863CC2900DA98EC /* YourReferrer */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -4512,12 +4521,15 @@
 			path = Pincode;
 			sourceTree = "<group>";
 		};
-		36ACC9582863CC2900DA98EC /* Referrer Screen */ = {
+		36ACC9582863CC2900DA98EC /* YourReferrer */ = {
 			isa = PBXGroup;
 			children = (
+				B2A56F0F2A70EFEF00844A35 /* Referrers */,
 				36ACC9592863CC4700DA98EC /* ReferrerView.swift */,
+				B2A56F072A6FD64200844A35 /* YourReferrerViewController.swift */,
+				B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */,
 			);
-			path = "Referrer Screen";
+			path = YourReferrer;
 			sourceTree = "<group>";
 		};
 		36ACC9622869E51E00DA98EC /* Text */ = {
@@ -5981,7 +5993,6 @@
 		A55ECAD499FAB4C39A9F3A84 /* Friends */ = {
 			isa = PBXGroup;
 			children = (
-				36ACC9582863CC2900DA98EC /* Referrer Screen */,
 				36C88E0028217F390038B7F9 /* InputRewardAmount */,
 				104BD284256686E1007719DF /* ViewModels */,
 				103CCD1E25643E0D0028345D /* Views */,
@@ -6040,6 +6051,15 @@
 				B2A56F002A66903800844A35 /* ReferrerLinkView.swift */,
 			);
 			path = ReferrerLink;
+			sourceTree = "<group>";
+		};
+		B2A56F0F2A70EFEF00844A35 /* Referrers */ = {
+			isa = PBXGroup;
+			children = (
+				B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */,
+				B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */,
+			);
+			path = Referrers;
 			sourceTree = "<group>";
 		};
 		B8A4AE2318F935BBA3F481A0 /* ChangeAccount */ = {
@@ -7132,6 +7152,7 @@
 				84CD3AFF232BFBAC0076E056 /* AboutData.swift in Sources */,
 				94B3001726FB772400F239D7 /* SubqueryRewardOperationFactory.swift in Sources */,
 				364D61C929929E0C004938FA /* Throttler.swift in Sources */,
+				B2A56F0E2A6FD8FD00844A35 /* YourReferrerPresenter.swift in Sources */,
 				02CFE83C218C30B30032259A /* ApplicationFormData.swift in Sources */,
 				8B36260C296F220B007B9525 /* ChangeAccountWireframe.swift in Sources */,
 				8BF42863293BB29700590F92 /* MoreMenuViewFactory.swift in Sources */,
@@ -7238,6 +7259,7 @@
 				94D4B66028C0AC37007F98EB /* StorageMigrator.swift in Sources */,
 				847435EA22DCC359002B1BDC /* BearerTokenRequestModifier.swift in Sources */,
 				84324B9A240E4CA000CA339A /* Result+Type.swift in Sources */,
+				B2A56F082A6FD64200844A35 /* YourReferrerViewController.swift in Sources */,
 				3628601E291F97510000A561 /* OptionsView.swift in Sources */,
 				8481A5DE2302F9DC0056D3D4 /* DateFormatterProvider.swift in Sources */,
 				3666CBCD29056E420098F4AC /* PriceCell.swift in Sources */,
@@ -7286,6 +7308,7 @@
 				364BB497292A500D00DE90A6 /* ActivityDetailView.swift in Sources */,
 				5E587ED227F62D9100CA71A6 /* PolkaswapMainInteractor.swift in Sources */,
 				94497EA025EFDBA800FD4F14 /* EmptyStreamableSource.swift in Sources */,
+				B2A56F0C2A6FD6B100844A35 /* YourReferrerViewModel.swift in Sources */,
 				3661C9E72858B65100660434 /* RewardSeparatorViewModel.swift in Sources */,
 				366A78352A3227AC00A6DDF9 /* SetupPasswordWireframe.swift in Sources */,
 				36ED6FC029F921F400D096C9 /* MneminicProcessor.swift in Sources */,
@@ -7523,6 +7546,7 @@
 				366A78092A30DC9B00A6DDF9 /* BackupedAccountsViewController.swift in Sources */,
 				84EF3A87232A22840012421F /* DeepLinks.swift in Sources */,
 				9441FB1925CAE33500775559 /* AccountConfirmViewFactory.swift in Sources */,
+				B2A56F0A2A6FD69E00844A35 /* YourReferrerCell.swift in Sources */,
 				02CFA4B321883E46000E9483 /* ImageViewModel.swift in Sources */,
 				55D06B5A28C7897F00256B98 /* SwapQuoteAmountsFactory.swift in Sources */,
 				02D656D92204D73400AAA66A /* ProjectsFavoritesFetchMock.swift in Sources */,
