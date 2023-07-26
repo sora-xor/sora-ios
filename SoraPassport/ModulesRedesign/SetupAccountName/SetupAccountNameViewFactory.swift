@@ -43,12 +43,15 @@ final class SetupAccountNameViewFactory {
         return view
     }
 
-    static func createViewForAdding(isGoogleBackupSelected: Bool = false, endEditingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
+    static func createViewForAdding(isGoogleBackupSelected: Bool = false,
+                                    isNeedSetupName: Bool = true,
+                                    endEditingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
         let localizationManager = LocalizationManager.shared
         let view = SetupAccountNameViewController()
         let presenter = UsernameSetupPresenter()
         let wireframe = AddUsernameWireframe(localizationManager: localizationManager,
-                                             isGoogleBackupSelected: isGoogleBackupSelected)
+                                             isGoogleBackupSelected: isGoogleBackupSelected,
+                                             isNeedSetupName: isNeedSetupName)
 
         view.presenter = presenter
         presenter.view = view

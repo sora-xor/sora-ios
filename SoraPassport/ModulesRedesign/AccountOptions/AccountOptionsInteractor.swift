@@ -47,9 +47,9 @@ final class AccountOptionsInteractor {
         self.eventCenter.add(observer: self)
     }
     
-    private func loadPhrase() throws -> IRMnemonicProtocol {
-        let entropy = try keystore.fetchEntropyForAddress(account.address)
-        let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy!)
+    private func loadPhrase() throws -> IRMnemonicProtocol? {
+        guard let entropy = try keystore.fetchEntropyForAddress(account.address) else { return nil }
+        let mnemonic = try mnemonicCreator.mnemonic(fromEntropy: entropy)
         return mnemonic
     }
 }
@@ -115,12 +115,12 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
 
     func signInToGoogleIfNeeded(completion: ((OpenBackupAccount) -> Void)?) {
         cloudStorageService.signInIfNeeded { [weak self] result in
-            guard result == .authorized, let self = self, let metadata = self.getMetadata() else { return }
-            
+            guard result == .authorized, let self = self else { return }
+            let metadata = self.getMetadata()
             let account = OpenBackupAccount(name: self.currentAccount.username,
                                             address: self.currentAccount.address,
-                                            passphrase: metadata.mnemonic.joined(separator: " "),
-                                            cryptoType: metadata.defaultCryptoType.googleIdentifier,
+                                            passphrase: metadata?.mnemonic.joined(separator: " ") ?? "",
+                                            cryptoType: metadata?.defaultCryptoType.googleIdentifier ?? "SR25519",
                                             substrateDerivationPath: "")
             completion?(account)
         }

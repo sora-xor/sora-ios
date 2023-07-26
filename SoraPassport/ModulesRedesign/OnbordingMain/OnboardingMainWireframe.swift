@@ -10,6 +10,7 @@ final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
         if let endBlock = endAddingBlock {
 
             let usernameSetup = SetupAccountNameViewFactory.createViewForAdding(isGoogleBackupSelected: isGoogleBackupSelected,
+                                                                                isNeedSetupName: false,
                                                                                 endEditingBlock: endBlock)
             guard let usernameSetup = usernameSetup else {
                 return
