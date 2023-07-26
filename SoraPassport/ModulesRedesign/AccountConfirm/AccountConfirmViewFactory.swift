@@ -39,6 +39,7 @@ final class AccountConfirmViewFactory {
     
     static func createViewForRedesignAdding(request: AccountCreationRequest,
                                             metadata: AccountCreationMetadata,
+                                            isNeedSetupName: Bool = true,
                                             endAddingBlock: (() -> Void)?) -> ControllerBackedProtocol? {
         guard let mnemonic = try? IRMnemonicCreator()
             .mnemonic(fromList: metadata.mnemonic.joined(separator: " ")) else {
@@ -66,6 +67,7 @@ final class AccountConfirmViewFactory {
         viewModel.wireframe = wireframe
         interactor.presenter = viewModel
         wireframe.endAddingBlock = endAddingBlock
+        wireframe.isNeedSetupName = isNeedSetupName
 
         
         let view = ConfirmPassphraseViewController(viewModel: viewModel)

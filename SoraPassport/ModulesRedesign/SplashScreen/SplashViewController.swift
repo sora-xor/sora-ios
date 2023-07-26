@@ -45,11 +45,6 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         view.backgroundColor = R.color.baseBackground()
         setupHierarchy()
         setupLayout()
-        animationView.play(fromProgress: 0, toProgress: 0.8, loopMode: .playOnce) { [weak self] _ in
-            self?.presenter.showIsLoading(after: 5.0) { [weak self] in
-                self?.showLoader()
-            }
-        }
     }
     
     private func setupHierarchy() {

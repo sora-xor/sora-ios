@@ -70,6 +70,7 @@ final class AccountCreateViewFactory {
     static func createViewForImportAccount(
         username: String,
         isGoogleBackupSelected: Bool = false,
+        isNeedSetupName: Bool,
         endAddingBlock: (() -> Void)?
     ) -> AccountCreateViewProtocol? {
         let keychain = Keychain()
@@ -78,6 +79,7 @@ final class AccountCreateViewFactory {
         let accountOperationFactory = AccountOperationFactory(keystore: keychain)
         let accountRepository: CoreDataRepository<AccountItem, CDAccountItem> =
         UserDataStorageFacade.shared.createRepository()
+        let accountProvider = AnyDataProviderRepository(accountRepository)
         
         let view = AccountCreateViewController()
         let cloudStorageService = CloudStorageService(uiDelegate: view)
@@ -88,12 +90,13 @@ final class AccountCreateViewFactory {
                                                  supportedNetworkTypes: Chain.allCases,
                                                  defaultNetwork: Chain.sora,
                                                  accountOperationFactory: accountOperationFactory,
-                                                 accountRepository: AnyDataProviderRepository(accountRepository),
+                                                 accountRepository: accountProvider,
                                                  settings: settings,
                                                  eventCenter: EventCenter.shared,
                                                  cloudStorageService: cloudStorageService)
         
         let wireframe = AddCreationWireframe()
+        wireframe.isNeedSetupName = isNeedSetupName
         
         view.presenter = presenter
         presenter.view = view

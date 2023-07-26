@@ -77,7 +77,9 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     func createBackup() {
         interactor.signInToGoogleIfNeeded { [weak self] account in
            
-            self?.wireframe?.setupBackupAccountPassword(on: self?.view, account: account, completion: { [weak self] in
+            self?.wireframe?.setupBackupAccountPassword(on: self?.view,
+                                                        account: account,
+                                                        completion: { [weak self] in
                 guard let self = self else { return }
                 self.backupState = ApplicationConfig.shared.backupedAccountAddresses.contains(account.address) ? .backedUp : .notBackedUp
                 self.view?.setupOptions(with: self.backupState)

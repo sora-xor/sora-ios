@@ -159,13 +159,7 @@ extension AccountCreatePresenter: AccountCreateInteractorOutputProtocol {
     }
     
     func didCompleteConfirmation(for account: AccountItem) {
-        guard var backupAccount = backupAccount else {
-            wireframe.proceed(on: view?.controller)
-            return
-        }
-        
-        backupAccount.address = account.address
-        wireframe?.setupBackupAccountPassword(on: view, account: backupAccount)
+        wireframe.proceed(on: view?.controller)
     }
     
     func didReceive(error: Error) {
