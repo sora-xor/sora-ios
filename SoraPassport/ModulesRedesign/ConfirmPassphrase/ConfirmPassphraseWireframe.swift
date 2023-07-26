@@ -10,10 +10,20 @@ protocol ConfirmPassphraseyWireframeProtocol: AlertPresentable {
 
 final class ConfirmPassphraseyWireframe: ConfirmPassphraseyWireframeProtocol {
     var endAddingBlock: (() -> Void)?
+    var isNeedSetupName: Bool = true
     
     func proceed(on controller: UIViewController?) {
         if endAddingBlock != nil {
-            endAddingBlock?()
+            guard
+                !isNeedSetupName,
+                let setupNameView = SetupAccountNameViewFactory.createViewForImport(endAddingBlock: endAddingBlock)?.controller,
+                let navigationController = controller?.navigationController?.topModalViewController.children.first as? UINavigationController
+            else {
+                controller?.navigationController?.dismiss(animated: true, completion: endAddingBlock)
+                return
+            }
+
+            navigationController.setViewControllers([setupNameView], animated: true)
             return
         }
         

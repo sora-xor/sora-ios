@@ -7,6 +7,7 @@ final class AccountCreatePresenter: SharingPresentable {
     weak var view: AccountCreateViewProtocol?
     var wireframe: AccountCreateWireframeProtocol!
     var interactor: AccountCreateInteractorInputProtocol!
+    var createAccountService: CreateAccountServiceProtocol
 
     let username: String
 
@@ -15,12 +16,14 @@ final class AccountCreatePresenter: SharingPresentable {
     private var selectedCryptoType: CryptoType?
     private var selectedNetworkType: Chain?
     private var derivationPathViewModel: InputViewModelProtocol?
-    private var backupAccount: OpenBackupAccount?
     private var shouldCreatedWithGoogle: Bool
 
-    init(username: String, shouldCreatedWithGoogle: Bool = true) {
+    init(username: String,
+         shouldCreatedWithGoogle: Bool = true,
+         createAccountService: CreateAccountServiceProtocol) {
         self.username = username
         self.shouldCreatedWithGoogle = shouldCreatedWithGoogle
+        self.createAccountService = createAccountService
     }
 
     private func applyDerivationPathViewModel() {
@@ -104,12 +107,16 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                              cryptoType: cryptoType)
 
         if interactor.isSignedInGoogleAccount && shouldCreatedWithGoogle {
-            backupAccount = OpenBackupAccount(name: username,
+            let backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
                                               cryptoType: cryptoType.googleIdentifier,
                                               substrateDerivationPath: viewModel.inputHandler.value)
-            interactor.skipConfirmation(request: request, mnemonic: mnemonic)
+            wireframe?.setupBackupAccountPassword(on: view,
+                                                  account: backupAccount,
+                                                  createAccountRequest: request,
+                                                  createAccountService: createAccountService,
+                                                  mnemonic: mnemonic)
         } else {
             wireframe.confirm(from: view,
                               request: request,
@@ -133,11 +140,17 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                              cryptoType: cryptoType)
 
         if interactor.isSignedInGoogleAccount && shouldCreatedWithGoogle {
-            backupAccount = OpenBackupAccount(name: username,
+            let backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
                                               cryptoType: cryptoType.googleIdentifier,
                                               substrateDerivationPath: viewModel.inputHandler.value)
+            wireframe?.setupBackupAccountPassword(on: view,
+                                                  account: backupAccount,
+                                                  createAccountRequest: request,
+                                                  createAccountService: createAccountService,
+                                                  mnemonic: mnemonic)
+            return
         }
        
         
@@ -159,13 +172,7 @@ extension AccountCreatePresenter: AccountCreateInteractorOutputProtocol {
     }
     
     func didCompleteConfirmation(for account: AccountItem) {
-        guard var backupAccount = backupAccount else {
-            wireframe.proceed(on: view?.controller)
-            return
-        }
-        
-        backupAccount.address = account.address
-        wireframe?.setupBackupAccountPassword(on: view, account: backupAccount)
+        wireframe.proceed(on: view?.controller)
     }
     
     func didReceive(error: Error) {
