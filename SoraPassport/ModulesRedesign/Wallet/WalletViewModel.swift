@@ -115,24 +115,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
             let completion: (ScanQRResult) -> Void = { [weak self] result in
                 guard let self = self else { return }
-
-                if let amount = result.receiverInfo?.amount {
-                    self.feeProvider.getFee(for: .outgoing) { fee in
-                        self.wireframe?.showConfirmSendingAsset(on: view,
-                                                                assetId: result.receiverInfo?.assetId ?? .xor,
-                                                                walletService: WalletService(operationFactory: self.networkFacade),
-                                                                assetManager: self.assetManager,
-                                                                fiatService: self.fiatService,
-                                                                recipientAddress: result.firstName,
-                                                                firstAssetAmount: amount.decimalValue,
-                                                                fee: fee,
-                                                                assetsProvider: self.assetsProvider)
-                    }
-
-                    return
-                }
+                
                 self.wireframe?.showSend(on: view,
-                                         selectedTokenId: result.receiverInfo?.assetId ?? .xor,
+                                         selectedTokenId: result.assetId ?? .xor,
                                          selectedAddress: result.firstName,
                                          fiatService: self.fiatService,
                                          assetManager: self.assetManager,

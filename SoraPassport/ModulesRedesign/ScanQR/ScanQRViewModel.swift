@@ -29,12 +29,11 @@ protocol ScanQRViewModelProtocol {
     func prepareDismiss()
     func handleDismiss()
     func activateImport()
-    func showMyQrCode()
 }
 
 struct ScanQRResult {
     let firstName: String
-    var receiverInfo: ReceiveInfo?
+    var assetId: String? = nil
 }
 
 final class ScanQRViewModel: NSObject {
@@ -56,11 +55,6 @@ final class ScanQRViewModel: NSObject {
     private let localSearchEngine: InvoiceLocalSearchEngineProtocol?
     private(set) var scanState: ScanState = .initializing(accessRequested: false)
     private let completion: ((ScanQRResult) -> Void)?
-    private let wireframe: ScanQRWireframeProtocol
-    private let qrEncoder: WalletQREncoderProtocol
-    private let sharingFactory: AccountShareFactoryProtocol
-    private let assetManager: AssetManagerProtocol?
-    private let assetsProvider: AssetProviderProtocol?
 
     var qrExtractionService: WalletQRExtractionServiceProtocol?
 
@@ -68,22 +62,12 @@ final class ScanQRViewModel: NSObject {
          localSearchEngine: InvoiceLocalSearchEngineProtocol?,
          qrScanServiceFactory: WalletQRCaptureServiceFactoryProtocol,
          qrCoderFactory: WalletQRCoderFactoryProtocol,
-         wireframe: ScanQRWireframe = ScanQRWireframe(),
-         qrEncoder: WalletQREncoderProtocol,
-         sharingFactory: AccountShareFactoryProtocol,
-         assetManager: AssetManagerProtocol?,
-         assetsProvider: AssetProviderProtocol?,
          completion: ((ScanQRResult) -> Void)?) {
         self.networkService = networkService
         self.localSearchEngine = localSearchEngine
         self.qrExtractionService = WalletQRExtractionService(processingQueue: .global())
         self.completion = completion
         self.qrCoderFactory = qrCoderFactory
-        self.wireframe = wireframe
-        self.qrEncoder = qrEncoder
-        self.sharingFactory = sharingFactory
-        self.assetManager = assetManager
-        self.assetsProvider = assetsProvider
 
         let qrDecoder = qrCoderFactory.createDecoder()
         self.qrScanMatcher = InvoiceScanMatcher(decoder: qrDecoder)
@@ -233,7 +217,7 @@ final class ScanQRViewModel: NSObject {
 
     private func completeTransferFoundAccount(_ foundAccount: SearchData, receiverInfo: ReceiveInfo) {
         view?.controller.dismiss(animated: true, completion: { [weak self] in
-            self?.completion?(ScanQRResult(firstName: foundAccount.firstName, receiverInfo: receiverInfo))
+            self?.completion?(ScanQRResult(firstName: foundAccount.firstName, assetId: receiverInfo.assetId))
         })
     }
 
@@ -370,24 +354,6 @@ extension ScanQRViewModel: ScanQRViewModelProtocol {
     func activateImport() {
         if qrExtractionService != nil {
             presentImageGallery(from: view)
-        }
-    }
-    
-    func showMyQrCode() {
-        guard let currentAccount = SelectedWalletSettings.shared.currentAccount else { return }
-        let accountId = try? SS58AddressFactory().accountId(fromAddress: currentAccount.identifier,
-                                                            type: currentAccount.addressType).toHex(includePrefix: true)
-        wireframe.showGenerateQR(
-            on: view?.controller,
-            accountId: accountId ?? "",
-            address: currentAccount.address,
-            username: currentAccount.username,
-            qrEncoder: qrEncoder,
-            sharingFactory: sharingFactory,
-            assetManager: assetManager,
-            assetsProvider: assetsProvider
-        ) { [weak self] in
-            self?.qrScanService.start()
         }
     }
 }

@@ -287,9 +287,6 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         let scanView = ScanQRViewFactory.createView(assetManager: assetManager,
                                                     currentUser: currentUser,
                                                     networkFacade: networkFacade,
-                                                    qrEncoder: qrEncoder,
-                                                    sharingFactory: sharingFactory,
-                                                    assetsProvider: assetsProvider,
                                                     completion: completion)
         containerView.add(scanView.controller)
         view.present(containerView, animated: true)

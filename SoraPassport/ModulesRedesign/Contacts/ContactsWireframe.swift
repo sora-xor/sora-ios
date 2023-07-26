@@ -26,13 +26,10 @@ final class ContactsWireframe: ContactsWireframeProtocol {
         
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
-        
+
         let scanView = ScanQRViewFactory.createView(assetManager: assetManager,
                                                     currentUser: currentUser,
                                                     networkFacade: networkFacade,
-                                                    qrEncoder: qrEncoder,
-                                                    sharingFactory: sharingFactory,
-                                                    assetsProvider: assetsProvider,
                                                     completion: completion)
         containerView.add(scanView.controller)
         view?.present(containerView, animated: true)
