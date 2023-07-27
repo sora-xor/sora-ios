@@ -27,7 +27,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>$(SORA_GOOGLE_URL_SCHEME)</string>
+				<string></string>
 			</array>
 		</dict>
 	</array>

@@ -240,13 +240,13 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         }
 
         let scConfig = SCard.Config(
-            backendUrl: SoraCardCIKeys.backendDevUrl,
-            pwAuthDomain: SoraCardCIKeys.domain,
-            pwApiKey: SoraCardCIKeys.apiKey,
-            kycUrl: SoraCardCIKeys.endpoint,
-            kycUsername: SoraCardCIKeys.username,
-            kycPassword: SoraCardCIKeys.password,
-            environmentType: .test,
+            backendUrl: SoraCardCIKeys.backendProdUrl,
+            pwAuthDomain: SoraCardCIKeys.domainProd,
+            pwApiKey: SoraCardCIKeys.apiKeyProd,
+            kycUrl: SoraCardCIKeys.kycEndpointUrlProd,
+            kycUsername: SoraCardCIKeys.kycUsernameProd,
+            kycPassword: SoraCardCIKeys.kycPasswordProd,
+            environmentType: .prod,
             themeMode: SoramitsuUI.shared.themeMode
         )
 
