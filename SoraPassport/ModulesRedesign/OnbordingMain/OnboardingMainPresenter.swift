@@ -60,11 +60,6 @@ private extension OnboardingMainPresenter {
         let rawSeedText = R.string.localizable.commonRawSeed(preferredLanguages: .currentLocale)
         let passphraseText = R.string.localizable.recoveryPassphrase(preferredLanguages: .currentLocale)
         
-        let googleAction = AlertPresentableAction(title: "Google") { [weak self] in
-            guard let self = self else { return }
-            self.activateCloudStorageConnection()
-        }
-        
         let passphraseAction = AlertPresentableAction(title: passphraseText) { [weak self] in
             guard let self = self else { return }
             self.wireframe.showAccountRestoreRedesign(from: self.view, sourceType: .mnemonic)
@@ -77,7 +72,7 @@ private extension OnboardingMainPresenter {
 
         let viewModel = AlertPresentableViewModel(title: title,
                                                   message: message,
-                                                  actions: [googleAction, passphraseAction, rawSeedAction],
+                                                  actions: [passphraseAction, rawSeedAction],
                                                   closeAction: closeActionText)
         wireframe.present(viewModel: viewModel, style: .actionSheet, from: view)
     }
