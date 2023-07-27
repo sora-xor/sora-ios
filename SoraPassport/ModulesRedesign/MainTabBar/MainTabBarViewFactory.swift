@@ -318,7 +318,8 @@ extension MainTabBarViewFactory {
             fiatService: FiatService.shared,
             balanceFactory: balanceFactory,
             address: selectedAccount.address,
-            assetsProvider: assetsProvider
+            assetsProvider: assetsProvider,
+            assetManager: assetManager
         ) else {
             return nil
         }

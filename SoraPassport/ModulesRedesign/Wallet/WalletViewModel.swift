@@ -20,7 +20,7 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func showPoolDetails(with pool: PoolInfo)
     func showSoraCardDetails()
     func showInternerConnectionAlert()
-    func showReferralProgram()
+    func showReferralProgram(assetManager: AssetManagerProtocol)
 }
 
 final class RedesignWalletViewModel {
@@ -158,7 +158,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         }
        
         if !isReferralProgramHidden {
-            let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self)
+            let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self,
+                                                    assetManager: assetManager)
             items.append(friendsItem)
         }
       
@@ -370,8 +371,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                    assetsProvider: assetsProvider)
     }
     
-    func showReferralProgram() {
+    func showReferralProgram(assetManager: AssetManagerProtocol) {
         wireframe?.showReferralProgram(from: view,
-                                       walletContext: walletContext)
+                                       walletContext: walletContext,
+                                       assetManager: assetManager)
     }
 }

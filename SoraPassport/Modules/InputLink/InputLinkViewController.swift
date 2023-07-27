@@ -4,7 +4,7 @@ import SnapKit
 import Then
 import SoraUIKit
 
-protocol InputLinkViewInput: AnyObject {
+protocol InputLinkViewInput: ControllerBackedProtocol {
     func setup(with models: [CellViewModel])
     func dismiss(with completion: @escaping () -> Void)
 }

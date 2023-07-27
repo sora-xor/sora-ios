@@ -37,7 +37,8 @@ protocol WalletItemFactoryProtocol: AnyObject {
                          assetManager: AssetManagerProtocol,
                          fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol
     
-    func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol) -> SoramitsuTableViewItemProtocol
+    func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
+                                 assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol
 }
 
 final class WalletItemFactory: WalletItemFactoryProtocol {
@@ -139,7 +140,8 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         return soraCardItem
     }
     
-    func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol) -> SoramitsuTableViewItemProtocol {
+    func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
+                                 assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol {
 
         let friendsItem = FriendsItem()
         
@@ -151,7 +153,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         
         friendsItem.onTap = { [weak walletViewModel] in
             guard let walletViewModel = walletViewModel else { return }
-            walletViewModel.showReferralProgram()
+            walletViewModel.showReferralProgram(assetManager: assetManager)
         }
 
         return friendsItem

@@ -4,7 +4,8 @@ import SoraKeystore
 import CommonWallet
 
 final class FriendsViewFactory: FriendsViewFactoryProtocol {
-    static func createView(walletContext: CommonWalletContextProtocol) -> FriendsViewProtocol? {
+    static func createView(walletContext: CommonWalletContextProtocol,
+                           assetManager: AssetManagerProtocol) -> FriendsViewProtocol? {
         let settings = SettingsManager.shared
         let keychain = Keychain()
 
@@ -36,7 +37,8 @@ final class FriendsViewFactory: FriendsViewFactoryProtocol {
                                            keychain: keychain,
                                            operationFactory: operationFactory)
 
-        let wireframe = FriendsWireframe(walletContext: walletContext)
+        let wireframe = FriendsWireframe(walletContext: walletContext,
+                                         assetManager: assetManager)
 
         view.presenter = presenter
         presenter.view = view

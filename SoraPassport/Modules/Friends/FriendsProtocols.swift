@@ -51,10 +51,13 @@ protocol FriendsWireframeProtocol: SharingPresentable, AlertPresentable,
     func showActivityViewController(from controller: UIViewController, shareText: String)
 
     func showReferrerScreen(from controller: UIViewController, referrer: String)
+    
+    func showActivityDetails(from controller: UIViewController?, model: Transaction, completion: (() -> Void)?)
 }
 
 // MARK: - Factory
 
 protocol FriendsViewFactoryProtocol: AnyObject {
-    static func createView(walletContext: CommonWalletContextProtocol) -> FriendsViewProtocol?
+    static func createView(walletContext: CommonWalletContextProtocol,
+                           assetManager: AssetManagerProtocol) -> FriendsViewProtocol?
 }
