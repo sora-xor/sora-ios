@@ -41,7 +41,7 @@ final class PoolDetailsViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private let itemFactory = PoolDetailsItemFactory()
     private let group = DispatchGroup()
-    private var apy: SbApyInfo?
+    private var apy: Decimal?
     private var pools: [StakedPool] = []
     
     init(

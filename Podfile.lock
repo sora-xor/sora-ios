@@ -33,13 +33,13 @@ PODS:
     - Starscream
     - TweetNacl (~> 1.0.0)
     - xxHash-Swift (~> 1.0.0)
-  - Firebase/CoreOnly (10.13.0):
-    - FirebaseCore (= 10.13.0)
-  - Firebase/Crashlytics (10.13.0):
+  - Firebase/CoreOnly (10.14.0):
+    - FirebaseCore (= 10.14.0)
+  - Firebase/Crashlytics (10.14.0):
     - Firebase/CoreOnly
-    - FirebaseCrashlytics (~> 10.13.0)
-  - FirebaseAnalytics (10.13.0):
-    - FirebaseAnalytics/AdIdSupport (= 10.13.0)
+    - FirebaseCrashlytics (~> 10.14.0)
+  - FirebaseAnalytics (10.14.0):
+    - FirebaseAnalytics/AdIdSupport (= 10.14.0)
     - FirebaseCore (~> 10.0)
     - FirebaseInstallations (~> 10.0)
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
@@ -47,24 +47,24 @@ PODS:
     - GoogleUtilities/Network (~> 7.11)
     - "GoogleUtilities/NSData+zlib (~> 7.11)"
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - FirebaseAnalytics/AdIdSupport (10.13.0):
+  - FirebaseAnalytics/AdIdSupport (10.14.0):
     - FirebaseCore (~> 10.0)
     - FirebaseInstallations (~> 10.0)
-    - GoogleAppMeasurement (= 10.13.0)
+    - GoogleAppMeasurement (= 10.14.0)
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
     - GoogleUtilities/MethodSwizzler (~> 7.11)
     - GoogleUtilities/Network (~> 7.11)
     - "GoogleUtilities/NSData+zlib (~> 7.11)"
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - FirebaseCore (10.13.0):
+  - FirebaseCore (10.14.0):
     - FirebaseCoreInternal (~> 10.0)
     - GoogleUtilities/Environment (~> 7.8)
     - GoogleUtilities/Logger (~> 7.8)
-  - FirebaseCoreExtension (10.13.0):
+  - FirebaseCoreExtension (10.14.0):
     - FirebaseCore (~> 10.0)
-  - FirebaseCoreInternal (10.13.0):
+  - FirebaseCoreInternal (10.14.0):
     - "GoogleUtilities/NSData+zlib (~> 7.8)"
-  - FirebaseCrashlytics (10.13.0):
+  - FirebaseCrashlytics (10.14.0):
     - FirebaseCore (~> 10.5)
     - FirebaseInstallations (~> 10.0)
     - FirebaseSessions (~> 10.5)
@@ -72,12 +72,12 @@ PODS:
     - GoogleUtilities/Environment (~> 7.8)
     - nanopb (< 2.30910.0, >= 2.30908.0)
     - PromisesObjC (~> 2.1)
-  - FirebaseInstallations (10.13.0):
+  - FirebaseInstallations (10.14.0):
     - FirebaseCore (~> 10.0)
     - GoogleUtilities/Environment (~> 7.8)
     - GoogleUtilities/UserDefaults (~> 7.8)
     - PromisesObjC (~> 2.1)
-  - FirebaseMessaging (10.13.0):
+  - FirebaseMessaging (10.14.0):
     - FirebaseCore (~> 10.0)
     - FirebaseInstallations (~> 10.0)
     - GoogleDataTransport (~> 9.2)
@@ -86,7 +86,7 @@ PODS:
     - GoogleUtilities/Reachability (~> 7.8)
     - GoogleUtilities/UserDefaults (~> 7.8)
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - FirebaseSessions (10.13.0):
+  - FirebaseSessions (10.14.0):
     - FirebaseCore (~> 10.5)
     - FirebaseCoreExtension (~> 10.0)
     - FirebaseInstallations (~> 10.0)
@@ -101,21 +101,21 @@ PODS:
   - GoogleAPIClientForREST/Drive (1.2.1):
     - GoogleAPIClientForREST/Core
     - GTMSessionFetcher (>= 1.1.7)
-  - GoogleAppMeasurement (10.13.0):
-    - GoogleAppMeasurement/AdIdSupport (= 10.13.0)
+  - GoogleAppMeasurement (10.14.0):
+    - GoogleAppMeasurement/AdIdSupport (= 10.14.0)
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
     - GoogleUtilities/MethodSwizzler (~> 7.11)
     - GoogleUtilities/Network (~> 7.11)
     - "GoogleUtilities/NSData+zlib (~> 7.11)"
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - GoogleAppMeasurement/AdIdSupport (10.13.0):
-    - GoogleAppMeasurement/WithoutAdIdSupport (= 10.13.0)
+  - GoogleAppMeasurement/AdIdSupport (10.14.0):
+    - GoogleAppMeasurement/WithoutAdIdSupport (= 10.14.0)
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
     - GoogleUtilities/MethodSwizzler (~> 7.11)
     - GoogleUtilities/Network (~> 7.11)
     - "GoogleUtilities/NSData+zlib (~> 7.11)"
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - GoogleAppMeasurement/WithoutAdIdSupport (10.13.0):
+  - GoogleAppMeasurement/WithoutAdIdSupport (10.14.0):
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
     - GoogleUtilities/MethodSwizzler (~> 7.11)
     - GoogleUtilities/Network (~> 7.11)
@@ -304,7 +304,7 @@ PODS:
   - TweetNacl (1.0.2)
   - VideoID (7.1.31):
     - eIDRTC (= 1.1.34)
-  - XNetworking (0.0.57)
+  - XNetworking (0.0.60)
   - xxHash-Swift (1.0.13)
 
 DEPENDENCIES:
@@ -317,8 +317,6 @@ DEPENDENCIES:
   - FirebaseMessaging
   - FireMock
   - FLEX
-  - GoogleAPIClientForREST/Core
-  - GoogleAPIClientForREST/Drive
   - "IdensicMobileSDK (from `{:http=>\"https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.1.tar.gz\"}`)"
   - IrohaCrypto (~> 0.9.0)
   - Kingfisher (from `https://github.com/onevcat/Kingfisher`, branch `version6-xcode13`)
@@ -341,7 +339,7 @@ DEPENDENCIES:
   - SwiftLint (~> 0.49.0)
   - SwiftyBeaver
   - Then
-  - XNetworking (from `https://raw.githubusercontent.com/soramitsu/x-networking/0.0.57/AppCommonNetworking/XNetworking/XNetworking.podspec`)
+  - XNetworking (from `https://raw.githubusercontent.com/soramitsu/x-networking/0.0.60/AppCommonNetworking/XNetworking/XNetworking.podspec`)
 
 SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
@@ -425,7 +423,7 @@ EXTERNAL SOURCES:
     :git: https://github.com/SVGKit/SVGKit.git
     :tag: 3.0.0
   XNetworking:
-    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/0.0.57/AppCommonNetworking/XNetworking/XNetworking.podspec
+    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/0.0.60/AppCommonNetworking/XNetworking/XNetworking.podspec
 
 CHECKOUT OPTIONS:
   CommonWallet:
@@ -440,7 +438,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: e6f74ebd1baecfa23fc322b38c68d436be50a603
+    :commit: 2e87fa2e7bf4b27841ff5f304ae6bbebf9791d03
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui.git
@@ -461,19 +459,19 @@ SPEC CHECKSUMS:
   Cuckoo: 1b6793fe60fac29af50b0a5915bc309a4a1ac673
   eIDRTC: debca63e4c367be509c77292df65b9527d695f10
   FearlessUtils: 29225af385d297526e802d5218fa111763ff10de
-  Firebase: 343d7539befb614d22b2eae24759f6307b1175e9
-  FirebaseAnalytics: 9a12e090ead49f8877ed8132ae920e3cbbd2fcd0
-  FirebaseCore: 9948a31ff2c6cf323f9b040068201a95d271b68d
-  FirebaseCoreExtension: ce60f9db46d83944cf444664d6d587474128eeca
-  FirebaseCoreInternal: b342e37cd4f5b4454ec34308f073420e7920858e
-  FirebaseCrashlytics: 4679fbc4768fcb4dd6f5533101841d40256d4475
-  FirebaseInstallations: b28af1b9f997f1a799efe818c94695a3728c352f
-  FirebaseMessaging: c2b782a6af3058b6e53ac2a6eaab84c5786200c8
-  FirebaseSessions: 991fb4c20b3505eef125f7cbfa20a5b5b189c2a4
+  Firebase: 6c1bf3f534bc422d52af2e41fe0d50bf08b6b773
+  FirebaseAnalytics: 5c6d58814afa4db82cf7fdbc02b0b0e2fa3d43ff
+  FirebaseCore: 6fc17ac9f03509d51c131298aacb3ee5698b4f02
+  FirebaseCoreExtension: 976638051b1a46b503afce7ec80277f9161f2040
+  FirebaseCoreInternal: d558159ee6cc4b823c2296ecc193de9f6d9a5bb3
+  FirebaseCrashlytics: 0fbfa4efa57e8a09d8bf195393b50c237e3322b5
+  FirebaseInstallations: f672b1eda64e6381c21d424a2f680a943fd83f3b
+  FirebaseMessaging: 1077a4499f0c0a140b9a2e34fe08a1acc806b36d
+  FirebaseSessions: f145e7365d36bec0d724c4574a8750e6f82fa6c8
   FireMock: 3eed872059c12f94855413347da83b9d6d1a6fac
   FLEX: f21ee4f498eed3f8a1eded66b21939fd3b7a22ce
   GoogleAPIClientForREST: a8b95a252014ce2e618df6b75dc72eca2c00b4af
-  GoogleAppMeasurement: 3ae505b44174bcc0775f5c86cecc5826259fbb1e
+  GoogleAppMeasurement: 7fee012a868315d418f365fbc8d394d8e020e749
   GoogleDataTransport: 54dee9d48d14580407f8f5fbf2f496e92437a2f2
   GoogleSignIn: b232380cf495a429b8095d3178a8d5855b42e842
   GoogleUtilities: 13e2c67ede716b8741c7989e26893d151b2b2084
@@ -513,10 +511,9 @@ SPEC CHECKSUMS:
   Then: 844265ae87834bbe1147d91d5d41a404da2ec27d
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
-  XNetworking: cda32e6337d2a18edfdb1a39a2e65aa4a1993280
+  XNetworking: 78b56e52078c345fb8417a98bfa8899ce5a95323
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-
-PODFILE CHECKSUM: 9e091f7520bf1fec8ee303e6bacef512a2de4cf4
+PODFILE CHECKSUM: 173c4c162fbd721ec7944d5b2f8050c229a8a6d2
 
 COCOAPODS: 1.12.1

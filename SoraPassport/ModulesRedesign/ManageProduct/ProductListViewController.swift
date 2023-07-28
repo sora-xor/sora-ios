@@ -44,19 +44,7 @@ final class ProductListViewController: SoramitsuViewController {
 
         navigationItem.searchController = searchController
 
-        navigationItem.title = viewModel.mode == .selection ? R.string.localizable.chooseToken(preferredLanguages: .currentLocale) : ""
-        
-        if viewModel.mode == .selection {
-            addCloseButton(position: .left)
-            
-            let editButton = UIBarButtonItem(title: R.string.localizable.commonEdit(preferredLanguages: .currentLocale), style: .plain, target: self, action: #selector(editTapped))
-            editButton.setTitleTextAttributes([
-                .font: UIFont.systemFont(ofSize: 13, weight: .bold),
-                .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
-                                              for: .normal)
-            navigationItem.rightBarButtonItem = editButton
-        }
-        
+        navigationItem.title = viewModel.navigationTitle
 
         viewModel.reloadItems = { [weak self] item in
             UIView.performWithoutAnimation {
