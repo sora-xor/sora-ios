@@ -263,7 +263,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         )
         
         let soraCard = SCard(
-            addressProvider: { [weak self] in self?.address ?? "" },
+            addressProvider: { [weak self] in SelectedWalletSettings.shared.currentAccount?.address ?? "" },
             config: scConfig,
             balanceStream: xorBalanceStream,
             onSwapController: { [weak self] vc in
