@@ -108,7 +108,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
             let title = "SCard Config"
 
-            let alertController = UIAlertController(title: title, message: SCard.Config.prod.debugDescription, preferredStyle: .alert)
+            let alertController = UIAlertController(title: title, message: SCard.shared?.configuration, preferredStyle: .alert)
 
             let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
                 UIPasteboard.general.string = data
