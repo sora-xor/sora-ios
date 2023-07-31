@@ -258,6 +258,7 @@ extension FriendsViewController: FriendsViewProtocol {
         tableView.isHidden = false
         activityIndicator.isHidden = true
         activityIndicator.stopAnimating()
+        containerView.sora.isHidden = true
 
         contentViewModels = models
         tableView.reloadData()
