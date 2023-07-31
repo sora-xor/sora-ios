@@ -53,6 +53,7 @@ protocol FriendsWireframeProtocol: SharingPresentable, AlertPresentable,
     func showReferrerScreen(from controller: UIViewController, referrer: String)
     
     func showActivityDetails(from controller: UIViewController?, model: Transaction, completion: (() -> Void)?)
+    func setViewControllers(from controller: UIViewController?, currentController: UIViewController?, referrer: String)
 }
 
 // MARK: - Factory
