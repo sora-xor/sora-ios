@@ -11,6 +11,10 @@ enum SoraCardCIKeys {
     static var kycUsernameProd: String = "{{ argument.soraCardKycUsernameProd }}"
     static var kycPasswordTest: String = "{{ argument.soraCardKycPasswordTest }}"
     static var kycPasswordProd: String = "{{ argument.soraCardKycPasswordProd }}"
+    static var xOneEndpointTest: String = "{{ argument.soraCardXOneEndpointTest }}"
+    static var xOneEndpointProd: String = "{{ argument.soraCardXOneEndpointProd }}"
+    static var xOneIdTest: String = "{{ argument.soraCardXOneIdTest }}"
+    static var xOneIdProd: String = "{{ argument.soraCardXOneIdProd }}"
 }
 
 enum PayWingsCIKeys {

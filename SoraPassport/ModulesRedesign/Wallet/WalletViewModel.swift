@@ -241,7 +241,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
         let soraCard = SCard(
             addressProvider: { SelectedWalletSettings.shared.currentAccount?.address ?? "" },
-            config: .prod,
+            config: .test,
             balanceStream: xorBalanceStream,
             onSwapController: { [weak self] vc in
                 self?.showSwapController(in: vc)
@@ -398,6 +398,8 @@ extension SCard.Config {
         kycUrl: SoraCardCIKeys.kycEndpointUrlProd,
         kycUsername: SoraCardCIKeys.kycUsernameProd,
         kycPassword: SoraCardCIKeys.kycPasswordProd,
+        xOneEndpoint: SoraCardCIKeys.xOneEndpointProd,
+        xOneId: SoraCardCIKeys.xOneIdProd,
         environmentType: .prod,
         themeMode: SoramitsuUI.shared.themeMode
     )
@@ -409,6 +411,8 @@ extension SCard.Config {
         kycUrl: SoraCardCIKeys.kycEndpointUrlTest,
         kycUsername: SoraCardCIKeys.kycUsernameTest,
         kycPassword: SoraCardCIKeys.kycPasswordTest,
+        xOneEndpoint: SoraCardCIKeys.xOneEndpointProd, // TMP: use SoraCardCIKeys.xOneEndpointTest
+        xOneId: SoraCardCIKeys.xOneIdProd, // TMP: use SoraCardCIKeys.xOneIdTest
         environmentType: .test,
         themeMode: SoramitsuUI.shared.themeMode
     )
@@ -420,6 +424,8 @@ extension SCard.Config {
         kycUrl: "https://kyc-test.soracard.com/mobile",
         kycUsername: "",
         kycPassword: "",
+        xOneEndpoint: "",
+        xOneId: "",
         environmentType: .test,
         themeMode: SoramitsuUI.shared.themeMode
     )
