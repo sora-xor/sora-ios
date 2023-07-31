@@ -107,27 +107,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         FLEXManager.shared.registerGlobalEntry(withName: "SCard Config") { tableViewController in
 
 //            /// Prod
-//            let scConfig = SCard.Config(
-//                backendUrl: SoraCardCIKeys.backendProdUrl,
-//                pwAuthDomain: SoraCardCIKeys.domainProd,
-//                pwApiKey: SoraCardCIKeys.apiKeyProd,
-//                kycUrl: SoraCardCIKeys.kycEndpointUrlProd,
-//                kycUsername: SoraCardCIKeys.kycUsernameProd,
-//                kycPassword: SoraCardCIKeys.kycPasswordProd,
-//                environmentType: .prod,
-//                themeMode: SoramitsuUI.shared.themeMode
-//            )
-            /// Test
             let scConfig = SCard.Config(
-                backendUrl: SoraCardCIKeys.backendTestUrl,
-                pwAuthDomain: SoraCardCIKeys.domainTest,
-                pwApiKey: SoraCardCIKeys.apiKeyTest,
-                kycUrl: SoraCardCIKeys.kycEndpointUrlTest,
-                kycUsername: SoraCardCIKeys.kycUsernameTest,
-                kycPassword: SoraCardCIKeys.kycPasswordTest,
-                environmentType: .test,
+                backendUrl: SoraCardCIKeys.backendProdUrl,
+                pwAuthDomain: SoraCardCIKeys.domainProd,
+                pwApiKey: SoraCardCIKeys.apiKeyProd,
+                kycUrl: SoraCardCIKeys.kycEndpointUrlProd,
+                kycUsername: SoraCardCIKeys.kycUsernameProd,
+                kycPassword: SoraCardCIKeys.kycPasswordProd,
+                environmentType: .prod,
                 themeMode: SoramitsuUI.shared.themeMode
             )
+            /// Test
+//            let scConfig = SCard.Config(
+//                backendUrl: SoraCardCIKeys.backendTestUrl,
+//                pwAuthDomain: SoraCardCIKeys.domainTest,
+//                pwApiKey: SoraCardCIKeys.apiKeyTest,
+//                kycUrl: SoraCardCIKeys.kycEndpointUrlTest,
+//                kycUsername: SoraCardCIKeys.kycUsernameTest,
+//                kycPassword: SoraCardCIKeys.kycPasswordTest,
+//                environmentType: .test,
+//                themeMode: SoramitsuUI.shared.themeMode
+//            )
 
             let title = "SCard Config"
 
