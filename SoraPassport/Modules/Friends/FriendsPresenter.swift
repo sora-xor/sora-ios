@@ -150,11 +150,13 @@ extension FriendsPresenter: InputLinkPresenterOutput {
     
     func moveForward(controller: UIViewController?) {
         guard
-            let navigationController = view?.controller.navigationController,
-            let friendsView = view?.controller,
-            let referrerView = controller
+            let navigationController = controller?.navigationController,
+            let friendsView = view?.controller
         else { return }
-        navigationController.setViewControllers([friendsView, referrerView], animated: false)
+        
+        let referrerView = ReferralViewFactory.createReferrerView(with: referrer)
+        
+        navigationController.setViewControllers([friendsView, referrerView], animated: true)
     }
 }
 

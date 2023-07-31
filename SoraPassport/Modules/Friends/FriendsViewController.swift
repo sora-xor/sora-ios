@@ -282,8 +282,11 @@ extension FriendsViewController: FriendsViewProtocol {
         containerView.sora.isHidden = false
 
         if !referrer.isEmpty {
-            let title = R.string.localizable.referralYourReferrer(preferredLanguages: .currentLocale)
-            enterLinkButton.sora.title = title
+            let title = SoramitsuTextItem(text: R.string.localizable.referralYourReferrer(preferredLanguages: .currentLocale),
+                                          fontData: FontType.buttonM ,
+                                          textColor: .accentPrimary ,
+                                          alignment: .center)
+            enterLinkButton.sora.attributedText = title
         }
     }
 

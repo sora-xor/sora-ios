@@ -38,7 +38,7 @@ extension InputLinkPresenter: InputLinkInteractorOutputProtocol {
             guard let viewModel = self.viewModel else { return }
             
             if case .success = result {
-//                self.output?.setupReferrer(viewModel.address)
+                self.output?.setupReferrer(viewModel.address)
             }
             
             self.output?.showTransactionDetails(from: self.view?.controller,
