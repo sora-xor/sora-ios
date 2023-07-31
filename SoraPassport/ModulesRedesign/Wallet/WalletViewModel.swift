@@ -239,32 +239,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             balanceProvider?.refresh()
         }
 
-        /// Prod
-        let scConfig = SCard.Config(
-            backendUrl: SoraCardCIKeys.backendProdUrl,
-            pwAuthDomain: SoraCardCIKeys.domainProd,
-            pwApiKey: SoraCardCIKeys.apiKeyProd,
-            kycUrl: SoraCardCIKeys.kycEndpointUrlProd,
-            kycUsername: SoraCardCIKeys.kycUsernameProd,
-            kycPassword: SoraCardCIKeys.kycPasswordProd,
-            environmentType: .prod,
-            themeMode: SoramitsuUI.shared.themeMode
-        )
-        /// Test
-//        let scConfig = SCard.Config(
-//            backendUrl: SoraCardCIKeys.backendTestUrl,
-//            pwAuthDomain: SoraCardCIKeys.domainTest,
-//            pwApiKey: SoraCardCIKeys.apiKeyTest,
-//            kycUrl: SoraCardCIKeys.kycEndpointUrlTest,
-//            kycUsername: SoraCardCIKeys.kycUsernameTest,
-//            kycPassword: SoraCardCIKeys.kycPasswordTest,
-//            environmentType: .test,
-//            themeMode: SoramitsuUI.shared.themeMode
-//        )
-        
         let soraCard = SCard(
-            addressProvider: { [weak self] in SelectedWalletSettings.shared.currentAccount?.address ?? "" },
-            config: scConfig,
+            addressProvider: { SelectedWalletSettings.shared.currentAccount?.address ?? "" },
+            config: .test,
             balanceStream: xorBalanceStream,
             onSwapController: { [weak self] vc in
                 self?.showSwapController(in: vc)
@@ -411,4 +388,39 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                    operationFactory: networkFacade,
                                    assetsProvider: assetsProvider)
     }
+}
+
+extension SCard.Config {
+    static let prod = SCard.Config(
+        backendUrl: SoraCardCIKeys.backendProdUrl,
+        pwAuthDomain: SoraCardCIKeys.domainProd,
+        pwApiKey: SoraCardCIKeys.apiKeyProd,
+        kycUrl: SoraCardCIKeys.kycEndpointUrlProd,
+        kycUsername: SoraCardCIKeys.kycUsernameProd,
+        kycPassword: SoraCardCIKeys.kycPasswordProd,
+        environmentType: .prod,
+        themeMode: SoramitsuUI.shared.themeMode
+    )
+
+    static let test = SCard.Config(
+        backendUrl: SoraCardCIKeys.backendTestUrl,
+        pwAuthDomain: SoraCardCIKeys.domainTest,
+        pwApiKey: SoraCardCIKeys.apiKeyTest,
+        kycUrl: SoraCardCIKeys.kycEndpointUrlTest,
+        kycUsername: SoraCardCIKeys.kycUsernameTest,
+        kycPassword: SoraCardCIKeys.kycPasswordTest,
+        environmentType: .test,
+        themeMode: SoramitsuUI.shared.themeMode
+    )
+
+    static let local = SCard.Config(
+        backendUrl: "https://backend.dev.sora-card.tachi.soramitsu.co.jp/",
+        pwAuthDomain: "soracard.com",
+        pwApiKey: "",
+        kycUrl: "https://kyc-test.soracard.com/mobile",
+        kycUsername: "",
+        kycPassword: "",
+        environmentType: .test,
+        themeMode: SoramitsuUI.shared.themeMode
+    )
 }
