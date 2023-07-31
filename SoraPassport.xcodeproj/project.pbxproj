@@ -5377,6 +5377,7 @@
 				5599B6D2292570F400567396 /* SettingsInformation */,
 				5599B6DB292648D200567396 /* ProfileLogin */,
 				36ADDDA728EC7F790080A41C /* Wallet */,
+				B2B7F5592A77C24100219BF8 /* EditView */,
 				36DB197429EDC5CA00B3E3BF /* AccountCreate */,
 				026AEA3021AAFEB2002EEB67 /* LoadingView */,
 				52E1E17FC55868B10AD106EE /* NetworkAvailabilityLayer */,
@@ -6086,6 +6087,13 @@
 			children = (
 				B2B7F5552A77793C00219BF8 /* EditViewCell.swift */,
 				B2B7F5572A77794F00219BF8 /* EditViewItem.swift */,
+			);
+			path = EditView;
+			sourceTree = "<group>";
+		};
+		B2B7F5592A77C24100219BF8 /* EditView */ = {
+			isa = PBXGroup;
+			children = (
 			);
 			path = EditView;
 			sourceTree = "<group>";

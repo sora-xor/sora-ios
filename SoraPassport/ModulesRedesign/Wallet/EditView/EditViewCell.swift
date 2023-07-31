@@ -36,8 +36,8 @@ final class EditViewCell: SoramitsuTableViewCell {
     
     private func setupLayout() {
         editButton.snp.makeConstraints { make in
-            make.top.equalTo(contentView)
-            make.centerX.equalTo(contentView)
+            make.top.equalTo(contentView).offset(8)
+            make.center.equalTo(contentView)
             make.height.equalTo(40)
             make.width.equalTo(108)
         }
