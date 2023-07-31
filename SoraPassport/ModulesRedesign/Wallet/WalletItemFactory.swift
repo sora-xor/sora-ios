@@ -39,6 +39,8 @@ protocol WalletItemFactoryProtocol: AnyObject {
     
     func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                                  assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol
+    
+    func createEditViewItem(with walletViewModel: RedesignWalletViewModel) -> SoramitsuTableViewItemProtocol
 }
 
 final class WalletItemFactory: WalletItemFactoryProtocol {
@@ -254,5 +256,17 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
         
         return poolsItem
+    }
+    
+    func createEditViewItem(with walletViewModel: RedesignWalletViewModel) -> SoramitsuTableViewItemProtocol {
+        
+        let editViewItem = EditViewItem()
+        
+        editViewItem.onTap = { [weak walletViewModel] in
+            guard let walletViewModel = walletViewModel else { return }
+            // transitio to edit view page
+        }
+        
+        return editViewItem
     }
 }

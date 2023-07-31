@@ -1222,6 +1222,8 @@
 		B2A56F0A2A6FD69E00844A35 /* YourReferrerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */; };
 		B2A56F0C2A6FD6B100844A35 /* YourReferrerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */; };
 		B2A56F0E2A6FD8FD00844A35 /* YourReferrerPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */; };
+		B2B7F5562A77793C00219BF8 /* EditViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B7F5552A77793C00219BF8 /* EditViewCell.swift */; };
+		B2B7F5582A77794F00219BF8 /* EditViewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B7F5572A77794F00219BF8 /* EditViewItem.swift */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
@@ -2579,6 +2581,8 @@
 		B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerCell.swift; sourceTree = "<group>"; };
 		B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerViewModel.swift; sourceTree = "<group>"; };
 		B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerPresenter.swift; sourceTree = "<group>"; };
+		B2B7F5552A77793C00219BF8 /* EditViewCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditViewCell.swift; sourceTree = "<group>"; };
+		B2B7F5572A77794F00219BF8 /* EditViewItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditViewItem.swift; sourceTree = "<group>"; };
 		B3FCEAB36CFF045EF97A1A1E /* Pods_SoraPassportTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
 		C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsInteractor.swift; sourceTree = "<group>"; };
@@ -4558,6 +4562,7 @@
 		36ADDDA728EC7F790080A41C /* Wallet */ = {
 			isa = PBXGroup;
 			children = (
+				B2B7F5542A77790800219BF8 /* EditView */,
 				B27FFC402A52A568006D4C19 /* Friends */,
 				364BA322293FC0170099CB0D /* Acccount */,
 				361EF5A92917DC3700D0DCCF /* Pools */,
@@ -6076,6 +6081,15 @@
 			path = Referrers;
 			sourceTree = "<group>";
 		};
+		B2B7F5542A77790800219BF8 /* EditView */ = {
+			isa = PBXGroup;
+			children = (
+				B2B7F5552A77793C00219BF8 /* EditViewCell.swift */,
+				B2B7F5572A77794F00219BF8 /* EditViewItem.swift */,
+			);
+			path = EditView;
+			sourceTree = "<group>";
+		};
 		B8A4AE2318F935BBA3F481A0 /* ChangeAccount */ = {
 			isa = PBXGroup;
 			children = (
@@ -7352,6 +7366,7 @@
 				9441F9CD25C9815E00775559 /* CDChainStorageItem+CoreDataDecodable.swift in Sources */,
 				366A78342A3227AC00A6DDF9 /* SetupPasswordViewFactory.swift in Sources */,
 				36F94ED9291E545000E211FE /* SupplyLiquidityViewModel.swift in Sources */,
+				B2B7F5582A77794F00219BF8 /* EditViewItem.swift in Sources */,
 				9441FA7125CAB23100775559 /* BalanceContext.swift in Sources */,
 				366A78292A31FE3700A6DDF9 /* AccountImportedViewModel.swift in Sources */,
 				3635B7272937080200B2B728 /* ConfirmSwapViewModel.swift in Sources */,
@@ -7863,6 +7878,7 @@
 				94497DFD25EF925900FD4F14 /* ChainStorage+Decodable.swift in Sources */,
 				3694D45C2971F5450045A295 /* ActivityErrorCell.swift in Sources */,
 				36DBFE0728FC48C600735535 /* ZeroBalanceItem.swift in Sources */,
+				B2B7F5562A77793C00219BF8 /* EditViewCell.swift in Sources */,
 				9441FBDB25CC034800775559 /* WebSocketService.swift in Sources */,
 				94497DE525EF8DEF00FD4F14 /* SubstrateCallFactory.swift in Sources */,
 				10D644872553FE0600C18F1C /* Reusable.swift in Sources */,

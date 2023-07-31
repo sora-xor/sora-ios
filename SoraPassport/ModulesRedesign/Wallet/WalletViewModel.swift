@@ -177,6 +177,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                                                    fiatService: fiatService)
         items.append(poolItem)
         
+        let editViewItem: SoramitsuTableViewItemProtocol = itemFactory.createEditViewItem(with: self)
+        items.append(editViewItem)
+        
         return items
     }
 
