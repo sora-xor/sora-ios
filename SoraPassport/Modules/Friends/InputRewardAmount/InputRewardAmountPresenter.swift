@@ -7,6 +7,12 @@ import SoraUIKit
 protocol InputRewardAmountPresenterOutput: AnyObject {
     func updateReferral(balance: Decimal)
     func showAlert(withSuccess isSuccess: Bool)
+    func showTransactionDetails(from controller: UIViewController?,
+                                result: Result<String, Swift.Error>,
+                                fee: Decimal,
+                                amount: Decimal,
+                                type: ReferralBondTransaction.ReferralTransactionType,
+                                completion: (() -> Void)?)
 }
 
 final class InputRewardAmountPresenter: InvitationsCellDelegate {
@@ -78,18 +84,24 @@ extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol 
         self.actionButtonIsEnabled = actionButtonIsEnabled
     }
 
-    func referralBalanceOperationReceived(withSuccess isSuccess: Bool) {
-        DispatchQueue.main.async {
-            self.view?.dismiss { [weak self] in
-                guard let self = self else { return }
-                self.output?.showAlert(withSuccess: isSuccess)
-
-                guard isSuccess else { return }
+    func referralBalanceOperationReceived(with result: Result<String, Error>) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if case .success = result {
                 let newBalanceAfterBond = self.currentBondedAmount + self.previousBondedAmount
                 let newBalanceAfterUnbond = self.previousBondedAmount - self.currentBondedAmount
                 let balance = self.type == .bond ? newBalanceAfterBond : newBalanceAfterUnbond
                 self.output?.updateReferral(balance: balance)
             }
+            
+            self.output?.showTransactionDetails(from: self.view?.controller,
+                                                result: result,
+                                                fee: self.fee,
+                                                amount: self.currentBondedAmount,
+                                                type: self.type != .bond ? .unbond : .bond,
+                                                completion: {
+                self.view?.pop()
+            })
         }
     }
 }

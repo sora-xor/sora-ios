@@ -373,6 +373,5 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         containerView.add(navigationController)
         
         controller.present(containerView, animated: true)
-        
     }
 }

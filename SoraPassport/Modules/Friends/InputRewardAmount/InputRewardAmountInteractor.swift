@@ -10,7 +10,7 @@ protocol InputRewardAmountInteractorInputProtocol: AnyObject {
 
 protocol InputRewardAmountInteractorOutputProtocol: AnyObject {
     func received(_ balance: Decimal)
-    func referralBalanceOperationReceived(withSuccess isSuccess: Bool)
+    func referralBalanceOperationReceived(with result: Result<String, Error>)
 }
 
 final class InputRewardAmountInteractor {
@@ -51,11 +51,8 @@ extension InputRewardAmountInteractor: InputRewardAmountInteractorInputProtocol 
         }
 
         operation.completionBlock = { [weak self] in
-            guard case .success = operation.result else {
-                self?.presenter?.referralBalanceOperationReceived(withSuccess: false)
-                return
-            }
-            self?.presenter?.referralBalanceOperationReceived(withSuccess: true)
+            guard let result = operation.result else { return }
+            self?.presenter?.referralBalanceOperationReceived(with: result)
         }
 
         OperationManagerFacade.sharedManager.enqueue(operations: [operation], in: .transient)

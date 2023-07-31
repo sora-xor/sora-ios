@@ -25,6 +25,6 @@ extension YourReferrerPresenter: YourReferrerViewOutput {
 
 extension YourReferrerPresenter: YourReferrerCellDelegate {
     func closeTapped() {
-        self.view?.moveBack()
+        self.view?.pop()
     }
 }
