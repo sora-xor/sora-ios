@@ -241,7 +241,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
         let soraCard = SCard(
             addressProvider: { SelectedWalletSettings.shared.currentAccount?.address ?? "" },
-            config: .test,
+            config: .prod,
             balanceStream: xorBalanceStream,
             onSwapController: { [weak self] vc in
                 self?.showSwapController(in: vc)
