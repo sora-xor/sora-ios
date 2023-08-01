@@ -197,7 +197,7 @@ PODS:
   - nanopb/encode (2.30909.0)
   - Nantes (0.1.2)
   - PayWingsOAuthSDK (1.2.2)
-  - PayWingsOnboardingKYC (5.1.12):
+  - PayWingsOnboardingKYC (5.1.13):
     - VideoID (= 7.1.31)
   - PromisesObjC (2.3.1)
   - PromisesSwift (2.3.1):
@@ -210,7 +210,7 @@ PODS:
   - SCard (1.0.0):
     - IdensicMobileSDK
     - PayWingsOAuthSDK (= 1.2.2)
-    - PayWingsOnboardingKYC (= 5.1.12)
+    - PayWingsOnboardingKYC (= 5.1.13)
     - R.swift (~> 6.1.0)
     - SnapKit
     - SoraUIKit (~> 1.0.1)
@@ -273,11 +273,28 @@ PODS:
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
-  - SSFCloudStorage (0.1.3):
+  - SSFCloudStorage (0.1.6):
     - GoogleAPIClientForREST/Drive (~> 1.2.1)
     - GoogleSignIn (~> 7.0.0)
     - IrohaCrypto/Scrypt
+    - SSFModels
+    - SSFUtils
     - TweetNacl (~> 1.0.0)
+  - SSFModels (0.1.5):
+    - IrohaCrypto
+  - SSFUtils (0.1.1):
+    - BigInt (~> 5.0)
+    - IrohaCrypto/ed25519
+    - IrohaCrypto/Scrypt
+    - IrohaCrypto/secp256k1
+    - IrohaCrypto/sr25519
+    - IrohaCrypto/ss58
+    - ReachabilitySwift (~> 5.0)
+    - RobinHood
+    - SSFModels
+    - Starscream
+    - TweetNacl (~> 1.0.0)
+    - xxHash-Swift (~> 1.0.0)
   - Starscream (4.0.8)
   - SVGKit (2.1.0):
     - CocoaLumberjack (~> 3.0)
@@ -380,6 +397,8 @@ SPEC REPOS:
     - xxHash-Swift
   https://github.com/soramitsu/SSFSpecs.git:
     - SSFCloudStorage
+    - SSFModels
+    - SSFUtils
 
 EXTERNAL SOURCES:
   CommonWallet:
@@ -421,7 +440,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: 7325c15b94712a3fae3e5fa4c8536bbdda7bbe29
+    :commit: 1241f8da290856cadbc1999d8cbf6c855df65cb0
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui.git
@@ -467,14 +486,14 @@ SPEC CHECKSUMS:
   nanopb: b552cce312b6c8484180ef47159bc0f65a1f0431
   Nantes: 0396442578e32242223fed46050dea1850236184
   PayWingsOAuthSDK: 97c104c6efa982313fd515c22339279f24ac3461
-  PayWingsOnboardingKYC: 1624f9a9971b182e843f7fe9cbd8b1cfbedeeff9
+  PayWingsOnboardingKYC: abff20d772e9b87e9315b4999feb7401d6557eee
   PromisesObjC: c50d2056b5253dadbd6c2bea79b0674bd5a52fa4
   PromisesSwift: 28dca69a9c40779916ac2d6985a0192a5cb4a265
   R.swift: ec98ff71c4ab2f6fd01dd077e5afd15e63a4834c
   R.swift.Library: 0fc583cb55a99e28901299cc451614cad1161962
   ReachabilitySwift: 985039c6f7b23a1da463388634119492ff86c825
   RobinHood: 40edb5db53d5763433af25f95d81f7860d7acdc6
-  SCard: 9ff6a408490ffe7732932d4616c9f049cc4b8484
+  SCard: 75b8f01b87f7a52e581e9c0ebb5d65fedbefddd0
   scrypt.c: b42ae06183251329d2b2c620c226fb541a4a3592
   secp256k1.c: db47b726585d80f027423682eb369729e61b3b20
   SnapKit: e01d52ebb8ddbc333eefe2132acf85c8227d9c25
@@ -484,7 +503,9 @@ SPEC CHECKSUMS:
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   SoraUIKit: 2156cae4af9a34314e1f5c5277eed10bf8411b66
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
-  SSFCloudStorage: 1fc1b7ccc68ebbda44e9c0d6446caac08d8a9280
+  SSFCloudStorage: 5124491f345bdd304b4d07c6d2368dfde59bc61d
+  SSFModels: 84072b4828858d90e15892c330166ae1694177d2
+  SSFUtils: f6422d909cb57a85cd5784b3f399aead69b26a6b
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5
