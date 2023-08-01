@@ -12,11 +12,12 @@ protocol InputRewardAmountViewOutput: AnyObject {
     func willMove()
 }
 
-protocol InputRewardAmountViewInput: AnyObject {
+protocol InputRewardAmountViewInput: ControllerBackedProtocol {
     func setupTitle(with text: String)
     func setup(with models: [CellViewModel])
     func reloadCell(at indexPath: IndexPath, models: [CellViewModel])
     func dismiss(with completion: @escaping () -> Void)
+    func pop()
 }
 
 final class InputRewardAmountViewController: SoramitsuViewController {
@@ -124,6 +125,11 @@ extension InputRewardAmountViewController: InputRewardAmountViewInput {
 
     func dismiss(with completion: @escaping () -> Void) {
         dismiss(animated: true, completion: completion)
+    }
+    
+    func pop() {
+        guard let navigationController = navigationController else { return }
+        navigationController.popViewController(animated: true)
     }
 }
 

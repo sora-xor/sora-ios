@@ -118,7 +118,10 @@ extension FriendsPresenter: InputLinkPresenterOutput {
         }
     }
     
-    func showTransactionDetails(from controller: UIViewController?, result: Result<String, Swift.Error>, peerAddress: String, completion: (() -> Void)?) {
+    func showTransactionDetails(from controller: UIViewController?,
+                                result: Result<String, Swift.Error>,
+                                peerAddress: String,
+                                completion: (() -> Void)?) {
         var status: TransactionBase.Status = .pending
         var txHash = ""
         
@@ -144,9 +147,46 @@ extension FriendsPresenter: InputLinkPresenterOutput {
         EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: transaction))
         wireframe.showActivityDetails(from: controller, model: transaction, completion: completion)
     }
+    
+    func moveForward(controller: UIViewController?) {
+        wireframe.setViewControllers(from: controller,
+                                     currentController: view?.controller,
+                                     referrer: referrer)
+    }
 }
 
 extension FriendsPresenter: InputRewardAmountPresenterOutput {
+    func showTransactionDetails(from controller: UIViewController?,
+                                result: Result<String, Swift.Error>,
+                                fee: Decimal,
+                                amount: Decimal,
+                                type: ReferralBondTransaction.ReferralTransactionType,
+                                completion: (() -> Void)?) {
+        var status: TransactionBase.Status = .pending
+        var txHash = ""
+        
+        switch result {
+        case .success(let hash):
+            txHash = hash
+            status = .success
+        case .failure:
+            status = .failed
+        }
+        
+        let base = TransactionBase(txHash: txHash,
+                                   blockHash: "",
+                                   fee: Amount(value: fee),
+                                   status: status,
+                                   timestamp: "\(Date().timeIntervalSince1970)")
+ 
+        let transaction = ReferralBondTransaction(base: base,
+                                                  amount: Amount(value: amount),
+                                                  tokenId: WalletAssetId.xor.rawValue,
+                                                  type: type)
+
+        EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: transaction))
+        wireframe.showActivityDetails(from: controller, model: transaction, completion: completion)
+    }
 }
 
 extension FriendsPresenter: TotalRewardsCellDelegate {

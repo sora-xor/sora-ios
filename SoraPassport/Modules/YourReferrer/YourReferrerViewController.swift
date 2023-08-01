@@ -6,7 +6,7 @@ import SnapKit
 protocol YourReferrerViewInput: AnyObject {
     func setup(with models: [CellViewModel])
     func dismiss(with completion: @escaping () -> Void)
-    func moveBack()
+    func pop()
 }
 
 protocol YourReferrerViewOutput {
@@ -88,8 +88,9 @@ extension YourReferrerViewController: YourReferrerViewInput {
         dismiss(animated: true, completion: completion)
     }
     
-    func moveBack() {
-        navigationController?.popViewController(animated: true)
+    func pop() {
+        guard let navigationController = navigationController else { return }
+        navigationController.popViewController(animated: true)
     }
 }
 

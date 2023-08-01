@@ -7,6 +7,7 @@ import SoraUIKit
 protocol InputLinkViewInput: ControllerBackedProtocol {
     func setup(with models: [CellViewModel])
     func dismiss(with completion: @escaping () -> Void)
+    func pop()
 }
 
 protocol InputLinkViewOutput {
@@ -114,6 +115,11 @@ extension InputLinkViewController: InputLinkViewInput {
     
     func dismiss(with completion: @escaping () -> Void) {
         dismiss(animated: true, completion: completion)
+    }
+    
+    func pop() {
+        guard let navigationController = navigationController else { return }
+        navigationController.popViewController(animated: true)
     }
 }
 

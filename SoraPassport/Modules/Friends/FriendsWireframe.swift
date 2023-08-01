@@ -70,4 +70,15 @@ final class FriendsWireframe: FriendsWireframeProtocol {
         
         controller.present(containerView, animated: true)
     }
+    
+    func setViewControllers(from controller: UIViewController?, currentController: UIViewController?, referrer: String) {
+        guard
+            let navigationController = controller?.navigationController,
+            let friendsView = currentController
+        else { return }
+        
+        let referrerView = ReferralViewFactory.createReferrerView(with: referrer)
+        
+        navigationController.setViewControllers([friendsView, referrerView], animated: true)
+    }
 }

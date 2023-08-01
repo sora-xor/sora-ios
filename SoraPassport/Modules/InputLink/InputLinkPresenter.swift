@@ -5,6 +5,7 @@ protocol InputLinkPresenterOutput: AnyObject {
     func setupReferrer(_ referrer: String)
     func showAlert(withSuccess isSuccess: Bool)
     func showTransactionDetails(from controller: UIViewController?, result: Result<String, Swift.Error>, peerAddress: String, completion: (() -> Void)?)
+    func moveForward(controller: UIViewController?)
 }
 
 final class InputLinkPresenter {
@@ -44,8 +45,17 @@ extension InputLinkPresenter: InputLinkInteractorOutputProtocol {
                                                 result: result,
                                                 peerAddress: viewModel.address,
                                                 completion: {
-                self.view?.dismiss(with: {})
+                self.handleCompletion(result)
             })
+        }
+    }
+    
+    func handleCompletion(_ result: Result<String, Error>) {
+        switch result {
+        case .success:
+            output?.moveForward(controller: view?.controller)
+        case .failure:
+            view?.pop()
         }
     }
 }
