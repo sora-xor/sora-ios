@@ -273,11 +273,28 @@ PODS:
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
-  - SSFCloudStorage (0.1.3):
+  - SSFCloudStorage (0.1.6):
     - GoogleAPIClientForREST/Drive (~> 1.2.1)
     - GoogleSignIn (~> 7.0.0)
     - IrohaCrypto/Scrypt
+    - SSFModels
+    - SSFUtils
     - TweetNacl (~> 1.0.0)
+  - SSFModels (0.1.5):
+    - IrohaCrypto
+  - SSFUtils (0.1.1):
+    - BigInt (~> 5.0)
+    - IrohaCrypto/ed25519
+    - IrohaCrypto/Scrypt
+    - IrohaCrypto/secp256k1
+    - IrohaCrypto/sr25519
+    - IrohaCrypto/ss58
+    - ReachabilitySwift (~> 5.0)
+    - RobinHood
+    - SSFModels
+    - Starscream
+    - TweetNacl (~> 1.0.0)
+    - xxHash-Swift (~> 1.0.0)
   - Starscream (4.0.8)
   - SVGKit (2.1.0):
     - CocoaLumberjack (~> 3.0)
@@ -380,6 +397,8 @@ SPEC REPOS:
     - xxHash-Swift
   https://github.com/soramitsu/SSFSpecs.git:
     - SSFCloudStorage
+    - SSFModels
+    - SSFUtils
 
 EXTERNAL SOURCES:
   CommonWallet:
@@ -421,7 +440,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: 1241f8da290856cadbc1999d8cbf6c855df65cb0
+    :commit: d7223c24b632a7e25ddc0d2244a2f695862326a7
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui.git
@@ -484,7 +503,9 @@ SPEC CHECKSUMS:
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   SoraUIKit: 258aa43f318cb306b29cdadb52139d794c184333
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
-  SSFCloudStorage: 1fc1b7ccc68ebbda44e9c0d6446caac08d8a9280
+  SSFCloudStorage: 5124491f345bdd304b4d07c6d2368dfde59bc61d
+  SSFModels: 84072b4828858d90e15892c330166ae1694177d2
+  SSFUtils: f6422d909cb57a85cd5784b3f399aead69b26a6b
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5
