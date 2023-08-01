@@ -21,6 +21,7 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func showSoraCardDetails()
     func showInternerConnectionAlert()
     func showReferralProgram(assetManager: AssetManagerProtocol)
+    func showEditView()
 }
 
 final class RedesignWalletViewModel {
@@ -381,5 +382,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         wireframe?.showReferralProgram(from: view,
                                        walletContext: walletContext,
                                        assetManager: assetManager)
+    }
+    
+    func showEditView() {
+        
     }
 }
