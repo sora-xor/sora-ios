@@ -217,12 +217,15 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             kycUrl: SoraCardCIKeys.endpoint,
             kycUsername: SoraCardCIKeys.username,
             kycPassword: SoraCardCIKeys.password,
+            xOneEndpoint: "",
+            xOneId: "",
             environmentType: .test,
             themeMode: SoramitsuUI.shared.themeMode
         )
 
         let soraCard = SCard(
-            address: address,
+            addressProvider: { [weak self] in SelectedWalletSettings.shared.currentAccount?.address ?? ""
+            },
             config: scConfig,
             balanceStream: xorBalanceStream,
             onSwapController: { [weak self] vc in

@@ -113,6 +113,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 kycUrl: SoraCardCIKeys.endpoint,
                 kycUsername: SoraCardCIKeys.username,
                 kycPassword: SoraCardCIKeys.password,
+                xOneEndpoint: "",
+                xOneId: "",
                 environmentType: .test,
                 themeMode: SoramitsuUI.shared.themeMode
             )
