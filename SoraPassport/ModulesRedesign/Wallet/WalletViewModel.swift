@@ -398,8 +398,8 @@ extension SCard.Config {
         kycUrl: SoraCardCIKeys.kycEndpointUrlProd,
         kycUsername: SoraCardCIKeys.kycUsernameProd,
         kycPassword: SoraCardCIKeys.kycPasswordProd,
-        xOneEndpoint: SoraCardCIKeys.xOneEndpointProd,
-        xOneId: SoraCardCIKeys.xOneIdProd,
+        xOneEndpoint: "https://x1ex.com/widgets/sdk.js", // TODO: fix on CI SoraCardCIKeys.xOneEndpointProd,
+        xOneId: "sprkwdgt-WUQBA5U2", // TODO: fix on CI SoraCardCIKeys.xOneIdProd,
         environmentType: .prod,
         themeMode: SoramitsuUI.shared.themeMode
     )
