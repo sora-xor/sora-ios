@@ -4,7 +4,6 @@ import SoraFoundation
 
 protocol EditViewItemFactoryProtocol: AnyObject {
     func enabledItem(with editViewModel: EditViewModel) -> SoramitsuTableViewItemProtocol
-    func disabledItem(with editViewModel: EditViewModel) -> SoramitsuTableViewItemProtocol
 }
 
 final class EditViewItemFactory: EditViewItemFactoryProtocol {
@@ -23,11 +22,6 @@ final class EditViewItemFactory: EditViewItemFactoryProtocol {
             EnabledViewModel(title: R.string.localizable.pooledAssets(preferredLanguages: .currentLocale), isEnabled: true)
         ]
         
-        return enabledItem
-    }
-    
-    func disabledItem(with editViewModel: EditViewModel) -> SoramitsuTableViewItemProtocol {
-        let enabledItem = EnabledItem(title: R.string.localizable.commonDisabled(preferredLanguages: .currentLocale))
         return enabledItem
     }
 }

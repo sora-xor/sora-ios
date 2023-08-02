@@ -1214,9 +1214,6 @@
 		B267AA9F2A7A2F7200EF9CF0 /* EditViewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */; };
 		B267AAB32A7A3C4700EF9CF0 /* EditViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAA62A7A3C4700EF9CF0 /* EditViewFactory.swift */; };
 		B267AAB42A7A3C4700EF9CF0 /* EditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAA72A7A3C4700EF9CF0 /* EditViewController.swift */; };
-		B267AAB52A7A3C4700EF9CF0 /* DisabledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAA92A7A3C4700EF9CF0 /* DisabledCell.swift */; };
-		B267AAB62A7A3C4700EF9CF0 /* DisabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAA2A7A3C4700EF9CF0 /* DisabledItem.swift */; };
-		B267AAB72A7A3C4700EF9CF0 /* DisabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAB2A7A3C4700EF9CF0 /* DisabledViewModel.swift */; };
 		B267AAB82A7A3C4800EF9CF0 /* EditViewItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAC2A7A3C4700EF9CF0 /* EditViewItemFactory.swift */; };
 		B267AAB92A7A3C4800EF9CF0 /* EnabledView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAE2A7A3C4700EF9CF0 /* EnabledView.swift */; };
 		B267AABA2A7A3C4800EF9CF0 /* EnabledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAF2A7A3C4700EF9CF0 /* EnabledCell.swift */; };
@@ -2591,9 +2588,6 @@
 		B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItem.swift; sourceTree = "<group>"; };
 		B267AAA62A7A3C4700EF9CF0 /* EditViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewFactory.swift; sourceTree = "<group>"; };
 		B267AAA72A7A3C4700EF9CF0 /* EditViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewController.swift; sourceTree = "<group>"; };
-		B267AAA92A7A3C4700EF9CF0 /* DisabledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisabledCell.swift; sourceTree = "<group>"; };
-		B267AAAA2A7A3C4700EF9CF0 /* DisabledItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisabledItem.swift; sourceTree = "<group>"; };
-		B267AAAB2A7A3C4700EF9CF0 /* DisabledViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisabledViewModel.swift; sourceTree = "<group>"; };
 		B267AAAC2A7A3C4700EF9CF0 /* EditViewItemFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItemFactory.swift; sourceTree = "<group>"; };
 		B267AAAE2A7A3C4700EF9CF0 /* EnabledView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledView.swift; sourceTree = "<group>"; };
 		B267AAAF2A7A3C4700EF9CF0 /* EnabledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledCell.swift; sourceTree = "<group>"; };
@@ -6113,24 +6107,13 @@
 		B267AAA52A7A3C4700EF9CF0 /* EditView */ = {
 			isa = PBXGroup;
 			children = (
+				B267AAAD2A7A3C4700EF9CF0 /* Enabled */,
 				B267AAA62A7A3C4700EF9CF0 /* EditViewFactory.swift */,
 				B267AAA72A7A3C4700EF9CF0 /* EditViewController.swift */,
-				B267AAA82A7A3C4700EF9CF0 /* Disabled */,
 				B267AAAC2A7A3C4700EF9CF0 /* EditViewItemFactory.swift */,
-				B267AAAD2A7A3C4700EF9CF0 /* Enabled */,
 				B267AAB22A7A3C4700EF9CF0 /* EditViewModel.swift */,
 			);
 			path = EditView;
-			sourceTree = "<group>";
-		};
-		B267AAA82A7A3C4700EF9CF0 /* Disabled */ = {
-			isa = PBXGroup;
-			children = (
-				B267AAA92A7A3C4700EF9CF0 /* DisabledCell.swift */,
-				B267AAAA2A7A3C4700EF9CF0 /* DisabledItem.swift */,
-				B267AAAB2A7A3C4700EF9CF0 /* DisabledViewModel.swift */,
-			);
-			path = Disabled;
 			sourceTree = "<group>";
 		};
 		B267AAAD2A7A3C4700EF9CF0 /* Enabled */ = {
@@ -7223,7 +7206,6 @@
 				3603A3952917E1FD00DF6EFE /* PoolsCell.swift in Sources */,
 				364526C328C7D62B00260340 /* SubqueryApyInfoOperation.swift in Sources */,
 				9441FAFD25CADE4B00775559 /* DerivationPathConstants.swift in Sources */,
-				B267AAB62A7A3C4700EF9CF0 /* DisabledItem.swift in Sources */,
 				605AA52F26FE601000E7FD12 /* NeumorphismButton.swift in Sources */,
 				3652E10C2A6A918D0073AFBA /* CreateAccountService.swift in Sources */,
 				B25B8E722A7913CB0070DD48 /* EnabledViewModel.swift in Sources */,
@@ -7963,7 +7945,6 @@
 				32245181223165C2001E487A /* String+Size.swift in Sources */,
 				84A0DA352267DF44006EF85C /* SupportData.swift in Sources */,
 				94D4B65A28BF6FCF007F98EB /* SelectedWalletSettings.swift in Sources */,
-				B267AAB72A7A3C4700EF9CF0 /* DisabledViewModel.swift in Sources */,
 				944929A729083EB000897A56 /* AccountTableViewCell.swift in Sources */,
 				9441FB1725CAE33500775559 /* AccountConfirmProtocols.swift in Sources */,
 				944A8F83263C017200BF44EF /* SoraButton.swift in Sources */,
@@ -7978,7 +7959,6 @@
 				36B961F7294B2B02002A35BA /* ReceiveCell.swift in Sources */,
 				9481B4AC28748A7C00A472E2 /* ChainAsset.swift in Sources */,
 				10F6D03025344EFD00EB64CD /* LinkViewModel.swift in Sources */,
-				B267AAB52A7A3C4700EF9CF0 /* DisabledCell.swift in Sources */,
 				84A90A172431D0E600F5CB76 /* ErrorContent+Wallet.swift in Sources */,
 				840F2089237EDB0D00EBE714 /* CountdownTimerFactory.swift in Sources */,
 				3666CBCC29056E420098F4AC /* PriceItem.swift in Sources */,
