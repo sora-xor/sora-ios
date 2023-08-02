@@ -14,7 +14,4 @@ struct EnabledViewModel {
         self.isEnabled = isEnabled
     }
     
-    private func createItems() {
-        
-    }
 }

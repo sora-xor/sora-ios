@@ -60,7 +60,7 @@ extension EnabledCell: SoramitsuTableViewCellProtocol {
 //            subview.removeFromSuperview()
 //        }
         
-        let enabledViews = item.enabledViewModel.map { enabledModel -> EnabledView in
+        let enabledViews = item.enabledViewModels.map { enabledModel -> EnabledView in
             let enabledView = EnabledView()
             enabledView.titleLabel.sora.text = enabledModel.title
             enabledView.tappableArea.sora.isHidden = false

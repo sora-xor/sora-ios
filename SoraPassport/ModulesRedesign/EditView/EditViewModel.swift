@@ -35,9 +35,6 @@ extension EditViewModel: EditViewModelProtocol {
         let enabledItem = itemFactory.enabledItem(with: self)
         items.append(enabledItem)
         
-        let disabledItem = itemFactory.disabledItem(with: self)
-        items.append(disabledItem)
-        
         return items
     }
 }

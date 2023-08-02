@@ -29,7 +29,7 @@ final class EnabledView: SoramitsuView {
         label.sora.isUserInteractionEnabled = false
         return label
     }()
-    
+
     public let tappableArea: SoramitsuControl = {
         let view = SoramitsuControl()
         view.sora.isHidden = true
