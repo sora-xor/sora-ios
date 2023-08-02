@@ -1210,19 +1210,19 @@
 		AD7EAB4CC39BA3CBD8892075 /* AccountOptionsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */; };
 		B25B8E722A7913CB0070DD48 /* EnabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B25B8E712A7913CB0070DD48 /* EnabledViewModel.swift */; };
 		B25B8E742A7913DE0070DD48 /* DisabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B25B8E732A7913DD0070DD48 /* DisabledViewModel.swift */; };
-		B267AA8E2A791A1000EF9CF0 /* EditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA822A791A1000EF9CF0 /* EditViewController.swift */; };
-		B267AA8F2A791A1000EF9CF0 /* DisabledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA842A791A1000EF9CF0 /* DisabledCell.swift */; };
-		B267AA902A791A1000EF9CF0 /* DisabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA852A791A1000EF9CF0 /* DisabledItem.swift */; };
-		B267AA912A791A1000EF9CF0 /* DisabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA862A791A1000EF9CF0 /* DisabledViewModel.swift */; };
-		B267AA922A791A1000EF9CF0 /* EditViewItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA872A791A1000EF9CF0 /* EditViewItemFactory.swift */; };
-		B267AA932A791A1000EF9CF0 /* EnabledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA892A791A1000EF9CF0 /* EnabledCell.swift */; };
-		B267AA942A791A1000EF9CF0 /* EnabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA8A2A791A1000EF9CF0 /* EnabledItem.swift */; };
-		B267AA952A791A1000EF9CF0 /* EnabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA8B2A791A1000EF9CF0 /* EnabledViewModel.swift */; };
-		B267AA962A791A1000EF9CF0 /* EditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA8C2A791A1000EF9CF0 /* EditViewModel.swift */; };
-		B267AA982A791F3C00EF9CF0 /* EnabledView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA972A791F3C00EF9CF0 /* EnabledView.swift */; };
-		B267AA9A2A7A2DB500EF9CF0 /* EditViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA992A7A2DB500EF9CF0 /* EditViewFactory.swift */; };
 		B267AA9E2A7A2F7200EF9CF0 /* EditViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */; };
 		B267AA9F2A7A2F7200EF9CF0 /* EditViewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */; };
+		B267AAB32A7A3C4700EF9CF0 /* EditViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAA62A7A3C4700EF9CF0 /* EditViewFactory.swift */; };
+		B267AAB42A7A3C4700EF9CF0 /* EditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAA72A7A3C4700EF9CF0 /* EditViewController.swift */; };
+		B267AAB52A7A3C4700EF9CF0 /* DisabledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAA92A7A3C4700EF9CF0 /* DisabledCell.swift */; };
+		B267AAB62A7A3C4700EF9CF0 /* DisabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAA2A7A3C4700EF9CF0 /* DisabledItem.swift */; };
+		B267AAB72A7A3C4700EF9CF0 /* DisabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAB2A7A3C4700EF9CF0 /* DisabledViewModel.swift */; };
+		B267AAB82A7A3C4800EF9CF0 /* EditViewItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAC2A7A3C4700EF9CF0 /* EditViewItemFactory.swift */; };
+		B267AAB92A7A3C4800EF9CF0 /* EnabledView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAE2A7A3C4700EF9CF0 /* EnabledView.swift */; };
+		B267AABA2A7A3C4800EF9CF0 /* EnabledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAAF2A7A3C4700EF9CF0 /* EnabledCell.swift */; };
+		B267AABB2A7A3C4800EF9CF0 /* EnabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAB02A7A3C4700EF9CF0 /* EnabledItem.swift */; };
+		B267AABC2A7A3C4800EF9CF0 /* EnabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAB12A7A3C4700EF9CF0 /* EnabledViewModel.swift */; };
+		B267AABD2A7A3C4800EF9CF0 /* EditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AAB22A7A3C4700EF9CF0 /* EditViewModel.swift */; };
 		B27FFC3F2A52A53B006D4C19 /* FriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */; };
 		B27FFC432A52A569006D4C19 /* FriendsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC412A52A568006D4C19 /* FriendsCell.swift */; };
 		B27FFC442A52A569006D4C19 /* FriendsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC422A52A568006D4C19 /* FriendsItem.swift */; };
@@ -2587,19 +2587,19 @@
 		AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutTests.swift; sourceTree = "<group>"; };
 		B25B8E712A7913CB0070DD48 /* EnabledViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnabledViewModel.swift; sourceTree = "<group>"; };
 		B25B8E732A7913DD0070DD48 /* DisabledViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisabledViewModel.swift; sourceTree = "<group>"; };
-		B267AA822A791A1000EF9CF0 /* EditViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewController.swift; sourceTree = "<group>"; };
-		B267AA842A791A1000EF9CF0 /* DisabledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisabledCell.swift; sourceTree = "<group>"; };
-		B267AA852A791A1000EF9CF0 /* DisabledItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisabledItem.swift; sourceTree = "<group>"; };
-		B267AA862A791A1000EF9CF0 /* DisabledViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisabledViewModel.swift; sourceTree = "<group>"; };
-		B267AA872A791A1000EF9CF0 /* EditViewItemFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItemFactory.swift; sourceTree = "<group>"; };
-		B267AA892A791A1000EF9CF0 /* EnabledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledCell.swift; sourceTree = "<group>"; };
-		B267AA8A2A791A1000EF9CF0 /* EnabledItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledItem.swift; sourceTree = "<group>"; };
-		B267AA8B2A791A1000EF9CF0 /* EnabledViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledViewModel.swift; sourceTree = "<group>"; };
-		B267AA8C2A791A1000EF9CF0 /* EditViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewModel.swift; sourceTree = "<group>"; };
-		B267AA972A791F3C00EF9CF0 /* EnabledView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnabledView.swift; sourceTree = "<group>"; };
-		B267AA992A7A2DB500EF9CF0 /* EditViewFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditViewFactory.swift; sourceTree = "<group>"; };
 		B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewCell.swift; sourceTree = "<group>"; };
 		B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItem.swift; sourceTree = "<group>"; };
+		B267AAA62A7A3C4700EF9CF0 /* EditViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewFactory.swift; sourceTree = "<group>"; };
+		B267AAA72A7A3C4700EF9CF0 /* EditViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewController.swift; sourceTree = "<group>"; };
+		B267AAA92A7A3C4700EF9CF0 /* DisabledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisabledCell.swift; sourceTree = "<group>"; };
+		B267AAAA2A7A3C4700EF9CF0 /* DisabledItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisabledItem.swift; sourceTree = "<group>"; };
+		B267AAAB2A7A3C4700EF9CF0 /* DisabledViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisabledViewModel.swift; sourceTree = "<group>"; };
+		B267AAAC2A7A3C4700EF9CF0 /* EditViewItemFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItemFactory.swift; sourceTree = "<group>"; };
+		B267AAAE2A7A3C4700EF9CF0 /* EnabledView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledView.swift; sourceTree = "<group>"; };
+		B267AAAF2A7A3C4700EF9CF0 /* EnabledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledCell.swift; sourceTree = "<group>"; };
+		B267AAB02A7A3C4700EF9CF0 /* EnabledItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledItem.swift; sourceTree = "<group>"; };
+		B267AAB12A7A3C4700EF9CF0 /* EnabledViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledViewModel.swift; sourceTree = "<group>"; };
+		B267AAB22A7A3C4700EF9CF0 /* EditViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewModel.swift; sourceTree = "<group>"; };
 		B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsViewController.swift; sourceTree = "<group>"; };
 		B27FFC412A52A568006D4C19 /* FriendsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsCell.swift; sourceTree = "<group>"; };
 		B27FFC422A52A568006D4C19 /* FriendsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsItem.swift; sourceTree = "<group>"; };
@@ -5389,6 +5389,7 @@
 		8B8ED5C4295C4B47003D15A9 /* ModulesRedesign */ = {
 			isa = PBXGroup;
 			children = (
+				B267AAA52A7A3C4700EF9CF0 /* EditView */,
 				366A782C2A32273200A6DDF9 /* SetupPassword */,
 				366A781D2A31FDFC00A6DDF9 /* AccountImported */,
 				366A780D2A319D0D00A6DDF9 /* EnterPassword */,
@@ -5417,7 +5418,6 @@
 				5599B6D2292570F400567396 /* SettingsInformation */,
 				5599B6DB292648D200567396 /* ProfileLogin */,
 				36ADDDA728EC7F790080A41C /* Wallet */,
-				B267AA802A791A1000EF9CF0 /* EditView */,
 				36DB197429EDC5CA00B3E3BF /* AccountCreate */,
 				026AEA3021AAFEB2002EEB67 /* LoadingView */,
 				52E1E17FC55868B10AD106EE /* NetworkAvailabilityLayer */,
@@ -6101,40 +6101,6 @@
 			name = "Recovered References";
 			sourceTree = "<group>";
 		};
-		B267AA802A791A1000EF9CF0 /* EditView */ = {
-			isa = PBXGroup;
-			children = (
-				B267AA882A791A1000EF9CF0 /* Enabled */,
-				B267AA832A791A1000EF9CF0 /* Disabled */,
-				B267AA822A791A1000EF9CF0 /* EditViewController.swift */,
-				B267AA872A791A1000EF9CF0 /* EditViewItemFactory.swift */,
-				B267AA8C2A791A1000EF9CF0 /* EditViewModel.swift */,
-				B267AA992A7A2DB500EF9CF0 /* EditViewFactory.swift */,
-			);
-			path = EditView;
-			sourceTree = "<group>";
-		};
-		B267AA832A791A1000EF9CF0 /* Disabled */ = {
-			isa = PBXGroup;
-			children = (
-				B267AA842A791A1000EF9CF0 /* DisabledCell.swift */,
-				B267AA852A791A1000EF9CF0 /* DisabledItem.swift */,
-				B267AA862A791A1000EF9CF0 /* DisabledViewModel.swift */,
-			);
-			path = Disabled;
-			sourceTree = "<group>";
-		};
-		B267AA882A791A1000EF9CF0 /* Enabled */ = {
-			isa = PBXGroup;
-			children = (
-				B267AA892A791A1000EF9CF0 /* EnabledCell.swift */,
-				B267AA8A2A791A1000EF9CF0 /* EnabledItem.swift */,
-				B267AA8B2A791A1000EF9CF0 /* EnabledViewModel.swift */,
-				B267AA972A791F3C00EF9CF0 /* EnabledView.swift */,
-			);
-			path = Enabled;
-			sourceTree = "<group>";
-		};
 		B267AA9B2A7A2F7100EF9CF0 /* EditView */ = {
 			isa = PBXGroup;
 			children = (
@@ -6142,6 +6108,40 @@
 				B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */,
 			);
 			path = EditView;
+			sourceTree = "<group>";
+		};
+		B267AAA52A7A3C4700EF9CF0 /* EditView */ = {
+			isa = PBXGroup;
+			children = (
+				B267AAA62A7A3C4700EF9CF0 /* EditViewFactory.swift */,
+				B267AAA72A7A3C4700EF9CF0 /* EditViewController.swift */,
+				B267AAA82A7A3C4700EF9CF0 /* Disabled */,
+				B267AAAC2A7A3C4700EF9CF0 /* EditViewItemFactory.swift */,
+				B267AAAD2A7A3C4700EF9CF0 /* Enabled */,
+				B267AAB22A7A3C4700EF9CF0 /* EditViewModel.swift */,
+			);
+			path = EditView;
+			sourceTree = "<group>";
+		};
+		B267AAA82A7A3C4700EF9CF0 /* Disabled */ = {
+			isa = PBXGroup;
+			children = (
+				B267AAA92A7A3C4700EF9CF0 /* DisabledCell.swift */,
+				B267AAAA2A7A3C4700EF9CF0 /* DisabledItem.swift */,
+				B267AAAB2A7A3C4700EF9CF0 /* DisabledViewModel.swift */,
+			);
+			path = Disabled;
+			sourceTree = "<group>";
+		};
+		B267AAAD2A7A3C4700EF9CF0 /* Enabled */ = {
+			isa = PBXGroup;
+			children = (
+				B267AAAE2A7A3C4700EF9CF0 /* EnabledView.swift */,
+				B267AAAF2A7A3C4700EF9CF0 /* EnabledCell.swift */,
+				B267AAB02A7A3C4700EF9CF0 /* EnabledItem.swift */,
+				B267AAB12A7A3C4700EF9CF0 /* EnabledViewModel.swift */,
+			);
+			path = Enabled;
 			sourceTree = "<group>";
 		};
 		B27FFC402A52A568006D4C19 /* Friends */ = {
@@ -7186,7 +7186,6 @@
 				945A571B25DE7F63003E4023 /* RuntimeRegistryFacade.swift in Sources */,
 				9481B47C286EFC4600A472E2 /* RuntimeCodingService.swift in Sources */,
 				3666CBD2290593FF0098F4AC /* TransferableItem.swift in Sources */,
-				B267AA942A791A1000EF9CF0 /* EnabledItem.swift in Sources */,
 				36C37091282296200027BA77 /* SpaceViewModel.swift in Sources */,
 				3653BD0C2A028CE5003C71A4 /* QRFrameView.swift in Sources */,
 				84639D1E22CB33A7009D847C /* SupportedVersionData.swift in Sources */,
@@ -7207,7 +7206,6 @@
 				94497EFE25F0F87200FD4F14 /* StorageRequestFactory.swift in Sources */,
 				0253FD022217324A00D3AD49 /* UpdateCustomerMock.swift in Sources */,
 				361EF5962915229A00D0DCCF /* Amount.swift in Sources */,
-				B267AA932A791A1000EF9CF0 /* EnabledCell.swift in Sources */,
 				364D61C029929AE0004938FA /* AppEventService.swift in Sources */,
 				363425072871D51900ACE775 /* AssetTransactionStatusHelper.swift in Sources */,
 				36165526291D811700060A8D /* PoolDetailsItem.swift in Sources */,
@@ -7225,6 +7223,7 @@
 				3603A3952917E1FD00DF6EFE /* PoolsCell.swift in Sources */,
 				364526C328C7D62B00260340 /* SubqueryApyInfoOperation.swift in Sources */,
 				9441FAFD25CADE4B00775559 /* DerivationPathConstants.swift in Sources */,
+				B267AAB62A7A3C4700EF9CF0 /* DisabledItem.swift in Sources */,
 				605AA52F26FE601000E7FD12 /* NeumorphismButton.swift in Sources */,
 				3652E10C2A6A918D0073AFBA /* CreateAccountService.swift in Sources */,
 				B25B8E722A7913CB0070DD48 /* EnabledViewModel.swift in Sources */,
@@ -7272,6 +7271,7 @@
 				36165522291D7F4200060A8D /* PoolDetailsWireframe.swift in Sources */,
 				553069E8290BD3C700F265A3 /* AppSettingsCardCell.swift in Sources */,
 				3657043E284643EA00B783D2 /* SubqueryHistoryOperation.swift in Sources */,
+				B267AAB82A7A3C4800EF9CF0 /* EditViewItemFactory.swift in Sources */,
 				02E3199121D2010200B33B66 /* InvitationRequestError.swift in Sources */,
 				84CD3AFF232BFBAC0076E056 /* AboutData.swift in Sources */,
 				94B3001726FB772400F239D7 /* SubqueryRewardOperationFactory.swift in Sources */,
@@ -7310,6 +7310,7 @@
 				843D544024FC52F4000E0DE1 /* ReferendumsFinishedFetchMock.swift in Sources */,
 				843553A224FF8F8300F1649B /* ReferendumVoteEvent.swift in Sources */,
 				02E3198F21D200B200B33B66 /* NotificationRequestError.swift in Sources */,
+				B267AABA2A7A3C4800EF9CF0 /* EnabledCell.swift in Sources */,
 				8BF42876293E646800590F92 /* CustomPresentable.swift in Sources */,
 				366A78162A319D3600A6DDF9 /* EnterPasswordProtocol.swift in Sources */,
 				361106332978A4A7003A6352 /* ConfirmPassphraseViewController.swift in Sources */,
@@ -7371,7 +7372,6 @@
 				02623EEB2179AD440011250E /* RootPresenter.swift in Sources */,
 				3635B7162933E99500B2B728 /* ChoiceMarketViewController.swift in Sources */,
 				362DAD8D29F53283005562B0 /* PinViewFactory.swift in Sources */,
-				B267AA952A791A1000EF9CF0 /* EnabledViewModel.swift in Sources */,
 				364D61CE2993DAA5004938FA /* BalanceDetailsViewController.swift in Sources */,
 				364BB492292A4F0900DE90A6 /* ActivityDetailsItem.swift in Sources */,
 				9441F9F625C9823800775559 /* RuntimeVersion.swift in Sources */,
@@ -7453,7 +7453,6 @@
 				8BD084B429411F9B00EEAE0D /* InformationItem.swift in Sources */,
 				94497E1725EF94B300FD4F14 /* StakingOverviewSubscription.swift in Sources */,
 				9441F94025C96D0600775559 /* TransactionHistoryItem+Wallet.swift in Sources */,
-				B267AA912A791A1000EF9CF0 /* DisabledViewModel.swift in Sources */,
 				94497D5125EE8A0A00FD4F14 /* WebSocketServiceFactory.swift in Sources */,
 				36DB19BE29EDDA9100B3E3BF /* UsernameSetupProtocols.swift in Sources */,
 				36982465290EA54100F5E3D4 /* ActivityViewModelFactory.swift in Sources */,
@@ -7472,6 +7471,7 @@
 				02BBD83421CB822600C7A1E3 /* NotificationUserInfo.swift in Sources */,
 				366A77EB2A30DC0800A6DDF9 /* ContactView.swift in Sources */,
 				36A652FA2921B17200C1D608 /* InputAccessoryView.swift in Sources */,
+				B267AABB2A7A3C4800EF9CF0 /* EnabledItem.swift in Sources */,
 				9441F9CD25C9815E00775559 /* CDChainStorageItem+CoreDataDecodable.swift in Sources */,
 				366A78342A3227AC00A6DDF9 /* SetupPasswordViewFactory.swift in Sources */,
 				36F94ED9291E545000E211FE /* SupplyLiquidityViewModel.swift in Sources */,
@@ -7559,6 +7559,7 @@
 				36356B3129184DB200CD3E9E /* PoolsService.swift in Sources */,
 				84EF3A89232A25530012421F /* DeepLinkNavigation.swift in Sources */,
 				36527D8E29B7341A006D2042 /* NewTransactionCreatedEvent.swift in Sources */,
+				B267AAB42A7A3C4700EF9CF0 /* EditViewController.swift in Sources */,
 				9441F9F125C9823800775559 /* JSONRPCData.swift in Sources */,
 				36110B952953B56400712BEB /* ScanQRViewFactory.swift in Sources */,
 				36E5DB7B28CC8CF000AB8E28 /* CustomNodeViewController.swift in Sources */,
@@ -7574,6 +7575,7 @@
 				94D4B66828C0C485007F98EB /* RuntimeHotBootSnapshotFactory.swift in Sources */,
 				362F49BC2A37224200163091 /* AccountImportedSection.swift in Sources */,
 				36286019291F935C0000A561 /* InputAssetsView.swift in Sources */,
+				B267AAB32A7A3C4700EF9CF0 /* EditViewFactory.swift in Sources */,
 				8BF4286C293E5AAC00590F92 /* LanguageProtocol.swift in Sources */,
 				8409323323413C1F0013C871 /* EventVisitor.swift in Sources */,
 				84F0100322C60A8D001927A1 /* CountryFetchMock.swift in Sources */,
@@ -7671,7 +7673,6 @@
 				32384B89223656C000346C90 /* TransformAnimator+Common.swift in Sources */,
 				0298792B2181F1AB0085E605 /* ProjectsFetchMock.swift in Sources */,
 				94B3007026FB7FF800F239D7 /* CoingeckoPriceSource.swift in Sources */,
-				B267AA902A791A1000EF9CF0 /* DisabledItem.swift in Sources */,
 				844A48F023AB5BB300C2900D /* Language.swift in Sources */,
 				94497DD225EF89A700FD4F14 /* ValidatorExposure.swift in Sources */,
 				366A78092A30DC9B00A6DDF9 /* BackupedAccountsViewController.swift in Sources */,
@@ -7698,7 +7699,6 @@
 				8474359F22D5D7C5002B1BDC /* UserDataError+TextConvertible.swift in Sources */,
 				553069DC290A7F4F00F265A3 /* AppSettingsPresenter.swift in Sources */,
 				843D542C24FC46F2000E0DE1 /* ReferendumUnsupportVoteMock.swift in Sources */,
-				B267AA982A791F3C00EF9CF0 /* EnabledView.swift in Sources */,
 				366D53C029527A4C0094CE36 /* ContactCellItem.swift in Sources */,
 				84A0DA332267D136006EF85C /* AttributedStringDecorator.swift in Sources */,
 				024C4B7F217DBD0A003861F3 /* UIAlertController+Common.swift in Sources */,
@@ -7762,7 +7762,6 @@
 				3661C9D72850BF2500660434 /* TotalRewardsViewModel.swift in Sources */,
 				84530A49223BF2C300AD7598 /* SecurityLayerInteractor.swift in Sources */,
 				945A56DD25DE7C99003E4023 /* CDRuntimeMetadataItem+CoreDataCodable.swift in Sources */,
-				B267AA9A2A7A2DB500EF9CF0 /* EditViewFactory.swift in Sources */,
 				0292033221976B5A00D9BACD /* SharingPresentable.swift in Sources */,
 				366D53CC2952B1C00094CE36 /* WalletQRCaptureService.swift in Sources */,
 				366D53C92952937A0094CE36 /* ContactFooterItem.swift in Sources */,
@@ -7824,6 +7823,7 @@
 				3666CBD429059A000098F4AC /* AssetActionView.swift in Sources */,
 				9441F9D825C9818300775559 /* StorageKeyFactory+Implicit.swift in Sources */,
 				945A572C25DE7FCF003E4023 /* RuntimeVersionSubscription.swift in Sources */,
+				B267AABC2A7A3C4800EF9CF0 /* EnabledViewModel.swift in Sources */,
 				9441F99025C970C100775559 /* ScaleDecoderOperation.swift in Sources */,
 				84EBF58423C8F66100E609FF /* ProjectDataMapper.swift in Sources */,
 				949B4527261F555F0081BB37 /* DetailsRoundedView+Inspectable.swift in Sources */,
@@ -7901,7 +7901,6 @@
 				36E5DB7A28CC8CF000AB8E28 /* CustomNodeProtocols.swift in Sources */,
 				36F94EDE291E561E00E211FE /* PoolDetailFactory.swift in Sources */,
 				843D543E24FC52E4000E0DE1 /* ReferendumsVotedFetchMock.swift in Sources */,
-				B267AA962A791A1000EF9CF0 /* EditViewModel.swift in Sources */,
 				36C3708F2822960E0027BA77 /* ButtonViewModel.swift in Sources */,
 				8BD084BA294120E600EEAE0D /* InformationItemView.swift in Sources */,
 				368E2CA528F2FCA00071A324 /* BalanceProviderFactory.swift in Sources */,
@@ -7937,7 +7936,6 @@
 				9441FA9F25CAC42F00775559 /* AccountImportJsonFactory.swift in Sources */,
 				84AA44A5249FD63900C09E0F /* SearchData+User.swift in Sources */,
 				94497DDA25EF89A700FD4F14 /* UnlockChunk.swift in Sources */,
-				B267AA8E2A791A1000EF9CF0 /* EditViewController.swift in Sources */,
 				36C66EAC2A5D6E7700ADAD5E /* StakedPool.swift in Sources */,
 				0253FCC322115BE100D3AD49 /* ReputationData.swift in Sources */,
 				84BBF81F2306A8FC007E8AA1 /* DispatchQueueHelper.swift in Sources */,
@@ -7965,6 +7963,7 @@
 				32245181223165C2001E487A /* String+Size.swift in Sources */,
 				84A0DA352267DF44006EF85C /* SupportData.swift in Sources */,
 				94D4B65A28BF6FCF007F98EB /* SelectedWalletSettings.swift in Sources */,
+				B267AAB72A7A3C4700EF9CF0 /* DisabledViewModel.swift in Sources */,
 				944929A729083EB000897A56 /* AccountTableViewCell.swift in Sources */,
 				9441FB1725CAE33500775559 /* AccountConfirmProtocols.swift in Sources */,
 				944A8F83263C017200BF44EF /* SoraButton.swift in Sources */,
@@ -7979,7 +7978,7 @@
 				36B961F7294B2B02002A35BA /* ReceiveCell.swift in Sources */,
 				9481B4AC28748A7C00A472E2 /* ChainAsset.swift in Sources */,
 				10F6D03025344EFD00EB64CD /* LinkViewModel.swift in Sources */,
-				B267AA922A791A1000EF9CF0 /* EditViewItemFactory.swift in Sources */,
+				B267AAB52A7A3C4700EF9CF0 /* DisabledCell.swift in Sources */,
 				84A90A172431D0E600F5CB76 /* ErrorContent+Wallet.swift in Sources */,
 				840F2089237EDB0D00EBE714 /* CountdownTimerFactory.swift in Sources */,
 				3666CBCC29056E420098F4AC /* PriceItem.swift in Sources */,
@@ -8037,7 +8036,6 @@
 				5599B6D62925725900567396 /* SettingsInformationPresenter.swift in Sources */,
 				940683BD267912E4005F520D /* PagedKeysRequest.swift in Sources */,
 				36DB19C329EDDA9100B3E3BF /* OnboardingMainInteractor.swift in Sources */,
-				B267AA8F2A791A1000EF9CF0 /* DisabledCell.swift in Sources */,
 				9481B49D286F019700A472E2 /* RuntimeCoderEvents.swift in Sources */,
 				945A572625DE7F73003E4023 /* GitHubPhishingServiceFactory.swift in Sources */,
 				94497EFF25F0F87200FD4F14 /* StorageKeyEncodingOperation.swift in Sources */,
@@ -8097,6 +8095,7 @@
 				71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */,
 				A1B644C63C38805297450DC7 /* FriendsWireframe.swift in Sources */,
 				86B2484C00C8F13C86614842 /* FriendsPresenter.swift in Sources */,
+				B267AABD2A7A3C4800EF9CF0 /* EditViewModel.swift in Sources */,
 				91D7B04B7F0479B242327146 /* FriendsInteractor.swift in Sources */,
 				3B5E739B0B8F955CE5436410 /* FriendsViewFactory.swift in Sources */,
 				55063DB62901411E008782E1 /* CategoryItem.swift in Sources */,
@@ -8111,6 +8110,7 @@
 				8AA0F74BD48BE217591B909A /* AccountOptionsViewController.swift in Sources */,
 				366A77F72A30DC6800A6DDF9 /* BackupedAccountCell.swift in Sources */,
 				36110B9A2953BB2400712BEB /* InputAssetAmountViewModel.swift in Sources */,
+				B267AAB92A7A3C4800EF9CF0 /* EnabledView.swift in Sources */,
 				B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
