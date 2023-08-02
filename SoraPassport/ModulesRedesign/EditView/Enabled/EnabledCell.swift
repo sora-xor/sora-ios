@@ -6,19 +6,22 @@ final class EnabledCell: SoramitsuTableViewCell {
     
     private var enabledItem: EnabledItem?
     
-    private lazy var editButton: SoramitsuButton = {
-        let title = SoramitsuTextItem(text: R.string.localizable.editView(preferredLanguages: .currentLocale),
-                                      fontData: FontType.buttonM ,
-                                      textColor: .accentSecondary,
-                                      alignment: .center)
-        let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .bgSurface
-        button.sora.attributedText = title
-        button.sora.isUserInteractionEnabled = false
-        button.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        return button
+    private lazy var stackView: SoramitsuStackView = {
+        let stackView = SoramitsuStackView()
+        stackView.sora.axis = .vertical
+        stackView.sora.cornerRadius = .max
+        stackView.sora.backgroundColor = .bgSurface
+        stackView.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
+        stackView.isLayoutMarginsRelativeArrangement = true
+        return stackView
+    }()
+    
+    private lazy var titleLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.headline4
+        label.sora.textColor = .fgSecondary
+        label.sora.alignment = .left
+        return label
     }()
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -31,15 +34,13 @@ final class EnabledCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     
     private func setupHierarchy() {
-        contentView.addSubview(editButton)
+        contentView.addSubview(stackView)
+        stackView.addArrangedSubview(titleLabel)
     }
     
     private func setupLayout() {
-        editButton.snp.makeConstraints { make in
-            make.top.equalTo(contentView).offset(8)
-            make.center.equalTo(contentView)
-            make.height.equalTo(40)
-            make.width.equalTo(108)
+        stackView.snp.makeConstraints { make in
+            make.edges.equalTo(contentView)
         }
     }
 }
@@ -51,6 +52,25 @@ extension EnabledCell: SoramitsuTableViewCellProtocol {
             return
         }
         enabledItem = item
+        
+        titleLabel.sora.text = item.title
+        
+//        stackView.arrangedSubviews.filter { $0 is EnabledView }.forEach { subview in
+//            stackView.removeArrangedSubview(subview)
+//            subview.removeFromSuperview()
+//        }
+        
+        let enabledViews = item.enabledViewModel.map { enabledModel -> EnabledView in
+            let enabledView = EnabledView()
+            enabledView.titleLabel.sora.text = enabledModel.title
+            enabledView.tappableArea.sora.isHidden = false
+            enabledView.tappableArea.sora.addHandler(for: .touchUpInside) { [weak enabledItem] in
+                enabledItem?.onTap?()
+            }
+            return enabledView
+        }
+        
+        stackView.addArrangedSubviews(enabledViews)
     }
 }
 

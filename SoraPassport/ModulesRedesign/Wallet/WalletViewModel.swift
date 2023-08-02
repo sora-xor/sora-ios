@@ -385,6 +385,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     }
     
     func showEditView() {
-        
+        wireframe?.showEditView(from: view)
     }
 }

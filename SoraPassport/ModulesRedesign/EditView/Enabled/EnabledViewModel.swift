@@ -6,14 +6,15 @@ import SoraUIKit
 struct EnabledViewModel {
     
     let title: String
-    let icon: UIImage?
-    var mode: WalletViewMode
+    let isEnabled: Bool
     
     init(title: String,
-         icon: UIImage?,
-         mode: WalletViewMode = .view) {
+         isEnabled: Bool) {
         self.title = title
-        self.icon = icon
-        self.mode = mode
+        self.isEnabled = isEnabled
+    }
+    
+    private func createItems() {
+        
     }
 }

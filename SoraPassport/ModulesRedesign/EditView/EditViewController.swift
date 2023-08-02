@@ -22,9 +22,9 @@ final class EditViewController: SoramitsuViewController {
         return tableView
     }()
     
-    let viewModel: EditViewModel
+    let viewModel: EditViewModelProtocol
 
-    init(viewModel: EditViewModel) {
+    init(viewModel: EditViewModelProtocol) {
         self.viewModel = viewModel
         super.init()
     }
@@ -39,20 +39,16 @@ final class EditViewController: SoramitsuViewController {
         addCloseButton()
         setupView()
         setupConstraints()
+        
+        viewModel.reloadItems = { [weak self] items in
+            DispatchQueue.main.async {
+                self?.tableView.reloadItems(items: items )
+            }
+        }
 
-//        viewModel.reloadItem = { [weak self] items in
-//            DispatchQueue.main.async {
-//                self?.tableView.reloadItems(items: items )
-//            }
-//        }
-//
-//        viewModel.setupItems = { [weak self] items in
-//            self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
-//        }
-//
-//        viewModel.fetchAssets { [weak self] items in
-//            self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
-//        }
+        viewModel.setupItems = { [weak self] items in
+            self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+        }
     }
     
     private func setupView() {

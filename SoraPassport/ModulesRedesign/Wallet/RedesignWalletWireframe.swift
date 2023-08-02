@@ -93,6 +93,8 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
     func showReferralProgram(from view: RedesignWalletViewProtocol?,
                              walletContext: CommonWalletContextProtocol,
                              assetManager: AssetManagerProtocol)
+    
+    func showEditView(from view: RedesignWalletViewProtocol?)
 }
 
 final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
@@ -365,6 +367,23 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         }
         
         let navigationController = SoraNavigationController(rootViewController: friendsView.controller)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.addCustomTransitioning()
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        containerView.add(navigationController)
+        
+        controller.present(containerView, animated: true)
+    }
+    
+    func showEditView(from view: RedesignWalletViewProtocol?) {
+        
+        guard let controller = view?.controller else { return }
+        
+        let editView = EditViewFactory.createView()
+        
+        let navigationController = SoraNavigationController(rootViewController: editView)
         navigationController.navigationBar.backgroundColor = .clear
         navigationController.addCustomTransitioning()
         
