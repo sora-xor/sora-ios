@@ -106,7 +106,6 @@ final class ChangeAccountViewController: SoramitsuViewController {
         
         navigationItem.largeTitleDisplayMode = .never
         addCloseButton()
-        setup(mode: .view)
         
         tableBg.addSubview(tableView)
         view.addSubview(tableBg)
