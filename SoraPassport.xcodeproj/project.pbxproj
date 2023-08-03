@@ -177,7 +177,7 @@
 		10EB77992541A369000123B9 /* ExtensibleBarNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EB77972541A368000123B9 /* ExtensibleBarNavigationController.swift */; };
 		10F6D03025344EFD00EB64CD /* LinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */; };
 		1C881931464751B44D4BB3D5 /* AccountOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */; };
-		20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */ = {isa = PBXBuildFile; };
+		20D9ACBA22DBBB68D16C8674 /* (null) in Sources */ = {isa = PBXBuildFile; };
 		253663B5C127B5B99C84BDA3 /* MainTabBarInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */; };
 		3213A3092237DAB4001BE041 /* VerificationCodeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3213A3082237DAB4001BE041 /* VerificationCodeData.swift */; };
 		3213A30B2237ED04001BE041 /* sendSmsCodeSuccessResponse.json in Resources */ = {isa = PBXBuildFile; fileRef = 3213A30A2237ED04001BE041 /* sendSmsCodeSuccessResponse.json */; };
@@ -1456,9 +1456,6 @@
 		3603A3922917E1FD00DF6EFE /* PoolsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolsItem.swift; sourceTree = "<group>"; };
 		3603A3932917E1FD00DF6EFE /* PoolViewModelFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolViewModelFactory.swift; sourceTree = "<group>"; };
 		3603A3982917E63500DF6EFE /* PoolInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolInfo.swift; sourceTree = "<group>"; };
-		36069EF82A28C05100439ADE /* he */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = he; path = he.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		36069EF92A28C05200439ADE /* he */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = he; path = he.lproj/Localizable.strings; sourceTree = "<group>"; };
-		36069EFA2A28C05200439ADE /* he */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = he; path = he.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
 		36069EFB2A28C19B00439ADE /* fa */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fa; path = fa.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		36069EFC2A28C19B00439ADE /* fa */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fa; path = fa.lproj/Localizable.strings; sourceTree = "<group>"; };
 		36069EFD2A28C19B00439ADE /* fa */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = fa; path = fa.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
@@ -1541,9 +1538,6 @@
 		362F49C32A3772D500163091 /* SetupPasswordSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupPasswordSection.swift; sourceTree = "<group>"; };
 		3632D0F22A1E805D00C9B688 /* CIKeys.stencil */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CIKeys.stencil; sourceTree = "<group>"; };
 		3632D0F42A1F4ACF00C9B688 /* CIKeys.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CIKeys.generated.swift; sourceTree = "<group>"; };
-		3632D0F62A1F7AC600C9B688 /* ar */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		3632D0F72A1F7AC600C9B688 /* ar */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/Localizable.strings; sourceTree = "<group>"; };
-		3632D0F82A1F7AC600C9B688 /* ar */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = ar; path = ar.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
 		363425022871AAB800ACE775 /* ReferralMethodType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralMethodType.swift; sourceTree = "<group>"; };
 		363425062871D51900ACE775 /* AssetTransactionStatusHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetTransactionStatusHelper.swift; sourceTree = "<group>"; };
 		36356B3029184DB200CD3E9E /* PoolsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolsService.swift; sourceTree = "<group>"; };
@@ -6181,8 +6175,6 @@
 				nb,
 				cs,
 				"it-IT",
-				ar,
-				he,
 				fa,
 				"ms-MY",
 				sr,
@@ -6329,7 +6321,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				"$PROJECT_DIR/R.generated.swift",
+				$PROJECT_DIR/R.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6461,7 +6453,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
+				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -7925,7 +7917,7 @@
 				945A578325DE8B06003E4023 /* ExtrinsicEraTests.swift in Sources */,
 				8409323823414FEE0013C871 /* WalletContextMock.swift in Sources */,
 				BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */,
-				20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */,
+				20D9ACBA22DBBB68D16C8674 /* (null) in Sources */,
 				945A574A25DE8495003E4023 /* RuntimeMetadataCreationHelper.swift in Sources */,
 				44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */,
 				36A12693289143D7009117B9 /* WalletNetworkOperationFactoryProtocolMock.swift in Sources */,
@@ -7999,8 +7991,6 @@
 				5ED216CE294886A90052C740 /* fr */,
 				5ED216D1294886A90052C740 /* id */,
 				5ED216D4294886A90052C740 /* ca */,
-				3632D0F72A1F7AC600C9B688 /* ar */,
-				36069EF92A28C05200439ADE /* he */,
 				36069EFC2A28C19B00439ADE /* fa */,
 				36069EFF2A28C29200439ADE /* ms-MY */,
 				36069F022A28C31100439ADE /* sr */,
@@ -8034,8 +8024,6 @@
 				5ED216D0294886A90052C740 /* fr */,
 				5ED216D3294886A90052C740 /* id */,
 				5ED216D6294886A90052C740 /* ca */,
-				3632D0F82A1F7AC600C9B688 /* ar */,
-				36069EFA2A28C05200439ADE /* he */,
 				36069EFD2A28C19B00439ADE /* fa */,
 				36069F002A28C29300439ADE /* ms-MY */,
 				36069F032A28C31100439ADE /* sr */,
@@ -8069,8 +8057,6 @@
 				5ED216EF2948892D0052C740 /* zh-Hans */,
 				5ED216F02948892D0052C740 /* ca */,
 				5ED216F12948892D0052C740 /* pl */,
-				3632D0F62A1F7AC600C9B688 /* ar */,
-				36069EF82A28C05100439ADE /* he */,
 				36069EFB2A28C19B00439ADE /* fa */,
 				36069EFE2A28C29200439ADE /* ms-MY */,
 				36069F012A28C31100439ADE /* sr */,
