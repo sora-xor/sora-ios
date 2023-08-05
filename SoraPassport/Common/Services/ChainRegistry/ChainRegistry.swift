@@ -338,12 +338,14 @@ extension ChainRegistry: ConnectionPoolDelegate {
 //                    self.networkStatusPresenter?.didDecideUnreachableNodesAllertPresentation()
 //                }
 //            } else {
+            if nextNodeIndex < allNodes.count {
                 let currentNode = allNodes[currentNodeIndex]
                 let nextNode = allNodes[nextNodeIndex]
 
                 let event = FailedNodeConnectionEvent(node: currentNode)
                 eventCenter.notify(with: event)
                 changeSelectedNode(from: failedChain, to: nextNode)
+            }
 //            }
             return
         }
