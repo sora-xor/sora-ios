@@ -342,6 +342,15 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         }
     }
     
+    var enabledCardIdentifiers: [Int] {
+        get {
+            return UserDefaults.standard.array(forKey: "enabledCardIdentifiers") as? [Int] ?? []
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "enabledCardIdentifiers")
+        }
+    }
+    
     var commonConfigUrl: String {
         #if F_RELEASE
         return "https://config.polkaswap2.io/prod/common.json"

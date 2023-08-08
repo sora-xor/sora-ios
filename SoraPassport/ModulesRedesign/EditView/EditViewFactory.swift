@@ -1,12 +1,13 @@
 import Foundation
 
 protocol EditViewFactoryProtocol: AnyObject {
-    static func createView() -> EditViewController
+    static func createView(completion: (() -> Void)?) -> EditViewController
 }
 
 final class EditViewFactory: EditViewFactoryProtocol {
-    static func createView() -> EditViewController {
-        let viewModel = EditViewModel(itemFactory: EditViewItemFactory())
+    static func createView(completion: (() -> Void)?) -> EditViewController {
+        let viewModel = EditViewModel(itemFactory: EditViewItemFactory(),
+                                      completion: completion)
         
         let view = EditViewController(viewModel: viewModel)
         viewModel.view = view

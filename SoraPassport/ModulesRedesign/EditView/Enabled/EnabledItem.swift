@@ -3,11 +3,9 @@ import SoraUIKit
 final class EnabledItem: NSObject {
     
     var enabledViewModels: [EnabledViewModel] = []
-    var title: String
-    var onTap: (() -> Void)?
+    var onTap: ((Int) -> Void)?
     
-    init(title: String) {
-        self.title = title
+    override init() {
         super.init()
     }
 }
@@ -18,8 +16,4 @@ extension EnabledItem: SoramitsuTableViewItemProtocol {
     var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
     
     var clipsToBounds: Bool { false }
-    
-    func itemActionTap(with context: SoramitsuTableViewContext?) {
-//        onTap?()
-    }
 }

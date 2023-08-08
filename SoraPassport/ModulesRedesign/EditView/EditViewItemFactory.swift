@@ -9,18 +9,41 @@ protocol EditViewItemFactoryProtocol: AnyObject {
 final class EditViewItemFactory: EditViewItemFactoryProtocol {
     
     func enabledItem(with editViewModel: EditViewModel) -> SoramitsuTableViewItemProtocol {
-        let enabledItem = EnabledItem(title: R.string.localizable.commonEnabled(preferredLanguages: .currentLocale))
+        let enabledItem = EnabledItem()
+        let enabledIds = ApplicationConfig.shared.enabledCardIdentifiers
         
-        enabledItem.onTap = { [weak self] in
-         
+        let viewModels = Cards.allCases.map { card in
+            EnabledViewModel(id: card.id,
+                             title: card.title,
+                             state: card.defaultState)
         }
         
-        enabledItem.enabledViewModels = [
-            EnabledViewModel(title: R.string.localizable.moreMenuSoraCardTitle(preferredLanguages: .currentLocale), isEnabled: true),
-            EnabledViewModel(title: R.string.localizable.commonBuyXor(preferredLanguages: .currentLocale), isEnabled: true),
-            EnabledViewModel(title: R.string.localizable.liquidAssets(preferredLanguages: .currentLocale), isEnabled: true),
-            EnabledViewModel(title: R.string.localizable.pooledAssets(preferredLanguages: .currentLocale), isEnabled: true)
-        ]
+        enabledItem.enabledViewModels = viewModels
+        
+        if enabledIds.isEmpty {
+            ApplicationConfig.shared.enabledCardIdentifiers = viewModels.filter({ $0.state != .disabled }).map({ $0.id })
+        }
+        
+        enabledItem.onTap = { [weak enabledItem] id in
+            guard
+                let enabledItem = enabledItem,
+                let viewModel = enabledItem.enabledViewModels.first(where: { $0.id == id })
+            else { return }
+            
+            switch viewModel.state {
+            case .unselected:
+                return
+            case .selected:
+                viewModel.state = .disabled
+                ApplicationConfig.shared.enabledCardIdentifiers.removeAll(where: { $0 == viewModel.id })
+            case .disabled:
+                viewModel.state = .selected
+                ApplicationConfig.shared.enabledCardIdentifiers.append(viewModel.id)
+            }
+
+            editViewModel.reloadItems?([enabledItem])
+            editViewModel.completion?()
+        }
         
         return enabledItem
     }

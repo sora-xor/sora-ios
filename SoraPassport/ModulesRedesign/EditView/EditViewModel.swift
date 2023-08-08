@@ -16,9 +16,12 @@ final class EditViewModel {
     
     weak var view: EditViewProtocol?
     var itemFactory: EditViewItemFactoryProtocol
+    var completion: (() -> Void)?
     
-    init(itemFactory: EditViewItemFactoryProtocol) {
+    init(itemFactory: EditViewItemFactoryProtocol,
+         completion: (() -> Void)?) {
         self.itemFactory = itemFactory
+        self.completion = completion
     }
 }
 

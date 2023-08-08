@@ -15,8 +15,6 @@ final class EnabledView: SoramitsuView {
     
     public let checkmarkButton: ImageButton = {
         let button = ImageButton(size: CGSize(width: 24, height: 24))
-        button.sora.image = R.image.checkboxDefault()
-        button.sora.isEnabled = false
         button.sora.isUserInteractionEnabled = false
         return button
     }()
@@ -32,6 +30,7 @@ final class EnabledView: SoramitsuView {
 
     public let tappableArea: SoramitsuControl = {
         let view = SoramitsuControl()
+        view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.isHidden = true
         return view
     }()
@@ -62,8 +61,8 @@ private extension EnabledView {
         }
         
         stackView.snp.makeConstraints { make in
-            make.leading.equalTo(self).offset(24)
-            make.center.equalTo(self)
+            make.edges.equalTo(self)
+            make.height.equalTo(56)
         }
     }
 }

@@ -94,7 +94,8 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                              walletContext: CommonWalletContextProtocol,
                              assetManager: AssetManagerProtocol)
     
-    func showEditView(from view: RedesignWalletViewProtocol?)
+    func showEditView(from view: RedesignWalletViewProtocol?,
+                      completion: (() -> Void)?)
 }
 
 final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
@@ -377,11 +378,12 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller.present(containerView, animated: true)
     }
     
-    func showEditView(from view: RedesignWalletViewProtocol?) {
+    func showEditView(from view: RedesignWalletViewProtocol?,
+                      completion: (() -> Void)?) {
         
         guard let controller = view?.controller else { return }
         
-        let editView = EditViewFactory.createView()
+        let editView = EditViewFactory.createView(completion: completion)
         
         let navigationController = SoraNavigationController(rootViewController: editView)
         navigationController.navigationBar.backgroundColor = .clear

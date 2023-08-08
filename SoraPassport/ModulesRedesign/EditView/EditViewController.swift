@@ -9,13 +9,13 @@ final class EditViewController: SoramitsuViewController {
     
     private lazy var tableView: SoramitsuTableView = {
         let tableView = SoramitsuTableView()
-        tableView.sora.backgroundColor = .bgPage
+        tableView.sora.backgroundColor = .custom(uiColor: .clear)
         tableView.sora.estimatedRowHeight = UITableView.automaticDimension
         tableView.sora.tableViewHeader = nil
         tableView.delaysContentTouches = true
         tableView.canCancelContentTouches = true
         tableView.contentInsetAdjustmentBehavior = .never
-        tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
+//        tableView.contentInset = UIEdgeInsets(top: 24, left: 24, bottom: -24, right: -24)
         if #available(iOS 15.0, *) {
               tableView.sectionHeaderTopPadding = 0
          }
@@ -49,11 +49,13 @@ final class EditViewController: SoramitsuViewController {
         viewModel.setupItems = { [weak self] items in
             self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
         }
+        
+        viewModel.updateItems()
     }
     
     private func setupView() {
         title = R.string.localizable.editView(preferredLanguages: languages)
-        soramitsuView.sora.backgroundColor = .bgPage
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
     }
 

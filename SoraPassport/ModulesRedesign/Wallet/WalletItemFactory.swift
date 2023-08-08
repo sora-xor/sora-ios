@@ -264,7 +264,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         
         editViewItem.onTap = { [weak walletViewModel] in
             guard let walletViewModel = walletViewModel else { return }
-            walletViewModel.showEditView()
+            walletViewModel.showEditView(completion: walletViewModel.updateItems)
         }
         
         return editViewItem
