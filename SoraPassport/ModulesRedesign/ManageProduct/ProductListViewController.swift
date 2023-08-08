@@ -12,16 +12,11 @@ final class ProductListViewController: SoramitsuViewController {
         tableView.sectionHeaderHeight = 0
         tableView.sora.cornerMask = .all
         tableView.sora.cornerRadius = .extraLarge
-        tableView.sora.shadow = .default
         tableView.sora.estimatedRowHeight = UITableView.automaticDimension
         tableView.sora.context = SoramitsuTableViewContext(scrollView: tableView, viewController: self)
         tableView.sectionHeaderHeight = .zero
-        tableView.dragInteractionEnabled = true
-        tableView.dragDelegate = self
-        tableView.tableViewObserver = self
-        tableView.scrollViewDelegate = self
         tableView.keyboardDismissMode = .onDrag
-        tableView.contentInset = UIEdgeInsets(top: 16, left: 0, bottom: -16, right: 0)
+        tableView.contentInset = UIEdgeInsets(top: 16, left: 0, bottom: 16, right: 0)
         return tableView
     }()
 
@@ -152,14 +147,6 @@ extension ProductListViewController: UISearchResultsUpdating {
     }
 }
 
-extension ProductListViewController: UITableViewDragDelegate {
-    func tableView(_ tableView: UITableView, itemsForBeginning session: UIDragSession, at indexPath: IndexPath) -> [UIDragItem] {
-        let dragItem = UIDragItem(itemProvider: NSItemProvider())
-        dragItem.localObject = viewModel.items[indexPath.row].title
-        return [ dragItem ]
-    }
-}
-
 extension ProductListViewController: UISearchControllerDelegate {
     func willPresentSearchController(_ searchController: UISearchController) {
         viewModel.isActiveSearch = true
@@ -167,25 +154,6 @@ extension ProductListViewController: UISearchControllerDelegate {
 
     func willDismissSearchController(_ searchController: UISearchController) {
         viewModel.isActiveSearch = false
-    }
-}
-
-extension ProductListViewController: SoramitsuTableViewObserver {
-    func didSelectRow(at indexPath: IndexPath) {
-        //TODO: Add transition to asset detail
-    }
-
-    func didMoveRow(at sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
-        guard viewModel.canMoveAsset(from: sourceIndexPath.row, to: destinationIndexPath.row) else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.tableView.beginUpdates()
-                self.tableView.moveRow(at: destinationIndexPath, to: sourceIndexPath)
-                self.tableView.endUpdates()
-            }
-            return
-        }
-
-        viewModel.didMoveAsset(from: sourceIndexPath.row, to: destinationIndexPath.row)
     }
 }
 
