@@ -232,8 +232,6 @@ private extension FriendsViewController {
         }
         tableView.backgroundColor = .clear
         tableView.estimatedRowHeight = 100
-        tableView.register(SpaceCell.self,
-                           forCellReuseIdentifier: SpaceCell.reuseIdentifier)
         tableView.register(AvailableInvitationsCell.self,
                            forCellReuseIdentifier: AvailableInvitationsCell.reuseIdentifier)
         tableView.register(TotalRewardsCell.self,
