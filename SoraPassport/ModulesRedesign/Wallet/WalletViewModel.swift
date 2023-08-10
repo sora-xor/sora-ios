@@ -204,23 +204,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             balanceProvider?.refresh()
         }
 
-        let scConfig = SCard.Config(
-            backendUrl: SoraCardCIKeys.backendDevUrl,
-            pwAuthDomain: SoraCardCIKeys.domain,
-            pwApiKey: SoraCardCIKeys.apiKey,
-            kycUrl: SoraCardCIKeys.endpoint,
-            kycUsername: SoraCardCIKeys.username,
-            kycPassword: SoraCardCIKeys.password,
-            xOneEndpoint: "",
-            xOneId: "",
-            environmentType: .test,
-            themeMode: SoramitsuUI.shared.themeMode
-        )
-
         let soraCard = SCard(
-            addressProvider: { [weak self] in SelectedWalletSettings.shared.currentAccount?.address ?? ""
-            },
-            config: scConfig,
+            addressProvider: { SelectedWalletSettings.shared.currentAccount?.address ?? "" },
+            config: .test,
             balanceStream: xorBalanceStream,
             onSwapController: { [weak self] vc in
                 self?.showSwapController(in: vc)
