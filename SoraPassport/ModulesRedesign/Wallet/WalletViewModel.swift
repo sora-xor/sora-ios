@@ -156,12 +156,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                                                               service: soraCard)
             items.append(soraCardItem)
         }
-       
-        if !isReferralProgramHidden {
-            let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self,
-                                                    assetManager: assetManager)
-            items.append(friendsItem)
-        }
       
         let assetItem: SoramitsuTableViewItemProtocol = itemFactory.createAssetsItem(with: self,
                                                                                      assetManager: assetManager,

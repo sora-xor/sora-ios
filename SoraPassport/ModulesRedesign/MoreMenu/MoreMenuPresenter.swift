@@ -101,12 +101,6 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     private func thirdSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
-        let inviteFriends = MoreMenuItem(title: R.string.localizable.settingsInviteTitle(preferredLanguages: .currentLocale) ,
-                                         subtitle: R.string.localizable.settingsInviteSubtitle(preferredLanguages: .currentLocale),
-                                         picture: .icon(image: R.image.about.support()! ,
-                                                        color: .fgSecondary),
-                                         onTap: { self.showInviteFriends() }
-        )
         let information = MoreMenuItem(title: R.string.localizable.settingsInformationTitle(preferredLanguages: languages),
                                        subtitle: R.string.localizable.settingsInformationSubtitle(preferredLanguages: languages),
                                        picture: .icon(image: R.image.iconInfo()!,
@@ -114,7 +108,6 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                                        onTap: { self.showInformation() }
         )
         
-        items.append(inviteFriends)
         items.append(information)
         
         return MoreMenuSection(items: items)
