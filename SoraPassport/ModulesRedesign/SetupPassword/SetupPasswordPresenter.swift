@@ -118,16 +118,33 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     }
     
     private func updateBackupedAccount(with account: AccountItem, password: String) {
-        guard let expectedSeedData = try? keystore.fetchSeedForAddress(account.address) else { return }
-        let rawSeed = expectedSeedData.toHex(includePrefix: true)
+        var backupAccountType: [OpenBackupAccount.BackupAccountType] = [.passphrase]
         
+        var rawSeed = getRawSeed(from: account)
+        if rawSeed != nil {
+            backupAccountType.append(.seed)
+        }
+
         _ = try? keystore.fetchSecretKeyForAddress(account.address)
-        let exportData = try? KeystoreExportWrapper(keystore: keystore).export(account: account, password: password)
         
+        var substrateJson = getJson(from: account, password: password)
+        if substrateJson != nil {
+            backupAccountType.append(.json)
+        }
+
         backupAccount.address = account.address
-        backupAccount.backupAccountTypes = [.json, .seed, .passphrase]
-        backupAccount.seed = OpenBackupAccount.Seed(substrateSeed: rawSeed)
-        backupAccount.json = OpenBackupAccount.Json(substrateJson: exportData)
+        backupAccount.backupAccountType = backupAccountType
+        backupAccount.encryptedSeed = OpenBackupAccount.Seed(substrateSeed: rawSeed)
+        backupAccount.json = OpenBackupAccount.Json(substrateJson: substrateJson)
+    }
+    
+    private func getRawSeed(from account: AccountItem) -> String? {
+        return try? keystore.fetchSeedForAddress(account.address)?.toHex(includePrefix: true)
+    }
+    
+    private func getJson(from account: AccountItem, password: String) -> String? {
+        guard let exportData = try? KeystoreExportWrapper(keystore: keystore).export(account: account, password: password) else { return nil }
+        return String(data: exportData, encoding: .utf8)
     }
 }
 

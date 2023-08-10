@@ -66,6 +66,7 @@ final class WelcomeViewController: SoramitsuViewController {
         button.sora.borderColor = .accentSecondary
         button.sora.borderWidth = 1
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.googleButton.isUserInteractionEnabled = false
             self?.loadingView.isHidden = false
             self?.presenter.activateCloudStorageConnection()
         }
@@ -224,6 +225,7 @@ extension WelcomeViewController: OnboardingMainViewProtocol {
     }
     
     func hideLoading() {
+        googleButton.isUserInteractionEnabled = true
         loadingView.isHidden = true
     }
 }
