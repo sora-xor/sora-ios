@@ -2,10 +2,11 @@ import UIKit
 import SoraUIKit
 import SnapKit
 
-protocol InvitationsCellDelegate: AnyObject {
+protocol InvitationsCellDelegate: AlertPresentable {
     func isMinusEnabled(_ currentInvitationCount: Decimal) -> Bool
     func isPlusEnabled(_ currentInvitationCount: Decimal) -> Bool
     func userChanged(_ currentInvitationCount: Decimal)
+    func networkFeeInfoButtonTapped()
     func buttonTapped()
 }
 
@@ -128,6 +129,10 @@ final class InvitationsCell: SoramitsuTableViewCell {
         amountView.textField.sora.addHandler(for: .editingChanged) { [weak self] in
             self?.textFieldChanged()
         }
+        
+        feeView.infoButton.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.networkFeeInfoButtonTapped()
+        }
     }
     
     private func buttonTapped() {
@@ -147,6 +152,10 @@ final class InvitationsCell: SoramitsuTableViewCell {
     private func textFieldChanged() {
         let text = amountView.textField.sora.text ?? "0"
         currentInvitationCount = Decimal(string: text) ?? Decimal(0)
+    }
+    
+    private func networkFeeInfoButtonTapped() {
+        delegate?.networkFeeInfoButtonTapped()
     }
 }
 
