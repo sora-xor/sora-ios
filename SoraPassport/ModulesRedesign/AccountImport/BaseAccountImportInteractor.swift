@@ -5,6 +5,10 @@ import RobinHood
 import SoraKeystore
 import SSFCloudStorage
 
+enum ImportAccountError: Error {
+    case unexpectedError
+}
+
 class BaseAccountImportInteractor {
     weak var presenter: AccountImportInteractorOutputProtocol!
 
@@ -69,6 +73,42 @@ class BaseAccountImportInteractor {
     }
 
     func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>) {}
+    
+    private func importAccount(_ account: OpenBackupAccount, password: String) {
+        let backupAccountTypes = account.backupAccountType ?? []
+
+        if  backupAccountTypes.contains(.passphrase) {
+            let request = AccountImportMnemonicRequest(mnemonic: account.passphrase ?? "",
+                                                       username: account.name ?? "",
+                                                       networkType: .sora,
+                                                       derivationPath: account.substrateDerivationPath ?? "",
+                                                       cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
+            importAccountWithMnemonic(request: request)
+            return
+        }
+        
+        
+        if  backupAccountTypes.contains(.seed) {
+            let request = AccountImportSeedRequest(seed: account.encryptedSeed?.substrateSeed ?? "",
+                                                   username: account.name ?? "",
+                                                   networkType: .sora,
+                                                   derivationPath: account.substrateDerivationPath ?? "",
+                                                   cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
+            importAccountWithSeed(request: request)
+            return
+        }
+        
+        if let substrateJson = account.json?.substrateJson {
+            let request = AccountImportKeystoreRequest(keystore: substrateJson,
+                                                       password: password,
+                                                       username: account.name ?? "",
+                                                       networkType: .sora,
+                                                       cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
+            importAccountWithKeystore(request: request)
+        }
+        
+        presenter.didReceiveAccountImport(error: ImportAccountError.unexpectedError)
+    }
 }
 
 extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
@@ -119,12 +159,7 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
             guard let self = self else { return }
             switch result {
             case .success(let account):
-                let request = AccountImportMnemonicRequest(mnemonic: account.passphrase ?? "",
-                                                           username: account.name ?? "",
-                                                           networkType: .sora,
-                                                           derivationPath: account.substrateDerivationPath ?? "",
-                                                           cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
-                self.importAccountWithMnemonic(request: request)
+                self.importAccount(account, password: request.password)
             case .failure(let error):
                 self.presenter.didReceiveAccountImport(error: error)
             }

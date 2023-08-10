@@ -106,22 +106,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         FLEXManager.shared.registerGlobalEntry(withName: "SCard Config") { tableViewController in
 
-            let scConfig = SCard.Config(
-                backendUrl: SoraCardCIKeys.backendDevUrl,
-                pwAuthDomain: SoraCardCIKeys.domain,
-                pwApiKey: SoraCardCIKeys.apiKey,
-                kycUrl: SoraCardCIKeys.endpoint,
-                kycUsername: SoraCardCIKeys.username,
-                kycPassword: SoraCardCIKeys.password,
-                xOneEndpoint: "",
-                xOneId: "",
-                environmentType: .test,
-                themeMode: SoramitsuUI.shared.themeMode
-            )
-
             let title = "SCard Config"
 
-            let alertController = UIAlertController(title: title, message: scConfig.debugDescription, preferredStyle: .alert)
+            let alertController = UIAlertController(title: title, message: SCard.shared?.configuration, preferredStyle: .alert)
 
             let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
                 UIPasteboard.general.string = data
