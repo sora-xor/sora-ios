@@ -273,7 +273,7 @@ PODS:
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
-  - SSFCloudStorage (0.1.6):
+  - SSFCloudStorage (0.1.9):
     - GoogleAPIClientForREST/Drive (~> 1.2.1)
     - GoogleSignIn (~> 7.0.0)
     - IrohaCrypto/Scrypt
@@ -503,7 +503,7 @@ SPEC CHECKSUMS:
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   SoraUIKit: 2156cae4af9a34314e1f5c5277eed10bf8411b66
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
-  SSFCloudStorage: 5124491f345bdd304b4d07c6d2368dfde59bc61d
+  SSFCloudStorage: 34f149d1e37a558780dd67845225507a8fe63f82
   SSFModels: da1c95db87aabbecbcbe3b1cb795973745b6cc3a
   SSFUtils: f6422d909cb57a85cd5784b3f399aead69b26a6b
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
