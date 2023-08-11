@@ -11,6 +11,7 @@ protocol LiquidityViewFactoryProtocol: AnyObject {
                            assetsProvider: AssetProviderProtocol?) -> PolkaswapViewController?
     
     static func createRemoveLiquidityView(poolInfo: PoolInfo,
+                                          stakedPools: [StakedPool],
                                           assetManager: AssetManagerProtocol,
                                           fiatService: FiatServiceProtocol,
                                           poolsService: PoolsServiceInputProtocol,
@@ -44,6 +45,7 @@ final class LiquidityViewFactory: LiquidityViewFactoryProtocol {
     }
     
     static func createRemoveLiquidityView(poolInfo: PoolInfo,
+                                          stakedPools: [StakedPool],
                                           assetManager: AssetManagerProtocol,
                                           fiatService: FiatServiceProtocol,
                                           poolsService: PoolsServiceInputProtocol,
@@ -56,6 +58,7 @@ final class LiquidityViewFactory: LiquidityViewFactoryProtocol {
         let viewModel = RemoveLiquidityViewModel(
             wireframe: LiquidityWireframe(),
             poolInfo: poolInfo,
+            stakedPools: stakedPools,
             apyService: APYService.shared,
             fiatService: fiatService,
             poolsService: poolsService,
