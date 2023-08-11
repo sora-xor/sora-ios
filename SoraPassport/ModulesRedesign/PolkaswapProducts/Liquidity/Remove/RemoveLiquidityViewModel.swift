@@ -180,7 +180,13 @@ final class RemoveLiquidityViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private var stakedPools: [StakedPool] = []
     private var warningViewModelFactory: WarningViewModelFactory
-    private var stackedPercentage: Decimal = .zero
+    private var stackedPercentage: Decimal {
+        return stakedPools.map {
+            let accountPoolBalance = poolInfo?.accountPoolBalance ?? .zero
+            let pooledTokens = Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero
+            return accountPoolBalance > 0 ? (pooledTokens / accountPoolBalance) : 0
+        }.max() ?? Decimal.zero
+    }
     
     private var availableBaseAssetPooledByAccount: Decimal {
         guard let poolInfo = poolInfo, let baseAssetPooledByAccount = poolInfo.baseAssetPooledByAccount else { return .zero }
@@ -195,6 +201,7 @@ final class RemoveLiquidityViewModel {
     init(
         wireframe: LiquidityWireframeProtocol?,
         poolInfo: PoolInfo,
+        stakedPools: [StakedPool],
         apyService: APYServiceProtocol?,
         fiatService: FiatServiceProtocol?,
         poolsService: PoolsServiceInputProtocol?,
@@ -218,6 +225,7 @@ final class RemoveLiquidityViewModel {
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
         self.farmingService = farmingService
+        self.stakedPools = stakedPools
         self.warningViewModelFactory = warningViewModelFactory
     }
 }
@@ -462,12 +470,6 @@ extension RemoveLiquidityViewModel {
             guard let self = self, let poolInfo = self.poolInfo else { return }
             
             self.warningViewModel = self.warningViewModelFactory.poolShareStackedViewModel(isHidden: self.stakedPools.isEmpty)
-            
-            self.stackedPercentage = self.stakedPools.map {
-                let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
-                let pooledTokens = Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero
-                return accountPoolBalance > 0 ? (pooledTokens / accountPoolBalance) : 0
-            }.max() ?? .zero
 
             self.details = self.detailsFactory.createRemoveLiquidityViewModels(with: self.inputedFirstAmount,
                                                                                targetAssetAmount: self.inputedSecondAmount,

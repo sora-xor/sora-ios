@@ -10,6 +10,7 @@ protocol DemeterFarmingServiceProtocol: AnyObject {
 final class DemeterFarmingService {
     private var operationFactory: DemeterFarmingOperationFactory
     private let operationManager = OperationManager()
+    private var poolInfos: [StakedPool] = []
     
     init(operationFactory: DemeterFarmingOperationFactory) {
         self.operationFactory = operationFactory
