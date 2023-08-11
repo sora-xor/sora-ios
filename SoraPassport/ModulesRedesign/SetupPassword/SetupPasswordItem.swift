@@ -60,7 +60,7 @@ final class SetupPasswordItem: NSObject {
     }
     
     private func validateCurrentState() {
-        isButtonEnable = !password.isEmpty && !confirmedPassword.isEmpty && password == confirmedPassword && isCheckSelected
+        isButtonEnable = !password.isEmpty && !confirmedPassword.isEmpty && password == confirmedPassword && isCheckSelected && password.count >= 6
         
         output.send(password.count < 6 ? .lowSecurityPassword : .securedPassword)
         
