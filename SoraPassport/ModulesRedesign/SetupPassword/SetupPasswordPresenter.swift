@@ -118,8 +118,12 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     }
     
     private func updateBackupedAccount(with account: AccountItem, password: String) {
-        var backupAccountType: [OpenBackupAccount.BackupAccountType] = [.passphrase]
+        var backupAccountType: [OpenBackupAccount.BackupAccountType] = []
         
+        if mnemonic != nil {
+            backupAccountType.append(.passphrase)
+        }
+
         var rawSeed = getRawSeed(from: account)
         if rawSeed != nil {
             backupAccountType.append(.seed)

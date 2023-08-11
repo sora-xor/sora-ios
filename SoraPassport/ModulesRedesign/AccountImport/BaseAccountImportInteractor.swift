@@ -77,7 +77,7 @@ class BaseAccountImportInteractor {
     private func importAccount(_ account: OpenBackupAccount, password: String) {
         let backupAccountTypes = account.backupAccountType ?? []
 
-        if  backupAccountTypes.contains(.passphrase) {
+        if backupAccountTypes.contains(.passphrase) {
             let request = AccountImportMnemonicRequest(mnemonic: account.passphrase ?? "",
                                                        username: account.name ?? "",
                                                        networkType: .sora,
