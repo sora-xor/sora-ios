@@ -129,6 +129,14 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
         let actionButtonIsEnabled = isActionButtonEnabled(currentInvitationCount)
         setActionButtonEnabled(actionButtonIsEnabled)
     }
+    
+    func networkFeeInfoButtonTapped() {
+        present(message: R.string.localizable.polkaswapNetworkFeeInfo(preferredLanguages: .currentLocale),
+                title: R.string.localizable.networkFee(preferredLanguages: .currentLocale),
+                closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                from: view
+        )
+    }
 
     private func isActionButtonEnabled(_ invitations: Decimal) -> Bool {
         switch type {
