@@ -99,6 +99,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func infoButtonTapped(with type: Liquidity.TransactionLiquidityType) {
         wireframe?.showLiquidity(on: view?.controller,
                                  poolInfo: poolInfo,
+                                 stakedPools: pools,
                                  type: type,
                                  assetManager: assetManager,
                                  poolsService: poolsService,

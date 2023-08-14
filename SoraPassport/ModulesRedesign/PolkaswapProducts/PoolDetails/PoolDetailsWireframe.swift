@@ -7,6 +7,7 @@ import RobinHood
 protocol PoolDetailsWireframeProtocol: AlertPresentable {
     func showLiquidity(on controller: UIViewController?,
                        poolInfo: PoolInfo,
+                       stakedPools: [StakedPool],
                        type: Liquidity.TransactionLiquidityType,
                        assetManager: AssetManagerProtocol,
                        poolsService: PoolsServiceInputProtocol?,
@@ -22,6 +23,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
     func showLiquidity(
         on controller: UIViewController?,
         poolInfo: PoolInfo,
+        stakedPools: [StakedPool],
         type: Liquidity.TransactionLiquidityType,
         assetManager: AssetManagerProtocol,
         poolsService: PoolsServiceInputProtocol?,
@@ -41,6 +43,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
                                                                                               assetsProvider: assetsProvider)
                     :
                         LiquidityViewFactory.createRemoveLiquidityView(poolInfo: poolInfo,
+                                                                       stakedPools: stakedPools,
                                                                        assetManager: assetManager,
                                                                        fiatService: fiatService,
                                                                        poolsService: poolsService,

@@ -57,6 +57,7 @@ final class BackupedAccountsViewController: SoramitsuViewController & BackupedAc
     }
 
     private func setupView() {
+        navigationItem.largeTitleDisplayMode = .never
         navigationItem.title = R.string.localizable.selectAccountImport(preferredLanguages: .currentLocale)
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         soramitsuView.addSubview(tableView)
@@ -89,6 +90,17 @@ final class BackupedAccountsViewController: SoramitsuViewController & BackupedAc
 }
 
 extension BackupedAccountsViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else {
+            return UITableView.automaticDimension
+        }
+        
+        switch item {
+        case .space: return 16
+        default: return UITableView.automaticDimension
+        }
+    }
+
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard let item = dataSource.itemIdentifier(for: indexPath) else {
             return
