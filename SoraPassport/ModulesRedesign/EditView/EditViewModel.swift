@@ -1,43 +1,66 @@
 import UIKit
 import SoraUIKit
 import SoraFoundation
-
-protocol EditViewModelProtocol: AnyObject {
-    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
-    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
-    func updateItems()
-}
+import Combine
 
 final class EditViewModel {
     
-    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var items: [SoramitsuTableViewItemProtocol] = []
+    weak var view: EditViewControllerProtocol?
+    @Published var snapshot: EditViewSnapshot = EditViewSnapshot()
+    var snapshotPublisher: Published<EditViewSnapshot>.Publisher { $snapshot }
     
-    weak var view: EditViewProtocol?
-    var itemFactory: EditViewItemFactoryProtocol
     var completion: (() -> Void)?
     
-    init(itemFactory: EditViewItemFactoryProtocol,
-         completion: (() -> Void)?) {
-        self.itemFactory = itemFactory
+    init(completion: (() -> Void)?) {
         self.completion = completion
     }
 }
 
 extension EditViewModel: EditViewModelProtocol {
     
-    func updateItems() {
-        items = createItems()
-        setupItems?(items)
+    func reloadView() {
+        snapshot = createSnapshot()
     }
     
-    private func createItems() -> [SoramitsuTableViewItemProtocol] {
-        var items: [SoramitsuTableViewItemProtocol] = []
+    private func createSnapshot() -> EditViewSnapshot {
+        var snapshot = EditViewSnapshot()
         
-        let enabledItem = itemFactory.enabledItem(with: self)
-        items.append(enabledItem)
+        let sections = [ contentSection() ]
+        snapshot.appendSections(sections)
+        sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
         
-        return items
+        return snapshot
+    }
+    
+    private func contentSection() -> EnabledSection {
+        let item = EnabledItem()
+        
+        item.enabledViewModels = Cards.allCases.map { card in
+            EnabledViewModel(id: card.id,
+                             title: card.title,
+                             state: card.defaultState)
+        }
+
+        item.onTap = { [weak self, weak item] id in
+            guard
+                let item = item,
+                let viewModel = item.enabledViewModels.first(where: { $0.id == id })
+            else { return }
+            
+            switch viewModel.state {
+            case .unselected:
+                return
+            case .selected:
+                viewModel.state = .disabled
+                ApplicationConfig.shared.enabledCardIdentifiers.removeAll(where: { $0 == viewModel.id })
+            case .disabled:
+                viewModel.state = .selected
+                ApplicationConfig.shared.enabledCardIdentifiers.append(viewModel.id)
+            }
+
+            self?.reloadView()
+        }
+        
+        return EnabledSection(items: [.enabled(item)])
     }
 }

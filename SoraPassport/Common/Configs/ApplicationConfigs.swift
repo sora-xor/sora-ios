@@ -344,7 +344,8 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     
     var enabledCardIdentifiers: [Int] {
         get {
-            return UserDefaults.standard.array(forKey: "enabledCardIdentifiers") as? [Int] ?? []
+            let defaultIdentifiers = Cards.allCases.filter { $0.defaultState != .disabled }.map { $0.id }
+            return UserDefaults.standard.array(forKey: "enabledCardIdentifiers") as? [Int] ?? defaultIdentifiers
         }
         set {
             UserDefaults.standard.set(newValue, forKey: "enabledCardIdentifiers")

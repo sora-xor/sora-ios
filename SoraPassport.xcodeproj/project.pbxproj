@@ -542,7 +542,6 @@
 		36FE0FE82955B68700117E82 /* SendAssetCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FE62955B68700117E82 /* SendAssetCell.swift */; };
 		3AA88A226F1F362D26B93CC5 /* MainTabBarWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB489F2B62CE0CF494AA92E9 /* MainTabBarWireframe.swift */; };
 		3B5E739B0B8F955CE5436410 /* FriendsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4500E3C38424775159499D0D /* FriendsViewFactory.swift */; };
-		3FC87382A1A1F6E299061901 /* Pods_SoraPassportTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 94E844E9834518125566D52C /* Pods_SoraPassportTests.framework */; };
 		44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED9AC8B83C51156EBCCDA26 /* StakingTests.swift */; };
 		44760E61E2D1A898A823C30E /* MainTabBarInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */; };
 		464462C2FF9EBDE318B76CD5 /* ActivityFeedInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1850BD8AB0EC103EB91B5BB0 /* ActivityFeedInteractorTests.swift */; };
@@ -586,7 +585,6 @@
 		55D06AD028BFEBFD00256B98 /* SwapMarketSourcerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D06ACF28BFEBFC00256B98 /* SwapMarketSourcerProtocol.swift */; };
 		55D06B5A28C7897F00256B98 /* SwapQuoteAmountsFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D06B5928C7897E00256B98 /* SwapQuoteAmountsFactory.swift */; };
 		5C0A80D5F523B98303F50FEC /* NetworkAvailabilityLayerProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = F654FC832472135F94052F7E /* NetworkAvailabilityLayerProtocols.swift */; };
-		5D4E6E7CA079C2AC81B4129F /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC5600B411646E050CD90109 /* Pods_SoraPassportUITests.framework */; };
 		5E023F532823E1A40070304B /* PairRegisterCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E023F522823E1A40070304B /* PairRegisterCall.swift */; };
 		5E138FEF2830201C0010AB54 /* InitializePoolCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E138FEE2830201C0010AB54 /* InitializePoolCall.swift */; };
 		5E138FF12830218C0010AB54 /* DepositLiquidityCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E138FF02830218C0010AB54 /* DepositLiquidityCall.swift */; };
@@ -631,7 +629,7 @@
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
 		76E4FB4ED200201F509B2122 /* Pods_SoraPassportTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
-		82933CD8A0C33141410DBBB2 /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BF74F3C2F0265F9E43996C31 /* Pods_SoraPassportUITests.framework */; };
+		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -1193,8 +1191,8 @@
 		94D4B66A28C75AF8007F98EB /* LocalStorageRequestFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D4B66928C75AF8007F98EB /* LocalStorageRequestFactory.swift */; };
 		94D4B66C28C75F55007F98EB /* StorageRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D4B66B28C75F55007F98EB /* StorageRequest.swift */; };
 		94DA85AA270F0B6000CBC15E /* soraSplash.json in Resources */ = {isa = PBXBuildFile; fileRef = 94DA85A9270F0B5F00CBC15E /* soraSplash.json */; };
-		94EA5B085A36905A6A3B3A06 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E6D6757021C867C483AA938 /* Pods_SoraPassportAll_SoraPassport.framework */; };
 		94F68B11277473CB00226F20 /* UISearchBar+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F68B10277473CB00226F20 /* UISearchBar+Style.swift */; };
+		99808DE038069106BEBF4ECD /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */; };
 		A1B644C63C38805297450DC7 /* FriendsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D10B6F46781199B35B755C /* FriendsWireframe.swift */; };
 		A849A67F47A83F55BFA8124E /* ProjectsInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */; };
 		A9A0F171348707CF04DAFE37 /* AccountOptionsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */; };
@@ -1217,12 +1215,13 @@
 		B2A56F0E2A6FD8FD00844A35 /* YourReferrerPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */; };
 		B2CD5DAB2A7A5A1800B16F8A /* EditViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */; };
 		B2CD5DAC2A7A5A1800B16F8A /* EditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */; };
-		B2CD5DAD2A7A5A1800B16F8A /* EditViewItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA42A7A5A1800B16F8A /* EditViewItemFactory.swift */; };
 		B2CD5DAE2A7A5A1800B16F8A /* EnabledView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */; };
 		B2CD5DAF2A7A5A1800B16F8A /* EnabledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA72A7A5A1800B16F8A /* EnabledCell.swift */; };
 		B2CD5DB02A7A5A1800B16F8A /* EnabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */; };
 		B2CD5DB12A7A5A1800B16F8A /* EnabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */; };
 		B2CD5DB22A7A5A1800B16F8A /* EditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */; };
+		B2E133802A863BD9008A46E0 /* EnabledSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */; };
+		B2E133822A863DA1008A46E0 /* EditViewProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
@@ -1232,7 +1231,6 @@
 		DAC1A7E82AB4629FBF7E1730 /* AccountOptionsPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229C8B5EC9E3EAD365ACBB9F /* AccountOptionsPresenter.swift */; };
 		DAC888F2250A88D684CB4213 /* NetworkAvailabilityLayerInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D87EE84EFA7C7EDF293C6058 /* NetworkAvailabilityLayerInteractor.swift */; };
 		DB806A2B9031562D790C9435 /* MainTabBarProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265097D4636C933C8E8FEBAB /* MainTabBarProtocol.swift */; };
-		DD304D9A6A3A486244202856 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 164792B6D06A8F411514BE02 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */; };
 		F4B80632FCC6A80CEAD886E5 /* NetworkAvailabilityLayerPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E589AB74AC57E665444842DB /* NetworkAvailabilityLayerPresenter.swift */; };
 /* End PBXBuildFile section */
 
@@ -1430,12 +1428,10 @@
 		02E319A421D39FE700B33B66 /* TextSharingSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSharingSource.swift; sourceTree = "<group>"; };
 		02E319A721D3C07E00B33B66 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		02E319B021D4BAFA00B33B66 /* R.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = R.generated.swift; sourceTree = SOURCE_ROOT; };
-		03399C76C71E40861F5D0285 /* Pods-SoraPassportUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.release.xcconfig"; sourceTree = "<group>"; };
 		05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractorTests.swift; sourceTree = "<group>"; };
 		0AAACFAEC553DD983F68F351 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; sourceTree = "<group>"; };
 		0BC14252909B919A70DA9DB9 /* MainTabBarPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarPresenter.swift; sourceTree = "<group>"; };
 		0DA0ECA40629F7CA55AD1089 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; sourceTree = "<group>"; };
-		1006FC85256957F300A30DDA /* FriendsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsViewModel.swift; sourceTree = "<group>"; };
 		103CCD1825643D670028345D /* PullUpController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PullUpController.swift; sourceTree = "<group>"; };
 		104BD29E25694381007719DF /* Localizable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localizable.swift; sourceTree = "<group>"; };
 		105599102536D7A400A6E891 /* LinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkView.swift; sourceTree = "<group>"; };
@@ -1446,19 +1442,16 @@
 		10EB777925418CB0000123B9 /* UINavigationBar+Shadow.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UINavigationBar+Shadow.swift"; sourceTree = "<group>"; };
 		10EB77972541A368000123B9 /* ExtensibleBarNavigationController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExtensibleBarNavigationController.swift; sourceTree = "<group>"; };
 		10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkViewModel.swift; sourceTree = "<group>"; };
-		164792B6D06A8F411514BE02 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassportIntegrationTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1850BD8AB0EC103EB91B5BB0 /* ActivityFeedInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityFeedInteractorTests.swift; sourceTree = "<group>"; };
-		1C05A85C0F91CC2B009FE983 /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"; sourceTree = "<group>"; };
 		1C39A0F563B3CAC78C4D9887 /* ChangeAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChangeAccountTests.swift; sourceTree = "<group>"; };
-		20E5A469D6DD9723F6B5F275 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; sourceTree = "<group>"; };
-		210C04F039D10B871DAF90F8 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
 		229C8B5EC9E3EAD365ACBB9F /* AccountOptionsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsPresenter.swift; sourceTree = "<group>"; };
+		25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		265097D4636C933C8E8FEBAB /* MainTabBarProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarProtocol.swift; sourceTree = "<group>"; };
 		26FD8C603CFBB4BB770BCA1E /* Pods-SoraPassportUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		287C7BC35117BCB72B327424 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassportIntegrationTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C421992CF81E68B180FF624 /* ParliamentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParliamentTests.swift; sourceTree = "<group>"; };
-		30E7986AF2C53C2704455E9A /* Pods-SoraPassportUITests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.staging.xcconfig"; sourceTree = "<group>"; };
 		2DD86E01FAAC842DDA29EC33 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; sourceTree = "<group>"; };
+		2E67161D1A40D3F1994BC8EA /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.test.xcconfig"; sourceTree = "<group>"; };
 		3213A3082237DAB4001BE041 /* VerificationCodeData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerificationCodeData.swift; sourceTree = "<group>"; };
 		3213A30A2237ED04001BE041 /* sendSmsCodeSuccessResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sendSmsCodeSuccessResponse.json; sourceTree = "<group>"; };
 		3213A30C2237ED5E001BE041 /* sendSmsCodeTooFreqResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sendSmsCodeTooFreqResponse.json; sourceTree = "<group>"; };
@@ -1871,11 +1864,6 @@
 		52A0531941BAD4567563ED11 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; sourceTree = "<group>"; };
 		5480710B4EDAE96792F6E63B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; sourceTree = "<group>"; };
 		54B86954738F4BFAA0968E63 /* Pods-SoraPassportUITests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.staging.xcconfig"; sourceTree = "<group>"; };
-		3E92D9996C777B40416D539A /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; sourceTree = "<group>"; };
-		3ED9AC8B83C51156EBCCDA26 /* StakingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StakingTests.swift; sourceTree = "<group>"; };
-		4500E3C38424775159499D0D /* FriendsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsViewFactory.swift; sourceTree = "<group>"; };
-		4D8D11A7FEE68F3A3CC7ACF5 /* Pods-SoraPassportTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.debug.xcconfig"; sourceTree = "<group>"; };
-		4F7C56BAE3394DC20932573B /* Pods-SoraPassportUITests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.dev.xcconfig"; sourceTree = "<group>"; };
 		55063DB028F96B8A008782E1 /* GenesisProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenesisProvider.swift; sourceTree = "<group>"; };
 		55063DB228FF3CC8008782E1 /* MoreMenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreMenuViewController.swift; sourceTree = "<group>"; };
 		55063DB52901411E008782E1 /* CategoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryItem.swift; sourceTree = "<group>"; };
@@ -1932,7 +1920,6 @@
 		5E5FBB6B280DC19C00DD092B /* WalletNetworkFacade+Pools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletNetworkFacade+Pools.swift"; sourceTree = "<group>"; };
 		5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DispatchQueue+debounce.swift"; sourceTree = "<group>"; };
 		5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountExporter.swift; sourceTree = "<group>"; };
-		5E6D6757021C867C483AA938 /* Pods_SoraPassportAll_SoraPassport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Decima+Substrate.swift"; sourceTree = "<group>"; };
 		5E9774E22A31AE030047BCA2 /* AccountExportPresenter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountExportPresenter.swift; sourceTree = "<group>"; };
 		5E9774E32A31AE030047BCA2 /* AccountExportViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountExportViewFactory.swift; sourceTree = "<group>"; };
@@ -2000,16 +1987,12 @@
 		605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = NeomorphismButton.xib; sourceTree = "<group>"; };
 		60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InconsistentStateMigrator.swift; sourceTree = "<group>"; };
 		60AAFDC6270EEEDB00916408 /* Migrating.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Migrating.swift; sourceTree = "<group>"; };
-		6CD48707B756D7A8ACFF3ACA /* AccountOptionsViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewController.swift; sourceTree = "<group>"; };
-		70B04019B3A1097AC43FC837 /* Pods-SoraPassportTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.dev.xcconfig"; sourceTree = "<group>"; };
-		75E5CD169C4F347C4786F149 /* ReferendumDetailsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReferendumDetailsTests.swift; sourceTree = "<group>"; };
-		7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiquiditySlider.swift; sourceTree = "<group>"; };
-		77BFD3E81CB9A271ED962AE1 /* Pods-SoraPassportTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.test.xcconfig"; sourceTree = "<group>"; };
 		62A07E4DA24D393F23333105 /* Pods-SoraPassportUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.release.xcconfig"; sourceTree = "<group>"; };
 		6CD48707B756D7A8ACFF3ACA /* AccountOptionsViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewController.swift; sourceTree = "<group>"; };
 		75E5CD169C4F347C4786F149 /* ReferendumDetailsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReferendumDetailsTests.swift; sourceTree = "<group>"; };
 		7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiquiditySlider.swift; sourceTree = "<group>"; };
 		7ABCF88DBE61FD88E48103D4 /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"; sourceTree = "<group>"; };
+		7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
 		81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsProtocols.swift; sourceTree = "<group>"; };
 		84014FA82243C1FB00C35EFD /* BaseService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BaseService.swift; sourceTree = "<group>"; };
 		84014FCE2244B5A000C35EFD /* Entities.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = Entities.xcdatamodel; sourceTree = "<group>"; };
@@ -2216,8 +2199,6 @@
 		8BF428782940A66E00590F92 /* LanguageItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageItem.swift; sourceTree = "<group>"; };
 		8BF4287A2940A6F800590F92 /* LanguageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageCell.swift; sourceTree = "<group>"; };
 		8BF4287C2940B1E600590F92 /* LanguageItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageItemView.swift; sourceTree = "<group>"; };
-		8C6A540BC1371AFA68DAE600 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
-		93B5AFB981BD83B9857EA14C /* Pods-SoraPassportUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		9406839B267908E1005F520D /* EventCodingPath.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EventCodingPath.swift; sourceTree = "<group>"; };
 		940683A126790B44005F520D /* OperationCombiningService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OperationCombiningService.swift; sourceTree = "<group>"; };
 		940683A826790C55005F520D /* Longrun.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Longrun.swift; sourceTree = "<group>"; };
@@ -2570,13 +2551,10 @@
 		94D4B66928C75AF8007F98EB /* LocalStorageRequestFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalStorageRequestFactory.swift; sourceTree = "<group>"; };
 		94D4B66B28C75F55007F98EB /* StorageRequest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageRequest.swift; sourceTree = "<group>"; };
 		94DA85A9270F0B5F00CBC15E /* soraSplash.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = soraSplash.json; sourceTree = "<group>"; };
-		94E844E9834518125566D52C /* Pods_SoraPassportTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		94F68B10277473CB00226F20 /* UISearchBar+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UISearchBar+Style.swift"; sourceTree = "<group>"; };
 		9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsProtocols.swift; sourceTree = "<group>"; };
-		9EC0AFA69387FFB7609D808A /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.test.xcconfig"; sourceTree = "<group>"; };
 		A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractor.swift; sourceTree = "<group>"; };
 		AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutTests.swift; sourceTree = "<group>"; };
-		AF4931C4298CF782F5E09095 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; sourceTree = "<group>"; };
 		B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewCell.swift; sourceTree = "<group>"; };
 		B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItem.swift; sourceTree = "<group>"; };
 		B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsViewController.swift; sourceTree = "<group>"; };
@@ -2595,18 +2573,18 @@
 		B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerPresenter.swift; sourceTree = "<group>"; };
 		B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewFactory.swift; sourceTree = "<group>"; };
 		B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewController.swift; sourceTree = "<group>"; };
-		B2CD5DA42A7A5A1800B16F8A /* EditViewItemFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItemFactory.swift; sourceTree = "<group>"; };
 		B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledView.swift; sourceTree = "<group>"; };
 		B2CD5DA72A7A5A1800B16F8A /* EnabledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledCell.swift; sourceTree = "<group>"; };
 		B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledItem.swift; sourceTree = "<group>"; };
 		B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledViewModel.swift; sourceTree = "<group>"; };
 		B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewModel.swift; sourceTree = "<group>"; };
+		B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnabledSection.swift; sourceTree = "<group>"; };
+		B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditViewProtocol.swift; sourceTree = "<group>"; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
-		BC5600B411646E050CD90109 /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		BD025F0EE1BAF50366226570 /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
+		B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
 		C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsInteractor.swift; sourceTree = "<group>"; };
 		C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProjectsInteractorTests.swift; sourceTree = "<group>"; };
-		D256BE26D9636330C0B906D9 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; sourceTree = "<group>"; };
+		D11E48E33D98B9B90C325913 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
 		D2B8D00970071364A04264BD /* FriendsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsPresenter.swift; sourceTree = "<group>"; };
 		D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileInteractorTests.swift; sourceTree = "<group>"; };
 		D3B5C5ABB0BDBD75124933C2 /* MainTabBarViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarViewFactory.swift; sourceTree = "<group>"; };
@@ -2619,8 +2597,6 @@
 		F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewFactory.swift; sourceTree = "<group>"; };
 		F44B22ABF888DE6084844F07 /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
 		F654FC832472135F94052F7E /* NetworkAvailabilityLayerProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerProtocols.swift; sourceTree = "<group>"; };
-		F6E69EDCC51CBEFD4BEE7691 /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
-		FCB7934147A8270E3017F902 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2644,7 +2620,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* Pods_SoraPassportUITests.framework in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
+				99808DE038069106BEBF4ECD /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4971,17 +4948,6 @@
 			path = Projects;
 			sourceTree = "<group>";
 		};
-		768340A635382C2678CE1418 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				5E6D6757021C867C483AA938 /* Pods_SoraPassportAll_SoraPassport.framework */,
-				164792B6D06A8F411514BE02 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
-				94E844E9834518125566D52C /* Pods_SoraPassportTests.framework */,
-				BC5600B411646E050CD90109 /* Pods_SoraPassportUITests.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		7798D61227F5054000BEA4C9 /* Slider */ = {
 			isa = PBXGroup;
 			children = (
@@ -5985,13 +5951,6 @@
 			path = ActivityFeed;
 			sourceTree = "<group>";
 		};
-		B267AA7D2A79187B00EF9CF0 /* Recovered References */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = "Recovered References";
-			sourceTree = "<group>";
-		};
 		B267AA9B2A7A2F7100EF9CF0 /* EditView */ = {
 			isa = PBXGroup;
 			children = (
@@ -6046,8 +6005,8 @@
 				B2CD5DA52A7A5A1800B16F8A /* Enabled */,
 				B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */,
 				B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */,
-				B2CD5DA42A7A5A1800B16F8A /* EditViewItemFactory.swift */,
 				B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */,
+				B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */,
 			);
 			path = EditView;
 			sourceTree = "<group>";
@@ -6059,6 +6018,7 @@
 				B2CD5DA72A7A5A1800B16F8A /* EnabledCell.swift */,
 				B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */,
 				B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */,
+				B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */,
 			);
 			path = Enabled;
 			sourceTree = "<group>";
@@ -6074,9 +6034,7 @@
 		BEF38E71B6415481628D3783 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				B0BC26BAAC122E6848E06AD4 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */,
 				7ABCF88DBE61FD88E48103D4 /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */,
-				CE09FE26F5044B9E5C762D0F /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */,
 				0DA0ECA40629F7CA55AD1089 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */,
 				42F1D7FB57E18E5CEEB50EB4 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */,
 				52A0531941BAD4567563ED11 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */,
@@ -6087,13 +6045,15 @@
 				5B9DE3992391EBEABC440A0A /* Pods-SoraPassportTests.debug.xcconfig */,
 				F44B22ABF888DE6084844F07 /* Pods-SoraPassportTests.release.xcconfig */,
 				58436442E3EA19431F89166A /* Pods-SoraPassportTests.test.xcconfig */,
-				9FA352D3EA914374DA9A99F0 /* Pods-SoraPassportTests.staging.xcconfig */,
 				4A6AD45445BF6A65A89A470D /* Pods-SoraPassportTests.dev.xcconfig */,
 				26FD8C603CFBB4BB770BCA1E /* Pods-SoraPassportUITests.debug.xcconfig */,
 				62A07E4DA24D393F23333105 /* Pods-SoraPassportUITests.release.xcconfig */,
-				B2CE0EB217377447FCDEA014 /* Pods-SoraPassportUITests.test.xcconfig */,
 				54B86954738F4BFAA0968E63 /* Pods-SoraPassportUITests.staging.xcconfig */,
 				EF2DB96FDB521BA3E06ECED3 /* Pods-SoraPassportUITests.dev.xcconfig */,
+				D11E48E33D98B9B90C325913 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */,
+				2E67161D1A40D3F1994BC8EA /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */,
+				B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */,
+				7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -6104,7 +6064,7 @@
 				576509BB75DC43579DF6AD79 /* Pods_SoraPassportAll_SoraPassport.framework */,
 				287C7BC35117BCB72B327424 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
 				3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */,
-				BF74F3C2F0265F9E43996C31 /* Pods_SoraPassportUITests.framework */,
+				25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -6182,7 +6142,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EE32178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassportUITests" */;
 			buildPhases = (
-				13B9D1B5ED279C3EDDA200FA /* [CP] Check Pods Manifest.lock */,
+				F07F30B29C5D6C9A5E08F051 /* [CP] Check Pods Manifest.lock */,
 				02623ED02178C0930011250E /* Sources */,
 				02623ED12178C0930011250E /* Frameworks */,
 				02623ED22178C0930011250E /* Resources */,
@@ -6430,7 +6390,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				$PROJECT_DIR/R.generated.swift,
+				"$PROJECT_DIR/R.generated.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6506,7 +6466,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
+				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6979,26 +6939,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		364EA8442A094205001A0FD4 /* Inject Secrets */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Inject Secrets";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKey=$SORA_CARD_API_KEY,soraCardDomain=$SORA_CARD_DOMAIN,soraCardBackendDevUrl=$SORA_CARD_BACKEND_DEV_URL,soraCardKycEndpoint=$SORA_CARD_KYC_ENDPOINT_URL,soraCardKycUsername=$SORA_CARD_KYC_USERNAME,soraCardKycPassword=$SORA_CARD_KYC_PASSWORD,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_GOOGLE_URL_SCHEME,soraGoogleToken=$SORA_GOOGLE_TOKEN\n#add params to the xcconfig files\nvariableNames=(\"SORA_GOOGLE_TOKEN\" \"SORA_GOOGLE_URL_SCHEME\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n    done\ndone\n\nif [ -n \"$JENKINS_URL\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $SORA_GOOGLE_URL_SCHEME\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\nfi\n";
-		};
-		582454222FFA33858FEBD5F3 /* [CP] Check Pods Manifest.lock */ = {
+		F07F30B29C5D6C9A5E08F051 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -7014,252 +6955,6 @@
 			);
 			outputPaths = (
 				"$(DERIVED_FILE_DIR)/Pods-SoraPassportUITests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		A3C6A1AFF9F14DE8D7F3A9C3 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportAll-SoraPassport-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		B87BC6EBA52FBA9CB09AEC6D /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh",
-				"${BUILT_PRODUCTS_DIR}/Anchorage/Anchorage.framework",
-				"${BUILT_PRODUCTS_DIR}/AppAuth/AppAuth.framework",
-				"${BUILT_PRODUCTS_DIR}/BigInt/BigInt.framework",
-				"${BUILT_PRODUCTS_DIR}/CocoaLumberjack/CocoaLumberjack.framework",
-				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
-				"${BUILT_PRODUCTS_DIR}/FLEX/FLEX.framework",
-				"${BUILT_PRODUCTS_DIR}/FearlessUtils/FearlessUtils.framework",
-				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCore/FirebaseCore.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCoreExtension/FirebaseCoreExtension.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCoreInternal/FirebaseCoreInternal.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCrashlytics/FirebaseCrashlytics.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseInstallations/FirebaseInstallations.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseMessaging/FirebaseMessaging.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseSessions/FirebaseSessions.framework",
-				"${BUILT_PRODUCTS_DIR}/GTMAppAuth/GTMAppAuth.framework",
-				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleAPIClientForREST/GoogleAPIClientForREST.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleDataTransport/GoogleDataTransport.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleSignIn/GoogleSignIn.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleUtilities/GoogleUtilities.framework",
-				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
-				"${BUILT_PRODUCTS_DIR}/Kingfisher/Kingfisher.framework",
-				"${BUILT_PRODUCTS_DIR}/Nantes/Nantes.framework",
-				"${BUILT_PRODUCTS_DIR}/PromisesObjC/FBLPromises.framework",
-				"${BUILT_PRODUCTS_DIR}/PromisesSwift/Promises.framework",
-				"${BUILT_PRODUCTS_DIR}/R.swift.Library/Rswift.framework",
-				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
-				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
-				"${BUILT_PRODUCTS_DIR}/SCard/SCard.framework",
-				"${BUILT_PRODUCTS_DIR}/SSFModels/SSFModels.framework",
-				"${BUILT_PRODUCTS_DIR}/SSFUtils/SSFUtils.framework",
-				"${BUILT_PRODUCTS_DIR}/SVGKit/SVGKit.framework",
-				"${BUILT_PRODUCTS_DIR}/SnapKit/SnapKit.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUIKit/SoraUIKit.framework",
-				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
-				"${BUILT_PRODUCTS_DIR}/SwiftyBeaver/SwiftyBeaver.framework",
-				"${BUILT_PRODUCTS_DIR}/Then/Then.framework",
-				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
-				"${PODS_ROOT}/eIDRTC/WebRTC/WebRTC.framework",
-				"${BUILT_PRODUCTS_DIR}/lottie-ios/Lottie.framework",
-				"${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework",
-				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
-				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
-				"${BUILT_PRODUCTS_DIR}/xxHash-Swift/xxHash_Swift.framework",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/IdensicMobileSDK/IdensicMobileSDK.framework/IdensicMobileSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOAuthSDK/PayWingsOAuthSDK.framework/PayWingsOAuthSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOnboardingKYC/PayWingsOnboardingKYC.framework/PayWingsOnboardingKYC",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/VideoID/VideoID.framework/VideoID",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/XNetworking/XNetworking.framework/XNetworking",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Anchorage.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AppAuth.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BigInt.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CocoaLumberjack.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FLEX.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FearlessUtils.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreExtension.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreInternal.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCrashlytics.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseInstallations.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseMessaging.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseSessions.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMAppAuth.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMSessionFetcher.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleAPIClientForREST.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleDataTransport.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleSignIn.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleUtilities.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Kingfisher.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Nantes.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBLPromises.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Promises.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Rswift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SCard.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SSFModels.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SSFUtils.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SVGKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SnapKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUIKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SwiftyBeaver.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Then.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/WebRTC.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Lottie.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/nanopb.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/xxHash_Swift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IdensicMobileSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOAuthSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOnboardingKYC.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/VideoID.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/XNetworking.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		D4950B9D45BF40F8DA101AB7 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh",
-				"${BUILT_PRODUCTS_DIR}/BigInt/BigInt.framework",
-				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
-				"${BUILT_PRODUCTS_DIR}/FearlessUtils/FearlessUtils.framework",
-				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
-				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleAPIClientForREST/GoogleAPIClientForREST.framework",
-				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
-				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
-				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
-				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
-				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
-				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
-				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
-				"${BUILT_PRODUCTS_DIR}/xxHash-Swift/xxHash_Swift.framework",
-				"${BUILT_PRODUCTS_DIR}/Cuckoo/Cuckoo.framework",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/XNetworking/XNetworking.framework/XNetworking",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BigInt.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FearlessUtils.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMSessionFetcher.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleAPIClientForREST.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/xxHash_Swift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Cuckoo.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/XNetworking.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		D84A04E40DAA127330AA6ADF /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportAll-SoraPassportIntegrationTests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		F77E1E912EA1E808F3287645 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportTests-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -7804,6 +7499,7 @@
 				36527D8E29B7341A006D2042 /* NewTransactionCreatedEvent.swift in Sources */,
 				B2CD5DAC2A7A5A1800B16F8A /* EditViewController.swift in Sources */,
 				9441F9F125C9823800775559 /* JSONRPCData.swift in Sources */,
+				B2E133802A863BD9008A46E0 /* EnabledSection.swift in Sources */,
 				36110B952953B56400712BEB /* ScanQRViewFactory.swift in Sources */,
 				36E5DB7B28CC8CF000AB8E28 /* CustomNodeViewController.swift in Sources */,
 				02D4684B219092CD00F9D3D0 /* ProjectsRegisterMock.swift in Sources */,
@@ -8101,7 +7797,6 @@
 				84F8B24924337359005911F7 /* String+Iroha.swift in Sources */,
 				364BA3152938F73F0099CB0D /* ActivityDetailsWireframe.swift in Sources */,
 				363DA4D72A040C7E00806A5B /* InputSendInfoViewModel.swift in Sources */,
-				B2CD5DAD2A7A5A1800B16F8A /* EditViewItemFactory.swift in Sources */,
 				9441F8F625C9699400775559 /* Price.swift in Sources */,
 				361EF59829152C1800D0DCCF /* ErrorView.swift in Sources */,
 				02A053052222A99E00CA290F /* AnnouncementFetchMock.swift in Sources */,
@@ -8285,6 +7980,7 @@
 				36DB198429EDC5CB00B3E3BF /* AccountCreateWireframe.swift in Sources */,
 				949B457826288BF50081BB37 /* CallCodingPath.swift in Sources */,
 				3645269C28C146B000260340 /* NodesResponse.swift in Sources */,
+				B2E133822A863DA1008A46E0 /* EditViewProtocol.swift in Sources */,
 				5C0A80D5F523B98303F50FEC /* NetworkAvailabilityLayerProtocols.swift in Sources */,
 				364D61C629929D3A004938FA /* Constaints.swift in Sources */,
 				3621B45429E5523D007C5156 /* LPFeeService.swift in Sources */,
@@ -8685,7 +8381,7 @@
 		};
 		0220858521B6C4FD00A5BC4C /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B2CE0EB217377447FCDEA014 /* Pods-SoraPassportUITests.test.xcconfig */;
+			baseConfigurationReference = 7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -9329,7 +9025,7 @@
 		};
 		84476204224BA293009ADC0E /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9FA352D3EA914374DA9A99F0 /* Pods-SoraPassportTests.staging.xcconfig */;
+			baseConfigurationReference = B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";

@@ -2,31 +2,49 @@ import UIKit
 import SoraUIKit
 import SoraFoundation
 import SnapKit
-
-protocol EditViewProtocol: ControllerBackedProtocol {}
+import Combine
 
 final class EditViewController: SoramitsuViewController {
     
-    private lazy var tableView: SoramitsuTableView = {
-        let tableView = SoramitsuTableView()
-        tableView.sora.backgroundColor = .custom(uiColor: .clear)
-        tableView.sora.estimatedRowHeight = UITableView.automaticDimension
-        tableView.sora.tableViewHeader = nil
+    private lazy var tableView: UITableView = {
+        let tableView = UITableView()
+        tableView.estimatedRowHeight = UITableView.automaticDimension
+        tableView.tableHeaderView = nil
+        tableView.backgroundColor = .clear
         tableView.delaysContentTouches = true
         tableView.canCancelContentTouches = true
         tableView.contentInsetAdjustmentBehavior = .never
-//        tableView.contentInset = UIEdgeInsets(top: 24, left: 24, bottom: -24, right: -24)
+        tableView.register(EnabledCell.self, forCellReuseIdentifier: "EnabledCell")
         if #available(iOS 15.0, *) {
               tableView.sectionHeaderTopPadding = 0
-         }
+        }
+        tableView.translatesAutoresizingMaskIntoConstraints = false
         return tableView
     }()
     
-    let viewModel: EditViewModelProtocol
+    var viewModel: EditViewModelProtocol? {
+        didSet {
+            setupSubscription()
+        }
+    }
+    
+    private var cancellables: Set<AnyCancellable> = []
+    
+    private lazy var dataSource: EditViewDataSource = {
+        EditViewDataSource(tableView: tableView) { tableView, indexPath, item in
+            switch item {
+            case .enabled(let item):
+                let cell: EnabledCell? = tableView.dequeueReusableCell(withIdentifier: "EnabledCell", for: indexPath) as? EnabledCell
+                cell?.set(item: item, context: nil)
+                return cell ?? UITableViewCell()
+            }
+        }
+    }()
 
-    init(viewModel: EditViewModelProtocol) {
+    init(viewModel: EditViewModelProtocol?) {
         self.viewModel = viewModel
         super.init()
+        setupSubscription()
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -40,17 +58,12 @@ final class EditViewController: SoramitsuViewController {
         setupView()
         setupConstraints()
         
-        viewModel.reloadItems = { [weak self] items in
-            DispatchQueue.main.async {
-                self?.tableView.reloadItems(items: items )
-            }
-        }
-
-        viewModel.setupItems = { [weak self] items in
-            self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
-        }
-        
-        viewModel.updateItems()
+        viewModel?.reloadView()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        viewModel?.completion?()
     }
     
     private func setupView() {
@@ -67,16 +80,21 @@ final class EditViewController: SoramitsuViewController {
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
     }
+    
+    private func setupSubscription() {
+        viewModel?.snapshotPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] snapshot in
+                self?.dataSource.apply(snapshot, animatingDifferences: false)
+            }
+            .store(in: &cancellables)
+    }
 }
 
-extension EditViewController: EditViewProtocol {}
+extension EditViewController: EditViewControllerProtocol {}
 
 extension EditViewController: Localizable {
     private var languages: [String]? {
         localizationManager?.preferredLocalizations
-    }
-    
-    func applyLocalization() {
-        tableView.reloadData()
     }
 }
