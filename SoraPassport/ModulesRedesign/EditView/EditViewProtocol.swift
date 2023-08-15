@@ -14,7 +14,12 @@ protocol EditViewFactoryProtocol: AnyObject {
 protocol EditViewModelProtocol: AnyObject {
     var snapshotPublisher: Published<EditViewSnapshot>.Publisher { get }
     var completion: (() -> Void)? { get }
-    func reloadView()
+    func reloadView(with section: EnabledSection?)
 }
 
+extension EditViewModelProtocol {
+    func reloadView(with section: EnabledSection? = nil) {
+        reloadView(with: section)
+    }
+}
 

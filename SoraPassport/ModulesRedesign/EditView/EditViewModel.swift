@@ -18,14 +18,19 @@ final class EditViewModel {
 
 extension EditViewModel: EditViewModelProtocol {
     
-    func reloadView() {
-        snapshot = createSnapshot()
+    func reloadView(with section: EnabledSection?) {
+        guard let section = section else {
+            snapshot = createSnapshot(with: contentSection())
+            return
+        }
+        
+        snapshot = createSnapshot(with: section)
     }
     
-    private func createSnapshot() -> EditViewSnapshot {
+    private func createSnapshot(with section: EnabledSection) -> EditViewSnapshot {
         var snapshot = EditViewSnapshot()
         
-        let sections = [ contentSection() ]
+        let sections = [ section ]
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
         
@@ -58,7 +63,7 @@ extension EditViewModel: EditViewModelProtocol {
                 ApplicationConfig.shared.enabledCardIdentifiers.append(viewModel.id)
             }
 
-            self?.reloadView()
+            self?.reloadView(with: EnabledSection(items: [.enabled(item)]))
         }
         
         return EnabledSection(items: [.enabled(item)])
