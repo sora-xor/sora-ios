@@ -55,12 +55,17 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                                     picture: .icon(image: R.image.iconStar2()!,
                                                    color: .fgSecondary),
                                     onTap: { self.showAccounts() })
-        let soraCard = MoreMenuItem(title: R.string.localizable.moreMenuSoraCardTitle(preferredLanguages: languages),
-                                    subtitle: R.string.localizable.moreMenuSoraCardSubtitle(preferredLanguages: languages),
-                                    picture: .icon(image: R.image.iconCard()!, color: .fgSecondary),
-                                    onTap: { self.showSoraCard() })
         items.append(accounts)
-        items.append(soraCard)
+        
+        if ConfigService.shared.config.isSoraCardEnabled {
+            let soraCard = MoreMenuItem(title: R.string.localizable.moreMenuSoraCardTitle(preferredLanguages: languages),
+                                        subtitle: R.string.localizable.moreMenuSoraCardSubtitle(preferredLanguages: languages),
+                                        picture: .icon(image: R.image.iconCard()!, color: .fgSecondary),
+                                        onTap: { self.showSoraCard() })
+            
+            items.append(soraCard)
+        }
+       
 
         return MoreMenuSection(items: items)
     }
