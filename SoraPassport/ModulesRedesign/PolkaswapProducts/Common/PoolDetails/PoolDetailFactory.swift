@@ -113,6 +113,17 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                      assetAmountText: rewardText)
         viewModels.append(rewardDetailsViewModel)
         
+        if let yourPoolShare = poolInfo.yourPoolShare {
+            let poolShareText = NumberFormatter.cryptoAssets.stringFromDecimal(yourPoolShare) ?? ""
+            let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
+                                                          fontData: FontType.textS,
+                                                          textColor: .fgPrimary,
+                                                          alignment: .right)
+            let yourPoolShareViewModel = DetailViewModel(title: R.string.localizable.poolShareTitle1(preferredLanguages: .currentLocale),
+                                                                     assetAmountText: yourPoolShareText)
+            viewModels.append(yourPoolShareViewModel)
+        }
+        
         let basePooledAmount = formatter.stringFromDecimal(poolInfo.baseAssetPooledByAccount ?? 0) ?? ""
         let baseAssetPooledText = SoramitsuTextItem(text: "\(basePooledAmount) \(baseAssetSymbol)",
                                                     fontData: FontType.textS,
@@ -157,7 +168,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                       pooled: pool?.targetAssetPooledByAccount ?? 0,
                                                       reserves: pool?.targetAssetReserves ?? 0)
 
-        let poolShareText = NumberFormatter.apy.stringFromDecimal(poolShareDecimal) ?? ""
+        let poolShareText = NumberFormatter.cryptoAssets.stringFromDecimal(poolShareDecimal) ?? ""
         let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,
@@ -226,7 +237,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                          pooled: pool.targetAssetPooledByAccount ?? 0,
                                                          reserves: pool.targetAssetReserves ?? 0)
 
-        let poolShareText = NumberFormatter.apy.stringFromDecimal(poolShareDecimal) ?? ""
+        let poolShareText = NumberFormatter.cryptoAssets.stringFromDecimal(poolShareDecimal) ?? ""
         let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,
