@@ -11,6 +11,7 @@ final class EditViewController: SoramitsuViewController {
         tableView.estimatedRowHeight = UITableView.automaticDimension
         tableView.tableHeaderView = nil
         tableView.backgroundColor = .clear
+        tableView.separatorColor = .clear
         tableView.delaysContentTouches = true
         tableView.canCancelContentTouches = true
         tableView.contentInsetAdjustmentBehavior = .never
