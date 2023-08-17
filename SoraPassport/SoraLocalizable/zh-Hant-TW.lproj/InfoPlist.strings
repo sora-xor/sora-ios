@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "相機用於捕獲二維碼";
+"NSFaceIDUsageDescription" = "使用人臉識別授權應用程序";
+"NSPhotoLibraryUsageDescription" = "從圖庫中加載照片";
+"NSPhotoLibraryAddUsageDescription" = "將轉移請求另存為二維碼";
