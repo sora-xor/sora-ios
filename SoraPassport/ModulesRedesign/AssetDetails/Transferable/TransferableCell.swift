@@ -241,7 +241,8 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
             return
         }
         self.item = item
-        balanceLabel.sora.text = item.balance.stringValue + " " + item.assetInfo.symbol
+        let balanceText = NumberFormatter.cryptoAssets.stringFromDecimal(item.balance.decimalValue) ?? ""
+        balanceLabel.sora.text = balanceText + " " + item.assetInfo.symbol
         fiatLabel.sora.text = item.fiat
         transferableContainerView.sora.isHidden = !item.isNeedTransferable
         separatorView.sora.isHidden = !item.isNeedTransferable
