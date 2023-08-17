@@ -159,12 +159,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             items.append(soraCardItem)
         }
         
-        if !isReferralProgramHidden && enabledIds.contains(Cards.buyXor.id) {
-            let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self,
-                                                    assetManager: assetManager)
-            items.append(friendsItem)
-        }
-        
         if enabledIds.contains(Cards.liquidAssets.id) {
             let assetItem: SoramitsuTableViewItemProtocol = itemFactory.createAssetsItem(with: self,
                                                                                          assetManager: assetManager,
@@ -182,10 +176,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                                                        fiatService: fiatService)
             items.append(poolItem)
         }
-   
-        
-        let editViewItem: SoramitsuTableViewItemProtocol = itemFactory.createEditViewItem(with: self)
-        items.append(editViewItem)
         
         return items
     }
