@@ -4,6 +4,8 @@ import SSFCloudStorage
 
 protocol AccountCreateViewProtocol: ControllerBackedProtocol {
     func set(mnemonic: [String])
+    func showLoading()
+    func hideLoading()
 }
 
 protocol AccountCreatePresenterProtocol: AnyObject {

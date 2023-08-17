@@ -39,7 +39,8 @@ final class EnterPasswordViewFactory {
         let viewModel = EnterPasswordViewModel(selectedAddress: selectedAddress,
                                                backedUpAccounts: backedUpAccounts,
                                                interactor: interactor,
-                                               wireframe: wireframe)
+                                               wireframe: wireframe,
+                                               view: view)
         interactor.presenter = viewModel
         view.viewModel = viewModel
 

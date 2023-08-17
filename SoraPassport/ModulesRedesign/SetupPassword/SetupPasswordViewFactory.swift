@@ -21,6 +21,7 @@ final class SetupPasswordViewFactory {
                                                entryPoint: entryPoint,
                                                keystore: Keychain(),
                                                completion: completion)
+        viewModel.view = view
         let wireframe = SetupPasswordWireframe(currentController: view)
         view.viewModel = viewModel
         viewModel.view = view

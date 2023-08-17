@@ -70,6 +70,12 @@ final class AccountCreateViewController: SoramitsuViewController {
         }
     }()
     
+    let loadingView: SoramitsuLoadingView = {
+        let view = SoramitsuLoadingView()
+        view.isHidden = true
+        return view
+    }()
+    
     private lazy var googleButton: SoramitsuButton = {
         let title = SoramitsuTextItem(
             text: R.string.localizable.onboardingContinueWithGoogle(preferredLanguages: .currentLocale),
@@ -87,6 +93,8 @@ final class AccountCreateViewController: SoramitsuViewController {
         button.sora.borderColor = .accentSecondary
         button.sora.borderWidth = 1
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.googleButton.isUserInteractionEnabled = false
+            self?.loadingView.isHidden = false
             self?.presenter.backupToGoogle()
         }
         return button
@@ -134,6 +142,7 @@ final class AccountCreateViewController: SoramitsuViewController {
     private func configure() {
 
         view.addSubview(containerView)
+        view.addSubview(loadingView)
         containerView.addArrangedSubviews([
             titleLabel,
             mnemonicView,
@@ -148,6 +157,13 @@ final class AccountCreateViewController: SoramitsuViewController {
             $0.bottomAnchor <= view.soraSafeBottomAnchor
             $0.horizontalAnchors == view.horizontalAnchors + 16
         }
+        
+        NSLayoutConstraint.activate([
+            loadingView.widthAnchor.constraint(equalTo: view.widthAnchor),
+            loadingView.heightAnchor.constraint(equalTo: view.heightAnchor),
+            loadingView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+        ])
 
         view.backgroundColor = .clear
 
@@ -235,6 +251,15 @@ extension AccountCreateViewController: AccountCreateViewProtocol {
             conditionedMnemonic.append("") //Quick fix for legacy 15-word mnemonics
         }
         mnemonicView.bind(words: conditionedMnemonic, columnsCount: 2)
+    }
+    
+    func showLoading() {
+        loadingView.isHidden = false
+    }
+    
+    func hideLoading() {
+        googleButton.isUserInteractionEnabled = true
+        loadingView.isHidden = true
     }
 }
 

@@ -60,7 +60,9 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     
             updateBackupedAccount(with: account, password: password)
             
+            view?.showLoading()
             cloudStorageService.saveBackupAccount(account: backupAccount, password: password) { [weak self] result in
+                self?.view?.hideLoading()
                 self?.handler(result)
             }
             return
@@ -72,7 +74,9 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     
                 self.updateBackupedAccount(with: account, password: password)
                 
+                self.view?.showLoading()
                 self.cloudStorageService.saveBackupAccount(account: self.backupAccount, password: password) { [weak self] result in
+                    self?.view?.hideLoading()
                     self?.handler(result)
                 }
             }
