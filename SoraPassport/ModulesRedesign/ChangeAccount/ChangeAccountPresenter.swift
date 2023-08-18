@@ -123,6 +123,7 @@ extension ChangeAccountPresenter: ChangeAccountPresenterProtocol {
 
             settingsManager.save(value: accountItem)
             eventCenter.notify(with: SelectedAccountChanged())
+            view?.controller.dismiss(animated: true)
 
         case .edit:
             guard accountViewModels.indices.contains(index) else { return }
