@@ -11,7 +11,6 @@ final class AccountOptionsViewFactory: AccountOptionsViewFactoryProtocol {
         let accountRepository: CoreDataRepository<AccountItem, CDAccountItem>
             = UserDataStorageFacade.shared.createRepository()
         let chain = ChainRegistryFacade.sharedRegistry.getChain(for: Chain.sora.genesisHash())!
-
         let view = AccountOptionsViewController()
         let cloudStorageService = CloudStorageService(uiDelegate: view)
         let interactor = AccountOptionsInteractor(keystore: Keychain(),

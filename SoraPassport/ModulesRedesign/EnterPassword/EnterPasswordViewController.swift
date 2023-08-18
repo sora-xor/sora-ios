@@ -23,6 +23,12 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
         }
     }()
 
+    private let loadingView: SoramitsuLoadingView = {
+        let view = SoramitsuLoadingView()
+        view.isHidden = true
+        return view
+    }()
+
     private lazy var tableView: UITableView = {
         let tableView = UITableView()
         tableView.delegate = self
@@ -50,6 +56,7 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
         navigationItem.title = R.string.localizable.enterBackupPasswordTitle(preferredLanguages: .currentLocale)
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         soramitsuView.addSubview(tableView)
+        soramitsuView.addSubview(loadingView)
     }
 
     private func setupConstraints() {
@@ -57,7 +64,12 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
             tableView.topAnchor.constraint(equalTo: soramitsuView.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: soramitsuView.leadingAnchor),
             tableView.centerXAnchor.constraint(equalTo: soramitsuView.centerXAnchor),
-            tableView.centerYAnchor.constraint(equalTo: soramitsuView.centerYAnchor)
+            tableView.centerYAnchor.constraint(equalTo: soramitsuView.centerYAnchor),
+            
+            loadingView.widthAnchor.constraint(equalTo: view.widthAnchor),
+            loadingView.heightAnchor.constraint(equalTo: view.heightAnchor),
+            loadingView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
     }
 
@@ -75,6 +87,14 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
                 self?.dataSource.apply(snapshot, animatingDifferences: false)
             }
             .store(in: &cancellables)
+    }
+    
+    func showLoading() {
+        loadingView.isHidden = false
+    }
+    
+    func hideLoading() {
+        loadingView.isHidden = true
     }
 }
 

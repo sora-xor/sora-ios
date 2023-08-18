@@ -161,6 +161,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
     
     func backupToGoogle() {
         interactor.signInToGoogleIfNeeded(completion: { [weak self] state in
+            self?.view?.hideLoading()
             guard state == .authorized else { return }
             self?.skip()
         })
