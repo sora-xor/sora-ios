@@ -9,6 +9,8 @@ typealias EnterPasswordSnapshot = NSDiffableDataSourceSnapshot<EnterPasswordSect
 
 protocol EnterPasswordViewProtocol: ControllerBackedProtocol {
     var viewModel: EnterPasswordViewModelProtocol? { get set }
+    func showLoading()
+    func hideLoading()
 }
 
 protocol EnterPasswordViewModelProtocol: AnyObject {

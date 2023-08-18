@@ -15,15 +15,18 @@ final class EnterPasswordViewModel {
     private var errorText = ""
     private let selectedAccount: OpenBackupAccount?
     private var backedUpAccounts: [OpenBackupAccount]
+    private weak var view: EnterPasswordViewProtocol?
 
     init(selectedAddress: String,
          backedUpAccounts: [OpenBackupAccount],
          interactor: AccountImportInteractorInputProtocol,
-         wireframe: EnterPasswordWireframeProtocol) {
+         wireframe: EnterPasswordWireframeProtocol,
+         view: EnterPasswordViewProtocol?) {
         self.selectedAccount = backedUpAccounts.first(where: { $0.address == selectedAddress })
         self.interactor = interactor
         self.backedUpAccounts = backedUpAccounts
         self.wireframe = wireframe
+        self.view = view
     }
     
     deinit {
@@ -49,6 +52,7 @@ final class EnterPasswordViewModel {
     }
     
     private func checkPassword(password: String) {
+        view?.showLoading()
         guard let selectedAccount = selectedAccount else { return }
         let request = AccountImportBackedupRequest(account: selectedAccount, password: password)
         interactor.importBackedupAccount(request: request)
@@ -64,6 +68,7 @@ extension EnterPasswordViewModel: EnterPasswordViewModelProtocol {
 
 extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
     func didCompleteAccountImport() {
+        view?.hideLoading()
         guard let selectedAccount = selectedAccount else { return }
         
         var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
