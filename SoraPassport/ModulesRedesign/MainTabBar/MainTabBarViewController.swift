@@ -24,7 +24,7 @@ final class MainTabBarViewController: UITabBarController {
         setValue(tabBar, forKey: "tabBar")
         
         SoramitsuUI.updates.addObserver(self)
-//        configureTabBar()
+        configureTabBar()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -43,9 +43,6 @@ final class MainTabBarViewController: UITabBarController {
         if #available(iOS 13.0, *) {
             let appearance = UITabBarAppearance()
             
-            appearance.backgroundImage = UIImage.background(from: palette.color(.bgSurface))
-            appearance.shadowImage = UIImage.background(from: palette.color(.custom(uiColor: .clear)))
-            
             let normalAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.fgSecondary),
                                     NSAttributedString.Key.font: FontType.textBoldXS.font]
             let selectedAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.accentPrimary),
@@ -62,44 +59,13 @@ final class MainTabBarViewController: UITabBarController {
                 //TODO: change this to more apropriate API
                 //tabBar.scrollEdgeAppearance = tabBar.standardAppearance
             }
-        } else {
-            tabBar.backgroundImage = UIImage.background(from: palette.color(.bgSurface))
-            tabBar.shadowImage = UIImage.background(from: palette.color(.custom(uiColor: .clear)))
         }
     }
 }
 
 extension MainTabBarViewController: SoramitsuObserver {
     func styleDidChange(options: UpdateOptions) {
-        let palette = SoramitsuUI.shared.theme.palette
-        tabBar.tintColor = palette.color(.accentPrimary)
-        
-        if #available(iOS 13.0, *) {
-            let appearance = UITabBarAppearance()
-            
-            appearance.backgroundImage = UIImage.background(from: palette.color(.bgSurface))
-            appearance.shadowImage = UIImage.background(from: palette.color(.custom(uiColor: .clear)))
-            
-            let normalAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.fgSecondary),
-                                    NSAttributedString.Key.font: FontType.textBoldXS.font]
-            let selectedAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.accentPrimary),
-                                      NSAttributedString.Key.font: FontType.textBoldXS.font]
-            
-            appearance.stackedLayoutAppearance.normal.titleTextAttributes = normalAttributes
-            appearance.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttributes
-            
-            tabBar.standardAppearance = appearance
-            
-            // fix transparent background on iOS 15+
-            if #available(iOS 15.0, *) {
-                tabBar.setValue(tabBar.standardAppearance, forKey: "scrollEdgeAppearance")
-                //TODO: change this to more apropriate API
-                //tabBar.scrollEdgeAppearance = tabBar.standardAppearance
-            }
-        } else {
-            tabBar.backgroundImage = UIImage.background(from: palette.color(.bgSurface))
-            tabBar.shadowImage = UIImage.background(from: palette.color(.custom(uiColor: .clear)))
-        }
+        configureTabBar()
     }
 }
 

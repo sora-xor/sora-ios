@@ -273,7 +273,7 @@ PODS:
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
-  - SSFCloudStorage (0.1.10):
+  - SSFCloudStorage (0.1.12):
     - GoogleAPIClientForREST/Drive (~> 1.2.1)
     - GoogleSignIn (~> 7.0.0)
     - IrohaCrypto/Scrypt
@@ -333,7 +333,7 @@ DEPENDENCIES:
   - SoraFoundation
   - SoraKeystore
   - SoraUI
-  - SoraUIKit (from `https://github.com/soramitsu/ios-ui.git`, tag `1.0.3`)
+  - SoraUIKit (from `~/Desktop/sora-ios/SoraPassport/ios-ui`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
@@ -416,8 +416,7 @@ EXTERNAL SOURCES:
     :git: https://github.com/sora-xor/sora-card-ios
     :tag: 1.0.0
   SoraUIKit:
-    :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.3
+    :path: "~/Desktop/sora-ios/SoraPassport/ios-ui"
   Starscream:
     :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -442,9 +441,6 @@ CHECKOUT OPTIONS:
   SCard:
     :git: https://github.com/sora-xor/sora-card-ios
     :tag: 1.0.0
-  SoraUIKit:
-    :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.3
   Starscream:
     :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -503,7 +499,7 @@ SPEC CHECKSUMS:
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   SoraUIKit: 2156cae4af9a34314e1f5c5277eed10bf8411b66
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
-  SSFCloudStorage: 829d9f4cf6e0c94727e96d55474dc692d88b0767
+  SSFCloudStorage: 5e7dc925f82ad67d5b44a34a825f30f62dfbd190
   SSFModels: da1c95db87aabbecbcbe3b1cb795973745b6cc3a
   SSFUtils: f6422d909cb57a85cd5784b3f399aead69b26a6b
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
@@ -516,6 +512,6 @@ SPEC CHECKSUMS:
   XNetworking: cda32e6337d2a18edfdb1a39a2e65aa4a1993280
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 96847a9056a03a1b98331c814d83ce858f438a65
+PODFILE CHECKSUM: 1f3ed35b36bad2c278b0d126029a436d5039280c
 
 COCOAPODS: 1.12.1
