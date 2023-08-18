@@ -55,12 +55,17 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                                     picture: .icon(image: R.image.iconStar2()!,
                                                    color: .fgSecondary),
                                     onTap: { self.showAccounts() })
-        let soraCard = MoreMenuItem(title: R.string.localizable.moreMenuSoraCardTitle(preferredLanguages: languages),
-                                    subtitle: R.string.localizable.moreMenuSoraCardSubtitle(preferredLanguages: languages),
-                                    picture: .icon(image: R.image.iconCard()!, color: .fgSecondary),
-                                    onTap: { self.showSoraCard() })
         items.append(accounts)
-        items.append(soraCard)
+        
+        if ConfigService.shared.config.isSoraCardEnabled {
+            let soraCard = MoreMenuItem(title: R.string.localizable.moreMenuSoraCardTitle(preferredLanguages: languages),
+                                        subtitle: R.string.localizable.moreMenuSoraCardSubtitle(preferredLanguages: languages),
+                                        picture: .icon(image: R.image.iconCard()!, color: .fgSecondary),
+                                        onTap: { self.showSoraCard() })
+            
+            items.append(soraCard)
+        }
+       
 
         return MoreMenuSection(items: items)
     }
@@ -101,20 +106,13 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     private func thirdSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
-        let inviteFriends = MoreMenuItem(title: R.string.localizable.settingsInviteTitle(preferredLanguages: .currentLocale) ,
-                                         subtitle: R.string.localizable.settingsInviteSubtitle(preferredLanguages: .currentLocale),
-                                         picture: .icon(image: R.image.about.support()! ,
-                                                        color: .fgSecondary),
-                                         onTap: { self.showInviteFriends() }
-        )
         let information = MoreMenuItem(title: R.string.localizable.settingsInformationTitle(preferredLanguages: languages),
                                        subtitle: R.string.localizable.settingsInformationSubtitle(preferredLanguages: languages),
                                        picture: .icon(image: R.image.iconInfo()!,
                                                       color: .fgSecondary),
                                        onTap: { self.showInformation() }
         )
-        
-        items.append(inviteFriends)
+
         items.append(information)
         
         return MoreMenuSection(items: items)

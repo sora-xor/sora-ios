@@ -65,6 +65,7 @@ final class WelcomeViewController: SoramitsuViewController {
         button.sora.leftImage = R.image.googleIcon()
         button.sora.borderColor = .accentSecondary
         button.sora.borderWidth = 1
+        button.sora.isHidden = true
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.googleButton.isUserInteractionEnabled = false
             self?.loadingView.isHidden = false
@@ -196,11 +197,7 @@ final class WelcomeViewController: SoramitsuViewController {
             importAccountButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             importAccountButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             
-            googleButton.topAnchor.constraint(equalTo: importAccountButton.bottomAnchor, constant: 16),
-            googleButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            googleButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            
-            termsLabel.topAnchor.constraint(equalTo: googleButton.bottomAnchor, constant: 16),
+            termsLabel.topAnchor.constraint(equalTo: importAccountButton.bottomAnchor, constant: 16),
             termsLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             termsLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             termsLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -24),
