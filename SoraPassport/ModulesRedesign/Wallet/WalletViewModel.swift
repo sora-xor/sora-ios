@@ -91,7 +91,8 @@ final class RedesignWalletViewModel {
         self.walletContext = walletContext
     }
 
-    @SCStream private var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
+    @SCStream internal var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
+    internal var totalXorBalance: Decimal = .zero
 }
 
 extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
@@ -180,55 +181,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         return items
     }
 
-    private func initSoraCard() -> SCard {
-        guard SCard.shared == nil else { return SCard.shared! }
-
-        let balanceProvider = try? providerFactory.createBalanceDataProvider(for: [.xor], onlyVisible: false)
-        let changesBlock = { [weak self] (changes: [DataProviderChange<[BalanceData]>]) -> Void in
-            guard let change = changes.first else { return }
-            switch change {
-            case .insert(let items), .update(let items):
-                guard let balane = items.first?.balance.decimalValue else { return }
-                self?.xorBalanceStream.wrappedValue = balane
-                return
-            case .delete(_):
-                break
-            }
-        }
-
-        balanceProvider?.addObserver(
-            self,
-            deliverOn: .main,
-            executing: changesBlock,
-            failing: { (error: Error) in },
-            options: DataProviderObserverOptions(alwaysNotifyOnRefresh: true)
-        )
-
-        var refreshBalanceTimer = Timer()
-        refreshBalanceTimer.invalidate()
-        refreshBalanceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [refreshBalanceTimer] _ in
-            balanceProvider?.refresh()
-        }
-
-        let soraCard = SCard(
-            addressProvider: { SelectedWalletSettings.shared.currentAccount?.address ?? "" },
-            config: .test,
-            balanceStream: xorBalanceStream,
-            onSwapController: { [weak self] vc in
-                self?.showSwapController(in: vc)
-            }
-        )
-
-        SCard.shared = soraCard
-
-        LocalizationManager.shared.addObserver(with: soraCard) { [weak soraCard] (_, newLocalization) in
-            soraCard?.selectedLocalization = newLocalization
-        }
-
-        return soraCard
-    }
-
-    private func showSwapController(in vc: UIViewController) {
+    internal func showSwapController(in vc: UIViewController) {
         guard let swapController = createSwapController(presenter: vc) else { return }
         vc.present(swapController, animated: true)
     }

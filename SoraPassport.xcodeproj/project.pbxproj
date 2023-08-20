@@ -620,6 +620,7 @@
 		5ED216E0294888090052C740 /* runtime-polkadot.json in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216DC294888090052C740 /* runtime-polkadot.json */; };
 		5ED216E1294888090052C740 /* whitelist.json in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216DD294888090052C740 /* whitelist.json */; };
 		5ED216F22948892D0052C740 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216E22948892C0052C740 /* InfoPlist.strings */; };
+		5ED988AB2A8E96ED00EF81A3 /* WalletViewModel+SCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ED988AA2A8E96ED00EF81A3 /* WalletViewModel+SCard.swift */; };
 		605AA52F26FE601000E7FD12 /* NeumorphismButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605AA52E26FE600D00E7FD12 /* NeumorphismButton.swift */; };
 		605AA53126FE72DA00E7FD12 /* NeomorphismButton.xib in Resources */ = {isa = PBXBuildFile; fileRef = 605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */; };
 		60AAFDC9270EEEDB00916408 /* InconsistentStateMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */; };
@@ -1982,6 +1983,7 @@
 		5ED216EF2948892D0052C740 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		5ED216F02948892D0052C740 /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = ca.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5ED216F12948892D0052C740 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		5ED988AA2A8E96ED00EF81A3 /* WalletViewModel+SCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletViewModel+SCard.swift"; sourceTree = "<group>"; };
 		605AA52E26FE600D00E7FD12 /* NeumorphismButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeumorphismButton.swift; sourceTree = "<group>"; };
 		605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = NeomorphismButton.xib; sourceTree = "<group>"; };
 		60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InconsistentStateMigrator.swift; sourceTree = "<group>"; };
@@ -4516,6 +4518,7 @@
 				361EF59F29155DC000D0DCCF /* RedesignWalletViewFactory.swift */,
 				361EF5AA2917DCA500D0DCCF /* WalletItemFactory.swift */,
 				36ADDDAA28EC83D40080A41C /* WalletViewModel.swift */,
+				5ED988AA2A8E96ED00EF81A3 /* WalletViewModel+SCard.swift */,
 				361EF59D29155C2600D0DCCF /* RedesignWalletWireframe.swift */,
 				368E9A252A84806900BDE0AA /* SCardConfig.swift */,
 			);
@@ -7232,6 +7235,7 @@
 				9441F9FC25C9823800775559 /* JSONRPCEngine.swift in Sources */,
 				94D4B66028C0AC37007F98EB /* StorageMigrator.swift in Sources */,
 				847435EA22DCC359002B1BDC /* BearerTokenRequestModifier.swift in Sources */,
+				5ED988AB2A8E96ED00EF81A3 /* WalletViewModel+SCard.swift in Sources */,
 				84324B9A240E4CA000CA339A /* Result+Type.swift in Sources */,
 				B2A56F082A6FD64200844A35 /* YourReferrerViewController.swift in Sources */,
 				3628601E291F97510000A561 /* OptionsView.swift in Sources */,
