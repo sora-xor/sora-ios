@@ -6,10 +6,11 @@ import SoraFoundation
 extension RedesignWalletViewModel {
 
     internal func initSoraCard() -> SCard {
-        guard SCard.shared == nil else { return SCard.shared! }
-
-        poolService.appendDelegate(delegate: self)
-
+        guard SCard.shared == nil else {
+            startTotalBalanceStream()
+            SCard.shared?.updateBalance(stream: xorBalanceStream)
+            return SCard.shared!
+        }
         startTotalBalanceStream()
 
         let soraCard = SCard(
@@ -31,6 +32,7 @@ extension RedesignWalletViewModel {
     }
 
     private func startTotalBalanceStream() {
+        poolService.appendDelegate(delegate: self)
         let balanceProvider = try? providerFactory.createBalanceDataProvider(for: [.xor], onlyVisible: false)
         let changesBlock = { [weak self] (changes: [DataProviderChange<[BalanceData]>]) -> Void in
             guard let change = changes.first else { return }
