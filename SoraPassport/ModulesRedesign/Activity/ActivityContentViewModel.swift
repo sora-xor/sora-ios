@@ -11,7 +11,7 @@ struct ActivityContentViewModel {
     let typeTransactionImage: UIImage?
     let firstAssetImageViewModel: WalletImageViewModelProtocol?
     let secondAssetImageViewModel: WalletImageViewModelProtocol?
-    let firstBalanceText: NSAttributedString
+    let firstBalanceText: SoramitsuAttributedText
     let fiatText: String
     let status: TransactionBase.Status
     let isNeedTwoImage: Bool
@@ -22,7 +22,7 @@ struct ActivityContentViewModel {
          typeTransactionImage: UIImage?,
          firstAssetImageViewModel: WalletImageViewModelProtocol?,
          secondAssetImageViewModel: WalletImageViewModelProtocol? = nil,
-         firstBalanceText: NSAttributedString,
+         firstBalanceText: SoramitsuAttributedText,
          fiatText: String,
          status: TransactionBase.Status,
          isNeedTwoImage: Bool = false) {

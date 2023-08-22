@@ -14,7 +14,6 @@ final class ActivityCell: SoramitsuTableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupView()
         setupConstraints()
-        SoramitsuUI.updates.addObserver(self)
     }
 
     @available(*, unavailable)
@@ -60,11 +59,3 @@ extension ActivityCell: SoramitsuTableViewCellProtocol {
         historyView.sora.statusImage = item.model.status.image
     }
 }
-
-extension ActivityCell: SoramitsuObserver {
-    func styleDidChange(options: UpdateOptions) {
-        guard let assetItem = assetItem else { return }
-        historyView.sora.upAmountText = assetItem.model.firstBalanceText
-    }
-}
-
