@@ -7,9 +7,9 @@ PODS:
   - AppAuth/ExternalUserAgent (1.6.2):
     - AppAuth/Core
   - BigInt (5.2.0)
-  - CocoaLumberjack (3.8.0):
-    - CocoaLumberjack/Core (= 3.8.0)
-  - CocoaLumberjack/Core (3.8.0)
+  - CocoaLumberjack (3.8.1):
+    - CocoaLumberjack/Core (= 3.8.1)
+  - CocoaLumberjack/Core (3.8.1)
   - CommonWallet/Core (1.16.0):
     - RobinHood (~> 2.6.1)
     - SoraFoundation/DateProcessing (~> 1.0.0)
@@ -269,7 +269,7 @@ PODS:
   - SoraUI/PinView (1.10.3):
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
-  - SoraUIKit (1.0.3)
+  - SoraUIKit (1.0.4)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
@@ -282,7 +282,7 @@ PODS:
     - TweetNacl (~> 1.0.0)
   - SSFModels (0.1.7):
     - IrohaCrypto
-  - SSFUtils (0.1.1):
+  - SSFUtils (0.1.13):
     - BigInt (~> 5.0)
     - IrohaCrypto/ed25519
     - IrohaCrypto/Scrypt
@@ -333,7 +333,7 @@ DEPENDENCIES:
   - SoraFoundation
   - SoraKeystore
   - SoraUI
-  - SoraUIKit (from `~/Desktop/sora-ios/SoraPassport/ios-ui`)
+  - SoraUIKit (from `https://github.com/soramitsu/ios-ui.git`, tag `1.0.4`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
@@ -416,7 +416,8 @@ EXTERNAL SOURCES:
     :git: https://github.com/sora-xor/sora-card-ios
     :tag: 1.0.0
   SoraUIKit:
-    :path: "~/Desktop/sora-ios/SoraPassport/ios-ui"
+    :git: https://github.com/soramitsu/ios-ui.git
+    :tag: 1.0.4
   Starscream:
     :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -441,6 +442,9 @@ CHECKOUT OPTIONS:
   SCard:
     :git: https://github.com/sora-xor/sora-card-ios
     :tag: 1.0.0
+  SoraUIKit:
+    :git: https://github.com/soramitsu/ios-ui.git
+    :tag: 1.0.4
   Starscream:
     :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -452,7 +456,7 @@ SPEC CHECKSUMS:
   Anchorage: 1961bc81c84aeed54ad7ffc697c50cd9de748ba6
   AppAuth: 3bb1d1cd9340bd09f5ed189fb00b1cc28e1e8570
   BigInt: f668a80089607f521586bbe29513d708491ef2f7
-  CocoaLumberjack: 78abfb691154e2a9df8ded4350d504ee19d90732
+  CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
   CommonWallet: 3c67d5fd85593a20f6b55777c2660ff886fc4148
   Cuckoo: 1b6793fe60fac29af50b0a5915bc309a4a1ac673
   eIDRTC: debca63e4c367be509c77292df65b9527d695f10
@@ -497,11 +501,11 @@ SPEC CHECKSUMS:
   SoraFoundation: 988d90ee3159311b02e42aeba0cf7e85d8bc724c
   SoraKeystore: 92cff6e2a12f212dd64ed089970ff7c365247b1c
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
-  SoraUIKit: 2156cae4af9a34314e1f5c5277eed10bf8411b66
+  SoraUIKit: d46da32cd6bd9d5706b6a3cede4a89a36663c329
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
   SSFCloudStorage: 5e7dc925f82ad67d5b44a34a825f30f62dfbd190
   SSFModels: da1c95db87aabbecbcbe3b1cb795973745b6cc3a
-  SSFUtils: f6422d909cb57a85cd5784b3f399aead69b26a6b
+  SSFUtils: 8fd131123804c122c031763a8436d45e1ac373c2
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5
@@ -512,6 +516,6 @@ SPEC CHECKSUMS:
   XNetworking: cda32e6337d2a18edfdb1a39a2e65aa4a1993280
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 1f3ed35b36bad2c278b0d126029a436d5039280c
+PODFILE CHECKSUM: 33c884b4092aef85d21b748285c7be9be071b20b
 
 COCOAPODS: 1.12.1
