@@ -446,7 +446,6 @@
 		368E73262A44BBA0001B7BAF /* WarningViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E73252A44BBA0001B7BAF /* WarningViewModelFactory.swift */; };
 		368E73282A44C587001B7BAF /* Warningable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E73272A44C587001B7BAF /* Warningable.swift */; };
 		368E9A262A84806900BDE0AA /* SCardConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E9A252A84806900BDE0AA /* SCardConfig.swift */; };
-		368E9A282A8484E600BDE0AA /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E9A272A8484E600BDE0AA /* CIKeys.generated.swift */; };
 		3692D69A2910719200B8B274 /* ActivityViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3692D6982910719200B8B274 /* ActivityViewController.swift */; };
 		3692D69B2910719200B8B274 /* ActivityViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3692D6992910719200B8B274 /* ActivityViewModel.swift */; };
 		3692D69E2910725200B8B274 /* ActivityCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3692D69C2910725200B8B274 /* ActivityCell.swift */; };
@@ -628,6 +627,7 @@
 		60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC6270EEEDB00916408 /* Migrating.swift */; };
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
+		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -1190,11 +1190,14 @@
 		94D4B66C28C75F55007F98EB /* StorageRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D4B66B28C75F55007F98EB /* StorageRequest.swift */; };
 		94DA85AA270F0B6000CBC15E /* soraSplash.json in Resources */ = {isa = PBXBuildFile; fileRef = 94DA85A9270F0B5F00CBC15E /* soraSplash.json */; };
 		94F68B11277473CB00226F20 /* UISearchBar+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F68B10277473CB00226F20 /* UISearchBar+Style.swift */; };
+		99808DE038069106BEBF4ECD /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */; };
 		A1B644C63C38805297450DC7 /* FriendsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D10B6F46781199B35B755C /* FriendsWireframe.swift */; };
 		A849A67F47A83F55BFA8124E /* ProjectsInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */; };
 		A956CB6AB9B7A48A05C6C7FD /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 300386922C53F7337B2F3ED4 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */; };
 		A9A0F171348707CF04DAFE37 /* AccountOptionsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */; };
 		AD7EAB4CC39BA3CBD8892075 /* AccountOptionsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */; };
+		B267AA9E2A7A2F7200EF9CF0 /* EditViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */; };
+		B267AA9F2A7A2F7200EF9CF0 /* EditViewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */; };
 		B27FFC3F2A52A53B006D4C19 /* FriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */; };
 		B27FFC432A52A569006D4C19 /* FriendsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC412A52A568006D4C19 /* FriendsCell.swift */; };
 		B27FFC442A52A569006D4C19 /* FriendsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC422A52A568006D4C19 /* FriendsItem.swift */; };
@@ -1209,6 +1212,16 @@
 		B2A56F0A2A6FD69E00844A35 /* YourReferrerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */; };
 		B2A56F0C2A6FD6B100844A35 /* YourReferrerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */; };
 		B2A56F0E2A6FD8FD00844A35 /* YourReferrerPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */; };
+		B2CD5DAB2A7A5A1800B16F8A /* EditViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */; };
+		B2CD5DAC2A7A5A1800B16F8A /* EditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */; };
+		B2CD5DAE2A7A5A1800B16F8A /* EnabledView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */; };
+		B2CD5DAF2A7A5A1800B16F8A /* EnabledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA72A7A5A1800B16F8A /* EnabledCell.swift */; };
+		B2CD5DB02A7A5A1800B16F8A /* EnabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */; };
+		B2CD5DB12A7A5A1800B16F8A /* EnabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */; };
+		B2CD5DB22A7A5A1800B16F8A /* EditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */; };
+		B2E133802A863BD9008A46E0 /* EnabledSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */; };
+		B2E133822A863DA1008A46E0 /* EditViewProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */; };
+		B2FEEA9A2A8A3E030014EC32 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
@@ -1419,6 +1432,7 @@
 		05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractorTests.swift; sourceTree = "<group>"; };
 		073C61FAE6089EB0342B1C6B /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.test.xcconfig"; sourceTree = "<group>"; };
 		0BC14252909B919A70DA9DB9 /* MainTabBarPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarPresenter.swift; sourceTree = "<group>"; };
+		0DA0ECA40629F7CA55AD1089 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; sourceTree = "<group>"; };
 		103CCD1825643D670028345D /* PullUpController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PullUpController.swift; sourceTree = "<group>"; };
 		104BD29E25694381007719DF /* Localizable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localizable.swift; sourceTree = "<group>"; };
 		105599102536D7A400A6E891 /* LinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkView.swift; sourceTree = "<group>"; };
@@ -1435,9 +1449,12 @@
 		1C39A0F563B3CAC78C4D9887 /* ChangeAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChangeAccountTests.swift; sourceTree = "<group>"; };
 		1E63E158B2BCF3F593C709A9 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; sourceTree = "<group>"; };
 		229C8B5EC9E3EAD365ACBB9F /* AccountOptionsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsPresenter.swift; sourceTree = "<group>"; };
+		25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		265097D4636C933C8E8FEBAB /* MainTabBarProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarProtocol.swift; sourceTree = "<group>"; };
 		2C421992CF81E68B180FF624 /* ParliamentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParliamentTests.swift; sourceTree = "<group>"; };
 		300386922C53F7337B2F3ED4 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassportIntegrationTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		2DD86E01FAAC842DDA29EC33 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; sourceTree = "<group>"; };
+		2E67161D1A40D3F1994BC8EA /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.test.xcconfig"; sourceTree = "<group>"; };
 		3213A3082237DAB4001BE041 /* VerificationCodeData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerificationCodeData.swift; sourceTree = "<group>"; };
 		3213A30A2237ED04001BE041 /* sendSmsCodeSuccessResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sendSmsCodeSuccessResponse.json; sourceTree = "<group>"; };
 		3213A30C2237ED5E001BE041 /* sendSmsCodeTooFreqResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sendSmsCodeTooFreqResponse.json; sourceTree = "<group>"; };
@@ -1748,7 +1765,6 @@
 		368E73252A44BBA0001B7BAF /* WarningViewModelFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarningViewModelFactory.swift; sourceTree = "<group>"; };
 		368E73272A44C587001B7BAF /* Warningable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Warningable.swift; sourceTree = "<group>"; };
 		368E9A252A84806900BDE0AA /* SCardConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCardConfig.swift; sourceTree = "<group>"; };
-		368E9A272A8484E600BDE0AA /* CIKeys.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CIKeys.generated.swift; sourceTree = "<group>"; };
 		3692D6982910719200B8B274 /* ActivityViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityViewController.swift; sourceTree = "<group>"; };
 		3692D6992910719200B8B274 /* ActivityViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityViewModel.swift; sourceTree = "<group>"; };
 		3692D69C2910725200B8B274 /* ActivityCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityCell.swift; sourceTree = "<group>"; };
@@ -1969,6 +1985,8 @@
 		6CD48707B756D7A8ACFF3ACA /* AccountOptionsViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewController.swift; sourceTree = "<group>"; };
 		75E5CD169C4F347C4786F149 /* ReferendumDetailsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReferendumDetailsTests.swift; sourceTree = "<group>"; };
 		7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiquiditySlider.swift; sourceTree = "<group>"; };
+		7ABCF88DBE61FD88E48103D4 /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"; sourceTree = "<group>"; };
+		7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
 		81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsProtocols.swift; sourceTree = "<group>"; };
 		8395E8B9DD9D6094959E8015 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; sourceTree = "<group>"; };
 		84014FA82243C1FB00C35EFD /* BaseService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BaseService.swift; sourceTree = "<group>"; };
@@ -2535,6 +2553,8 @@
 		A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractor.swift; sourceTree = "<group>"; };
 		AAF25B28B4EE1D363A0BB3DA /* Pods-SoraPassportTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.test.xcconfig"; sourceTree = "<group>"; };
 		AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutTests.swift; sourceTree = "<group>"; };
+		B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewCell.swift; sourceTree = "<group>"; };
+		B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItem.swift; sourceTree = "<group>"; };
 		B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsViewController.swift; sourceTree = "<group>"; };
 		B27FFC412A52A568006D4C19 /* FriendsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsCell.swift; sourceTree = "<group>"; };
 		B27FFC422A52A568006D4C19 /* FriendsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsItem.swift; sourceTree = "<group>"; };
@@ -2552,9 +2572,23 @@
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
 		C0C10EB55D16CB115B3D93C4 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
 		C20CB6B4D30F4B72F9466C1F /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewFactory.swift; sourceTree = "<group>"; };
+		B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewController.swift; sourceTree = "<group>"; };
+		B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledView.swift; sourceTree = "<group>"; };
+		B2CD5DA72A7A5A1800B16F8A /* EnabledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledCell.swift; sourceTree = "<group>"; };
+		B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledItem.swift; sourceTree = "<group>"; };
+		B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledViewModel.swift; sourceTree = "<group>"; };
+		B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewModel.swift; sourceTree = "<group>"; };
+		B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnabledSection.swift; sourceTree = "<group>"; };
+		B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditViewProtocol.swift; sourceTree = "<group>"; };
+		B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CIKeys.generated.swift; sourceTree = "<group>"; };
+		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
+		B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
 		C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsInteractor.swift; sourceTree = "<group>"; };
+		C4CDE6F4986EE7F06E47B45C /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProjectsInteractorTests.swift; sourceTree = "<group>"; };
 		C8CF8F75346DCF40D86E40C3 /* Pods_SoraPassportAll_SoraPassport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		D11E48E33D98B9B90C325913 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
 		D2B8D00970071364A04264BD /* FriendsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsPresenter.swift; sourceTree = "<group>"; };
 		D33EF8BCD18E14EFC5AE7F68 /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
 		D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileInteractorTests.swift; sourceTree = "<group>"; };
@@ -2598,6 +2632,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				BFBA8C6E6156C8D490C42EAE /* Pods_SoraPassportUITests.framework in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
+				99808DE038069106BEBF4ECD /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2939,7 +2975,7 @@
 		02623EB72178C0910011250E /* SoraPassport */ = {
 			isa = PBXGroup;
 			children = (
-				368E9A272A8484E600BDE0AA /* CIKeys.generated.swift */,
+				B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */,
 				3632D0F22A1E805D00C9B688 /* CIKeys.stencil */,
 				5ED216A6294886A90052C740 /* SoraLocalizable */,
 				945A573125DE81E7003E4023 /* Resources */,
@@ -4481,6 +4517,7 @@
 		36ADDDA728EC7F790080A41C /* Wallet */ = {
 			isa = PBXGroup;
 			children = (
+				B267AA9B2A7A2F7100EF9CF0 /* EditView */,
 				B27FFC402A52A568006D4C19 /* Friends */,
 				364BA322293FC0170099CB0D /* Acccount */,
 				361EF5A92917DC3700D0DCCF /* Pools */,
@@ -5255,6 +5292,7 @@
 				5599B6D2292570F400567396 /* SettingsInformation */,
 				5599B6DB292648D200567396 /* ProfileLogin */,
 				36ADDDA728EC7F790080A41C /* Wallet */,
+				B2CD5DA12A7A5A1800B16F8A /* EditView */,
 				36DB197429EDC5CA00B3E3BF /* AccountCreate */,
 				026AEA3021AAFEB2002EEB67 /* LoadingView */,
 				52E1E17FC55868B10AD106EE /* NetworkAvailabilityLayer */,
@@ -5936,6 +5974,15 @@
 			path = ActivityFeed;
 			sourceTree = "<group>";
 		};
+		B267AA9B2A7A2F7100EF9CF0 /* EditView */ = {
+			isa = PBXGroup;
+			children = (
+				B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */,
+				B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */,
+			);
+			path = EditView;
+			sourceTree = "<group>";
+		};
 		B27FFC402A52A568006D4C19 /* Friends */ = {
 			isa = PBXGroup;
 			children = (
@@ -5975,6 +6022,30 @@
 			path = Referrers;
 			sourceTree = "<group>";
 		};
+		B2CD5DA12A7A5A1800B16F8A /* EditView */ = {
+			isa = PBXGroup;
+			children = (
+				B2CD5DA52A7A5A1800B16F8A /* Enabled */,
+				B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */,
+				B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */,
+				B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */,
+				B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */,
+			);
+			path = EditView;
+			sourceTree = "<group>";
+		};
+		B2CD5DA52A7A5A1800B16F8A /* Enabled */ = {
+			isa = PBXGroup;
+			children = (
+				B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */,
+				B2CD5DA72A7A5A1800B16F8A /* EnabledCell.swift */,
+				B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */,
+				B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */,
+				B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */,
+			);
+			path = Enabled;
+			sourceTree = "<group>";
+		};
 		B8A4AE2318F935BBA3F481A0 /* ChangeAccount */ = {
 			isa = PBXGroup;
 			children = (
@@ -6006,8 +6077,40 @@
 				EDB737CE7FD0995EF3D0F1FA /* Pods-SoraPassportUITests.test.xcconfig */,
 				FDF1508ECA81A986E437C33D /* Pods-SoraPassportUITests.staging.xcconfig */,
 				D82A07B50D8F6707A7CD3F2D /* Pods-SoraPassportUITests.dev.xcconfig */,
+				7ABCF88DBE61FD88E48103D4 /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */,
+				0DA0ECA40629F7CA55AD1089 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */,
+				42F1D7FB57E18E5CEEB50EB4 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */,
+				52A0531941BAD4567563ED11 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */,
+				5480710B4EDAE96792F6E63B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */,
+				3994993D9A9FDFA1BCD456CA /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */,
+				0AAACFAEC553DD983F68F351 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */,
+				2DD86E01FAAC842DDA29EC33 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */,
+				5B9DE3992391EBEABC440A0A /* Pods-SoraPassportTests.debug.xcconfig */,
+				F44B22ABF888DE6084844F07 /* Pods-SoraPassportTests.release.xcconfig */,
+				58436442E3EA19431F89166A /* Pods-SoraPassportTests.test.xcconfig */,
+				4A6AD45445BF6A65A89A470D /* Pods-SoraPassportTests.dev.xcconfig */,
+				26FD8C603CFBB4BB770BCA1E /* Pods-SoraPassportUITests.debug.xcconfig */,
+				62A07E4DA24D393F23333105 /* Pods-SoraPassportUITests.release.xcconfig */,
+				54B86954738F4BFAA0968E63 /* Pods-SoraPassportUITests.staging.xcconfig */,
+				EF2DB96FDB521BA3E06ECED3 /* Pods-SoraPassportUITests.dev.xcconfig */,
+				D11E48E33D98B9B90C325913 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */,
+				2E67161D1A40D3F1994BC8EA /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */,
+				B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */,
+				7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		CFD78B7B71D0E3785DEE5245 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				576509BB75DC43579DF6AD79 /* Pods_SoraPassportAll_SoraPassport.framework */,
+				287C7BC35117BCB72B327424 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
+				3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */,
+				25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */,
+				C4CDE6F4986EE7F06E47B45C /* Pods_SoraPassportUITests.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		D0C1FE5C90B97BF44622D035 /* MainTabBar */ = {
@@ -6083,7 +6186,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EE32178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassportUITests" */;
 			buildPhases = (
-				42328AA4ABADFD7F9BB54F1D /* [CP] Check Pods Manifest.lock */,
+				F07F30B29C5D6C9A5E08F051 /* [CP] Check Pods Manifest.lock */,
 				02623ED02178C0930011250E /* Sources */,
 				02623ED12178C0930011250E /* Frameworks */,
 				02623ED22178C0930011250E /* Resources */,
@@ -6761,7 +6864,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		E3A391127CCEEF6BE938BDBF /* [CP] Check Pods Manifest.lock */ = {
+		F07F30B29C5D6C9A5E08F051 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6897,7 +7000,6 @@
 				9481B4A628746FFB00A472E2 /* Logger+FearlessUtils.swift in Sources */,
 				94B3010426FDF41D00F239D7 /* PriceData.swift in Sources */,
 				B2A56EFD2A5E955E00844A35 /* FeeView.swift in Sources */,
-				368E9A282A8484E600BDE0AA /* CIKeys.generated.swift in Sources */,
 				02E319A221D2B16A00B33B66 /* DecentralizedDocumentRequestError+TextConvertible.swift in Sources */,
 				94497DDE25EF89A700FD4F14 /* ActiveEraInfo.swift in Sources */,
 				84E8DEAD225B6B1700640754 /* CacheFacade.swift in Sources */,
@@ -6915,6 +7017,7 @@
 				362F49C22A37580E00163091 /* EnterPasswordSection.swift in Sources */,
 				5E587ED327F62D9100CA71A6 /* PolkaswapMainProtocols.swift in Sources */,
 				3653BD172A029D5A003C71A4 /* GenerateQRItem.swift in Sources */,
+				B267AA9E2A7A2F7200EF9CF0 /* EditViewCell.swift in Sources */,
 				3645269528C1286E00260340 /* NodesPresenter.swift in Sources */,
 				945A576B25DE8701003E4023 /* TimeInterval+Time.swift in Sources */,
 				0292035E219B188900D9BACD /* InvitedUserData.swift in Sources */,
@@ -6975,6 +7078,7 @@
 				94B3008626FC97A500F239D7 /* SubqueryHistoryOperationFactory+Wallet.swift in Sources */,
 				945A571B25DE7F63003E4023 /* RuntimeRegistryFacade.swift in Sources */,
 				9481B47C286EFC4600A472E2 /* RuntimeCodingService.swift in Sources */,
+				B2CD5DB02A7A5A1800B16F8A /* EnabledItem.swift in Sources */,
 				3666CBD2290593FF0098F4AC /* TransferableItem.swift in Sources */,
 				3653BD0C2A028CE5003C71A4 /* QRFrameView.swift in Sources */,
 				84639D1E22CB33A7009D847C /* SupportedVersionData.swift in Sources */,
@@ -6994,6 +7098,7 @@
 				36DB198829EDC5CB00B3E3BF /* AccountCreateProtocols.swift in Sources */,
 				94497EFE25F0F87200FD4F14 /* StorageRequestFactory.swift in Sources */,
 				0253FD022217324A00D3AD49 /* UpdateCustomerMock.swift in Sources */,
+				B2CD5DAF2A7A5A1800B16F8A /* EnabledCell.swift in Sources */,
 				361EF5962915229A00D0DCCF /* Amount.swift in Sources */,
 				364D61C029929AE0004938FA /* AppEventService.swift in Sources */,
 				363425072871D51900ACE775 /* AssetTransactionStatusHelper.swift in Sources */,
@@ -7039,6 +7144,7 @@
 				847527412362DE9F0028D871 /* DeviceInfo.swift in Sources */,
 				368E73222A448506001B7BAF /* WarningView.swift in Sources */,
 				847A17BA23796348003BA71A /* AlertInputFieldPresenter.swift in Sources */,
+				B2CD5DAE2A7A5A1800B16F8A /* EnabledView.swift in Sources */,
 				366A77F52A30DC6800A6DDF9 /* BackupedAccountItem.swift in Sources */,
 				029879262181E38C0085E605 /* ProjectData.swift in Sources */,
 				84AA44B3249FF49A00C09E0F /* DateFormatter+Wallet.swift in Sources */,
@@ -7152,6 +7258,7 @@
 				9441F8FB25C9699400775559 /* AccountImportSource.swift in Sources */,
 				0298791B2181AF4D0085E605 /* String+Path.swift in Sources */,
 				02623EEB2179AD440011250E /* RootPresenter.swift in Sources */,
+				B2CD5DB12A7A5A1800B16F8A /* EnabledViewModel.swift in Sources */,
 				3635B7162933E99500B2B728 /* ChoiceMarketViewController.swift in Sources */,
 				362DAD8D29F53283005562B0 /* PinViewFactory.swift in Sources */,
 				364D61CE2993DAA5004938FA /* BalanceDetailsViewController.swift in Sources */,
@@ -7336,7 +7443,9 @@
 				36356B3129184DB200CD3E9E /* PoolsService.swift in Sources */,
 				84EF3A89232A25530012421F /* DeepLinkNavigation.swift in Sources */,
 				36527D8E29B7341A006D2042 /* NewTransactionCreatedEvent.swift in Sources */,
+				B2CD5DAC2A7A5A1800B16F8A /* EditViewController.swift in Sources */,
 				9441F9F125C9823800775559 /* JSONRPCData.swift in Sources */,
+				B2E133802A863BD9008A46E0 /* EnabledSection.swift in Sources */,
 				36110B952953B56400712BEB /* ScanQRViewFactory.swift in Sources */,
 				36E5DB7B28CC8CF000AB8E28 /* CustomNodeViewController.swift in Sources */,
 				02D4684B219092CD00F9D3D0 /* ProjectsRegisterMock.swift in Sources */,
@@ -7351,6 +7460,7 @@
 				94D4B66828C0C485007F98EB /* RuntimeHotBootSnapshotFactory.swift in Sources */,
 				362F49BC2A37224200163091 /* AccountImportedSection.swift in Sources */,
 				36286019291F935C0000A561 /* InputAssetsView.swift in Sources */,
+				B2CD5DAB2A7A5A1800B16F8A /* EditViewFactory.swift in Sources */,
 				8BF4286C293E5AAC00590F92 /* LanguageProtocol.swift in Sources */,
 				8409323323413C1F0013C871 /* EventVisitor.swift in Sources */,
 				84F0100322C60A8D001927A1 /* CountryFetchMock.swift in Sources */,
@@ -7360,6 +7470,7 @@
 				9441F95425C9707200775559 /* AccountOperationFactoryError+Presentable.swift in Sources */,
 				8BF42874293E5DB100590F92 /* LanguageModel.swift in Sources */,
 				36DB198529EDC5CB00B3E3BF /* AccountCreateInteractor.swift in Sources */,
+				B2FEEA9A2A8A3E030014EC32 /* CIKeys.generated.swift in Sources */,
 				9441FA6725CAB08700775559 /* ContactsLocalSearchEngine.swift in Sources */,
 				363BDAFF2938CCF6000F5608 /* HeaderActivityDetailsCell.swift in Sources */,
 				366A782B2A31FE3700A6DDF9 /* AccountImportedWireframe.swift in Sources */,
@@ -7666,6 +7777,7 @@
 				3251E25BDDD56FE82BA9A4A4 /* MainTabBarViewFactory.swift in Sources */,
 				028547EF220B614300A40F41 /* ProjectDetailsData.swift in Sources */,
 				36E5DB7A28CC8CF000AB8E28 /* CustomNodeProtocols.swift in Sources */,
+				B2CD5DB22A7A5A1800B16F8A /* EditViewModel.swift in Sources */,
 				36F94EDE291E561E00E211FE /* PoolDetailFactory.swift in Sources */,
 				843D543E24FC52E4000E0DE1 /* ReferendumsVotedFetchMock.swift in Sources */,
 				36C3708F2822960E0027BA77 /* ButtonViewModel.swift in Sources */,
@@ -7792,6 +7904,7 @@
 				9441F9CA25C9815E00775559 /* CDTransactionHistoryItem+CoreDataDecodable.swift in Sources */,
 				36B7D612295C941B00ECBBF6 /* FiatService.swift in Sources */,
 				94497E9925EFDBA400FD4F14 /* InMemoryDataProviderRepository.swift in Sources */,
+				B267AA9F2A7A2F7200EF9CF0 /* EditViewItem.swift in Sources */,
 				3688A43D280F591900C1D16F /* SourceType.swift in Sources */,
 				366A78282A31FE3700A6DDF9 /* AccountImportedViewController.swift in Sources */,
 				9441FBF025CC035700775559 /* AccountInfoSubscription.swift in Sources */,
@@ -7814,6 +7927,7 @@
 				36DB198429EDC5CB00B3E3BF /* AccountCreateWireframe.swift in Sources */,
 				949B457826288BF50081BB37 /* CallCodingPath.swift in Sources */,
 				3645269C28C146B000260340 /* NodesResponse.swift in Sources */,
+				B2E133822A863DA1008A46E0 /* EditViewProtocol.swift in Sources */,
 				5C0A80D5F523B98303F50FEC /* NetworkAvailabilityLayerProtocols.swift in Sources */,
 				364D61C629929D3A004938FA /* Constaints.swift in Sources */,
 				3621B45429E5523D007C5156 /* LPFeeService.swift in Sources */,
@@ -8214,7 +8328,7 @@
 		};
 		0220858521B6C4FD00A5BC4C /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EDB737CE7FD0995EF3D0F1FA /* Pods-SoraPassportUITests.test.xcconfig */;
+			baseConfigurationReference = 7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -8858,7 +8972,7 @@
 		};
 		84476204224BA293009ADC0E /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F63CCC90DC6F096C3DE60E48 /* Pods-SoraPassportTests.staging.xcconfig */;
+			baseConfigurationReference = B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";

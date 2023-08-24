@@ -95,8 +95,8 @@ extension ConfirmSupplyLiquidityViewModel {
                                                   operationImageName: "roundPlus")
         items.append(confirmAssetsItem)
         items.append(SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)))
-        
-        let text = R.string.localizable.polkaswapOutputEstimated("\(slippageTolerance)%", preferredLanguages: .currentLocale)
+
+        let text = R.string.localizable.addLiquidityPoolShareDescription("\(slippageTolerance)", preferredLanguages: .currentLocale)
         let textItem = SoramitsuTextItem(text: text, fontData: FontType.paragraphS, textColor: .fgPrimary, alignment: .center)
         let slippageTextItem = SoraTextItem(text: textItem.attributedString)
         items.append(slippageTextItem)

@@ -4,6 +4,8 @@ protocol AccountOptionsViewProtocol: ControllerBackedProtocol, AlertPresentable 
     func didReceive(username: String)
     func didReceive(address: String)
     func setupOptions(with backUpState: BackupState, hasEntropy: Bool)
+    func showLoading()
+    func hideLoading()
 }
 
 protocol AccountOptionsPresenterProtocol: AnyObject {

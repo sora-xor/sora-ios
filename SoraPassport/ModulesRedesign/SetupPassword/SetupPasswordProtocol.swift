@@ -7,6 +7,8 @@ typealias SetupPasswordSnapshot = NSDiffableDataSourceSnapshot<SetupPasswordSect
 
 protocol SetupPasswordViewProtocol: ControllerBackedProtocol, AlertPresentable {
     var viewModel: SetupPasswordPresenterProtocol? { get set }
+    func showLoading()
+    func hideLoading()
 }
 
 protocol SetupPasswordPresenterProtocol: AnyObject {

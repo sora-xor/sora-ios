@@ -71,6 +71,12 @@ final class AccountOptionsViewController: SoramitsuViewController {
             }
         }
     }()
+    
+    private let loadingView: SoramitsuLoadingView = {
+        let view = SoramitsuLoadingView()
+        view.isHidden = true
+        return view
+    }()
 
     private let optionsCard: Card  = {
         Card().then {
@@ -116,6 +122,7 @@ final class AccountOptionsViewController: SoramitsuViewController {
         scrollView.addSubview(stackView)
         
         view.addSubviews(scrollView)
+        view.addSubview(loadingView)
                 
         NSLayoutConstraint.activate([
             stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
@@ -128,6 +135,11 @@ final class AccountOptionsViewController: SoramitsuViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            
+            loadingView.widthAnchor.constraint(equalTo: view.widthAnchor),
+            loadingView.heightAnchor.constraint(equalTo: view.heightAnchor),
+            loadingView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
         
         stackView.addArrangedSubviews(usernameField, addressView, optionsCard, logoutButton)
@@ -250,6 +262,14 @@ extension AccountOptionsViewController: AccountOptionsViewProtocol {
         ])
 
         optionsCard.stackContents = options
+    }
+
+    func showLoading() {
+        loadingView.isHidden = false
+    }
+
+    func hideLoading() {
+        loadingView.isHidden = true
     }
 }
 

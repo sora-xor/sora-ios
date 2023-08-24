@@ -30,6 +30,7 @@ final class AccountMenuItemView: SoramitsuView {
             $0.setImage(R.image.iconMenuInfo(), for: .normal)
             $0.addTarget(self, action: #selector(onMoreTap), for: .touchUpInside)
             $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.contentEdgeInsets = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
         }
     }()
 
@@ -68,7 +69,7 @@ final class AccountMenuItemView: SoramitsuView {
         moreButton.do {
             $0.centerYAnchor == centerYAnchor
             $0.trailingAnchor == trailingAnchor - 4
-            $0.sizeAnchors == CGSize(width: 24, height: 24)
+            $0.sizeAnchors == CGSize(width: 44, height: 44)
         }
         
         sora.backgroundColor = .custom(uiColor: .clear)
