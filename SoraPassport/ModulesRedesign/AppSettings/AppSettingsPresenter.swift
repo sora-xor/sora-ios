@@ -20,6 +20,7 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
         var sections: [SoramitsuTableViewSection] = []
         
         sections.append(languageSection())
+        sections.append(appearanceSection())
         
         return AppSettingsModel(title: R.string.localizable.settingsHeaderApp(preferredLanguages: languages),
                                 sections: sections)

@@ -39,6 +39,8 @@ extension ActivityCell: SoramitsuTableViewCellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
+        
+        assetItem = item
 
         item.model.firstAssetImageViewModel?.loadImage { [weak self] (icon, _) in
             self?.historyView.sora.firstHistoryTransactionImage  = icon
@@ -57,4 +59,3 @@ extension ActivityCell: SoramitsuTableViewCellProtocol {
         historyView.sora.statusImage = item.model.status.image
     }
 }
-

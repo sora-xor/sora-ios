@@ -23,6 +23,7 @@ final class MainTabBarViewController: UITabBarController {
         tabBar.middleButtonTitleLabel.sora.text = R.string.localizable.polkaswapSwapTitle(preferredLanguages: .currentLocale)
         setValue(tabBar, forKey: "tabBar")
         
+        SoramitsuUI.updates.addObserver(self)
         configureTabBar()
     }
 
@@ -36,34 +37,35 @@ final class MainTabBarViewController: UITabBarController {
     }
 
     private func configureTabBar() {
-        tabBar.tintColor = R.color.neumorphism.tint()
-
+        let palette = SoramitsuUI.shared.theme.palette
+        tabBar.tintColor = palette.color(.accentPrimary)
+        
         if #available(iOS 13.0, *) {
             let appearance = UITabBarAppearance()
-
-            appearance.backgroundImage = UIImage.background(from: R.color.neumorphism.base()!)
-            appearance.shadowImage = UIImage.background(from: R.color.neumorphism.separator()!)
-
-            let normalAttributes = [NSAttributedString.Key.foregroundColor: R.color.neumorphism.brown()!,
+            
+            let normalAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.fgSecondary),
                                     NSAttributedString.Key.font: FontType.textBoldXS.font]
-            let selectedAttributes = [NSAttributedString.Key.foregroundColor: R.color.neumorphism.tint()!,
+            let selectedAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.accentPrimary),
                                       NSAttributedString.Key.font: FontType.textBoldXS.font]
-
+            
             appearance.stackedLayoutAppearance.normal.titleTextAttributes = normalAttributes
             appearance.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttributes
-
+            
             tabBar.standardAppearance = appearance
-
+            
             // fix transparent background on iOS 15+
             if #available(iOS 15.0, *) {
                 tabBar.setValue(tabBar.standardAppearance, forKey: "scrollEdgeAppearance")
                 //TODO: change this to more apropriate API
                 //tabBar.scrollEdgeAppearance = tabBar.standardAppearance
             }
-        } else {
-            tabBar.backgroundImage = UIImage.background(from: R.color.neumorphism.base()!)
-            tabBar.shadowImage = UIImage.background(from: R.color.neumorphism.separator()!)
         }
+    }
+}
+
+extension MainTabBarViewController: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        configureTabBar()
     }
 }
 

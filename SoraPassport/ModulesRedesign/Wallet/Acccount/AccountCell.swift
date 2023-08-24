@@ -24,8 +24,8 @@ final class AccountCell: SoramitsuTableViewCell {
         return view
     }()
     
-    private lazy var button: SoramitsuButton = {
-        let view = SoramitsuButton()
+    private lazy var button: SoramitsuControl = {
+        let view = SoramitsuControl()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.addHandler(for: .touchUpInside) { [weak self] in
@@ -35,13 +35,13 @@ final class AccountCell: SoramitsuTableViewCell {
         return view
     }()
     
-    private lazy var scanQrButton: SoramitsuButton = {
-        let view = SoramitsuButton()
+    private lazy var scanQrButton: ImageButton = {
+        let view = ImageButton(size: CGSize(width: 40, height: 40))
         view.translatesAutoresizingMaskIntoConstraints = false
         view.sora.tintColor = .accentTertiary
         view.sora.backgroundColor = .bgSurface
         view.sora.shadow = .small
-        view.sora.leftImage = R.image.wallet.qrScan()
+        view.sora.image = R.image.wallet.qrScan()
         view.sora.cornerRadius = .circle
         view.sora.clipsToBounds = false
         view.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -85,8 +85,6 @@ final class AccountCell: SoramitsuTableViewCell {
             button.topAnchor.constraint(equalTo: contentView.topAnchor),
             button.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 
-            scanQrButton.heightAnchor.constraint(equalToConstant: 40),
-            scanQrButton.widthAnchor.constraint(equalToConstant: 40),
             scanQrButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             scanQrButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             scanQrButton.topAnchor.constraint(equalTo: contentView.topAnchor),

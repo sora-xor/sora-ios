@@ -95,7 +95,10 @@ final class ReceiveQRView: SoramitsuView {
         let button = SoramitsuButton()
         button.sora.tintColor = .fgInverted
         button.sora.leftImage = R.image.wallet.send()
-        button.sora.title = R.string.localizable.commonShare(preferredLanguages: .currentLocale)
+        button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonShare(preferredLanguages: .currentLocale),
+                                                       fontData: FontType.buttonM,
+                                                       textColor: .bgSurface,
+                                                       alignment: .center)
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .accentSecondary
         button.sora.addHandler(for: .touchUpInside) { [weak self] in

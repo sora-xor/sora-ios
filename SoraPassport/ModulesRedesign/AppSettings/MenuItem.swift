@@ -41,7 +41,7 @@ class MenuItem: SoramitsuView {
 
     let switcher: UISwitch = {
         let switcher = UISwitch(frame: .zero)
-        switcher.onTintColor = .red //TODO: use color from Figma
+        switcher.onTintColor = SoramitsuUI.shared.theme.palette.color(.accentPrimary)
         return switcher
     }()
 
