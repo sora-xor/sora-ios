@@ -26,6 +26,7 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
     private let loadingView: SoramitsuLoadingView = {
         let view = SoramitsuLoadingView()
         view.isHidden = true
+        view.isUserInteractionEnabled = true
         return view
     }()
 

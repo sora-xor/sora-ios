@@ -80,6 +80,7 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
         view?.showLoading()
         interactor.signInToGoogleIfNeeded { [weak self] account in
             self?.view?.hideLoading()
+            guard let account else { return }
             self?.wireframe?.setupBackupAccountPassword(on: self?.view,
                                                         account: account,
                                                         completion: { [weak self] in
