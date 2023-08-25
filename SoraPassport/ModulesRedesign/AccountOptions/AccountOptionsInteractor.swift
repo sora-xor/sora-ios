@@ -113,9 +113,12 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
         }
     }
 
-    func signInToGoogleIfNeeded(completion: ((OpenBackupAccount) -> Void)?) {
+    func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?) {
         cloudStorageService.signInIfNeeded { [weak self] result in
-            guard result == .authorized, let self = self else { return }
+            guard result == .authorized, let self = self else {
+                completion?(nil)
+                return
+            }
             let metadata = self.getMetadata()
             let account = OpenBackupAccount(name: self.currentAccount.username,
                                             address: self.currentAccount.address,
