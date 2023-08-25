@@ -6,6 +6,7 @@ struct ReceiveQRViewModel {
     let address: String
     let qrImage: UIImage?
     var shareHandler: (() -> Void)?
+    var scanQRHandler: (() -> Void)?
     var accountTapHandler: (() -> Void)?
 }
 
@@ -106,6 +107,24 @@ final class ReceiveQRView: SoramitsuView {
         }
         return button
     }()
+    
+    private lazy var scanQrButton: SoramitsuButton = {
+        let text = SoramitsuTextItem(
+            text: R.string.localizable.commomScanQr(preferredLanguages: .currentLocale),
+            fontData: FontType.buttonM,
+            textColor: .accentSecondary,
+            alignment: .center
+        )
+        
+        let button = SoramitsuButton()
+        button.sora.attributedText = text
+        button.sora.cornerRadius = .circle
+        button.sora.backgroundColor = .bgSurface
+        button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.viewModel?.scanQRHandler?()
+        }
+        return button
+    }()
 
     
     override init(frame: CGRect = .zero) {
@@ -127,6 +146,7 @@ final class ReceiveQRView: SoramitsuView {
         addSubview(qrContainerView)
         addSubview(accountContainerView)
         addSubview(shareButton)
+        addSubview(scanQrButton)
     }
 
     private func setupConstrains() {
@@ -160,7 +180,12 @@ final class ReceiveQRView: SoramitsuView {
             shareButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             shareButton.centerXAnchor.constraint(equalTo: centerXAnchor),
             shareButton.heightAnchor.constraint(equalToConstant: 56),
-            shareButton.bottomAnchor.constraint(equalTo: bottomAnchor),
+            
+            scanQrButton.topAnchor.constraint(equalTo: shareButton.bottomAnchor, constant: 15),
+            scanQrButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
+            scanQrButton.centerXAnchor.constraint(equalTo: centerXAnchor),
+            scanQrButton.heightAnchor.constraint(equalToConstant: 56),
+            scanQrButton.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }
 }

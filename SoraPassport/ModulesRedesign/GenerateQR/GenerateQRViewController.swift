@@ -40,24 +40,6 @@ final class GenerateQRViewController: SoramitsuViewController {
         return view
     }()
 
-    private lazy var scanQrButton: SoramitsuButton = {
-        let text = SoramitsuTextItem(
-            text: R.string.localizable.commomScanQr(preferredLanguages: .currentLocale),
-            fontData: FontType.buttonM,
-            textColor: .accentSecondary,
-            alignment: .center
-        )
-        
-        let button = SoramitsuButton()
-        button.sora.attributedText = text
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .bgSurface
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.viewModel.scanQRCodeButtonTapped()
-        }
-        return button
-    }()
-
     var viewModel: GenerateQRViewModelProtocol
 
     init(viewModel: GenerateQRViewModelProtocol) {
@@ -99,7 +81,6 @@ final class GenerateQRViewController: SoramitsuViewController {
         viewModel.updateContent = { [weak self] mode in
             DispatchQueue.main.async {
                 self?.receiveView.isHidden = mode == .request
-                self?.scanQrButton.isHidden = mode == .request
                 self?.inputSendInfoView.isHidden = mode == .receive
                 
                 if mode == .receive {
@@ -130,7 +111,6 @@ final class GenerateQRViewController: SoramitsuViewController {
 
         view.addSubviews(scrollView)
         scrollView.addSubview(stackView)
-        view.addSubview(scanQrButton)
         
         stackView.addArrangedSubview(switcherView)
         stackView.addArrangedSubview(receiveView)
@@ -142,10 +122,6 @@ final class GenerateQRViewController: SoramitsuViewController {
         let scanQrButtonHeight: CGFloat = 56
         
         NSLayoutConstraint.activate([
-            scanQrButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            scanQrButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            scanQrButton.heightAnchor.constraint(equalToConstant: scanQrButtonHeight),
-            scanQrButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
             
             stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
