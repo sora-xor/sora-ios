@@ -671,9 +671,16 @@ extension SwapViewModel {
     }
     
     func updateWarningModel() {
-        let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
-        
-        var isDisclamerHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
+        guard let feeAsset = assetManager?.getAssetList()?.first(where: { $0.isFeeAsset }),
+              let feeAssetBalance = assetsProvider?.getBalances(with: [feeAsset.assetId]).first else { return }
+
+        var isDisclamerHidden = true
+
+        if feeAsset.assetId == firstAssetId {
+            isDisclamerHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
+        } else {
+            isDisclamerHidden = feeAssetBalance.balance.decimalValue - fee > fee
+        }
         
         if firstAssetId.isEmpty ||
             secondAssetId.isEmpty ||
@@ -684,7 +691,7 @@ extension SwapViewModel {
         }
 
         warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(
-            feeAssetSymbol: feeAssetSymbol,
+            feeAssetSymbol: feeAsset.symbol,
             feeAmount: fee,
             isHidden: isDisclamerHidden
         )
