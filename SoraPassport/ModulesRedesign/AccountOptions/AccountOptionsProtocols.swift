@@ -28,7 +28,7 @@ protocol AccountOptionsInteractorInputProtocol: AnyObject {
     var currentAccount: AccountItem { get }
     var accountHasEntropy: Bool { get }
     func deleteBackup(completion: @escaping (Error?) -> Void)
-    func signInToGoogleIfNeeded(completion: ((OpenBackupAccount) -> Void)?)
+    func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?)
 }
 
 protocol AccountOptionsInteractorOutputProtocol: AnyObject {

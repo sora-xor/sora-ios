@@ -16,7 +16,6 @@ protocol GenerateQRViewModelProtocol {
     var showShareContent: (([Any]) -> Void)? { get set }
     var closeHadler: (() -> Void)? { get }
     func viewDidLoad()
-    func scanQRCodeButtonTapped()
 }
 
 final class GenerateQRViewModel {
@@ -190,6 +189,9 @@ private extension GenerateQRViewModel {
                                                qrImage: self?.currentImage)
             viewModel.shareHandler = { [weak self] in
                 self?.share()
+            }
+            viewModel.scanQRHandler = { [weak self] in
+                self?.scanQRCodeButtonTapped()
             }
             viewModel.accountTapHandler = {
                 let title = NSAttributedString(string: R.string.localizable.commonCopied(preferredLanguages: .currentLocale))

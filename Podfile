@@ -52,6 +52,8 @@ abstract_target 'SoraPassportAll' do
       pod 'FearlessUtils', :git => 'https://github.com/soramitsu/fearless-utils-iOS.git', :branch => 'feature/fearless-utils-for-sora'
       pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :branch => 'feature/sora-propositions'
       pod 'SoraFoundation'
+      pod 'GoogleAPIClientForREST/Core'
+      pod 'GoogleAPIClientForREST/Drive'
       pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.60/AppCommonNetworking/XNetworking/XNetworking.podspec'
   end
   
