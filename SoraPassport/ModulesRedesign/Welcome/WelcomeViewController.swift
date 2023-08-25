@@ -117,6 +117,7 @@ final class WelcomeViewController: SoramitsuViewController {
     let loadingView: SoramitsuLoadingView = {
         let view = SoramitsuLoadingView()
         view.isHidden = true
+        view.isUserInteractionEnabled = true
         return view
     }()
 
