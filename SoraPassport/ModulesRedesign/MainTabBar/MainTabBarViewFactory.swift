@@ -4,12 +4,13 @@ import CommonWallet
 import SoraFoundation
 import Then
 import SoraUIKit
+import IrohaCrypto
 
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
     
     static func createView() -> MainTabBarViewProtocol? {
-
+        
         guard let keystoreImportService: KeystoreImportServiceProtocol = URLHandlingService.shared.findService() else {
             Logger.shared.error("Can't find required keystore import service")
             return nil
@@ -54,7 +55,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let localizationManager = LocalizationManager.shared
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         assetManager.setup(for: SelectedWalletSettings.shared)
-
+        
         guard
             let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
             let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
@@ -77,11 +78,11 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
-        let poolService = PoolsService(operationManager: OperationManagerFacade.sharedManager,
-                                       networkFacade: walletContext.networkOperationFactory,
-                                       polkaswapNetworkFacade: polkaswapContext,
-                                       config: ApplicationConfig.shared)
-
+        let poolService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
+                                              networkFacade: walletContext.networkOperationFactory,
+                                              polkaswapNetworkFacade: polkaswapContext,
+                                              config: ApplicationConfig.shared)
+        
         
         guard let walletController = createWalletRedesignController(walletContext: walletContext,
                                                                     assetManager: assetManager,
@@ -167,10 +168,10 @@ extension MainTabBarViewFactory {
         }
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
-        let poolService = PoolsService(operationManager: OperationManagerFacade.sharedManager,
-                                       networkFacade: walletContext.networkOperationFactory,
-                                       polkaswapNetworkFacade: polkaswapContext,
-                                       config: ApplicationConfig.shared)
+        let poolService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
+                                              networkFacade: walletContext.networkOperationFactory,
+                                              polkaswapNetworkFacade: polkaswapContext,
+                                              config: ApplicationConfig.shared)
         
         guard let walletController = createWalletRedesignController(walletContext: walletContext,
                                                                     assetManager: assetManager,
@@ -190,7 +191,6 @@ extension MainTabBarViewFactory {
         guard let investController = createInvestController(walletContext: walletContext,
                                                             assetManager: assetManager,
                                                             networkFacade: walletContext.networkOperationFactory,
-                                                            poolService: poolService,
                                                             polkaswapNetworkFacade: polkaswapContext,
                                                             assetsProvider: assetsProvider) else {
             return nil
@@ -282,7 +282,7 @@ extension MainTabBarViewFactory {
         
         walletController.navigationItem.largeTitleDisplayMode = .never
         walletController.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.wallet())
-
+        
         localizationManager.addObserver(with: walletController) { [weak walletController] (_, _) in
             let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
             walletController?.tabBarItem.title = currentTitle
@@ -296,23 +296,23 @@ extension MainTabBarViewFactory {
         walletContext: CommonWalletContextProtocol,
         assetsProvider: AssetProviderProtocol
     ) -> UIViewController? {
-
+        
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-
+        
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager)
         else {
             return nil
         }
-
+        
         let balanceFactory = BalanceProviderFactory(
             accountId: accountSettings.accountId,
             cacheFacade: CoreDataCacheFacade.shared,
             networkOperationFactory: walletContext.networkOperationFactory,
             identifierFactory: SingleProviderIdentifierFactory()
         )
-
+        
         guard let view = MoreMenuViewFactory.createView(
             walletContext: walletContext,
             fiatService: FiatService.shared,
@@ -351,55 +351,128 @@ extension MainTabBarViewFactory {
     static func createActivityController(
         with assetManager: AssetManagerProtocol,
         localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) -> UIViewController? {
-        guard let view = ActivityViewFactory.createView(assetManager: assetManager) else {
-            return nil
+            guard let view = ActivityViewFactory.createView(assetManager: assetManager) else {
+                return nil
+            }
+            
+            let title = R.string.localizable.commonActivity(preferredLanguages: .currentLocale)
+            
+            let navigationController = SoraNavigationController().then {
+                $0.navigationBar.topItem?.title = title
+                $0.navigationBar.prefersLargeTitles = true
+                $0.navigationBar.layoutMargins.left = 16
+                $0.navigationBar.layoutMargins.right = 16
+                $0.tabBarItem = createTabBarItem(title: title, image: R.image.wallet.activity())
+                $0.viewControllers = [view]
+            }
+            
+            let localizableTitle = LocalizableResource { locale in
+                R.string.localizable.commonActivity(preferredLanguages: locale.rLanguages)
+            }
+            
+            localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
+                let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+                navigationController?.tabBarItem.title = currentTitle
+            }
+            
+            return navigationController
         }
-        
-        let title = R.string.localizable.commonActivity(preferredLanguages: .currentLocale)
-        
-        let navigationController = SoraNavigationController().then {
-            $0.navigationBar.topItem?.title = title
-            $0.navigationBar.prefersLargeTitles = true
-            $0.navigationBar.layoutMargins.left = 16
-            $0.navigationBar.layoutMargins.right = 16
-            $0.tabBarItem = createTabBarItem(title: title, image: R.image.wallet.activity())
-            $0.viewControllers = [view]
-        }
-        
-        let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.commonActivity(preferredLanguages: locale.rLanguages)
-        }
-        
-        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
-            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-            navigationController?.tabBarItem.title = currentTitle
-        }
-        
-        return navigationController
-    }
     
     static func createInvestController(walletContext: CommonWalletContextProtocol,
                                        assetManager: AssetManagerProtocol,
                                        networkFacade: WalletNetworkOperationFactoryProtocol?,
-                                       poolService: PoolsServiceInputProtocol,
                                        polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
                                        assetsProvider: AssetProviderProtocol) -> UINavigationController? {
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
-
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
+              let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
+              let accountSettings = try? WalletPrimitiveFactory(keystore: Keychain()).createAccountSettings(for: selectedAccount,
+                                                                                                            assetManager: assetManager) else {
             return nil
         }
         
-        let viewModel = DiscoverViewModel(assetManager: assetManager,
-                                          poolsService: poolService,
-                                          fiatService: FiatService.shared,
-                                          operationFactory: walletContext.networkOperationFactory,
-                                          assetsProvider: assetsProvider)
-
-        let title = R.string.localizable.commonDiscover(preferredLanguages: .currentLocale)
+        let qrEncoder = WalletQREncoder(networkType: selectedAccount.networkType,
+                                        publicKey: selectedAccount.publicKeyData,
+                                        username: selectedAccount.username)
         
-        let view = DiscoverViewController(viewModel: viewModel)
+        let marketCap = MarketCapService(assetManager: assetManager)
+        let fiatService = FiatService.shared
+        let itemFactory = ExploreItemFactory(assetManager: assetManager)
+        let assetViewModelsService = ExploreAssetViewModelService(marketCapService: marketCap,
+                                                                  fiatService: fiatService,
+                                                                  itemFactory: itemFactory,
+                                                                  assetManager: assetManager)
+        
+        let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+                                            assetManager: assetManager,
+                                            fiatService: fiatService)
+        
+        let explorePoolsService = ExplorePoolsService(assetManager: assetManager,
+                                                      fiatService: fiatService,
+                                                      polkaswapOperationFactory: polkaswapNetworkFacade,
+                                                      networkFacade: networkFacade)
+        
+        let accountPoolsService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
+                                                      networkFacade: walletContext.networkOperationFactory,
+                                                      polkaswapNetworkFacade: polkaswapNetworkFacade,
+                                                      config: ApplicationConfig.shared)
+        
+        let poolViewModelsService = ExplorePoolViewModelService(itemFactory: itemFactory,
+                                                                poolService: explorePoolsService,
+                                                                apyService: APYService.shared)
+        
+        let poolFactory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+                                               assetManager: assetManager,
+                                               fiatService: fiatService)
+        
+        let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
+                                                     cacheFacade: CoreDataCacheFacade.shared,
+                                                     networkOperationFactory: walletContext.networkOperationFactory,
+                                                     identifierFactory: SingleProviderIdentifierFactory())
+        
+        let shareFactory = AccountShareFactory(address: selectedAccount.address,
+                                               assets: accountSettings.assets,
+                                               localizationManager: LocalizationManager.shared)
+        
+        let referralFactory = ReferralsOperationFactory(settings: SettingsManager.shared,
+                                                        keychain: Keychain(),
+                                                        engine: connection,
+                                                        runtimeRegistry: runtimeRegistry,
+                                                        selectedAccount: selectedAccount)
+        let accountId = (try? SS58AddressFactory().accountId(
+            fromAddress: selectedAccount.address,
+            type: selectedAccount.networkType
+        ).toHex(includePrefix: true)) ?? ""
+        
+        let wireframe = ExploreWireframe(fiatService: fiatService,
+                                         itemFactory: itemFactory,
+                                         assetManager: assetManager,
+                                         marketCapService: marketCap,
+                                         poolService: explorePoolsService,
+                                         apyService: APYService.shared,
+                                         assetViewModelFactory: factory,
+                                         poolsService: accountPoolsService,
+                                         poolViewModelsFactory: poolFactory,
+                                         providerFactory: providerFactory,
+                                         networkFacade: networkFacade,
+                                         accountId: accountId,
+                                         address: selectedAccount.address,
+                                         polkaswapNetworkFacade: polkaswapNetworkFacade,
+                                         qrEncoder: qrEncoder,
+                                         sharingFactory: shareFactory,
+                                         referralFactory: referralFactory,
+                                         assetsProvider: assetsProvider)
+        
+        
+        let viewModel = ExploreViewModel(wireframe: wireframe,
+                                         accountPoolsService: accountPoolsService,
+                                         assetViewModelsService: assetViewModelsService,
+                                         poolViewModelsService: poolViewModelsService)
+        
+        let title = R.string.localizable.commonExplore(preferredLanguages: .currentLocale)
+        
+        let view = ExploreViewController()
+        view.viewModel = viewModel
         view.localizationManager = LocalizationManager.shared
         viewModel.view = view
         
@@ -424,18 +497,6 @@ extension MainTabBarViewFactory {
             return nil
         }
         
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
-        
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
-            return nil
-        }
-        
-        let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
-                                                     cacheFacade: CoreDataCacheFacade.shared,
-                                                     networkOperationFactory: walletContext.networkOperationFactory,
-                                                     identifierFactory: SingleProviderIdentifierFactory())
-
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
         guard let swapController = SwapViewFactory.createView(selectedTokenId: WalletAssetId.xor.rawValue,
@@ -483,7 +544,7 @@ private extension MainTabBarViewFactory {
 }
 
 private extension MainTabBarViewFactory {
-
+    
     static func createNetworkStatusPresenter(localizationManager: LocalizationManagerProtocol = LocalizationManager.shared)
     -> NetworkAvailabilityLayerInteractorOutputProtocol? {
         guard let window = UIApplication.shared.keyWindow as? ApplicationStatusPresentable else {

@@ -10,6 +10,7 @@ protocol Produtable: AnyObject {
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
     var dissmiss: ((Bool) -> Void)? { get set }
+    var navigationTitle: String { get }
     func canMoveAsset(from: Int, to: Int) -> Bool
     func didMoveAsset(from: Int, to: Int)
     func viewDidLoad()
@@ -18,6 +19,7 @@ protocol Produtable: AnyObject {
 
 extension Produtable {
     func viewDissmissed() {}
+    var navigationTitle: String { "" }
 }
 
 protocol ManagebleItem {

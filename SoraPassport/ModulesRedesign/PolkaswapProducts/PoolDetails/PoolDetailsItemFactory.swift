@@ -18,7 +18,7 @@ final class PoolDetailsItemFactory {
     func createAccountItem(
         with assetManager: AssetManagerProtocol,
         poolInfo: PoolInfo,
-        apy: SbApyInfo?,
+        apy: Decimal?,
         detailsFactory: DetailViewModelFactoryProtocol,
         viewModel: PoolDetailsViewModelProtocol,
         pools: [StakedPool]
@@ -43,12 +43,15 @@ final class PoolDetailsItemFactory {
             return (pooledTokens / accountPoolBalance) == 1
         }.filter { $0 }.isEmpty
         
+        let isThereLiquidity = poolInfo.baseAssetPooledByAccount != nil && poolInfo.targetAssetPooledByAccount != nil
+        
         let detailsItem = PoolDetailsItem(title: title,
                                           firstAssetImage: baseAsset?.icon,
                                           secondAssetImage: targetAsset?.icon,
                                           rewardAssetImage: rewardAsset?.icon,
                                           detailsViewModel: detailsViewModels,
-                                          isRemoveLiquidityEnabled: isRemoveLiquidityEnabled)
+                                          isRemoveLiquidityEnabled: isRemoveLiquidityEnabled,
+                                          isThereLiquidity: isThereLiquidity)
         detailsItem.handler = { type in
             viewModel.infoButtonTapped(with: type)
         }

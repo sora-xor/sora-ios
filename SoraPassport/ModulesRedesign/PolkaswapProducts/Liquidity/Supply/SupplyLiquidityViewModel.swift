@@ -148,7 +148,7 @@ final class SupplyLiquidityViewModel {
         }
     }
     private let feeProvider: FeeProviderProtocol
-    private var apy: SbApyInfo?
+    private var apy: Decimal?
     private var fiatData: [FiatData] = [] {
         didSet {
             setupBalanceDataProvider()

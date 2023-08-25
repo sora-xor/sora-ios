@@ -21,16 +21,15 @@ extension NumberFormatter {
         numberFormatter.alwaysShowsDecimalSeparator = false
         return numberFormatter
     }
-
-    static var percent: NumberFormatter {
-        let numberFormatter = NumberFormatter()
-        numberFormatter.numberStyle = .percent
-        numberFormatter.minimumIntegerDigits = 1
-        numberFormatter.maximumFractionDigits = 2
-        numberFormatter.minimumFractionDigits = 0
-        numberFormatter.multiplier = 1
-        return numberFormatter
-    }
+    
+    static let percent: NumberFormatter = {
+        let formatter = NumberFormatter.amount
+        formatter.roundingMode = .floor
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        formatter.locale = LocalizationManager.shared.selectedLocale
+        return formatter
+    }()
 
     static var historyAmount: NumberFormatter {
         let formatter = Self.amount

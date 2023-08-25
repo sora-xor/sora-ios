@@ -90,14 +90,14 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
         }
         poolDetailsItem = item
         
-        removeLiquidity.sora.isEnabled = item.isRemoveLiquidityEnabled
+        removeLiquidity.sora.isEnabled = item.isRemoveLiquidityEnabled && item.isThereLiquidity
         
-        let titleColor: SoramitsuColor = item.isRemoveLiquidityEnabled ? .additionalPolkaswap : .fgTertiary
+        let titleColor: SoramitsuColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswap : .fgTertiary
         removeLiquidity.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonRemove(preferredLanguages: .currentLocale),
                                                                 fontData: FontType.buttonM ,
                                                                 textColor: titleColor,
                                                                 alignment: .center)
-        removeLiquidity.sora.backgroundColor = item.isRemoveLiquidityEnabled ? .additionalPolkaswapContainer : .bgSurfaceVariant
+        removeLiquidity.sora.backgroundColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswapContainer : .bgSurfaceVariant
 
         headerView.titleLabel.sora.text = item.title
 
@@ -176,7 +176,7 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
         stackView.setCustomSpacing(16, after: removeLiquidity)
         
         stackView.addArrangedSubview(limitationLabel)
-        limitationLabel.sora.isHidden = item.isRemoveLiquidityEnabled
+        limitationLabel.sora.isHidden = item.isRemoveLiquidityEnabled || !item.isThereLiquidity
     }
 }
 

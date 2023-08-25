@@ -11,7 +11,7 @@ enum PoolError: Swift.Error {
 
 
 extension WalletNetworkFacade {
-    func getPoolsDetails() throws -> CompoundOperationWrapper<[PoolDetails]> {
+    func getAccountPoolsDetails() throws -> CompoundOperationWrapper<[PoolDetails]> {
         let processingOperation: BaseOperation<[PoolDetails]> = ClosureOperation { [weak self] in
             var poolsDetails: [PoolDetails] = []
             guard let weakSelf = self else { return poolsDetails }
