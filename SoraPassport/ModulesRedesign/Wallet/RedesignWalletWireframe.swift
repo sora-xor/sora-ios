@@ -95,6 +95,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                              assetManager: AssetManagerProtocol)
     
     func showEditView(from view: RedesignWalletViewProtocol?,
+                      poolsService: PoolsServiceInputProtocol,
                       completion: (() -> Void)?)
 }
 
@@ -379,11 +380,13 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
     }
     
     func showEditView(from view: RedesignWalletViewProtocol?,
+                      poolsService: PoolsServiceInputProtocol,
                       completion: (() -> Void)?) {
         
         guard let controller = view?.controller else { return }
         
-        let editView = EditViewFactory.createView(completion: completion)
+        let editView = EditViewFactory.createView(poolsService: poolsService,
+                                                  completion: completion)
         
         let navigationController = SoraNavigationController(rootViewController: editView)
         navigationController.navigationBar.backgroundColor = .clear

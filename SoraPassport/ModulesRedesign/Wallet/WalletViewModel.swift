@@ -21,7 +21,8 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func showSoraCardDetails()
     func showInternerConnectionAlert()
     func showReferralProgram(assetManager: AssetManagerProtocol)
-    func showEditView(completion: (() -> Void)?)
+    func showEditView(poolsService: PoolsServiceInputProtocol,
+                      completion: (() -> Void)?)
 }
 
 final class RedesignWalletViewModel {
@@ -97,10 +98,12 @@ final class RedesignWalletViewModel {
 extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
     func closeSC() {
+        ApplicationConfig.shared.enabledCardIdentifiers.removeAll(where: { $0 == Cards.soraCard.id })
         SCard.shared?.isSCBannerHidden = true
     }
     
     func closeReferralProgram() {
+        ApplicationConfig.shared.enabledCardIdentifiers.removeAll(where: { $0 == Cards.referralProgram.id })
         isReferralProgramHidden = true
     }
     
@@ -153,16 +156,21 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         items.append(accountItem)
         
         let soraCard = initSoraCard()
-        if !soraCard.isSCBannerHidden && ConfigService.shared.config.isSoraCardEnabled && enabledIds.contains(Cards.soraCard.id) {
+        if enabledIds.contains(Cards.soraCard.id) {
             let soraCardItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardItem(with: self,
                                                                                               service: soraCard)
             items.append(soraCardItem)
+            
+            ConfigService.shared.config.isSoraCardEnabled = true
+            soraCard.isSCBannerHidden = false
         }
         
-        if !isReferralProgramHidden && enabledIds.contains(Cards.buyXor.id) {
+        if enabledIds.contains(Cards.referralProgram.id) {
             let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self,
                                                     assetManager: assetManager)
             items.append(friendsItem)
+            
+            isReferralProgramHidden = false
         }
         
         if enabledIds.contains(Cards.liquidAssets.id) {
@@ -184,7 +192,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         }
    
         
-        let editViewItem: SoramitsuTableViewItemProtocol = itemFactory.createEditViewItem(with: self)
+        let editViewItem: SoramitsuTableViewItemProtocol = itemFactory.createEditViewItem(with: self,
+                                                                                          poolsService: poolService)
         items.append(editViewItem)
         
         return items
@@ -376,8 +385,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                        assetManager: assetManager)
     }
     
-    func showEditView(completion: (() -> Void)?) {
+    func showEditView(poolsService: PoolsServiceInputProtocol,
+                      completion: (() -> Void)?) {
         wireframe?.showEditView(from: view,
+                                poolsService: poolsService,
                                 completion: completion)
     }
 }

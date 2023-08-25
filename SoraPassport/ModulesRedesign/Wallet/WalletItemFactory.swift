@@ -40,7 +40,8 @@ protocol WalletItemFactoryProtocol: AnyObject {
     func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                                  assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol
     
-    func createEditViewItem(with walletViewModel: RedesignWalletViewModel) -> SoramitsuTableViewItemProtocol
+    func createEditViewItem(with walletViewModel: RedesignWalletViewModel,
+                            poolsService: PoolsServiceInputProtocol) -> SoramitsuTableViewItemProtocol
 }
 
 final class WalletItemFactory: WalletItemFactoryProtocol {
@@ -234,6 +235,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
         
         poolService.appendDelegate(delegate: poolsItem)
+        poolService.loadPools(isNeedForceUpdate: false)
         
         poolsItem.updateHandler = { [weak poolsItem, weak walletViewModel] in
             guard let walletViewModel = walletViewModel, let poolsItem = poolsItem else { return }
@@ -258,13 +260,15 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         return poolsItem
     }
     
-    func createEditViewItem(with walletViewModel: RedesignWalletViewModel) -> SoramitsuTableViewItemProtocol {
+    func createEditViewItem(with walletViewModel: RedesignWalletViewModel,
+                            poolsService: PoolsServiceInputProtocol) -> SoramitsuTableViewItemProtocol {
         
         let editViewItem = EditViewItem()
         
         editViewItem.onTap = { [weak walletViewModel] in
             guard let walletViewModel = walletViewModel else { return }
-            walletViewModel.showEditView(completion: walletViewModel.updateItems)
+            walletViewModel.showEditView(poolsService: poolsService,
+                                         completion: walletViewModel.updateItems)
         }
         
         return editViewItem

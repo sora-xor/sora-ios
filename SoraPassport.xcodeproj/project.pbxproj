@@ -628,7 +628,7 @@
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
 		76E4FB4ED200201F509B2122 /* Pods_SoraPassportTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
-		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		82933CD8A0C33141410DBBB2 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -1212,6 +1212,7 @@
 		B2A56F0A2A6FD69E00844A35 /* YourReferrerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */; };
 		B2A56F0C2A6FD6B100844A35 /* YourReferrerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */; };
 		B2A56F0E2A6FD8FD00844A35 /* YourReferrerPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */; };
+		B2B4A6DE2A9883EE0095A9E5 /* EditViewService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B4A6DD2A9883ED0095A9E5 /* EditViewService.swift */; };
 		B2CD5DAB2A7A5A1800B16F8A /* EditViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */; };
 		B2CD5DAC2A7A5A1800B16F8A /* EditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */; };
 		B2CD5DAE2A7A5A1800B16F8A /* EnabledView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */; };
@@ -2570,6 +2571,7 @@
 		B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerCell.swift; sourceTree = "<group>"; };
 		B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerViewModel.swift; sourceTree = "<group>"; };
 		B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerPresenter.swift; sourceTree = "<group>"; };
+		B2B4A6DD2A9883ED0095A9E5 /* EditViewService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditViewService.swift; sourceTree = "<group>"; };
 		B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewFactory.swift; sourceTree = "<group>"; };
 		B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewController.swift; sourceTree = "<group>"; };
 		B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledView.swift; sourceTree = "<group>"; };
@@ -2621,7 +2623,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* (null) in Frameworks */,
 				99808DE038069106BEBF4ECD /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6008,6 +6010,7 @@
 				B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */,
 				B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */,
 				B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */,
+				B2B4A6DD2A9883ED0095A9E5 /* EditViewService.swift */,
 			);
 			path = EditView;
 			sourceTree = "<group>";
@@ -7819,6 +7822,7 @@
 				3666CBCC29056E420098F4AC /* PriceItem.swift in Sources */,
 				847A17B8237958B0003BA71A /* InputFieldViewModel.swift in Sources */,
 				36110B9E29540B7A00712BEB /* RecipientAddressView.swift in Sources */,
+				B2B4A6DE2A9883EE0095A9E5 /* EditViewService.swift in Sources */,
 				84FA00862268AB8C005DA950 /* ParentInfoData.swift in Sources */,
 				94497EB525EFDEFC00FD4F14 /* StorageDecodingOperation.swift in Sources */,
 				9481B490286EFE8E00A472E2 /* ChainAssetModel.swift in Sources */,
