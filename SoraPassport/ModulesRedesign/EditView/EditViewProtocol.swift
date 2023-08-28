@@ -9,6 +9,7 @@ protocol EditViewControllerProtocol: ControllerBackedProtocol {}
 
 protocol EditViewFactoryProtocol: AnyObject {
     static func createView(poolsService: PoolsServiceInputProtocol,
+                           editViewService: EditViewServiceProtocol,
                            completion: (() -> Void)?) -> EditViewController
 }
 

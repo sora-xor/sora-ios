@@ -41,7 +41,8 @@ protocol WalletItemFactoryProtocol: AnyObject {
                                  assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol
     
     func createEditViewItem(with walletViewModel: RedesignWalletViewModel,
-                            poolsService: PoolsServiceInputProtocol) -> SoramitsuTableViewItemProtocol
+                            poolsService: PoolsServiceInputProtocol,
+                            editViewService: EditViewServiceProtocol) -> SoramitsuTableViewItemProtocol
 }
 
 final class WalletItemFactory: WalletItemFactoryProtocol {
@@ -261,13 +262,15 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
     }
     
     func createEditViewItem(with walletViewModel: RedesignWalletViewModel,
-                            poolsService: PoolsServiceInputProtocol) -> SoramitsuTableViewItemProtocol {
+                            poolsService: PoolsServiceInputProtocol,
+                            editViewService: EditViewServiceProtocol) -> SoramitsuTableViewItemProtocol {
         
         let editViewItem = EditViewItem()
         
         editViewItem.onTap = { [weak walletViewModel] in
             guard let walletViewModel = walletViewModel else { return }
             walletViewModel.showEditView(poolsService: poolsService,
+                                         editViewService: editViewService,
                                          completion: walletViewModel.updateItems)
         }
         

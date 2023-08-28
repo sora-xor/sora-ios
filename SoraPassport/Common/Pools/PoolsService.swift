@@ -12,7 +12,6 @@ protocol PoolsServiceInputProtocol: AnyObject {
     func loadPools(currentAsset: AssetInfo, completion: ([PoolInfo]) -> Void)
     func loadTargetPools(for baseAssetId: String) -> [PoolInfo]
     func appendDelegate(delegate: PoolsServiceOutput)
-    func isPoolsExists() -> Bool
     
     func isPairEnabled(
         baseAssetId: String,
@@ -288,10 +287,6 @@ extension PoolsService: PoolsServiceInputProtocol {
         localSaveOperation.addDependency(processingOperation)
 
         operationManager.enqueue(operations: fetchRemotePoolsOperation.allOperations + [fetchOperation, processingOperation, localSaveOperation], in: .transient)
-    }
-    
-    func isPoolsExists() -> Bool {
-        return currentPools.isEmpty
     }
     
     func updatePools(_ pools: [PoolInfo]) {

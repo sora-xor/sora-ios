@@ -43,8 +43,6 @@ extension EditViewModel: EditViewModelProtocol {
     private func contentSection() -> EnabledSection {
         let item = EnabledItem()
         
-        editViewService.loadModels()
-        
         item.enabledViewModels = editViewService.viewModels
 
         item.onTap = { [weak self, weak item] id in

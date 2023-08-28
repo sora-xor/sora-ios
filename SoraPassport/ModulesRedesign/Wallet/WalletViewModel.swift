@@ -22,6 +22,7 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func showInternerConnectionAlert()
     func showReferralProgram(assetManager: AssetManagerProtocol)
     func showEditView(poolsService: PoolsServiceInputProtocol,
+                      editViewService: EditViewServiceProtocol,
                       completion: (() -> Void)?)
 }
 
@@ -52,6 +53,7 @@ final class RedesignWalletViewModel {
     var referralFactory: ReferralsOperationFactoryProtocol
     var assetsProvider: AssetProviderProtocol
     var walletContext: CommonWalletContextProtocol
+    var editViewService: EditViewServiceProtocol
     let feeProvider = FeeProvider()
     
     init(wireframe: RedesignWalletWireframeProtocol?,
@@ -68,7 +70,8 @@ final class RedesignWalletViewModel {
          poolsService: PoolsServiceInputProtocol,
          referralFactory: ReferralsOperationFactoryProtocol,
          assetsProvider: AssetProviderProtocol,
-         walletContext: CommonWalletContextProtocol) {
+         walletContext: CommonWalletContextProtocol,
+         editViewService: EditViewServiceProtocol) {
         self.wireframe = wireframe
         self.accountId = accountId
         self.address = address
@@ -90,12 +93,41 @@ final class RedesignWalletViewModel {
         )
         self.poolService = poolsService
         self.walletContext = walletContext
+        self.editViewService = editViewService
+        setupModels()
     }
 
     @SCStream private var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
 }
 
 extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
+    
+    func setupModels() {
+        editViewService.loadModels { [weak editViewService] isPoolAvailable in
+            guard let editViewService = editViewService else { return }
+            
+            var enabledIds = ApplicationConfig.shared.enabledCardIdentifiers
+            let poolId = Cards.pooledAssets.id
+
+            var models = Cards.allCases.map { card in
+                EnabledViewModel(id: card.id,
+                                 title: card.title,
+                                 state: card.defaultState)
+            }
+            
+            if !isPoolAvailable {
+                models.removeAll(where: { $0.id == poolId })
+                enabledIds.removeAll(where: { $0 == poolId } )
+            } else {
+                if !enabledIds.contains(where: { $0 == poolId }) {
+                    enabledIds.append(poolId)
+                }
+            }
+            
+            editViewService.viewModels = models
+            ApplicationConfig.shared.enabledCardIdentifiers = enabledIds
+        }
+    }
 
     func closeSC() {
         ApplicationConfig.shared.enabledCardIdentifiers.removeAll(where: { $0 == Cards.soraCard.id })
@@ -193,7 +225,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
    
         
         let editViewItem: SoramitsuTableViewItemProtocol = itemFactory.createEditViewItem(with: self,
-                                                                                          poolsService: poolService)
+                                                                                          poolsService: poolService,
+                                                                                          editViewService: editViewService)
         items.append(editViewItem)
         
         return items
@@ -386,9 +419,11 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     }
     
     func showEditView(poolsService: PoolsServiceInputProtocol,
+                      editViewService: EditViewServiceProtocol,
                       completion: (() -> Void)?) {
         wireframe?.showEditView(from: view,
                                 poolsService: poolsService,
+                                editViewService: editViewService,
                                 completion: completion)
     }
 }

@@ -2,8 +2,8 @@ import Foundation
 
 final class EditViewFactory: EditViewFactoryProtocol {
     static func createView(poolsService: PoolsServiceInputProtocol,
+                           editViewService: EditViewServiceProtocol,
                            completion: (() -> Void)?) -> EditViewController {
-        let editViewService = EditViewService(poolsService: poolsService)
         
         let viewModel = EditViewModel(editViewService: editViewService,
                                       completion: completion)

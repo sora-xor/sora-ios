@@ -96,6 +96,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
     
     func showEditView(from view: RedesignWalletViewProtocol?,
                       poolsService: PoolsServiceInputProtocol,
+                      editViewService: EditViewServiceProtocol,
                       completion: (() -> Void)?)
 }
 
@@ -381,11 +382,13 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
     
     func showEditView(from view: RedesignWalletViewProtocol?,
                       poolsService: PoolsServiceInputProtocol,
+                      editViewService: EditViewServiceProtocol,
                       completion: (() -> Void)?) {
         
         guard let controller = view?.controller else { return }
         
         let editView = EditViewFactory.createView(poolsService: poolsService,
+                                                  editViewService: editViewService,
                                                   completion: completion)
         
         let navigationController = SoraNavigationController(rootViewController: editView)

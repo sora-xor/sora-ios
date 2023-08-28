@@ -3,15 +3,16 @@ import FearlessUtils
 import RobinHood
 import XNetworking
 
-protocol EditViewServiceProtocol: AnyObject {
-    var viewModels: [EnabledViewModel] { get }
-    func loadModels()
+protocol EditViewServiceProtocol: AnyObject, PoolsServiceOutput {
+    var viewModels: [EnabledViewModel] { get set }
+    func loadModels(completion: ((Bool) -> Void)?)
 }
 
 final class EditViewService {
     
     var poolsService: PoolsServiceInputProtocol
     var viewModels: [EnabledViewModel] = []
+    var completion: ((Bool) -> Void)?
     
     init(poolsService: PoolsServiceInputProtocol) {
         self.poolsService = poolsService
@@ -19,20 +20,12 @@ final class EditViewService {
 }
 
 extension EditViewService: EditViewServiceProtocol {
-    func loadModels() {
+    func loadModels(completion: ((Bool) -> Void)?) {
         poolsService.loadPools(isNeedForceUpdate: false)
-        
-        var models = Cards.allCases.map { card in
-            EnabledViewModel(id: card.id,
-                             title: card.title,
-                             state: card.defaultState)
-        }
-        
-        if !poolsService.isPoolsExists() {
-            models.removeAll(where: { $0.id == Cards.pooledAssets.id })
-            ApplicationConfig.shared.enabledCardIdentifiers = models.filter { $0.state != .disabled }.map { $0.id }
-        }
-        
-        viewModels = models
+        self.completion = completion
+    }
+    
+    func loaded(pools: [PoolInfo]) {
+        completion?(!pools.isEmpty)
     }
 }
