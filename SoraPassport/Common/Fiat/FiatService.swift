@@ -58,6 +58,7 @@ extension FiatService: FiatServiceProtocol {
             if expiredDate < Date() {
                 let fiatData = await updateFiatData()
                 completion(fiatData)
+                return
             }
             
             completion(fiatData)
