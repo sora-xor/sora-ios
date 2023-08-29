@@ -416,6 +416,11 @@ extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
     }
     
     func didLoadQuote(_ quote: SwapValues?, dexId: UInt32, params: PolkaswapMainInteractorQuoteParams) {
+        guard updateButtonState()  else {
+            view?.update(isNeedLoadingState: false)
+            return
+        }
+
         guard let quote = quote else {
             view?.setupButton(isEnabled: false)
             view?.update(isNeedLoadingState: false)
