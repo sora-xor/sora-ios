@@ -128,7 +128,6 @@ extension FriendsPresenter: InputLinkPresenterOutput {
         switch result {
         case .success(let hash):
             txHash = hash
-            status = .success
         case .failure:
             status = .failed
         }
@@ -168,7 +167,6 @@ extension FriendsPresenter: InputRewardAmountPresenterOutput {
         switch result {
         case .success(let hash):
             txHash = hash
-            status = .success
         case .failure:
             status = .failed
         }
