@@ -8,6 +8,7 @@ protocol FiatServiceObserverProtocol: AnyObject {
 
 protocol FiatServiceProtocol: AnyObject {
     func getFiat(completion: @escaping ([FiatData]) -> Void)
+    func getFiat() async -> [FiatData]
     func add(observer: FiatServiceObserverProtocol)
     func remove(observer: FiatServiceObserverProtocol)
 }
@@ -24,37 +25,58 @@ final class FiatService {
     private var observers: [FiatServiceObserver] = []
     private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.fiat.service")
 
-    private func updateFiatData(completion: (([FiatData]) -> Void)? = nil) {
-        let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
-        
-        queryOperation.completionBlock = { [weak self] in
-            guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
-                completion?([])
-                return
+    private func updateFiatData() async -> [FiatData] {
+        return await withCheckedContinuation { continuation in
+            let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
+            
+            queryOperation.completionBlock = { [weak self] in
+                guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                self.fiatData = response
+                self.expiredDate = Date().addingTimeInterval(120)
+                self.notify()
+                continuation.resume(returning: response)
             }
-            self.fiatData = response
-            self.expiredDate = Date().addingTimeInterval(120)
-            self.notify()
-            completion?(response)
+            
+            operationManager.enqueue(operations: [queryOperation], in: .transient)
         }
-        
-        operationManager.enqueue(operations: [queryOperation], in: .transient)
     }
 }
 
 extension FiatService: FiatServiceProtocol {
     
     func getFiat(completion: @escaping ([FiatData]) -> Void) {
-        if fiatData.isEmpty {
-            updateFiatData(completion: completion)
-            return
+        Task {
+            if fiatData.isEmpty {
+                let fiatData = await updateFiatData()
+                completion(fiatData)
+                return
+            }
+            
+            if expiredDate < Date() {
+                let fiatData = await updateFiatData()
+                completion(fiatData)
+                return
+            }
+            
+            completion(fiatData)
         }
-        
-        if expiredDate < Date() {
-            updateFiatData()
+    }
+    
+    func getFiat() async -> [FiatData] {
+        return await withCheckedContinuation { continuation in
+            Task {
+                if !fiatData.isEmpty && expiredDate < Date() {
+                    continuation.resume(with: .success(fiatData))
+                    return
+                }
+                
+                let fiatData = await self.updateFiatData()
+                continuation.resume(with: .success(fiatData))
+            }
         }
-        
-        completion(fiatData)
     }
     
     func add(observer: FiatServiceObserverProtocol) {

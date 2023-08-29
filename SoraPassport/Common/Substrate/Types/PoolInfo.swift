@@ -44,7 +44,7 @@ struct PoolInfo: Codable {
         baseAssetId: String,
         targetAssetId: String,
         poolId: String,
-        isFavorite: Bool,
+        isFavorite: Bool = false,
         accountId: String,
         yourPoolShare: Decimal? = nil,
         baseAssetPooledByAccount: Decimal? = nil,

@@ -26,6 +26,7 @@ final class SetupPasswordViewController: SoramitsuViewController & SetupPassword
     private let loadingView: SoramitsuLoadingView = {
         let view = SoramitsuLoadingView()
         view.isHidden = true
+        view.isUserInteractionEnabled = true
         return view
     }()
 

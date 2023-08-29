@@ -106,7 +106,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
-        let poolService = PoolsService(operationManager: OperationManagerFacade.sharedManager,
+        let poolService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
                                        networkFacade: walletContext.networkOperationFactory,
                                        polkaswapNetworkFacade: polkaswapContext,
                                        config: ApplicationConfig.shared)
@@ -120,7 +120,6 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         let investController = MainTabBarViewFactory.createInvestController(walletContext: walletContext,
                                                             assetManager: assetManager,
                                                             networkFacade: walletContext.networkOperationFactory,
-                                                            poolService: poolService,
                                                             polkaswapNetworkFacade: polkaswapContext,
                                                             assetsProvider: assetsProvider)
 

@@ -81,6 +81,10 @@ final class SelectAssetViewModel {
 }
 
 extension SelectAssetViewModel: SelectAssetViewModelProtocol {
+    var navigationTitle: String {
+        R.string.localizable.chooseToken(preferredLanguages: .currentLocale)
+    }
+
     var searchBarPlaceholder: String {
         R.string.localizable.assetListSearchPlaceholder(preferredLanguages: .currentLocale)
     }

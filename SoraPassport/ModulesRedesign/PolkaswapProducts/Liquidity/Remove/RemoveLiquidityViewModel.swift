@@ -170,7 +170,7 @@ final class RemoveLiquidityViewModel {
             setupBalanceDataProvider()
         }
     }
-    private var apy: SbApyInfo?
+    private var apy: Decimal?
     private var fee: Decimal = 0
     
     private var isPairEnabled: Bool = true

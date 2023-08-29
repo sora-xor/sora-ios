@@ -116,7 +116,7 @@ extension PoolListViewModel: PoolListViewModelProtocol {
     
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        poolsService?.loadPools(isNeedForceUpdate: false)
+        poolsService?.loadAccountPools(isNeedForceUpdate: false)
     }
 }
 

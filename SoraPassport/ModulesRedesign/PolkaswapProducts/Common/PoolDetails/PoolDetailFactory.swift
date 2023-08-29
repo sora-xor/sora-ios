@@ -12,11 +12,11 @@ protocol DetailViewModelDelegate: AnyObject {
 }
 
 protocol DetailViewModelFactoryProtocol {
-    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: SbApyInfo?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel]
+    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: Decimal?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel]
     func createSupplyLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo?,
-                                         apy: SbApyInfo?,
+                                         apy: Decimal?,
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
@@ -28,7 +28,7 @@ protocol DetailViewModelFactoryProtocol {
     func createRemoveLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo,
-                                         apy: SbApyInfo?,
+                                         apy: Decimal?,
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
@@ -80,7 +80,7 @@ final class DetailViewModelFactory {
 }
 
 extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
-    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: SbApyInfo?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel] {
+    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: Decimal?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel] {
         var viewModels: [DetailViewModel] = []
         
         let baseAsset = assetManager.assetInfo(for: poolInfo.baseAssetId)
@@ -90,8 +90,8 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let baseAssetSymbol = baseAsset?.symbol.uppercased() ?? ""
         let targetAssetSymbol = targetAsset?.symbol.uppercased() ?? ""
         
-        if let apyValue = apy?.sbApy {
-            let apyText = "\(percentFormatter.stringFromDecimal(apyValue.decimalValue * 100) ?? "")% APY"
+        if let apyValue = apy {
+            let apyText = "\(percentFormatter.stringFromDecimal(apyValue * 100) ?? "")% APY"
             let assetAmountText = SoramitsuTextItem(text: apyText,
                                                     fontData: FontType.textBoldS,
                                                     textColor: .fgPrimary,
@@ -124,31 +124,37 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
             viewModels.append(yourPoolShareViewModel)
         }
         
-        let basePooledAmount = formatter.stringFromDecimal(poolInfo.baseAssetPooledByAccount ?? 0) ?? ""
+        let baseAssetPooledByAccount = poolInfo.baseAssetPooledByAccount ?? 0
+        let basePooledAmount = formatter.stringFromDecimal(baseAssetPooledByAccount) ?? ""
         let baseAssetPooledText = SoramitsuTextItem(text: "\(basePooledAmount) \(baseAssetSymbol)",
                                                     fontData: FontType.textS,
                                                     textColor: .fgPrimary,
                                                     alignment: .right)
         let basePooledAmountDetailsViewModel = DetailViewModel(title: "Your \(baseAssetSymbol) pooled",
                                                                assetAmountText: baseAssetPooledText)
-        viewModels.append(basePooledAmountDetailsViewModel)
+        if baseAssetPooledByAccount > 0 {
+            viewModels.append(basePooledAmountDetailsViewModel)
+        }
         
-        let targetPooledAmount = formatter.stringFromDecimal(poolInfo.targetAssetPooledByAccount ?? 0) ?? ""
+        let targetAssetPooledByAccount = poolInfo.targetAssetPooledByAccount ?? 0
+        let targetPooledAmount = formatter.stringFromDecimal(targetAssetPooledByAccount) ?? ""
         let targetAssetPooledText = SoramitsuTextItem(text: "\(targetPooledAmount) \(targetAssetSymbol)",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,
                                                       alignment: .right)
         let targetPooledAmountDetailsViewModel = DetailViewModel(title: "Your \(targetAssetSymbol) pooled",
                                                                  assetAmountText: targetAssetPooledText)
-        viewModels.append(targetPooledAmountDetailsViewModel)
-        
+        if targetAssetPooledByAccount > 0 {
+            viewModels.append(targetPooledAmountDetailsViewModel)
+        }
+
         return viewModels
     }
     
     func createSupplyLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo?,
-                                         apy: SbApyInfo?,
+                                         apy: Decimal?,
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
@@ -177,9 +183,8 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                                  assetAmountText: yourPoolShareText)
         viewModels.append(yourPoolShareViewModel)
         
-        if let apy = apy {
-            let apyValue = apy.sbApy ?? 0
-            let apyText = "\(percentFormatter.stringFromDecimal(apyValue.decimalValue * 100) ?? "")% APY"
+        if let apyValue = apy {
+            let apyText = "\(percentFormatter.stringFromDecimal(apyValue * 100) ?? "")% APY"
             let assetAmountText = SoramitsuTextItem(text: apyText,
                                                     fontData: FontType.textBoldS,
                                                     textColor: .fgPrimary,
@@ -225,7 +230,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
     func createRemoveLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo,
-                                         apy: SbApyInfo?,
+                                         apy: Decimal?,
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
@@ -245,8 +250,8 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let yourPoolShareViewModel = DetailViewModel(title: R.string.localizable.poolShareTitle1(preferredLanguages: .currentLocale),
                                                                  assetAmountText: yourPoolShareText)
         
-        let apyValue = apy?.sbApy ?? 0
-        let apyText = "\(percentFormatter.stringFromDecimal(apyValue.decimalValue * 100) ?? "")% APY"
+        let apyValue = apy ?? 0
+        let apyText = "\(percentFormatter.stringFromDecimal(apyValue * 100) ?? "")% APY"
         let assetAmountText = SoramitsuTextItem(text: apyText,
                                                 fontData: FontType.textBoldS,
                                                 textColor: .fgPrimary,

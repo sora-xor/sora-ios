@@ -120,7 +120,7 @@ private extension ActivityViewModelFactory {
                                         subtitle: transaction.peer,
                                         typeTransactionImage: transaction.transferType.image,
                                         firstAssetImageViewModel: symbolViewModel,
-                                        firstBalanceText: firstBalanceText.attributedString,
+                                        firstBalanceText: firstBalanceText,
                                         fiatText: "",
                                         status: transaction.base.status)
     }
@@ -175,7 +175,7 @@ private extension ActivityViewModelFactory {
                                         typeTransactionImage: R.image.wallet.swap(),
                                         firstAssetImageViewModel: fromSymbolViewModel,
                                         secondAssetImageViewModel: toSymbolViewModel,
-                                        firstBalanceText: balanceText.attributedString,
+                                        firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: swap.base.status,
                                         isNeedTwoImage: true)
@@ -237,7 +237,7 @@ private extension ActivityViewModelFactory {
                                         typeTransactionImage: liquidity.type.image,
                                         firstAssetImageViewModel: toSymbolViewModel,
                                         secondAssetImageViewModel: fromSymbolViewModel,
-                                        firstBalanceText: balanceText.attributedString,
+                                        firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: liquidity.base.status,
                                         isNeedTwoImage: true)
@@ -264,7 +264,7 @@ private extension ActivityViewModelFactory {
                                         subtitle: SelectedWalletSettings.shared.currentAccount?.address ?? "",
                                         typeTransactionImage: bond.type.image,
                                         firstAssetImageViewModel: symbolViewModel,
-                                        firstBalanceText: balanceText.attributedString,
+                                        firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: bond.base.status,
                                         isNeedTwoImage: false)
@@ -290,7 +290,7 @@ private extension ActivityViewModelFactory {
                                         subtitle: subtitle,
                                         typeTransactionImage: R.image.wallet.send(),
                                         firstAssetImageViewModel: symbolViewModel,
-                                        firstBalanceText: balanceText.attributedString,
+                                        firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: setReferrer.base.status,
                                         isNeedTwoImage: false)

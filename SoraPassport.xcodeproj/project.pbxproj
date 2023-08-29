@@ -220,10 +220,8 @@
 		3613D6A2290EE5A900B0D027 /* TransitionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3613D6A1290EE5A900B0D027 /* TransitionManager.swift */; };
 		36165508291B12CE00060A8D /* PooledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36165506291B12CD00060A8D /* PooledItem.swift */; };
 		36165509291B12CE00060A8D /* PooledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36165507291B12CD00060A8D /* PooledCell.swift */; };
-		3616550E291D639000060A8D /* DiscoverViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616550B291D638F00060A8D /* DiscoverViewController.swift */; };
-		36165510291D639000060A8D /* DiscoverViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616550D291D638F00060A8D /* DiscoverViewModel.swift */; };
-		36165514291D664200060A8D /* DiscoverItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36165512291D664100060A8D /* DiscoverItem.swift */; };
-		36165515291D664200060A8D /* DiscoverCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36165513291D664100060A8D /* DiscoverCell.swift */; };
+		3616550E291D639000060A8D /* ExploreViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616550B291D638F00060A8D /* ExploreViewController.swift */; };
+		36165510291D639000060A8D /* ExploreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616550D291D638F00060A8D /* ExploreViewModel.swift */; };
 		36165520291D7F4200060A8D /* PoolDetailsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616551D291D7F4100060A8D /* PoolDetailsViewController.swift */; };
 		36165521291D7F4200060A8D /* PoolDetailsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616551E291D7F4100060A8D /* PoolDetailsViewModel.swift */; };
 		36165522291D7F4200060A8D /* PoolDetailsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616551F291D7F4100060A8D /* PoolDetailsWireframe.swift */; };
@@ -266,7 +264,7 @@
 		3632D0F32A1E805D00C9B688 /* CIKeys.stencil in Resources */ = {isa = PBXBuildFile; fileRef = 3632D0F22A1E805D00C9B688 /* CIKeys.stencil */; };
 		363425032871AAB800ACE775 /* ReferralMethodType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363425022871AAB800ACE775 /* ReferralMethodType.swift */; };
 		363425072871D51900ACE775 /* AssetTransactionStatusHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363425062871D51900ACE775 /* AssetTransactionStatusHelper.swift */; };
-		36356B3129184DB200CD3E9E /* PoolsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36356B3029184DB200CD3E9E /* PoolsService.swift */; };
+		36356B3129184DB200CD3E9E /* AccountPoolsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36356B3029184DB200CD3E9E /* AccountPoolsService.swift */; };
 		36356B4B29191B5200CD3E9E /* KmmCallCodingPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36356B4A29191B5200CD3E9E /* KmmCallCodingPath.swift */; };
 		36356B5629194F4000CD3E9E /* PoolRepositoryFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36356B5529194F4000CD3E9E /* PoolRepositoryFactory.swift */; };
 		36356B592919ABE100CD3E9E /* Produtable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36356B582919ABE100CD3E9E /* Produtable.swift */; };
@@ -292,6 +290,11 @@
 		363DA4D72A040C7E00806A5B /* InputSendInfoViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363DA4D62A040C7E00806A5B /* InputSendInfoViewModel.swift */; };
 		363DA66C2A04354600806A5B /* GenerateQRWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363DA66B2A04354600806A5B /* GenerateQRWireframe.swift */; };
 		363DA8092A08E15700806A5B /* SendAssetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363DA8082A08E15700806A5B /* SendAssetView.swift */; };
+		363EAB5F2A73921A00603361 /* ExploreAssetsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363EAB5E2A73921A00603361 /* ExploreAssetsItem.swift */; };
+		363EAB612A73926C00603361 /* ExploreAssetsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363EAB602A73926C00603361 /* ExploreAssetsCell.swift */; };
+		363EAB632A73938D00603361 /* ExploreItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363EAB622A73938D00603361 /* ExploreItemFactory.swift */; };
+		363EAB692A7BCBE500603361 /* MarketCapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363EAB672A7BCBE500603361 /* MarketCapService.swift */; };
+		363EAB6A2A7BCBE500603361 /* SubqueryMarketCapOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363EAB682A7BCBE500603361 /* SubqueryMarketCapOperation.swift */; };
 		3641DD3A2952C5B800CA32E0 /* InvoiceScanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3641DD392952C5B800CA32E0 /* InvoiceScanViewModel.swift */; };
 		3641DD3C2952C61500CA32E0 /* WalletQRExtractionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3641DD3B2952C61500CA32E0 /* WalletQRExtractionService.swift */; };
 		3645269328C1286E00260340 /* NodesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3645268D28C1286D00260340 /* NodesViewController.swift */; };
@@ -350,6 +353,16 @@
 		364D61C929929E0C004938FA /* Throttler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D61C829929E0C004938FA /* Throttler.swift */; };
 		364D61CC2993D47E004938FA /* BalanceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D61CB2993D47D004938FA /* BalanceDetailView.swift */; };
 		364D61CE2993DAA5004938FA /* BalanceDetailsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D61CD2993DAA5004938FA /* BalanceDetailsViewController.swift */; };
+		364D64C32A96191400072106 /* Sequence+Async.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64C22A96191400072106 /* Sequence+Async.swift */; };
+		364D64C52A962A3A00072106 /* ItemProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64C42A962A3A00072106 /* ItemProtocol.swift */; };
+		364D64C92A9631ED00072106 /* ViewAssetListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64C82A9631ED00072106 /* ViewAssetListViewModel.swift */; };
+		364D64CB2A96324000072106 /* ExploreAssetListItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64CA2A96324000072106 /* ExploreAssetListItem.swift */; };
+		364D64CF2A96335500072106 /* ExploreAssetListCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64CE2A96335500072106 /* ExploreAssetListCell.swift */; };
+		364D64D12A96B89600072106 /* ViewPoolListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64D02A96B89600072106 /* ViewPoolListViewModel.swift */; };
+		364D64D62A96B9BF00072106 /* ExplorePoolListCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64D42A96B9BF00072106 /* ExplorePoolListCell.swift */; };
+		364D64D72A96B9BF00072106 /* ExplorePoolListItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64D52A96B9BF00072106 /* ExplorePoolListItem.swift */; };
+		364D64D92A973AAB00072106 /* ExploreAssetViewModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64D82A973AAB00072106 /* ExploreAssetViewModelService.swift */; };
+		364D64DB2A97464400072106 /* ExplorePoolViewModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64DA2A97464400072106 /* ExplorePoolViewModelService.swift */; };
 		36527D8E29B7341A006D2042 /* NewTransactionCreatedEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36527D8D29B7341A006D2042 /* NewTransactionCreatedEvent.swift */; };
 		36527D9029B73DE7006D2042 /* LocalTransactionStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36527D8F29B73DE7006D2042 /* LocalTransactionStorage.swift */; };
 		3652E10A2A679E4E0073AFBA /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3652E1092A679E4E0073AFBA /* LoadingView.swift */; };
@@ -382,7 +395,8 @@
 		3662C4B22986EF32002FABC8 /* UIView+Animation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3662C4B12986EF32002FABC8 /* UIView+Animation.swift */; };
 		3662C4B42987C6B1002FABC8 /* InputPincodePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3662C4B32987C6B1002FABC8 /* InputPincodePresenter.swift */; };
 		3662C4B629880CE4002FABC8 /* AuthorizationPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3662C4B529880CE3002FABC8 /* AuthorizationPresenter.swift */; };
-		36632EE029433706008E2366 /* DiscoveryWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36632EDF29433705008E2366 /* DiscoveryWireframe.swift */; };
+		36632EE029433706008E2366 /* ExploreWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36632EDF29433705008E2366 /* ExploreWireframe.swift */; };
+		3666C5092A91EA6C0089E7D7 /* ExplorePoolsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666C5082A91EA6C0089E7D7 /* ExplorePoolsService.swift */; };
 		3666CBCB29056E420098F4AC /* AssetDetailsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666CBC729056E420098F4AC /* AssetDetailsViewModel.swift */; };
 		3666CBCC29056E420098F4AC /* PriceItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666CBC829056E420098F4AC /* PriceItem.swift */; };
 		3666CBCD29056E420098F4AC /* PriceCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666CBC929056E420098F4AC /* PriceCell.swift */; };
@@ -473,6 +487,10 @@
 		36ADDDB028EC8A140080A41C /* AssetsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDDAE28EC8A140080A41C /* AssetsCell.swift */; };
 		36ADDDB228ECB5390080A41C /* AssetViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDDB128ECB5390080A41C /* AssetViewModel.swift */; };
 		36ADDDB428ECC1740080A41C /* WalletHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDDB328ECC1740080A41C /* WalletHeaderView.swift */; };
+		36B239A02A94BD8400F0357A /* ExplorePoolsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B2399E2A94BD8400F0357A /* ExplorePoolsCell.swift */; };
+		36B239A12A94BD8400F0357A /* ExplorePoolsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B2399F2A94BD8400F0357A /* ExplorePoolsItem.swift */; };
+		36B239A52A94F86200F0357A /* ExploreAssetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B239A42A94F86200F0357A /* ExploreAssetView.swift */; };
+		36B239A72A9528E200F0357A /* ExplorePoolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B239A62A9528E200F0357A /* ExplorePoolView.swift */; };
 		36B7D612295C941B00ECBBF6 /* FiatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B7D611295C941B00ECBBF6 /* FiatService.swift */; };
 		36B961F7294B2B02002A35BA /* ReceiveCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B961F5294B2B01002A35BA /* ReceiveCell.swift */; };
 		36B961F8294B2B02002A35BA /* ReceiveItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B961F6294B2B01002A35BA /* ReceiveItem.swift */; };
@@ -541,6 +559,7 @@
 		36FE0FE82955B68700117E82 /* SendAssetCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FE62955B68700117E82 /* SendAssetCell.swift */; };
 		3AA88A226F1F362D26B93CC5 /* MainTabBarWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB489F2B62CE0CF494AA92E9 /* MainTabBarWireframe.swift */; };
 		3B5E739B0B8F955CE5436410 /* FriendsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4500E3C38424775159499D0D /* FriendsViewFactory.swift */; };
+		425FA8D36A521244A95CFB63 /* Pods_SoraPassportTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E58BB9A70516E52AC5CBE54D /* Pods_SoraPassportTests.framework */; };
 		44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED9AC8B83C51156EBCCDA26 /* StakingTests.swift */; };
 		44760E61E2D1A898A823C30E /* MainTabBarInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */; };
 		464462C2FF9EBDE318B76CD5 /* ActivityFeedInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1850BD8AB0EC103EB91B5BB0 /* ActivityFeedInteractorTests.swift */; };
@@ -624,9 +643,7 @@
 		605AA53126FE72DA00E7FD12 /* NeomorphismButton.xib in Resources */ = {isa = PBXBuildFile; fileRef = 605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */; };
 		60AAFDC9270EEEDB00916408 /* InconsistentStateMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */; };
 		60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC6270EEEDB00916408 /* Migrating.swift */; };
-		6572496752F3E8DC39115D6B /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 576509BB75DC43579DF6AD79 /* Pods_SoraPassportAll_SoraPassport.framework */; };
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
-		76E4FB4ED200201F509B2122 /* Pods_SoraPassportTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
 		82933CD8A0C33141410DBBB2 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
@@ -1194,6 +1211,7 @@
 		99808DE038069106BEBF4ECD /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */; };
 		A1B644C63C38805297450DC7 /* FriendsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D10B6F46781199B35B755C /* FriendsWireframe.swift */; };
 		A849A67F47A83F55BFA8124E /* ProjectsInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */; };
+		A956CB6AB9B7A48A05C6C7FD /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 300386922C53F7337B2F3ED4 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */; };
 		A9A0F171348707CF04DAFE37 /* AccountOptionsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */; };
 		AD7EAB4CC39BA3CBD8892075 /* AccountOptionsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */; };
 		B267AA9E2A7A2F7200EF9CF0 /* EditViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */; };
@@ -1226,8 +1244,9 @@
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
-		C2FDF8413F1C0B02CA5B6506 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 287C7BC35117BCB72B327424 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */; };
+		BFBA8C6E6156C8D490C42EAE /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C20CB6B4D30F4B72F9466C1F /* Pods_SoraPassportUITests.framework */; };
 		D794F1F4CCDD89D21FFA685B /* ProfileInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */; };
+		D7D90CC0A31CAFD5AF93FE99 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C8CF8F75346DCF40D86E40C3 /* Pods_SoraPassportAll_SoraPassport.framework */; };
 		DA3C8273D7F73172782EAA94 /* VotesHistoryInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F039024F008EE356D1BDFCBF /* VotesHistoryInteractorTests.swift */; };
 		DAC1A7E82AB4629FBF7E1730 /* AccountOptionsPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229C8B5EC9E3EAD365ACBB9F /* AccountOptionsPresenter.swift */; };
 		DAC888F2250A88D684CB4213 /* NetworkAvailabilityLayerInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D87EE84EFA7C7EDF293C6058 /* NetworkAvailabilityLayerInteractor.swift */; };
@@ -1430,7 +1449,7 @@
 		02E319A721D3C07E00B33B66 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		02E319B021D4BAFA00B33B66 /* R.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = R.generated.swift; sourceTree = SOURCE_ROOT; };
 		05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractorTests.swift; sourceTree = "<group>"; };
-		0AAACFAEC553DD983F68F351 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; sourceTree = "<group>"; };
+		073C61FAE6089EB0342B1C6B /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.test.xcconfig"; sourceTree = "<group>"; };
 		0BC14252909B919A70DA9DB9 /* MainTabBarPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarPresenter.swift; sourceTree = "<group>"; };
 		0DA0ECA40629F7CA55AD1089 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; sourceTree = "<group>"; };
 		103CCD1825643D670028345D /* PullUpController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PullUpController.swift; sourceTree = "<group>"; };
@@ -1443,16 +1462,18 @@
 		10EB777925418CB0000123B9 /* UINavigationBar+Shadow.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UINavigationBar+Shadow.swift"; sourceTree = "<group>"; };
 		10EB77972541A368000123B9 /* ExtensibleBarNavigationController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExtensibleBarNavigationController.swift; sourceTree = "<group>"; };
 		10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkViewModel.swift; sourceTree = "<group>"; };
+		140FD35D2F08BE931B99CEC0 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; sourceTree = "<group>"; };
 		1850BD8AB0EC103EB91B5BB0 /* ActivityFeedInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityFeedInteractorTests.swift; sourceTree = "<group>"; };
+		197E0E3E976310DA4276DFC4 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; sourceTree = "<group>"; };
 		1C39A0F563B3CAC78C4D9887 /* ChangeAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChangeAccountTests.swift; sourceTree = "<group>"; };
+		1E63E158B2BCF3F593C709A9 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; sourceTree = "<group>"; };
 		229C8B5EC9E3EAD365ACBB9F /* AccountOptionsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsPresenter.swift; sourceTree = "<group>"; };
 		25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		265097D4636C933C8E8FEBAB /* MainTabBarProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarProtocol.swift; sourceTree = "<group>"; };
-		26FD8C603CFBB4BB770BCA1E /* Pods-SoraPassportUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.debug.xcconfig"; sourceTree = "<group>"; };
-		287C7BC35117BCB72B327424 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassportIntegrationTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C421992CF81E68B180FF624 /* ParliamentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParliamentTests.swift; sourceTree = "<group>"; };
 		2DD86E01FAAC842DDA29EC33 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; sourceTree = "<group>"; };
 		2E67161D1A40D3F1994BC8EA /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.test.xcconfig"; sourceTree = "<group>"; };
+		300386922C53F7337B2F3ED4 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassportIntegrationTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3213A3082237DAB4001BE041 /* VerificationCodeData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerificationCodeData.swift; sourceTree = "<group>"; };
 		3213A30A2237ED04001BE041 /* sendSmsCodeSuccessResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sendSmsCodeSuccessResponse.json; sourceTree = "<group>"; };
 		3213A30C2237ED5E001BE041 /* sendSmsCodeTooFreqResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sendSmsCodeTooFreqResponse.json; sourceTree = "<group>"; };
@@ -1465,6 +1486,7 @@
 		32C6161F222EA77C0092BB86 /* finishedProjectsResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = finishedProjectsResponse.json; sourceTree = "<group>"; };
 		32C61621222EA7DD0092BB86 /* ProjectsFinishedFetchMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsFinishedFetchMock.swift; sourceTree = "<group>"; };
 		32F7929E22286BA9009EFC8B /* ActivityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityData.swift; sourceTree = "<group>"; };
+		33C1C3738327FC7456C42213 /* Pods-SoraPassportUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.release.xcconfig"; sourceTree = "<group>"; };
 		3603A3902917E1FD00DF6EFE /* PoolViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolViewModel.swift; sourceTree = "<group>"; };
 		3603A3912917E1FD00DF6EFE /* PoolsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolsCell.swift; sourceTree = "<group>"; };
 		3603A3922917E1FD00DF6EFE /* PoolsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolsItem.swift; sourceTree = "<group>"; };
@@ -1515,10 +1537,8 @@
 		3613D6A1290EE5A900B0D027 /* TransitionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitionManager.swift; sourceTree = "<group>"; };
 		36165506291B12CD00060A8D /* PooledItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PooledItem.swift; sourceTree = "<group>"; };
 		36165507291B12CD00060A8D /* PooledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PooledCell.swift; sourceTree = "<group>"; };
-		3616550B291D638F00060A8D /* DiscoverViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DiscoverViewController.swift; sourceTree = "<group>"; };
-		3616550D291D638F00060A8D /* DiscoverViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DiscoverViewModel.swift; sourceTree = "<group>"; };
-		36165512291D664100060A8D /* DiscoverItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DiscoverItem.swift; sourceTree = "<group>"; };
-		36165513291D664100060A8D /* DiscoverCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DiscoverCell.swift; sourceTree = "<group>"; };
+		3616550B291D638F00060A8D /* ExploreViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExploreViewController.swift; sourceTree = "<group>"; };
+		3616550D291D638F00060A8D /* ExploreViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExploreViewModel.swift; sourceTree = "<group>"; };
 		3616551D291D7F4100060A8D /* PoolDetailsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolDetailsViewController.swift; sourceTree = "<group>"; };
 		3616551E291D7F4100060A8D /* PoolDetailsViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolDetailsViewModel.swift; sourceTree = "<group>"; };
 		3616551F291D7F4100060A8D /* PoolDetailsWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolDetailsWireframe.swift; sourceTree = "<group>"; };
@@ -1564,7 +1584,7 @@
 		3632D0F82A1F7AC600C9B688 /* ar */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = ar; path = ar.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
 		363425022871AAB800ACE775 /* ReferralMethodType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralMethodType.swift; sourceTree = "<group>"; };
 		363425062871D51900ACE775 /* AssetTransactionStatusHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetTransactionStatusHelper.swift; sourceTree = "<group>"; };
-		36356B3029184DB200CD3E9E /* PoolsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolsService.swift; sourceTree = "<group>"; };
+		36356B3029184DB200CD3E9E /* AccountPoolsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPoolsService.swift; sourceTree = "<group>"; };
 		36356B4A29191B5200CD3E9E /* KmmCallCodingPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KmmCallCodingPath.swift; sourceTree = "<group>"; };
 		36356B5529194F4000CD3E9E /* PoolRepositoryFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolRepositoryFactory.swift; sourceTree = "<group>"; };
 		36356B582919ABE100CD3E9E /* Produtable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Produtable.swift; sourceTree = "<group>"; };
@@ -1590,6 +1610,11 @@
 		363DA4D62A040C7E00806A5B /* InputSendInfoViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputSendInfoViewModel.swift; sourceTree = "<group>"; };
 		363DA66B2A04354600806A5B /* GenerateQRWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateQRWireframe.swift; sourceTree = "<group>"; };
 		363DA8082A08E15700806A5B /* SendAssetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendAssetView.swift; sourceTree = "<group>"; };
+		363EAB5E2A73921A00603361 /* ExploreAssetsItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreAssetsItem.swift; sourceTree = "<group>"; };
+		363EAB602A73926C00603361 /* ExploreAssetsCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreAssetsCell.swift; sourceTree = "<group>"; };
+		363EAB622A73938D00603361 /* ExploreItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreItemFactory.swift; sourceTree = "<group>"; };
+		363EAB672A7BCBE500603361 /* MarketCapService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MarketCapService.swift; sourceTree = "<group>"; };
+		363EAB682A7BCBE500603361 /* SubqueryMarketCapOperation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SubqueryMarketCapOperation.swift; sourceTree = "<group>"; };
 		3641DD392952C5B800CA32E0 /* InvoiceScanViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InvoiceScanViewModel.swift; sourceTree = "<group>"; };
 		3641DD3B2952C61500CA32E0 /* WalletQRExtractionService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WalletQRExtractionService.swift; sourceTree = "<group>"; };
 		3645268D28C1286D00260340 /* NodesViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NodesViewController.swift; sourceTree = "<group>"; };
@@ -1648,6 +1673,16 @@
 		364D61C829929E0C004938FA /* Throttler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Throttler.swift; sourceTree = "<group>"; };
 		364D61CB2993D47D004938FA /* BalanceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalanceDetailView.swift; sourceTree = "<group>"; };
 		364D61CD2993DAA5004938FA /* BalanceDetailsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalanceDetailsViewController.swift; sourceTree = "<group>"; };
+		364D64C22A96191400072106 /* Sequence+Async.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sequence+Async.swift"; sourceTree = "<group>"; };
+		364D64C42A962A3A00072106 /* ItemProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemProtocol.swift; sourceTree = "<group>"; };
+		364D64C82A9631ED00072106 /* ViewAssetListViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ViewAssetListViewModel.swift; sourceTree = "<group>"; };
+		364D64CA2A96324000072106 /* ExploreAssetListItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreAssetListItem.swift; sourceTree = "<group>"; };
+		364D64CE2A96335500072106 /* ExploreAssetListCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExploreAssetListCell.swift; sourceTree = "<group>"; };
+		364D64D02A96B89600072106 /* ViewPoolListViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ViewPoolListViewModel.swift; sourceTree = "<group>"; };
+		364D64D42A96B9BF00072106 /* ExplorePoolListCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExplorePoolListCell.swift; sourceTree = "<group>"; };
+		364D64D52A96B9BF00072106 /* ExplorePoolListItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExplorePoolListItem.swift; sourceTree = "<group>"; };
+		364D64D82A973AAB00072106 /* ExploreAssetViewModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreAssetViewModelService.swift; sourceTree = "<group>"; };
+		364D64DA2A97464400072106 /* ExplorePoolViewModelService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExplorePoolViewModelService.swift; sourceTree = "<group>"; };
 		36527D8D29B7341A006D2042 /* NewTransactionCreatedEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTransactionCreatedEvent.swift; sourceTree = "<group>"; };
 		36527D8F29B73DE7006D2042 /* LocalTransactionStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTransactionStorage.swift; sourceTree = "<group>"; };
 		3652E1092A679E4E0073AFBA /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
@@ -1680,7 +1715,8 @@
 		3662C4B12986EF32002FABC8 /* UIView+Animation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Animation.swift"; sourceTree = "<group>"; };
 		3662C4B32987C6B1002FABC8 /* InputPincodePresenter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InputPincodePresenter.swift; sourceTree = "<group>"; };
 		3662C4B529880CE3002FABC8 /* AuthorizationPresenter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AuthorizationPresenter.swift; sourceTree = "<group>"; };
-		36632EDF29433705008E2366 /* DiscoveryWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DiscoveryWireframe.swift; sourceTree = "<group>"; };
+		36632EDF29433705008E2366 /* ExploreWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExploreWireframe.swift; sourceTree = "<group>"; };
+		3666C5082A91EA6C0089E7D7 /* ExplorePoolsService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExplorePoolsService.swift; sourceTree = "<group>"; };
 		3666CBC729056E420098F4AC /* AssetDetailsViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssetDetailsViewModel.swift; sourceTree = "<group>"; };
 		3666CBC829056E420098F4AC /* PriceItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PriceItem.swift; sourceTree = "<group>"; };
 		3666CBC929056E420098F4AC /* PriceCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PriceCell.swift; sourceTree = "<group>"; };
@@ -1789,6 +1825,10 @@
 		36ADDDAE28EC8A140080A41C /* AssetsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssetsCell.swift; sourceTree = "<group>"; };
 		36ADDDB128ECB5390080A41C /* AssetViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetViewModel.swift; sourceTree = "<group>"; };
 		36ADDDB328ECC1740080A41C /* WalletHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletHeaderView.swift; sourceTree = "<group>"; };
+		36B2399E2A94BD8400F0357A /* ExplorePoolsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExplorePoolsCell.swift; sourceTree = "<group>"; };
+		36B2399F2A94BD8400F0357A /* ExplorePoolsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExplorePoolsItem.swift; sourceTree = "<group>"; };
+		36B239A42A94F86200F0357A /* ExploreAssetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreAssetView.swift; sourceTree = "<group>"; };
+		36B239A62A9528E200F0357A /* ExplorePoolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExplorePoolView.swift; sourceTree = "<group>"; };
 		36B7D611295C941B00ECBBF6 /* FiatService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FiatService.swift; sourceTree = "<group>"; };
 		36B961F5294B2B01002A35BA /* ReceiveCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReceiveCell.swift; sourceTree = "<group>"; };
 		36B961F6294B2B01002A35BA /* ReceiveItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReceiveItem.swift; sourceTree = "<group>"; };
@@ -1855,15 +1895,9 @@
 		36FE0FE22955B52100117E82 /* RecipientAddressCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RecipientAddressCell.swift; sourceTree = "<group>"; };
 		36FE0FE52955B68700117E82 /* SendAssetItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SendAssetItem.swift; sourceTree = "<group>"; };
 		36FE0FE62955B68700117E82 /* SendAssetCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SendAssetCell.swift; sourceTree = "<group>"; };
-		3994993D9A9FDFA1BCD456CA /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; sourceTree = "<group>"; };
-		3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		3D91DA739AA9EBF08C0B4A87 /* Pods-SoraPassportTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.debug.xcconfig"; sourceTree = "<group>"; };
 		3ED9AC8B83C51156EBCCDA26 /* StakingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StakingTests.swift; sourceTree = "<group>"; };
-		42F1D7FB57E18E5CEEB50EB4 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; sourceTree = "<group>"; };
 		4500E3C38424775159499D0D /* FriendsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsViewFactory.swift; sourceTree = "<group>"; };
-		4A6AD45445BF6A65A89A470D /* Pods-SoraPassportTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.dev.xcconfig"; sourceTree = "<group>"; };
-		52A0531941BAD4567563ED11 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; sourceTree = "<group>"; };
-		5480710B4EDAE96792F6E63B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; sourceTree = "<group>"; };
-		54B86954738F4BFAA0968E63 /* Pods-SoraPassportUITests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.staging.xcconfig"; sourceTree = "<group>"; };
 		55063DB028F96B8A008782E1 /* GenesisProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenesisProvider.swift; sourceTree = "<group>"; };
 		55063DB228FF3CC8008782E1 /* MoreMenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreMenuViewController.swift; sourceTree = "<group>"; };
 		55063DB52901411E008782E1 /* CategoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryItem.swift; sourceTree = "<group>"; };
@@ -1900,9 +1934,6 @@
 		55D06B5928C7897E00256B98 /* SwapQuoteAmountsFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwapQuoteAmountsFactory.swift; sourceTree = "<group>"; };
 		55F1610F28C89E7B00EF6FF3 /* SwapQuoteAmountsFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwapQuoteAmountsFactoryTests.swift; sourceTree = "<group>"; };
 		55F1611128C89EFB00EF6FF3 /* Mocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mocks.swift; sourceTree = "<group>"; };
-		576509BB75DC43579DF6AD79 /* Pods_SoraPassportAll_SoraPassport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		58436442E3EA19431F89166A /* Pods-SoraPassportTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.test.xcconfig"; sourceTree = "<group>"; };
-		5B9DE3992391EBEABC440A0A /* Pods-SoraPassportTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.debug.xcconfig"; sourceTree = "<group>"; };
 		5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsWireframe.swift; sourceTree = "<group>"; };
 		5E023F522823E1A40070304B /* PairRegisterCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairRegisterCall.swift; sourceTree = "<group>"; };
 		5E138FEE2830201C0010AB54 /* InitializePoolCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InitializePoolCall.swift; sourceTree = "<group>"; };
@@ -1921,6 +1952,7 @@
 		5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DispatchQueue+debounce.swift"; sourceTree = "<group>"; };
 		5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountExporter.swift; sourceTree = "<group>"; };
 		5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Decima+Substrate.swift"; sourceTree = "<group>"; };
+		5E9147233C58205E1CCE93D9 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; sourceTree = "<group>"; };
 		5E9774E22A31AE030047BCA2 /* AccountExportPresenter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountExportPresenter.swift; sourceTree = "<group>"; };
 		5E9774E32A31AE030047BCA2 /* AccountExportViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountExportViewFactory.swift; sourceTree = "<group>"; };
 		5E9774E42A31AE030047BCA2 /* AccountExportProtocols.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountExportProtocols.swift; sourceTree = "<group>"; };
@@ -1987,13 +2019,13 @@
 		605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = NeomorphismButton.xib; sourceTree = "<group>"; };
 		60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InconsistentStateMigrator.swift; sourceTree = "<group>"; };
 		60AAFDC6270EEEDB00916408 /* Migrating.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Migrating.swift; sourceTree = "<group>"; };
-		62A07E4DA24D393F23333105 /* Pods-SoraPassportUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.release.xcconfig"; sourceTree = "<group>"; };
 		6CD48707B756D7A8ACFF3ACA /* AccountOptionsViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewController.swift; sourceTree = "<group>"; };
 		75E5CD169C4F347C4786F149 /* ReferendumDetailsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReferendumDetailsTests.swift; sourceTree = "<group>"; };
 		7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiquiditySlider.swift; sourceTree = "<group>"; };
 		7ABCF88DBE61FD88E48103D4 /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"; sourceTree = "<group>"; };
 		7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
 		81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsProtocols.swift; sourceTree = "<group>"; };
+		8395E8B9DD9D6094959E8015 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; sourceTree = "<group>"; };
 		84014FA82243C1FB00C35EFD /* BaseService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BaseService.swift; sourceTree = "<group>"; };
 		84014FCE2244B5A000C35EFD /* Entities.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = Entities.xcdatamodel; sourceTree = "<group>"; };
 		840931E2233DE61B0013C871 /* ReputationDetailsData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReputationDetailsData.swift; sourceTree = "<group>"; };
@@ -2094,6 +2126,7 @@
 		8475274E23663DD00028D871 /* OnboardingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingServiceTests.swift; sourceTree = "<group>"; };
 		8476CA7A25F0C895003EEAE1 /* SubstrateDataModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = SubstrateDataModel.xcdatamodel; sourceTree = "<group>"; };
 		8476CA9625F0C8E3003EEAE1 /* ChainStorageIdFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChainStorageIdFactory.swift; sourceTree = "<group>"; };
+		84790B003AA4210CD7B56EE3 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; sourceTree = "<group>"; };
 		847A17A22375796E003BA71A /* RoundedCellControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundedCellControlView.swift; sourceTree = "<group>"; };
 		847A17A423759BA4003BA71A /* TitleWithAccessoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleWithAccessoryView.swift; sourceTree = "<group>"; };
 		847A17A623759E2D003BA71A /* RoundedCellControlView+Inspectable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RoundedCellControlView+Inspectable.swift"; sourceTree = "<group>"; };
@@ -2199,6 +2232,7 @@
 		8BF428782940A66E00590F92 /* LanguageItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageItem.swift; sourceTree = "<group>"; };
 		8BF4287A2940A6F800590F92 /* LanguageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageCell.swift; sourceTree = "<group>"; };
 		8BF4287C2940B1E600590F92 /* LanguageItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageItemView.swift; sourceTree = "<group>"; };
+		8EC949439C30C9663456BDC7 /* Pods-SoraPassportUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		9406839B267908E1005F520D /* EventCodingPath.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EventCodingPath.swift; sourceTree = "<group>"; };
 		940683A126790B44005F520D /* OperationCombiningService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OperationCombiningService.swift; sourceTree = "<group>"; };
 		940683A826790C55005F520D /* Longrun.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Longrun.swift; sourceTree = "<group>"; };
@@ -2554,6 +2588,7 @@
 		94F68B10277473CB00226F20 /* UISearchBar+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UISearchBar+Style.swift"; sourceTree = "<group>"; };
 		9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsProtocols.swift; sourceTree = "<group>"; };
 		A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractor.swift; sourceTree = "<group>"; };
+		AAF25B28B4EE1D363A0BB3DA /* Pods-SoraPassportTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.test.xcconfig"; sourceTree = "<group>"; };
 		AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutTests.swift; sourceTree = "<group>"; };
 		B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewCell.swift; sourceTree = "<group>"; };
 		B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItem.swift; sourceTree = "<group>"; };
@@ -2584,22 +2619,31 @@
 		B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CIKeys.generated.swift; sourceTree = "<group>"; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
 		B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
+		C0C10EB55D16CB115B3D93C4 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
+		C20CB6B4D30F4B72F9466C1F /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsInteractor.swift; sourceTree = "<group>"; };
-		C4CDE6F4986EE7F06E47B45C /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProjectsInteractorTests.swift; sourceTree = "<group>"; };
+		C8CF8F75346DCF40D86E40C3 /* Pods_SoraPassportAll_SoraPassport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D11E48E33D98B9B90C325913 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
 		D2B8D00970071364A04264BD /* FriendsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsPresenter.swift; sourceTree = "<group>"; };
+		D33EF8BCD18E14EFC5AE7F68 /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
 		D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileInteractorTests.swift; sourceTree = "<group>"; };
 		D3B5C5ABB0BDBD75124933C2 /* MainTabBarViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarViewFactory.swift; sourceTree = "<group>"; };
+		D79F58E9FB402639CA2894BD /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; sourceTree = "<group>"; };
+		D82A07B50D8F6707A7CD3F2D /* Pods-SoraPassportUITests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.dev.xcconfig"; sourceTree = "<group>"; };
 		D87EE84EFA7C7EDF293C6058 /* NetworkAvailabilityLayerInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerInteractor.swift; sourceTree = "<group>"; };
 		DB489F2B62CE0CF494AA92E9 /* MainTabBarWireframe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarWireframe.swift; sourceTree = "<group>"; };
 		E589AB74AC57E665444842DB /* NetworkAvailabilityLayerPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerPresenter.swift; sourceTree = "<group>"; };
+		E58BB9A70516E52AC5CBE54D /* Pods_SoraPassportTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E93838B610A2628390A37C56 /* MainTabBarViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarViewController.swift; sourceTree = "<group>"; };
-		EF2DB96FDB521BA3E06ECED3 /* Pods-SoraPassportUITests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.dev.xcconfig"; sourceTree = "<group>"; };
+		EDB737CE7FD0995EF3D0F1FA /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
+		EEF1103E4EE6A3EAB48044AA /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"; sourceTree = "<group>"; };
 		F039024F008EE356D1BDFCBF /* VotesHistoryInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VotesHistoryInteractorTests.swift; sourceTree = "<group>"; };
 		F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewFactory.swift; sourceTree = "<group>"; };
-		F44B22ABF888DE6084844F07 /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
+		F46D4B6F5F5B7B7463D8A5EB /* Pods-SoraPassportTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.dev.xcconfig"; sourceTree = "<group>"; };
+		F63CCC90DC6F096C3DE60E48 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
 		F654FC832472135F94052F7E /* NetworkAvailabilityLayerProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerProtocols.swift; sourceTree = "<group>"; };
+		FDF1508ECA81A986E437C33D /* Pods-SoraPassportUITests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.staging.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2607,7 +2651,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6572496752F3E8DC39115D6B /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */,
+				D7D90CC0A31CAFD5AF93FE99 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2615,7 +2659,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				76E4FB4ED200201F509B2122 /* Pods_SoraPassportTests.framework in Frameworks */,
+				425FA8D36A521244A95CFB63 /* Pods_SoraPassportTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2623,7 +2667,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* (null) in Frameworks */,
+				BFBA8C6E6156C8D490C42EAE /* Pods_SoraPassportUITests.framework in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
 				99808DE038069106BEBF4ECD /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2632,7 +2677,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C2FDF8413F1C0B02CA5B6506 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */,
+				A956CB6AB9B7A48A05C6C7FD /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2818,6 +2863,7 @@
 				847A17A623759E2D003BA71A /* RoundedCellControlView+Inspectable.swift */,
 				847A17A423759BA4003BA71A /* TitleWithAccessoryView.swift */,
 				944A8F82263C017000BF44EF /* SoraButton.swift */,
+				364D64C42A962A3A00072106 /* ItemProtocol.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -2948,7 +2994,7 @@
 				84324BCC2411446000CA339A /* SoraPassportIntegrationTests */,
 				02623EB62178C0910011250E /* Products */,
 				BEF38E71B6415481628D3783 /* Pods */,
-				CFD78B7B71D0E3785DEE5245 /* Frameworks */,
+				95C927AC747AEBB0AB0608E6 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -3024,6 +3070,7 @@
 		02623EF92179D0B50011250E /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				363EAB662A7BCAC400603361 /* MarketCap */,
 				360FF41D2A568E2400D94BA9 /* DemeterFarming */,
 				368E73202A4484F7001B7BAF /* Warning */,
 				84E8DEB0225CCDBD00640754 /* WalletContext */,
@@ -3278,6 +3325,7 @@
 				94497F1B25F7C44D00FD4F14 /* Int+Hex.swift */,
 				5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */,
 				5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */,
+				364D64C22A96191400072106 /* Sequence+Async.swift */,
 			);
 			path = Foundation;
 			sourceTree = "<group>";
@@ -3730,24 +3778,15 @@
 			path = Pooled;
 			sourceTree = "<group>";
 		};
-		3616550A291D635D00060A8D /* Discover */ = {
+		3616550A291D635D00060A8D /* Explore */ = {
 			isa = PBXGroup;
 			children = (
-				36632EDF29433705008E2366 /* DiscoveryWireframe.swift */,
-				36165511291D65E800060A8D /* PolkaswapPools */,
-				3616550B291D638F00060A8D /* DiscoverViewController.swift */,
-				3616550D291D638F00060A8D /* DiscoverViewModel.swift */,
+				364D64C72A96318E00072106 /* List */,
+				364D64C62A96318100072106 /* Main */,
+				363EAB5D2A738B7600603361 /* Items */,
+				36632EDF29433705008E2366 /* ExploreWireframe.swift */,
 			);
-			path = Discover;
-			sourceTree = "<group>";
-		};
-		36165511291D65E800060A8D /* PolkaswapPools */ = {
-			isa = PBXGroup;
-			children = (
-				36165513291D664100060A8D /* DiscoverCell.swift */,
-				36165512291D664100060A8D /* DiscoverItem.swift */,
-			);
-			path = PolkaswapPools;
+			path = Explore;
 			sourceTree = "<group>";
 		};
 		36165516291D76BE00060A8D /* PoolDetails */ = {
@@ -3941,7 +3980,8 @@
 		36356B2F29184DA500CD3E9E /* Pools */ = {
 			isa = PBXGroup;
 			children = (
-				36356B3029184DB200CD3E9E /* PoolsService.swift */,
+				3666C5082A91EA6C0089E7D7 /* ExplorePoolsService.swift */,
+				36356B3029184DB200CD3E9E /* AccountPoolsService.swift */,
 				36356B5529194F4000CD3E9E /* PoolRepositoryFactory.swift */,
 			);
 			path = Pools;
@@ -4009,6 +4049,25 @@
 				36F94ED5291E545000E211FE /* RemoveLiquidityViewModel.swift */,
 			);
 			path = Remove;
+			sourceTree = "<group>";
+		};
+		363EAB5D2A738B7600603361 /* Items */ = {
+			isa = PBXGroup;
+			children = (
+				363EAB622A73938D00603361 /* ExploreItemFactory.swift */,
+				36B239A32A94CADB00F0357A /* Assets */,
+				36B239A22A94CAD200F0357A /* Pools */,
+			);
+			path = Items;
+			sourceTree = "<group>";
+		};
+		363EAB662A7BCAC400603361 /* MarketCap */ = {
+			isa = PBXGroup;
+			children = (
+				363EAB672A7BCBE500603361 /* MarketCapService.swift */,
+				363EAB682A7BCBE500603361 /* SubqueryMarketCapOperation.swift */,
+			);
+			path = MarketCap;
 			sourceTree = "<group>";
 		};
 		3645268C28C1278500260340 /* Nodes */ = {
@@ -4192,6 +4251,44 @@
 				364D61CD2993DAA5004938FA /* BalanceDetailsViewController.swift */,
 			);
 			path = BalanceDetail;
+			sourceTree = "<group>";
+		};
+		364D64C62A96318100072106 /* Main */ = {
+			isa = PBXGroup;
+			children = (
+				3616550B291D638F00060A8D /* ExploreViewController.swift */,
+				3616550D291D638F00060A8D /* ExploreViewModel.swift */,
+			);
+			path = Main;
+			sourceTree = "<group>";
+		};
+		364D64C72A96318E00072106 /* List */ = {
+			isa = PBXGroup;
+			children = (
+				364D64D32A96B94000072106 /* Pool */,
+				364D64D22A96B93000072106 /* Asset */,
+			);
+			path = List;
+			sourceTree = "<group>";
+		};
+		364D64D22A96B93000072106 /* Asset */ = {
+			isa = PBXGroup;
+			children = (
+				364D64C82A9631ED00072106 /* ViewAssetListViewModel.swift */,
+				364D64CE2A96335500072106 /* ExploreAssetListCell.swift */,
+				364D64CA2A96324000072106 /* ExploreAssetListItem.swift */,
+			);
+			path = Asset;
+			sourceTree = "<group>";
+		};
+		364D64D32A96B94000072106 /* Pool */ = {
+			isa = PBXGroup;
+			children = (
+				364D64D02A96B89600072106 /* ViewPoolListViewModel.swift */,
+				364D64D42A96B9BF00072106 /* ExplorePoolListCell.swift */,
+				364D64D52A96B9BF00072106 /* ExplorePoolListItem.swift */,
+			);
+			path = Pool;
 			sourceTree = "<group>";
 		};
 		3653BD0F2A029D5A003C71A4 /* GenerateQR */ = {
@@ -4531,6 +4628,28 @@
 				36ADDDAD28EC8A140080A41C /* AssetsItem.swift */,
 				36ADDDB128ECB5390080A41C /* AssetViewModel.swift */,
 				367C55A228FCA631008FC55F /* AssetViewModelFactory.swift */,
+			);
+			path = Assets;
+			sourceTree = "<group>";
+		};
+		36B239A22A94CAD200F0357A /* Pools */ = {
+			isa = PBXGroup;
+			children = (
+				364D64DA2A97464400072106 /* ExplorePoolViewModelService.swift */,
+				36B2399F2A94BD8400F0357A /* ExplorePoolsItem.swift */,
+				36B2399E2A94BD8400F0357A /* ExplorePoolsCell.swift */,
+				36B239A62A9528E200F0357A /* ExplorePoolView.swift */,
+			);
+			path = Pools;
+			sourceTree = "<group>";
+		};
+		36B239A32A94CADB00F0357A /* Assets */ = {
+			isa = PBXGroup;
+			children = (
+				364D64D82A973AAB00072106 /* ExploreAssetViewModelService.swift */,
+				363EAB5E2A73921A00603361 /* ExploreAssetsItem.swift */,
+				363EAB602A73926C00603361 /* ExploreAssetsCell.swift */,
+				36B239A42A94F86200F0357A /* ExploreAssetView.swift */,
 			);
 			path = Assets;
 			sourceTree = "<group>";
@@ -5274,7 +5393,7 @@
 				3611062D2978A3AF003A6352 /* ConfirmPassphrase */,
 				8BF4286A293E5A9A00590F92 /* Language */,
 				8B3625FF296F1652007B9525 /* ChangeAccount */,
-				3616550A291D635D00060A8D /* Discover */,
+				3616550A291D635D00060A8D /* Explore */,
 				364BB48B292A4B7E00DE90A6 /* ActivityDetails */,
 				3692D6972910716800B8B274 /* Activity */,
 				3628601A291F96FE0000A561 /* PolkaswapProducts */,
@@ -5912,6 +6031,17 @@
 			path = Coingecko;
 			sourceTree = "<group>";
 		};
+		95C927AC747AEBB0AB0608E6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C8CF8F75346DCF40D86E40C3 /* Pods_SoraPassportAll_SoraPassport.framework */,
+				300386922C53F7337B2F3ED4 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
+				E58BB9A70516E52AC5CBE54D /* Pods_SoraPassportTests.framework */,
+				C20CB6B4D30F4B72F9466C1F /* Pods_SoraPassportUITests.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		A1FA6E7E6E9FCED35CFC2BBF /* AccountOptions */ = {
 			isa = PBXGroup;
 			children = (
@@ -6038,40 +6168,35 @@
 		BEF38E71B6415481628D3783 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
+				C0C10EB55D16CB115B3D93C4 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */,
+				EEF1103E4EE6A3EAB48044AA /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */,
+				073C61FAE6089EB0342B1C6B /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */,
+				140FD35D2F08BE931B99CEC0 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */,
+				8395E8B9DD9D6094959E8015 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */,
+				84790B003AA4210CD7B56EE3 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */,
+				1E63E158B2BCF3F593C709A9 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */,
+				5E9147233C58205E1CCE93D9 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */,
+				197E0E3E976310DA4276DFC4 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */,
+				D79F58E9FB402639CA2894BD /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */,
+				3D91DA739AA9EBF08C0B4A87 /* Pods-SoraPassportTests.debug.xcconfig */,
+				D33EF8BCD18E14EFC5AE7F68 /* Pods-SoraPassportTests.release.xcconfig */,
+				AAF25B28B4EE1D363A0BB3DA /* Pods-SoraPassportTests.test.xcconfig */,
+				F63CCC90DC6F096C3DE60E48 /* Pods-SoraPassportTests.staging.xcconfig */,
+				F46D4B6F5F5B7B7463D8A5EB /* Pods-SoraPassportTests.dev.xcconfig */,
+				8EC949439C30C9663456BDC7 /* Pods-SoraPassportUITests.debug.xcconfig */,
+				33C1C3738327FC7456C42213 /* Pods-SoraPassportUITests.release.xcconfig */,
+				EDB737CE7FD0995EF3D0F1FA /* Pods-SoraPassportUITests.test.xcconfig */,
+				FDF1508ECA81A986E437C33D /* Pods-SoraPassportUITests.staging.xcconfig */,
+				D82A07B50D8F6707A7CD3F2D /* Pods-SoraPassportUITests.dev.xcconfig */,
 				7ABCF88DBE61FD88E48103D4 /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */,
 				0DA0ECA40629F7CA55AD1089 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */,
-				42F1D7FB57E18E5CEEB50EB4 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */,
-				52A0531941BAD4567563ED11 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */,
-				5480710B4EDAE96792F6E63B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */,
-				3994993D9A9FDFA1BCD456CA /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */,
-				0AAACFAEC553DD983F68F351 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */,
 				2DD86E01FAAC842DDA29EC33 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */,
-				5B9DE3992391EBEABC440A0A /* Pods-SoraPassportTests.debug.xcconfig */,
-				F44B22ABF888DE6084844F07 /* Pods-SoraPassportTests.release.xcconfig */,
-				58436442E3EA19431F89166A /* Pods-SoraPassportTests.test.xcconfig */,
-				4A6AD45445BF6A65A89A470D /* Pods-SoraPassportTests.dev.xcconfig */,
-				26FD8C603CFBB4BB770BCA1E /* Pods-SoraPassportUITests.debug.xcconfig */,
-				62A07E4DA24D393F23333105 /* Pods-SoraPassportUITests.release.xcconfig */,
-				54B86954738F4BFAA0968E63 /* Pods-SoraPassportUITests.staging.xcconfig */,
-				EF2DB96FDB521BA3E06ECED3 /* Pods-SoraPassportUITests.dev.xcconfig */,
 				D11E48E33D98B9B90C325913 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */,
 				2E67161D1A40D3F1994BC8EA /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */,
 				B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */,
 				7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */,
 			);
 			path = Pods;
-			sourceTree = "<group>";
-		};
-		CFD78B7B71D0E3785DEE5245 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				576509BB75DC43579DF6AD79 /* Pods_SoraPassportAll_SoraPassport.framework */,
-				287C7BC35117BCB72B327424 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
-				3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */,
-				25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */,
-				C4CDE6F4986EE7F06E47B45C /* Pods_SoraPassportUITests.framework */,
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		D0C1FE5C90B97BF44622D035 /* MainTabBar */ = {
@@ -6102,7 +6227,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EDD2178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassport" */;
 			buildPhases = (
-				37A2EE60FE262A54518B6264 /* [CP] Check Pods Manifest.lock */,
+				2ABCE2C6DD176C0DF832CFAA /* [CP] Check Pods Manifest.lock */,
 				364EA8442A094205001A0FD4 /* Inject Secrets */,
 				02623F072179DCD20011250E /* R.swift */,
 				02623EB12178C0910011250E /* Sources */,
@@ -6110,7 +6235,7 @@
 				02E319AF21D4AFF500B33B66 /* Setup Firebase Enviroment GoogleService-Info.plist */,
 				02623EB32178C0910011250E /* Resources */,
 				0292033321977A4400D9BACD /* Crashlytics */,
-				EE32BD698626EB8A397A0D99 /* [CP] Embed Pods Frameworks */,
+				E170BFBD7F23E1CA438B147C /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6125,13 +6250,13 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EE02178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassportTests" */;
 			buildPhases = (
-				C967FEB1960D3931703D4087 /* [CP] Check Pods Manifest.lock */,
+				F392E07B98C877E64D0BEDAA /* [CP] Check Pods Manifest.lock */,
 				02623F0A2179F1C50011250E /* ModuleMocks */,
 				026AEA5221B4FFF0002EEB67 /* CommonMocks */,
 				02623EC52178C0930011250E /* Sources */,
 				02623EC62178C0930011250E /* Frameworks */,
 				02623EC72178C0930011250E /* Resources */,
-				E6904C1444D45A4E531E620B /* [CP] Embed Pods Frameworks */,
+				B93673A6BEF819439FD1E26F /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6166,11 +6291,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 84324BD22411446000CA339A /* Build configuration list for PBXNativeTarget "SoraPassportIntegrationTests" */;
 			buildPhases = (
-				8462FEA78A98531C90C0DF45 /* [CP] Check Pods Manifest.lock */,
+				6C73D2E9A4043FD68EEAF8D5 /* [CP] Check Pods Manifest.lock */,
 				84324BC72411446000CA339A /* Sources */,
 				84324BC82411446000CA339A /* Frameworks */,
 				84324BC92411446000CA339A /* Resources */,
-				B322896076E931B5592AEEC4 /* [CP] Embed Pods Frameworks */,
+				AE69F21B4C16C18B75FFED79 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6395,7 +6520,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				$PROJECT_DIR/R.generated.swift,
+				"$PROJECT_DIR/R.generated.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6458,26 +6583,7 @@
 			shellPath = /bin/sh;
 			shellScript = "# Name of the resource we're selectively copying\nGOOGLESERVICE_INFO_PLIST=GoogleService-Info.plist\n\n# Get references to a version of the GoogleService-Info.plist based on config\nGOOGLESERVICE_INFO_CONFIG=${PROJECT_DIR}/${TARGET_NAME}/Configs/${FIREBASE_CONFIG}\n\n# Make sure that plist exists\necho \"Looking for ${GOOGLESERVICE_INFO_CONFIG}\"\nif [ ! -f $GOOGLESERVICE_INFO_CONFIG ]\nthen\necho \"No ${FIREBASE_CONFIG} found. Please ensure it's in the proper directory.\"\nexit 1\nfi\n\n# Get a reference to the destination location for the GoogleService-Info.plist\nPLIST_DESTINATION=${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/${GOOGLESERVICE_INFO_PLIST}\necho \"Will copy ${GOOGLESERVICE_INFO_PLIST} to final destination: ${PLIST_DESTINATION}\"\n\n# Copy GoogleService-Info.plist\necho \"Using ${FIREBASE_CONFIG}\"\ncp \"${GOOGLESERVICE_INFO_CONFIG}\" \"${PLIST_DESTINATION}\"\n";
 		};
-		364EA8442A094205001A0FD4 /* Inject Secrets */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Inject Secrets";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKeyTest=$SORA_CARD_API_KEY_TEST,soraCardAPIKeyProd=$SORA_CARD_API_KEY_PROD,soraCardDomainTest=$SORA_CARD_DOMAIN_TEST,soraCardDomainProd=$SORA_CARD_DOMAIN_PROD,soraCardKYCEndpointUrlTest=$SORA_CARD_KYC_ENDPOINT_URL_TEST,,soraCardKYCEndpointUrlProd=$SORA_CARD_KYC_ENDPOINT_URL_PROD,soraCardKycUsernameTest=$SORA_CARD_KYC_USERNAME_TEST,soraCardKycUsernameProd=$SORA_CARD_KYC_USERNAME_PROD,soraCardKycPasswordTest=$SORA_CARD_KYC_PASSWORD_TEST,soraCardKycPasswordProd=$SORA_CARD_KYC_PASSWORD_PROD,soraCardBackendTestUrl=$SORA_BACKEND_DEBUG,soraCardBackendProdUrl=$SORA_BACKEND_RELEASE,soraCardXOneEndpointTest=$X1_ENDPOINT_URL_DEBUG,soraCardXOneEndpointProd=$X1_ENDPOINT_URL_RELEASE,soraCardXOneIdTest=$X1_WIDGET_ID_DEBUG,soraCardXOneIdProd=$X1_WIDGET_ID_RELEASE,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_GOOGLE_URL_SCHEME_DEV,soraGoogleToken=$SORA_GOOGLE_TOKEN_DEV\n#add params to the xcconfig files\nvariableNames=(\"SORA_GOOGLE_TOKEN_DEV\" \"SORA_GOOGLE_URL_SCHEME_DEV\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n    done\ndone\n\nif [ -n \"$JENKINS_URL\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $SORA_GOOGLE_URL_SCHEME_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\nfi\n";
-		};
-		37A2EE60FE262A54518B6264 /* [CP] Check Pods Manifest.lock */ = {
+		2ABCE2C6DD176C0DF832CFAA /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6499,7 +6605,26 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		8462FEA78A98531C90C0DF45 /* [CP] Check Pods Manifest.lock */ = {
+		364EA8442A094205001A0FD4 /* Inject Secrets */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Inject Secrets";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKeyTest=$SORA_CARD_API_KEY_TEST,soraCardAPIKeyProd=$SORA_CARD_API_KEY_PROD,soraCardDomainTest=$SORA_CARD_DOMAIN_TEST,soraCardDomainProd=$SORA_CARD_DOMAIN_PROD,soraCardKYCEndpointUrlTest=$SORA_CARD_KYC_ENDPOINT_URL_TEST,,soraCardKYCEndpointUrlProd=$SORA_CARD_KYC_ENDPOINT_URL_PROD,soraCardKycUsernameTest=$SORA_CARD_KYC_USERNAME_TEST,soraCardKycUsernameProd=$SORA_CARD_KYC_USERNAME_PROD,soraCardKycPasswordTest=$SORA_CARD_KYC_PASSWORD_TEST,soraCardKycPasswordProd=$SORA_CARD_KYC_PASSWORD_PROD,soraCardBackendTestUrl=$SORA_BACKEND_DEBUG,soraCardBackendProdUrl=$SORA_BACKEND_RELEASE,soraCardXOneEndpointTest=$X1_ENDPOINT_URL_DEBUG,soraCardXOneEndpointProd=$X1_ENDPOINT_URL_RELEASE,soraCardXOneIdTest=$X1_WIDGET_ID_DEBUG,soraCardXOneIdProd=$X1_WIDGET_ID_RELEASE,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_GOOGLE_URL_SCHEME_DEV,soraGoogleToken=$SORA_GOOGLE_TOKEN_DEV\n#add params to the xcconfig files\nvariableNames=(\"SORA_GOOGLE_TOKEN_DEV\" \"SORA_GOOGLE_URL_SCHEME_DEV\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n    done\ndone\n\nif [ -n \"$JENKINS_URL\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $SORA_GOOGLE_URL_SCHEME_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\nfi\n";
+		};
+		6C73D2E9A4043FD68EEAF8D5 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6521,7 +6646,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		B322896076E931B5592AEEC4 /* [CP] Embed Pods Frameworks */ = {
+		AE69F21B4C16C18B75FFED79 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6645,29 +6770,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		C967FEB1960D3931703D4087 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportTests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		E6904C1444D45A4E531E620B /* [CP] Embed Pods Frameworks */ = {
+		B93673A6BEF819439FD1E26F /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6723,7 +6826,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		EE32BD698626EB8A397A0D99 /* [CP] Embed Pods Frameworks */ = {
+		E170BFBD7F23E1CA438B147C /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6869,6 +6972,28 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		F392E07B98C877E64D0BEDAA /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-SoraPassportTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -6882,7 +7007,7 @@
 				9431D5BC26330330001E5C85 /* AppearanceFactory.swift in Sources */,
 				55063DB128F96B8A008782E1 /* GenesisProvider.swift in Sources */,
 				94497DA525EF891C00FD4F14 /* NominateCall.swift in Sources */,
-				36632EE029433706008E2366 /* DiscoveryWireframe.swift in Sources */,
+				36632EE029433706008E2366 /* ExploreWireframe.swift in Sources */,
 				02D46839218E430B00F9D3D0 /* CharacterSet+PersonalInfo.swift in Sources */,
 				8418C5882331891B00E92394 /* WalletTransferMock.swift in Sources */,
 				8BF4286E293E5C6800590F92 /* LanguageViewFactory.swift in Sources */,
@@ -6896,10 +7021,12 @@
 				847527452362F0920028D871 /* InvitationCheckData.swift in Sources */,
 				361EF590291335F100D0DCCF /* ActivityViewFactory.swift in Sources */,
 				36C370E62823B0950027BA77 /* AvailableInvitationsViewModel.swift in Sources */,
+				36B239A12A94BD8400F0357A /* ExplorePoolsItem.swift in Sources */,
 				841D6DE922D31F3400418199 /* PersonalForm.swift in Sources */,
 				94562D84266A2FF600205338 /* AssetTransactionData+Values.swift in Sources */,
 				9457538C25B0996800AC12B9 /* SplashView.swift in Sources */,
 				02A052F1221F33FD00CA290F /* SmsCodeSendMock.swift in Sources */,
+				364D64C32A96191400072106 /* Sequence+Async.swift in Sources */,
 				9481B467286EFC2200A472E2 /* ChainSyncService.swift in Sources */,
 				9441FBF125CC035700775559 /* StorageSubscriptionProtocols.swift in Sources */,
 				5599B6D1292570ED00567396 /* SettingsInformationFactory.swift in Sources */,
@@ -6917,6 +7044,7 @@
 				362F49C42A3772D500163091 /* SetupPasswordSection.swift in Sources */,
 				8409324F2347327B0013C871 /* SoraWindow.swift in Sources */,
 				36E5DB8228CE86DC00AB8E28 /* AddConnectionError.swift in Sources */,
+				364D64D72A96B9BF00072106 /* ExplorePoolListItem.swift in Sources */,
 				366A78272A31FE3700A6DDF9 /* AccountImportedProtocol.swift in Sources */,
 				3611E71F2981883E00D2CF6F /* MigrationRedesignViewController.swift in Sources */,
 				9441F93425C96CC300775559 /* WalletAssetId+Chain.swift in Sources */,
@@ -6934,6 +7062,7 @@
 				9441F89425C957C400775559 /* WalletContactOperationFactory.swift in Sources */,
 				5E9774F42A31AE040047BCA2 /* AccountExportRawSeedInteractor.swift in Sources */,
 				361106312978A4A7003A6352 /* ConfirmPassphraseViewModel.swift in Sources */,
+				36B239A02A94BD8400F0357A /* ExplorePoolsCell.swift in Sources */,
 				02A053152223337800CA290F /* HelpFetchMock.swift in Sources */,
 				364BB47E292A469B00DE90A6 /* ConfirmDetailsItem.swift in Sources */,
 				8B362601296F1813007B9525 /* ChangeAccountViewFactory.swift in Sources */,
@@ -7087,6 +7216,7 @@
 				9481B466286EFC2200A472E2 /* SpecVersionSubscription.swift in Sources */,
 				8409324823463C0A0013C871 /* StatusPresentable.swift in Sources */,
 				9441FACB25CAC79D00775559 /* ByteLengthProcessor+Username.swift in Sources */,
+				3666C5092A91EA6C0089E7D7 /* ExplorePoolsService.swift in Sources */,
 				94497DEF25EF8FCC00FD4F14 /* ExtrinsicFactoryProtocol.swift in Sources */,
 				02CFA4AD2187B38C000E9483 /* ActionPresentation.swift in Sources */,
 				94497EA125EFDBA800FD4F14 /* StorageProviderSource.swift in Sources */,
@@ -7103,6 +7233,7 @@
 				3666CBCB29056E420098F4AC /* AssetDetailsViewModel.swift in Sources */,
 				94D4B66428C0B7DB007F98EB /* StorageMigrator+Sync.swift in Sources */,
 				847527412362DE9F0028D871 /* DeviceInfo.swift in Sources */,
+				36B239A72A9528E200F0357A /* ExplorePoolView.swift in Sources */,
 				368E73222A448506001B7BAF /* WarningView.swift in Sources */,
 				847A17BA23796348003BA71A /* AlertInputFieldPresenter.swift in Sources */,
 				B2CD5DAE2A7A5A1800B16F8A /* EnabledView.swift in Sources */,
@@ -7111,6 +7242,7 @@
 				84AA44B3249FF49A00C09E0F /* DateFormatter+Wallet.swift in Sources */,
 				94653DE928870FBB00311EC7 /* MultiAddress+Query.swift in Sources */,
 				5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */,
+				364D64CF2A96335500072106 /* ExploreAssetListCell.swift in Sources */,
 				8481A5DC2302F3290056D3D4 /* DateFormatterFactory.swift in Sources */,
 				949C789625D3EB1D00E260B9 /* WalletQRCoderFactory.swift in Sources */,
 				9441F95325C9707200775559 /* CompoundOperationWrapper+Result.swift in Sources */,
@@ -7179,6 +7311,7 @@
 				84530A4B223BF2D000AD7598 /* SecurityLayerWireframe.swift in Sources */,
 				8B1BC3B529FBDA41006C87E4 /* SettingsInformationCell.swift in Sources */,
 				026AEA3421AAFF21002EEB67 /* SoraLoadingViewFactory.swift in Sources */,
+				364D64D62A96B9BF00072106 /* ExplorePoolListCell.swift in Sources */,
 				9441F9C825C9815E00775559 /* Storage+Identifiable.swift in Sources */,
 				36C370E0282304460027BA77 /* InputRewardAmountPresenter.swift in Sources */,
 				94497E1025EF935300FD4F14 /* UpgradeV28Subscription.swift in Sources */,
@@ -7196,7 +7329,8 @@
 				36F94EDB291E545000E211FE /* LiquidityWireframe.swift in Sources */,
 				5E9774F02A31AE040047BCA2 /* AccountExportProtocols.swift in Sources */,
 				36C88A262A32EAA800B3CF39 /* AccountOptionSeparator.swift in Sources */,
-				3616550E291D639000060A8D /* DiscoverViewController.swift in Sources */,
+				3616550E291D639000060A8D /* ExploreViewController.swift in Sources */,
+				3616550E291D639000060A8D /* ExploreViewController.swift in Sources */,
 				36ACC95F2864AF9000DA98EC /* ReferralViewFactory.swift in Sources */,
 				02CFA4E72189D1C5000E9483 /* ProjectsVotesCountMock.swift in Sources */,
 				84AF3DCA22957776008725C3 /* String+Symbol.swift in Sources */,
@@ -7237,6 +7371,7 @@
 				847435EA22DCC359002B1BDC /* BearerTokenRequestModifier.swift in Sources */,
 				84324B9A240E4CA000CA339A /* Result+Type.swift in Sources */,
 				B2A56F082A6FD64200844A35 /* YourReferrerViewController.swift in Sources */,
+				364D64D12A96B89600072106 /* ViewPoolListViewModel.swift in Sources */,
 				3628601E291F97510000A561 /* OptionsView.swift in Sources */,
 				8481A5DE2302F9DC0056D3D4 /* DateFormatterProvider.swift in Sources */,
 				3666CBCD29056E420098F4AC /* PriceCell.swift in Sources */,
@@ -7286,6 +7421,7 @@
 				94497EA025EFDBA800FD4F14 /* EmptyStreamableSource.swift in Sources */,
 				B2A56F0C2A6FD6B100844A35 /* YourReferrerViewModel.swift in Sources */,
 				3661C9E72858B65100660434 /* RewardSeparatorViewModel.swift in Sources */,
+				364D64C92A9631ED00072106 /* ViewAssetListViewModel.swift in Sources */,
 				366A78352A3227AC00A6DDF9 /* SetupPasswordWireframe.swift in Sources */,
 				36ED6FC029F921F400D096C9 /* MneminicProcessor.swift in Sources */,
 				9441FBEB25CC035700775559 /* StorageUpdate.swift in Sources */,
@@ -7372,7 +7508,7 @@
 				553069E0290A82CD00F265A3 /* AppSettingsFactory.swift in Sources */,
 				02920330219746E300D9BACD /* AlertPresentable.swift in Sources */,
 				36C66EAE2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift in Sources */,
-				36165510291D639000060A8D /* DiscoverViewModel.swift in Sources */,
+				36165510291D639000060A8D /* ExploreViewModel.swift in Sources */,
 				36477A4729AF8BC8005EDAD4 /* ConfigService.swift in Sources */,
 				9441F93325C96CC300775559 /* ExportOption+ViewModel.swift in Sources */,
 				9481B49E286F019700A472E2 /* ChainsUpdatedEvent.swift in Sources */,
@@ -7397,11 +7533,12 @@
 				36DB198B29EDC5CB00B3E3BF /* AccountCreationError.swift in Sources */,
 				843D543424FC4F52000E0DE1 /* ReferendumDetailsFetchMock.swift in Sources */,
 				B2A56EF92A5E815200844A35 /* InvitationsCell.swift in Sources */,
+				363EAB632A73938D00603361 /* ExploreItemFactory.swift in Sources */,
 				3611E7092979CDA400D2CF6F /* SetupPincodePresenter.swift in Sources */,
 				9441FC4125D1790B00775559 /* KeyboardAdoptable.swift in Sources */,
 				94497E1D25EF9E5E00FD4F14 /* MigrateCall.swift in Sources */,
 				94497F1125F2532800FD4F14 /* Header.swift in Sources */,
-				36356B3129184DB200CD3E9E /* PoolsService.swift in Sources */,
+				36356B3129184DB200CD3E9E /* AccountPoolsService.swift in Sources */,
 				84EF3A89232A25530012421F /* DeepLinkNavigation.swift in Sources */,
 				36527D8E29B7341A006D2042 /* NewTransactionCreatedEvent.swift in Sources */,
 				B2CD5DAC2A7A5A1800B16F8A /* EditViewController.swift in Sources */,
@@ -7466,6 +7603,7 @@
 				36A619FF295D02A300B3C752 /* SubqueryFiatInfoOperation.swift in Sources */,
 				02A0532722240B9E00CA290F /* CurrencyData.swift in Sources */,
 				9441F8E325C9699400775559 /* Chain.swift in Sources */,
+				364D64DB2A97464400072106 /* ExplorePoolViewModelService.swift in Sources */,
 				9441F89125C957C400775559 /* SubstrateOperationFactory.swift in Sources */,
 				02A053112223300300CA290F /* HelpData.swift in Sources */,
 				9481B49C286F019700A472E2 /* RuntimeSyncEvents.swift in Sources */,
@@ -7489,6 +7627,7 @@
 				84FA00882268AC19005DA950 /* ActivatedInvitationsData.swift in Sources */,
 				36165521291D7F4200060A8D /* PoolDetailsViewModel.swift in Sources */,
 				02165AC921A2FEC600EC1FCC /* NumberFormatter+Values.swift in Sources */,
+				363EAB5F2A73921A00603361 /* ExploreAssetsItem.swift in Sources */,
 				55063DBC2902A96E008782E1 /* MoreMenuPresenter.swift in Sources */,
 				36FE0FE02955B1AC00117E82 /* ConfirmSendingViewModel.swift in Sources */,
 				94497E8D25EFDAF300FD4F14 /* AnySingleValueProvider.swift in Sources */,
@@ -7586,7 +7725,6 @@
 				848A880B247C602B00B22C44 /* NSDecimalNumberHandler+Wallet.swift in Sources */,
 				0298790D218196BF0085E605 /* NetworkRequestModifier.swift in Sources */,
 				02623EB92178C0910011250E /* AppDelegate.swift in Sources */,
-				36165515291D664200060A8D /* DiscoverCell.swift in Sources */,
 				9441F92925C96CC300775559 /* CodableExtensions.swift in Sources */,
 				3603A3972917E1FD00DF6EFE /* PoolViewModelFactory.swift in Sources */,
 				9441F8F825C9699400775559 /* ManagedConnectionItemMapper.swift in Sources */,
@@ -7596,6 +7734,7 @@
 				9441FC0225CC089200775559 /* WalletBalanceChanged.swift in Sources */,
 				36FE0FE32955B52100117E82 /* RecipientAddressItem.swift in Sources */,
 				840931E5233DEB8F0013C871 /* ReputationDetailsFetchMock.swift in Sources */,
+				363EAB6A2A7BCBE500603361 /* SubqueryMarketCapOperation.swift in Sources */,
 				9441FB1825CAE33500775559 /* AccountConfirmInteractor.swift in Sources */,
 				362DAD8A29F53283005562B0 /* PinSetupProtocol.swift in Sources */,
 				364BB489292A491D00DE90A6 /* SoramitsuButtonCell.swift in Sources */,
@@ -7703,6 +7842,7 @@
 				363BDB002938CCF7000F5608 /* HeaderActivityDetailsItem.swift in Sources */,
 				364BA326293FC0470099CB0D /* AccountTableViewItem.swift in Sources */,
 				84F8B24924337359005911F7 /* String+Iroha.swift in Sources */,
+				364D64CB2A96324000072106 /* ExploreAssetListItem.swift in Sources */,
 				364BA3152938F73F0099CB0D /* ActivityDetailsWireframe.swift in Sources */,
 				363DA4D72A040C7E00806A5B /* InputSendInfoViewModel.swift in Sources */,
 				9441F8F625C9699400775559 /* Price.swift in Sources */,
@@ -7756,7 +7896,6 @@
 				94F68B11277473CB00226F20 /* UISearchBar+Style.swift in Sources */,
 				364BB48F292A4D5500DE90A6 /* ActivityDetailsViewController.swift in Sources */,
 				36A652F72921A49800C1D608 /* SlippageToleranceView.swift in Sources */,
-				36165514291D664200060A8D /* DiscoverItem.swift in Sources */,
 				84A90A132431CECF00F5CB76 /* WalletSearchRequestError.swift in Sources */,
 				8B3625FE296EB274007B9525 /* AccountMenuItem.swift in Sources */,
 				945A577725DE8855003E4023 /* JSONRPCAliases.swift in Sources */,
@@ -7771,6 +7910,7 @@
 				360FF4212A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift in Sources */,
 				366A782A2A31FE3700A6DDF9 /* AccountImportedViewFactory.swift in Sources */,
 				849C5690237C8A6500350CB0 /* InvitationAppliedEvent.swift in Sources */,
+				363EAB612A73926C00603361 /* ExploreAssetsCell.swift in Sources */,
 				3692D69B2910719200B8B274 /* ActivityViewModel.swift in Sources */,
 				36165508291B12CE00060A8D /* PooledItem.swift in Sources */,
 				9441FA9F25CAC42F00775559 /* AccountImportJsonFactory.swift in Sources */,
@@ -7807,6 +7947,7 @@
 				9441FB1725CAE33500775559 /* AccountConfirmProtocols.swift in Sources */,
 				944A8F83263C017200BF44EF /* SoraButton.swift in Sources */,
 				36ACC968286A04DA00DA98EC /* InputRewardAmountType.swift in Sources */,
+				36B239A52A94F86200F0357A /* ExploreAssetView.swift in Sources */,
 				9441F9F525C9823800775559 /* RPCMethod.swift in Sources */,
 				9441F92825C96CC300775559 /* Chain+Info.swift in Sources */,
 				5E340DFC280D422300D62669 /* AccountPools.swift in Sources */,
@@ -7821,6 +7962,7 @@
 				840F2089237EDB0D00EBE714 /* CountdownTimerFactory.swift in Sources */,
 				3666CBCC29056E420098F4AC /* PriceItem.swift in Sources */,
 				847A17B8237958B0003BA71A /* InputFieldViewModel.swift in Sources */,
+				363EAB692A7BCBE500603361 /* MarketCapService.swift in Sources */,
 				36110B9E29540B7A00712BEB /* RecipientAddressView.swift in Sources */,
 				B2B4A6DE2A9883EE0095A9E5 /* EditViewService.swift in Sources */,
 				84FA00862268AB8C005DA950 /* ParentInfoData.swift in Sources */,
@@ -7850,6 +7992,7 @@
 				8409324B234645A10013C871 /* ApplicationStatusView.swift in Sources */,
 				366A77F82A30DC6800A6DDF9 /* AccountView.swift in Sources */,
 				55714919278D9D5800282886 /* JSONAny.swift in Sources */,
+				364D64D92A973AAB00072106 /* ExploreAssetViewModelService.swift in Sources */,
 				36ADDDB428ECC1740080A41C /* WalletHeaderView.swift in Sources */,
 				9441F9AB25C9801200775559 /* UserDataStorageFacade.swift in Sources */,
 				36E5CF14295B49F90098D4D2 /* WelcomeViewController.swift in Sources */,
@@ -7930,6 +8073,7 @@
 				947E1F92268B2650006C5A70 /* ImageProcessing.swift in Sources */,
 				60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */,
 				71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */,
+				364D64C52A962A3A00072106 /* ItemProtocol.swift in Sources */,
 				A1B644C63C38805297450DC7 /* FriendsWireframe.swift in Sources */,
 				86B2484C00C8F13C86614842 /* FriendsPresenter.swift in Sources */,
 				91D7B04B7F0479B242327146 /* FriendsInteractor.swift in Sources */,
@@ -8260,7 +8404,7 @@
 		};
 		0220858421B6C4FD00A5BC4C /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 58436442E3EA19431F89166A /* Pods-SoraPassportTests.test.xcconfig */;
+			baseConfigurationReference = AAF25B28B4EE1D363A0BB3DA /* Pods-SoraPassportTests.test.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -8398,7 +8542,7 @@
 		};
 		022C4549220DBE67005B6FEC /* Dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4A6AD45445BF6A65A89A470D /* Pods-SoraPassportTests.dev.xcconfig */;
+			baseConfigurationReference = F46D4B6F5F5B7B7463D8A5EB /* Pods-SoraPassportTests.dev.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -8427,7 +8571,7 @@
 		};
 		022C454A220DBE67005B6FEC /* Dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EF2DB96FDB521BA3E06ECED3 /* Pods-SoraPassportUITests.dev.xcconfig */;
+			baseConfigurationReference = D82A07B50D8F6707A7CD3F2D /* Pods-SoraPassportUITests.dev.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -8626,7 +8770,7 @@
 		};
 		02623EE12178C0930011250E /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5B9DE3992391EBEABC440A0A /* Pods-SoraPassportTests.debug.xcconfig */;
+			baseConfigurationReference = 3D91DA739AA9EBF08C0B4A87 /* Pods-SoraPassportTests.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -8656,7 +8800,7 @@
 		};
 		02623EE22178C0930011250E /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F44B22ABF888DE6084844F07 /* Pods-SoraPassportTests.release.xcconfig */;
+			baseConfigurationReference = D33EF8BCD18E14EFC5AE7F68 /* Pods-SoraPassportTests.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -8684,7 +8828,7 @@
 		};
 		02623EE42178C0930011250E /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 26FD8C603CFBB4BB770BCA1E /* Pods-SoraPassportUITests.debug.xcconfig */;
+			baseConfigurationReference = 8EC949439C30C9663456BDC7 /* Pods-SoraPassportUITests.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -8707,7 +8851,7 @@
 		};
 		02623EE52178C0930011250E /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 62A07E4DA24D393F23333105 /* Pods-SoraPassportUITests.release.xcconfig */;
+			baseConfigurationReference = 33C1C3738327FC7456C42213 /* Pods-SoraPassportUITests.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -8729,7 +8873,7 @@
 		};
 		84324BD32411446000CA339A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 52A0531941BAD4567563ED11 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */;
+			baseConfigurationReference = 84790B003AA4210CD7B56EE3 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8754,7 +8898,7 @@
 		};
 		84324BD42411446000CA339A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5480710B4EDAE96792F6E63B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */;
+			baseConfigurationReference = 1E63E158B2BCF3F593C709A9 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8777,7 +8921,7 @@
 		};
 		84324BD52411446000CA339A /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3994993D9A9FDFA1BCD456CA /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */;
+			baseConfigurationReference = 5E9147233C58205E1CCE93D9 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8802,7 +8946,7 @@
 		};
 		84324BD62411446000CA339A /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0AAACFAEC553DD983F68F351 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */;
+			baseConfigurationReference = 197E0E3E976310DA4276DFC4 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8826,7 +8970,7 @@
 		};
 		84324BD72411446000CA339A /* Dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 2DD86E01FAAC842DDA29EC33 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */;
+			baseConfigurationReference = D79F58E9FB402639CA2894BD /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8963,7 +9107,7 @@
 		};
 		84476205224BA293009ADC0E /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 54B86954738F4BFAA0968E63 /* Pods-SoraPassportUITests.staging.xcconfig */;
+			baseConfigurationReference = FDF1508ECA81A986E437C33D /* Pods-SoraPassportUITests.staging.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;

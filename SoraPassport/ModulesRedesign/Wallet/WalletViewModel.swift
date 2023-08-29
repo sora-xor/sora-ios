@@ -183,7 +183,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         }
 
         if let poolItem = walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
-            poolItem.poolsService?.loadPools(isNeedForceUpdate: false)
+            poolItem.poolsService?.loadAccountPools(isNeedForceUpdate: false)
         }
     }
     

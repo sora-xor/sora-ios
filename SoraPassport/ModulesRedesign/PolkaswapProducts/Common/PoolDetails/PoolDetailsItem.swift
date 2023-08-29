@@ -11,6 +11,7 @@ final class PoolDetailsItem: NSObject {
     let rewardAssetImage: String?
     var detailsViewModel: [DetailViewModel] = []
     var isRemoveLiquidityEnabled: Bool
+    var isThereLiquidity: Bool
     var handler: ((Liquidity.TransactionLiquidityType) -> Void)?
 
     init(title: String,
@@ -18,13 +19,15 @@ final class PoolDetailsItem: NSObject {
          secondAssetImage: String?,
          rewardAssetImage: String?,
          detailsViewModel: [DetailViewModel],
-         isRemoveLiquidityEnabled: Bool) {
+         isRemoveLiquidityEnabled: Bool,
+         isThereLiquidity: Bool) {
         self.title = title
         self.firstAssetImage = firstAssetImage
         self.secondAssetImage = secondAssetImage
         self.rewardAssetImage = rewardAssetImage
         self.detailsViewModel = detailsViewModel
         self.isRemoveLiquidityEnabled = isRemoveLiquidityEnabled
+        self.isThereLiquidity = isThereLiquidity
     }
 }
 

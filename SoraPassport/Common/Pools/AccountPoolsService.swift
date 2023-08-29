@@ -5,7 +5,7 @@ import XNetworking
 
 protocol PoolsServiceInputProtocol: AnyObject {
     func subscribePoolsReserves(_ poolsDetails: [PoolInfo])
-    func loadPools(isNeedForceUpdate: Bool)
+    func loadAccountPools(isNeedForceUpdate: Bool)
     func updatePools(_ pools: [PoolInfo])
     func getPool(by id: String) -> PoolInfo?
     func getPool(by baseAssetId: String, targetAssetId: String) -> PoolInfo?
@@ -30,7 +30,7 @@ protocol PoolsServiceOutput: AnyObject {
     func loaded(pools: [PoolInfo])
 }
 
-final class PoolsService {
+final class AccountPoolsService {
     
     struct PoolsChanges {
         let newOrUpdatedItems: [PoolInfo]
@@ -44,7 +44,6 @@ final class PoolsService {
     
     var subscriptionIds: [UInt16] = []
     var subscriptionUpdates: [String: String] = [:]
-    private var apyInfo: [SbApyInfo] = []
     private let config: ApplicationConfigProtocol
     private let poolRepository: AnyDataProviderRepository<PoolInfo>
     private var currentPools: [PoolInfo] = []
@@ -98,7 +97,7 @@ final class PoolsService {
             let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] update in
                 guard let weakSelf = self else { return }
                 DispatchQueue.main.asyncDebounce(target: weakSelf, after: 0.25) {
-                    self?.loadPools(isNeedForceUpdate: true)
+                    self?.loadAccountPools(isNeedForceUpdate: true)
                 }
             }
             
@@ -126,7 +125,7 @@ final class PoolsService {
                     weakSelf.subscriptionUpdates[key] = update.params.result.blockHash
                 } else {
                     DispatchQueue.main.asyncDebounce(target: weakSelf, after: 0.25) {
-                        weakSelf.loadPools(isNeedForceUpdate: true)
+                        weakSelf.loadAccountPools(isNeedForceUpdate: true)
                     }
                 }
             }
@@ -150,7 +149,7 @@ final class PoolsService {
     }
 }
 
-extension PoolsService: PoolsServiceInputProtocol {
+extension AccountPoolsService: PoolsServiceInputProtocol {
     func appendDelegate(delegate: PoolsServiceOutput) {
         outputs.append(delegate)
     }
@@ -215,7 +214,7 @@ extension PoolsService: PoolsServiceInputProtocol {
         return currentPools.filter { $0.baseAssetId == baseAssetId }
     }
     
-    func loadPools(isNeedForceUpdate: Bool) {
+    func loadAccountPools(isNeedForceUpdate: Bool) {
         if !currentPools.isEmpty && !isNeedForceUpdate {
             let sortedPools = currentPools.sorted(by: orderSort)
             outputs.forEach {
@@ -224,7 +223,7 @@ extension PoolsService: PoolsServiceInputProtocol {
             return
         }
 
-        guard let fetchRemotePoolsOperation = try? (networkFacade as? WalletNetworkFacade)?.getPoolsDetails() else { return }
+        guard let fetchRemotePoolsOperation = try? (networkFacade as? WalletNetworkFacade)?.getAccountPoolsDetails() else { return }
         let fetchOperation = poolRepository.fetchAllOperation(with: RepositoryFetchOptions())
         
         let processingOperation: BaseOperation<PoolsChanges> = ClosureOperation { [weak self] in
@@ -357,7 +356,7 @@ extension PoolsService: PoolsServiceInputProtocol {
         }
 }
 
-extension PoolsService {
+extension AccountPoolsService {
     private func orderSort(_ asset0: PoolInfo, _ asset1: PoolInfo) -> Bool {
         if let index0 = currentOrder.firstIndex(where: { $0 == asset0.poolId }),
            let index1 = currentOrder.firstIndex(where: { $0 == asset1.poolId }) {
