@@ -236,7 +236,6 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
         
         poolService.appendDelegate(delegate: poolsItem)
-        poolService.loadPools(isNeedForceUpdate: false)
         
         poolsItem.updateHandler = { [weak poolsItem, weak walletViewModel] in
             guard let walletViewModel = walletViewModel, let poolsItem = poolsItem else { return }

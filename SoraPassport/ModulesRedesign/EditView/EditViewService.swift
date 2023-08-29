@@ -27,5 +27,6 @@ extension EditViewService: EditViewServiceProtocol {
     
     func loaded(pools: [PoolInfo]) {
         completion?(!pools.isEmpty)
+        completion = nil
     }
 }

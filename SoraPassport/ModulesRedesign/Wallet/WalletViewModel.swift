@@ -103,8 +103,11 @@ final class RedesignWalletViewModel {
 extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     
     func setupModels() {
-        editViewService.loadModels { [weak editViewService] isPoolAvailable in
-            guard let editViewService = editViewService else { return }
+        editViewService.loadModels { [weak editViewService, weak self] isPoolAvailable in
+            guard
+                let editViewService = editViewService,
+                let self = self
+            else { return }
             
             var enabledIds = ApplicationConfig.shared.enabledCardIdentifiers
             let poolId = Cards.pooledAssets.id
@@ -126,6 +129,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             
             editViewService.viewModels = models
             ApplicationConfig.shared.enabledCardIdentifiers = enabledIds
+            
+            DispatchQueue.main.async {
+                self.updateItems()
+            }
         }
     }
 
@@ -140,8 +147,34 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     }
     
     func updateItems() {
-        walletItems = buildItems()
-        setupItems?(walletItems)
+        var items: [SoramitsuTableViewItemProtocol] = []
+        let enabledIds = ApplicationConfig.shared.enabledCardIdentifiers
+        
+        if let accountItem = walletItems.first(where: { $0 is AccountTableViewItem }) {
+            items.append(accountItem)
+        }
+        
+        if enabledIds.contains(Cards.soraCard.id), let soraCardItem = walletItems.first(where: { $0 is SCCardItem }) {
+            items.append(soraCardItem)
+        }
+        
+        if enabledIds.contains(Cards.referralProgram.id), let friendsItem = walletItems.first(where: { $0 is FriendsItem }) {
+            items.append(friendsItem)
+        }
+        
+        if enabledIds.contains(Cards.liquidAssets.id), let assetsItem = walletItems.first(where: { $0 is AssetsItem }) {
+            items.append(assetsItem)
+        }
+        
+        if enabledIds.contains(Cards.pooledAssets.id), let poolsItem = walletItems.first(where: { $0 is PoolsItem }) {
+            items.append(poolsItem)
+        }
+        
+        if let editViewItem = walletItems.first(where: { $0 is EditViewItem }) {
+            items.append(editViewItem)
+        }
+        
+        setupItems?(items)
     }
 
     func updateAssets() {
@@ -188,41 +221,34 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         items.append(accountItem)
         
         let soraCard = initSoraCard()
-        if enabledIds.contains(Cards.soraCard.id) {
-            let soraCardItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardItem(with: self,
-                                                                                              service: soraCard)
-            items.append(soraCardItem)
-            
-            ConfigService.shared.config.isSoraCardEnabled = true
-            soraCard.isSCBannerHidden = false
-        }
+        let soraCardItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardItem(with: self,
+                                                                                          service: soraCard)
+        items.append(soraCardItem)
+        ConfigService.shared.config.isSoraCardEnabled = true
+        soraCard.isSCBannerHidden = false
         
-        if enabledIds.contains(Cards.referralProgram.id) {
-            let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self,
-                                                    assetManager: assetManager)
-            items.append(friendsItem)
-            
-            isReferralProgramHidden = false
-        }
         
-        if enabledIds.contains(Cards.liquidAssets.id) {
-            let assetItem: SoramitsuTableViewItemProtocol = itemFactory.createAssetsItem(with: self,
-                                                                                         assetManager: assetManager,
-                                                                                         assetsProvider: assetsProvider,
-                                                                                         fiatService: fiatService)
-            items.append(assetItem)
-        }
+        let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self,
+                                                                                              assetManager: assetManager)
+        items.append(friendsItem)
+        isReferralProgramHidden = false
         
-        if enabledIds.contains(Cards.pooledAssets.id) {
-            let poolItem: SoramitsuTableViewItemProtocol = itemFactory.createPoolsItem(with: self,
-                                                                                       poolService: poolService,
-                                                                                       networkFacade: networkFacade,
-                                                                                       polkaswapNetworkFacade: polkaswapNetworkFacade,
-                                                                                       assetManager: assetManager,
-                                                                                       fiatService: fiatService)
-            items.append(poolItem)
-        }
-   
+        
+        let assetItem: SoramitsuTableViewItemProtocol = itemFactory.createAssetsItem(with: self,
+                                                                                     assetManager: assetManager,
+                                                                                     assetsProvider: assetsProvider,
+                                                                                     fiatService: fiatService)
+        items.append(assetItem)
+        
+        
+        let poolItem: SoramitsuTableViewItemProtocol = itemFactory.createPoolsItem(with: self,
+                                                                                   poolService: poolService,
+                                                                                   networkFacade: networkFacade,
+                                                                                   polkaswapNetworkFacade: polkaswapNetworkFacade,
+                                                                                   assetManager: assetManager,
+                                                                                   fiatService: fiatService)
+        items.append(poolItem)
+        
         
         let editViewItem: SoramitsuTableViewItemProtocol = itemFactory.createEditViewItem(with: self,
                                                                                           poolsService: poolService,
