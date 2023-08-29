@@ -32,6 +32,11 @@ extension RedesignWalletViewModel {
     }
 
     private func startTotalBalanceStream() {
+        totalXorBalance = nil
+        singleSidedXorFarmedPools = nil
+        referralBalance = nil
+        xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
+
         poolService.appendDelegate(delegate: self)
         let balanceProvider = try? providerFactory.createBalanceDataProvider(for: [.xor], onlyVisible: false)
         let changesBlock = { [weak self] (changes: [DataProviderChange<[BalanceData]>]) -> Void in
@@ -45,8 +50,36 @@ extension RedesignWalletViewModel {
                     self?.totalXorBalance = balanceContext.total + balanceContext.frozen + balanceContext.bonded
                 }
 
-                /// pooled xor
-                self?.poolService.loadPools(isNeedForceUpdate: false)
+                /// referrals.referrerBalances
+                guard let operation = self?.referralFactory.createReferrerBalancesOperation() else { return }
+                operation.completionBlock = { [weak self] in
+                    do {
+                        guard let data = try operation.extractResultData()?.underlyingValue else {
+                            self?.referralBalance = .zero
+                            return
+                        }
+                        self?.referralBalance = Decimal.fromSubstrateAmount(data.value, precision: 18) ?? Decimal(0)
+                    } catch {
+                         self?.referralBalance = .zero
+                        Logger.shared.error("createReferrerBalancesOperation Request unsuccessful")
+                    }
+                }
+                OperationManagerFacade.sharedManager.enqueue(operations: [operation], in: .transient)
+
+
+                /// Include the amount locked in the Demeter one-sided staking pools( isFarm == false)
+                self?.farmingService.getSingleSidedXorFarmedPools { [weak self] pools in
+
+                    var totalPooledTokens: Decimal = .zero
+                    pools.forEach { pool in
+                        totalPooledTokens += Decimal.fromSubstrateAmount(pool.pooledTokens, precision: 18) ?? .zero
+                    }
+
+                    self?.singleSidedXorFarmedPools = totalPooledTokens
+
+                    /// pooled xor
+                    self?.poolService.loadPools(isNeedForceUpdate: false)
+                }
 
                 return
             case .delete(_):
@@ -84,8 +117,11 @@ extension RedesignWalletViewModel: PoolsServiceOutput {
                     xorPooledTotal += poolInfo.baseAssetPooledByAccount  ?? .zero
                 }
             }
-            if let totalXorBalance = self?.totalXorBalance {
-                self?.xorBalanceStream.wrappedValue = totalXorBalance + xorPooledTotal
+            if let totalXorBalance = self?.totalXorBalance,
+               let referralBalance = self?.referralBalance,
+               let singleSidedXorFarmedPools = self?.singleSidedXorFarmedPools
+            {
+                self?.xorBalanceStream.wrappedValue = totalXorBalance + referralBalance + xorPooledTotal + singleSidedXorFarmedPools
             }
         })
     }

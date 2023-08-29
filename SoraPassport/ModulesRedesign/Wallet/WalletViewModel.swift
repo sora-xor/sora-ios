@@ -32,6 +32,7 @@ final class RedesignWalletViewModel {
     var providerFactory: BalanceProviderFactory
     var assetManager: AssetManagerProtocol
     let fiatService: FiatServiceProtocol
+    internal let farmingService: DemeterFarmingServiceProtocol
     
     var walletItems: [SoramitsuTableViewItemProtocol] = []
     
@@ -57,6 +58,7 @@ final class RedesignWalletViewModel {
          providerFactory: BalanceProviderFactory,
          assetManager: AssetManagerProtocol,
          fiatService: FiatServiceProtocol,
+         farmingService: DemeterFarmingServiceProtocol,
          itemFactory: WalletItemFactoryProtocol,
          networkFacade: WalletNetworkOperationFactoryProtocol,
          accountId: String,
@@ -74,6 +76,7 @@ final class RedesignWalletViewModel {
         self.providerFactory = providerFactory
         self.assetManager = assetManager
         self.fiatService = fiatService
+        self.farmingService = farmingService
         self.itemFactory = itemFactory
         self.networkFacade = networkFacade
         self.polkaswapNetworkFacade = polkaswapNetworkFacade
@@ -92,7 +95,9 @@ final class RedesignWalletViewModel {
     }
 
     @SCStream internal var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
-    internal var totalXorBalance: Decimal = .zero
+    internal var totalXorBalance: Decimal?
+    internal var singleSidedXorFarmedPools: Decimal?
+    internal var referralBalance: Decimal?
 }
 
 extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
