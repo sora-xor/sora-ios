@@ -103,7 +103,7 @@ extension ReferralsOperationFactory: ReferralsOperationFactoryProtocol {
         operation.configurationBlock = { [weak self] in
             let semaphore = DispatchSemaphore(value: 0)
 
-            self?.extrinsicService.submit(closure, signer: signer, watch: true, runningIn: .main) { [operation] result, _ in
+            self?.extrinsicService.submit(closure, signer: signer, watch: false, runningIn: .main) { [operation] result, _ in
                 semaphore.signal()
                 switch result {
                 case let .success(hash):
@@ -137,7 +137,7 @@ extension ReferralsOperationFactory: ReferralsOperationFactoryProtocol {
         operation.configurationBlock = { [weak self] in
             let semaphore = DispatchSemaphore(value: 0)
             
-            self?.extrinsicService.submit(closure, signer: signer, watch: true, runningIn: .main) { [operation] result, _ in
+            self?.extrinsicService.submit(closure, signer: signer, watch: false, runningIn: .main) { [operation] result, _ in
                 semaphore.signal()
                 switch result {
                 case let .success(hash):
