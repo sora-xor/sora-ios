@@ -9,9 +9,12 @@ final class EditViewModel {
     @Published var snapshot: EditViewSnapshot = EditViewSnapshot()
     var snapshotPublisher: Published<EditViewSnapshot>.Publisher { $snapshot }
     
+    var editViewService: EditViewServiceProtocol
     var completion: (() -> Void)?
     
-    init(completion: (() -> Void)?) {
+    init(editViewService: EditViewServiceProtocol,
+         completion: (() -> Void)?) {
+        self.editViewService = editViewService
         self.completion = completion
     }
 }
@@ -40,11 +43,7 @@ extension EditViewModel: EditViewModelProtocol {
     private func contentSection() -> EnabledSection {
         let item = EnabledItem()
         
-        item.enabledViewModels = Cards.allCases.map { card in
-            EnabledViewModel(id: card.id,
-                             title: card.title,
-                             state: card.defaultState)
-        }
+        item.enabledViewModels = editViewService.viewModels
 
         item.onTap = { [weak self, weak item] id in
             guard

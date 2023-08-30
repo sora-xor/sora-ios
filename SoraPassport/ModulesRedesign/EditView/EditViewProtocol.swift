@@ -8,7 +8,9 @@ typealias EditViewSnapshot = NSDiffableDataSourceSnapshot<EnabledSection, Enable
 protocol EditViewControllerProtocol: ControllerBackedProtocol {}
 
 protocol EditViewFactoryProtocol: AnyObject {
-    static func createView(completion: (() -> Void)?) -> EditViewController
+    static func createView(poolsService: PoolsServiceInputProtocol,
+                           editViewService: EditViewServiceProtocol,
+                           completion: (() -> Void)?) -> EditViewController
 }
 
 protocol EditViewModelProtocol: AnyObject {
