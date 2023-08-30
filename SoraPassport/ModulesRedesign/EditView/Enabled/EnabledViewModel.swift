@@ -4,7 +4,7 @@ import CommonWallet
 import SoraUIKit
 
 enum Cards: Int, CaseIterable {
-    case soraCard = 0, buyXor, liquidAssets, pooledAssets
+    case soraCard = 0, referralProgram, liquidAssets, pooledAssets
     
     var id: Int {
         return self.rawValue
@@ -14,8 +14,8 @@ enum Cards: Int, CaseIterable {
         switch self {
         case .soraCard:
             return R.string.localizable.moreMenuSoraCardTitle(preferredLanguages: .currentLocale)
-        case .buyXor:
-            return R.string.localizable.commonBuyXor(preferredLanguages: .currentLocale)
+        case .referralProgram:
+            return R.string.localizable.referralToolbarTitle(preferredLanguages: .currentLocale)
         case .liquidAssets:
             return R.string.localizable.liquidAssets(preferredLanguages: .currentLocale)
         case .pooledAssets:
@@ -25,7 +25,7 @@ enum Cards: Int, CaseIterable {
     
     var defaultState: State {
         switch self {
-        case .soraCard, .buyXor, .pooledAssets:
+        case .soraCard, .referralProgram, .pooledAssets:
             return .selected
         case .liquidAssets:
             return .unselected
