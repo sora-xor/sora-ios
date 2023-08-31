@@ -29,8 +29,8 @@ class AppSettingsCell: SoramitsuTableViewCell {
     }
 
     func setupConstraints() {
-        menuItem.leftAnchor == contentView.leftAnchor + 16
-        menuItem.rightAnchor == contentView.rightAnchor - 16
+        menuItem.leadingAnchor == contentView.leadingAnchor + 16
+        menuItem.trailingAnchor == contentView.trailingAnchor - 16
         menuItem.topAnchor == contentView.topAnchor + 8
         menuItem.bottomAnchor == contentView.bottomAnchor - 8
     }
