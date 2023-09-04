@@ -26,8 +26,8 @@ final class MoreMenuCell: SoramitsuTableViewCell {
     }
 
     func setupConstraints() {
-        categoryItem.leftAnchor == contentView.leftAnchor + 16
-        categoryItem.rightAnchor == contentView.rightAnchor - 16
+        categoryItem.leadingAnchor == contentView.leadingAnchor + 16
+        categoryItem.trailingAnchor == contentView.trailingAnchor - 16
         categoryItem.topAnchor == contentView.topAnchor + 8
         categoryItem.bottomAnchor == contentView.bottomAnchor - 8
     }

@@ -24,8 +24,8 @@ final class LanguageCell: SoramitsuTableViewCell {
     }
     
     func setupConstraints() {
-        itemView.leftAnchor == contentView.leftAnchor + 16
-        itemView.rightAnchor == contentView.rightAnchor - 16
+        itemView.leadingAnchor == contentView.leadingAnchor + 16
+        itemView.trailingAnchor == contentView.trailingAnchor - 16
         itemView.topAnchor == contentView.topAnchor
         itemView.bottomAnchor == contentView.bottomAnchor
     }

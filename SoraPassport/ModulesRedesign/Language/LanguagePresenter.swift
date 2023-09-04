@@ -47,6 +47,7 @@ final class LanguagePresenter {
             return LanguageItem(code: code, title: title, subtitle: subtitle, selected: isSelected) { [weak self] in
                 self?.localizationManager?.selectedLocalization = code
                 UIView.appearance().semanticContentAttribute = (code == "ar") || (code == "he") ? .forceRightToLeft : .forceLeftToRight
+                self?.view?.updateHierarchy()
             }
         }
         

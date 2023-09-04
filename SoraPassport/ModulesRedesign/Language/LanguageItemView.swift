@@ -5,7 +5,6 @@ final class LanguageItemView: SoramitsuView {
     
     let stack: SoramitsuStackView = {
         var view = SoramitsuStackView()
-        view.translatesAutoresizingMaskIntoConstraints = false
         view.sora.axis = .vertical
         view.sora.distribution = .fillProportionally
         view.sora.backgroundColor = .custom(uiColor: .clear)
@@ -17,8 +16,7 @@ final class LanguageItemView: SoramitsuView {
     
     let checkmarkImageView: SoramitsuImageView = {
         let view = SoramitsuImageView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.isUserInteractionEnabled = false
+        view.sora.isUserInteractionEnabled = false
         view.sora.backgroundColor = .custom(uiColor: .clear)
         view.image = R.image.profile.checkmarkGreen()
         return view
@@ -26,9 +24,9 @@ final class LanguageItemView: SoramitsuView {
 
     let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.numberOfLines = 1
-        label.textAlignment = .left
-        label.backgroundColor = .clear
+        label.sora.alignment = .left
+        label.sora.numberOfLines = 1
+        label.sora.backgroundColor = .custom(uiColor: .clear)
         label.sora.font = FontType.textM
         label.sora.textColor = .fgPrimary
         return label
@@ -36,9 +34,9 @@ final class LanguageItemView: SoramitsuView {
     
     let subtitleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.numberOfLines = 1
-        label.textAlignment = .left
-        label.backgroundColor = .clear
+        label.sora.alignment = .left
+        label.sora.numberOfLines = 1
+        label.sora.backgroundColor = .custom(uiColor: .clear)
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
         return label
@@ -46,7 +44,6 @@ final class LanguageItemView: SoramitsuView {
     
     let leftImageView: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
-        imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
     
@@ -66,7 +63,6 @@ final class LanguageItemView: SoramitsuView {
 
     private func setupSubviews() {
         sora.backgroundColor = .custom(uiColor: .clear)
-        translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(checkmarkImageView)
         addSubview(stack)
