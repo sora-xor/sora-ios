@@ -36,6 +36,10 @@ extension OnboardingMainInteractor: OnboardingMainInteractorInputProtocol {
         }
     }
     
+    func resetGoogleState() {
+        backupService.disconnect()
+    }
+    
     func getBackupedAccounts(completion: @escaping (Result<[OpenBackupAccount], Error>) -> Void) {
         backupService.getBackupAccounts(completion: completion)
     }

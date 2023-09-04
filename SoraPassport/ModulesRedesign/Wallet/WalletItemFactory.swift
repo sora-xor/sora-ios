@@ -4,12 +4,26 @@ import CommonWallet
 import SoraUIKit
 import SoraFoundation
 import SCard
+import IrohaCrypto
 
 protocol WalletItemFactoryProtocol: AnyObject {
+    
+    func createAccountItem(with walletViewModel: RedesignWalletViewModel,
+                           view: RedesignWalletViewProtocol?,
+                           wireframe: RedesignWalletWireframeProtocol?,
+                           feeProvider: FeeProviderProtocol,
+                           assetManager: AssetManagerProtocol,
+                           assetsProvider: AssetProviderProtocol,
+                           fiatService: FiatServiceProtocol,
+                           networkFacade: WalletNetworkOperationFactoryProtocol,
+                           providerFactory: BalanceProviderFactory,
+                           qrEncoder: WalletQREncoderProtocol,
+                           sharingFactory: AccountShareFactoryProtocol,
+                           accountRepository: AnyDataProviderRepository<AccountItem>,
+                           reloadItem: (([SoramitsuTableViewItemProtocol]) -> Void)?) -> SoramitsuTableViewItemProtocol
 
     func createSoraCardItem(with walletViewModel: RedesignWalletViewModelProtocol,
-                            service: SCard,
-                            onClose: (() -> Void)?) -> SoramitsuTableViewItemProtocol
+                            service: SCard) -> SoramitsuTableViewItemProtocol
 
     func createAssetsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                           assetManager: AssetManagerProtocol,
@@ -22,27 +36,129 @@ protocol WalletItemFactoryProtocol: AnyObject {
                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                          assetManager: AssetManagerProtocol,
                          fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol
+    
+    func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
+                                 assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol
+    
+    func createEditViewItem(with walletViewModel: RedesignWalletViewModel) -> SoramitsuTableViewItemProtocol
 }
 
 final class WalletItemFactory: WalletItemFactoryProtocol {
     
+    func createAccountItem(with walletViewModel: RedesignWalletViewModel,
+                           view: RedesignWalletViewProtocol?,
+                           wireframe: RedesignWalletWireframeProtocol?,
+                           feeProvider: FeeProviderProtocol,
+                           assetManager: AssetManagerProtocol,
+                           assetsProvider: AssetProviderProtocol,
+                           fiatService: FiatServiceProtocol,
+                           networkFacade: WalletNetworkOperationFactoryProtocol,
+                           providerFactory: BalanceProviderFactory,
+                           qrEncoder: WalletQREncoderProtocol,
+                           sharingFactory: AccountShareFactoryProtocol,
+                           accountRepository: AnyDataProviderRepository<AccountItem>,
+                           reloadItem: (([SoramitsuTableViewItemProtocol]) -> Void)?) -> SoramitsuTableViewItemProtocol {
+        let currentAccount = SelectedWalletSettings.shared.currentAccount
+        var accountName = currentAccount?.username ?? ""
+        if accountName.isEmpty {
+            accountName = currentAccount?.address ?? ""
+        }
+        
+        let accountItem: AccountTableViewItem = AccountTableViewItem(accountName: accountName)
+        accountItem.scanQRHandler = {
+            guard let view = view?.controller else { return }
+            
+            let accountId = try? SS58AddressFactory().accountId(
+                fromAddress: currentAccount?.identifier ?? "",
+                type: currentAccount?.addressType ?? 69).toHex(includePrefix: true)
+            
+            wireframe?.showGenerateQR(on: view,
+                                      accountId: accountId ?? "",
+                                      address: currentAccount?.address ?? "",
+                                      username: accountName,
+                                      qrEncoder: qrEncoder,
+                                      sharingFactory: sharingFactory,
+                                      assetManager: assetManager,
+                                      assetsProvider: assetsProvider,
+                                      networkFacade: networkFacade,
+                                      providerFactory: providerFactory,
+                                      feeProvider: feeProvider,
+                                      isScanQRShown: false,
+                                      closeHandler: nil)
+        }
+        
+        accountItem.updateHandler = { [weak accountItem] in
+            guard let accountItem = accountItem else { return }
+            reloadItem?([accountItem])
+        }
+
+        accountItem.accountHandler = { item in
+            guard let view = view?.controller else { return }
+            
+            wireframe?.showManageAccount(on: view, completion: { [weak item] in
+                
+                let persistentOperation = accountRepository.fetchAllOperation(with: RepositoryFetchOptions())
+                
+                persistentOperation.completionBlock = {
+                    guard let accounts = try? persistentOperation.extractNoCancellableResultData() else { return }
+                    
+                    let selectedAccountAddress = SelectedWalletSettings.shared.currentAccount?.address ?? ""
+                    let selectedAccount =  accounts.first { $0.address == selectedAccountAddress }
+                    var selectedAccountName = selectedAccount?.username ?? ""
+                    
+                    if selectedAccountName.isEmpty {
+                        selectedAccountName = selectedAccount?.address ?? ""
+                    }
+                    item?.accountName = selectedAccountName
+                    
+                    if let item = item {
+                        reloadItem?([item])
+                    }
+                }
+                OperationManagerFacade.runtimeBuildingQueue.addOperation(persistentOperation)
+            })
+        }
+        
+        return accountItem
+    }
+    
     func createSoraCardItem(with walletViewModel: RedesignWalletViewModelProtocol,
-                            service: SCard,
-                            onClose: (() -> Void)?) -> SoramitsuTableViewItemProtocol {
+                            service: SCard) -> SoramitsuTableViewItemProtocol {
         let soraCardItem = SCCardItem(
             service: service
         ) { [weak walletViewModel] in
-                walletViewModel?.closeSC()
-                onClose?()
+                guard let walletViewModel = walletViewModel else { return }
+                walletViewModel.closeSC()
+                walletViewModel.updateItems()
         } onCard: { [weak walletViewModel] in
+            guard let walletViewModel = walletViewModel else { return }
             if let isReachable = ReachabilityManager.shared?.isReachable, isReachable {
-                walletViewModel?.showSoraCardDetails()
+                walletViewModel.showSoraCardDetails()
             } else {
-                walletViewModel?.showInternerConnectionAlert()
+                walletViewModel.showInternerConnectionAlert()
             }
         }
 
         return soraCardItem
+    }
+    
+    func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
+                                 assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol {
+
+        let friendsItem = FriendsItem()
+        
+        friendsItem.onClose = { [weak walletViewModel] in
+            guard let walletViewModel = walletViewModel else { return }
+            walletViewModel.closeReferralProgram()
+            walletViewModel.updateItems()
+        }
+        
+        friendsItem.onTap = { [weak walletViewModel] in
+            guard let walletViewModel = walletViewModel else { return }
+            walletViewModel.showReferralProgram(assetManager: assetManager)
+        }
+
+        return friendsItem
     }
 
     func createAssetsItem(with walletViewModel: RedesignWalletViewModelProtocol,
@@ -140,5 +256,17 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
         
         return poolsItem
+    }
+    
+    func createEditViewItem(with walletViewModel: RedesignWalletViewModel) -> SoramitsuTableViewItemProtocol {
+        
+        let editViewItem = EditViewItem()
+        
+        editViewItem.onTap = { [weak walletViewModel] in
+            guard let walletViewModel = walletViewModel else { return }
+            walletViewModel.showEditView(completion: walletViewModel.updateItems)
+        }
+        
+        return editViewItem
     }
 }

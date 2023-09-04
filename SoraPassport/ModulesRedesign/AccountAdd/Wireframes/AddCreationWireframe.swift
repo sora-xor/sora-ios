@@ -50,9 +50,19 @@ final class AddCreationWireframe: AccountCreateWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func setupBackupAccountPassword(on controller: AccountCreateViewProtocol?, account: OpenBackupAccount) {
+    func setupBackupAccountPassword(
+        on controller: AccountCreateViewProtocol?,
+        account: OpenBackupAccount,
+        createAccountRequest: AccountCreationRequest,
+        createAccountService: CreateAccountServiceProtocol,
+        mnemonic: IRMnemonicProtocol
+    ) {
         guard let setupPasswordView = SetupPasswordViewFactory.createView(
             with: account,
+            createAccountRequest: createAccountRequest,
+            createAccountService: createAccountService,
+            mnemonic: mnemonic,
+            entryPoint: .onboarding,
             completion: endAddingBlock
         )?.controller else { return }
         controller?.controller.navigationController?.pushViewController(setupPasswordView, animated: true)

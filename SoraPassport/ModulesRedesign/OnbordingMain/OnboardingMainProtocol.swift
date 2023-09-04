@@ -2,11 +2,13 @@ import Foundation
 import SSFCloudStorage
 
 protocol OnboardingMainViewProtocol: ControllerBackedProtocol, LoadableViewProtocol {
-
+    func showLoading()
+    func hideLoading()
 }
 
 protocol OnboardingMainPresenterProtocol: AlertPresentable {
     func setup()
+    func viewWillAppear()
     func activateSignup()
     func activateAccountRestore()
     func activateCloudStorageConnection()
@@ -14,6 +16,7 @@ protocol OnboardingMainPresenterProtocol: AlertPresentable {
 
 protocol OnboardingMainInteractorInputProtocol: AnyObject {
     func setup()
+    func resetGoogleState()
     func getBackupedAccounts(completion: @escaping (Result<[OpenBackupAccount], Error>) -> Void)
 }
 

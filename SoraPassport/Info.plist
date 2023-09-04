@@ -27,14 +27,14 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string></string>
+				<string>$(SORA_IOS_GOOGLE_URL_SCHEME_PROD)</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>4</string>
 	<key>GIDClientID</key>
-	<string>$(SORA_GOOGLE_TOKEN)</string>
+	<string>$(SORA_IOS_GOOGLE_TOKEN_PROD)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>

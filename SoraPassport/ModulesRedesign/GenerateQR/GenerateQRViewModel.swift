@@ -16,6 +16,7 @@ protocol GenerateQRViewModelProtocol {
     var showShareContent: (([Any]) -> Void)? { get set }
     var closeHadler: (() -> Void)? { get }
     func viewDidLoad()
+    func scanQRCodeButtonTapped()
 }
 
 final class GenerateQRViewModel {
@@ -25,6 +26,7 @@ final class GenerateQRViewModel {
     var updateContent: ((GenerateQRMode) -> Void)?
     var showShareContent: (([Any]) -> Void)?
     var closeHadler: (() -> Void)?
+    var scanCompletion: ((ScanQRResult) -> Void)?
     
     weak var view: GenerateQRViewProtocol?
     var wireframe: GenerateQRWireframeProtocol?
@@ -36,6 +38,9 @@ final class GenerateQRViewModel {
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let qrEncoder: WalletQREncoderProtocol
     private var appEventService = AppEventService()
+    private var networkFacade: WalletNetworkOperationFactoryProtocol?
+    private let providerFactory: BalanceProviderFactory
+    private let feeProvider: FeeProviderProtocol
     
     private var mode: GenerateQRMode = .receive {
         didSet(oldValue) {
@@ -81,6 +86,7 @@ final class GenerateQRViewModel {
     private let fiatService: FiatServiceProtocol?
     private let assetManager: AssetManagerProtocol?
     private let assetsProvider: AssetProviderProtocol?
+    private let isScanQRShown: Bool
     
     init(
         qrService: WalletQRServiceProtocol,
@@ -91,7 +97,11 @@ final class GenerateQRViewModel {
         fiatService: FiatServiceProtocol?,
         assetManager: AssetManagerProtocol?,
         assetsProvider: AssetProviderProtocol?,
-        qrEncoder: WalletQREncoderProtocol
+        qrEncoder: WalletQREncoderProtocol,
+        networkFacade: WalletNetworkOperationFactoryProtocol?,
+        providerFactory: BalanceProviderFactory,
+        feeProvider: FeeProviderProtocol,
+        isScanQRShown: Bool = true
     ) {
         self.qrService = qrService
         self.sharingFactory = sharingFactory
@@ -102,6 +112,10 @@ final class GenerateQRViewModel {
         self.assetManager = assetManager
         self.assetsProvider = assetsProvider
         self.qrEncoder = qrEncoder
+        self.networkFacade = networkFacade
+        self.feeProvider = feeProvider
+        self.providerFactory = providerFactory
+        self.isScanQRShown = isScanQRShown
 
         self.accountRepository = AnyDataProviderRepository(
             UserDataStorageFacade.shared
@@ -119,6 +133,33 @@ extension GenerateQRViewModel: GenerateQRViewModelProtocol {
         generateQR()
         setupSwicherView?(swicherViewModel)
         setupRequestView?(requestViewModel)
+    }
+    
+    func scanQRCodeButtonTapped() {
+        if isScanQRShown {
+            view?.controller.dismiss(animated: true)
+            return
+        }
+        
+        guard let controller = view?.controller,
+              let assetManager = assetManager,
+              let networkFacade = networkFacade else {
+            return
+        }
+        
+        let completion: (ScanQRResult) -> Void = { [weak self] result in
+            self?.handle(result)
+        }
+        
+        wireframe?.showScanQR(on: controller,
+                              networkFacade: networkFacade,
+                              assetManager: assetManager,
+                              qrEncoder: qrEncoder,
+                              sharingFactory: sharingFactory,
+                              assetsProvider: assetsProvider,
+                              providerFactory: providerFactory,
+                              feeProvider: feeProvider,
+                              scanCompletion: completion)
     }
 }
 
@@ -174,5 +215,38 @@ private extension GenerateQRViewModel {
         guard let qrImage = currentImage, let receiveInfo = createGenerateQRInfo() else { return }
         let sources = sharingFactory.createSources(for: receiveInfo, qrImage: qrImage)
         showShareContent?(sources)
+    }
+    
+    func handle(_ result: ScanQRResult) {
+        guard let fiatService = fiatService,
+              let assetsProvider = assetsProvider,
+              let assetManager = assetManager,
+              let networkFacade = networkFacade else { return }
+        
+        if let amount = result.receiverInfo?.amount {
+            feeProvider.getFee(for: .outgoing) { [weak self] fee in
+                self?.wireframe?.showConfirmSendingAsset(on: self?.view?.controller,
+                                                   assetId: result.receiverInfo?.assetId ?? .xor,
+                                                   walletService: WalletService(operationFactory: networkFacade),
+                                                   assetManager: assetManager,
+                                                   fiatService: fiatService,
+                                                   recipientAddress: result.firstName,
+                                                   firstAssetAmount: amount.decimalValue,
+                                                   fee: fee,
+                                                   assetsProvider: assetsProvider)
+            }
+            
+            return
+        }
+        wireframe?.showSend(on: view?.controller,
+                            selectedTokenId: result.receiverInfo?.assetId ?? .xor,
+                            selectedAddress: result.firstName,
+                            fiatService: fiatService,
+                            assetManager: assetManager,
+                            providerFactory: providerFactory,
+                            networkFacade: networkFacade,
+                            assetsProvider: assetsProvider,
+                            qrEncoder: qrEncoder,
+                            sharingFactory: sharingFactory)
     }
 }

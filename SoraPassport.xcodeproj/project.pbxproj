@@ -162,11 +162,7 @@
 		02E319A821D3C07E00B33B66 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E319A721D3C07E00B33B66 /* Logger.swift */; };
 		02E319B121D4BAFA00B33B66 /* R.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E319B021D4BAFA00B33B66 /* R.generated.swift */; };
 		0C6A1BDA3B0081446A36AFD0 /* ParliamentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C421992CF81E68B180FF624 /* ParliamentTests.swift */; };
-		1006FC86256957F300A30DDA /* FriendsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1006FC85256957F300A30DDA /* FriendsViewModel.swift */; };
 		103CCD1925643D670028345D /* PullUpController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103CCD1825643D670028345D /* PullUpController.swift */; };
-		103CCD2025643E360028345D /* RewardsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103CCD1F25643E360028345D /* RewardsViewController.swift */; };
-		104BD27F2566746A007719DF /* RewardsTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104BD27E2566746A007719DF /* RewardsTableViewCell.swift */; };
-		104BD286256686F0007719DF /* RewardsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104BD285256686F0007719DF /* RewardsViewModel.swift */; };
 		104BD29F25694381007719DF /* Localizable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104BD29E25694381007719DF /* Localizable.swift */; };
 		105599112536D7A400A6E891 /* LinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105599102536D7A400A6E891 /* LinkView.swift */; };
 		108A0500254994A5007F992D /* UIView+Empty.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108A04FF254994A5007F992D /* UIView+Empty.swift */; };
@@ -200,6 +196,11 @@
 		36069F0C2A2BA3CA00439ADE /* WarningCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36069F0A2A2BA3CA00439ADE /* WarningCell.swift */; };
 		36069F0D2A2BA3CA00439ADE /* WarningItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36069F0B2A2BA3CA00439ADE /* WarningItem.swift */; };
 		3608328A28F8820800E57418 /* ProductListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3608328928F8820800E57418 /* ProductListViewController.swift */; };
+		360FF4192A557BD500D94BA9 /* StakedCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF4172A557BD500D94BA9 /* StakedCell.swift */; };
+		360FF41A2A557BD500D94BA9 /* StakedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF4182A557BD500D94BA9 /* StakedItem.swift */; };
+		360FF41C2A557F6400D94BA9 /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF41B2A557F6400D94BA9 /* ProgressView.swift */; };
+		360FF41F2A568E4800D94BA9 /* DemeterFarmingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF41E2A568E4800D94BA9 /* DemeterFarmingService.swift */; };
+		360FF4212A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360FF4202A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift */; };
 		3611062B29784A23003A6352 /* SetupAccountNameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3611062929784A1F003A6352 /* SetupAccountNameViewController.swift */; };
 		3611062C29784A23003A6352 /* SetupAccountNameViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3611062A29784A22003A6352 /* SetupAccountNameViewFactory.swift */; };
 		361106312978A4A7003A6352 /* ConfirmPassphraseViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3611062E2978A4A6003A6352 /* ConfirmPassphraseViewModel.swift */; };
@@ -263,7 +264,6 @@
 		362F49C22A37580E00163091 /* EnterPasswordSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362F49C12A37580E00163091 /* EnterPasswordSection.swift */; };
 		362F49C42A3772D500163091 /* SetupPasswordSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362F49C32A3772D500163091 /* SetupPasswordSection.swift */; };
 		3632D0F32A1E805D00C9B688 /* CIKeys.stencil in Resources */ = {isa = PBXBuildFile; fileRef = 3632D0F22A1E805D00C9B688 /* CIKeys.stencil */; };
-		3632D0F52A1F4ACF00C9B688 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3632D0F42A1F4ACF00C9B688 /* CIKeys.generated.swift */; };
 		363425032871AAB800ACE775 /* ReferralMethodType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363425022871AAB800ACE775 /* ReferralMethodType.swift */; };
 		363425072871D51900ACE775 /* AssetTransactionStatusHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363425062871D51900ACE775 /* AssetTransactionStatusHelper.swift */; };
 		36356B3129184DB200CD3E9E /* PoolsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36356B3029184DB200CD3E9E /* PoolsService.swift */; };
@@ -352,6 +352,8 @@
 		364D61CE2993DAA5004938FA /* BalanceDetailsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D61CD2993DAA5004938FA /* BalanceDetailsViewController.swift */; };
 		36527D8E29B7341A006D2042 /* NewTransactionCreatedEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36527D8D29B7341A006D2042 /* NewTransactionCreatedEvent.swift */; };
 		36527D9029B73DE7006D2042 /* LocalTransactionStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36527D8F29B73DE7006D2042 /* LocalTransactionStorage.swift */; };
+		3652E10A2A679E4E0073AFBA /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3652E1092A679E4E0073AFBA /* LoadingView.swift */; };
+		3652E10C2A6A918D0073AFBA /* CreateAccountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3652E10B2A6A918D0073AFBA /* CreateAccountService.swift */; };
 		3653BD0C2A028CE5003C71A4 /* QRFrameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD0B2A028CE5003C71A4 /* QRFrameView.swift */; };
 		3653BD0E2A029A66003C71A4 /* ScanQRWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD0D2A029A66003C71A4 /* ScanQRWireframe.swift */; };
 		3653BD142A029D5A003C71A4 /* GenerateQRViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD102A029D5A003C71A4 /* GenerateQRViewController.swift */; };
@@ -443,6 +445,7 @@
 		368E73222A448506001B7BAF /* WarningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E73212A448506001B7BAF /* WarningView.swift */; };
 		368E73262A44BBA0001B7BAF /* WarningViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E73252A44BBA0001B7BAF /* WarningViewModelFactory.swift */; };
 		368E73282A44C587001B7BAF /* Warningable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E73272A44C587001B7BAF /* Warningable.swift */; };
+		368E9A262A84806900BDE0AA /* SCardConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E9A252A84806900BDE0AA /* SCardConfig.swift */; };
 		3692D69A2910719200B8B274 /* ActivityViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3692D6982910719200B8B274 /* ActivityViewController.swift */; };
 		3692D69B2910719200B8B274 /* ActivityViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3692D6992910719200B8B274 /* ActivityViewModel.swift */; };
 		3692D69E2910725200B8B274 /* ActivityCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3692D69C2910725200B8B274 /* ActivityCell.swift */; };
@@ -462,12 +465,8 @@
 		36A652FA2921B17200C1D608 /* InputAccessoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A652F92921B17200C1D608 /* InputAccessoryView.swift */; };
 		36AC2EDF2979AD6100AD7732 /* PincodeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AC2EDE2979AD6100AD7732 /* PincodeViewController.swift */; };
 		36AC2EE12979B26D00AD7732 /* SoramitsuNumpadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AC2EE02979B26D00AD7732 /* SoramitsuNumpadView.swift */; };
-		36ACC95A2863CC4700DA98EC /* ReferrerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC9592863CC4700DA98EC /* ReferrerView.swift */; };
 		36ACC95D28649A3400DA98EC /* KeyboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC95C28649A3400DA98EC /* KeyboardService.swift */; };
 		36ACC95F2864AF9000DA98EC /* ReferralViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC95E2864AF9000DA98EC /* ReferralViewFactory.swift */; };
-		36ACC9612867B6AB00DA98EC /* InputRewardAmountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC9602867B6AB00DA98EC /* InputRewardAmountView.swift */; };
-		36ACC9652869E60400DA98EC /* TextViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC9632869E60400DA98EC /* TextViewModel.swift */; };
-		36ACC9662869E60400DA98EC /* TextCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC9642869E60400DA98EC /* TextCell.swift */; };
 		36ACC968286A04DA00DA98EC /* InputRewardAmountType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC967286A04DA00DA98EC /* InputRewardAmountType.swift */; };
 		36ADDDAB28EC83D40080A41C /* WalletViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDDAA28EC83D40080A41C /* WalletViewModel.swift */; };
 		36ADDDAF28EC8A140080A41C /* AssetsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDDAD28EC8A140080A41C /* AssetsItem.swift */; };
@@ -477,14 +476,8 @@
 		36B7D612295C941B00ECBBF6 /* FiatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B7D611295C941B00ECBBF6 /* FiatService.swift */; };
 		36B961F7294B2B02002A35BA /* ReceiveCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B961F5294B2B01002A35BA /* ReceiveCell.swift */; };
 		36B961F8294B2B02002A35BA /* ReceiveItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B961F6294B2B01002A35BA /* ReceiveItem.swift */; };
-		36C3708228228F270027BA77 /* TitleDescriptionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708128228F270027BA77 /* TitleDescriptionCell.swift */; };
-		36C3708428228F340027BA77 /* AmountCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708328228F340027BA77 /* AmountCell.swift */; };
 		36C3708628228F450027BA77 /* ButtonCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708528228F450027BA77 /* ButtonCell.swift */; };
-		36C37088282292C50027BA77 /* SpaceCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C37087282292C50027BA77 /* SpaceCell.swift */; };
-		36C3708B282295EB0027BA77 /* TitleDescriptionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708A282295EB0027BA77 /* TitleDescriptionViewModel.swift */; };
-		36C3708D282296000027BA77 /* AmountViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708C282296000027BA77 /* AmountViewModel.swift */; };
 		36C3708F2822960E0027BA77 /* ButtonViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708E2822960E0027BA77 /* ButtonViewModel.swift */; };
-		36C37091282296200027BA77 /* SpaceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C37090282296200027BA77 /* SpaceViewModel.swift */; };
 		36C370E0282304460027BA77 /* InputRewardAmountPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370DF282304460027BA77 /* InputRewardAmountPresenter.swift */; };
 		36C370E228230D660027BA77 /* AmountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370E128230D660027BA77 /* AmountView.swift */; };
 		36C370E42823B0890027BA77 /* AvailableInvitationsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370E32823B0890027BA77 /* AvailableInvitationsCell.swift */; };
@@ -494,9 +487,9 @@
 		36C370EE2823E0370027BA77 /* ReferrerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370ED2823E0370027BA77 /* ReferrerCell.swift */; };
 		36C370F128250E6D0027BA77 /* SubqueryReferrerRewardsOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370F028250E6D0027BA77 /* SubqueryReferrerRewardsOperationFactory.swift */; };
 		36C370F3282531980027BA77 /* SubqueryReferrerRewards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370F2282531980027BA77 /* SubqueryReferrerRewards.swift */; };
+		36C66EAC2A5D6E7700ADAD5E /* StakedPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C66EAB2A5D6E7700ADAD5E /* StakedPool.swift */; };
+		36C66EAE2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */; };
 		36C88A262A32EAA800B3CF39 /* AccountOptionSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88A252A32EAA800B3CF39 /* AccountOptionSeparator.swift */; };
-		36C88DF8281A7CCC0038B7F9 /* InputLinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88DF7281A7CCC0038B7F9 /* InputLinkView.swift */; };
-		36C88DFA281AA1C80038B7F9 /* RoundTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88DF9281AA1C80038B7F9 /* RoundTextField.swift */; };
 		36C88DFF2821283E0038B7F9 /* InputLinkViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88DFE2821283E0038B7F9 /* InputLinkViewController.swift */; };
 		36DB198429EDC5CB00B3E3BF /* AccountCreateWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197529EDC5CA00B3E3BF /* AccountCreateWireframe.swift */; };
 		36DB198529EDC5CB00B3E3BF /* AccountCreateInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197629EDC5CA00B3E3BF /* AccountCreateInteractor.swift */; };
@@ -546,10 +539,8 @@
 		36FE0FE42955B52100117E82 /* RecipientAddressCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FE22955B52100117E82 /* RecipientAddressCell.swift */; };
 		36FE0FE72955B68700117E82 /* SendAssetItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FE52955B68700117E82 /* SendAssetItem.swift */; };
 		36FE0FE82955B68700117E82 /* SendAssetCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FE62955B68700117E82 /* SendAssetCell.swift */; };
-		3749CCF077A468610BE6DEF7 /* FriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 225C5513C8EFD2AA50E9337F /* FriendsViewController.swift */; };
 		3AA88A226F1F362D26B93CC5 /* MainTabBarWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB489F2B62CE0CF494AA92E9 /* MainTabBarWireframe.swift */; };
 		3B5E739B0B8F955CE5436410 /* FriendsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4500E3C38424775159499D0D /* FriendsViewFactory.swift */; };
-		3F177FCB6B128669B2E71CC4 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33CF8CF7BFC5D9D3E72A9EBF /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */; };
 		44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED9AC8B83C51156EBCCDA26 /* StakingTests.swift */; };
 		44760E61E2D1A898A823C30E /* MainTabBarInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */; };
 		464462C2FF9EBDE318B76CD5 /* ActivityFeedInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1850BD8AB0EC103EB91B5BB0 /* ActivityFeedInteractorTests.swift */; };
@@ -610,7 +601,6 @@
 		5E5FBB6C280DC19C00DD092B /* WalletNetworkFacade+Pools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5FBB6B280DC19C00DD092B /* WalletNetworkFacade+Pools.swift */; };
 		5E6587EB28CA1CEA000E7234 /* DispatchQueue+debounce.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */; };
 		5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E683ED32A3AF0E600EA0EED /* AccountExporter.swift */; };
-		5E691DCE2A4D9B5B00D10E86 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3632D0F42A1F4ACF00C9B688 /* CIKeys.generated.swift */; };
 		5E7DCAA028D880B500C37182 /* Decima+Substrate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */; };
 		5E9774EE2A31AE040047BCA2 /* AccountExportPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E22A31AE030047BCA2 /* AccountExportPresenter.swift */; };
 		5E9774EF2A31AE040047BCA2 /* AccountExportViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774E32A31AE030047BCA2 /* AccountExportViewFactory.swift */; };
@@ -635,9 +625,11 @@
 		605AA53126FE72DA00E7FD12 /* NeomorphismButton.xib in Resources */ = {isa = PBXBuildFile; fileRef = 605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */; };
 		60AAFDC9270EEEDB00916408 /* InconsistentStateMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */; };
 		60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC6270EEEDB00916408 /* Migrating.swift */; };
-		6A34DB9947905AF6D006B694 /* Pods_SoraPassportTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 718224A8981F058C3C042919 /* Pods_SoraPassportTests.framework */; };
+		6572496752F3E8DC39115D6B /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 576509BB75DC43579DF6AD79 /* Pods_SoraPassportAll_SoraPassport.framework */; };
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
+		76E4FB4ED200201F509B2122 /* Pods_SoraPassportTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
+		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -1200,15 +1192,41 @@
 		94D4B66C28C75F55007F98EB /* StorageRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D4B66B28C75F55007F98EB /* StorageRequest.swift */; };
 		94DA85AA270F0B6000CBC15E /* soraSplash.json in Resources */ = {isa = PBXBuildFile; fileRef = 94DA85A9270F0B5F00CBC15E /* soraSplash.json */; };
 		94F68B11277473CB00226F20 /* UISearchBar+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F68B10277473CB00226F20 /* UISearchBar+Style.swift */; };
+		99808DE038069106BEBF4ECD /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */; };
 		A1B644C63C38805297450DC7 /* FriendsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D10B6F46781199B35B755C /* FriendsWireframe.swift */; };
-		A2B5A92BDB7F9FD8701DCB65 /* FriendsViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = EA785CFD006DCC2B6789E141 /* FriendsViewController.xib */; };
-		A415739348933A519F655E50 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5002637EF7145FEDF31B08C /* Pods_SoraPassportAll_SoraPassport.framework */; };
 		A849A67F47A83F55BFA8124E /* ProjectsInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */; };
 		A9A0F171348707CF04DAFE37 /* AccountOptionsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */; };
 		AD7EAB4CC39BA3CBD8892075 /* AccountOptionsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */; };
+		B267AA9E2A7A2F7200EF9CF0 /* EditViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */; };
+		B267AA9F2A7A2F7200EF9CF0 /* EditViewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */; };
+		B27FFC3F2A52A53B006D4C19 /* FriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */; };
+		B27FFC432A52A569006D4C19 /* FriendsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC412A52A568006D4C19 /* FriendsCell.swift */; };
+		B27FFC442A52A569006D4C19 /* FriendsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC422A52A568006D4C19 /* FriendsItem.swift */; };
+		B293C3522A57E6BB00FC7601 /* InputRewardAmountViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B293C3512A57E6BB00FC7601 /* InputRewardAmountViewController.swift */; };
+		B2A56EF92A5E815200844A35 /* InvitationsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EF82A5E815200844A35 /* InvitationsCell.swift */; };
+		B2A56EFD2A5E955E00844A35 /* FeeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EFC2A5E955E00844A35 /* FeeView.swift */; };
+		B2A56EFF2A5EB51700844A35 /* InvitationsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56EFE2A5EB51600844A35 /* InvitationsViewModel.swift */; };
+		B2A56F012A66903800844A35 /* ReferrerLinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F002A66903800844A35 /* ReferrerLinkView.swift */; };
+		B2A56F042A67A44000844A35 /* ReferrerLinkCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F032A67A44000844A35 /* ReferrerLinkCell.swift */; };
+		B2A56F062A67A7A600844A35 /* ReferrerLinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F052A67A7A500844A35 /* ReferrerLinkViewModel.swift */; };
+		B2A56F082A6FD64200844A35 /* YourReferrerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F072A6FD64200844A35 /* YourReferrerViewController.swift */; };
+		B2A56F0A2A6FD69E00844A35 /* YourReferrerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */; };
+		B2A56F0C2A6FD6B100844A35 /* YourReferrerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */; };
+		B2A56F0E2A6FD8FD00844A35 /* YourReferrerPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */; };
+		B2CD5DAB2A7A5A1800B16F8A /* EditViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */; };
+		B2CD5DAC2A7A5A1800B16F8A /* EditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */; };
+		B2CD5DAE2A7A5A1800B16F8A /* EnabledView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */; };
+		B2CD5DAF2A7A5A1800B16F8A /* EnabledCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA72A7A5A1800B16F8A /* EnabledCell.swift */; };
+		B2CD5DB02A7A5A1800B16F8A /* EnabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */; };
+		B2CD5DB12A7A5A1800B16F8A /* EnabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */; };
+		B2CD5DB22A7A5A1800B16F8A /* EditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */; };
+		B2FEEA9A2A8A3E030014EC32 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */; };
+		B2E133802A863BD9008A46E0 /* EnabledSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */; };
+		B2E133822A863DA1008A46E0 /* EditViewProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
+		C2FDF8413F1C0B02CA5B6506 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 287C7BC35117BCB72B327424 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */; };
 		D794F1F4CCDD89D21FFA685B /* ProfileInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */; };
 		DA3C8273D7F73172782EAA94 /* VotesHistoryInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F039024F008EE356D1BDFCBF /* VotesHistoryInteractorTests.swift */; };
 		DAC1A7E82AB4629FBF7E1730 /* AccountOptionsPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229C8B5EC9E3EAD365ACBB9F /* AccountOptionsPresenter.swift */; };
@@ -1412,13 +1430,10 @@
 		02E319A721D3C07E00B33B66 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		02E319B021D4BAFA00B33B66 /* R.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = R.generated.swift; sourceTree = SOURCE_ROOT; };
 		05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractorTests.swift; sourceTree = "<group>"; };
+		0AAACFAEC553DD983F68F351 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; sourceTree = "<group>"; };
 		0BC14252909B919A70DA9DB9 /* MainTabBarPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarPresenter.swift; sourceTree = "<group>"; };
-		0CB2A6B25CF643633FB594D5 /* Pods-SoraPassportTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.test.xcconfig"; sourceTree = "<group>"; };
-		1006FC85256957F300A30DDA /* FriendsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsViewModel.swift; sourceTree = "<group>"; };
+		0DA0ECA40629F7CA55AD1089 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; sourceTree = "<group>"; };
 		103CCD1825643D670028345D /* PullUpController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PullUpController.swift; sourceTree = "<group>"; };
-		103CCD1F25643E360028345D /* RewardsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsViewController.swift; sourceTree = "<group>"; };
-		104BD27E2566746A007719DF /* RewardsTableViewCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsTableViewCell.swift; sourceTree = "<group>"; };
-		104BD285256686F0007719DF /* RewardsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsViewModel.swift; sourceTree = "<group>"; };
 		104BD29E25694381007719DF /* Localizable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localizable.swift; sourceTree = "<group>"; };
 		105599102536D7A400A6E891 /* LinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkView.swift; sourceTree = "<group>"; };
 		108A04FF254994A5007F992D /* UIView+Empty.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Empty.swift"; sourceTree = "<group>"; };
@@ -1432,12 +1447,14 @@
 		1850BD8AB0EC103EB91B5BB0 /* ActivityFeedInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityFeedInteractorTests.swift; sourceTree = "<group>"; };
 		18B27EAFFC5101020B0B2066 /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
 		1C39A0F563B3CAC78C4D9887 /* ChangeAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChangeAccountTests.swift; sourceTree = "<group>"; };
-		225C5513C8EFD2AA50E9337F /* FriendsViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsViewController.swift; sourceTree = "<group>"; };
 		229C8B5EC9E3EAD365ACBB9F /* AccountOptionsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsPresenter.swift; sourceTree = "<group>"; };
-		23F38FF6B5E6A4979552CB12 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; sourceTree = "<group>"; };
+		25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		265097D4636C933C8E8FEBAB /* MainTabBarProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarProtocol.swift; sourceTree = "<group>"; };
-		2C0CF0EF70BE714159B478BC /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"; sourceTree = "<group>"; };
+		26FD8C603CFBB4BB770BCA1E /* Pods-SoraPassportUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.debug.xcconfig"; sourceTree = "<group>"; };
+		287C7BC35117BCB72B327424 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassportIntegrationTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C421992CF81E68B180FF624 /* ParliamentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParliamentTests.swift; sourceTree = "<group>"; };
+		2DD86E01FAAC842DDA29EC33 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; sourceTree = "<group>"; };
+		2E67161D1A40D3F1994BC8EA /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.test.xcconfig"; sourceTree = "<group>"; };
 		3213A3082237DAB4001BE041 /* VerificationCodeData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerificationCodeData.swift; sourceTree = "<group>"; };
 		3213A30A2237ED04001BE041 /* sendSmsCodeSuccessResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sendSmsCodeSuccessResponse.json; sourceTree = "<group>"; };
 		3213A30C2237ED5E001BE041 /* sendSmsCodeTooFreqResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sendSmsCodeTooFreqResponse.json; sourceTree = "<group>"; };
@@ -1456,9 +1473,6 @@
 		3603A3922917E1FD00DF6EFE /* PoolsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolsItem.swift; sourceTree = "<group>"; };
 		3603A3932917E1FD00DF6EFE /* PoolViewModelFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolViewModelFactory.swift; sourceTree = "<group>"; };
 		3603A3982917E63500DF6EFE /* PoolInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolInfo.swift; sourceTree = "<group>"; };
-		36069EFB2A28C19B00439ADE /* fa */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fa; path = fa.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		36069EFC2A28C19B00439ADE /* fa */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fa; path = fa.lproj/Localizable.strings; sourceTree = "<group>"; };
-		36069EFD2A28C19B00439ADE /* fa */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = fa; path = fa.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
 		36069EFE2A28C29200439ADE /* ms-MY */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "ms-MY"; path = "ms-MY.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		36069EFF2A28C29200439ADE /* ms-MY */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "ms-MY"; path = "ms-MY.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		36069F002A28C29300439ADE /* ms-MY */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "ms-MY"; path = "ms-MY.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
@@ -1474,6 +1488,11 @@
 		36069F0A2A2BA3CA00439ADE /* WarningCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WarningCell.swift; sourceTree = "<group>"; };
 		36069F0B2A2BA3CA00439ADE /* WarningItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WarningItem.swift; sourceTree = "<group>"; };
 		3608328928F8820800E57418 /* ProductListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductListViewController.swift; sourceTree = "<group>"; };
+		360FF4172A557BD500D94BA9 /* StakedCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StakedCell.swift; sourceTree = "<group>"; };
+		360FF4182A557BD500D94BA9 /* StakedItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StakedItem.swift; sourceTree = "<group>"; };
+		360FF41B2A557F6400D94BA9 /* ProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressView.swift; sourceTree = "<group>"; };
+		360FF41E2A568E4800D94BA9 /* DemeterFarmingService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DemeterFarmingService.swift; sourceTree = "<group>"; };
+		360FF4202A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemeterFarmingOperationFactory.swift; sourceTree = "<group>"; };
 		3611062929784A1F003A6352 /* SetupAccountNameViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SetupAccountNameViewController.swift; sourceTree = "<group>"; };
 		3611062A29784A22003A6352 /* SetupAccountNameViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SetupAccountNameViewFactory.swift; sourceTree = "<group>"; };
 		3611062E2978A4A6003A6352 /* ConfirmPassphraseViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfirmPassphraseViewModel.swift; sourceTree = "<group>"; };
@@ -1537,7 +1556,6 @@
 		362F49C12A37580E00163091 /* EnterPasswordSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnterPasswordSection.swift; sourceTree = "<group>"; };
 		362F49C32A3772D500163091 /* SetupPasswordSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupPasswordSection.swift; sourceTree = "<group>"; };
 		3632D0F22A1E805D00C9B688 /* CIKeys.stencil */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CIKeys.stencil; sourceTree = "<group>"; };
-		3632D0F42A1F4ACF00C9B688 /* CIKeys.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CIKeys.generated.swift; sourceTree = "<group>"; };
 		363425022871AAB800ACE775 /* ReferralMethodType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralMethodType.swift; sourceTree = "<group>"; };
 		363425062871D51900ACE775 /* AssetTransactionStatusHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetTransactionStatusHelper.swift; sourceTree = "<group>"; };
 		36356B3029184DB200CD3E9E /* PoolsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolsService.swift; sourceTree = "<group>"; };
@@ -1626,6 +1644,8 @@
 		364D61CD2993DAA5004938FA /* BalanceDetailsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalanceDetailsViewController.swift; sourceTree = "<group>"; };
 		36527D8D29B7341A006D2042 /* NewTransactionCreatedEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTransactionCreatedEvent.swift; sourceTree = "<group>"; };
 		36527D8F29B73DE7006D2042 /* LocalTransactionStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTransactionStorage.swift; sourceTree = "<group>"; };
+		3652E1092A679E4E0073AFBA /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
+		3652E10B2A6A918D0073AFBA /* CreateAccountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateAccountService.swift; sourceTree = "<group>"; };
 		3653BD0B2A028CE5003C71A4 /* QRFrameView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QRFrameView.swift; sourceTree = "<group>"; };
 		3653BD0D2A029A66003C71A4 /* ScanQRWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScanQRWireframe.swift; sourceTree = "<group>"; };
 		3653BD102A029D5A003C71A4 /* GenerateQRViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GenerateQRViewController.swift; sourceTree = "<group>"; };
@@ -1717,6 +1737,7 @@
 		368E73212A448506001B7BAF /* WarningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarningView.swift; sourceTree = "<group>"; };
 		368E73252A44BBA0001B7BAF /* WarningViewModelFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarningViewModelFactory.swift; sourceTree = "<group>"; };
 		368E73272A44C587001B7BAF /* Warningable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Warningable.swift; sourceTree = "<group>"; };
+		368E9A252A84806900BDE0AA /* SCardConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCardConfig.swift; sourceTree = "<group>"; };
 		3692D6982910719200B8B274 /* ActivityViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityViewController.swift; sourceTree = "<group>"; };
 		3692D6992910719200B8B274 /* ActivityViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityViewModel.swift; sourceTree = "<group>"; };
 		3692D69C2910725200B8B274 /* ActivityCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityCell.swift; sourceTree = "<group>"; };
@@ -1735,12 +1756,8 @@
 		36A652F92921B17200C1D608 /* InputAccessoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputAccessoryView.swift; sourceTree = "<group>"; };
 		36AC2EDE2979AD6100AD7732 /* PincodeViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PincodeViewController.swift; sourceTree = "<group>"; };
 		36AC2EE02979B26D00AD7732 /* SoramitsuNumpadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoramitsuNumpadView.swift; sourceTree = "<group>"; };
-		36ACC9592863CC4700DA98EC /* ReferrerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerView.swift; sourceTree = "<group>"; };
 		36ACC95C28649A3400DA98EC /* KeyboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardService.swift; sourceTree = "<group>"; };
 		36ACC95E2864AF9000DA98EC /* ReferralViewFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralViewFactory.swift; sourceTree = "<group>"; };
-		36ACC9602867B6AB00DA98EC /* InputRewardAmountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRewardAmountView.swift; sourceTree = "<group>"; };
-		36ACC9632869E60400DA98EC /* TextViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TextViewModel.swift; sourceTree = "<group>"; };
-		36ACC9642869E60400DA98EC /* TextCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TextCell.swift; sourceTree = "<group>"; };
 		36ACC967286A04DA00DA98EC /* InputRewardAmountType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRewardAmountType.swift; sourceTree = "<group>"; };
 		36ADDDA828EC7FC90080A41C /* RedesignWalletViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedesignWalletViewController.swift; sourceTree = "<group>"; };
 		36ADDDAA28EC83D40080A41C /* WalletViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletViewModel.swift; sourceTree = "<group>"; };
@@ -1751,14 +1768,8 @@
 		36B7D611295C941B00ECBBF6 /* FiatService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FiatService.swift; sourceTree = "<group>"; };
 		36B961F5294B2B01002A35BA /* ReceiveCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReceiveCell.swift; sourceTree = "<group>"; };
 		36B961F6294B2B01002A35BA /* ReceiveItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReceiveItem.swift; sourceTree = "<group>"; };
-		36C3708128228F270027BA77 /* TitleDescriptionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleDescriptionCell.swift; sourceTree = "<group>"; };
-		36C3708328228F340027BA77 /* AmountCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountCell.swift; sourceTree = "<group>"; };
 		36C3708528228F450027BA77 /* ButtonCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonCell.swift; sourceTree = "<group>"; };
-		36C37087282292C50027BA77 /* SpaceCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceCell.swift; sourceTree = "<group>"; };
-		36C3708A282295EB0027BA77 /* TitleDescriptionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleDescriptionViewModel.swift; sourceTree = "<group>"; };
-		36C3708C282296000027BA77 /* AmountViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountViewModel.swift; sourceTree = "<group>"; };
 		36C3708E2822960E0027BA77 /* ButtonViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonViewModel.swift; sourceTree = "<group>"; };
-		36C37090282296200027BA77 /* SpaceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceViewModel.swift; sourceTree = "<group>"; };
 		36C370DF282304460027BA77 /* InputRewardAmountPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRewardAmountPresenter.swift; sourceTree = "<group>"; };
 		36C370E128230D660027BA77 /* AmountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountView.swift; sourceTree = "<group>"; };
 		36C370E32823B0890027BA77 /* AvailableInvitationsCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvailableInvitationsCell.swift; sourceTree = "<group>"; };
@@ -1768,9 +1779,9 @@
 		36C370ED2823E0370027BA77 /* ReferrerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerCell.swift; sourceTree = "<group>"; };
 		36C370F028250E6D0027BA77 /* SubqueryReferrerRewardsOperationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubqueryReferrerRewardsOperationFactory.swift; sourceTree = "<group>"; };
 		36C370F2282531980027BA77 /* SubqueryReferrerRewards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubqueryReferrerRewards.swift; sourceTree = "<group>"; };
+		36C66EAB2A5D6E7700ADAD5E /* StakedPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StakedPool.swift; sourceTree = "<group>"; };
+		36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailsItemFactory.swift; sourceTree = "<group>"; };
 		36C88A252A32EAA800B3CF39 /* AccountOptionSeparator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountOptionSeparator.swift; sourceTree = "<group>"; };
-		36C88DF7281A7CCC0038B7F9 /* InputLinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputLinkView.swift; sourceTree = "<group>"; };
-		36C88DF9281AA1C80038B7F9 /* RoundTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundTextField.swift; sourceTree = "<group>"; };
 		36C88DFE2821283E0038B7F9 /* InputLinkViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputLinkViewController.swift; sourceTree = "<group>"; };
 		36DB197529EDC5CA00B3E3BF /* AccountCreateWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountCreateWireframe.swift; sourceTree = "<group>"; };
 		36DB197629EDC5CA00B3E3BF /* AccountCreateInteractor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountCreateInteractor.swift; sourceTree = "<group>"; };
@@ -1820,8 +1831,15 @@
 		36FE0FE22955B52100117E82 /* RecipientAddressCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RecipientAddressCell.swift; sourceTree = "<group>"; };
 		36FE0FE52955B68700117E82 /* SendAssetItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SendAssetItem.swift; sourceTree = "<group>"; };
 		36FE0FE62955B68700117E82 /* SendAssetCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SendAssetCell.swift; sourceTree = "<group>"; };
+		3994993D9A9FDFA1BCD456CA /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; sourceTree = "<group>"; };
+		3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3ED9AC8B83C51156EBCCDA26 /* StakingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StakingTests.swift; sourceTree = "<group>"; };
+		42F1D7FB57E18E5CEEB50EB4 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; sourceTree = "<group>"; };
 		4500E3C38424775159499D0D /* FriendsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsViewFactory.swift; sourceTree = "<group>"; };
+		4A6AD45445BF6A65A89A470D /* Pods-SoraPassportTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.dev.xcconfig"; sourceTree = "<group>"; };
+		52A0531941BAD4567563ED11 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; sourceTree = "<group>"; };
+		5480710B4EDAE96792F6E63B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; sourceTree = "<group>"; };
+		54B86954738F4BFAA0968E63 /* Pods-SoraPassportUITests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.staging.xcconfig"; sourceTree = "<group>"; };
 		55063DB028F96B8A008782E1 /* GenesisProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenesisProvider.swift; sourceTree = "<group>"; };
 		55063DB228FF3CC8008782E1 /* MoreMenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreMenuViewController.swift; sourceTree = "<group>"; };
 		55063DB52901411E008782E1 /* CategoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryItem.swift; sourceTree = "<group>"; };
@@ -1858,7 +1876,9 @@
 		55D06B5928C7897E00256B98 /* SwapQuoteAmountsFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwapQuoteAmountsFactory.swift; sourceTree = "<group>"; };
 		55F1610F28C89E7B00EF6FF3 /* SwapQuoteAmountsFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwapQuoteAmountsFactoryTests.swift; sourceTree = "<group>"; };
 		55F1611128C89EFB00EF6FF3 /* Mocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mocks.swift; sourceTree = "<group>"; };
-		58CB1B0DC4CE1B8217E69CF8 /* Pods-SoraPassportUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.release.xcconfig"; sourceTree = "<group>"; };
+		576509BB75DC43579DF6AD79 /* Pods_SoraPassportAll_SoraPassport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		58436442E3EA19431F89166A /* Pods-SoraPassportTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.test.xcconfig"; sourceTree = "<group>"; };
+		5B9DE3992391EBEABC440A0A /* Pods-SoraPassportTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.debug.xcconfig"; sourceTree = "<group>"; };
 		5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsWireframe.swift; sourceTree = "<group>"; };
 		5E023F522823E1A40070304B /* PairRegisterCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairRegisterCall.swift; sourceTree = "<group>"; };
 		5E138FEE2830201C0010AB54 /* InitializePoolCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InitializePoolCall.swift; sourceTree = "<group>"; };
@@ -1869,6 +1889,7 @@
 		5E2855502A33498D0054BA92 /* validSingleAccountWeb.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = validSingleAccountWeb.json; sourceTree = "<group>"; };
 		5E2855512A33498D0054BA92 /* validSingleAccountIOS.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = validSingleAccountIOS.json; sourceTree = "<group>"; };
 		5E340DFB280D422300D62669 /* AccountPools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPools.swift; sourceTree = "<group>"; };
+		5E4D6F66328B00BECE329269 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
 		5E587ECB27F62D9000CA71A6 /* PolkaswapMainInteractor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PolkaswapMainInteractor.swift; sourceTree = "<group>"; };
 		5E587ECC27F62D9100CA71A6 /* PolkaswapMainProtocols.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PolkaswapMainProtocols.swift; sourceTree = "<group>"; };
 		5E587EE227F70D9400CA71A6 /* SoraPollsDataCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoraPollsDataCall.swift; sourceTree = "<group>"; };
@@ -1939,15 +1960,17 @@
 		5ED216EF2948892D0052C740 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		5ED216F02948892D0052C740 /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = ca.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5ED216F12948892D0052C740 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		5F879991A458805006A694E7 /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
 		605AA52E26FE600D00E7FD12 /* NeumorphismButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeumorphismButton.swift; sourceTree = "<group>"; };
 		605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = NeomorphismButton.xib; sourceTree = "<group>"; };
 		60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InconsistentStateMigrator.swift; sourceTree = "<group>"; };
 		60AAFDC6270EEEDB00916408 /* Migrating.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Migrating.swift; sourceTree = "<group>"; };
+		62A07E4DA24D393F23333105 /* Pods-SoraPassportUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.release.xcconfig"; sourceTree = "<group>"; };
 		6CD48707B756D7A8ACFF3ACA /* AccountOptionsViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewController.swift; sourceTree = "<group>"; };
-		6ED2B621F0EDF7DD5AACA7B8 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
-		718224A8981F058C3C042919 /* Pods_SoraPassportTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		734CCA5CD3F3637D3CCC8AC3 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; sourceTree = "<group>"; };
+		75E5CD169C4F347C4786F149 /* ReferendumDetailsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReferendumDetailsTests.swift; sourceTree = "<group>"; };
 		7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiquiditySlider.swift; sourceTree = "<group>"; };
+		7ABCF88DBE61FD88E48103D4 /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"; sourceTree = "<group>"; };
+		7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
 		81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsProtocols.swift; sourceTree = "<group>"; };
 		84014FA82243C1FB00C35EFD /* BaseService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BaseService.swift; sourceTree = "<group>"; };
 		84014FCE2244B5A000C35EFD /* Entities.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = Entities.xcdatamodel; sourceTree = "<group>"; };
@@ -2132,8 +2155,6 @@
 		84FA009E226A1D57005DA950 /* sora-SemiBold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "sora-SemiBold.otf"; sourceTree = "<group>"; };
 		84FA009F226A1D57005DA950 /* sora-Bold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "sora-Bold.otf"; sourceTree = "<group>"; };
 		84FA00A0226A1D57005DA950 /* sora-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "sora-Regular.otf"; sourceTree = "<group>"; };
-		855DC417D2119FAB111E9CFA /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		886478C0605173A3EE316AD6 /* Pods-SoraPassportUITests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.staging.xcconfig"; sourceTree = "<group>"; };
 		8B09F8DC298D25AE00A4F8E8 /* UIViewController+CloseButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+CloseButton.swift"; sourceTree = "<group>"; };
 		8B1BC3B429FBDA41006C87E4 /* SettingsInformationCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsInformationCell.swift; sourceTree = "<group>"; };
 		8B3625FD296EB274007B9525 /* AccountMenuItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountMenuItem.swift; sourceTree = "<group>"; };
@@ -2510,20 +2531,48 @@
 		94D4B66B28C75F55007F98EB /* StorageRequest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageRequest.swift; sourceTree = "<group>"; };
 		94DA85A9270F0B5F00CBC15E /* soraSplash.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = soraSplash.json; sourceTree = "<group>"; };
 		94F68B10277473CB00226F20 /* UISearchBar+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UISearchBar+Style.swift"; sourceTree = "<group>"; };
-		94FB2A969CEE0E60DA8F5AA4 /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
 		9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsProtocols.swift; sourceTree = "<group>"; };
 		A28A3557920ECEF31AB0B495 /* Pods-SoraPassportUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractor.swift; sourceTree = "<group>"; };
 		AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutTests.swift; sourceTree = "<group>"; };
-		B4424C59C87312B74F2BECBA /* Pods-SoraPassportTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.dev.xcconfig"; sourceTree = "<group>"; };
+		B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewCell.swift; sourceTree = "<group>"; };
+		B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItem.swift; sourceTree = "<group>"; };
+		B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsViewController.swift; sourceTree = "<group>"; };
+		B27FFC412A52A568006D4C19 /* FriendsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsCell.swift; sourceTree = "<group>"; };
+		B27FFC422A52A568006D4C19 /* FriendsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsItem.swift; sourceTree = "<group>"; };
+		B293C3512A57E6BB00FC7601 /* InputRewardAmountViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRewardAmountViewController.swift; sourceTree = "<group>"; };
+		B2A56EF82A5E815200844A35 /* InvitationsCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationsCell.swift; sourceTree = "<group>"; };
+		B2A56EFC2A5E955E00844A35 /* FeeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeView.swift; sourceTree = "<group>"; };
+		B2A56EFE2A5EB51600844A35 /* InvitationsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationsViewModel.swift; sourceTree = "<group>"; };
+		B2A56F002A66903800844A35 /* ReferrerLinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerLinkView.swift; sourceTree = "<group>"; };
+		B2A56F032A67A44000844A35 /* ReferrerLinkCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerLinkCell.swift; sourceTree = "<group>"; };
+		B2A56F052A67A7A500844A35 /* ReferrerLinkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferrerLinkViewModel.swift; sourceTree = "<group>"; };
+		B2A56F072A6FD64200844A35 /* YourReferrerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerViewController.swift; sourceTree = "<group>"; };
+		B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerCell.swift; sourceTree = "<group>"; };
+		B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerViewModel.swift; sourceTree = "<group>"; };
+		B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YourReferrerPresenter.swift; sourceTree = "<group>"; };
+		B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewFactory.swift; sourceTree = "<group>"; };
+		B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewController.swift; sourceTree = "<group>"; };
+		B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledView.swift; sourceTree = "<group>"; };
+		B2CD5DA72A7A5A1800B16F8A /* EnabledCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledCell.swift; sourceTree = "<group>"; };
+		B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledItem.swift; sourceTree = "<group>"; };
+		B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnabledViewModel.swift; sourceTree = "<group>"; };
+		B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewModel.swift; sourceTree = "<group>"; };
+		B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CIKeys.generated.swift; sourceTree = "<group>"; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
-		B778EA5B876277EADC2C3E4B /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
-		BAE03C262502BC2F4EBC7477 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; sourceTree = "<group>"; };
+		B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnabledSection.swift; sourceTree = "<group>"; };
+		B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditViewProtocol.swift; sourceTree = "<group>"; };
+		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
+		B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
 		C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsInteractor.swift; sourceTree = "<group>"; };
+		C4CDE6F4986EE7F06E47B45C /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProjectsInteractorTests.swift; sourceTree = "<group>"; };
+		D11E48E33D98B9B90C325913 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
+		CB78C379B50841D13D9C4DF6 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
 		D2B8D00970071364A04264BD /* FriendsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsPresenter.swift; sourceTree = "<group>"; };
 		D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileInteractorTests.swift; sourceTree = "<group>"; };
 		D3B5C5ABB0BDBD75124933C2 /* MainTabBarViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarViewFactory.swift; sourceTree = "<group>"; };
+		D86D65827C4234BBE04C1EA8 /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.test.xcconfig"; sourceTree = "<group>"; };
 		D87EE84EFA7C7EDF293C6058 /* NetworkAvailabilityLayerInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerInteractor.swift; sourceTree = "<group>"; };
 		DB489F2B62CE0CF494AA92E9 /* MainTabBarWireframe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarWireframe.swift; sourceTree = "<group>"; };
 		DFD380A2A950CCEF300E28CB /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; sourceTree = "<group>"; };
@@ -2532,10 +2581,10 @@
 		E5002637EF7145FEDF31B08C /* Pods_SoraPassportAll_SoraPassport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E589AB74AC57E665444842DB /* NetworkAvailabilityLayerPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerPresenter.swift; sourceTree = "<group>"; };
 		E93838B610A2628390A37C56 /* MainTabBarViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarViewController.swift; sourceTree = "<group>"; };
-		EA785CFD006DCC2B6789E141 /* FriendsViewController.xib */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file.xib; path = FriendsViewController.xib; sourceTree = "<group>"; };
+		EF2DB96FDB521BA3E06ECED3 /* Pods-SoraPassportUITests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.dev.xcconfig"; sourceTree = "<group>"; };
 		F039024F008EE356D1BDFCBF /* VotesHistoryInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VotesHistoryInteractorTests.swift; sourceTree = "<group>"; };
 		F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewFactory.swift; sourceTree = "<group>"; };
-		F544D105192E5592685730FC /* Pods-SoraPassportTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.debug.xcconfig"; sourceTree = "<group>"; };
+		F44B22ABF888DE6084844F07 /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
 		F654FC832472135F94052F7E /* NetworkAvailabilityLayerProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerProtocols.swift; sourceTree = "<group>"; };
 		FFD40B1CB643E3F331D2B924 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -2545,7 +2594,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A415739348933A519F655E50 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */,
+				6572496752F3E8DC39115D6B /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2553,7 +2602,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6A34DB9947905AF6D006B694 /* Pods_SoraPassportTests.framework in Frameworks */,
+				76E4FB4ED200201F509B2122 /* Pods_SoraPassportTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2561,7 +2610,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				487171F9F6E46CBE6A70A2BF /* Pods_SoraPassportUITests.framework in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
+				99808DE038069106BEBF4ECD /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2569,7 +2619,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3F177FCB6B128669B2E71CC4 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */,
+				C2FDF8413F1C0B02CA5B6506 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2885,7 +2935,7 @@
 				84324BCC2411446000CA339A /* SoraPassportIntegrationTests */,
 				02623EB62178C0910011250E /* Products */,
 				BEF38E71B6415481628D3783 /* Pods */,
-				9C02AE9FD48E2D7507F1D6EE /* Frameworks */,
+				CFD78B7B71D0E3785DEE5245 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -2903,7 +2953,7 @@
 		02623EB72178C0910011250E /* SoraPassport */ = {
 			isa = PBXGroup;
 			children = (
-				3632D0F42A1F4ACF00C9B688 /* CIKeys.generated.swift */,
+				B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */,
 				3632D0F22A1E805D00C9B688 /* CIKeys.stencil */,
 				5ED216A6294886A90052C740 /* SoraLocalizable */,
 				945A573125DE81E7003E4023 /* Resources */,
@@ -2912,7 +2962,6 @@
 				02601CFE217A0FBB006BD248 /* Configs */,
 				02623EF92179D0B50011250E /* Common */,
 				8B8ED5C4295C4B47003D15A9 /* ModulesRedesign */,
-				02623EE62179ABDE0011250E /* Modules */,
 				02623EB82178C0910011250E /* AppDelegate.swift */,
 				02E319B021D4BAFA00B33B66 /* R.generated.swift */,
 				02623EBF2178C0930011250E /* Assets.xcassets */,
@@ -2947,14 +2996,6 @@
 			path = SoraPassportUITests;
 			sourceTree = "<group>";
 		};
-		02623EE62179ABDE0011250E /* Modules */ = {
-			isa = PBXGroup;
-			children = (
-				A55ECAD499FAB4C39A9F3A84 /* Friends */,
-			);
-			path = Modules;
-			sourceTree = "<group>";
-		};
 		02623EE72179ABF60011250E /* Root */ = {
 			isa = PBXGroup;
 			children = (
@@ -2970,6 +3011,7 @@
 		02623EF92179D0B50011250E /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				360FF41D2A568E2400D94BA9 /* DemeterFarming */,
 				368E73202A4484F7001B7BAF /* Warning */,
 				84E8DEB0225CCDBD00640754 /* WalletContext */,
 				36E0BB8B29F5288F000510D9 /* LoadImage */,
@@ -3519,27 +3561,6 @@
 			path = PullUpController;
 			sourceTree = "<group>";
 		};
-		103CCD1E25643E0D0028345D /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				3661C9D32850BEEF00660434 /* Rewards */,
-				36C370EA2823E00E0027BA77 /* Referrer */,
-				36C370E72823B5260027BA77 /* AvailableInvitations */,
-				104BD27E2566746A007719DF /* RewardsTableViewCell.swift */,
-				103CCD1F25643E360028345D /* RewardsViewController.swift */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
-		104BD284256686E1007719DF /* ViewModels */ = {
-			isa = PBXGroup;
-			children = (
-				104BD285256686F0007719DF /* RewardsViewModel.swift */,
-				1006FC85256957F300A30DDA /* FriendsViewModel.swift */,
-			);
-			path = ViewModels;
-			sourceTree = "<group>";
-		};
 		10EB770D254185F0000123B9 /* ExtensibleBar */ = {
 			isa = PBXGroup;
 			children = (
@@ -3607,6 +3628,25 @@
 				36356B582919ABE100CD3E9E /* Produtable.swift */,
 			);
 			path = ManageProduct;
+			sourceTree = "<group>";
+		};
+		360FF4162A557BA100D94BA9 /* Staked */ = {
+			isa = PBXGroup;
+			children = (
+				360FF4172A557BD500D94BA9 /* StakedCell.swift */,
+				360FF4182A557BD500D94BA9 /* StakedItem.swift */,
+			);
+			path = Staked;
+			sourceTree = "<group>";
+		};
+		360FF41D2A568E2400D94BA9 /* DemeterFarming */ = {
+			isa = PBXGroup;
+			children = (
+				360FF41E2A568E4800D94BA9 /* DemeterFarmingService.swift */,
+				360FF4202A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift */,
+				36C66EAB2A5D6E7700ADAD5E /* StakedPool.swift */,
+			);
+			path = DemeterFarming;
 			sourceTree = "<group>";
 		};
 		3611062829784971003A6352 /* SetupAccountName */ = {
@@ -3699,11 +3739,13 @@
 		36165516291D76BE00060A8D /* PoolDetails */ = {
 			isa = PBXGroup;
 			children = (
+				360FF4162A557BA100D94BA9 /* Staked */,
 				3616552B291D927700060A8D /* DetailsView */,
 				3616551D291D7F4100060A8D /* PoolDetailsViewController.swift */,
 				3616552F291DAB9800060A8D /* PoolDetailsViewFactory.swift */,
 				3616551E291D7F4100060A8D /* PoolDetailsViewModel.swift */,
 				3616551F291D7F4100060A8D /* PoolDetailsWireframe.swift */,
+				36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */,
 			);
 			path = PoolDetails;
 			sourceTree = "<group>";
@@ -3713,6 +3755,7 @@
 			children = (
 				36165529291D8D1500060A8D /* DetailViewModel.swift */,
 				3616552D291D92FE00060A8D /* DetailView.swift */,
+				360FF41B2A557F6400D94BA9 /* ProgressView.swift */,
 			);
 			path = DetailsView;
 			sourceTree = "<group>";
@@ -3974,6 +4017,7 @@
 			children = (
 				364526AB28C4B7C000260340 /* NodesHeader */,
 				364526AA28C4B7B200260340 /* Nodes */,
+				36C37094282297710027BA77 /* Button */,
 			);
 			path = Cells;
 			sourceTree = "<group>";
@@ -4293,6 +4337,7 @@
 				366A78312A3227AC00A6DDF9 /* SetupPasswordViewController.swift */,
 				366A782D2A3227AC00A6DDF9 /* SetupPasswordViewFactory.swift */,
 				366A782E2A3227AC00A6DDF9 /* SetupPasswordWireframe.swift */,
+				3652E10B2A6A918D0073AFBA /* CreateAccountService.swift */,
 			);
 			path = SetupPassword;
 			sourceTree = "<group>";
@@ -4436,26 +4481,21 @@
 			path = Pincode;
 			sourceTree = "<group>";
 		};
-		36ACC9582863CC2900DA98EC /* Referrer Screen */ = {
+		36ACC9582863CC2900DA98EC /* YourReferrer */ = {
 			isa = PBXGroup;
 			children = (
-				36ACC9592863CC4700DA98EC /* ReferrerView.swift */,
+				B2A56F0F2A70EFEF00844A35 /* Referrers */,
+				B2A56F072A6FD64200844A35 /* YourReferrerViewController.swift */,
+				B2A56F0D2A6FD8FD00844A35 /* YourReferrerPresenter.swift */,
 			);
-			path = "Referrer Screen";
-			sourceTree = "<group>";
-		};
-		36ACC9622869E51E00DA98EC /* Text */ = {
-			isa = PBXGroup;
-			children = (
-				36ACC9642869E60400DA98EC /* TextCell.swift */,
-				36ACC9632869E60400DA98EC /* TextViewModel.swift */,
-			);
-			path = Text;
+			path = YourReferrer;
 			sourceTree = "<group>";
 		};
 		36ADDDA728EC7F790080A41C /* Wallet */ = {
 			isa = PBXGroup;
 			children = (
+				B267AA9B2A7A2F7100EF9CF0 /* EditView */,
+				B27FFC402A52A568006D4C19 /* Friends */,
 				364BA322293FC0170099CB0D /* Acccount */,
 				361EF5A92917DC3700D0DCCF /* Pools */,
 				36ADDDAC28EC89C20080A41C /* Assets */,
@@ -4465,6 +4505,7 @@
 				361EF5AA2917DCA500D0DCCF /* WalletItemFactory.swift */,
 				36ADDDAA28EC83D40080A41C /* WalletViewModel.swift */,
 				361EF59D29155C2600D0DCCF /* RedesignWalletWireframe.swift */,
+				368E9A252A84806900BDE0AA /* SCardConfig.swift */,
 			);
 			path = Wallet;
 			sourceTree = "<group>";
@@ -4489,37 +4530,6 @@
 			path = Fiat;
 			sourceTree = "<group>";
 		};
-		36C37089282295B90027BA77 /* Cells */ = {
-			isa = PBXGroup;
-			children = (
-				36ACC9622869E51E00DA98EC /* Text */,
-				36C370952822977E0027BA77 /* Space */,
-				36C37094282297710027BA77 /* Button */,
-				36C37093282297650027BA77 /* Amount */,
-				36C37092282297590027BA77 /* TitleDescription */,
-			);
-			path = Cells;
-			sourceTree = "<group>";
-		};
-		36C37092282297590027BA77 /* TitleDescription */ = {
-			isa = PBXGroup;
-			children = (
-				36C3708128228F270027BA77 /* TitleDescriptionCell.swift */,
-				36C3708A282295EB0027BA77 /* TitleDescriptionViewModel.swift */,
-			);
-			path = TitleDescription;
-			sourceTree = "<group>";
-		};
-		36C37093282297650027BA77 /* Amount */ = {
-			isa = PBXGroup;
-			children = (
-				36C3708328228F340027BA77 /* AmountCell.swift */,
-				36C3708C282296000027BA77 /* AmountViewModel.swift */,
-				36C370E128230D660027BA77 /* AmountView.swift */,
-			);
-			path = Amount;
-			sourceTree = "<group>";
-		};
 		36C37094282297710027BA77 /* Button */ = {
 			isa = PBXGroup;
 			children = (
@@ -4527,15 +4537,6 @@
 				36C3708E2822960E0027BA77 /* ButtonViewModel.swift */,
 			);
 			path = Button;
-			sourceTree = "<group>";
-		};
-		36C370952822977E0027BA77 /* Space */ = {
-			isa = PBXGroup;
-			children = (
-				36C37087282292C50027BA77 /* SpaceCell.swift */,
-				36C37090282296200027BA77 /* SpaceViewModel.swift */,
-			);
-			path = Space;
 			sourceTree = "<group>";
 		};
 		36C370E72823B5260027BA77 /* AvailableInvitations */ = {
@@ -4571,8 +4572,7 @@
 		36C88DF6281A7B3B0038B7F9 /* InputLink */ = {
 			isa = PBXGroup;
 			children = (
-				36C88DF7281A7CCC0038B7F9 /* InputLinkView.swift */,
-				36C88DF9281AA1C80038B7F9 /* RoundTextField.swift */,
+				B2A56F022A67A41500844A35 /* ReferrerLink */,
 				36C88DFE2821283E0038B7F9 /* InputLinkViewController.swift */,
 				3661C9F0286227B000660434 /* InputLinkPresenter.swift */,
 				3661C9F2286326F700660434 /* InputLinkInteractor.swift */,
@@ -4583,11 +4583,11 @@
 		36C88E0028217F390038B7F9 /* InputRewardAmount */ = {
 			isa = PBXGroup;
 			children = (
-				36C37089282295B90027BA77 /* Cells */,
+				B2A56EF72A5E811D00844A35 /* Invitations */,
 				36C370DF282304460027BA77 /* InputRewardAmountPresenter.swift */,
-				36ACC9602867B6AB00DA98EC /* InputRewardAmountView.swift */,
 				36ACC967286A04DA00DA98EC /* InputRewardAmountType.swift */,
 				364AD3AC286A243D000DBDFB /* InputRewardAmountInteractor.swift */,
+				B293C3512A57E6BB00FC7601 /* InputRewardAmountViewController.swift */,
 			);
 			path = InputRewardAmount;
 			sourceTree = "<group>";
@@ -4678,6 +4678,7 @@
 			children = (
 				36E5CF13295B49F90098D4D2 /* WelcomeViewController.swift */,
 				36E5CF0F295B46200098D4D2 /* WelcomeBackgroundViewController.swift */,
+				3652E1092A679E4E0073AFBA /* LoadingView.swift */,
 			);
 			path = Welcome;
 			sourceTree = "<group>";
@@ -5268,6 +5269,7 @@
 				5599B6D2292570F400567396 /* SettingsInformation */,
 				5599B6DB292648D200567396 /* ProfileLogin */,
 				36ADDDA728EC7F790080A41C /* Wallet */,
+				B2CD5DA12A7A5A1800B16F8A /* EditView */,
 				36DB197429EDC5CA00B3E3BF /* AccountCreate */,
 				026AEA3021AAFEB2002EEB67 /* LoadingView */,
 				52E1E17FC55868B10AD106EE /* NetworkAvailabilityLayer */,
@@ -5286,6 +5288,10 @@
 				63C9A7934939ABE02FD091DC /* AccountOptions */,
 				5E9774E12A31AE030047BCA2 /* ExportJson */,
 				5E9774E82A31AE040047BCA2 /* ExportRawSeed */,
+				A55ECAD499FAB4C39A9F3A84 /* Friends */,
+				36C88E0028217F390038B7F9 /* InputRewardAmount */,
+				36C88DF6281A7B3B0038B7F9 /* InputLink */,
+				36ACC9582863CC2900DA98EC /* YourReferrer */,
 			);
 			path = ModulesRedesign;
 			sourceTree = "<group>";
@@ -5892,17 +5898,6 @@
 			path = Coingecko;
 			sourceTree = "<group>";
 		};
-		9C02AE9FD48E2D7507F1D6EE /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				E5002637EF7145FEDF31B08C /* Pods_SoraPassportAll_SoraPassport.framework */,
-				33CF8CF7BFC5D9D3E72A9EBF /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
-				718224A8981F058C3C042919 /* Pods_SoraPassportTests.framework */,
-				855DC417D2119FAB111E9CFA /* Pods_SoraPassportUITests.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		A1FA6E7E6E9FCED35CFC2BBF /* AccountOptions */ = {
 			isa = PBXGroup;
 			children = (
@@ -5914,19 +5909,16 @@
 		A55ECAD499FAB4C39A9F3A84 /* Friends */ = {
 			isa = PBXGroup;
 			children = (
-				36ACC9582863CC2900DA98EC /* Referrer Screen */,
-				36C88E0028217F390038B7F9 /* InputRewardAmount */,
-				36C88DF6281A7B3B0038B7F9 /* InputLink */,
-				104BD284256686E1007719DF /* ViewModels */,
-				103CCD1E25643E0D0028345D /* Views */,
+				36C370E72823B5260027BA77 /* AvailableInvitations */,
+				36C370EA2823E00E0027BA77 /* Referrer */,
+				3661C9D32850BEEF00660434 /* Rewards */,
 				81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */,
 				36ACC95E2864AF9000DA98EC /* ReferralViewFactory.swift */,
-				225C5513C8EFD2AA50E9337F /* FriendsViewController.swift */,
+				B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */,
 				D2B8D00970071364A04264BD /* FriendsPresenter.swift */,
 				C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */,
 				02D10B6F46781199B35B755C /* FriendsWireframe.swift */,
 				4500E3C38424775159499D0D /* FriendsViewFactory.swift */,
-				EA785CFD006DCC2B6789E141 /* FriendsViewController.xib */,
 				3661C9EA28618B5D00660434 /* ReferralsOperationFactory.swift */,
 			);
 			path = Friends;
@@ -5948,6 +5940,78 @@
 			path = ActivityFeed;
 			sourceTree = "<group>";
 		};
+		B267AA9B2A7A2F7100EF9CF0 /* EditView */ = {
+			isa = PBXGroup;
+			children = (
+				B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */,
+				B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */,
+			);
+			path = EditView;
+			sourceTree = "<group>";
+		};
+		B27FFC402A52A568006D4C19 /* Friends */ = {
+			isa = PBXGroup;
+			children = (
+				B27FFC412A52A568006D4C19 /* FriendsCell.swift */,
+				B27FFC422A52A568006D4C19 /* FriendsItem.swift */,
+			);
+			path = Friends;
+			sourceTree = "<group>";
+		};
+		B2A56EF72A5E811D00844A35 /* Invitations */ = {
+			isa = PBXGroup;
+			children = (
+				B2A56EF82A5E815200844A35 /* InvitationsCell.swift */,
+				B2A56EFE2A5EB51600844A35 /* InvitationsViewModel.swift */,
+				B2A56EFC2A5E955E00844A35 /* FeeView.swift */,
+				36C370E128230D660027BA77 /* AmountView.swift */,
+			);
+			path = Invitations;
+			sourceTree = "<group>";
+		};
+		B2A56F022A67A41500844A35 /* ReferrerLink */ = {
+			isa = PBXGroup;
+			children = (
+				B2A56F032A67A44000844A35 /* ReferrerLinkCell.swift */,
+				B2A56F052A67A7A500844A35 /* ReferrerLinkViewModel.swift */,
+				B2A56F002A66903800844A35 /* ReferrerLinkView.swift */,
+			);
+			path = ReferrerLink;
+			sourceTree = "<group>";
+		};
+		B2A56F0F2A70EFEF00844A35 /* Referrers */ = {
+			isa = PBXGroup;
+			children = (
+				B2A56F092A6FD69E00844A35 /* YourReferrerCell.swift */,
+				B2A56F0B2A6FD6B100844A35 /* YourReferrerViewModel.swift */,
+			);
+			path = Referrers;
+			sourceTree = "<group>";
+		};
+		B2CD5DA12A7A5A1800B16F8A /* EditView */ = {
+			isa = PBXGroup;
+			children = (
+				B2CD5DA52A7A5A1800B16F8A /* Enabled */,
+				B2CD5DA22A7A5A1800B16F8A /* EditViewFactory.swift */,
+				B2CD5DA32A7A5A1800B16F8A /* EditViewController.swift */,
+				B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */,
+				B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */,
+			);
+			path = EditView;
+			sourceTree = "<group>";
+		};
+		B2CD5DA52A7A5A1800B16F8A /* Enabled */ = {
+			isa = PBXGroup;
+			children = (
+				B2CD5DA62A7A5A1800B16F8A /* EnabledView.swift */,
+				B2CD5DA72A7A5A1800B16F8A /* EnabledCell.swift */,
+				B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */,
+				B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */,
+				B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */,
+			);
+			path = Enabled;
+			sourceTree = "<group>";
+		};
 		B8A4AE2318F935BBA3F481A0 /* ChangeAccount */ = {
 			isa = PBXGroup;
 			children = (
@@ -5959,28 +6023,40 @@
 		BEF38E71B6415481628D3783 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				6ED2B621F0EDF7DD5AACA7B8 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */,
-				2C0CF0EF70BE714159B478BC /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */,
-				E412CED946F4D9E72951E1FB /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */,
-				23F38FF6B5E6A4979552CB12 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */,
-				DFD380A2A950CCEF300E28CB /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */,
-				E2A0583042E7269556727160 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */,
-				BAE03C262502BC2F4EBC7477 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */,
-				734CCA5CD3F3637D3CCC8AC3 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */,
-				12F8A8CD9846880CF937334F /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */,
-				FFD40B1CB643E3F331D2B924 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */,
-				F544D105192E5592685730FC /* Pods-SoraPassportTests.debug.xcconfig */,
-				94FB2A969CEE0E60DA8F5AA4 /* Pods-SoraPassportTests.release.xcconfig */,
-				0CB2A6B25CF643633FB594D5 /* Pods-SoraPassportTests.test.xcconfig */,
-				B778EA5B876277EADC2C3E4B /* Pods-SoraPassportTests.staging.xcconfig */,
-				B4424C59C87312B74F2BECBA /* Pods-SoraPassportTests.dev.xcconfig */,
-				A28A3557920ECEF31AB0B495 /* Pods-SoraPassportUITests.debug.xcconfig */,
-				58CB1B0DC4CE1B8217E69CF8 /* Pods-SoraPassportUITests.release.xcconfig */,
-				18B27EAFFC5101020B0B2066 /* Pods-SoraPassportUITests.test.xcconfig */,
-				886478C0605173A3EE316AD6 /* Pods-SoraPassportUITests.staging.xcconfig */,
-				9466CB08AF43BD8762C94ED4 /* Pods-SoraPassportUITests.dev.xcconfig */,
+				7ABCF88DBE61FD88E48103D4 /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */,
+				0DA0ECA40629F7CA55AD1089 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */,
+				42F1D7FB57E18E5CEEB50EB4 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */,
+				52A0531941BAD4567563ED11 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */,
+				5480710B4EDAE96792F6E63B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */,
+				3994993D9A9FDFA1BCD456CA /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */,
+				0AAACFAEC553DD983F68F351 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */,
+				2DD86E01FAAC842DDA29EC33 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */,
+				5B9DE3992391EBEABC440A0A /* Pods-SoraPassportTests.debug.xcconfig */,
+				F44B22ABF888DE6084844F07 /* Pods-SoraPassportTests.release.xcconfig */,
+				58436442E3EA19431F89166A /* Pods-SoraPassportTests.test.xcconfig */,
+				4A6AD45445BF6A65A89A470D /* Pods-SoraPassportTests.dev.xcconfig */,
+				26FD8C603CFBB4BB770BCA1E /* Pods-SoraPassportUITests.debug.xcconfig */,
+				62A07E4DA24D393F23333105 /* Pods-SoraPassportUITests.release.xcconfig */,
+				54B86954738F4BFAA0968E63 /* Pods-SoraPassportUITests.staging.xcconfig */,
+				EF2DB96FDB521BA3E06ECED3 /* Pods-SoraPassportUITests.dev.xcconfig */,
+				D11E48E33D98B9B90C325913 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */,
+				2E67161D1A40D3F1994BC8EA /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */,
+				B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */,
+				7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		CFD78B7B71D0E3785DEE5245 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				576509BB75DC43579DF6AD79 /* Pods_SoraPassportAll_SoraPassport.framework */,
+				287C7BC35117BCB72B327424 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
+				3B74AD3665C394EF81F7508F /* Pods_SoraPassportTests.framework */,
+				25D099C5F60D56A5C2CD090E /* Pods_SoraPassportUITests.framework */,
+				C4CDE6F4986EE7F06E47B45C /* Pods_SoraPassportUITests.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		D0C1FE5C90B97BF44622D035 /* MainTabBar */ = {
@@ -6011,7 +6087,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EDD2178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassport" */;
 			buildPhases = (
-				A3A4D32C26D30E135B64DD6E /* [CP] Check Pods Manifest.lock */,
+				37A2EE60FE262A54518B6264 /* [CP] Check Pods Manifest.lock */,
 				364EA8442A094205001A0FD4 /* Inject Secrets */,
 				02623F072179DCD20011250E /* R.swift */,
 				02623EB12178C0910011250E /* Sources */,
@@ -6019,7 +6095,7 @@
 				02E319AF21D4AFF500B33B66 /* Setup Firebase Enviroment GoogleService-Info.plist */,
 				02623EB32178C0910011250E /* Resources */,
 				0292033321977A4400D9BACD /* Crashlytics */,
-				3C5B5C63C5355E05306A19F4 /* [CP] Embed Pods Frameworks */,
+				EE32BD698626EB8A397A0D99 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6034,13 +6110,13 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EE02178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassportTests" */;
 			buildPhases = (
-				7728D1CCF86CFA2EC84E194D /* [CP] Check Pods Manifest.lock */,
+				C967FEB1960D3931703D4087 /* [CP] Check Pods Manifest.lock */,
 				02623F0A2179F1C50011250E /* ModuleMocks */,
 				026AEA5221B4FFF0002EEB67 /* CommonMocks */,
 				02623EC52178C0930011250E /* Sources */,
 				02623EC62178C0930011250E /* Frameworks */,
 				02623EC72178C0930011250E /* Resources */,
-				0B7788E6471467549D48737E /* [CP] Embed Pods Frameworks */,
+				E6904C1444D45A4E531E620B /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6056,7 +6132,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EE32178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassportUITests" */;
 			buildPhases = (
-				C61184853478FA7ECE450FB3 /* [CP] Check Pods Manifest.lock */,
+				F07F30B29C5D6C9A5E08F051 /* [CP] Check Pods Manifest.lock */,
 				02623ED02178C0930011250E /* Sources */,
 				02623ED12178C0930011250E /* Frameworks */,
 				02623ED22178C0930011250E /* Resources */,
@@ -6075,11 +6151,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 84324BD22411446000CA339A /* Build configuration list for PBXNativeTarget "SoraPassportIntegrationTests" */;
 			buildPhases = (
-				DB813939163AA5ED60B78AFC /* [CP] Check Pods Manifest.lock */,
+				8462FEA78A98531C90C0DF45 /* [CP] Check Pods Manifest.lock */,
 				84324BC72411446000CA339A /* Sources */,
 				84324BC82411446000CA339A /* Frameworks */,
 				84324BC92411446000CA339A /* Resources */,
-				36C50BB43990BE7E4DED6E09 /* [CP] Embed Pods Frameworks */,
+				B322896076E931B5592AEEC4 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6157,7 +6233,6 @@
 				nb,
 				cs,
 				"it-IT",
-				fa,
 				"ms-MY",
 				sr,
 				vi,
@@ -6252,7 +6327,6 @@
 				02920366219B67E700D9BACD /* invitedFetchWithoutParent.json in Resources */,
 				02D656DD2204D88600AAA66A /* favoriteProjectsResponse.json in Resources */,
 				84F9912D244A3CF20015A1AD /* ethereumRegistrationNotFound.json in Resources */,
-				A2B5A92BDB7F9FD8701DCB65 /* FriendsViewController.xib in Resources */,
 				947C4650272C0ED400BE6967 /* soraLoader.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6360,62 +6434,6 @@
 			shellPath = /bin/sh;
 			shellScript = "# Name of the resource we're selectively copying\nGOOGLESERVICE_INFO_PLIST=GoogleService-Info.plist\n\n# Get references to a version of the GoogleService-Info.plist based on config\nGOOGLESERVICE_INFO_CONFIG=${PROJECT_DIR}/${TARGET_NAME}/Configs/${FIREBASE_CONFIG}\n\n# Make sure that plist exists\necho \"Looking for ${GOOGLESERVICE_INFO_CONFIG}\"\nif [ ! -f $GOOGLESERVICE_INFO_CONFIG ]\nthen\necho \"No ${FIREBASE_CONFIG} found. Please ensure it's in the proper directory.\"\nexit 1\nfi\n\n# Get a reference to the destination location for the GoogleService-Info.plist\nPLIST_DESTINATION=${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/${GOOGLESERVICE_INFO_PLIST}\necho \"Will copy ${GOOGLESERVICE_INFO_PLIST} to final destination: ${PLIST_DESTINATION}\"\n\n# Copy GoogleService-Info.plist\necho \"Using ${FIREBASE_CONFIG}\"\ncp \"${GOOGLESERVICE_INFO_CONFIG}\" \"${PLIST_DESTINATION}\"\n";
 		};
-		0B7788E6471467549D48737E /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh",
-				"${BUILT_PRODUCTS_DIR}/BigInt/BigInt.framework",
-				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
-				"${BUILT_PRODUCTS_DIR}/FearlessUtils/FearlessUtils.framework",
-				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
-				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleAPIClientForREST/GoogleAPIClientForREST.framework",
-				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
-				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
-				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
-				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
-				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
-				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
-				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
-				"${BUILT_PRODUCTS_DIR}/xxHash-Swift/xxHash_Swift.framework",
-				"${BUILT_PRODUCTS_DIR}/Cuckoo/Cuckoo.framework",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/XNetworking/XNetworking.framework/XNetworking",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BigInt.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FearlessUtils.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMSessionFetcher.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleAPIClientForREST.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/xxHash_Swift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Cuckoo.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/XNetworking.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		364EA8442A094205001A0FD4 /* Inject Secrets */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -6429,13 +6447,79 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
+				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKeyTest=$SORA_CARD_API_KEY_TEST,soraCardAPIKeyProd=$SORA_CARD_API_KEY_PROD,soraCardDomainTest=$SORA_CARD_DOMAIN_TEST,soraCardDomainProd=$SORA_CARD_DOMAIN_PROD,soraCardKYCEndpointUrlTest=$SORA_CARD_KYC_ENDPOINT_URL_TEST,,soraCardKYCEndpointUrlProd=$SORA_CARD_KYC_ENDPOINT_URL_PROD,soraCardKycUsernameTest=$SORA_CARD_KYC_USERNAME_TEST,soraCardKycUsernameProd=$SORA_CARD_KYC_USERNAME_PROD,soraCardKycPasswordTest=$SORA_CARD_KYC_PASSWORD_TEST,soraCardKycPasswordProd=$SORA_CARD_KYC_PASSWORD_PROD,soraCardBackendTestUrl=$SORA_BACKEND_DEBUG,soraCardBackendProdUrl=$SORA_BACKEND_RELEASE,soraCardXOneEndpointTest=$X1_ENDPOINT_URL_DEBUG,soraCardXOneEndpointProd=$X1_ENDPOINT_URL_RELEASE,soraCardXOneIdTest=$X1_WIDGET_ID_DEBUG,soraCardXOneIdProd=$X1_WIDGET_ID_RELEASE,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_GOOGLE_URL_SCHEME,soraGoogleToken=$SORA_GOOGLE_TOKEN\n#add params to the xcconfig files\nvariableNames=(\"SORA_GOOGLE_TOKEN\" \"SORA_GOOGLE_URL_SCHEME\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n    done\ndone\n\nif [ -n \"$JENKINS_URL\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $SORA_GOOGLE_URL_SCHEME\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\nfi\n";
+			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKeyTest=$SORA_CARD_API_KEY_TEST,soraCardAPIKeyProd=$SORA_CARD_API_KEY_PROD,soraCardDomainTest=$SORA_CARD_DOMAIN_TEST,soraCardDomainProd=$SORA_CARD_DOMAIN_PROD,soraCardKYCEndpointUrlTest=$SORA_CARD_KYC_ENDPOINT_URL_TEST,,soraCardKYCEndpointUrlProd=$SORA_CARD_KYC_ENDPOINT_URL_PROD,soraCardKycUsernameTest=$SORA_CARD_KYC_USERNAME_TEST,soraCardKycUsernameProd=$SORA_CARD_KYC_USERNAME_PROD,soraCardKycPasswordTest=$SORA_CARD_KYC_PASSWORD_TEST,soraCardKycPasswordProd=$SORA_CARD_KYC_PASSWORD_PROD,soraCardBackendTestUrl=$SORA_BACKEND_DEBUG,soraCardBackendProdUrl=$SORA_BACKEND_RELEASE,soraCardXOneEndpointTest=$X1_ENDPOINT_URL_DEBUG,soraCardXOneEndpointProd=$X1_ENDPOINT_URL_RELEASE,soraCardXOneIdTest=$X1_WIDGET_ID_DEBUG,soraCardXOneIdProd=$X1_WIDGET_ID_RELEASE,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_IOS_GOOGLE_URL_SCHEME_PROD,soraGoogleToken=$SORA_IOS_GOOGLE_TOKEN_PROD\n#add params to the xcconfig files\nvariableNames=(\"SORA_IOS_GOOGLE_TOKEN_PROD\" \"SORA_IOS_GOOGLE_URL_SCHEME_PROD\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n    done\ndone\n\nif [ -n \"$JENKINS_URL\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $SORA_IOS_GOOGLE_URL_SCHEME_PROD\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\nfi\n";
 		};
-		36C50BB43990BE7E4DED6E09 /* [CP] Embed Pods Frameworks */ = {
+		37A2EE60FE262A54518B6264 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-SoraPassportAll-SoraPassport-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		8462FEA78A98531C90C0DF45 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-SoraPassportAll-SoraPassportIntegrationTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		8D6A2C2FE306C409741729CD /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-SoraPassportUITests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B322896076E931B5592AEEC4 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6559,7 +6643,85 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		3C5B5C63C5355E05306A19F4 /* [CP] Embed Pods Frameworks */ = {
+		C967FEB1960D3931703D4087 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-SoraPassportTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E6904C1444D45A4E531E620B /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh",
+				"${BUILT_PRODUCTS_DIR}/BigInt/BigInt.framework",
+				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
+				"${BUILT_PRODUCTS_DIR}/FearlessUtils/FearlessUtils.framework",
+				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
+				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
+				"${BUILT_PRODUCTS_DIR}/GoogleAPIClientForREST/GoogleAPIClientForREST.framework",
+				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
+				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
+				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
+				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
+				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
+				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
+				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
+				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
+				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
+				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
+				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
+				"${BUILT_PRODUCTS_DIR}/xxHash-Swift/xxHash_Swift.framework",
+				"${BUILT_PRODUCTS_DIR}/Cuckoo/Cuckoo.framework",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/XNetworking/XNetworking.framework/XNetworking",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BigInt.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FearlessUtils.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMSessionFetcher.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleAPIClientForREST.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/xxHash_Swift.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Cuckoo.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/XNetworking.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		EE32BD698626EB8A397A0D99 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6683,7 +6845,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		7728D1CCF86CFA2EC84E194D /* [CP] Check Pods Manifest.lock */ = {
+		F07F30B29C5D6C9A5E08F051 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6698,29 +6860,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportTests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		A3A4D32C26D30E135B64DD6E /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportAll-SoraPassport-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-SoraPassportUITests-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6811,6 +6951,7 @@
 				9441FAF725CADE0800775559 /* NSPredicate+Validation.swift in Sources */,
 				9446754F25769AB2006DFCA1 /* EthNodeData.swift in Sources */,
 				3661C9E12851FC4000660434 /* RewardFooterCell.swift in Sources */,
+				B27FFC432A52A569006D4C19 /* FriendsCell.swift in Sources */,
 				9441FA4C25CAAE8600775559 /* KeystoreExportWrapper.swift in Sources */,
 				9441FBEE25CC035700775559 /* BaseStorageChildSubscription.swift in Sources */,
 				9441FAB925CAC44E00775559 /* AccountImportWireframe.swift in Sources */,
@@ -6830,6 +6971,7 @@
 				9441D2A22678FD0700FDD374 /* ExtrinsicProcessing.swift in Sources */,
 				366D53B2295249280094CE36 /* ContactsViewModel.swift in Sources */,
 				362F49BA2A36FF0F00163091 /* SignInGoogle.swift in Sources */,
+				3652E10A2A679E4E0073AFBA /* LoadingView.swift in Sources */,
 				362F49B62A36388300163091 /* Loadable.swift in Sources */,
 				9441F89425C957C400775559 /* WalletContactOperationFactory.swift in Sources */,
 				5E9774F42A31AE040047BCA2 /* AccountExportRawSeedInteractor.swift in Sources */,
@@ -6860,6 +7002,7 @@
 				9441F8EC25C9699400775559 /* ContactItem.swift in Sources */,
 				9481B4A628746FFB00A472E2 /* Logger+FearlessUtils.swift in Sources */,
 				94B3010426FDF41D00F239D7 /* PriceData.swift in Sources */,
+				B2A56EFD2A5E955E00844A35 /* FeeView.swift in Sources */,
 				02E319A221D2B16A00B33B66 /* DecentralizedDocumentRequestError+TextConvertible.swift in Sources */,
 				94497DDE25EF89A700FD4F14 /* ActiveEraInfo.swift in Sources */,
 				84E8DEAD225B6B1700640754 /* CacheFacade.swift in Sources */,
@@ -6869,7 +7012,6 @@
 				9481B46D286EFC2200A472E2 /* ChainRegistryError.swift in Sources */,
 				36527D9029B73DE7006D2042 /* LocalTransactionStorage.swift in Sources */,
 				553069EA290BD4AF00F265A3 /* AppSettingsCardItem.swift in Sources */,
-				36C88DF8281A7CCC0038B7F9 /* InputLinkView.swift in Sources */,
 				026AEA3221AAFED8002EEB67 /* SoraLoadingViewPresenter.swift in Sources */,
 				9441FBEF25CC035700775559 /* StakingInfoSubscription.swift in Sources */,
 				55D06AD028BFEBFD00256B98 /* SwapMarketSourcerProtocol.swift in Sources */,
@@ -6878,6 +7020,7 @@
 				362F49C22A37580E00163091 /* EnterPasswordSection.swift in Sources */,
 				5E587ED327F62D9100CA71A6 /* PolkaswapMainProtocols.swift in Sources */,
 				3653BD172A029D5A003C71A4 /* GenerateQRItem.swift in Sources */,
+				B267AA9E2A7A2F7200EF9CF0 /* EditViewCell.swift in Sources */,
 				3645269528C1286E00260340 /* NodesPresenter.swift in Sources */,
 				945A576B25DE8701003E4023 /* TimeInterval+Time.swift in Sources */,
 				0292035E219B188900D9BACD /* InvitedUserData.swift in Sources */,
@@ -6913,7 +7056,6 @@
 				361EF58A2912D8C700D0DCCF /* ActivityDateItem.swift in Sources */,
 				845F38312486C51B006A7F36 /* WalletUpdateEvent.swift in Sources */,
 				36356B5629194F4000CD3E9E /* PoolRepositoryFactory.swift in Sources */,
-				3632D0F52A1F4ACF00C9B688 /* CIKeys.generated.swift in Sources */,
 				366A78362A3227AC00A6DDF9 /* SetupPasswordProtocol.swift in Sources */,
 				02A053012222A4E200CA290F /* AnnouncementData.swift in Sources */,
 				94B3001426FB772400F239D7 /* SubqueryHistoryOperationFactory.swift in Sources */,
@@ -6939,10 +7081,11 @@
 				94B3008626FC97A500F239D7 /* SubqueryHistoryOperationFactory+Wallet.swift in Sources */,
 				945A571B25DE7F63003E4023 /* RuntimeRegistryFacade.swift in Sources */,
 				9481B47C286EFC4600A472E2 /* RuntimeCodingService.swift in Sources */,
+				B2CD5DB02A7A5A1800B16F8A /* EnabledItem.swift in Sources */,
 				3666CBD2290593FF0098F4AC /* TransferableItem.swift in Sources */,
-				36C37091282296200027BA77 /* SpaceViewModel.swift in Sources */,
 				3653BD0C2A028CE5003C71A4 /* QRFrameView.swift in Sources */,
 				84639D1E22CB33A7009D847C /* SupportedVersionData.swift in Sources */,
+				B27FFC442A52A569006D4C19 /* FriendsItem.swift in Sources */,
 				9441F9BA25C9805B00775559 /* NSPredicate+Filter.swift in Sources */,
 				3666CC072909A1380098F4AC /* HistoryTransactionMapper.swift in Sources */,
 				364BB47B292A445F00DE90A6 /* SoraTextItem.swift in Sources */,
@@ -6958,6 +7101,7 @@
 				36DB198829EDC5CB00B3E3BF /* AccountCreateProtocols.swift in Sources */,
 				94497EFE25F0F87200FD4F14 /* StorageRequestFactory.swift in Sources */,
 				0253FD022217324A00D3AD49 /* UpdateCustomerMock.swift in Sources */,
+				B2CD5DAF2A7A5A1800B16F8A /* EnabledCell.swift in Sources */,
 				361EF5962915229A00D0DCCF /* Amount.swift in Sources */,
 				364D61C029929AE0004938FA /* AppEventService.swift in Sources */,
 				363425072871D51900ACE775 /* AssetTransactionStatusHelper.swift in Sources */,
@@ -6977,6 +7121,7 @@
 				364526C328C7D62B00260340 /* SubqueryApyInfoOperation.swift in Sources */,
 				9441FAFD25CADE4B00775559 /* DerivationPathConstants.swift in Sources */,
 				605AA52F26FE601000E7FD12 /* NeumorphismButton.swift in Sources */,
+				3652E10C2A6A918D0073AFBA /* CreateAccountService.swift in Sources */,
 				5E9774F32A31AE040047BCA2 /* AccountExportInteractor.swift in Sources */,
 				029203482199A47A00D9BACD /* ResultData.swift in Sources */,
 				36DB19C529EDEB9F00B3E3BF /* OnboardingMainPresenter.swift in Sources */,
@@ -6995,12 +7140,14 @@
 				029879182181AE760085E605 /* DecentralizedDocumentCreateMock.swift in Sources */,
 				3661C9E22851FC4000660434 /* RewardFooterViewModel.swift in Sources */,
 				363DA8092A08E15700806A5B /* SendAssetView.swift in Sources */,
+				B293C3522A57E6BB00FC7601 /* InputRewardAmountViewController.swift in Sources */,
 				361106322978A4A7003A6352 /* ConfirmPassphraseWireframe.swift in Sources */,
 				3666CBCB29056E420098F4AC /* AssetDetailsViewModel.swift in Sources */,
 				94D4B66428C0B7DB007F98EB /* StorageMigrator+Sync.swift in Sources */,
 				847527412362DE9F0028D871 /* DeviceInfo.swift in Sources */,
 				368E73222A448506001B7BAF /* WarningView.swift in Sources */,
 				847A17BA23796348003BA71A /* AlertInputFieldPresenter.swift in Sources */,
+				B2CD5DAE2A7A5A1800B16F8A /* EnabledView.swift in Sources */,
 				366A77F52A30DC6800A6DDF9 /* BackupedAccountItem.swift in Sources */,
 				029879262181E38C0085E605 /* ProjectData.swift in Sources */,
 				84AA44B3249FF49A00C09E0F /* DateFormatter+Wallet.swift in Sources */,
@@ -7024,6 +7171,7 @@
 				84CD3AFF232BFBAC0076E056 /* AboutData.swift in Sources */,
 				94B3001726FB772400F239D7 /* SubqueryRewardOperationFactory.swift in Sources */,
 				364D61C929929E0C004938FA /* Throttler.swift in Sources */,
+				B2A56F0E2A6FD8FD00844A35 /* YourReferrerPresenter.swift in Sources */,
 				02CFE83C218C30B30032259A /* ApplicationFormData.swift in Sources */,
 				8B36260C296F220B007B9525 /* ChangeAccountWireframe.swift in Sources */,
 				8BF42863293BB29700590F92 /* MoreMenuViewFactory.swift in Sources */,
@@ -7090,7 +7238,6 @@
 				36F94EDB291E545000E211FE /* LiquidityWireframe.swift in Sources */,
 				5E9774F02A31AE040047BCA2 /* AccountExportProtocols.swift in Sources */,
 				36C88A262A32EAA800B3CF39 /* AccountOptionSeparator.swift in Sources */,
-				36C3708228228F270027BA77 /* TitleDescriptionCell.swift in Sources */,
 				3616550E291D639000060A8D /* DiscoverViewController.swift in Sources */,
 				36ACC95F2864AF9000DA98EC /* ReferralViewFactory.swift in Sources */,
 				02CFA4E72189D1C5000E9483 /* ProjectsVotesCountMock.swift in Sources */,
@@ -7105,6 +7252,7 @@
 				36356B5F2919B23300CD3E9E /* PoolListCell.swift in Sources */,
 				84A90A152431D06D00F5CB76 /* WalletSearchDataError+TextConvertible.swift in Sources */,
 				9441F89625C957C400775559 /* WalletNetworkOperationFactory+Protocol.swift in Sources */,
+				360FF41C2A557F6400D94BA9 /* ProgressView.swift in Sources */,
 				3653BD1A2A02B60A003C71A4 /* ReceiveQRView.swift in Sources */,
 				364D61B829928D33004938FA /* AssetIdCell.swift in Sources */,
 				8BF42861293B98EA00590F92 /* MoreMenuProtocol.swift in Sources */,
@@ -7113,6 +7261,7 @@
 				9441F8FB25C9699400775559 /* AccountImportSource.swift in Sources */,
 				0298791B2181AF4D0085E605 /* String+Path.swift in Sources */,
 				02623EEB2179AD440011250E /* RootPresenter.swift in Sources */,
+				B2CD5DB12A7A5A1800B16F8A /* EnabledViewModel.swift in Sources */,
 				3635B7162933E99500B2B728 /* ChoiceMarketViewController.swift in Sources */,
 				362DAD8D29F53283005562B0 /* PinViewFactory.swift in Sources */,
 				364D61CE2993DAA5004938FA /* BalanceDetailsViewController.swift in Sources */,
@@ -7129,6 +7278,7 @@
 				94D4B66028C0AC37007F98EB /* StorageMigrator.swift in Sources */,
 				847435EA22DCC359002B1BDC /* BearerTokenRequestModifier.swift in Sources */,
 				84324B9A240E4CA000CA339A /* Result+Type.swift in Sources */,
+				B2A56F082A6FD64200844A35 /* YourReferrerViewController.swift in Sources */,
 				3628601E291F97510000A561 /* OptionsView.swift in Sources */,
 				8481A5DE2302F9DC0056D3D4 /* DateFormatterProvider.swift in Sources */,
 				3666CBCD29056E420098F4AC /* PriceCell.swift in Sources */,
@@ -7148,7 +7298,6 @@
 				3692D69F2910725200B8B274 /* ActivityItem.swift in Sources */,
 				8409323E2341FCC30013C871 /* ProjectViewEvent.swift in Sources */,
 				945A56FA25DE7DC5003E4023 /* SubstrateDataProviderFactory.swift in Sources */,
-				36ACC95A2863CC4700DA98EC /* ReferrerView.swift in Sources */,
 				3635B7182933ECE900B2B728 /* MarketView.swift in Sources */,
 				02CFA4BA21884AEF000E9483 /* SettingsExtension.swift in Sources */,
 				024B00312194715A00671679 /* SoraMessage.swift in Sources */,
@@ -7166,15 +7315,18 @@
 				02920354219AA68800D9BACD /* UserData.swift in Sources */,
 				3213A3092237DAB4001BE041 /* VerificationCodeData.swift in Sources */,
 				02D7B65E2219B86A00171A91 /* ActivityOneOfEventData.swift in Sources */,
+				B2A56EFF2A5EB51700844A35 /* InvitationsViewModel.swift in Sources */,
 				94497D8825EE99A300FD4F14 /* SS58FactoryExtensions.swift in Sources */,
 				9441F9F925C9823800775559 /* JSONRPCInfo.swift in Sources */,
 				02BBD83821CB8E0B00C7A1E3 /* NotificationTokenExchangeMock.swift in Sources */,
+				B2A56F012A66903800844A35 /* ReferrerLinkView.swift in Sources */,
 				3661C9DD2850CE6500660434 /* RewardRawCell.swift in Sources */,
 				366A78372A3227AC00A6DDF9 /* SetupPasswordPresenter.swift in Sources */,
 				02CFA4A92187A45A000E9483 /* ActionPresentationController.swift in Sources */,
 				364BB497292A500D00DE90A6 /* ActivityDetailView.swift in Sources */,
 				5E587ED227F62D9100CA71A6 /* PolkaswapMainInteractor.swift in Sources */,
 				94497EA025EFDBA800FD4F14 /* EmptyStreamableSource.swift in Sources */,
+				B2A56F0C2A6FD6B100844A35 /* YourReferrerViewModel.swift in Sources */,
 				3661C9E72858B65100660434 /* RewardSeparatorViewModel.swift in Sources */,
 				366A78352A3227AC00A6DDF9 /* SetupPasswordWireframe.swift in Sources */,
 				36ED6FC029F921F400D096C9 /* MneminicProcessor.swift in Sources */,
@@ -7218,7 +7370,6 @@
 				366A78292A31FE3700A6DDF9 /* AccountImportedViewModel.swift in Sources */,
 				3635B7272937080200B2B728 /* ConfirmSwapViewModel.swift in Sources */,
 				3666CC092909A6890098F4AC /* Transactions.swift in Sources */,
-				36C3708B282295EB0027BA77 /* TitleDescriptionViewModel.swift in Sources */,
 				02CFE85B218CEF8D0032259A /* SoraNavigationController.swift in Sources */,
 				368E73282A44C587001B7BAF /* Warningable.swift in Sources */,
 				9441F8E425C9699400775559 /* WalletAssetId.swift in Sources */,
@@ -7230,7 +7381,6 @@
 				94D4B66C28C75F55007F98EB /* StorageRequest.swift in Sources */,
 				3635B71D2934E83800B2B728 /* SwapDisclaimerViewModel.swift in Sources */,
 				5599B6CF2924D0CE00567396 /* MenuTitleItem.swift in Sources */,
-				1006FC86256957F300A30DDA /* FriendsViewModel.swift in Sources */,
 				9441F8E225C9699400775559 /* RestoreJson.swift in Sources */,
 				02D7B6622219C1E300171A91 /* ActivityEvents.swift in Sources */,
 				366A780A2A30DC9B00A6DDF9 /* BackupedAccountsWireframe.swift in Sources */,
@@ -7247,6 +7397,7 @@
 				9441FC0325CC089200775559 /* WalletStakingChanged.swift in Sources */,
 				366A78262A31FE3700A6DDF9 /* AccountImportedCell.swift in Sources */,
 				02E319A521D39FE700B33B66 /* TextSharingSource.swift in Sources */,
+				360FF4192A557BD500D94BA9 /* StakedCell.swift in Sources */,
 				364BB495292A4F5F00DE90A6 /* ActivityDetailViewModel.swift in Sources */,
 				9441FC2025D1536300775559 /* AddConfirmationWireframe.swift in Sources */,
 				36E5DB7828CC8CF000AB8E28 /* CustomNodeInteractor.swift in Sources */,
@@ -7256,13 +7407,13 @@
 				8B362609296F1FA8007B9525 /* ChangeAccountPresenter.swift in Sources */,
 				361EF5AB2917DCA500D0DCCF /* WalletItemFactory.swift in Sources */,
 				9441FA6525CAB08600775559 /* ContactContext.swift in Sources */,
-				36ACC9662869E60400DA98EC /* TextCell.swift in Sources */,
 				848CF31C22B3DF810018EFDC /* SupportedVersionCheckMock.swift in Sources */,
 				8409323423413C1F0013C871 /* EventProtocols.swift in Sources */,
 				9447675628D9FADC00EC8F74 /* SelectedAccountMigrationPolicy.swift in Sources */,
 				364BB493292A4F0900DE90A6 /* ActivityDetailsCell.swift in Sources */,
 				553069E0290A82CD00F265A3 /* AppSettingsFactory.swift in Sources */,
 				02920330219746E300D9BACD /* AlertPresentable.swift in Sources */,
+				36C66EAE2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift in Sources */,
 				36165510291D639000060A8D /* DiscoverViewModel.swift in Sources */,
 				36477A4729AF8BC8005EDAD4 /* ConfigService.swift in Sources */,
 				9441F93325C96CC300775559 /* ExportOption+ViewModel.swift in Sources */,
@@ -7277,6 +7428,7 @@
 				36DB198629EDC5CB00B3E3BF /* AccountCreateViewFactory.swift in Sources */,
 				364BB47F292A469B00DE90A6 /* ConfirmDetailsCell.swift in Sources */,
 				94497EAF25EFDE5B00FD4F14 /* WeakWrapper.swift in Sources */,
+				B27FFC3F2A52A53B006D4C19 /* FriendsViewController.swift in Sources */,
 				024B002C2194704E00671679 /* MessageViewFactory.swift in Sources */,
 				949A952F2923E1EE00C63781 /* CardView.swift in Sources */,
 				94497DDD25EF89A700FD4F14 /* ConstantCodingPath.swift in Sources */,
@@ -7286,6 +7438,7 @@
 				944929A32908051B00897A56 /* ChangeAccountViewController.swift in Sources */,
 				36DB198B29EDC5CB00B3E3BF /* AccountCreationError.swift in Sources */,
 				843D543424FC4F52000E0DE1 /* ReferendumDetailsFetchMock.swift in Sources */,
+				B2A56EF92A5E815200844A35 /* InvitationsCell.swift in Sources */,
 				3611E7092979CDA400D2CF6F /* SetupPincodePresenter.swift in Sources */,
 				9441FC4125D1790B00775559 /* KeyboardAdoptable.swift in Sources */,
 				94497E1D25EF9E5E00FD4F14 /* MigrateCall.swift in Sources */,
@@ -7293,7 +7446,9 @@
 				36356B3129184DB200CD3E9E /* PoolsService.swift in Sources */,
 				84EF3A89232A25530012421F /* DeepLinkNavigation.swift in Sources */,
 				36527D8E29B7341A006D2042 /* NewTransactionCreatedEvent.swift in Sources */,
+				B2CD5DAC2A7A5A1800B16F8A /* EditViewController.swift in Sources */,
 				9441F9F125C9823800775559 /* JSONRPCData.swift in Sources */,
+				B2E133802A863BD9008A46E0 /* EnabledSection.swift in Sources */,
 				36110B952953B56400712BEB /* ScanQRViewFactory.swift in Sources */,
 				36E5DB7B28CC8CF000AB8E28 /* CustomNodeViewController.swift in Sources */,
 				02D4684B219092CD00F9D3D0 /* ProjectsRegisterMock.swift in Sources */,
@@ -7308,6 +7463,7 @@
 				94D4B66828C0C485007F98EB /* RuntimeHotBootSnapshotFactory.swift in Sources */,
 				362F49BC2A37224200163091 /* AccountImportedSection.swift in Sources */,
 				36286019291F935C0000A561 /* InputAssetsView.swift in Sources */,
+				B2CD5DAB2A7A5A1800B16F8A /* EditViewFactory.swift in Sources */,
 				8BF4286C293E5AAC00590F92 /* LanguageProtocol.swift in Sources */,
 				8409323323413C1F0013C871 /* EventVisitor.swift in Sources */,
 				84F0100322C60A8D001927A1 /* CountryFetchMock.swift in Sources */,
@@ -7317,21 +7473,23 @@
 				9441F95425C9707200775559 /* AccountOperationFactoryError+Presentable.swift in Sources */,
 				8BF42874293E5DB100590F92 /* LanguageModel.swift in Sources */,
 				36DB198529EDC5CB00B3E3BF /* AccountCreateInteractor.swift in Sources */,
+				B2FEEA9A2A8A3E030014EC32 /* CIKeys.generated.swift in Sources */,
 				9441FA6725CAB08700775559 /* ContactsLocalSearchEngine.swift in Sources */,
 				363BDAFF2938CCF6000F5608 /* HeaderActivityDetailsCell.swift in Sources */,
 				366A782B2A31FE3700A6DDF9 /* AccountImportedWireframe.swift in Sources */,
 				9441F8E925C9699400775559 /* LegalData.swift in Sources */,
+				360FF41A2A557BD500D94BA9 /* StakedItem.swift in Sources */,
 				361EF580291170CC00D0DCCF /* UIViewController+ChildViewController.swift in Sources */,
 				361EF59C2915533D00D0DCCF /* AssetDetailsWireframe.swift in Sources */,
 				3645269728C1286E00260340 /* NodesViewFactory.swift in Sources */,
 				9441FAB625CAC44E00775559 /* AccountImportViewFactory.swift in Sources */,
 				9441F99325C970C100775559 /* AccountOperationFactoryError.swift in Sources */,
+				368E9A262A84806900BDE0AA /* SCardConfig.swift in Sources */,
 				94497DD025EF89A700FD4F14 /* DyAccountInfo.swift in Sources */,
 				3661C9DC2850CE6500660434 /* RewardRawViewModel.swift in Sources */,
 				02D656E12205776200AAA66A /* ProjectsToggleFavoriteMock.swift in Sources */,
 				02A052F92221C95600CA290F /* DateFormatter+Verification.swift in Sources */,
 				9441FBF725CC065600775559 /* WalletNewTransactionInserted.swift in Sources */,
-				36C88DFA281AA1C80038B7F9 /* RoundTextField.swift in Sources */,
 				3611063A29798AFC003A6352 /* Quiz.swift in Sources */,
 				9441F88E25C957C400775559 /* WalletNetworkFacade+Protocol.swift in Sources */,
 				94497CF625E946C600FD4F14 /* MigrationEvent.swift in Sources */,
@@ -7358,7 +7516,6 @@
 				55063DBA290158B2008782E1 /* MoreMenuItem.swift in Sources */,
 				8B362603296F1B53007B9525 /* ChangeAccountProtocols.swift in Sources */,
 				9441F9CC25C9815E00775559 /* SortDescriptor+Storage.swift in Sources */,
-				104BD27F2566746A007719DF /* RewardsTableViewCell.swift in Sources */,
 				10929508254D7135003AAA64 /* SoraTextStyle.swift in Sources */,
 				846EC807236C51DB0048ED4E /* ScrollsToTop.swift in Sources */,
 				84CD3AEE232A6A1E0076E056 /* InvitationFactory.swift in Sources */,
@@ -7395,6 +7552,7 @@
 				029879202181D7310085E605 /* IRSigningDecorator.swift in Sources */,
 				366D53D02952B4A20094CE36 /* ScanQRViewModel.swift in Sources */,
 				9441F9FB25C9823800775559 /* RuntimeDispatchInfo.swift in Sources */,
+				B2A56F062A67A7A600844A35 /* ReferrerLinkViewModel.swift in Sources */,
 				9441F8FC25C9699400775559 /* AccountCreateError.swift in Sources */,
 				3603A3942917E1FD00DF6EFE /* PoolViewModel.swift in Sources */,
 				7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */,
@@ -7407,6 +7565,7 @@
 				366A78092A30DC9B00A6DDF9 /* BackupedAccountsViewController.swift in Sources */,
 				84EF3A87232A22840012421F /* DeepLinks.swift in Sources */,
 				9441FB1925CAE33500775559 /* AccountConfirmViewFactory.swift in Sources */,
+				B2A56F0A2A6FD69E00844A35 /* YourReferrerCell.swift in Sources */,
 				02CFA4B321883E46000E9483 /* ImageViewModel.swift in Sources */,
 				55D06B5A28C7897F00256B98 /* SwapQuoteAmountsFactory.swift in Sources */,
 				02D656D92204D73400AAA66A /* ProjectsFavoritesFetchMock.swift in Sources */,
@@ -7435,7 +7594,6 @@
 				945A570625DE7E7D003E4023 /* PhishingItem.swift in Sources */,
 				366A78392A3227AC00A6DDF9 /* SetupPasswordCell.swift in Sources */,
 				9441F8E825C9699400775559 /* ManagedConnectionItem.swift in Sources */,
-				36C3708428228F340027BA77 /* AmountCell.swift in Sources */,
 				9441F9FA25C9823800775559 /* JSONRPCOperation.swift in Sources */,
 				5E18558427EDD8EA0007F6ED /* SubqueryPoolsFactory.swift in Sources */,
 				940683B7267912D5005F520D /* StorageQuery.swift in Sources */,
@@ -7518,6 +7676,7 @@
 				9441F9AF25C9801300775559 /* SubstrateDataStorageFacade.swift in Sources */,
 				5599B6D42925724900567396 /* SettingsInformationViewController.swift in Sources */,
 				84A0DA012265B0AF006EF85C /* CompactBarFloating.swift in Sources */,
+				B2A56F042A67A44000844A35 /* ReferrerLinkCell.swift in Sources */,
 				36DB199329EDCCBC00B3E3BF /* MnemonicDisplayView.swift in Sources */,
 				36E0BB8A29F52821000510D9 /* WalletStaticImageViewModel.swift in Sources */,
 				9441F89325C957C400775559 /* WalletNetworkFacade+TxHistory.swift in Sources */,
@@ -7536,7 +7695,6 @@
 				55C71BC528F4A59300D2C424 /* AssetsInfoProvider.swift in Sources */,
 				366D53D12952B4A20094CE36 /* ScanQRViewController.swift in Sources */,
 				364526AF28C4B81300260340 /* NodesHeaderCell.swift in Sources */,
-				104BD286256686F0007719DF /* RewardsViewModel.swift in Sources */,
 				366A78132A319D3600A6DDF9 /* EnterPasswordViewController.swift in Sources */,
 				02E319B121D4BAFA00B33B66 /* R.generated.swift in Sources */,
 				9407F68425DFCCD20060545D /* TypeDefFileMock.swift in Sources */,
@@ -7560,7 +7718,6 @@
 				9441F8E725C9699400775559 /* EmptyAccountIcon.swift in Sources */,
 				0208CECF217E76E30043FCD7 /* NetworkMockManager.swift in Sources */,
 				9441FA6625CAB08700775559 /* ContactsListViewModelFactory.swift in Sources */,
-				103CCD2025643E360028345D /* RewardsViewController.swift in Sources */,
 				021C840021E24C700037F633 /* NetworkData+Cache.swift in Sources */,
 				3666CBCE29056E420098F4AC /* AssetDetailsViewController.swift in Sources */,
 				022C455E22106FD7005B6FEC /* ProfileButton+Inspectable.swift in Sources */,
@@ -7605,7 +7762,6 @@
 				3661C9F1286227B100660434 /* InputLinkPresenter.swift in Sources */,
 				DB806A2B9031562D790C9435 /* MainTabBarProtocol.swift in Sources */,
 				3635B7252936F99D00B2B728 /* ConfirmRemoveLiquidityViewModel.swift in Sources */,
-				36ACC9612867B6AB00DA98EC /* InputRewardAmountView.swift in Sources */,
 				366A78382A3227AC00A6DDF9 /* SetupPasswordViewController.swift in Sources */,
 				94497DD625EF89A700FD4F14 /* AccountId.swift in Sources */,
 				36ADDDAB28EC83D40080A41C /* WalletViewModel.swift in Sources */,
@@ -7613,7 +7769,6 @@
 				50C0AFBF658C7B1627B6482C /* MainTabBarViewController.swift in Sources */,
 				943568CD265E931200C73BCC /* SubstrateQRExtensions.swift in Sources */,
 				8833C424E38CA626D0DC023E /* MainTabBarPresenter.swift in Sources */,
-				36C3708D282296000027BA77 /* AmountViewModel.swift in Sources */,
 				32C6161E222E94B00092BB86 /* DateFormatter+Common.swift in Sources */,
 				3645269428C1286E00260340 /* NodesInteractor.swift in Sources */,
 				9481B46B286EFC2200A472E2 /* ChainRegistry.swift in Sources */,
@@ -7625,6 +7780,7 @@
 				3251E25BDDD56FE82BA9A4A4 /* MainTabBarViewFactory.swift in Sources */,
 				028547EF220B614300A40F41 /* ProjectDetailsData.swift in Sources */,
 				36E5DB7A28CC8CF000AB8E28 /* CustomNodeProtocols.swift in Sources */,
+				B2CD5DB22A7A5A1800B16F8A /* EditViewModel.swift in Sources */,
 				36F94EDE291E561E00E211FE /* PoolDetailFactory.swift in Sources */,
 				843D543E24FC52E4000E0DE1 /* ReferendumsVotedFetchMock.swift in Sources */,
 				36C3708F2822960E0027BA77 /* ButtonViewModel.swift in Sources */,
@@ -7654,6 +7810,7 @@
 				36C370EE2823E0370027BA77 /* ReferrerCell.swift in Sources */,
 				3611062C29784A23003A6352 /* SetupAccountNameViewFactory.swift in Sources */,
 				36C370E42823B0890027BA77 /* AvailableInvitationsCell.swift in Sources */,
+				360FF4212A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift in Sources */,
 				366A782A2A31FE3700A6DDF9 /* AccountImportedViewFactory.swift in Sources */,
 				849C5690237C8A6500350CB0 /* InvitationAppliedEvent.swift in Sources */,
 				3692D69B2910719200B8B274 /* ActivityViewModel.swift in Sources */,
@@ -7661,6 +7818,7 @@
 				9441FA9F25CAC42F00775559 /* AccountImportJsonFactory.swift in Sources */,
 				84AA44A5249FD63900C09E0F /* SearchData+User.swift in Sources */,
 				94497DDA25EF89A700FD4F14 /* UnlockChunk.swift in Sources */,
+				36C66EAC2A5D6E7700ADAD5E /* StakedPool.swift in Sources */,
 				0253FCC322115BE100D3AD49 /* ReputationData.swift in Sources */,
 				84BBF81F2306A8FC007E8AA1 /* DispatchQueueHelper.swift in Sources */,
 				9441F92D25C96CC300775559 /* SNAddressType+ViewModel.swift in Sources */,
@@ -7749,6 +7907,7 @@
 				9441F9CA25C9815E00775559 /* CDTransactionHistoryItem+CoreDataDecodable.swift in Sources */,
 				36B7D612295C941B00ECBBF6 /* FiatService.swift in Sources */,
 				94497E9925EFDBA400FD4F14 /* InMemoryDataProviderRepository.swift in Sources */,
+				B267AA9F2A7A2F7200EF9CF0 /* EditViewItem.swift in Sources */,
 				3688A43D280F591900C1D16F /* SourceType.swift in Sources */,
 				366A78282A31FE3700A6DDF9 /* AccountImportedViewController.swift in Sources */,
 				9441FBF025CC035700775559 /* AccountInfoSubscription.swift in Sources */,
@@ -7771,6 +7930,7 @@
 				36DB198429EDC5CB00B3E3BF /* AccountCreateWireframe.swift in Sources */,
 				949B457826288BF50081BB37 /* CallCodingPath.swift in Sources */,
 				3645269C28C146B000260340 /* NodesResponse.swift in Sources */,
+				B2E133822A863DA1008A46E0 /* EditViewProtocol.swift in Sources */,
 				5C0A80D5F523B98303F50FEC /* NetworkAvailabilityLayerProtocols.swift in Sources */,
 				364D61C629929D3A004938FA /* Constaints.swift in Sources */,
 				3621B45429E5523D007C5156 /* LPFeeService.swift in Sources */,
@@ -7787,10 +7947,10 @@
 				367C55A328FCA631008FC55F /* AssetViewModelFactory.swift in Sources */,
 				361EF59A2915513400D0DCCF /* AssetDetailsViewFactory.swift in Sources */,
 				364BB47A292A445F00DE90A6 /* SoraTextCell.swift in Sources */,
+				360FF41F2A568E4800D94BA9 /* DemeterFarmingService.swift in Sources */,
 				5599B6E129264C6C00567396 /* ProfileLoginModel.swift in Sources */,
 				9481B47B286EFC4600A472E2 /* RuntimeSnapshot.swift in Sources */,
 				36C3708628228F450027BA77 /* ButtonCell.swift in Sources */,
-				36C37088282292C50027BA77 /* SpaceCell.swift in Sources */,
 				3666CBDA2905AD880098F4AC /* RecentActivityItem.swift in Sources */,
 				366A78082A30DC9B00A6DDF9 /* BackupedAccountsViewFactory.swift in Sources */,
 				36C370EC2823E02B0027BA77 /* ReferrerViewModel.swift in Sources */,
@@ -7808,14 +7968,12 @@
 				9441FBDE25CC034800775559 /* WebSocketSubscriptionProtocols.swift in Sources */,
 				9441FC4725D19D4D00775559 /* MainTransitionHelper.swift in Sources */,
 				945A577125DE878E003E4023 /* CDPhishingItem+CoreDataDecodable.swift in Sources */,
-				36ACC9652869E60400DA98EC /* TextViewModel.swift in Sources */,
 				947E1F92268B2650006C5A70 /* ImageProcessing.swift in Sources */,
 				60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */,
 				71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */,
 				A1B644C63C38805297450DC7 /* FriendsWireframe.swift in Sources */,
 				86B2484C00C8F13C86614842 /* FriendsPresenter.swift in Sources */,
 				91D7B04B7F0479B242327146 /* FriendsInteractor.swift in Sources */,
-				3749CCF077A468610BE6DEF7 /* FriendsViewController.swift in Sources */,
 				3B5E739B0B8F955CE5436410 /* FriendsViewFactory.swift in Sources */,
 				55063DB62901411E008782E1 /* CategoryItem.swift in Sources */,
 				9441F99125C970C100775559 /* OperationManagerFacade.swift in Sources */,
@@ -7859,7 +8017,6 @@
 				026AEA4F21B1237D002EEB67 /* IdentityVerifyOperationTests.swift in Sources */,
 				84324BAE240FB91200CA339A /* SecondaryIdentityCreateOperationTests.swift in Sources */,
 				84146E2B22B15ACC00F18F1C /* CoreDataCacheTestFacade.swift in Sources */,
-				5E691DCE2A4D9B5B00D10E86 /* CIKeys.generated.swift in Sources */,
 				026AEA5121B15E95002EEB67 /* IdentityLocalRemoveOperationTests.swift in Sources */,
 				02BBD84121CBD47A00C7A1E3 /* NotificationInteractorTests.swift in Sources */,
 				843BBB0723B1F5370047100A /* LanguageGenerator.swift in Sources */,
@@ -7967,7 +8124,6 @@
 				5ED216CE294886A90052C740 /* fr */,
 				5ED216D1294886A90052C740 /* id */,
 				5ED216D4294886A90052C740 /* ca */,
-				36069EFC2A28C19B00439ADE /* fa */,
 				36069EFF2A28C29200439ADE /* ms-MY */,
 				36069F022A28C31100439ADE /* sr */,
 				36069F052A28C36500439ADE /* vi */,
@@ -7994,7 +8150,6 @@
 				5ED216D0294886A90052C740 /* fr */,
 				5ED216D3294886A90052C740 /* id */,
 				5ED216D6294886A90052C740 /* ca */,
-				36069EFD2A28C19B00439ADE /* fa */,
 				36069F002A28C29300439ADE /* ms-MY */,
 				36069F032A28C31100439ADE /* sr */,
 				36069F062A28C36500439ADE /* vi */,
@@ -8021,7 +8176,6 @@
 				5ED216EF2948892D0052C740 /* zh-Hans */,
 				5ED216F02948892D0052C740 /* ca */,
 				5ED216F12948892D0052C740 /* pl */,
-				36069EFB2A28C19B00439ADE /* fa */,
 				36069EFE2A28C29200439ADE /* ms-MY */,
 				36069F012A28C31100439ADE /* sr */,
 				36069F042A28C36500439ADE /* vi */,
@@ -8120,7 +8274,7 @@
 		};
 		0220858421B6C4FD00A5BC4C /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0CB2A6B25CF643633FB594D5 /* Pods-SoraPassportTests.test.xcconfig */;
+			baseConfigurationReference = 58436442E3EA19431F89166A /* Pods-SoraPassportTests.test.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -8150,7 +8304,7 @@
 		};
 		0220858521B6C4FD00A5BC4C /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18B27EAFFC5101020B0B2066 /* Pods-SoraPassportUITests.test.xcconfig */;
+			baseConfigurationReference = 7B76BC98D9926D31CC2D5A16 /* Pods-SoraPassportUITests.test.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -8258,7 +8412,7 @@
 		};
 		022C4549220DBE67005B6FEC /* Dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B4424C59C87312B74F2BECBA /* Pods-SoraPassportTests.dev.xcconfig */;
+			baseConfigurationReference = 4A6AD45445BF6A65A89A470D /* Pods-SoraPassportTests.dev.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -8287,7 +8441,7 @@
 		};
 		022C454A220DBE67005B6FEC /* Dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9466CB08AF43BD8762C94ED4 /* Pods-SoraPassportUITests.dev.xcconfig */;
+			baseConfigurationReference = EF2DB96FDB521BA3E06ECED3 /* Pods-SoraPassportUITests.dev.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -8486,7 +8640,7 @@
 		};
 		02623EE12178C0930011250E /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F544D105192E5592685730FC /* Pods-SoraPassportTests.debug.xcconfig */;
+			baseConfigurationReference = 5B9DE3992391EBEABC440A0A /* Pods-SoraPassportTests.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -8516,7 +8670,7 @@
 		};
 		02623EE22178C0930011250E /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 94FB2A969CEE0E60DA8F5AA4 /* Pods-SoraPassportTests.release.xcconfig */;
+			baseConfigurationReference = F44B22ABF888DE6084844F07 /* Pods-SoraPassportTests.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -8544,7 +8698,7 @@
 		};
 		02623EE42178C0930011250E /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = A28A3557920ECEF31AB0B495 /* Pods-SoraPassportUITests.debug.xcconfig */;
+			baseConfigurationReference = 26FD8C603CFBB4BB770BCA1E /* Pods-SoraPassportUITests.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -8567,7 +8721,7 @@
 		};
 		02623EE52178C0930011250E /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 58CB1B0DC4CE1B8217E69CF8 /* Pods-SoraPassportUITests.release.xcconfig */;
+			baseConfigurationReference = 62A07E4DA24D393F23333105 /* Pods-SoraPassportUITests.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -8589,7 +8743,7 @@
 		};
 		84324BD32411446000CA339A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E2A0583042E7269556727160 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */;
+			baseConfigurationReference = 52A0531941BAD4567563ED11 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8614,7 +8768,7 @@
 		};
 		84324BD42411446000CA339A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BAE03C262502BC2F4EBC7477 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */;
+			baseConfigurationReference = 5480710B4EDAE96792F6E63B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8637,7 +8791,7 @@
 		};
 		84324BD52411446000CA339A /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 734CCA5CD3F3637D3CCC8AC3 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */;
+			baseConfigurationReference = 3994993D9A9FDFA1BCD456CA /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8662,7 +8816,7 @@
 		};
 		84324BD62411446000CA339A /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 12F8A8CD9846880CF937334F /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */;
+			baseConfigurationReference = 0AAACFAEC553DD983F68F351 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8686,7 +8840,7 @@
 		};
 		84324BD72411446000CA339A /* Dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = FFD40B1CB643E3F331D2B924 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */;
+			baseConfigurationReference = 2DD86E01FAAC842DDA29EC33 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -8794,7 +8948,7 @@
 		};
 		84476204224BA293009ADC0E /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B778EA5B876277EADC2C3E4B /* Pods-SoraPassportTests.staging.xcconfig */;
+			baseConfigurationReference = B66D1225F4206F9EBD93A889 /* Pods-SoraPassportTests.staging.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -8823,7 +8977,7 @@
 		};
 		84476205224BA293009ADC0E /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 886478C0605173A3EE316AD6 /* Pods-SoraPassportUITests.staging.xcconfig */;
+			baseConfigurationReference = 54B86954738F4BFAA0968E63 /* Pods-SoraPassportUITests.staging.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;

@@ -1,12 +1,4 @@
-//
-//  WarningViewModelFactory.swift
-//  SoraPassport
-//
-//  Created by Ivan Shlyapkin on 6/23/23.
-//  Copyright © 2023 Soramitsu. All rights reserved.
-//
-
-import Foundation
+import SoraUIKit
 
 final class WarningViewModelFactory {
     func insufficientBalanceViewModel(feeAssetSymbol: String, feeAmount: Decimal, isHidden: Bool = true) -> WarningViewModel {
@@ -15,6 +7,20 @@ final class WarningViewModelFactory {
         let descriptionText = R.string.localizable.swapConfirmationScreenWarningBalanceAfterwardsTransactionIsTooSmall(feeAssetSymbol,
                                                                                                                        feeAmount,
                                                                                                                        preferredLanguages: .currentLocale)
-        return WarningViewModel(title: title, descriptionText: descriptionText, isHidden: isHidden)
+        return WarningViewModel(
+            title: title,
+            descriptionText: descriptionText,
+            isHidden: isHidden,
+            containterBackgroundColor: .statusErrorContainer,
+            contentColor: .statusError)
+    }
+    
+    func poolShareStackedViewModel(isHidden: Bool = true) -> WarningViewModel {
+        let descriptionText = R.string.localizable.polkaswapFarmingPoolInFarmingHint(preferredLanguages: .currentLocale)
+        return WarningViewModel(
+            descriptionText: descriptionText,
+            isHidden: isHidden,
+            containterBackgroundColor: .statusWarningContainer,
+            contentColor: .statusWarning)
     }
 }

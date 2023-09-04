@@ -90,13 +90,8 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let baseAssetSymbol = baseAsset?.symbol.uppercased() ?? ""
         let targetAssetSymbol = targetAsset?.symbol.uppercased() ?? ""
         
-        var rewardAssetImage: WalletImageViewModelProtocol?
-        if let iconString = rewardAsset?.icon {
-            rewardAssetImage = WalletSvgImageViewModel(svgString: iconString)
-        }
-        
         if let apyValue = apy?.sbApy {
-            let apyText = "\(self.percentFormatter.stringFromDecimal(apyValue.decimalValue * 100) ?? "")% APY"
+            let apyText = "\(percentFormatter.stringFromDecimal(apyValue.decimalValue * 100) ?? "")% APY"
             let assetAmountText = SoramitsuTextItem(text: apyText,
                                                     fontData: FontType.textBoldS,
                                                     textColor: .fgPrimary,
@@ -114,9 +109,20 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                            textColor: .fgPrimary,
                                            alignment: .right)
         let rewardDetailsViewModel = DetailViewModel(title: R.string.localizable.polkaswapRewardPayout(preferredLanguages: .currentLocale),
-                                                     rewardAssetImage: rewardAssetImage,
+                                                     rewardAssetImage: rewardAsset?.icon,
                                                      assetAmountText: rewardText)
         viewModels.append(rewardDetailsViewModel)
+        
+        if let yourPoolShare = poolInfo.yourPoolShare {
+            let poolShareText = NumberFormatter.cryptoAssets.stringFromDecimal(yourPoolShare) ?? ""
+            let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
+                                                          fontData: FontType.textS,
+                                                          textColor: .fgPrimary,
+                                                          alignment: .right)
+            let yourPoolShareViewModel = DetailViewModel(title: R.string.localizable.poolShareTitle1(preferredLanguages: .currentLocale),
+                                                                     assetAmountText: yourPoolShareText)
+            viewModels.append(yourPoolShareViewModel)
+        }
         
         let basePooledAmount = formatter.stringFromDecimal(poolInfo.baseAssetPooledByAccount ?? 0) ?? ""
         let baseAssetPooledText = SoramitsuTextItem(text: "\(basePooledAmount) \(baseAssetSymbol)",
@@ -162,7 +168,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                       pooled: pool?.targetAssetPooledByAccount ?? 0,
                                                       reserves: pool?.targetAssetReserves ?? 0)
 
-        let poolShareText = NumberFormatter.apy.stringFromDecimal(poolShareDecimal) ?? ""
+        let poolShareText = NumberFormatter.cryptoAssets.stringFromDecimal(poolShareDecimal) ?? ""
         let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,
@@ -189,17 +195,12 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         
         let rewardAsset = assetManager.assetInfo(for: WalletAssetId.pswap.rawValue)
         
-        var rewardAssetImage: WalletImageViewModelProtocol?
-        if let iconString = rewardAsset?.icon {
-            rewardAssetImage = WalletSvgImageViewModel(svgString: iconString)
-        }
-        
         let rewardText = SoramitsuTextItem(text: rewardAsset?.symbol ?? "",
                                            fontData: FontType.textS,
                                            textColor: .fgPrimary,
                                            alignment: .right)
         let rewardDetailsViewModel = DetailViewModel(title: R.string.localizable.polkaswapRewardPayout(preferredLanguages: .currentLocale),
-                                                     rewardAssetImage: rewardAssetImage,
+                                                     rewardAssetImage: rewardAsset?.icon,
                                                      assetAmountText: rewardText)
         viewModels.append(rewardDetailsViewModel)
         
@@ -236,7 +237,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                          pooled: pool.targetAssetPooledByAccount ?? 0,
                                                          reserves: pool.targetAssetReserves ?? 0)
 
-        let poolShareText = NumberFormatter.apy.stringFromDecimal(poolShareDecimal) ?? ""
+        let poolShareText = NumberFormatter.cryptoAssets.stringFromDecimal(poolShareDecimal) ?? ""
         let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,

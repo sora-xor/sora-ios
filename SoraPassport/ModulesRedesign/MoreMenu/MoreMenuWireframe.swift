@@ -16,6 +16,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
     private let fiatService: FiatServiceProtocol
     private let balanceFactory: BalanceProviderFactory
     private var assetsProvider: AssetProviderProtocol
+    private var assetManager: AssetManagerProtocol
 
     init(settingsManager: SettingsManagerProtocol,
          localizationManager: LocalizationManagerProtocol,
@@ -23,7 +24,8 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
          fiatService: FiatServiceProtocol,
          balanceFactory: BalanceProviderFactory,
          address: AccountAddress,
-         assetsProvider: AssetProviderProtocol
+         assetsProvider: AssetProviderProtocol,
+         assetManager: AssetManagerProtocol
     ) {
         self.settingsManager = settingsManager
         self.localizationManager = localizationManager
@@ -32,6 +34,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
         self.fiatService = fiatService
         self.balanceFactory = balanceFactory
         self.assetsProvider = assetsProvider
+        self.assetManager = assetManager
     }
         
     func showChangeAccountView(from view: MoreMenuViewProtocol?) {
@@ -83,6 +86,21 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
     }
 
     func showFriendsView(from view: MoreMenuViewProtocol?) {
+        guard let friendsView = FriendsViewFactory.createView(walletContext: walletContext,
+                                                              assetManager: assetManager)
+        else {
+            return
+        }
+        if let navigationController = view?.controller.navigationController {
+            let containerView = BlurViewController()
+            containerView.modalPresentationStyle = .overFullScreen
+
+            let newNav = SoraNavigationController(rootViewController: friendsView.controller)
+            newNav.navigationBar.backgroundColor = .clear
+            newNav.addCustomTransitioning()
+            containerView.add(newNav)
+            navigationController.present(containerView, animated: true)
+        }
     }
 
     func showAppSettings(from view: MoreMenuViewProtocol?) {

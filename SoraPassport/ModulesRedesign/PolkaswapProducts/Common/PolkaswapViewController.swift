@@ -254,9 +254,7 @@ extension PolkaswapViewController: LiquidityViewProtocol {
             let view = DetailView()
 
             view.assetImageView.isHidden = detailModel.rewardAssetImage == nil
-            detailModel.rewardAssetImage?.loadImage { (icon, _) in
-                view.assetImageView.image = icon
-            }
+            view.assetImageView.image = RemoteSerializer.shared.image(with: detailModel.rewardAssetImage ?? "")
 
             view.titleLabel.sora.text = detailModel.title
             view.valueLabel.sora.attributedText = detailModel.assetAmountText

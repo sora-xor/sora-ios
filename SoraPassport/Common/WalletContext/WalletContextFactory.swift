@@ -7,7 +7,7 @@ import RobinHood
 import FearlessUtils
 
 protocol WalletContextFactoryProtocol: AnyObject {
-    func createContext(connection: JSONRPCEngine, presenter: UIViewController) throws -> CommonWalletContextProtocol
+    func createContext(connection: JSONRPCEngine) throws -> CommonWalletContextProtocol
 }
 
 enum WalletContextFactoryError: Error {
@@ -54,7 +54,7 @@ final class WalletContextFactory {
 extension WalletContextFactory: WalletContextFactoryProtocol {
     //swiftlint:disable:next function_body_length
 
-    func createContext(connection: JSONRPCEngine, presenter: UIViewController) throws -> CommonWalletContextProtocol {
+    func createContext(connection: JSONRPCEngine) throws -> CommonWalletContextProtocol {
 
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             throw WalletContextFactoryError.missingAccount

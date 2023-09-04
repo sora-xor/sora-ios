@@ -40,6 +40,7 @@ final class InputAssetAmountViewController: SoramitsuViewController {
     
     public lazy var recipientView: RecipientAddressView = {
         let view = RecipientAddressView()
+        view.contactView.button.isHidden = false
         view.contactView.onTap = { [weak self] in
             self?.viewModel.selectAddress()
         }

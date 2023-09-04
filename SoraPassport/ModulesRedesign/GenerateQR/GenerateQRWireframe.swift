@@ -22,6 +22,37 @@ protocol GenerateQRWireframeProtocol: AnyObject {
                      fiatService: FiatServiceProtocol?,
                      assetProvider: AssetProviderProtocol?,
                      assetManager: AssetManagerProtocol?)
+    
+    func showScanQR(on view: UIViewController,
+                    networkFacade: WalletNetworkOperationFactoryProtocol,
+                    assetManager: AssetManagerProtocol,
+                    qrEncoder: WalletQREncoderProtocol,
+                    sharingFactory: AccountShareFactoryProtocol,
+                    assetsProvider: AssetProviderProtocol?,
+                    providerFactory: BalanceProviderFactory,
+                    feeProvider: FeeProviderProtocol,
+                    scanCompletion: @escaping (ScanQRResult) -> Void)
+    
+    func showConfirmSendingAsset(on controller: UIViewController?,
+                                 assetId: String,
+                                 walletService: WalletServiceProtocol,
+                                 assetManager: AssetManagerProtocol,
+                                 fiatService: FiatServiceProtocol,
+                                 recipientAddress: String,
+                                 firstAssetAmount: Decimal,
+                                 fee: Decimal,
+                                 assetsProvider: AssetProviderProtocol?)
+    
+    func showSend(on controller: UIViewController?,
+                  selectedTokenId: String?,
+                  selectedAddress: String,
+                  fiatService: FiatServiceProtocol?,
+                  assetManager: AssetManagerProtocol?,
+                  providerFactory: BalanceProviderFactory,
+                  networkFacade: WalletNetworkOperationFactoryProtocol?,
+                  assetsProvider: AssetProviderProtocol,
+                  qrEncoder: WalletQREncoderProtocol,
+                  sharingFactory: AccountShareFactoryProtocol)
 }
 
 final class GenerateQRWireframe: GenerateQRWireframeProtocol {
@@ -83,5 +114,101 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
         viewModel.view = receiveController
         
         controller?.navigationController?.pushViewController(receiveController, animated: true)
+    }
+    
+    func showScanQR(on view: UIViewController,
+                    networkFacade: WalletNetworkOperationFactoryProtocol,
+                    assetManager: AssetManagerProtocol,
+                    qrEncoder: WalletQREncoderProtocol,
+                    sharingFactory: AccountShareFactoryProtocol,
+                    assetsProvider: AssetProviderProtocol?,
+                    providerFactory: BalanceProviderFactory,
+                    feeProvider: FeeProviderProtocol,
+                    scanCompletion: @escaping (ScanQRResult) -> Void) {
+        guard let currentUser = SelectedWalletSettings.shared.currentAccount else { return }
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        
+        let scanView = ScanQRViewFactory.createView(assetManager: assetManager,
+                                                    currentUser: currentUser,
+                                                    networkFacade: networkFacade,
+                                                    qrEncoder: qrEncoder,
+                                                    sharingFactory: sharingFactory,
+                                                    assetsProvider: assetsProvider,
+                                                    isGeneratedQRCodeScreenShown: true,
+                                                    providerFactory: providerFactory,
+                                                    feeProvider: feeProvider,
+                                                    completion: scanCompletion)
+        containerView.add(scanView.controller)
+        view.present(containerView, animated: true)
+    }
+    
+    func showConfirmSendingAsset(on controller: UIViewController?,
+                                 assetId: String,
+                                 walletService: WalletServiceProtocol,
+                                 assetManager: AssetManagerProtocol,
+                                 fiatService: FiatServiceProtocol,
+                                 recipientAddress: String,
+                                 firstAssetAmount: Decimal,
+                                 fee: Decimal,
+                                 assetsProvider: AssetProviderProtocol?) {
+        let viewModel = ConfirmSendingViewModel(wireframe: ConfirmWireframe(),
+                                                fiatService: fiatService,
+                                                assetManager: assetManager,
+                                                detailsFactory: DetailViewModelFactory(assetManager: assetManager),
+                                                assetId: assetId,
+                                                recipientAddress: recipientAddress,
+                                                firstAssetAmount: firstAssetAmount,
+                                                transactionType: .outgoing,
+                                                fee: fee,
+                                                walletService: walletService,
+                                                assetsProvider: assetsProvider)
+        let view = ConfirmViewController(viewModel: viewModel)
+        viewModel.view = view
+        
+        let navigationController = UINavigationController(rootViewController: view)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.addCustomTransitioning()
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        containerView.add(navigationController)
+        
+        controller?.present(containerView, animated: true)
+    }
+    
+    func showSend(on controller: UIViewController?,
+                  selectedTokenId: String?,
+                  selectedAddress: String,
+                  fiatService: FiatServiceProtocol?,
+                  assetManager: AssetManagerProtocol?,
+                  providerFactory: BalanceProviderFactory,
+                  networkFacade: WalletNetworkOperationFactoryProtocol?,
+                  assetsProvider: AssetProviderProtocol,
+                  qrEncoder: WalletQREncoderProtocol,
+                  sharingFactory: AccountShareFactoryProtocol) {
+        let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
+                                                  selectedAddress: selectedAddress,
+                                                  fiatService: fiatService,
+                                                  assetManager: assetManager,
+                                                  providerFactory: providerFactory,
+                                                  networkFacade: networkFacade,
+                                                  wireframe: InputAssetAmountWireframe(),
+                                                  assetsProvider: assetsProvider,
+                                                  qrEncoder: qrEncoder,
+                                                  sharingFactory: sharingFactory)
+        let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
+        viewModel.view = inputAmountController
+        
+        let navigationController = UINavigationController(rootViewController: inputAmountController)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.addCustomTransitioning()
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        containerView.add(navigationController)
+        
+        controller?.present(containerView, animated: true)
     }
 }

@@ -342,6 +342,16 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         }
     }
     
+    var enabledCardIdentifiers: [Int] {
+        get {
+            let defaultIdentifiers = Cards.allCases.filter { $0.defaultState != .disabled }.map { $0.id }
+            return UserDefaults.standard.array(forKey: "enabledCardIdentifiers") as? [Int] ?? defaultIdentifiers
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "enabledCardIdentifiers")
+        }
+    }
+    
     var commonConfigUrl: String {
         #if F_RELEASE
         return "https://config.polkaswap2.io/prod/common.json"

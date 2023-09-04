@@ -53,7 +53,7 @@ final class GenerateQRViewController: SoramitsuViewController {
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .bgSurface
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.dismiss(animated: true)
+            self?.viewModel.scanQRCodeButtonTapped()
         }
         return button
     }()

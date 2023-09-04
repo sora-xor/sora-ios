@@ -33,7 +33,7 @@ protocol ScanQRViewModelProtocol {
 
 struct ScanQRResult {
     let firstName: String
-    var assetId: String? = nil
+    var receiverInfo: ReceiveInfo?
 }
 
 final class ScanQRViewModel: NSObject {
@@ -55,19 +55,47 @@ final class ScanQRViewModel: NSObject {
     private let localSearchEngine: InvoiceLocalSearchEngineProtocol?
     private(set) var scanState: ScanState = .initializing(accessRequested: false)
     private let completion: ((ScanQRResult) -> Void)?
-
+    private let wireframe: ScanQRWireframeProtocol
+    private let qrEncoder: WalletQREncoderProtocol
+    private let sharingFactory: AccountShareFactoryProtocol
+    private let assetManager: AssetManagerProtocol?
+    private let assetsProvider: AssetProviderProtocol?
+    private let networkFacade: WalletNetworkOperationFactoryProtocol?
+    private let providerFactory: BalanceProviderFactory
+    private let feeProvider: FeeProviderProtocol
+    
+    
     var qrExtractionService: WalletQRExtractionServiceProtocol?
+    private let isGeneratedQRCodeScreenShown: Bool
 
     init(networkService: WalletServiceProtocol,
          localSearchEngine: InvoiceLocalSearchEngineProtocol?,
          qrScanServiceFactory: WalletQRCaptureServiceFactoryProtocol,
          qrCoderFactory: WalletQRCoderFactoryProtocol,
+         wireframe: ScanQRWireframe = ScanQRWireframe(),
+         qrEncoder: WalletQREncoderProtocol,
+         sharingFactory: AccountShareFactoryProtocol,
+         assetManager: AssetManagerProtocol?,
+         assetsProvider: AssetProviderProtocol?,
+         networkFacade: WalletNetworkOperationFactoryProtocol?,
+         isGeneratedQRCodeScreenShown: Bool,
+         providerFactory: BalanceProviderFactory,
+         feeProvider: FeeProviderProtocol,
          completion: ((ScanQRResult) -> Void)?) {
         self.networkService = networkService
         self.localSearchEngine = localSearchEngine
         self.qrExtractionService = WalletQRExtractionService(processingQueue: .global())
         self.completion = completion
         self.qrCoderFactory = qrCoderFactory
+        self.wireframe = wireframe
+        self.qrEncoder = qrEncoder
+        self.sharingFactory = sharingFactory
+        self.assetManager = assetManager
+        self.assetsProvider = assetsProvider
+        self.networkFacade = networkFacade
+        self.isGeneratedQRCodeScreenShown = isGeneratedQRCodeScreenShown
+        self.providerFactory = providerFactory
+        self.feeProvider = feeProvider
 
         let qrDecoder = qrCoderFactory.createDecoder()
         self.qrScanMatcher = InvoiceScanMatcher(decoder: qrDecoder)
@@ -217,7 +245,7 @@ final class ScanQRViewModel: NSObject {
 
     private func completeTransferFoundAccount(_ foundAccount: SearchData, receiverInfo: ReceiveInfo) {
         view?.controller.dismiss(animated: true, completion: { [weak self] in
-            self?.completion?(ScanQRResult(firstName: foundAccount.firstName, assetId: receiverInfo.assetId))
+            self?.completion?(ScanQRResult(firstName: foundAccount.firstName, receiverInfo: receiverInfo))
         })
     }
 
@@ -354,6 +382,32 @@ extension ScanQRViewModel: ScanQRViewModelProtocol {
     func activateImport() {
         if qrExtractionService != nil {
             presentImageGallery(from: view)
+        }
+    }
+    
+    func showMyQrCode() {
+        if isGeneratedQRCodeScreenShown {
+            view?.controller.dismiss(animated: true)
+            return
+        }
+
+        guard let currentAccount = SelectedWalletSettings.shared.currentAccount else { return }
+        let accountId = try? SS58AddressFactory().accountId(fromAddress: currentAccount.identifier,
+                                                            type: currentAccount.addressType).toHex(includePrefix: true)
+        wireframe.showGenerateQR(
+            on: view?.controller,
+            accountId: accountId ?? "",
+            address: currentAccount.address,
+            username: currentAccount.username,
+            qrEncoder: qrEncoder,
+            sharingFactory: sharingFactory,
+            assetManager: assetManager,
+            assetsProvider: assetsProvider,
+            networkFacade: networkFacade,
+            providerFactory: providerFactory,
+            feeProvider: feeProvider
+        ) { [weak self] in
+            self?.qrScanService.start()
         }
     }
 }

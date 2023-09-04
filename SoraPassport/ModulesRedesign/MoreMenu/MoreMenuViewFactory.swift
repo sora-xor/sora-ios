@@ -10,7 +10,8 @@ final class MoreMenuViewFactory {
         fiatService: FiatServiceProtocol,
         balanceFactory: BalanceProviderFactory,
         address: AccountAddress,
-        assetsProvider: AssetProviderProtocol
+        assetsProvider: AssetProviderProtocol,
+        assetManager: AssetManagerProtocol
     ) -> MoreMenuViewProtocol? {
 
         let view = MoreMenuViewController()
@@ -22,7 +23,8 @@ final class MoreMenuViewFactory {
             fiatService: fiatService,
             balanceFactory: balanceFactory,
             address: address,
-            assetsProvider: assetsProvider
+            assetsProvider: assetsProvider,
+            assetManager: assetManager
         )
         presenter.localizationManager = LocalizationManager.shared
         view.presenter = presenter

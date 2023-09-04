@@ -13,6 +13,7 @@ final class OnboardingMainPresenter {
     }
     
     private func showScreenAfterSelection(_ result: (Result<[OpenBackupAccount], Error>)) {
+        view?.hideLoading()
         switch result {
         case .success(let accounts):
             let accounts = accounts.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
@@ -32,6 +33,10 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     func setup() {
         interactor.setup()
     }
+    
+    func viewWillAppear() {
+        interactor.resetGoogleState()
+    }
 
     func activateSignup() {
         wireframe.showSignup(from: view, isGoogleBackupSelected: false)
@@ -42,6 +47,7 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     }
     
     func activateCloudStorageConnection() {
+        view?.showLoading()
         interactor.getBackupedAccounts(completion: showScreenAfterSelection)
     }
 }

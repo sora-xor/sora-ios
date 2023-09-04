@@ -1,6 +1,13 @@
 import SoraFoundation
 import SoraUIKit
 import SSFCloudStorage
+import IrohaCrypto
+import SoraKeystore
+
+enum EntryPoint {
+    case onboarding
+    case profile
+}
 
 final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     @Published var title: String = R.string.localizable.createBackupPasswordTitle(preferredLanguages: .currentLocale)
@@ -12,14 +19,29 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     weak var view: SetupPasswordViewProtocol?
     var wireframe: SetupPasswordWireframeProtocol?
     private var completion: (() -> Void)? = nil
-    private let account: OpenBackupAccount
+    private var backupAccount: OpenBackupAccount
     private let cloudStorageService: CloudStorageServiceProtocol
+    private var createAccountRequest: AccountCreationRequest?
+    private var createAccountService: CreateAccountServiceProtocol?
+    private var mnemonic: IRMnemonicProtocol?
+    private let entryPoint: EntryPoint
+    private let keystore: KeystoreProtocol
 
     init(account: OpenBackupAccount,
          cloudStorageService: CloudStorageServiceProtocol,
+         createAccountRequest: AccountCreationRequest? = nil,
+         createAccountService: CreateAccountServiceProtocol? = nil,
+         mnemonic: IRMnemonicProtocol? = nil,
+         entryPoint: EntryPoint,
+         keystore: KeystoreProtocol,
          completion: (() -> Void)? = nil) {
-        self.account = account
+        self.backupAccount = account
         self.completion = completion
+        self.createAccountRequest = createAccountRequest
+        self.createAccountService = createAccountService
+        self.mnemonic = mnemonic
+        self.entryPoint = entryPoint
+        self.keystore = keystore
         self.cloudStorageService = cloudStorageService
     }
     
@@ -33,8 +55,27 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     }
     
     func backupAccount(with password: String) {
-        cloudStorageService.saveBackupAccount(account: account, password: password) { [weak self] result in
-            self?.handler(result)
+        if entryPoint == .profile {
+            guard let account = SelectedWalletSettings.shared.currentAccount else { return }
+    
+            updateBackupedAccount(with: account, password: password)
+            
+            cloudStorageService.saveBackupAccount(account: backupAccount, password: password) { [weak self] result in
+                self?.handler(result)
+            }
+            return
+        }
+        
+        if let createAccountRequest = createAccountRequest, let mnemonic = mnemonic {
+            createAccountService?.createAccount(request: createAccountRequest, mnemonic: mnemonic) { [weak self] result in
+                guard let self = self, let result = result, case .success(let account) = result else { return }
+    
+                self.updateBackupedAccount(with: account, password: password)
+                
+                self.cloudStorageService.saveBackupAccount(account: self.backupAccount, password: password) { [weak self] result in
+                    self?.handler(result)
+                }
+            }
         }
     }
 
@@ -60,7 +101,7 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         switch result {
         case .success:
             var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
-            backupedAccountAddresses.append(account.address)
+            backupedAccountAddresses.append(backupAccount.address)
             ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
             
             if completion != nil {
@@ -74,6 +115,40 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                                closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
                                from: view)
         }
+    }
+    
+    private func updateBackupedAccount(with account: AccountItem, password: String) {
+        var backupAccountType: [OpenBackupAccount.BackupAccountType] = []
+        
+        if mnemonic != nil {
+            backupAccountType.append(.passphrase)
+        }
+
+        var rawSeed = getRawSeed(from: account)
+        if rawSeed != nil {
+            backupAccountType.append(.seed)
+        }
+
+        _ = try? keystore.fetchSecretKeyForAddress(account.address)
+        
+        var substrateJson = getJson(from: account, password: password)
+        if substrateJson != nil {
+            backupAccountType.append(.json)
+        }
+
+        backupAccount.address = account.address
+        backupAccount.backupAccountType = backupAccountType
+        backupAccount.encryptedSeed = OpenBackupAccount.Seed(substrateSeed: rawSeed)
+        backupAccount.json = OpenBackupAccount.Json(substrateJson: substrateJson)
+    }
+    
+    private func getRawSeed(from account: AccountItem) -> String? {
+        return try? keystore.fetchSeedForAddress(account.address)?.toHex(includePrefix: true)
+    }
+    
+    private func getJson(from account: AccountItem, password: String) -> String? {
+        guard let exportData = try? KeystoreExportWrapper(keystore: keystore).export(account: account, password: password) else { return nil }
+        return String(data: exportData, encoding: .utf8)
     }
 }
 

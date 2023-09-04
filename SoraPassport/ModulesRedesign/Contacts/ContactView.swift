@@ -68,8 +68,8 @@ final class ContactView: SoramitsuView {
         translatesAutoresizingMaskIntoConstraints = false
         addSubview(accountImageView)
         addSubview(arrowImageView)
-        addSubview(button)
         addSubview(contactStackView)
+        addSubview(button)
         
         contactStackView.addArrangedSubviews([usernameTitle, accountTitle])
     }
@@ -94,6 +94,10 @@ final class ContactView: SoramitsuView {
             make.leading.equalTo(accountImageView.snp.trailing).offset(8)
             make.trailing.equalTo(arrowImageView.snp.leading).offset(-8)
             make.centerY.equalTo(accountImageView)
+        }
+        
+        button.snp.makeConstraints { make in
+            make.edges.equalTo(self)
         }
     }
 }
