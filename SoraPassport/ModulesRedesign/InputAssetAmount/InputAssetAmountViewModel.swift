@@ -306,7 +306,7 @@ extension InputAssetAmountViewModel {
                                     providerFactory: providerFactory,
                                     feeProvider: feeProvider) { [weak self] result in
             self?.selectedAddress = result.firstName
-            if let assetId = result.assetId {
+            if let assetId = result.receiverInfo?.assetId {
                 self?.firstAssetId = assetId
             }
             self?.view?.focusFirstField()

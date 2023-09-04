@@ -33,7 +33,7 @@ protocol ScanQRViewModelProtocol {
 
 struct ScanQRResult {
     let firstName: String
-    var assetId: String? = nil
+    var receiverInfo: ReceiveInfo?
 }
 
 final class ScanQRViewModel: NSObject {
@@ -245,7 +245,7 @@ final class ScanQRViewModel: NSObject {
 
     private func completeTransferFoundAccount(_ foundAccount: SearchData, receiverInfo: ReceiveInfo) {
         view?.controller.dismiss(animated: true, completion: { [weak self] in
-            self?.completion?(ScanQRResult(firstName: foundAccount.firstName, assetId: receiverInfo.assetId))
+            self?.completion?(ScanQRResult(firstName: foundAccount.firstName, receiverInfo: receiverInfo))
         })
     }
 
