@@ -57,4 +57,9 @@ final class LanguageView: SoramitsuViewController & LanguageViewProtocol {
         self.model = model
     }
     
+    func updateHierarchy() {
+        let window = self.view.superview
+        self.view.removeFromSuperview()
+        window?.addSubview(self.view)
+    }
 }
