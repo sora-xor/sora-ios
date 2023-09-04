@@ -8,7 +8,7 @@ struct AppearanceFactory {
     static func applyGlobalAppearance() {
         configureGlobalNavigationBar()
         configureButtons()
-//        configureSearchBar()
+        configureSearchBar()
     }
 
     private static func configureButtons() {
@@ -22,30 +22,29 @@ struct AppearanceFactory {
     }
 
     private static func configureSearchBar() {
-        let searchTextStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
-                                              color: R.color.neumorphism.textDark()!)
-        let searchPlaceholderStyle = WalletTextStyle(font: UIFont.styled(for: .paragraph3),
-                                                     color: R.color.neumorphism.textDark()!)
-
-        let searchStroke = WalletStrokeStyle(color: R.color.neumorphism.backgroundLightGrey()!,
-                                             lineWidth: 1.0)
-        let searchFieldStyle = WalletRoundedViewStyle(fill: R.color.neumorphism.backgroundLightGrey()!,
-                                                      cornerRadius: 24.0,
-                                                      stroke: searchStroke)
-//        UISearchBar.appearance().searchTextField.textColor = .red
-
+        UIBarButtonItem.appearance(whenContainedInInstancesOf: [UISearchBar.self]).setTitleTextAttributes([
+            .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
+                                             for: .normal)
     }
 
     // TODO: SN-264. UINavigationBar configuration to decorator ??
     private static func configureGlobalNavigationBar() {
 
-        // title color
         UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: R.color.neumorphism.textDark() as Any,
                                                             .font: UIFont.styled(for: .title1) as Any]
-
-        //TODO: Add navigation bar to design system
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundColor = UIColor.clear
+        appearance.backgroundEffect = UIBlurEffect(style: .light)
+        
+        let scrollingAppearance = UINavigationBarAppearance()
+        scrollingAppearance.configureWithTransparentBackground()
+        scrollingAppearance.backgroundColor = .clear
+        
+        UINavigationBar.appearance().standardAppearance = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = scrollingAppearance
+        UINavigationBar.appearance().compactAppearance = scrollingAppearance
         UINavigationBar.appearance().tintColor = UIColor(hex: "#EE2233")
-        UINavigationBar.appearance().backgroundColor = .clear
         
         let backImage = R.image.wallet.backArrow()
         

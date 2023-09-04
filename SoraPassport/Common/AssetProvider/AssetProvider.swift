@@ -53,7 +53,14 @@ final class AssetProvider {
 
 extension AssetProvider: AssetProviderProtocol {
     func getBalances(with assetIds: [String]) -> [BalanceData] {
-        return balanceData.filter { assetIds.contains($0.identifier) }
+        var balances: [BalanceData] = []
+        
+        for id in assetIds {
+            guard let assetBalance = balanceData.first(where: { $0.identifier == id }) else { continue }
+            balances.append(assetBalance)
+        }
+
+        return balances
     }
     
     func add(observer: AssetProviderObserverProtocol) {

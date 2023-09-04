@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Камера се користи за снимање КР кода";
+"NSFaceIDUsageDescription" = "Face ID се користи за ауторизацију у апликацији";
+"NSPhotoLibraryUsageDescription" = "Учитајте фотографије из библиотеке";
+"NSPhotoLibraryAddUsageDescription" = "Сачувајте захтев за пренос као QR код";

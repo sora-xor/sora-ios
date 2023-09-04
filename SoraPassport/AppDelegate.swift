@@ -1,6 +1,8 @@
 import UIKit
 import Firebase
 import SCard
+import GoogleSignIn
+import SoraUIKit
 #if F_DEV
 import FLEX
 #endif
@@ -22,6 +24,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             initFlex()
 
             let rootWindow = SoraWindow()
+            rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
             window = rootWindow
 
             SplashPresenterFactory.createSplashPresenter(with: rootWindow)
@@ -51,24 +54,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private func initFlex() {
         #if F_DEV
-        FLEXManager.shared.registerGlobalEntry(withName: "Toggle Sora Card") { tableViewController in
-
-            let isSoraCardOn = !ApplicationConfig.isNeededSoraCard
-
-            let title = isSoraCardOn ? "Enable Sora Card?" : "Disable Sora Card? "
-            let alertController = UIAlertController(title: title, message: "Restart the app to apply changes", preferredStyle: .alert)
-
-            let doneAction = UIAlertAction(title: "OK",  style: .destructive) { _ in
-                UserDefaults.standard.set(isSoraCardOn, forKey: ApplicationConfig.isNeededSoraCardKey)
-                exit(0)
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(doneAction)
-            alertController.addAction(cancelAction)
-
-            tableViewController.present(alertController, animated: true)
-        }
 
         FLEXManager.shared.registerGlobalEntry(withName: "Reset SORA Card Token") { tableViewController in
             Task {
@@ -118,6 +103,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 tableViewController.present(alertController, animated: true)
             }
         }
+
+        FLEXManager.shared.registerGlobalEntry(withName: "SCard Config") { tableViewController in
+
+            let title = "SCard Config"
+
+            let alertController = UIAlertController(title: title, message: SCard.shared?.configuration, preferredStyle: .alert)
+
+            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
+                UIPasteboard.general.string = data
+            }
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
+
+            alertController.addAction(cancelAction)
+            alertController.addAction(copyAction)
+
+            DispatchQueue.main.async {
+                tableViewController.present(alertController, animated: true)
+            }
+        }
         #endif
     }
 }
@@ -151,5 +155,23 @@ fileprivate extension Array {
             return nil
         }
         return self[index]
+    }
+}
+
+
+extension SCard.Config: CustomDebugStringConvertible {
+    public var debugDescription: String {
+
+        """
+        SCard.Config
+        backendUrl: \(backendUrl)
+        pwAuthDomain: \(pwAuthDomain)
+        pwApiKey: \(pwApiKey)
+        kycUrl: \(kycUrl)
+        kycUsername: \(kycUsername)
+        kycPassword: \(kycPassword)
+        environmentType: \(environmentType)
+        themeMode: \(themeMode)
+        """
     }
 }

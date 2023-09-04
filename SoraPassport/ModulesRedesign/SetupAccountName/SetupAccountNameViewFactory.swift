@@ -3,11 +3,12 @@ import SoraFoundation
 import RobinHood
 
 final class SetupAccountNameViewFactory {
-    static func createViewForOnboarding() -> UsernameSetupViewProtocol? {
+    static func createViewForOnboarding(mode: UsernameSetupMode = .onboarding, endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
         let localizationManager = LocalizationManager.shared
         let view = SetupAccountNameViewController()
         let presenter = UsernameSetupPresenter()
-        let wireframe = UsernameSetupWireframe(localizationManager: localizationManager)
+        presenter.mode = mode
+        let wireframe = UsernameSetupWireframe(localizationManager: localizationManager, endAddingBlock: endAddingBlock)
 
         view.presenter = presenter
         presenter.view = view
@@ -18,7 +19,7 @@ final class SetupAccountNameViewFactory {
         return view
     }
     
-    static func createViewForImport() -> UsernameSetupViewProtocol? {
+    static func createViewForImport(endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
         guard let accountItem = SelectedWalletSettings.shared.currentAccount else { return nil }
         
         let localizationManager = LocalizationManager.shared
@@ -37,15 +38,20 @@ final class SetupAccountNameViewFactory {
         presenter.wireframe = wireframe
 
         presenter.localizationManager = localizationManager
-
+        presenter.completion = endAddingBlock
+        
         return view
     }
 
-    static func createViewForAdding(endEditingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
+    static func createViewForAdding(isGoogleBackupSelected: Bool = false,
+                                    isNeedSetupName: Bool = true,
+                                    endEditingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
         let localizationManager = LocalizationManager.shared
         let view = SetupAccountNameViewController()
         let presenter = UsernameSetupPresenter()
-        let wireframe = AddUsernameWireframe(localizationManager: localizationManager)
+        let wireframe = AddUsernameWireframe(localizationManager: localizationManager,
+                                             isGoogleBackupSelected: isGoogleBackupSelected,
+                                             isNeedSetupName: isNeedSetupName)
 
         view.presenter = presenter
         presenter.view = view

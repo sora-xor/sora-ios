@@ -1,11 +1,7 @@
 import UIKit
 import IrohaCrypto
 import SoraFoundation
-
-enum AccountCreateContext: String {
-    case cryptoType
-    case networkType
-}
+import SSFCloudStorage
 
 final class AccountCreatePresenter: SharingPresentable {
     weak var view: AccountCreateViewProtocol?
@@ -18,11 +14,13 @@ final class AccountCreatePresenter: SharingPresentable {
 
     private var selectedCryptoType: CryptoType?
     private var selectedNetworkType: Chain?
-
     private var derivationPathViewModel: InputViewModelProtocol?
+    private var backupAccount: OpenBackupAccount?
+    private var shouldCreatedWithGoogle: Bool
 
-    init(username: String) {
+    init(username: String, shouldCreatedWithGoogle: Bool = true) {
         self.username = username
+        self.shouldCreatedWithGoogle = shouldCreatedWithGoogle
     }
 
     private func applyDerivationPathViewModel() {
@@ -82,7 +80,6 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
 
     func share() {
         guard let phrase = metadata?.mnemonic.joined(separator: " ") else { return }
-        let source = TextSharingSource(message: phrase)
         UIPasteboard.general.string = phrase
     }
 
@@ -91,7 +88,8 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
             let networkType = selectedNetworkType,
             let cryptoType = selectedCryptoType,
             let viewModel = derivationPathViewModel,
-            let metadata = metadata else {
+            let metadata = metadata,
+            let mnemonic = try? IRMnemonicCreator().mnemonic(fromList: metadata.mnemonic.joined(separator: " ")) else {
             return
         }
 
@@ -105,9 +103,18 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                              derivationPath: viewModel.inputHandler.value,
                                              cryptoType: cryptoType)
 
-        wireframe.confirm(from: view,
-                          request: request,
-                          metadata: metadata)
+        if interactor.isSignedInGoogleAccount && shouldCreatedWithGoogle {
+            backupAccount = OpenBackupAccount(name: username,
+                                              address: "",
+                                              passphrase: metadata.mnemonic.joined(separator: " "),
+                                              cryptoType: cryptoType.googleIdentifier,
+                                              substrateDerivationPath: viewModel.inputHandler.value)
+            interactor.skipConfirmation(request: request, mnemonic: mnemonic)
+        } else {
+            wireframe.confirm(from: view,
+                              request: request,
+                              metadata: metadata)
+        }
     }
     
     func skip() {
@@ -116,7 +123,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
             let cryptoType = selectedCryptoType,
             let viewModel = derivationPathViewModel,
             let metadata = metadata,
-            let mnemonic = try? IRMnemonicCreator().mnemonic(fromList: metadata.mnemonic.joined(separator: " "))else {
+            let mnemonic = try? IRMnemonicCreator().mnemonic(fromList: metadata.mnemonic.joined(separator: " ")) else {
             return
         }
         
@@ -124,12 +131,26 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
                                              type: networkType,
                                              derivationPath: viewModel.inputHandler.value,
                                              cryptoType: cryptoType)
+
+        if interactor.isSignedInGoogleAccount && shouldCreatedWithGoogle {
+            backupAccount = OpenBackupAccount(name: username,
+                                              address: "",
+                                              passphrase: metadata.mnemonic.joined(separator: " "),
+                                              cryptoType: cryptoType.googleIdentifier,
+                                              substrateDerivationPath: viewModel.inputHandler.value)
+        }
+       
         
         interactor.skipConfirmation(request: request, mnemonic: mnemonic)
     }
 
-    func restoredApp() {
-        wireframe.authorize()
+    func restoredApp() {}
+    
+    func backupToGoogle() {
+        interactor.signInToGoogleIfNeeded(completion: { [weak self] state in
+            guard state == .authorized else { return }
+            self?.skip()
+        })
     }
 }
 
@@ -137,7 +158,7 @@ extension AccountCreatePresenter: AccountCreateInteractorOutputProtocol {
     func didReceive(words: [String], afterConfirmationFail: Bool) {
     }
     
-    func didCompleteConfirmation() {
+    func didCompleteConfirmation(for account: AccountItem) {
         wireframe.proceed(on: view?.controller)
     }
     

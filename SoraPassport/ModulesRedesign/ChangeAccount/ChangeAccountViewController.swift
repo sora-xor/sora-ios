@@ -5,6 +5,47 @@ import SoraUIKit
 import SoraUI
 
 final class ChangeAccountViewController: SoramitsuViewController {
+
+    enum Mode {
+        case view
+        case edit
+
+        var title: String {
+            switch self {
+            case .view:
+                return R.string.localizable.commonEdit(preferredLanguages: .currentLocale)
+            case .edit:
+                return R.string.localizable.commonDone(preferredLanguages: .currentLocale)
+            }
+        }
+
+        var action: Selector {
+            switch self {
+            case .view:
+                return #selector(onEdit)
+            case .edit:
+                return #selector(onDone)
+            }
+        }
+
+        var actionTitle: String {
+            switch self {
+            case .view:
+                return R.string.localizable.accountAdd(preferredLanguages: .currentLocale)
+            case .edit:
+                return R.string.localizable.backupAccountTitle(preferredLanguages: .currentLocale)
+            }
+        }
+
+        var actionIcon: UIImage? {
+            switch self {
+            case .view:
+                return R.image.iconPlus()
+            case .edit:
+                return nil
+            }
+        }
+    }
     
     private struct Constants {
         static let inset: CGFloat = 16
@@ -29,12 +70,12 @@ final class ChangeAccountViewController: SoramitsuViewController {
         return view
     }()
 
-    private lazy var addButton: SoramitsuButton = {
+    private lazy var actionButton: SoramitsuButton = {
         let button = SoramitsuButton(size: .large, type: .bleached(.primary))
         button.sora.leftImage = R.image.iconPlus()
         button.sora.cornerRadius = .circle
         button.sora.shadow = .small
-        button.addTarget(nil, action: #selector(actionCreateAccount), for: .touchUpInside)
+        button.addTarget(nil, action: #selector(onAction), for: .touchUpInside)
         return button
     }()
 
@@ -68,7 +109,7 @@ final class ChangeAccountViewController: SoramitsuViewController {
         
         tableBg.addSubview(tableView)
         view.addSubview(tableBg)
-        view.addSubview(addButton)
+        view.addSubview(actionButton)
     }
     
     private func setupConstraints() {
@@ -79,12 +120,46 @@ final class ChangeAccountViewController: SoramitsuViewController {
         
         tableView.edgeAnchors == tableBg.edgeAnchors
 
-        addButton.horizontalAnchors == view.horizontalAnchors + Constants.inset
-        addButton.topAnchor == tableBg.bottomAnchor + Constants.inset
+        actionButton.horizontalAnchors == view.horizontalAnchors + Constants.inset
+        actionButton.topAnchor == tableBg.bottomAnchor + Constants.inset
     }
-    
-    @objc func actionCreateAccount() {
-        presenter?.addOrCreateAccount()
+
+    private func setupNavbarButton(mode: Mode) {
+
+        let button = UIBarButtonItem(
+            title: mode.title,
+            style: .plain,
+            target: self,
+            action: mode.action
+        )
+        button.setTitleTextAttributes(
+            [ .font: FontType.textBoldS.font, .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
+            for: .normal
+        )
+        button.setTitleTextAttributes(
+            [ .font: FontType.textBoldS.font],
+            for: .selected
+        )
+        navigationItem.leftBarButtonItem = button
+    }
+
+    private func setup(mode: Mode) {
+        setupNavbarButton(mode: mode)
+        actionButton.sora.title = mode.actionTitle
+        actionButton.sora.leftImage = mode.actionIcon
+        presenter?.set(mode: mode)
+    }
+
+    @objc private func onEdit() {
+        setup(mode: .edit)
+    }
+
+    @objc private func onDone() {
+        setup(mode: .view)
+    }
+
+    @objc private func onAction() {
+        presenter?.onAction()
     }
 }
 
@@ -96,7 +171,7 @@ extension ChangeAccountViewController: ChangeAccountViewProtocol {
         tableView.sora.sections = [SoramitsuTableViewSection(rows: viewModel)]
         
         let height = CGFloat(accountViewModels.count) * AccountMenuItem.itemHeight
-        let maxHeight = view.safeAreaLayoutGuide.layoutFrame.height - 3 * Constants.inset - addButton.sora.size.height
+        let maxHeight = view.safeAreaLayoutGuide.layoutFrame.height - 3 * Constants.inset - actionButton.sora.size.height
         
         tableConstraint?.constant = height < maxHeight ? height : maxHeight
         view.layoutSubviews()
@@ -110,6 +185,6 @@ extension ChangeAccountViewController: Localizable {
 
     func applyLocalization() {
         navigationItem.title = R.string.localizable.commonAccount(preferredLanguages: languages)
-        addButton.sora.title = R.string.localizable.accountAdd(preferredLanguages: languages)
+        actionButton.sora.title = R.string.localizable.accountAdd(preferredLanguages: languages)
     }
 }

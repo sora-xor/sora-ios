@@ -115,14 +115,14 @@ final class SwapViewModel {
             }
 
             let inputedFiatText = setupInputedFiatText(from: inputedFirstAmount, assetId: firstAssetId)
-            let text = self.isEnoughtFirstAssetLiquidity ? inputedFiatText : R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale)
-            let amountColor: SoramitsuColor = self.isEnoughtFirstAssetLiquidity ? .fgPrimary : .statusError
-            let fiatColor: SoramitsuColor = self.isEnoughtFirstAssetLiquidity ? .fgSecondary : .statusError
-            var state: InputFieldState = self.focusedField == .one ? .focused : .default
-            state = self.isEnoughtFirstAssetLiquidity ? state : .fail
+            let text = isEnoughtFirstAssetLiquidity ? inputedFiatText : R.string.localizable.commonNotEnoughBalance(preferredLanguages: .currentLocale)
+            let amountColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgPrimary : .statusError
+            let fiatColor: SoramitsuColor = isEnoughtFirstAssetLiquidity ? .fgSecondary : .statusError
+            var state: InputFieldState = focusedField == .one ? .focused : .default
+            state = isEnoughtFirstAssetLiquidity ? state : .fail
             
-            self.view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
-            self.view?.updateFirstAsset(fiatText: text)
+            view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
+            view?.updateFirstAsset(fiatText: text)
         }
     }
     
@@ -187,7 +187,18 @@ final class SwapViewModel {
             updateAssetsBalance()
         }
     }
-    private var fee: Decimal = 0
+    private var fee: Decimal = 0 {
+        didSet {
+            let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
+            let isHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee ||
+            firstAssetId.isEmpty || secondAssetId.isEmpty || inputedFirstAmount == 0 || inputedSecondAmount == 0 || firstAssetBalance.balance.decimalValue == 0
+            warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(
+                feeAssetSymbol: feeAssetSymbol,
+                feeAmount: fee,
+                isHidden: isHidden
+            )
+        }
+    }
     private var dexId: UInt32 = 0
     private var minBuy: Decimal = 0
     private var selectedTokenId: String
@@ -195,8 +206,26 @@ final class SwapViewModel {
     private weak var assetsProvider: AssetProviderProtocol?
     private var lpServiceFee: LPFeeServiceProtocol
     
+    private var warningViewModelFactory: WarningViewModelFactory
+    private var warningViewModel: WarningViewModel? {
+        didSet {
+            guard let warningViewModel else { return }
+            view?.updateWarinignView(model: warningViewModel)
+        }
+    }
+
     private var isEnoughtFirstAssetLiquidity: Bool {
-        return inputedFirstAmount + fee <= firstAssetBalance.balance.decimalValue
+        if inputedFirstAmount > firstAssetBalance.balance.decimalValue {
+            return false
+        }
+
+        if let fromAsset = assetManager?.assetInfo(for: firstAssetId),
+           fromAsset.isFeeAsset,
+           inputedFirstAmount + fee > firstAssetBalance.balance.decimalValue {
+            return false
+        }
+
+        return true
     }
     
     init(
@@ -211,7 +240,8 @@ final class SwapViewModel {
         networkFacade: WalletNetworkOperationFactoryProtocol?,
         assetsProvider: AssetProviderProtocol?,
         lpServiceFee: LPFeeServiceProtocol,
-        polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?
+        polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
     ) {
         self.assetsProvider = assetsProvider
         self.fiatService = fiatService
@@ -226,6 +256,7 @@ final class SwapViewModel {
         self.eventCenter = eventCenter
         self.lpServiceFee = lpServiceFee
         self.polkaswapNetworkFacade = polkaswapNetworkFacade
+        self.warningViewModelFactory = warningViewModelFactory
     }
 }
 
@@ -262,11 +293,6 @@ extension SwapViewModel: LiquidityViewModelProtocol {
             let tmpAssetId = self.firstAssetId
             self.firstAssetId = self.secondAssetId
             self.secondAssetId = tmpAssetId
-            
-            let tmpBalance = self.firstAssetBalance
-            self.firstAssetBalance = self.secondAssetBalance
-            self.secondAssetBalance = tmpBalance
-            
             
             let firstFormatter = NumberFormatter.inputedAmoutFormatter(with: self.assetManager?.assetInfo(for: self.firstAssetId)?.precision ?? 0)
             self.view?.set(secondAmountText: firstFormatter.stringFromDecimal(self.inputedFirstAmount) ?? "")

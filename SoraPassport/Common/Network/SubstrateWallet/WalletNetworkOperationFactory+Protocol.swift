@@ -62,18 +62,20 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
                                                               chain: chain)
 
         let mapOperation: ClosureOperation<TransferMetaData?> = ClosureOperation {
-            let paymentInfo = try feeOperation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-
-            guard let fee = BigUInt(paymentInfo.fee),
-                  let decimalFee = Decimal.fromSubstrateAmount(fee, precision: feeAsset.precision) else {
+            let fee = try feeOperation.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+            
+            guard let bigIntFee = BigUInt(fee) else {
                 return nil
             }
 
+            let decimalFee = Decimal.fromSubstrateAmount(bigIntFee, precision: feeAsset.precision) ?? 0
+
             let amount = AmountDecimal(value: decimalFee)
 
-            let feeDescription = FeeDescription(identifier: feeAsset.identifier, assetId: feeAsset.identifier,
-                                                type: FeeType.fixed.rawValue, parameters: [amount])
+            let feeDescription = FeeDescription(identifier: feeAsset.identifier,
+                                                assetId: feeAsset.identifier,
+                                                type: FeeType.fixed.rawValue,
+                                                parameters: [amount])
 
             if let receiverInfo = try compoundReceiver.targetOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled) {

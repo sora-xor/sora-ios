@@ -24,7 +24,7 @@ extension UIViewController {
     
     @objc
     func close() {
-        self.dismiss(animated: true)
+        dismiss(animated: true)
     }
 
 }

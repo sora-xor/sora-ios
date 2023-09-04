@@ -46,13 +46,34 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
         label.sora.numberOfLines = 0
         label.sora.font = FontType.paragraphS
         label.sora.textColor = .fgPrimary
-        label.sora.text = R.string.localizable.tutorialManyWorldDesc(preferredLanguages: .currentLocale)
+        label.sora.text = R.string.localizable.onboardingDescription(preferredLanguages: .currentLocale)
         label.sora.alignment = .center
         return label
     }()
     
+    private lazy var googleButton: SoramitsuButton = {
+        let title = SoramitsuTextItem(text: R.string.localizable.onboardingContinueWithGoogle(preferredLanguages: .currentLocale),
+                                      fontData: FontType.buttonM,
+                                      textColor: .accentSecondary,
+                                      alignment: .center)
+        
+        let button = SoramitsuButton()
+        button.sora.cornerRadius = .circle
+        button.sora.backgroundColor = .custom(uiColor: .clear)
+        button.sora.attributedText = title
+        button.sora.imageSize = 37
+        button.sora.leftImage = R.image.googleIcon()
+        button.sora.borderColor = .accentSecondary
+        button.sora.borderWidth = 1
+        button.sora.isHidden = true
+        button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.presenter.activateCloudStorageConnection()
+        }
+        return button
+    }()
+    
     private lazy var createAccountButton: SoramitsuButton = {
-        let title = SoramitsuTextItem(text: R.string.localizable.createNewAccountTitle(preferredLanguages: .currentLocale).uppercased(),
+        let title = SoramitsuTextItem(text: R.string.localizable.create_account_title(preferredLanguages: .currentLocale),
                                       fontData: FontType.buttonM,
                                       textColor: .bgSurface,
                                       alignment: .center)
@@ -69,9 +90,9 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
     }()
     
     private lazy var importAccountButton: SoramitsuButton = {
-        let title = SoramitsuTextItem(text: R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale).uppercased(),
+        let title = SoramitsuTextItem(text: R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale),
                                       fontData: FontType.buttonM,
-                                      textColor: .fgPrimary,
+                                      textColor: .accentPrimary,
                                       alignment: .center)
         
         let button = SoramitsuButton()
@@ -79,6 +100,8 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .custom(uiColor: .clear)
         button.sora.attributedText = title
+        button.sora.borderColor = .accentPrimary
+        button.sora.borderWidth = 1
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.presenter.activateAccountRestore()
         }
@@ -131,7 +154,7 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
     
     func setupView() {
         view.addSubview(containerView)
-        containerView.addSubviews(logo, titleLabel, subtitleLabel, createAccountButton, importAccountButton, termsLabel)
+        containerView.addSubviews(logo, titleLabel, subtitleLabel, googleButton, createAccountButton, importAccountButton, termsLabel)
         decorate(label: termsLabel)
     }
     
@@ -152,11 +175,11 @@ final class WelcomeViewController: SoramitsuViewController, OnboardingMainViewPr
             subtitleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             subtitleLabel.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             
-            createAccountButton.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 24),
+            createAccountButton.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
             createAccountButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             createAccountButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             
-            importAccountButton.topAnchor.constraint(equalTo: createAccountButton.bottomAnchor, constant: 8),
+            importAccountButton.topAnchor.constraint(equalTo: createAccountButton.bottomAnchor, constant: 16),
             importAccountButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             importAccountButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             

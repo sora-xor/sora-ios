@@ -11,7 +11,6 @@ final class ActivityIndicatorViewController: SoramitsuViewController {
         containerView.addSubview(customBlurEffectView)
         return containerView
     }()
-
     
     override func viewDidLoad() {
         super.viewDidLoad()

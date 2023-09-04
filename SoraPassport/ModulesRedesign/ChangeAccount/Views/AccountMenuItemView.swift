@@ -47,8 +47,8 @@ final class AccountMenuItemView: SoramitsuView {
         checkmarkView.do {
             $0.centerYAnchor == centerYAnchor
             $0.leadingAnchor == leadingAnchor
-            $0.widthAnchor == 14
-            $0.heightAnchor == 10
+            $0.widthAnchor == 24
+            $0.heightAnchor == 24
         }
 
         iconView.do {
@@ -80,7 +80,11 @@ final class AccountMenuItemView: SoramitsuView {
 
     func bind(model: AccountMenuItem) {
         titleLabel.sora.text = model.title
-        checkmarkView.image = model.isSelected ? R.image.listCheckmarkIcon() : nil
+        checkmarkView.image = model.isSelected ?
+        (model.isMultiselectionMode ? R.image.checkboxSelected() : R.image.checkSmall()?.tinted(with: UIColor(hex: "#EE2233"))) : (model.isMultiselectionMode ? R.image.checkboxDefault() : nil)
+
+        moreButton.isHidden = model.isMultiselectionMode
+        
         if let image = model.image {
             iconView.image = image
             iconView.isHidden = false

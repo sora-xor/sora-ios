@@ -293,16 +293,6 @@ extension ApplicationConfig: ApplicationConfigProtocol {
             return URL(string: "https://api.subquery.network/sq/sora-xor/sora-dev")!
         #endif
     }
-
-    static let isNeededSoraCardKey = "isNeededSoraCard"
-
-    static var isNeededSoraCard: Bool {
-        #if DEBUG
-        return UserDefaults.standard.bool(forKey: isNeededSoraCardKey)
-        #else
-        return false
-        #endif
-    }
     
     var isDisclamerShown: Bool {
         return UserDefaults.standard.bool(forKey: "isDisclamerShown")
@@ -341,6 +331,15 @@ extension ApplicationConfig: ApplicationConfigProtocol {
 
     var chainListURL: URL? {
         return GitHubUrl.url(suffix: "")
+    }
+    
+    var backupedAccountAddresses: [String] {
+        get {
+            return UserDefaults.standard.array(forKey: "backupedAccountAddresses") as? [String] ?? []
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "backupedAccountAddresses")
+        }
     }
     
     var commonConfigUrl: String {

@@ -17,7 +17,7 @@ protocol AccountConfirmInteractorInputProtocol: AnyObject {
 
 protocol AccountConfirmInteractorOutputProtocol: AnyObject {
     func didReceive(words: [String], afterConfirmationFail: Bool)
-    func didCompleteConfirmation()
+    func didCompleteConfirmation(for account: AccountItem)
     func didReceive(error: Swift.Error)
 }
 

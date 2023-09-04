@@ -32,7 +32,7 @@ class AddAccountConfirmInteractor: BaseAccountConfirmInteractor {
             settings.save(value: accountItem)
             eventCenter.notify(with: SelectedAccountChanged())
 
-            presenter?.didCompleteConfirmation()
+            presenter?.didCompleteConfirmation(for: accountItem)
         case .failure(let error):
             presenter?.didReceive(error: error)
         case .none:

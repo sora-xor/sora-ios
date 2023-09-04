@@ -9,6 +9,7 @@ final class SplashInteractor: SplashInteractorProtocol {
     let settings: SettingsManagerProtocol
     let socketService: WebSocketServiceProtocol
     let configService: ConfigServiceProtocol
+    let reachabilityManager: ReachabilityManagerProtocol? = ReachabilityManager.shared
 
     init(settings: SettingsManagerProtocol,
          socketService: WebSocketServiceProtocol,
@@ -26,6 +27,11 @@ final class SplashInteractor: SplashInteractorProtocol {
     }
 
     private func loadGenesis() {
+        guard reachabilityManager?.isReachable ?? false else {
+            loadAssetsInfo(chainId: nil)
+            return
+        }
+
         let provider = GenesisProvider(engine: socketService.connection!)
         provider.load(completion: { [weak self] genesis in
             self?.didLoadGenesis(genesis)
@@ -41,6 +47,11 @@ final class SplashInteractor: SplashInteractorProtocol {
     }
 
     private func loadAssetsInfo(chainId: String?) {
+        guard reachabilityManager?.isReachable ?? false else {
+            didLoadAssetsInfo([])
+            return
+        }
+        
         let provider = AssetsInfoProvider(engine: socketService.connection!, storageKeyFactory: StorageKeyFactory(), chainId: chainId)
         provider.load { [weak self] assetsInfo in
             self?.didLoadAssetsInfo(assetsInfo)

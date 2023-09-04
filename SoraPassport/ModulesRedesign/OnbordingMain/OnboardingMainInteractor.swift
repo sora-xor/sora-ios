@@ -2,6 +2,7 @@ import Foundation
 import RobinHood
 import FearlessUtils
 import SoraKeystore
+import SSFCloudStorage
 
 enum OnboardingMainInteractorState {
     case initial
@@ -17,9 +18,12 @@ final class OnboardingMainInteractor {
     private(set) var state: OnboardingMainInteractorState = .initial
 
     let keystoreImportService: KeystoreImportServiceProtocol
+    let backupService: CloudStorageServiceProtocol
 
-    init(keystoreImportService: KeystoreImportServiceProtocol) {
+    init(keystoreImportService: KeystoreImportServiceProtocol,
+         backupService: CloudStorageServiceProtocol) {
         self.keystoreImportService = keystoreImportService
+        self.backupService = backupService
     }
 }
 
@@ -30,6 +34,10 @@ extension OnboardingMainInteractor: OnboardingMainInteractorInputProtocol {
         if keystoreImportService.definition != nil {
             presenter?.didSuggestKeystoreImport()
         }
+    }
+    
+    func getBackupedAccounts(completion: @escaping (Result<[OpenBackupAccount], Error>) -> Void) {
+        backupService.getBackupAccounts(completion: completion)
     }
 }
 

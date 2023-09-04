@@ -17,11 +17,13 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
             return
         }
 
-        guard let endAddingBlock = endAddingBlock else {
+        guard let endAddingBlock = endAddingBlock,
+              let setupNameView = SetupAccountNameViewFactory.createViewForImport(endAddingBlock: endAddingBlock)?.controller else {
             MainTransitionHelper.transitToMainTabBarController(closing: navigationController, animated: true)
             return
         }
 
-        endAddingBlock()
+       
+        navigationController.setViewControllers([setupNameView], animated: true)
     }
 }

@@ -2,6 +2,7 @@ import UIKit
 import IrohaCrypto
 import RobinHood
 import SoraKeystore
+import SSFCloudStorage
 
 final class AccountCreateInteractor {
     weak var presenter: AccountCreateInteractorOutputProtocol!
@@ -14,7 +15,7 @@ final class AccountCreateInteractor {
     let settings: SelectedWalletSettingsProtocol
     let eventCenter: EventCenterProtocol
     let operationManager: OperationManagerProtocol = OperationManager()
-
+    var cloudStorageService: CloudStorageServiceProtocol?
     private var currentOperation: Operation?
 
     init(mnemonicCreator: IRMnemonicCreatorProtocol,
@@ -23,13 +24,15 @@ final class AccountCreateInteractor {
          accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
          settings: SelectedWalletSettingsProtocol,
-         eventCenter: EventCenterProtocol) {
+         eventCenter: EventCenterProtocol,
+         cloudStorageService: CloudStorageServiceProtocol) {
         self.mnemonicCreator = mnemonicCreator
         self.supportedNetworkTypes = supportedNetworkTypes
         self.defaultNetwork = defaultNetwork
         self.accountOperationFactory = accountOperationFactory
         self.accountRepository = accountRepository
         self.settings = settings
+        self.cloudStorageService = cloudStorageService
         self.eventCenter = eventCenter
     }
     
@@ -39,7 +42,7 @@ final class AccountCreateInteractor {
             settings.save(value: accountItem)
             eventCenter.notify(with: SelectedAccountChanged())
 
-            presenter.didCompleteConfirmation()
+            presenter.didCompleteConfirmation(for: accountItem)
         case .failure(let error):
             presenter.didReceive(error: error)
         case .none:
@@ -109,8 +112,11 @@ class AccountBackupInteractor {
     let keystore: KeystoreProtocol
     let mnemonicCreator: IRMnemonicCreatorProtocol
     let account: AccountItem
+    var cloudStorageService: CloudStorageServiceProtocol?
 
-    init(keystore: KeystoreProtocol, mnemonicCreator: IRMnemonicCreatorProtocol, account: AccountItem) {
+    init(keystore: KeystoreProtocol,
+         mnemonicCreator: IRMnemonicCreatorProtocol,
+         account: AccountItem) {
         self.keystore = keystore
         self.mnemonicCreator = mnemonicCreator
         self.account = account

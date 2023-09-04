@@ -19,6 +19,20 @@ final class NetworkAvailabilityLayerPresenter {
 }
 
 extension NetworkAvailabilityLayerPresenter: NetworkAvailabilityLayerInteractorOutputProtocol {
+
+    func didDecideUnreachableNodesAllertPresentation() {
+
+        let languages = localizationManager?.preferredLocalizations
+        let alert = UIAlertController(
+            title: R.string.localizable.nodeOffline(preferredLanguages: languages),
+            message: R.string.localizable.nodeConnectionIssue(preferredLanguages: languages),
+            preferredStyle: .alert
+        )
+        alert.addAction(.init(title: R.string.localizable.commonClose(preferredLanguages: languages), style: .cancel))
+
+        view.presentAlert(alert: alert, animated: true)
+    }
+
     func didDecideUnreachableStatusPresentation() {
         let languages = localizationManager?.preferredLocalizations
         view.presentStatus(title: R.string.localizable

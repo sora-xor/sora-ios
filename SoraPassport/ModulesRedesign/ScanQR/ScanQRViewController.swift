@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import SoraUIKit
+import SoraUI
 import AVFoundation
 
 protocol ScanQRViewProtocol: ControllerBackedProtocol, AdaptiveDesignable, ApplicationSettingsPresentable, AlertPresentable {
@@ -10,8 +11,8 @@ protocol ScanQRViewProtocol: ControllerBackedProtocol, AdaptiveDesignable, Appli
 
 final class ScanQRViewController: SoramitsuViewController {
 
-    private var qrFrameView: QRFrameView = {
-        let view: QRFrameView = QRFrameView()
+    private var qrFrameView: CameraFrameView = {
+        let view: CameraFrameView = CameraFrameView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.fillColor = R.color.brandPMSBlack()!.withAlphaComponent(0.8)
         return view
@@ -37,30 +38,23 @@ final class ScanQRViewController: SoramitsuViewController {
         return label
     }()
 
+    private let scanLabel: SoramitsuLabel = {
+        var label = SoramitsuLabel()
+        label.sora.textColor = .bgSurface
+        label.sora.font = FontType.textBoldL
+        label.sora.text = R.string.localizable.scanQrFromReceiver(preferredLanguages: .currentLocale)
+        label.sora.numberOfLines = 0
+        label.sora.alignment = .center
+        return label
+    }()
+
     private lazy var galleryButton: SoramitsuButton = {
         let button = SoramitsuButton()
         button.sora.title = R.string.localizable.commonUploadFromLibrary(preferredLanguages: .currentLocale)
         button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .accentSecondary
+        button.sora.backgroundColor = .accentPrimary
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.viewModel.activateImport()
-        }
-        return button
-    }()
-    
-    private lazy var showMyQR: SoramitsuButton = {
-        let text = SoramitsuTextItem(
-            text: R.string.localizable.scanQrShowMyQr(preferredLanguages: .currentLocale),
-            fontData: FontType.buttonM,
-            textColor: .accentSecondary,
-            alignment: .center)
-        
-        let button = SoramitsuButton()
-        button.sora.attributedText = text
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .bgSurface
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.viewModel.showMyQrCode()
         }
         return button
     }()
@@ -81,6 +75,7 @@ final class ScanQRViewController: SoramitsuViewController {
 
         setupView()
         setupConstraints()
+        adjustLayout()
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -112,16 +107,12 @@ final class ScanQRViewController: SoramitsuViewController {
         view.addSubview(qrFrameView)
         view.addSubview(closeButton)
         view.addSubview(titleLabel)
+        view.addSubview(scanLabel)
         view.addSubview(galleryButton)
-        view.addSubview(showMyQR)
     }
 
     private func setupConstraints() {
-        let width = UIScreen.main.bounds.width - 24 * 2
-        let y = getStatusBarHeight() + 42
-        
-        let gelleryTopOffset = y + width + 24
-        
+        let scanLabelBottomOffset = (UIScreen.main.bounds.maxY * 0.47) - ((UIScreen.main.bounds.width - 24 * 2) / 2) + (UIScreen.main.bounds.width - 24 * 2) + 32
         NSLayoutConstraint.activate([
             qrFrameView.topAnchor.constraint(equalTo: view.topAnchor),
             qrFrameView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -135,19 +126,21 @@ final class ScanQRViewController: SoramitsuViewController {
             closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
             closeButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             
+            scanLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            scanLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            scanLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: scanLabelBottomOffset),
+            
             galleryButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
             galleryButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            galleryButton.topAnchor.constraint(equalTo: view.topAnchor, constant: gelleryTopOffset),
             galleryButton.heightAnchor.constraint(equalToConstant: 56),
-            
-            showMyQR.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
-            showMyQR.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            showMyQR.heightAnchor.constraint(equalToConstant: 56),
-            showMyQR.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            galleryButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
         ])
-        
+    }
+    
+    private func adjustLayout() {
+        let width = UIScreen.main.bounds.width - 24 * 2
         qrFrameView.windowSize = CGSize(width: width, height: width)
-        qrFrameView.windowPosition = CGPoint(x: 0.5, y: y)
+        qrFrameView.windowPosition = CGPoint(x: 0.5, y: 0.47)
     }
     
     private func configureVideoLayer(with captureSession: AVCaptureSession) {
@@ -157,17 +150,6 @@ final class ScanQRViewController: SoramitsuViewController {
 
         qrFrameView.frameLayer = videoPreviewLayer
     }
-    
-    func getStatusBarHeight() -> CGFloat {
-       var statusBarHeight: CGFloat = 0
-       if #available(iOS 13.0, *) {
-           let window = UIApplication.shared.windows.filter {$0.isKeyWindow}.first
-           statusBarHeight = window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
-       } else {
-           statusBarHeight = UIApplication.shared.statusBarFrame.height
-       }
-       return statusBarHeight
-   }
 }
 
 extension ScanQRViewController: ScanQRViewProtocol {
