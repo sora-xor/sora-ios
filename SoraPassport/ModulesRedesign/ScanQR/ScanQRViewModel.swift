@@ -29,12 +29,11 @@ protocol ScanQRViewModelProtocol {
     func prepareDismiss()
     func handleDismiss()
     func activateImport()
-    func showMyQrCode()
 }
 
 struct ScanQRResult {
     let firstName: String
-    var receiverInfo: ReceiveInfo?
+    var assetId: String? = nil
 }
 
 final class ScanQRViewModel: NSObject {
@@ -246,7 +245,7 @@ final class ScanQRViewModel: NSObject {
 
     private func completeTransferFoundAccount(_ foundAccount: SearchData, receiverInfo: ReceiveInfo) {
         view?.controller.dismiss(animated: true, completion: { [weak self] in
-            self?.completion?(ScanQRResult(firstName: foundAccount.firstName, receiverInfo: receiverInfo))
+            self?.completion?(ScanQRResult(firstName: foundAccount.firstName, assetId: receiverInfo.assetId))
         })
     }
 
