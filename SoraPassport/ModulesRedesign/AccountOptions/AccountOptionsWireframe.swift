@@ -1,29 +1,97 @@
 import Foundation
+import IrohaCrypto
+import SoraKeystore
+import SCard
 import SoraFoundation
 import SoraUIKit
+import SSFCloudStorage
 
-final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, AuthorizationPresentable {
+final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, AuthorizationPresentable, Loadable {
 
     private(set) var localizationManager: LocalizationManagerProtocol
+    var activityIndicatorWindow: UIWindow?
 
     init(localizationManager: LocalizationManagerProtocol) {
         self.localizationManager = localizationManager
     }
 
     func showPassphrase(from view: AccountOptionsViewProtocol?, account: AccountItem) {
-        let warning = AccountWarningViewController()
+        let warning = AccountWarningViewController(warningType: .passphrase)
         warning.localizationManager = self.localizationManager
         warning.completion = { [weak self] in
-            self?.authorize(animated: true, cancellable: true, inView: nil) { (isAuthorized) in
+            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
+                guard isAuthorized, let passphraseView = AccountCreateViewFactory.createViewForShowPassthrase(account) else {
+                    return
+                }
+                
+                var navigationArray = view?.controller.navigationController?.viewControllers ?? []
+                navigationArray.remove(at: navigationArray.count - 1)
+                view?.controller.navigationController?.viewControllers = navigationArray
+                view?.controller.navigationController?.pushViewController(passphraseView.controller, animated: true)
+            }
+        }
+        if let navigationController = view?.controller.navigationController {
+            warning.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(warning.controller, animated: true)
+        }
+    }
+    
+    func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?,
+                                    account: OpenBackupAccount,
+                                    completion: @escaping () -> Void) {
+        guard let setupPasswordView = SetupPasswordViewFactory.createView(
+            with: account,
+            completion: completion)?.controller else { return }
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        
+        let nc = UINavigationController(rootViewController: setupPasswordView)
+        nc.navigationBar.backgroundColor = .clear
+        nc.navigationBar.setBackgroundImage(UIImage(), for: .default)
+        nc.addCustomTransitioning()
+        
+        containerView.add(nc)
+        controller?.controller.present(containerView, animated: true)
+    }
+
+    func showRawSeed(from view: AccountOptionsViewProtocol?, account: AccountItem) {
+        let warning = AccountWarningViewController(warningType: .rawSeed)
+        warning.localizationManager = self.localizationManager
+        warning.completion = { [weak self] in
+            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
                 if isAuthorized {
-                    guard let passphraseView = AccountCreateViewFactory.createViewForBackup(account) else {
+                    guard let jsonExportVC = AccountExportRawSeedViewFactory.createView(account: account) as? UIViewController else {
                         return
                     }
 
                     var navigationArray = view?.controller.navigationController?.viewControllers ?? []
                     navigationArray.remove(at: navigationArray.count - 1)
                     view?.controller.navigationController?.viewControllers = navigationArray
-                    view?.controller.navigationController?.pushViewController(passphraseView.controller, animated: true)
+                    view?.controller.navigationController?.pushViewController(jsonExportVC, animated: true)
+                }
+            }
+        }
+        if let navigationController = view?.controller.navigationController {
+            warning.controller.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(warning.controller, animated: true)
+        }
+    }
+
+    func showJson(account: AccountItem, from view: AccountOptionsViewProtocol?) {
+        let warning = AccountWarningViewController(warningType: .json)
+        warning.localizationManager = self.localizationManager
+        warning.completion = { [weak self] in
+            self?.authorize(animated: true, cancellable: true, inView: nil) { isAuthorized in
+                if isAuthorized {
+                    guard let jsonExportVC = AccountExportViewFactory.createView(accounts: [account]) as? UIViewController else {
+                        return
+                    }
+
+                    var navigationArray = view?.controller.navigationController?.viewControllers ?? []
+                    navigationArray.remove(at: navigationArray.count - 1)
+                    view?.controller.navigationController?.viewControllers = navigationArray
+                    view?.controller.navigationController?.pushViewController(jsonExportVC, animated: true)
                 }
             }
         }

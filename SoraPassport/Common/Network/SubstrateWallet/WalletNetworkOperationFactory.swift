@@ -191,58 +191,40 @@ final class WalletNetworkOperationFactory {
                                             amount: BigUInt,
                                             receiver: String,
                                             chain: Chain,
-                                            estimateFee: Bool? = false) -> BaseOperation<RuntimeDispatchInfo> {
-        do {
-            let identifier = try Data(hexString: accountSettings.accountId)
-            let address = try SS58AddressFactory()
-                .address(fromAccountId: identifier,
-                         type: SNAddressType(chain: chain))
-
-            let receiverAccountId = receiver
-//            let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())!
-//            let extrinsicService = ExtrinsicService(address: address,
-//                                                    cryptoType: cryptoType,
-//                                                    runtimeRegistry: runtime,
-//                                                    engine: engine,
-//                                                    operationManager: OperationManagerFacade.sharedManager)
-
-            let closure: ExtrinsicBuilderClosure = { builder in
-                let callFactory = SubstrateCallFactory()
-
-                let transferCall = try callFactory.transfer(to: receiverAccountId,
-                                                            asset: asset,
-                                                            amount: amount)
-
-                return try builder
-                    .adding(call: transferCall)
-            }
-
-            let operation = BaseOperation<RuntimeDispatchInfo>()
-
-            operation.configurationBlock = {
-                let semaphore = DispatchSemaphore(value: 0)
-
-                self.extrinsicService.estimateFee(closure, runningIn: .main) { [operation] result in
-                    semaphore.signal()
-                    switch result {
-                    case let .success(info):
-                        operation.result = .success(info)
-                    case let .failure(error):
-                        operation.result = .failure(error)
-                    }
-                }
-                let status = semaphore.wait(timeout: .now() + .seconds(60))
-
-                if status == .timedOut {
-                    operation.result = .failure(JSONRPCOperationError.timeout)
-                    return
-                }
-            }
-
-            return operation
-        } catch {
-            return createBaseOperation(result: .failure(error))
+                                            estimateFee: Bool? = false) -> BaseOperation<String> {
+        let closure: ExtrinsicBuilderClosure = { builder in
+            let callFactory = SubstrateCallFactory()
+            
+            let transferCall = try callFactory.transfer(to: receiver,
+                                                        asset: asset,
+                                                        amount: amount)
+            
+            return try builder.adding(call: transferCall)
         }
+        
+        let operation = BaseOperation<String>()
+        
+        operation.configurationBlock = {
+            let semaphore = DispatchSemaphore(value: 0)
+            
+            self.extrinsicService.estimateFee(closure, runningIn: .main) { [operation] result in
+                semaphore.signal()
+                switch result {
+                case let .success(info):
+                    operation.result = .success(info)
+                case let .failure(error):
+                    operation.result = .failure(error)
+                }
+            }
+            let status = semaphore.wait(timeout: .now() + .seconds(60))
+            
+            if status == .timedOut {
+                operation.result = .failure(JSONRPCOperationError.timeout)
+                return
+            }
+        }
+        
+        return operation
     }
 
     func createCompoundOperation<T>(result: Result<T, Error>) -> CompoundOperationWrapper<T> {

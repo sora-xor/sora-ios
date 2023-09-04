@@ -7,8 +7,12 @@ final class ProductListViewController: SoramitsuViewController {
     private let searchController = UISearchController(searchResultsController: nil)
 
     private lazy var tableView: SoramitsuTableView = {
-        let tableView = SoramitsuTableView()
-        tableView.sora.backgroundColor = .bgPage
+        let tableView = SoramitsuTableView(type: .plain)
+        tableView.sora.backgroundColor = .bgSurface
+        tableView.sectionHeaderHeight = 0
+        tableView.sora.cornerMask = .all
+        tableView.sora.cornerRadius = .extraLarge
+        tableView.sora.shadow = .default
         tableView.sora.estimatedRowHeight = UITableView.automaticDimension
         tableView.sora.context = SoramitsuTableViewContext(scrollView: tableView, viewController: self)
         tableView.sectionHeaderHeight = .zero
@@ -17,7 +21,7 @@ final class ProductListViewController: SoramitsuViewController {
         tableView.tableViewObserver = self
         tableView.scrollViewDelegate = self
         tableView.keyboardDismissMode = .onDrag
-        tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 200, right: 0)
+        tableView.contentInset = UIEdgeInsets(top: 16, left: 0, bottom: -16, right: 0)
         return tableView
     }()
 
@@ -46,14 +50,14 @@ final class ProductListViewController: SoramitsuViewController {
         navigationItem.searchController = searchController
 
         navigationItem.title = viewModel.mode == .selection ? R.string.localizable.chooseToken(preferredLanguages: .currentLocale) : ""
-
+        
         if viewModel.mode == .selection {
             addCloseButton(position: .left)
             
             let editButton = UIBarButtonItem(title: R.string.localizable.commonEdit(preferredLanguages: .currentLocale), style: .plain, target: self, action: #selector(editTapped))
             editButton.setTitleTextAttributes([
                 .font: UIFont.systemFont(ofSize: 13, weight: .bold),
-                .foregroundColor: UIColor(hex: "#EE2233")],
+                .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)],
                                               for: .normal)
             navigationItem.rightBarButtonItem = editButton
         }
@@ -128,16 +132,16 @@ final class ProductListViewController: SoramitsuViewController {
     }
 
     private func setupView() {
-        soramitsuView.sora.backgroundColor = .bgPage
+        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
     }
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])
     }
 }

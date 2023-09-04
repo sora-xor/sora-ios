@@ -5,9 +5,6 @@ final class ScanQRViewFactory {
     static func createView(assetManager: AssetManagerProtocol,
                            currentUser: AccountItem,
                            networkFacade: WalletNetworkOperationFactoryProtocol,
-                           qrEncoder: WalletQREncoderProtocol,
-                           sharingFactory: AccountShareFactoryProtocol,
-                           assetsProvider: AssetProviderProtocol?,
                            completion: ((ScanQRResult) -> Void)?) -> ScanQRViewProtocol {
         let qrScanServiceFactory = WalletQRCaptureServiceFactory()
         let assets = assetManager.getAssetList()?.map { asset in
@@ -29,10 +26,6 @@ final class ScanQRViewFactory {
                                         localSearchEngine: localSearchEngine,
                                         qrScanServiceFactory: qrScanServiceFactory,
                                         qrCoderFactory: qrCoderFactory,
-                                        qrEncoder: qrEncoder,
-                                        sharingFactory: sharingFactory,
-                                        assetManager: assetManager,
-                                        assetsProvider: assetsProvider,
                                         completion: completion)
         
         let scanView = ScanQRViewController(viewModel: viewModel)

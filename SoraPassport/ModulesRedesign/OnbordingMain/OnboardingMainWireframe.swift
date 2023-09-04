@@ -1,14 +1,17 @@
 import Foundation
+import SSFCloudStorage
 
 final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
-
+    var activityIndicatorWindow: UIWindow?
     var endAddingBlock: (() -> Void)?
 
-    func showSignup(from view: OnboardingMainViewProtocol?) {
+    func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) {
         if let endBlock = endAddingBlock {
 
-            let usernameSetup = SetupAccountNameViewFactory.createViewForAdding(endEditingBlock: endBlock)
+            let usernameSetup = SetupAccountNameViewFactory.createViewForAdding(isGoogleBackupSelected: isGoogleBackupSelected,
+                                                                                isNeedSetupName: false,
+                                                                                endEditingBlock: endBlock)
             guard let usernameSetup = usernameSetup else {
                 return
             }
@@ -66,5 +69,13 @@ final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
             navigationController.presentedViewController == nil {
             showAccountRestore(from: view)
         }
+    }
+    
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) {
+        guard let viewController = BackupedAccountsViewFactory.createView(with: accounts,
+                                                                          endAddingBlock: endAddingBlock)?.controller else {
+            return
+        }
+        view?.controller.navigationController?.pushViewController(viewController, animated: true)
     }
 }

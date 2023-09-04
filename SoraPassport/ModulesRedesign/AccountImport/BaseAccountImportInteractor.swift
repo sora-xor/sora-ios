@@ -3,6 +3,7 @@ import IrohaCrypto
 import FearlessUtils
 import RobinHood
 import SoraKeystore
+import SSFCloudStorage
 
 class BaseAccountImportInteractor {
     weak var presenter: AccountImportInteractorOutputProtocol!
@@ -16,19 +17,22 @@ class BaseAccountImportInteractor {
     let keystoreImportService: KeystoreImportServiceProtocol
     let supportedNetworks: [Chain]
     let defaultNetwork: Chain
+    let cloudStorage: CloudStorageServiceProtocol?
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
          operationManager: OperationManagerProtocol,
          keystoreImportService: KeystoreImportServiceProtocol,
          supportedNetworks: [Chain],
-         defaultNetwork: Chain) {
+         defaultNetwork: Chain,
+         cloudStorage: CloudStorageServiceProtocol?) {
         self.accountOperationFactory = accountOperationFactory
         self.accountRepository = accountRepository
         self.operationManager = operationManager
         self.keystoreImportService = keystoreImportService
         self.supportedNetworks = supportedNetworks
         self.defaultNetwork = defaultNetwork
+        self.cloudStorage = cloudStorage
     }
 
     private func setupKeystoreImportObserver() {
@@ -107,6 +111,23 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
             let info = try? AccountImportJsonFactory().createInfo(from: definition) {
 
             presenter.didSuggestKeystore(text: keystore, preferredInfo: info)
+        }
+    }
+    
+    func importBackedupAccount(request: AccountImportBackedupRequest) {
+        cloudStorage?.importBackupAccount(account: request.account, password: request.password) { [weak self] result in
+            guard let self = self else { return }
+            switch result {
+            case .success(let account):
+                let request = AccountImportMnemonicRequest(mnemonic: account.passphrase ?? "",
+                                                           username: account.name ?? "",
+                                                           networkType: .sora,
+                                                           derivationPath: account.substrateDerivationPath ?? "",
+                                                           cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
+                self.importAccountWithMnemonic(request: request)
+            case .failure(let error):
+                self.presenter.didReceiveAccountImport(error: error)
+            }
         }
     }
 }

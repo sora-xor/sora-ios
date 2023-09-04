@@ -1,0 +1,20 @@
+{
+  "address": "5GLDeyxgNzsnm4NeSHZd9imbSMaV2RUPGRSkchxsUqSbfBpu",
+  "encoded": "4wwsiEKQfUTO25zhmmRzF7rymmGXD7t3bkysUvEx/IgAgAAAAQAAAAgAAAABv7AN1QlX9AYPo9rvdK0jyoTrJTk0PMIqysJsJQRBo3e/WzAfRYOLLhxiuA59P9gWinDh0mLXSsh858rgfJJnROr8gP2pmDKat1W1NNCzl4DebK/mO6zwGpimjjgiF7aX1QNuKbvzSgvSt0fCQAyHZ4UshSOpSJK9LE0qDrS/ZN0Ar8cn7loUR+PeN2GY8FD1bN8tSHZkzsYggKAa",
+  "encoding": {
+    "content": [
+      "pkcs8",
+      "sr25519"
+    ],
+    "type": [
+      "scrypt",
+      "xsalsa20-poly1305"
+    ],
+    "version": "3"
+  },
+  "meta": {
+    "genesisHash": "0x7e4e32d0feafd4f9c9414b0be86373f9a1efa904809b683453a9af6856d38ad5",
+    "name": "Test street",
+    "whenCreated": 1685623774
+  }
+}

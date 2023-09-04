@@ -14,6 +14,7 @@ protocol GenerateQRViewModelProtocol {
     var setupRequestView: ((InputSendInfoViewModel) -> Void)? { get set }
     var updateContent: ((GenerateQRMode) -> Void)? { get set }
     var showShareContent: (([Any]) -> Void)? { get set }
+    var closeHadler: (() -> Void)? { get }
     func viewDidLoad()
 }
 
@@ -23,6 +24,7 @@ final class GenerateQRViewModel {
     var setupRequestView: ((InputSendInfoViewModel) -> Void)?
     var updateContent: ((GenerateQRMode) -> Void)?
     var showShareContent: (([Any]) -> Void)?
+    var closeHadler: (() -> Void)?
     
     weak var view: GenerateQRViewProtocol?
     var wireframe: GenerateQRWireframeProtocol?
@@ -30,6 +32,7 @@ final class GenerateQRViewModel {
     private var sharingFactory: AccountShareFactoryProtocol
     private var accountId: String
     private var address: String
+    private var username: String
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let qrEncoder: WalletQREncoderProtocol
     private var appEventService = AppEventService()
@@ -66,6 +69,7 @@ final class GenerateQRViewModel {
     
     private lazy var requestViewModel = InputSendInfoViewModel(address: address,
                                                                accountId: accountId,
+                                                               username: username,
                                                                fiatService: fiatService,
                                                                assetManager: assetManager,
                                                                assetsProvider: assetsProvider,
@@ -83,6 +87,7 @@ final class GenerateQRViewModel {
         sharingFactory: AccountShareFactoryProtocol,
         accountId: String,
         address: String,
+        username: String,
         fiatService: FiatServiceProtocol?,
         assetManager: AssetManagerProtocol?,
         assetsProvider: AssetProviderProtocol?,
@@ -92,6 +97,7 @@ final class GenerateQRViewModel {
         self.sharingFactory = sharingFactory
         self.accountId = accountId
         self.address = address
+        self.username = username
         self.fiatService = fiatService
         self.assetManager = assetManager
         self.assetsProvider = assetsProvider

@@ -154,13 +154,28 @@ final class SupplyLiquidityViewModel {
             setupBalanceDataProvider()
         }
     }
-    private var fee: Decimal = 0
+
+    private var fee: Decimal = 0 {
+        didSet {
+            let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
+            warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(feeAssetSymbol: feeAssetSymbol, feeAmount: fee)
+        }
+    }
     
     private var isPairEnabled: Bool = true
     private var isPairPresented: Bool = true
     private var transactionType: TransactionType = .liquidityAdd
     private let operationFactory: WalletNetworkOperationFactoryProtocol
     private weak var assetsProvider: AssetProviderProtocol?
+    private let regex = try? NSRegularExpression(pattern: "0[xX]03[0-9a-fA-F]+")
+    
+    private var warningViewModelFactory: WarningViewModelFactory
+    private var warningViewModel: WarningViewModel? {
+        didSet {
+            guard let warningViewModel else { return }
+            view?.updateWarinignView(model: warningViewModel)
+        }
+    }
     
     private var isEnoughtFirstAssetLiquidity: Bool {
         return inputedFirstAmount + fee <= firstAssetBalance.balance.decimalValue
@@ -179,7 +194,8 @@ final class SupplyLiquidityViewModel {
         assetManager: AssetManagerProtocol?,
         detailsFactory: DetailViewModelFactoryProtocol,
         operationFactory: WalletNetworkOperationFactoryProtocol,
-        assetsProvider: AssetProviderProtocol?
+        assetsProvider: AssetProviderProtocol?,
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
     ) {
         self.poolInfo = poolInfo
         self.fiatService = fiatService
@@ -191,6 +207,7 @@ final class SupplyLiquidityViewModel {
         self.feeProvider = FeeProvider()
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
+        self.warningViewModelFactory = warningViewModelFactory
     }
 }
 
@@ -213,6 +230,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
         }
+
+        recalculate(field: focusedField)
     }
     
     func viewDidLoad() {
@@ -259,7 +278,17 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
               let xorAsset = assetManager.assetInfo(for: WalletAssetId.xor.rawValue),
               let xstUsdAsset = assetManager.assetInfo(for: WalletAssetId.xstusd.rawValue) else { return }
 
-        let assets = [xorAsset, xstUsdAsset].filter({ $0.identifier != secondAssetId })
+        var acceptableAssets = [xorAsset]
+        
+        if secondAssetId != WalletAssetId.xst.rawValue {
+            acceptableAssets.append(xstUsdAsset)
+        }
+        
+        let assets = acceptableAssets.filter({ asset in
+            let assetId = asset.identifier
+            let range = NSRange(location: 0, length: assetId.count)
+            return assetId != secondAssetId && regex?.firstMatch(in: assetId, range: range) == nil
+        })
         
         let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
                                             assetManager: assetManager,
@@ -279,11 +308,20 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
         guard let assetManager = assetManager,
               let fiatService = fiatService,
               let assets = assetManager.getAssetList()?.filter({ asset in
-                  var assetFilter =  asset.identifier != firstAssetId
+                  let assetId = asset.identifier
+                  
+                  var assetFilter = assetId != firstAssetId
+                  
+                  var unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
+
                   if firstAssetId == WalletAssetId.xstusd.rawValue {
-                      assetFilter = asset.identifier != firstAssetId && asset.identifier != WalletAssetId.xor.rawValue
+                      unAcceptableAssetIds.append(WalletAssetId.xst.rawValue)
                   }
-                  return assetFilter
+                  
+                  assetFilter = assetFilter && !unAcceptableAssetIds.contains(assetId)
+                  
+                  let range = NSRange(location: 0, length: assetId.count)
+                  return assetFilter && regex?.firstMatch(in: assetId, range: range) == nil
               }) else { return }
 
         let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
@@ -330,29 +368,29 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
     
     func recalculate(field: FocusedField) {
         if focusedField == .one {
-            if let poolInfo = poolInfo {
-                let scale = (poolInfo.targetAssetPooledTotal ?? 0) / (poolInfo.baseAssetPooledTotal ?? 0)
+            if let poolInfo = poolInfo, let baseAssetPooled = poolInfo.baseAssetPooledTotal, baseAssetPooled > 0 {
+                let targetAssetPooled = poolInfo.targetAssetPooledTotal ?? 0
+                let scale = targetAssetPooled / baseAssetPooled
                 inputedSecondAmount = inputedFirstAmount * scale
             }
 
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
-            updateButtonState()
-            debouncer.perform { [weak self] in
-                self?.updateDetails()
-            }
+            
         } else {
-            if let poolInfo = poolInfo {
-                let scale = (poolInfo.baseAssetPooledTotal ?? 0) / (poolInfo.targetAssetPooledTotal ?? 0)
+            if let poolInfo = poolInfo, let targetAssetPooled = poolInfo.targetAssetPooledTotal, targetAssetPooled > 0 {
+                let baseAssetPooled = poolInfo.baseAssetPooledTotal ?? 0
+                let scale =  baseAssetPooled / targetAssetPooled
                 inputedFirstAmount = inputedSecondAmount * scale
             }
-            
+
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
             view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
-            updateButtonState()
-            debouncer.perform { [weak self] in
-                self?.updateDetails()
-            }
+        }
+        
+        updateButtonState()
+        debouncer.perform { [weak self] in
+            self?.updateDetails()
         }
     }
 }
@@ -453,6 +491,10 @@ extension SupplyLiquidityViewModel {
         
         group.notify(queue: .main) { [weak self] in
             guard let self = self else { return }
+            
+            if let fromAsset = self.assetManager?.assetInfo(for: self.firstAssetId), fromAsset.isFeeAsset {
+                self.warningViewModel?.isHidden = self.firstAssetBalance.balance.decimalValue - self.inputedFirstAmount - self.fee > self.fee
+            }
             
             let basedAmount = self.focusedField == .one ? self.inputedFirstAmount : self.inputedSecondAmount
             let targetAmount = self.focusedField == .one ? self.inputedSecondAmount : self.inputedFirstAmount

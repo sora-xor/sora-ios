@@ -6,15 +6,16 @@ def jobParams = [
   booleanParam(defaultValue: false, description: 'allow quality gate', name: 'sonarQualityGate'),
 ]
 
-def pipline = new org.ios.AppPipeline(
+def pipeline = new org.ios.AppPipeline(
     steps: this,
-    sonar: true,
-    sonarProjectName: 'sora-passport-ios',
-    sonarProjectKey: 'jp.co.soramitsu:sora-passport-ios',
+    sonar: false,
+    sonarProjectName: 'sora-ios',
+    sonarProjectKey: 'jp.co.soramitsu.sora-xor:sora-ios',
     // appTests: false,
     sonarTestsDirs: './SoraPassportTests,./SoraPassportIntegrationTests,./SoraPassportUITests',
     jobParams: jobParams,
     label: "macos-ios-1-2",
     appPushNoti: true
 )
-pipline.runPipeline('sora')
+
+pipeline.runPipeline('sora')

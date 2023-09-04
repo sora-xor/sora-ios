@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 import SoraUIKit
 
-protocol LiquidityViewProtocol: ControllerBackedProtocol {
+protocol LiquidityViewProtocol: ControllerBackedProtocol, Warningable {
     func update(details: [DetailViewModel])
     func updateFirstAsset(balance: String)
     func updateSecondAsset(balance: String)
@@ -123,6 +123,12 @@ final class PolkaswapViewController: SoramitsuViewController {
         return view
     }()
     
+    private lazy var warningView: WarningView = {
+        let view = WarningView()
+        view.sora.isHidden = true
+        return view
+    }()
+    
     private lazy var reviewLiquidity: SoramitsuButton = {
         let button = SoramitsuButton()
         button.sora.horizontalOffset = 0
@@ -193,6 +199,7 @@ final class PolkaswapViewController: SoramitsuViewController {
         
         stackView.addArrangedSubview(assetsView)
         stackView.addArrangedSubview(optionsView)
+        stackView.addArrangedSubview(warningView)
         stackView.addArrangedSubview(reviewLiquidity)
     }
 
@@ -212,6 +219,9 @@ final class PolkaswapViewController: SoramitsuViewController {
             assetsView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             assetsView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
             
+            warningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
+            warningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
+
             reviewLiquidity.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             reviewLiquidity.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
         ])
@@ -379,6 +389,10 @@ extension PolkaswapViewController: LiquidityViewProtocol {
         DispatchQueue.main.async {
             self.reviewLiquidity.sora.title = title
         }
+    }
+    
+    func updateWarinignView(model: WarningViewModel) {
+//        warningView.setupView(with: model)
     }
 }
 

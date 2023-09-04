@@ -11,13 +11,16 @@ struct RemoteConfig {
     var subqueryURL: URL
     var defaultNodes: Set<ChainNodeModel>
     var typesURL: URL?
+    var isSoraCardEnabled: Bool
     
     init(subqueryUrlString: String = ApplicationConfig.shared.subqueryUrl.absoluteString,
          typesUrlString: String = ApplicationConfig.shared.subqueryUrl.absoluteString,
-         defaultNodes: Set<ChainNodeModel> = ApplicationConfig.shared.defaultChainNodes) {
+         defaultNodes: Set<ChainNodeModel> = ApplicationConfig.shared.defaultChainNodes,
+         isSoraCardEnabled: Bool = false) {
         self.subqueryURL = URL(string: subqueryUrlString) ?? ApplicationConfig.shared.subqueryUrl
         self.typesURL = URL(string: typesUrlString)
         self.defaultNodes = defaultNodes
+        self.isSoraCardEnabled = isSoraCardEnabled
     }
 }
 
@@ -43,7 +46,8 @@ extension ConfigService: ConfigServiceProtocol {
             }))
             self.config = RemoteConfig(subqueryUrlString: response.blockExplorerUrl,
                                        typesUrlString: response.substrateTypesUrl,
-                                       defaultNodes: nodes)
+                                       defaultNodes: nodes,
+                                       isSoraCardEnabled: response.soracard)
             completion()
         }
         

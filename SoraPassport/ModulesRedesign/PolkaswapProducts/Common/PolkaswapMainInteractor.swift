@@ -72,10 +72,10 @@ extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
                                                                                                   to: toAssetId) else {
             return
         }
-        operation.completionBlock = {
+        operation.completionBlock = { [weak self] in
             DispatchQueue.main.async {
                 if let sources = try? operation.extractResultData() {
-                    self.presenter.didLoadMarketSources(sources, fromAssetId: fromAssetId, toAssetId: toAssetId)
+                    self?.presenter.didLoadMarketSources(sources, fromAssetId: fromAssetId, toAssetId: toAssetId)
                 }
             }
         }

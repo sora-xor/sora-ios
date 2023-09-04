@@ -26,7 +26,7 @@ final class RemoveLiquidityViewModel {
     var providerFactory: BalanceProviderFactory
 
     var title: String? {
-        return R.string.localizable.commonRemoveLiquidity(preferredLanguages: .currentLocale)
+        return R.string.localizable.removeLiquidityTitle(preferredLanguages: .currentLocale)
     }
     
     var imageName: String? {
@@ -110,7 +110,7 @@ final class RemoveLiquidityViewModel {
             guard let poolInfo = poolInfo, let firstAssetPooled = poolInfo.baseAssetPooledByAccount else { return }
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             
-            if firstAssetPooled  <= inputedFirstAmount {
+            if firstAssetPooled <= inputedFirstAmount {
                 inputedFirstAmount = firstAssetPooled
                 view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
             }
@@ -212,6 +212,8 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
             view?.set(secondAmountText: formatter.stringFromDecimal(value) ?? "")
             inputedSecondAmount = value
         }
+        
+        recalculate(field: focusedField)
     }
 
     func viewDidLoad() {

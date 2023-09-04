@@ -148,7 +148,8 @@ extension WebSocketService: WebSocketEngineDelegate {
             }
         case .connected:
             scheduleNetworkReachable()
-        default:
+
+        case .notConnected, .waitingReconnection:
             break
         }
     }

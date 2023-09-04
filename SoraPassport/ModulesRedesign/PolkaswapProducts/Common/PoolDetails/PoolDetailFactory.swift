@@ -113,7 +113,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                            fontData: FontType.textS,
                                            textColor: .fgPrimary,
                                            alignment: .right)
-        let rewardDetailsViewModel = DetailViewModel(title: "Rewards payout in",
+        let rewardDetailsViewModel = DetailViewModel(title: R.string.localizable.polkaswapRewardPayout(preferredLanguages: .currentLocale),
                                                      rewardAssetImage: rewardAssetImage,
                                                      assetAmountText: rewardText)
         viewModels.append(rewardDetailsViewModel)
@@ -198,7 +198,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                            fontData: FontType.textS,
                                            textColor: .fgPrimary,
                                            alignment: .right)
-        let rewardDetailsViewModel = DetailViewModel(title: "Rewards payout in",
+        let rewardDetailsViewModel = DetailViewModel(title: R.string.localizable.polkaswapRewardPayout(preferredLanguages: .currentLocale),
                                                      rewardAssetImage: rewardAssetImage,
                                                      assetAmountText: rewardText)
         viewModels.append(rewardDetailsViewModel)
@@ -398,6 +398,9 @@ private extension DetailViewModelFactory {
     }
     
     func estimateRemoveShareOfPool(amount: Decimal, pooled: Decimal, reserves: Decimal) -> Decimal {
+        if (amount - reserves) == 0 {
+            return 0
+        }
         return abs((pooled - amount) / (amount - reserves) * 100) 
     }
     

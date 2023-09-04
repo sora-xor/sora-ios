@@ -35,6 +35,7 @@ final class ChainRegistry {
     private let processingQueue = DispatchQueue(label: "jp.co.soramitsu.chain.registry")
     private let logger: LoggerProtocol?
     private let eventCenter: EventCenterProtocol
+    private let networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol?
 
     private let chainRepository: AnyDataProviderRepository<ChainModel>
     private let operationManager: OperationManagerProtocol
@@ -61,7 +62,8 @@ final class ChainRegistry {
         logger: LoggerProtocol? = nil,
         eventCenter: EventCenterProtocol,
         chainRepository: AnyDataProviderRepository<ChainModel>,
-        operationManager: OperationManagerProtocol
+        operationManager: OperationManagerProtocol,
+        networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol
     ) {
         self.snapshotHotBootBuilder = snapshotHotBootBuilder
         self.runtimeProviderPool = runtimeProviderPool
@@ -75,6 +77,7 @@ final class ChainRegistry {
         self.eventCenter = eventCenter
         self.chainRepository = chainRepository
         self.operationManager = operationManager
+        self.networkStatusPresenter = networkStatusPresenter
 
         connectionPool.setDelegate(self)
 
@@ -328,15 +331,22 @@ extension ChainRegistry: ConnectionPoolDelegate {
                 (failedChain.customNodes ?? []).sorted(by: { $0.url.absoluteString < $1.url.absoluteString })
 
             let currentNodeIndex = Int(allNodes.firstIndex(where: { $0.url == url } ) ?? 0)
-            let nextNodeIndex = currentNodeIndex + 1 < allNodes.count ? currentNodeIndex + 1 : 0
+            let nextNodeIndex = currentNodeIndex + 1
 
-            let currentNode = allNodes[currentNodeIndex]
-            let nextNode = allNodes[nextNodeIndex]
+//            if currentNodeIndex + 1 >= allNodes.count {
+//                DispatchQueue.main.async {
+//                    self.networkStatusPresenter?.didDecideUnreachableNodesAllertPresentation()
+//                }
+//            } else {
+            if nextNodeIndex < allNodes.count {
+                let currentNode = allNodes[currentNodeIndex]
+                let nextNode = allNodes[nextNodeIndex]
 
-            let event = FailedNodeConnectionEvent(node: currentNode)
-            eventCenter.notify(with: event)
-
-            changeSelectedNode(from: failedChain, to: nextNode)
+                let event = FailedNodeConnectionEvent(node: currentNode)
+                eventCenter.notify(with: event)
+                changeSelectedNode(from: failedChain, to: nextNode)
+            }
+//            }
             return
         }
 

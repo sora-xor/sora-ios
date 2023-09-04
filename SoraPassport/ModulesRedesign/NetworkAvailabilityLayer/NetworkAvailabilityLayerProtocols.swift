@@ -3,6 +3,7 @@ protocol NetworkAvailabilityLayerInteractorInputProtocol: AnyObject {
 }
 
 protocol NetworkAvailabilityLayerInteractorOutputProtocol: AnyObject {
+    func didDecideUnreachableNodesAllertPresentation()
     func didDecideUnreachableStatusPresentation()
     func didDecideReachableStatusPresentation()
 }

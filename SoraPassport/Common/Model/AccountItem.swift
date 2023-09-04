@@ -4,6 +4,27 @@ enum CryptoType: UInt8, Codable, CaseIterable {
     case sr25519
     case ed25519
     case ecdsa
+    
+    var googleIdentifier: String {
+        switch self {
+        case .sr25519: return "SR25519"
+        case .ed25519: return "ED25519"
+        case .ecdsa: return "ECDSA"
+        }
+    }
+    
+    init(googleIdentifier: String) {
+        switch googleIdentifier {
+        case "SR25519":
+            self = .sr25519
+        case "ED25519":
+            self = .ed25519
+        case "ECDSA":
+            self = .ecdsa
+        default:
+            self = .sr25519
+        }
+    }
 }
 
 struct AccountItem: Codable, Equatable {

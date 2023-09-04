@@ -5,6 +5,12 @@ import Anchorage
 
 final class AccountWarningViewController: SoramitsuViewController, ControllerBackedProtocol {
 
+    enum WarningType {
+        case passphrase
+        case json
+        case rawSeed
+    }
+
     var completion: (() -> ())?
 
     private var containerView: SoramitsuView = {
@@ -41,6 +47,10 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
         }
     }()
 
+    init(warningType: WarningType) {
+        self.warningType = warningType
+        super.init()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -52,14 +62,40 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
         navigationItem.backButtonTitle = ""
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.title = R.string.localizable.commonPayAttention(preferredLanguages: languages)
-        titleLabel.sora.text = R.string.localizable.exportProtectionPassphraseDescription(preferredLanguages: languages)
+
+        switch warningType {
+        case .passphrase:
+            titleLabel.sora.text = R.string.localizable.exportProtectionPassphraseDescription(preferredLanguages: languages)
+        case .rawSeed:
+            titleLabel.sora.text = R.string.localizable.exportProtectionSeedDescription(preferredLanguages: languages)
+        case .json:
+            titleLabel.sora.text = R.string.localizable.exportProtectionJsonDescription(preferredLanguages: languages)
+        }
+
         view.addSubview(containerView)
 
-        let warnings = [
-            R.string.localizable.exportProtectionPassphrase1(preferredLanguages: languages),
-                        R.string.localizable.exportProtectionPassphrase2(preferredLanguages: languages),
-                        R.string.localizable.exportProtectionPassphrase3(preferredLanguages: languages)
-        ]
+        let warnings: [String]
+
+        switch warningType {
+        case .passphrase:
+            warnings = [
+                R.string.localizable.exportProtectionPassphrase1(preferredLanguages: languages),
+                R.string.localizable.exportProtectionPassphrase2(preferredLanguages: languages),
+                R.string.localizable.exportProtectionPassphrase3(preferredLanguages: languages)
+            ]
+        case .rawSeed:
+            warnings = [
+                R.string.localizable.exportProtectionSeed1(preferredLanguages: languages),
+                R.string.localizable.exportProtectionSeed2(preferredLanguages: languages),
+                R.string.localizable.exportProtectionSeed3(preferredLanguages: languages)
+            ]
+        case .json:
+            warnings = [
+                R.string.localizable.exportProtectionJson1(preferredLanguages: languages),
+                R.string.localizable.exportProtectionJson2(preferredLanguages: languages),
+                R.string.localizable.exportProtectionJson3(preferredLanguages: languages)
+            ]
+        }
 
         stackView.removeArrangedSubviews()
         containerView.addSubview(stackView)
@@ -108,6 +144,8 @@ final class AccountWarningViewController: SoramitsuViewController, ControllerBac
     func completeTapped(){
         completion?()
     }
+
+    private let warningType: WarningType
 }
 
 extension AccountWarningViewController: Localizable {

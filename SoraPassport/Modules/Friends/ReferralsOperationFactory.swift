@@ -9,7 +9,6 @@ protocol ReferralsOperationFactoryProtocol {
     func createExtrinsicSetReferrerOperation(with address: String) -> BaseOperation<String>
     func createExtrinsicReserveReferralBalanceOperation(with balance: BigUInt) -> BaseOperation<String>
     func createExtrinsicUnreserveReferralBalanceOperation(with balance: BigUInt) -> BaseOperation<String>
-    func createExtrinsicBondUnbondFeeOperation(with type: InputRewardAmountType) -> BaseOperation<RuntimeDispatchInfo>
     func createReferrerOperation() -> JSONRPCListOperation<String>?
 }
 
@@ -125,19 +124,19 @@ extension ReferralsOperationFactory: ReferralsOperationFactoryProtocol {
     }
 
     func createExtrinsicUnreserveReferralBalanceOperation(with balance: BigUInt) -> BaseOperation<String> {
-
+        
         let signer = SigningWrapper(keystore: keychain, account: selectedAccount)
-
+        
         let closure: ExtrinsicBuilderClosure = { builder in
             let callFactory = SubstrateCallFactory()
             let call = try callFactory.unreserveReferralBalance(balance: balance)
             return try builder.adding(call: call)
         }
-
+        
         let operation = BaseOperation<String>()
         operation.configurationBlock = { [weak self] in
             let semaphore = DispatchSemaphore(value: 0)
-
+            
             self?.extrinsicService.submit(closure, signer: signer, watch: true, runningIn: .main) { [operation] result, _ in
                 semaphore.signal()
                 switch result {
@@ -148,50 +147,15 @@ extension ReferralsOperationFactory: ReferralsOperationFactoryProtocol {
                 }
             }
             let status = semaphore.wait(timeout: .now() + .seconds(60))
-
+            
             if status == .timedOut {
                 operation.result = .failure(JSONRPCOperationError.timeout)
                 return
             }
         }
-
+        
         return operation
     }
-
-    func createExtrinsicBondUnbondFeeOperation(with type: InputRewardAmountType) -> BaseOperation<RuntimeDispatchInfo> {
-        let balance = Decimal(0).toSubstrateAmount(precision: 18) ?? 0
-
-        let closure: ExtrinsicBuilderClosure = { builder in
-            let callFactory = SubstrateCallFactory()
-            let call = try type == .bond ? callFactory.reserveReferralBalance(balance: balance) : callFactory.unreserveReferralBalance(balance: balance)
-            return try builder.adding(call: call)
-        }
-
-        let operation = BaseOperation<RuntimeDispatchInfo>()
-
-        operation.configurationBlock = { [weak self] in
-            let semaphore = DispatchSemaphore(value: 0)
-
-            self?.extrinsicService.estimateFee(closure, runningIn: .main) { [operation] result in
-                semaphore.signal()
-                switch result {
-                case let .success(info):
-                    operation.result = .success(info)
-                case let .failure(error):
-                    operation.result = .failure(error)
-                }
-            }
-            let status = semaphore.wait(timeout: .now() + .seconds(60))
-
-            if status == .timedOut {
-                operation.result = .failure(JSONRPCOperationError.timeout)
-                return
-            }
-        }
-
-        return operation
-    }
-
 
     func createReferrerOperation() -> JSONRPCListOperation<String>? {
         guard let accountId =  try? SS58AddressFactory().accountId(

@@ -1,6 +1,7 @@
 import Foundation
 import SoraKeystore
 import SoraFoundation
+import SSFCloudStorage
 
 final class OnboardingMainViewFactory {
     
@@ -19,7 +20,8 @@ final class OnboardingMainViewFactory {
         let wireframe = OnboardingMainWireframe()
         wireframe.endAddingBlock = endAddingBlock
 
-        let interactor = OnboardingMainInteractor(keystoreImportService: kestoreImportService)
+        let interactor = OnboardingMainInteractor(keystoreImportService: kestoreImportService,
+                                                  backupService: CloudStorageService(uiDelegate: view))
 
         view.presenter = presenter
         presenter.view = view

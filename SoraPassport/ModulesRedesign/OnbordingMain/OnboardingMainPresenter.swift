@@ -1,4 +1,5 @@
 import Foundation
+import SSFCloudStorage
 
 final class OnboardingMainPresenter {
     weak var view: OnboardingMainViewProtocol?
@@ -10,6 +11,20 @@ final class OnboardingMainPresenter {
     init(locale: Locale) {
         self.locale = locale
     }
+    
+    private func showScreenAfterSelection(_ result: (Result<[OpenBackupAccount], Error>)) {
+        switch result {
+        case .success(let accounts):
+            let accounts = accounts.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
+            if accounts.isEmpty {
+                wireframe.showSignup(from: view, isGoogleBackupSelected: true)
+                return
+            }
+            wireframe.showBackupedAccounts(from: view, accounts: accounts)
+        case .failure:
+            break
+        }
+    }
 }
 
 extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
@@ -19,11 +34,15 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     }
 
     func activateSignup() {
-        wireframe.showSignup(from: view)
+        wireframe.showSignup(from: view, isGoogleBackupSelected: false)
     }
 
     func activateAccountRestore() {
         showActionSheet()
+    }
+    
+    func activateCloudStorageConnection() {
+        interactor.getBackupedAccounts(completion: showScreenAfterSelection)
     }
 }
 

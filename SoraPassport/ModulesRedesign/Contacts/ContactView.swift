@@ -1,5 +1,6 @@
 import SoraUIKit
 import Anchorage
+import SnapKit
 
 final class ContactView: SoramitsuView {
     
@@ -23,6 +24,14 @@ final class ContactView: SoramitsuView {
         return label
     }()
     
+    public let usernameTitle: SoramitsuLabel = {
+        var label = SoramitsuLabel()
+        label.sora.textColor = .fgSecondary
+        label.sora.font = FontType.textBoldXS
+        label.sora.numberOfLines = 1
+        return label
+    }()
+    
     public let arrowImageView: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
         imageView.image = R.image.wallet.rightArrow()
@@ -40,6 +49,14 @@ final class ContactView: SoramitsuView {
         return view
     }()
     
+    private let contactStackView: SoramitsuStackView = {
+        let stackView = SoramitsuStackView()
+        stackView.sora.axis = .vertical
+        stackView.sora.distribution = .equalSpacing
+        stackView.spacing = 4
+        return stackView
+    }()
+    
     override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         setupSubviews()
@@ -50,32 +67,33 @@ final class ContactView: SoramitsuView {
         sora.backgroundColor = .bgSurface
         translatesAutoresizingMaskIntoConstraints = false
         addSubview(accountImageView)
-        addSubview(accountTitle)
         addSubview(arrowImageView)
         addSubview(button)
+        addSubview(contactStackView)
+        
+        contactStackView.addArrangedSubviews([usernameTitle, accountTitle])
     }
 
     private func setupConstrains() {
-        NSLayoutConstraint.activate([
-            accountImageView.heightAnchor.constraint(equalToConstant: 40),
-            accountImageView.widthAnchor.constraint(equalToConstant: 40),
-            accountImageView.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            accountImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
-            accountImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            
-            accountTitle.leadingAnchor.constraint(equalTo: accountImageView.trailingAnchor, constant: 8),
-            accountTitle.centerYAnchor.constraint(equalTo: accountImageView.centerYAnchor),
-            accountTitle.trailingAnchor.constraint(equalTo: arrowImageView.leadingAnchor, constant: -8),
-            
-            arrowImageView.heightAnchor.constraint(equalToConstant: 24),
-            arrowImageView.widthAnchor.constraint(equalToConstant: 24),
-            arrowImageView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            arrowImageView.centerYAnchor.constraint(equalTo: accountImageView.centerYAnchor),
-            
-            button.topAnchor.constraint(equalTo: topAnchor),
-            button.leadingAnchor.constraint(equalTo: leadingAnchor),
-            button.centerYAnchor.constraint(equalTo: centerYAnchor),
-            button.centerXAnchor.constraint(equalTo: centerXAnchor),
-        ])
+        accountImageView.snp.makeConstraints { make in
+            make.height.equalTo(40)
+            make.width.equalTo(40)
+            make.top.equalTo(self).offset(8)
+            make.leading.equalTo(self).offset(24)
+            make.centerY.equalTo(self)
+        }
+        
+        arrowImageView.snp.makeConstraints { make in
+            make.height.equalTo(24)
+            make.width.equalTo(24)
+            make.trailing.equalTo(self).offset(-16)
+            make.centerY.equalTo(accountImageView)
+        }
+        
+        contactStackView.snp.makeConstraints { make in
+            make.leading.equalTo(accountImageView.snp.trailing).offset(8)
+            make.trailing.equalTo(arrowImageView.snp.leading).offset(-8)
+            make.centerY.equalTo(accountImageView)
+        }
     }
 }
