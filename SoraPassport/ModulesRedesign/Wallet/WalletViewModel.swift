@@ -95,6 +95,7 @@ final class RedesignWalletViewModel {
     }
 
     @SCStream internal var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
+    internal var balanceProvider: SingleValueProvider<[BalanceData]>?
     internal var totalXorBalance: Decimal?
     internal var singleSidedXorFarmedPools: Decimal?
     internal var referralBalance: Decimal?

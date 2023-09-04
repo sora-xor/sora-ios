@@ -38,7 +38,8 @@ extension RedesignWalletViewModel {
         xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
 
         poolService.appendDelegate(delegate: self)
-        let balanceProvider = try? providerFactory.createBalanceDataProvider(for: [.xor], onlyVisible: false)
+        balanceProvider?.removeObserver(self)
+        balanceProvider = try? providerFactory.createBalanceDataProvider(for: [.xor], onlyVisible: false)
         let changesBlock = { [weak self] (changes: [DataProviderChange<[BalanceData]>]) -> Void in
             guard let change = changes.first else { return }
             switch change {
@@ -99,9 +100,9 @@ extension RedesignWalletViewModel {
 
         var refreshBalanceTimer = Timer()
         refreshBalanceTimer.invalidate()
-        refreshBalanceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [refreshBalanceTimer] _ in
+        refreshBalanceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self, refreshBalanceTimer] _ in
             _ = refreshBalanceTimer
-            balanceProvider?.refresh()
+            self?.balanceProvider?.refresh()
         }
     }
 }
