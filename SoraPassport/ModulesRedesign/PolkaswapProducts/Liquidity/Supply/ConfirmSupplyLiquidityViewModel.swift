@@ -144,8 +144,8 @@ extension ConfirmSupplyLiquidityViewModel {
         )
 
         let dexId = (assetManager.assetInfo(for: baseAssetId)?.isFeeAsset ?? false) ? "0" : "1"
-        let shareOfPool = details.first(where: { $0.title == R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale) })?.assetAmountText.text ?? ""
-        let apy = details.first(where: { $0.title == R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale) })?.assetAmountText.text ?? ""
+        let shareOfPool = details.first(where: { $0.title == Constants.apyTitle })?.assetAmountText.text ?? ""
+        let apy = details.first(where: { $0.title == Constants.apyTitle })?.assetAmountText.text ?? ""
         
         let context: [String: String] = [
             TransactionContextKeys.transactionType: transactionType.rawValue,

@@ -120,8 +120,8 @@ extension ConfirmRemoveLiquidityViewModel {
             feeDescription: networkFeeDescription
         )
 
-        let shareOfPool = details.first(where: { $0.title == R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale) })?.assetAmountText.text
-        let apy = details.first(where: { $0.title == R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale) })?.assetAmountText.text
+        let shareOfPool = details.first(where: { $0.title == Constants.apyTitle })?.assetAmountText.text
+        let apy = details.first(where: { $0.title == Constants.apyTitle })?.assetAmountText.text
         let dexId = (assetManager.assetInfo(for: poolInfo.baseAssetId)?.isFeeAsset ?? false) ? "0" : "1"
         let context: [String: String] = [
             TransactionContextKeys.transactionType: TransactionType.liquidityRemoval.rawValue,

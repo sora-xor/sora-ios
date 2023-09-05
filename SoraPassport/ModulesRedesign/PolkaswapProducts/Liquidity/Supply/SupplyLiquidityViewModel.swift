@@ -266,7 +266,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
     func apyInfoButtonTapped() {
         wireframe?.present(
             message: R.string.localizable.polkaswapSbApyInfo(),
-            title: R.string.localizable.poolApyTitle(),
+            title: Constants.apyTitle,
             closeAction: R.string.localizable.commonOk(),
             from: view
         )

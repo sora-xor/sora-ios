@@ -23,7 +23,7 @@ protocol LiquidityViewModelProtocol: InputAccessoryViewDelegate {
     func changeMarket()
     func minMaxReceivedInfoButtonTapped()
     func networkFeeInfoButtonTapped()
-    func lpFeeInfoButtonTapped()
+    func swapFeeInfoButtonTapped()
     func reviewButtonTapped()
     func recalculate(field: FocusedField)
 }
@@ -34,7 +34,7 @@ extension LiquidityViewModelProtocol {
     func changeMarket() {}
     func minMaxReceivedInfoButtonTapped() {}
     func networkFeeInfoButtonTapped() {}
-    func lpFeeInfoButtonTapped() {}
+    func swapFeeInfoButtonTapped() {}
     var firstFieldEmptyStateFullFiatText: String? { "" }
     var secondFieldEmptyStateFullFiatText: String? { "" }
 }

@@ -7,7 +7,7 @@ import SoraFoundation
 
 protocol DetailViewModelDelegate: AnyObject {
     func networkFeeInfoButtonTapped()
-    func lpFeeInfoButtonTapped()
+    func swapFeeInfoButtonTapped()
     func minMaxReceivedInfoButtonTapped()
 }
 
@@ -96,7 +96,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                     fontData: FontType.textBoldS,
                                                     textColor: .fgPrimary,
                                                     alignment: .right)
-            let apyDetailsViewModel = DetailViewModel(title: R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale),
+            let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
                                                       assetAmountText: assetAmountText)
             apyDetailsViewModel.infoHandler = { [weak viewModel] in
                 viewModel?.apyInfoButtonTapped()
@@ -189,7 +189,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                     fontData: FontType.textBoldS,
                                                     textColor: .fgPrimary,
                                                     alignment: .right)
-            let apyDetailsViewModel = DetailViewModel(title: R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale),
+            let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
                                                       assetAmountText: assetAmountText)
             apyDetailsViewModel.infoHandler = {
                 viewModel.apyInfoButtonTapped()
@@ -256,7 +256,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                 fontData: FontType.textBoldS,
                                                 textColor: .fgPrimary,
                                                 alignment: .right)
-        let apyDetailsViewModel = DetailViewModel(title: R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale),
+        let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
                                                   assetAmountText: assetAmountText)
         apyDetailsViewModel.infoHandler = {
             viewModel.apyInfoButtonTapped()
@@ -350,12 +350,12 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
                                             alignment: .right)
-        let lpFeeViewModel = DetailViewModel(title: R.string.localizable.polkaswapLiqudityFee(preferredLanguages: .currentLocale),
+        let lpFeeViewModel = DetailViewModel(title: R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale),
                                              assetAmountText: lpFeeText,
                                              fiatAmountText: fiatLpFeeText)
         
         lpFeeViewModel.infoHandler = { [weak viewModel] in
-            viewModel?.lpFeeInfoButtonTapped()
+            viewModel?.swapFeeInfoButtonTapped()
         }
         
         return [minMaxReceivedViewModel, fromAssetToAsset, toAssetFromAsset, routeModel, feeViewModel, lpFeeViewModel]

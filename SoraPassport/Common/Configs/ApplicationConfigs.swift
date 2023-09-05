@@ -2,6 +2,10 @@ import Foundation
 import os
 import SoraKeystore
 
+enum Constants {
+    static let apyTitle = "SB APY"
+}
+
 protocol ApplicationConfigProtocol {
     var projectDecentralizedId: String { get }
     var notificationDecentralizedId: String { get }
