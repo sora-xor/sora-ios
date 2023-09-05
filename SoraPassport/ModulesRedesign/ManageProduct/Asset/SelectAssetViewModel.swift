@@ -17,44 +17,28 @@ final class SelectAssetViewModel {
 
     var assetItems: [AssetListItem] = [] {
         didSet {
-            setupTableViewItems(with: assetItems)
+            setupItems?(assetItems)
         }
     }
 
     var filteredAssetItems: [AssetListItem] = [] {
         didSet {
-            setupTableViewItems(with: filteredAssetItems)
+            setupItems?(filteredAssetItems)
         }
     }
 
-    var isNeedZeroBalance: Bool = false {
-        didSet {
-            setupTableViewItems(with: isActiveSearch ? filteredAssetItems : assetItems)
-        }
-    }
-
-    var mode: WalletViewMode = .selection {
-        didSet {
-            setupNavigationBar?(mode)
-
-            assetItems.forEach { item in
-                item.assetViewModel.mode = mode
-            }
-
-            setupTableViewItems(with: isActiveSearch ? filteredAssetItems : assetItems)
-        }
-    }
+    var mode: WalletViewMode = .selection
 
     var isActiveSearch: Bool = false {
         didSet {
-            setupTableViewItems(with: isActiveSearch ? filteredAssetItems : assetItems)
+            setupItems?(isActiveSearch ? filteredAssetItems : assetItems)
         }
     }
 
     var searchText: String = "" {
         didSet {
             guard !searchText.isEmpty else {
-                setupTableViewItems(with: assetItems)
+                setupItems?(assetItems)
                 return
             }
             filterAssetList(with: searchText.lowercased())
@@ -143,7 +127,7 @@ private extension SelectAssetViewModel {
     }
 
     func filterAssetList(with query: String) {
-        filteredAssetItems = self.assetItems.filter { item in
+        filteredAssetItems = query == "" ? assetItems : assetItems.filter { item in
             return item.assetInfo.assetId.lowercased().contains(query) ||
             item.assetInfo.symbol.lowercased().contains(query) ||
             item.assetViewModel.title.lowercased().contains(query)
@@ -151,11 +135,7 @@ private extension SelectAssetViewModel {
     }
 
     func saveUpdates() {
-        let assetInfos = self.assetItems.map({ $0.assetInfo })
+        let assetInfos = assetItems.map({ $0.assetInfo })
         assetManager?.saveAssetList(assetInfos)
-    }
-
-    func setupTableViewItems(with items: [AssetListItem]) {
-        setupItems?(isActiveSearch ? filteredAssetItems : items)
     }
 }

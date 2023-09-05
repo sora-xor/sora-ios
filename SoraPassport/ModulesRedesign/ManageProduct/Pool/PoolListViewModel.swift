@@ -17,13 +17,13 @@ final class PoolListViewModel {
     
     var poolItems: [PoolListItem] = [] {
         didSet {
-            setupTableViewItems(with: poolItems)
+            setupItems?(poolItems)
         }
     }
 
     var filteredPoolItems: [PoolListItem] = [] {
         didSet {
-            setupTableViewItems(with: filteredPoolItems)
+            setupItems?(filteredPoolItems)
         }
     }
 
@@ -39,20 +39,20 @@ final class PoolListViewModel {
                 item.poolViewModel.mode = mode
             }
 
-            setupTableViewItems(with: isActiveSearch ? filteredPoolItems : poolItems)
+            setupItems?(isActiveSearch ? filteredPoolItems : poolItems)
         }
     }
 
     var isActiveSearch: Bool = false {
         didSet {
-            setupTableViewItems(with: isActiveSearch ? filteredPoolItems : poolItems)
+            setupItems?(isActiveSearch ? filteredPoolItems : poolItems)
         }
     }
 
     var searchText: String = "" {
         didSet {
             guard !searchText.isEmpty else {
-                setupTableViewItems(with: poolItems)
+                setupItems?(poolItems)
                 return
             }
             filterAssetList(with: searchText.lowercased())
@@ -173,9 +173,5 @@ private extension PoolListViewModel {
     func saveUpdates() {
         let poolInfos = self.poolItems.map({ $0.poolInfo })
         poolsService?.updatePools(poolInfos)
-    }
-
-    func setupTableViewItems(with items: [PoolListItem]) {
-        setupItems?(isActiveSearch ? filteredPoolItems : poolItems)
     }
 }
