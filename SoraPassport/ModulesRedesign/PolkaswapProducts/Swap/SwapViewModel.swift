@@ -723,10 +723,10 @@ extension SwapViewModel: DetailViewModelDelegate {
         )
     }
     
-    func lpFeeInfoButtonTapped() {
+    func swapFeeInfoButtonTapped() {
         wireframe?.present(
-            message: R.string.localizable.polkaswapLiqudityFeeInfo(preferredLanguages: .currentLocale),
-            title: R.string.localizable.polkaswapLiqudityFee(preferredLanguages: .currentLocale),
+            message: R.string.localizable.polkaswapLiquidityTotalFeeDesc(preferredLanguages: .currentLocale),
+            title: R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale),
             closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
             from: view
         )

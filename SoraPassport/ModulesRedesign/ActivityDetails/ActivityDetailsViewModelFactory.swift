@@ -83,7 +83,7 @@ extension ActivityDetailsViewModelFactory: ActivityDetailsViewModelFactoryProtoc
                                         fontData: FontType.textS,
                                         textColor: .fgPrimary,
                                         alignment: .right)
-        let lpFeeItem = DetailViewModel(title: R.string.localizable.polkaswapLiqudityFee(preferredLanguages: .currentLocale),
+        let lpFeeItem = DetailViewModel(title: R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale),
                                       assetAmountText: lpFeeText)
         lpFeeItem.infoHandler = lpFeeTapHandler
         items.append(lpFeeItem)

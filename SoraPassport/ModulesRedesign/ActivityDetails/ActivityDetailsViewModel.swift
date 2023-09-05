@@ -46,10 +46,10 @@ final class ActivityDetailsViewModel {
         )
     }
     
-    func lpFeeInfoButtonTapped() {
+    func swapFeeInfoButtonTapped() {
         wireframe?.present(
-            message: R.string.localizable.polkaswapLiqudityFeeInfo(preferredLanguages: .currentLocale),
-            title: R.string.localizable.polkaswapLiqudityFee(preferredLanguages: .currentLocale),
+            message: R.string.localizable.polkaswapLiquidityTotalFeeDesc(preferredLanguages: .currentLocale),
+            title: R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale),
             closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
             from: view
         )
@@ -199,7 +199,7 @@ extension ActivityDetailsViewModel {
             networkFeeTapHandler: { [weak self] in
                 self?.networkFeeInfoButtonTapped()
             }, lpFeeTapHandler: { [weak self] in
-                self?.lpFeeInfoButtonTapped()
+                self?.swapFeeInfoButtonTapped()
             })
         
         return HeaderActivityDetailsItem(typeText: R.string.localizable.polkaswapSwapped(preferredLanguages: .currentLocale),
