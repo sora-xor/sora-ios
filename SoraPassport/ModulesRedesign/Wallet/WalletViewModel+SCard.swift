@@ -48,7 +48,7 @@ extension RedesignWalletViewModel {
                 /// wallet xor balance + frozen + bonded
                 if let context = items.first?.context {
                     let balanceContext = BalanceContext(context: context)
-                    self?.totalXorBalance = balanceContext.total + balanceContext.frozen //+ balanceContext.bonded
+                    self?.totalXorBalance = balanceContext.total //+ balanceContext.frozen + balanceContext.bonded
                 }
 
                 /// referrals.referrerBalances
