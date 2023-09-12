@@ -6,6 +6,32 @@ enum InMemoryDataProviderRepositoryError: Error {
 }
 
 final class InMemoryDataProviderRepository<T: Identifiable>: DataProviderRepositoryProtocol {
+    func saveBatchOperation(_ updateModelsBlock: @escaping () throws -> [T], _ deleteIdsBlock: @escaping () throws -> [String]) -> RobinHood.BaseOperation<Void> {
+        ClosureOperation { [weak self] in
+            self?.lock.lock()
+
+            defer {
+                self?.lock.unlock()
+            }
+
+            let models = try updateModelsBlock()
+
+            var items = self?.itemsById ?? [:]
+
+            for model in models {
+                items[model.identifier] = model
+            }
+
+            let deletedIds = try deleteIdsBlock()
+
+            for deletedId in deletedIds {
+                items[deletedId] = nil
+            }
+
+            self?.itemsById = items
+        }
+    }
+    
     func fetchOperation(
         by modelIdsClosure: @escaping () throws -> [String],
         options: RobinHood.RepositoryFetchOptions) -> RobinHood.BaseOperation<[T]>
