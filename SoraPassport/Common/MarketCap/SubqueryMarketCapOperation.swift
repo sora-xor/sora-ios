@@ -72,7 +72,9 @@ public final class SubqueryMarketCapInfoOperation<ResultType>: BaseOperation<Res
 
         DispatchQueue.main.async {
 
-            self.subQueryClient.getAssetsInfo(tokenIds: self.assetIds, completionHandler: { [self] requestResult, error in
+            let timestamp = Int64((Date() - TimeInterval(60*60*24)).timeIntervalSince1970)
+            
+            self.subQueryClient.getAssetsInfo(tokenIds: self.assetIds, timestamp: timestamp, completionHandler: { [self] requestResult, error in
 
                 if let data = requestResult as? ResultType {
                     optionalCallResult = .success(data)
