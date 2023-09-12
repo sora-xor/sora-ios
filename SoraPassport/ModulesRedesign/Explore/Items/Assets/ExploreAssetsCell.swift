@@ -162,6 +162,11 @@ final class ExploreAssetsCell: SoramitsuTableViewCell {
                 assetView.amountUpLabel.sora.text = price
                 assetView.amountUpLabel.sora.loadingPlaceholder.type = .none
             }
+            
+            if let delta = assetModel.deltaPrice {
+                assetView.amountDownLabel.sora.attributedText = delta
+                assetView.amountDownLabel.sora.loadingPlaceholder.type = .none
+            }
 
             assetView.tappableArea.sora.isHidden = false
             assetView.tappableArea.sora.addHandler(for: .touchUpInside) { [weak assetsItem] in

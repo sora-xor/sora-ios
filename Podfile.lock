@@ -304,7 +304,7 @@ PODS:
   - TweetNacl (1.0.2)
   - VideoID (7.1.31):
     - eIDRTC (= 1.1.34)
-  - XNetworking (0.0.60)
+  - XNetworking (0.0.61)
   - xxHash-Swift (1.0.13)
 
 DEPENDENCIES:
@@ -341,7 +341,7 @@ DEPENDENCIES:
   - SwiftLint (~> 0.49.0)
   - SwiftyBeaver
   - Then
-  - XNetworking (from `https://raw.githubusercontent.com/soramitsu/x-networking/0.0.60/AppCommonNetworking/XNetworking/XNetworking.podspec`)
+  - XNetworking (from `https://raw.githubusercontent.com/soramitsu/x-networking/0.0.61/AppCommonNetworking/XNetworking/XNetworking.podspec`)
 
 SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
@@ -425,7 +425,7 @@ EXTERNAL SOURCES:
     :git: https://github.com/SVGKit/SVGKit.git
     :tag: 3.0.0
   XNetworking:
-    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/0.0.60/AppCommonNetworking/XNetworking/XNetworking.podspec
+    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/0.0.61/AppCommonNetworking/XNetworking/XNetworking.podspec
 
 CHECKOUT OPTIONS:
   CommonWallet:
@@ -513,9 +513,9 @@ SPEC CHECKSUMS:
   Then: 844265ae87834bbe1147d91d5d41a404da2ec27d
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
-  XNetworking: 78b56e52078c345fb8417a98bfa8899ce5a95323
+  XNetworking: 968483e8c77c510128b120efa3fdf4fe524af674
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 6dbb0975fb7a3486992d68be1e1de6c6a25fb89c
+PODFILE CHECKSUM: 152f14660247cfa26d511c4b8511e0d556a689b3
 
 COCOAPODS: 1.12.1
