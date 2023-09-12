@@ -67,19 +67,21 @@ final class ExploreAssetViewModelService {
                 let precision = Int16(assetManager.assetInfo(for: asset.tokenId)?.precision ?? 0)
                 let price = fiat?.first { asset.tokenId == $0.id }?.priceUsd?.decimalValue ?? 0
                 let marketCap = (Decimal.fromSubstrateAmount(amount, precision: precision) ?? 0) * price
-                return ExploreAssetLiquidity(tokenId: asset.tokenId, marketCap: marketCap)
+                let oldPrice = Decimal(Double(truncating: asset.hourDelta ?? 0))
+                return ExploreAssetLiquidity(tokenId: asset.tokenId, marketCap: marketCap, oldPrice: oldPrice)
             }
 
             let sortedAssetMarketCap = assetMarketCap.sorted { $0.marketCap > $1.marketCap }
             
             let fullListAssets = sortedAssetMarketCap.enumerated().compactMap { (index, marketCap) in
                 
-                let price = fiat?.first(where: { $0.id == marketCap.tokenId })?.priceUsd?.decimalValue
-                
+                let price = fiat?.first(where: { $0.id == marketCap.tokenId })?.priceUsd?.decimalValue ?? 0
+                let deltaPrice = price / marketCap.oldPrice - 1
                 return self.itemFactory.createExploreAssetViewModel(with: marketCap.tokenId,
-                                                                     serialNumber: String(index + 1),
-                                                                     price: price,
-                                                                     marketCap: marketCap.marketCap)
+                                                                    serialNumber: String(index + 1),
+                                                                    price: price,
+                                                                    deltaPrice: deltaPrice,
+                                                                    marketCap: marketCap.marketCap)
             }
             viewModels = fullListAssets
         }
