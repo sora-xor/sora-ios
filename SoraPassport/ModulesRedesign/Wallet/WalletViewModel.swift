@@ -184,8 +184,13 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             items.append(accountItem)
         }
         
-        if enabledIds.contains(Cards.soraCard.id), let soraCardItem = walletItems.first(where: { $0 is SCCardItem }) {
+        if enabledIds.contains(Cards.soraCard.id) {
+            let soraCard = initSoraCard()
+            let soraCardItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardItem(with: self,
+                                                                                              service: soraCard)
             items.append(soraCardItem)
+            ConfigService.shared.config.isSoraCardEnabled = true
+            soraCard.isSCBannerHidden = false
         }
         
         if enabledIds.contains(Cards.referralProgram.id), let friendsItem = walletItems.first(where: { $0 is FriendsItem }) {
