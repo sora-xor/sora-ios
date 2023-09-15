@@ -153,7 +153,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.button.sora.leftImage = R.image.wallet.send()
         view.button.sora.horizontalOffset = 16
         view.accessibilityIdentifier = "assetDetails.send"
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.send)
         }
         return view
@@ -165,7 +165,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.button.sora.leftImage = R.image.wallet.receive()
         view.button.sora.horizontalOffset = 16
         view.accessibilityIdentifier = "assetDetails.receive"
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.receive)
         }
         return view
@@ -189,7 +189,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.button.sora.leftImage = R.image.wallet.buy()
         view.button.sora.horizontalOffset = 16
         view.accessibilityIdentifier = "assetDetails.buy"
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.buy)
         }
         return view
