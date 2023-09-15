@@ -31,7 +31,7 @@
 import Foundation
 import SoraUIKit
 
-public final class AssetActionView: SoramitsuView {
+public final class AssetActionView: SoramitsuControl {
 
     // MARK: - UI
 
@@ -40,6 +40,7 @@ public final class AssetActionView: SoramitsuView {
         stackView.sora.axis = .vertical
         stackView.spacing = 8
         stackView.clipsToBounds = false
+        stackView.isUserInteractionEnabled = false
         return stackView
     }()
 
