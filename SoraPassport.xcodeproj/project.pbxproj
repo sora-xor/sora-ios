@@ -751,9 +751,7 @@
 		847A17A32375796E003BA71A /* RoundedCellControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847A17A22375796E003BA71A /* RoundedCellControlView.swift */; };
 		847A17A523759BA4003BA71A /* TitleWithAccessoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847A17A423759BA4003BA71A /* TitleWithAccessoryView.swift */; };
 		847A17A723759E2D003BA71A /* RoundedCellControlView+Inspectable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847A17A623759E2D003BA71A /* RoundedCellControlView+Inspectable.swift */; };
-		847A17B32379405E003BA71A /* InputFieldPresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847A17B22379405E003BA71A /* InputFieldPresentable.swift */; };
 		847A17B8237958B0003BA71A /* InputFieldViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847A17B7237958B0003BA71A /* InputFieldViewModel.swift */; };
-		847A17BA23796348003BA71A /* AlertInputFieldPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847A17B923796348003BA71A /* AlertInputFieldPresenter.swift */; };
 		847A17C2237BE0AB003BA71A /* ApplyInvitationMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847A17C1237BE0AB003BA71A /* ApplyInvitationMock.swift */; };
 		8481A56D22FAB4090056D3D4 /* String+User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8481A56C22FAB4090056D3D4 /* String+User.swift */; };
 		8481A5DC2302F3290056D3D4 /* DateFormatterFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8481A5DB2302F3290056D3D4 /* DateFormatterFactory.swift */; };
@@ -2127,9 +2125,7 @@
 		847A17A22375796E003BA71A /* RoundedCellControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundedCellControlView.swift; sourceTree = "<group>"; };
 		847A17A423759BA4003BA71A /* TitleWithAccessoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleWithAccessoryView.swift; sourceTree = "<group>"; };
 		847A17A623759E2D003BA71A /* RoundedCellControlView+Inspectable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RoundedCellControlView+Inspectable.swift"; sourceTree = "<group>"; };
-		847A17B22379405E003BA71A /* InputFieldPresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputFieldPresentable.swift; sourceTree = "<group>"; };
 		847A17B7237958B0003BA71A /* InputFieldViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputFieldViewModel.swift; sourceTree = "<group>"; };
-		847A17B923796348003BA71A /* AlertInputFieldPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertInputFieldPresenter.swift; sourceTree = "<group>"; };
 		847A17C1237BE0AB003BA71A /* ApplyInvitationMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplyInvitationMock.swift; sourceTree = "<group>"; };
 		8481A56C22FAB4090056D3D4 /* String+User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+User.swift"; sourceTree = "<group>"; };
 		8481A5DB2302F3290056D3D4 /* DateFormatterFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormatterFactory.swift; sourceTree = "<group>"; };
@@ -2922,7 +2918,6 @@
 				84639D1F22CB4850009D847C /* OutboundUrlPresentable.swift */,
 				8409324723463C0A0013C871 /* StatusPresentable.swift */,
 				846EC806236C51DB0048ED4E /* ScrollsToTop.swift */,
-				847A17B22379405E003BA71A /* InputFieldPresentable.swift */,
 				10D644862553FE0600C18F1C /* Reusable.swift */,
 				8BF42875293E646800590F92 /* CustomPresentable.swift */,
 				362F49B92A36FF0F00163091 /* SignInGoogle.swift */,
@@ -5197,7 +5192,6 @@
 			isa = PBXGroup;
 			children = (
 				847A17B7237958B0003BA71A /* InputFieldViewModel.swift */,
-				847A17B923796348003BA71A /* AlertInputFieldPresenter.swift */,
 				840F2085237E18B400EBE714 /* InvitationInputFieldViewModel.swift */,
 			);
 			path = InputFieldViewController;
@@ -7221,7 +7215,6 @@
 				847527412362DE9F0028D871 /* DeviceInfo.swift in Sources */,
 				36B239A72A9528E200F0357A /* ExplorePoolView.swift in Sources */,
 				368E73222A448506001B7BAF /* WarningView.swift in Sources */,
-				847A17BA23796348003BA71A /* AlertInputFieldPresenter.swift in Sources */,
 				B2CD5DAE2A7A5A1800B16F8A /* EnabledView.swift in Sources */,
 				366A77F52A30DC6800A6DDF9 /* BackupedAccountItem.swift in Sources */,
 				029879262181E38C0085E605 /* ProjectData.swift in Sources */,
@@ -7472,7 +7465,6 @@
 				948F2BEE27E4E8A1005A4CBF /* TransferInfo+Type.swift in Sources */,
 				9441FB2C25CAE65D00775559 /* URLHandlingService.swift in Sources */,
 				36DB19C029EDDA9100B3E3BF /* OnboardingMainViewFactory.swift in Sources */,
-				847A17B32379405E003BA71A /* InputFieldPresentable.swift in Sources */,
 				366A783A2A3227AC00A6DDF9 /* SetupPasswordItem.swift in Sources */,
 				9441FC0325CC089200775559 /* WalletStakingChanged.swift in Sources */,
 				366A78262A31FE3700A6DDF9 /* AccountImportedCell.swift in Sources */,
