@@ -41,6 +41,11 @@ typealias ExtrinsicSubmitClosure = (Result<String, Error>, _ extrinsicHash: Stri
 typealias SubmitAndWatchExtrinsicResult = (result: Result<String, Error>, extrinsicHash: String?)
 typealias SubmitExtrinsicResult = Result<String, Error>
 
+struct ExtrinsicInfo {
+    let data: Data
+    let object: Extrinsic
+}
+
 protocol ExtrinsicServiceProtocol {
     func estimateFee(_ closure: @escaping ExtrinsicBuilderClosure,
                      runningIn queue: DispatchQueue,
@@ -125,7 +130,7 @@ final class ExtrinsicService {
                                           codingFactoryOperation: BaseOperation<RuntimeCoderFactoryProtocol>,
                                           customClosure: @escaping ExtrinsicBuilderClosure,
                                           signingClosure: @escaping (Data) throws -> Data)
-    -> BaseOperation<Data> {
+    -> BaseOperation<ExtrinsicInfo> {
 
         let currentCryptoType = cryptoType
         let currentAddress = address
@@ -154,9 +159,9 @@ final class ExtrinsicService {
                                                          of: currentCryptoType.utilsType,
                                                          using: codingFactory.createEncoder(),
                                                          metadata: codingFactory.metadata)
-
-            return try builder.build(encodingBy: codingFactory.createEncoder(),
-                                     metadata: codingFactory.metadata)
+            let extrinsic = try builder.buildExtrinsic(metadata: codingFactory.metadata)
+            let extrinsicData = try builder.build(encodingBy: codingFactory.createEncoder(), extrinsic: extrinsic)
+            return ExtrinsicInfo(data: extrinsicData, object: extrinsic)
         }
     }
 }
@@ -197,14 +202,14 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
     }
     
     private func feeDetailsOperation(queue: DispatchQueue,
-                                      builderOperation: BaseOperation<Data>,
+                                      builderOperation: BaseOperation<ExtrinsicInfo>,
                                       completionClosure: @escaping EstimateFeeClosure) -> JSONRPCListOperation<InclusionFeeInfo> {
         let infoOperation = JSONRPCListOperation<InclusionFeeInfo>(engine: engine,
                                                                    method: RPCMethod.feeDetails,
                                                                    timeout: 60)
         infoOperation.configurationBlock = {
             do {
-                let extrinsic = try builderOperation.extractNoCancellableResultData().toHex(includePrefix: true)
+                let extrinsic = try builderOperation.extractNoCancellableResultData().data.toHex(includePrefix: true)
                 infoOperation.parameters = [extrinsic]
             } catch {
                 infoOperation.result = .failure(error)
@@ -272,11 +277,11 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
                                                            timeout: 60)
         submitOperation.configurationBlock = {
             do {
-                let extrinsic = try builderOperation
-                    .extractNoCancellableResultData()
-                    .toHex(includePrefix: true)
+                let extrinsicBuilderResult = try builderOperation.extractNoCancellableResultData()
+                let extrinsicHex = extrinsicBuilderResult.data.toHex(includePrefix: true)
 
-                submitOperation.parameters = [extrinsic]
+                EventCenter.shared.notify(with: ExtricsicSubmittedEvent(extrinsicHex: extrinsicHex, extrinsicInfo: extrinsicBuilderResult))
+                submitOperation.parameters = [extrinsicHex]
             } catch {
                 submitOperation.result = .failure(error)
             }

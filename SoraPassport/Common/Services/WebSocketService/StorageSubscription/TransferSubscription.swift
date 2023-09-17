@@ -41,6 +41,11 @@ struct TransactionSubscriptionResult {
     let txIndex: UInt16
 }
 
+struct TransactionExtrinsicInfo {
+    let object: Extrinsic
+    let hex: String
+}
+
 private typealias ResultAndFeeOperationWrapper =
     CompoundOperationWrapper<(TransactionSubscriptionResult, Decimal)>
 
@@ -56,6 +61,7 @@ final class TransactionSubscription {
     let operationManager: OperationManagerProtocol
     let eventCenter: EventCenterProtocol
     let logger: LoggerProtocol
+    var unhandledTransactions: [TransactionExtrinsicInfo] = []
 
     init(
         engine: JSONRPCEngine,
@@ -81,6 +87,7 @@ final class TransactionSubscription {
         self.eventCenter = eventCenter
         self.logger = logger
         self.addressFactory = addressFactory
+        self.eventCenter.add(observer: self)
     }
 
     func process(blockHash: Data) {
@@ -259,10 +266,16 @@ extension TransactionSubscription {
                 do {
                     let data = try Data(hexString: hexExtrinsic)
                     let extrinsicHash = try data.blake2b32()
+                    
+                    guard let transaction = self.unhandledTransactions.first(where: { $0.hex == hexExtrinsic }) else {
+                        return nil
+                    }
 
+                    self.unhandledTransactions = self.unhandledTransactions.filter { $0.hex != hexExtrinsic }
+                    
                     guard let processingResult = extrinsicProcessor.process(
                         extrinsicIndex: UInt32(index),
-                        extrinsicData: data,
+                        extrinsic: transaction.object,
                         eventRecords: eventRecords,
                         coderFactory: coderFactory
                     ) else {
@@ -280,5 +293,11 @@ extension TransactionSubscription {
                 }
             }
         }
+    }
+}
+
+extension TransactionSubscription: EventVisitorProtocol {
+    func processExtricsicSubmmited(event: ExtricsicSubmittedEvent) {
+        unhandledTransactions.append(TransactionExtrinsicInfo(object: event.extrinsicInfo.object, hex: event.extrinsicHex))
     }
 }
