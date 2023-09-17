@@ -478,6 +478,7 @@
 		36A652F52921A1D600C1D608 /* SlippageToleranceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A652F22921A1D500C1D608 /* SlippageToleranceViewModel.swift */; };
 		36A652F72921A49800C1D608 /* SlippageToleranceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A652F62921A49800C1D608 /* SlippageToleranceView.swift */; };
 		36A652FA2921B17200C1D608 /* InputAccessoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A652F92921B17200C1D608 /* InputAccessoryView.swift */; };
+		36AAB6E72AB7470200202DC8 /* ExtricsicSubmittedEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AAB6E62AB7470200202DC8 /* ExtricsicSubmittedEvent.swift */; };
 		36AC2EDF2979AD6100AD7732 /* PincodeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AC2EDE2979AD6100AD7732 /* PincodeViewController.swift */; };
 		36AC2EE12979B26D00AD7732 /* SoramitsuNumpadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AC2EE02979B26D00AD7732 /* SoramitsuNumpadView.swift */; };
 		36ACC95D28649A3400DA98EC /* KeyboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ACC95C28649A3400DA98EC /* KeyboardService.swift */; };
@@ -646,7 +647,7 @@
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
 		81D541228DDD3367D742BDBC /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0A7072B64CFB2F5F6A9C3CE /* Pods_SoraPassportUITests.framework */; };
-		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		82933CD8A0C33141410DBBB2 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -1808,6 +1809,7 @@
 		36A652F22921A1D500C1D608 /* SlippageToleranceViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SlippageToleranceViewModel.swift; sourceTree = "<group>"; };
 		36A652F62921A49800C1D608 /* SlippageToleranceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlippageToleranceView.swift; sourceTree = "<group>"; };
 		36A652F92921B17200C1D608 /* InputAccessoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputAccessoryView.swift; sourceTree = "<group>"; };
+		36AAB6E62AB7470200202DC8 /* ExtricsicSubmittedEvent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExtricsicSubmittedEvent.swift; sourceTree = "<group>"; };
 		36AC2EDE2979AD6100AD7732 /* PincodeViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PincodeViewController.swift; sourceTree = "<group>"; };
 		36AC2EE02979B26D00AD7732 /* SoramitsuNumpadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoramitsuNumpadView.swift; sourceTree = "<group>"; };
 		36ACC95C28649A3400DA98EC /* KeyboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardService.swift; sourceTree = "<group>"; };
@@ -2658,7 +2660,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* (null) in Frameworks */,
 				81D541228DDD3367D742BDBC /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5708,6 +5710,7 @@
 		9441FBCD25CC02E700775559 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				36AAB6E62AB7470200202DC8 /* ExtricsicSubmittedEvent.swift */,
 				9481B45B286EFBC100A472E2 /* ChainRegistry */,
 				945A571425DE7F28003E4023 /* RuntimeRegistryService */,
 				945A571325DE7F11003E4023 /* GithubPhishingService */,
@@ -6503,7 +6506,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				"$PROJECT_DIR/R.generated.swift",
+				$PROJECT_DIR/R.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6635,7 +6638,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
+				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -7520,6 +7523,7 @@
 				3611E7092979CDA400D2CF6F /* SetupPincodePresenter.swift in Sources */,
 				9441FC4125D1790B00775559 /* KeyboardAdoptable.swift in Sources */,
 				94497E1D25EF9E5E00FD4F14 /* MigrateCall.swift in Sources */,
+				36AAB6E72AB7470200202DC8 /* ExtricsicSubmittedEvent.swift in Sources */,
 				94497F1125F2532800FD4F14 /* Header.swift in Sources */,
 				36356B3129184DB200CD3E9E /* AccountPoolsService.swift in Sources */,
 				84EF3A89232A25530012421F /* DeepLinkNavigation.swift in Sources */,
