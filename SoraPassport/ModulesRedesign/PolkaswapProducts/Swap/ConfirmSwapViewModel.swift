@@ -58,6 +58,7 @@ final class ConfirmSwapViewModel {
     var lpFee: Decimal
     var swapVariant: SwapVariant
     var minMaxValue: Decimal
+    var timer: Timer?
     private var dexId: UInt32
     private let interactor: PolkaswapMainInteractorInputProtocol
     private var quoteParams: PolkaswapMainInteractorQuoteParams
@@ -160,6 +161,11 @@ final class ConfirmSwapViewModel {
         self.fiatData = fiatData
         self.eventCenter = eventCenter
     }
+    
+    deinit {
+        timer?.invalidate()
+        timer = nil
+    }
 }
 
 extension ConfirmSwapViewModel: ConfirmViewModelProtocol {
@@ -260,6 +266,9 @@ extension ConfirmSwapViewModel {
     }
     
     func submit() {
+        timer?.invalidate()
+        timer = nil
+        
         let networkFeeDescription = FeeDescription(identifier: WalletAssetId.xor.rawValue,
                                                    assetId: WalletAssetId.xor.rawValue,
                                                    type: "fee",
@@ -331,29 +340,14 @@ extension ConfirmSwapViewModel {
     }
     
     func subscribeToPoolUpdates() {
-        let xorID = WalletAssetId.xor.rawValue
         guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else { return }
 
-        interactor.unsubscribePoolXYK()
-        interactor.unsubscribePoolTBC()
-
-        if market == .smart || market == .xyk {
-            if xorID != firstAssetId {
-                interactor.subscribePoolXYK(assetId1: xorID, assetId2: firstAssetId)
-            }
-            if xorID != secondAssetId {
-                interactor.subscribePoolXYK(assetId1: xorID, assetId2: secondAssetId)
-            }
+        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
+            self?.loadQuote()
         }
-
-        if market == .smart || market == .tbc {
-            interactor.subscribePoolTBC(assetId: xorID)
-            if xorID != firstAssetId {
-                interactor.subscribePoolTBC(assetId: firstAssetId)
-            }
-            if xorID != secondAssetId {
-                interactor.subscribePoolTBC(assetId: secondAssetId)
-            }
+        
+        if let timer {
+            RunLoop.current.add(timer, forMode: .common)
         }
     }
     

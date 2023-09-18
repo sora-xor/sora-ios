@@ -56,6 +56,7 @@ protocol LiquidityViewModelProtocol: InputAccessoryViewDelegate {
     func swapFeeInfoButtonTapped()
     func reviewButtonTapped()
     func recalculate(field: FocusedField)
+    func viewWillAppear()
 }
 
 extension LiquidityViewModelProtocol {
@@ -67,4 +68,5 @@ extension LiquidityViewModelProtocol {
     func swapFeeInfoButtonTapped() {}
     var firstFieldEmptyStateFullFiatText: String? { "" }
     var secondFieldEmptyStateFullFiatText: String? { "" }
+    func viewWillAppear() {}
 }
