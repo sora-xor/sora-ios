@@ -35,6 +35,7 @@ import GoogleSignIn
 import SoraUIKit
 #if F_DEV
 import FLEX
+import SoraFoundation
 #endif
 
 @UIApplicationMain
@@ -52,7 +53,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             FirebaseApp.configure()
 
             initFlex()
-
+            setupLanguage()
+            
             let rootWindow = SoraWindow()
             rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
             window = rootWindow
@@ -153,6 +155,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         }
         #endif
+    }
+    
+    func setupLanguage() {
+        let semanticContentAttribute: UISemanticContentAttribute = (LocalizationManager.shared.selectedLocalization == "ar") || (LocalizationManager.shared.selectedLocalization == "he") ? .forceRightToLeft : .forceLeftToRight
+        UIView.appearance().semanticContentAttribute = semanticContentAttribute
     }
 }
 

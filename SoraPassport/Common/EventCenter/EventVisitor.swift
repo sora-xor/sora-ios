@@ -64,6 +64,8 @@ protocol EventVisitorProtocol: AnyObject {
 
     func processRuntimeCoderReady(event: RuntimeCoderCreated)
     func processRuntimeCoderCreationFailed(event: RuntimeCoderCreationFailed)
+    
+    func processLanguageChanged(event: LanguageChanged)
 
 //    func processSelectedNodeUpdated(event: SelectedNodeChangedEvent)
 
@@ -108,5 +110,7 @@ extension EventVisitorProtocol {
 
     func processSelectedNodeUpdated(event: SelectedNodeChangedEvent) {}
 
+    func processLanguageChanged(event: LanguageChanged) {}
+    
 //    func processUserInactive(event _: UserInactiveEvent) {}
 }

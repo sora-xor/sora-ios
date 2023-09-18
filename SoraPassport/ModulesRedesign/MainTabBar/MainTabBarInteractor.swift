@@ -125,6 +125,10 @@ extension MainTabBarInteractor: EventVisitorProtocol {
         presenter?.didUpdateWalletInfo()
         presenter?.didEndTransaction()
     }
+    
+    func processLanguageChanged(event: LanguageChanged) {
+        presenter?.didLanguageChange()
+    }
 }
 
 extension MainTabBarInteractor: ApplicationHandlerDelegate {

@@ -646,7 +646,7 @@
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
 		81D541228DDD3367D742BDBC /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0A7072B64CFB2F5F6A9C3CE /* Pods_SoraPassportUITests.framework */; };
-		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		82933CD8A0C33141410DBBB2 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -1214,6 +1214,7 @@
 		A9A0F171348707CF04DAFE37 /* AccountOptionsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */; };
 		AD7EAB4CC39BA3CBD8892075 /* AccountOptionsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */; };
 		AFDB9D347019C4AF7AD84B2F /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EA356E023AC3A0DF41F438BD /* Pods_SoraPassportAll_SoraPassport.framework */; };
+		B20C77862AB1E3170009E2AC /* LanguageChanged.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20C77852AB1E3170009E2AC /* LanguageChanged.swift */; };
 		B267AA9E2A7A2F7200EF9CF0 /* EditViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */; };
 		B267AA9F2A7A2F7200EF9CF0 /* EditViewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */; };
 		B27FFC3F2A52A53B006D4C19 /* FriendsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */; };
@@ -2587,6 +2588,7 @@
 		A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractor.swift; sourceTree = "<group>"; };
 		AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutTests.swift; sourceTree = "<group>"; };
 		B0E791BB07F4D62BE4C9D1B0 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; sourceTree = "<group>"; };
+		B20C77852AB1E3170009E2AC /* LanguageChanged.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageChanged.swift; sourceTree = "<group>"; };
 		B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewCell.swift; sourceTree = "<group>"; };
 		B267AA9D2A7A2F7100EF9CF0 /* EditViewItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditViewItem.swift; sourceTree = "<group>"; };
 		B27FFC3E2A52A53B006D4C19 /* FriendsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FriendsViewController.swift; sourceTree = "<group>"; };
@@ -2658,7 +2660,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* (null) in Frameworks */,
 				81D541228DDD3367D742BDBC /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5127,6 +5129,7 @@
 				94497CF525E946C600FD4F14 /* MigrationEvent.swift */,
 				364526B028C4D13400260340 /* SelectedNodeChangedEvent.swift */,
 				36527D8D29B7341A006D2042 /* NewTransactionCreatedEvent.swift */,
+				B20C77852AB1E3170009E2AC /* LanguageChanged.swift */,
 			);
 			path = Events;
 			sourceTree = "<group>";
@@ -6503,7 +6506,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				"$PROJECT_DIR/R.generated.swift",
+				$PROJECT_DIR/R.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6635,7 +6638,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
+				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -7435,6 +7438,7 @@
 				02BBD83621CB863500C7A1E3 /* TokenExchangeInfo.swift in Sources */,
 				949B457E262890780081BB37 /* ChildSubscriptionFactory.swift in Sources */,
 				84639D2022CB4850009D847C /* OutboundUrlPresentable.swift in Sources */,
+				B20C77862AB1E3170009E2AC /* LanguageChanged.swift in Sources */,
 				84BA4EE7225E0897005E6AC3 /* WalletBalanceFetchMock.swift in Sources */,
 				9441FA3E25CAA6A000775559 /* Scheduler.swift in Sources */,
 				02BBD83421CB822600C7A1E3 /* NotificationUserInfo.swift in Sources */,
@@ -8366,7 +8370,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
@@ -8376,7 +8380,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -8505,7 +8509,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -8514,7 +8518,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -8705,7 +8709,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
@@ -8715,7 +8719,7 @@
 					"@executable_path/Frameworks",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited)";
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -8733,7 +8737,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -8742,7 +8746,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -9041,7 +9045,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -9050,7 +9054,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;

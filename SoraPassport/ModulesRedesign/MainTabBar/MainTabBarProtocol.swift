@@ -59,6 +59,7 @@ protocol MainTabBarInteractorOutputProtocol: AnyObject {
     func didEndMigration()
     func didEndTransaction()
     func didUserChange()
+    func didLanguageChange()
 }
 
 protocol MainTabBarWireframeProtocol: AlertPresentable, AuthorizationAccessible {

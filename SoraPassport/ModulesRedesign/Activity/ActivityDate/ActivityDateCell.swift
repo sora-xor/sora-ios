@@ -45,6 +45,7 @@ final class ActivityDateCell: SoramitsuTableViewCell {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline4
         label.sora.textColor = .fgSecondary
+        label.sora.alignment = UIView.appearance().semanticContentAttribute == .forceRightToLeft ? .right : .left
         label.sora.backgroundColor = .bgSurface
         return label
     }()

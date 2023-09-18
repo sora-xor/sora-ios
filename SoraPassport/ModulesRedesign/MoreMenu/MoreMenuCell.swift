@@ -30,6 +30,7 @@
 
 import SoraUIKit
 import Anchorage
+import SoraFoundation
 
 final class MoreMenuCell: SoramitsuTableViewCell {
 
@@ -61,6 +62,16 @@ final class MoreMenuCell: SoramitsuTableViewCell {
         categoryItem.topAnchor == contentView.topAnchor + 8
         categoryItem.bottomAnchor == contentView.bottomAnchor - 8
     }
+    
+    func updateLayout() {
+        let isRTL: Bool = (LocalizationManager.shared.selectedLocalization == "ar") || (LocalizationManager.shared.selectedLocalization == "he")
+        let semanticContentAttribute: UISemanticContentAttribute = isRTL ? .forceRightToLeft : .forceLeftToRight
+        categoryItem.horizontalStack.semanticContentAttribute = semanticContentAttribute
+        categoryItem.subtitleView.semanticContentAttribute = semanticContentAttribute
+        categoryItem.circle.semanticContentAttribute = semanticContentAttribute
+        categoryItem.titleLabel.sora.alignment = isRTL ? .right : .left
+        categoryItem.subtitleLabel.sora.alignment = isRTL ? .right : .left
+    }
 }
 
 extension MoreMenuCell: SoramitsuTableViewCellProtocol {
@@ -77,6 +88,8 @@ extension MoreMenuCell: SoramitsuTableViewCellProtocol {
             categoryItem.addCircle()
             categoryItem.circle.sora.backgroundColor = circleColor
         }
+        
+        updateLayout()
     }
 }
 

@@ -30,6 +30,7 @@
 
 import SoraUIKit
 import Anchorage
+import SoraFoundation
 
 final class LanguageView: SoramitsuViewController & LanguageViewProtocol {
     
@@ -87,9 +88,8 @@ final class LanguageView: SoramitsuViewController & LanguageViewProtocol {
         self.model = model
     }
     
-    func updateHierarchy() {
-        let window = self.view.superview
-        self.view.removeFromSuperview()
-        window?.addSubview(self.view)
+    func updateLayout() {
+        let semanticContentAttribute: UISemanticContentAttribute = (LocalizationManager.shared.selectedLocalization == "ar") || (LocalizationManager.shared.selectedLocalization == "he") ? .forceRightToLeft : .forceLeftToRight
+        navigationController?.navigationBar.semanticContentAttribute = semanticContentAttribute
     }
 }

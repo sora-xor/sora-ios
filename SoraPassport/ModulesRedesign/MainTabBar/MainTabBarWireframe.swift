@@ -203,6 +203,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
             viewcontrollers.insert(fakeSwapViewController, at: 2)
             tabBarController.viewControllers = viewcontrollers
         }
+        
+        tabBarController.tabBar.semanticContentAttribute = (LocalizationManager.shared.selectedLocalization == "ar") || (LocalizationManager.shared.selectedLocalization == "he") ? .forceRightToLeft : .forceLeftToRight
     }
 
     // MARK: Private
