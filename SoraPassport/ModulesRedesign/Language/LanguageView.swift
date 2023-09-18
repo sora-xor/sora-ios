@@ -60,12 +60,6 @@ final class LanguageView: SoramitsuViewController & LanguageViewProtocol {
     }
     
     private func setupNavBar() {
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = R.color.neumorphism.base()
-        appearance.shadowColor = .clear
-        appearance.backgroundColor = .clear
-        navigationController?.navigationBar.standardAppearance = appearance
         addCloseButton()
     }
     

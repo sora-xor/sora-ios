@@ -62,12 +62,7 @@ final class ActivityDetailsViewController: SoramitsuViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = R.color.neumorphism.base()
-        appearance.shadowColor = .clear
-        navigationController?.navigationBar.standardAppearance = appearance
+    
         navigationController?.navigationBar.prefersLargeTitles = true
 
         setupView()

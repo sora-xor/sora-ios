@@ -63,11 +63,6 @@ final class ConfirmPassphraseViewController: SoramitsuViewController, Controller
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = R.color.neumorphism.base()
-        appearance.shadowColor = .clear
-        navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationItem.title = R.string.localizable.accountConfirmationTitleV2(preferredLanguages: .currentLocale)
 
