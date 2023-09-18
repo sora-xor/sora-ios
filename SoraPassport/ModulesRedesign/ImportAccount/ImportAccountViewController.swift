@@ -174,6 +174,10 @@ extension ImportAccountViewController: InputTextViewDelegate {
     
     func textViewDidChange(_ textView: UITextView) {
         createAccountButton.sora.isEnabled = !textView.text.isEmpty
+        //INFO: Added for autotests
+        #if (arch(x86_64))
+            sourceViewModel?.inputHandler.changeValue(to: textView.text)
+        #endif
     }
 }
 
