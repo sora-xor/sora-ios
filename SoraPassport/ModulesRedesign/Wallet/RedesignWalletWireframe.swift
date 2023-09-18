@@ -39,7 +39,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
     func showFullListAssets(on controller: UIViewController?,
                             assetManager: AssetManagerProtocol,
                             fiatService: FiatServiceProtocol,
-                            assetViewModelFactory: AssetViewModelFactoryProtocol,
+                            assetViewModelFactory: AssetViewModelFactory,
                             providerFactory: BalanceProviderFactory,
                             poolService: PoolsServiceInputProtocol,
                             networkFacade: WalletNetworkOperationFactoryProtocol?,
@@ -50,6 +50,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                             sharingFactory: AccountShareFactoryProtocol,
                             referralFactory: ReferralsOperationFactoryProtocol,
                             assetsProvider: AssetProviderProtocol,
+                            marketCapService: MarketCapServiceProtocol,
                             updateHandler: (() -> Void)?)
     
     func showFullListPools(on controller: UIViewController?,
@@ -67,7 +68,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                           assetInfo: AssetInfo,
                           assetManager: AssetManagerProtocol,
                           fiatService: FiatServiceProtocol,
-                          assetViewModelFactory: AssetViewModelFactoryProtocol,
+                          assetViewModelFactory: AssetViewModelFactory,
                           poolsService: PoolsServiceInputProtocol,
                           poolViewModelsFactory: PoolViewModelFactoryProtocol,
                           providerFactory: BalanceProviderFactory,
@@ -147,7 +148,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
     func showFullListAssets(on controller: UIViewController?,
                             assetManager: AssetManagerProtocol,
                             fiatService: FiatServiceProtocol,
-                            assetViewModelFactory: AssetViewModelFactoryProtocol,
+                            assetViewModelFactory: AssetViewModelFactory,
                             providerFactory: BalanceProviderFactory,
                             poolService: PoolsServiceInputProtocol,
                             networkFacade: WalletNetworkOperationFactoryProtocol?,
@@ -158,6 +159,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                             sharingFactory: AccountShareFactoryProtocol,
                             referralFactory: ReferralsOperationFactoryProtocol,
                             assetsProvider: AssetProviderProtocol,
+                            marketCapService: MarketCapServiceProtocol,
                             updateHandler: (() -> Void)?) {
         let viewModel = ManageAssetListViewModel(assetViewModelFactory: assetViewModelFactory,
                                                  fiatService: fiatService,
@@ -172,6 +174,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                  sharingFactory: sharingFactory,
                                                  referralFactory: referralFactory,
                                                  assetsProvider: assetsProvider,
+                                                 marketCapService: marketCapService,
                                                  updateHandler: updateHandler)
         
         let assetListController = ProductListViewController(viewModel: viewModel)
@@ -223,7 +226,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                           assetInfo: AssetInfo,
                           assetManager: AssetManagerProtocol,
                           fiatService: FiatServiceProtocol,
-                          assetViewModelFactory: AssetViewModelFactoryProtocol,
+                          assetViewModelFactory: AssetViewModelFactory,
                           poolsService: PoolsServiceInputProtocol,
                           poolViewModelsFactory: PoolViewModelFactoryProtocol,
                           providerFactory: BalanceProviderFactory,

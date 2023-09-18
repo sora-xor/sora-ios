@@ -34,7 +34,15 @@ final class ExploreAssetListCell: SoramitsuTableViewCell {
 
     private var assetItem: ExploreAssetListItem?
 
-    private var assetView = ExploreAssetView()
+    private lazy var assetView: ExploreAssetView = {
+        let view = ExploreAssetView()
+        view.assetImageView.sora.loadingPlaceholder.type = .none
+        view.titleLabel.sora.loadingPlaceholder.type = .none
+        view.subtitleLabel.sora.loadingPlaceholder.type = .none
+        view.amountUpLabel.sora.loadingPlaceholder.type = .none
+        view.amountDownLabel.sora.loadingPlaceholder.type = .none
+        return view
+    }()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -70,24 +78,11 @@ extension ExploreAssetListCell: SoramitsuTableViewCellProtocol {
         assetItem = item
         
         assetView.serialNumber.sora.text = item.viewModel.serialNumber
-
-        assetView.assetImageView.image = item.viewModel.icon
-        assetView.assetImageView.sora.loadingPlaceholder.type = .none
-
-        if let title = item.viewModel.title {
-            assetView.titleLabel.sora.text = title
-            assetView.titleLabel.sora.loadingPlaceholder.type = .none
-        }
-
-        if let subtitle = item.viewModel.marketCap {
-            assetView.subtitleLabel.sora.text = subtitle
-            assetView.subtitleLabel.sora.loadingPlaceholder.type = .none
-        }
-
-        if let price = item.viewModel.price {
-            assetView.amountUpLabel.sora.text = price
-            assetView.amountUpLabel.sora.loadingPlaceholder.type = .none
-        }
+        assetView.assetImageView.sora.picture = .logo(image: item.viewModel.icon ?? UIImage())
+        assetView.titleLabel.sora.text = item.viewModel.title
+        assetView.subtitleLabel.sora.text = item.viewModel.marketCap
+        assetView.amountUpLabel.sora.text = item.viewModel.price
+        assetView.amountDownLabel.sora.attributedText = item.viewModel.deltaPrice
     }
 }
 

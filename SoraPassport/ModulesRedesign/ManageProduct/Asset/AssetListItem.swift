@@ -65,9 +65,3 @@ extension AssetListItem: SoramitsuTableViewItemProtocol {
         assetHandler?(assetInfo.identifier)
     }
 }
-
-extension AssetListItem: ManagebleItem {
-    var title: String {
-        assetViewModel.title
-    }
-}
