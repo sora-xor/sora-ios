@@ -49,6 +49,7 @@ final class SwapViewModel {
     let eventCenter: EventCenterProtocol
     let interactor: PolkaswapMainInteractorInputProtocol
     let networkFacade: WalletNetworkOperationFactoryProtocol?
+    var timer: Timer?
     
     let debouncer = Debouncer(interval: 0.8)
     
@@ -283,6 +284,11 @@ final class SwapViewModel {
         self.polkaswapNetworkFacade = polkaswapNetworkFacade
         self.warningViewModelFactory = warningViewModelFactory
     }
+    
+    deinit {
+        timer?.invalidate()
+        timer = nil
+    }
 }
 
 extension SwapViewModel: LiquidityViewModelProtocol {
@@ -338,6 +344,10 @@ extension SwapViewModel: LiquidityViewModelProtocol {
         view?.setupButton(isEnabled: false)
         assetsProvider?.add(observer: self)
         updateDetails()
+    }
+    
+    func viewWillAppear() {
+        subscribeToPoolUpdates()
     }
     
     func choiсeBaseAssetButtonTapped() {
@@ -396,6 +406,9 @@ extension SwapViewModel: LiquidityViewModelProtocol {
     }
     
     func reviewButtonTapped() {
+        timer?.invalidate()
+        timer = nil
+        
         guard let assetManager = assetManager, let amounts = amounts, let quoteParams = quoteParams else { return }
         wireframe?.showSwapConfirmation(on: view?.controller.navigationController,
                                         baseAssetId: firstAssetId,
@@ -639,29 +652,14 @@ extension SwapViewModel {
     }
     
     func subscribeToPoolUpdates() {
-        let xorID = WalletAssetId.xor.rawValue
         guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else { return }
 
-        interactor.unsubscribePoolXYK()
-        interactor.unsubscribePoolTBC()
-
-        if selectedMarket == .smart || selectedMarket == .xyk {
-            if xorID != firstAssetId {
-                interactor.subscribePoolXYK(assetId1: xorID, assetId2: firstAssetId)
-            }
-            if xorID != secondAssetId {
-                interactor.subscribePoolXYK(assetId1: xorID, assetId2: secondAssetId)
-            }
+        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
+            self?.loadQuote()
         }
-
-        if selectedMarket == .smart || selectedMarket == .tbc {
-            interactor.subscribePoolTBC(assetId: xorID)
-            if xorID != firstAssetId {
-                interactor.subscribePoolTBC(assetId: firstAssetId)
-            }
-            if xorID != secondAssetId {
-                interactor.subscribePoolTBC(assetId: secondAssetId)
-            }
+        
+        if let timer {
+            RunLoop.current.add(timer, forMode: .common)
         }
     }
     
