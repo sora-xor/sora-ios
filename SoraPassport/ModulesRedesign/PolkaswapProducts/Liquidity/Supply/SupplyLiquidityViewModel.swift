@@ -197,7 +197,6 @@ final class SupplyLiquidityViewModel {
     private var transactionType: TransactionType = .liquidityAdd
     private let operationFactory: WalletNetworkOperationFactoryProtocol
     private weak var assetsProvider: AssetProviderProtocol?
-    private let regex = try? NSRegularExpression(pattern: "0[xX]03[0-9a-fA-F]+")
     
     private var warningViewModelFactory: WarningViewModelFactory
     private var warningViewModel: WarningViewModel? {
@@ -314,11 +313,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             acceptableAssets.append(xstUsdAsset)
         }
         
-        let assets = acceptableAssets.filter({ asset in
-            let assetId = asset.identifier
-            let range = NSRange(location: 0, length: assetId.count)
-            return assetId != secondAssetId && regex?.firstMatch(in: assetId, range: range) == nil
-        })
+        let assets = acceptableAssets.filter { $0.identifier != secondAssetId }
         
         let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
                                             assetManager: assetManager,
@@ -343,15 +338,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
                   var assetFilter = assetId != firstAssetId
                   
                   var unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
-
-                  if firstAssetId == WalletAssetId.xstusd.rawValue {
-                      unAcceptableAssetIds.append(WalletAssetId.xst.rawValue)
-                  }
                   
-                  assetFilter = assetFilter && !unAcceptableAssetIds.contains(assetId)
-                  
-                  let range = NSRange(location: 0, length: assetId.count)
-                  return assetFilter && regex?.firstMatch(in: assetId, range: range) == nil
+                  return assetFilter && !unAcceptableAssetIds.contains(assetId)
               }) else { return }
 
         let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
