@@ -69,7 +69,7 @@ protocol FriendsInteractorOutputProtocol: AnyObject {
 // MARK: - Wireframe
 
 protocol FriendsWireframeProtocol: SharingPresentable, AlertPresentable,
-                                   ErrorPresentable, HelpPresentable, InputFieldPresentable {
+                                   ErrorPresentable, HelpPresentable {
     func showLinkInputViewController(from controller: UIViewController, delegate: InputLinkPresenterOutput)
 
     func showInputRewardAmountViewController(from controller: UIViewController,
