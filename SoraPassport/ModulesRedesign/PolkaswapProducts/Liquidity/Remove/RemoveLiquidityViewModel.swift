@@ -162,7 +162,7 @@ final class RemoveLiquidityViewModel {
 
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
             
-            if availableTargetAssetPooledByAccount  <= inputedFirstAmount {
+            if availableTargetAssetPooledByAccount <= inputedSecondAmount {
                 inputedSecondAmount = availableTargetAssetPooledByAccount
                 view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
             }
