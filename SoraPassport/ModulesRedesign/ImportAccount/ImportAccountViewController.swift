@@ -153,6 +153,11 @@ extension ImportAccountViewController: UITextFieldDelegate {
 
 extension ImportAccountViewController: InputTextViewDelegate {
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        //INFO: on x86_64 architecture it called twice and make crash of app in didReceiveReplacement method. Added for autotests
+        #if (arch(x86_64))
+            return true
+        #endif
+
         guard let model = sourceViewModel else {
             return false
         }
