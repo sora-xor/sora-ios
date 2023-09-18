@@ -84,15 +84,9 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     }
 
     private func setupView() {
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .clear
-        appearance.shadowColor = .clear
-        navigationController?.navigationBar.compactAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.prefersLargeTitles = true
         
-        soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
+        soramitsuView.sora.backgroundColor = .bgPage
         view.addSubviews(tableView)
     }
 

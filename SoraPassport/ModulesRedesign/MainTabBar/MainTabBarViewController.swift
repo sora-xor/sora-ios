@@ -96,6 +96,7 @@ final class MainTabBarViewController: UITabBarController {
 extension MainTabBarViewController: SoramitsuObserver {
     func styleDidChange(options: UpdateOptions) {
         configureTabBar()
+        AppearanceFactory.applyGlobalAppearance()
     }
 }
 

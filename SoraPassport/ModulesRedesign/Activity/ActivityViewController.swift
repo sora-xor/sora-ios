@@ -130,12 +130,6 @@ final class ActivityViewController: SoramitsuViewController {
         super.viewWillAppear(animated)
         navigationItem.title = viewModel.title
         
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .clear
-        appearance.shadowColor = .clear
-        navigationController?.navigationBar.compactAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.prefersLargeTitles = true
     }
 
