@@ -76,21 +76,24 @@ final class SelectAssetViewModel {
     }
 
     weak var assetManager: AssetManagerProtocol?
-    var assetViewModelFactory: AssetViewModelFactoryProtocol
+    var assetViewModelFactory: AssetViewModelFactory
     weak var fiatService: FiatServiceProtocol?
     private weak var assetsProvider: AssetProviderProtocol?
+    private var marketCapService: MarketCapServiceProtocol
     var assetIds: [String] = []
 
-    init(assetViewModelFactory: AssetViewModelFactoryProtocol,
+    init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
          assetManager: AssetManagerProtocol?,
          assetsProvider: AssetProviderProtocol?,
-         assetIds: [String]) {
+         assetIds: [String],
+         marketCapService: MarketCapServiceProtocol) {
         self.assetViewModelFactory = assetViewModelFactory
         self.fiatService = fiatService
         self.assetManager = assetManager
         self.assetsProvider = assetsProvider
         self.assetIds = assetIds
+        self.marketCapService = marketCapService
     }
 }
 
@@ -103,23 +106,6 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
         R.string.localizable.assetListSearchPlaceholder(preferredLanguages: .currentLocale)
     }
     
-    var items: [ManagebleItem] {
-        isActiveSearch ? filteredAssetItems : assetItems
-    }
-
-    func canMoveAsset(from: Int, to: Int) -> Bool {
-        let firstNotFavoriteIndex = assetItems.firstIndex { !$0.assetViewModel.isFavorite } ?? items.count
-        let isFavorite = assetItems[from].assetViewModel.isFavorite
-        let isTryToChangeXorPosition = to == 0
-        return (isFavorite ? firstNotFavoriteIndex >= to : firstNotFavoriteIndex <= to) && !isTryToChangeXorPosition
-    }
-
-    func didMoveAsset(from: Int, to: Int) {
-        let item = assetItems.remove(at: from)
-        assetItems.insert(item, at: to)
-        setupItems?(assetItems)
-    }
-    
     func viewDidLoad() {
         setupNavigationBar?(mode)
         if let balanceData = assetsProvider?.getBalances(with: assetIds) {
@@ -130,14 +116,23 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 
 private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) {
+        
+        Task {
+            guard let fiatData = await self.fiatService?.getFiat() else { return }
+            
+            let assetInfo = await self.marketCapService.getMarketCap()
+            
+            self.assetItems = balanceItems.compactMap { balance in
 
-        fiatService?.getFiat { [weak self] fiatData in
-            self?.assetItems = balanceItems.compactMap { balance in
-                guard let self = self,
-                      let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
+                let oldPrice: Decimal = Decimal(Double(truncating: assetInfo.first(where: { $0.tokenId == balance.identifier })?.hourDelta ?? 0))
+                let price: Decimal = fiatData.first(where: { $0.id == balance.identifier })?.priceUsd?.decimalValue ?? 0
+                let deltaPrice = price / oldPrice - 1
+                
+                guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
                       let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
                                                                                       fiatData: fiatData,
-                                                                                      mode: self.mode) else {
+                                                                                      mode: self.mode,
+                                                                                      priceDelta: deltaPrice) else {
                     return nil
                 }
 

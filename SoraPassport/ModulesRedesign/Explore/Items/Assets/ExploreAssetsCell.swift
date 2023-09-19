@@ -86,7 +86,7 @@ final class ExploreAssetsCell: SoramitsuTableViewCell {
     private lazy var openFullListAssetsButton: SoramitsuButton = {
         let button = SoramitsuButton(size: .extraSmall, type: .text(.primary))
         button.sora.horizontalOffset = 0
-        button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
+        button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.showMore(preferredLanguages: .currentLocale),
                                                        fontData: FontType.buttonM,
                                                        textColor: .accentPrimary,
                                                        alignment: .left)

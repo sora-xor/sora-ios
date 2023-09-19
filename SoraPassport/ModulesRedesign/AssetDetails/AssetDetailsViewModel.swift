@@ -51,7 +51,7 @@ final class AssetDetailsViewModel {
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     
     weak var assetManager: AssetManagerProtocol?
-    var assetViewModelFactory: AssetViewModelFactoryProtocol
+    var assetViewModelFactory: AssetViewModelFactory
     let historyService: HistoryServiceProtocol
     let viewModelFactory: ActivityViewModelFactoryProtocol
     weak var fiatService: FiatServiceProtocol?
@@ -80,7 +80,7 @@ final class AssetDetailsViewModel {
     init(
         wireframe: AssetDetailsWireframeProtocol?,
         assetInfo: AssetInfo,
-        assetViewModelFactory: AssetViewModelFactoryProtocol,
+        assetViewModelFactory: AssetViewModelFactory,
         assetManager: AssetManagerProtocol?,
         historyService: HistoryServiceProtocol,
         fiatService: FiatServiceProtocol,

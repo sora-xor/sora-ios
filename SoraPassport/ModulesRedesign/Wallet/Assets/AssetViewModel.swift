@@ -42,6 +42,7 @@ struct AssetViewModel {
     let icon: UIImage?
     var mode: WalletViewMode
     var isFavorite: Bool
+    var deltaPriceText: SoramitsuTextItem?
 
     init(identifier: String,
          title: String,
@@ -49,7 +50,8 @@ struct AssetViewModel {
          fiatText: String,
          icon: UIImage?,
          mode: WalletViewMode = .view,
-         isFavorite: Bool = false) {
+         isFavorite: Bool = false,
+         deltaPriceText: SoramitsuTextItem? = nil) {
         self.identifier = identifier
         self.title = title
         self.subtitle = subtitle
@@ -57,5 +59,6 @@ struct AssetViewModel {
         self.icon = icon
         self.mode = mode
         self.isFavorite = isFavorite
+        self.deltaPriceText = deltaPriceText
     }
 }

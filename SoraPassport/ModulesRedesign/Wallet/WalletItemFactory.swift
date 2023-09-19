@@ -202,11 +202,14 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                                             assetManager: assetManager,
                                             fiatService: fiatService)
         
+        let marketCap = MarketCapService(assetManager: assetManager)
+        
         let assetsItem = AssetsItem(title: R.string.localizable.liquidAssets(preferredLanguages: .currentLocale),
                                     assetProvider: assetsProvider,
                                     assetManager: assetManager,
                                     fiatService: fiatService,
-                                    assetViewModelsFactory: factory)
+                                    assetViewModelsFactory: factory,
+                                    marketCapService: marketCap)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.liquidAssets(preferredLanguages: locale.rLanguages)

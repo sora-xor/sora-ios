@@ -204,7 +204,7 @@
 "wallet.receive.xor" = "XOR qəbul edin";
 "common.share" = "Paylaş";
 "contacts.search.hint" = "Telefon nömrəsi və ya hesab id";
-"contacts.search.empty.state.title" = "Axtarış nəticələri yoxdur";
+"search.empty.state" = "Axtarış nəticələri yoxdur";
 "contacts.empty.state.title" = "Ən vacib əlaqələr burada görünəcəkdir";
 "about.software" = "Proqram təminatı";
 "about.version" = "Versiya";
@@ -441,8 +441,6 @@
 "polkaswap.network.fee.info" = "Şəbəkə haqqı SORA sisteminin böyüməsini və sabit performansını təmin etmək üçün istifadə olunur.";
 "polkaswap.maximum.sold.info" = "Təsdiq edilməmişdən əvvəl böyük, əlverişsiz bir qiymət hərəkəti olarsa, əməliyyatınız geri qayıdacaq.";
 "polkaswap.maximum.sold" = "Max satılır";
-"polkaswap.xyk" = "XYK";
-"polkaswap.tbc" = "TBC";
 "polkaswap.info.title" = "Disclaimer";
 "polkaswap.info.faq" = "Polkasvap FAQ (Çox Soruşulan Suallar)";
 "polkaswap.pool.not.created" = "Hovuz (pool) yaradılmadı";
@@ -550,8 +548,6 @@
 "common.remove" = "Sil";
 "liquidity.added" = "%@ likvidlik əlavə edildi";
 "liquidity.removed" = "%@ likvidlik silindi";
-"liquidity.pair.creation.title" = "Siz ilk likvidlik təminatçısısınız";
-"liquidity.pair.creation.description" = "Əlavə etdiyiniz tokenlərin nisbəti bu hovuzun qiymətini təyin edəcək. Məzənnədən məmnun olduqdan sonra nəzərdən keçirmək üçün təchizatı klikləyin.";
 "remove.pool.confirmation.description" = "Çıxış təxmin edilir. Qiymət %s%% -dən çox dəyişərsə, əməliyyatınız geri qayıdacaq.";
 "remove.pool.confirmation.title" = "Silinməni təsdiqləyin";
 "polkaswap.not.enough.tokens.in.pool" = "Hovuzda kifayət qədər token yoxdur";
@@ -903,7 +899,6 @@
 "sora.card.option.logout.description" = "Siz SORA Card-dan çıxmaq üzrəsiniz. Siz hələ də SORA Card müstəqil proqramına çıxışınız olacaq, lakin balans artıq SORA Pulqabıda sizin üçün əlçatan olmayacaq.";
 "sora.card.details.card.management.coming.soon" = "Kart idarəçiliyi tezliklə gələcək";
 "sora.card.banner.title.card.info" = "Kart məlumatı";
-"polkaswap.liquidity.synthetic.fee" = "Sintetik token haqqı";
 "polkaswap.liquidity.total.fee" = "Ümumi ödəniş";
 "polkaswap.liquidity.total.fee.desc" = "Ümumi ödəniş ödənişdən ibarətdir";
-"polkaswap.liquidity.synthetic.fee.desc" = "Sintetik ödəniş sintetik aktiv haqqı və qabaqcadan qaçmağın qarşısını almaq üçün dinamik ödənişdən ibarətdir. Sintetik aktivin haqqı aktivin qeydiyyatı zamanı müəyyən edilir və istənilən vaxt idarəetmə vasitəsilə dəyişdirilə bilər. Dinamik ödəniş oracle qiymətindəki faiz dəyişikliyinə əsaslanır.";
+"explore.create.pool" = "Hovuz yaradın";

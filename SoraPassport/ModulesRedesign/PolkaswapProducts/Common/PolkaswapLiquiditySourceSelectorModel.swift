@@ -41,9 +41,9 @@ extension LiquiditySourceType: SourceType {
     func titleForLocale(_ locale: Locale) -> String {
         switch self {
         case .xyk:
-            return R.string.localizable.polkaswapXyk(preferredLanguages: locale.rLanguages)
+            return "XYK"
         case .tbc:
-            return R.string.localizable.polkaswapTbc(preferredLanguages: locale.rLanguages)
+            return "TBC"
         case .smart:
             return R.string.localizable.polkaswapSmart(preferredLanguages: locale.rLanguages)
         }

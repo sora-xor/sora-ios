@@ -34,42 +34,33 @@ import CommonWallet
 import BigInt
 import Combine
 
-protocol ViewAssetListViewModelProtocol: Produtable {
-    typealias ItemType = ExploreAssetListItem
-}
-
 final class ViewAssetListViewModel {
 
-    var setupNavigationBar: ((WalletViewMode) -> Void)?
+    var setupNavigationBar: ((UIBarButtonItem?) -> Void)?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var dissmiss: ((Bool) -> Void)?
-    var updateHandler: (() -> Void)?
 
     var assetItems: [ExploreAssetListItem] = [] {
         didSet {
-            setupTableViewItems(with: assetItems)
+            setupItems?(assetItems)
         }
     }
 
     var filteredAssetItems: [ExploreAssetListItem] = [] {
         didSet {
-            setupTableViewItems(with: filteredAssetItems)
+            setupItems?(filteredAssetItems)
         }
     }
 
-    var mode: WalletViewMode = .selection
-
     var isActiveSearch: Bool = false {
         didSet {
-            setupTableViewItems(with: isActiveSearch ? filteredAssetItems : assetItems)
+            setupItems?(isActiveSearch ? filteredAssetItems : assetItems)
         }
     }
 
     var searchText: String = "" {
         didSet {
             guard !searchText.isEmpty else {
-                setupTableViewItems(with: assetItems)
+                setupItems?(assetItems)
                 return
             }
             filterAssetList(with: searchText.lowercased())
@@ -88,7 +79,7 @@ final class ViewAssetListViewModel {
     }
 }
 
-extension ViewAssetListViewModel: ViewAssetListViewModelProtocol {
+extension ViewAssetListViewModel: Explorable {
     var navigationTitle: String {
         R.string.localizable.commonCurrencies(preferredLanguages: .currentLocale)
     }
@@ -97,18 +88,8 @@ extension ViewAssetListViewModel: ViewAssetListViewModelProtocol {
         R.string.localizable.assetListSearchPlaceholder(preferredLanguages: .currentLocale)
     }
     
-    var items: [ManagebleItem] {
-        isActiveSearch ? filteredAssetItems : assetItems
-    }
-
-    func canMoveAsset(from: Int, to: Int) -> Bool {
-        false
-    }
-
-    func didMoveAsset(from: Int, to: Int) {}
-    
     func viewDidLoad() {
-        setupNavigationBar?(mode)
+        setupNavigationBar?(nil)
         setupSubscription()
     }
 }
@@ -137,14 +118,5 @@ private extension ViewAssetListViewModel {
             (item.viewModel.symbol?.lowercased().contains(query) ?? false) ||
             (item.viewModel.title?.lowercased().contains(query) ?? false)
         }
-    }
-
-    func setupTableViewItems(with items: [ExploreAssetListItem]) {
-        if isActiveSearch {
-            setupItems?(items)
-            return
-        }
-
-        setupItems?(items)
     }
 }

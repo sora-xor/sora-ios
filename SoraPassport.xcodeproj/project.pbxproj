@@ -283,6 +283,8 @@
 		3635B7212934EA5E00B2B728 /* SwapDisclaimerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3635B71F2934EA5E00B2B728 /* SwapDisclaimerCell.swift */; };
 		3635B7252936F99D00B2B728 /* ConfirmRemoveLiquidityViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3635B7242936F99D00B2B728 /* ConfirmRemoveLiquidityViewModel.swift */; };
 		3635B7272937080200B2B728 /* ConfirmSwapViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3635B7262937080200B2B728 /* ConfirmSwapViewModel.swift */; };
+		3637B5512AB9339C006B7A85 /* ExploreListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3637B5502AB9339C006B7A85 /* ExploreListViewController.swift */; };
+		3637B5532AB93848006B7A85 /* Explorable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3637B5522AB93848006B7A85 /* Explorable.swift */; };
 		363B675C29F86AD8008B53FC /* AccountWarningViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363B675B29F86AD8008B53FC /* AccountWarningViewController.swift */; };
 		363BDAFC2938C540000F5608 /* ActivityWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363BDAFB2938C53F000F5608 /* ActivityWireframe.swift */; };
 		363BDAFF2938CCF6000F5608 /* HeaderActivityDetailsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363BDAFD2938CCF6000F5608 /* HeaderActivityDetailsCell.swift */; };
@@ -1595,6 +1597,8 @@
 		3635B71F2934EA5E00B2B728 /* SwapDisclaimerCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SwapDisclaimerCell.swift; sourceTree = "<group>"; };
 		3635B7242936F99D00B2B728 /* ConfirmRemoveLiquidityViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfirmRemoveLiquidityViewModel.swift; sourceTree = "<group>"; };
 		3635B7262937080200B2B728 /* ConfirmSwapViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfirmSwapViewModel.swift; sourceTree = "<group>"; };
+		3637B5502AB9339C006B7A85 /* ExploreListViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExploreListViewController.swift; sourceTree = "<group>"; };
+		3637B5522AB93848006B7A85 /* Explorable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Explorable.swift; sourceTree = "<group>"; };
 		363B675B29F86AD8008B53FC /* AccountWarningViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountWarningViewController.swift; sourceTree = "<group>"; };
 		363BDAFB2938C53F000F5608 /* ActivityWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityWireframe.swift; sourceTree = "<group>"; };
 		363BDAFD2938CCF6000F5608 /* HeaderActivityDetailsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HeaderActivityDetailsCell.swift; sourceTree = "<group>"; };
@@ -4252,6 +4256,8 @@
 		364D64C72A96318E00072106 /* List */ = {
 			isa = PBXGroup;
 			children = (
+				3637B5522AB93848006B7A85 /* Explorable.swift */,
+				3637B5502AB9339C006B7A85 /* ExploreListViewController.swift */,
 				364D64D32A96B94000072106 /* Pool */,
 				364D64D22A96B93000072106 /* Asset */,
 			);
@@ -7051,6 +7057,7 @@
 				9440FBB126974EC000ADC68E /* WhitelistOperationFactory.swift in Sources */,
 				945A571A25DE7F63003E4023 /* RuntimeRegistryService.swift in Sources */,
 				36069F0D2A2BA3CA00439ADE /* WarningItem.swift in Sources */,
+				3637B5512AB9339C006B7A85 /* ExploreListViewController.swift in Sources */,
 				8BF428792940A66E00590F92 /* LanguageItem.swift in Sources */,
 				364D61CC2993D47E004938FA /* BalanceDetailView.swift in Sources */,
 				364526A728C2B02F00260340 /* NodeView.swift in Sources */,
@@ -7226,6 +7233,7 @@
 				949C789625D3EB1D00E260B9 /* WalletQRCoderFactory.swift in Sources */,
 				9441F95325C9707200775559 /* CompoundOperationWrapper+Result.swift in Sources */,
 				94497DD125EF89A700FD4F14 /* ExtrinsicPayload.swift in Sources */,
+				3637B5532AB93848006B7A85 /* Explorable.swift in Sources */,
 				846EC80123681FF90048ED4E /* LinkData.swift in Sources */,
 				940683A226790B44005F520D /* OperationCombiningService.swift in Sources */,
 				3641DD3C2952C61500CA32E0 /* WalletQRExtractionService.swift in Sources */,

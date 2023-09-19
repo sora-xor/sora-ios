@@ -400,6 +400,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         let factory = AssetViewModelFactory(walletAssets: assets,
                                             assetManager: assetManager,
                                             fiatService: fiatService)
+        let marketCap = MarketCapService(assetManager: assetManager)
         
         wireframe?.showFullListAssets(on: view?.controller,
                                       assetManager: assetManager,
@@ -415,6 +416,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                       sharingFactory: sharingFactory,
                                       referralFactory: referralFactory,
                                       assetsProvider: assetsProvider,
+                                      marketCapService: marketCap,
                                       updateHandler: updateAssets)
     }
     

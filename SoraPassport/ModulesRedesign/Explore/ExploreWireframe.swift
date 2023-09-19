@@ -37,6 +37,7 @@ protocol ExploreWireframeProtocol {
     func showPoolList(on viewController: UIViewController?, viewModelService: ExplorePoolViewModelService)
     func showAssetDetails(on viewController: UIViewController?, assetId: String)
     func showAccountPoolDetails(on viewController: UIViewController?, poolInfo: PoolInfo)
+    func showLiquidity(on controller: UIViewController?)
 }
 
 final class ExploreWireframe: ExploreWireframeProtocol {
@@ -47,7 +48,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     let marketCapService: MarketCapServiceProtocol
     let poolService: ExplorePoolsServiceInputProtocol
     let apyService: APYServiceProtocol?
-    let assetViewModelFactory: AssetViewModelFactoryProtocol
+    let assetViewModelFactory: AssetViewModelFactory
     let poolsService: PoolsServiceInputProtocol
     let poolViewModelsFactory: PoolViewModelFactoryProtocol
     let providerFactory: BalanceProviderFactory
@@ -67,7 +68,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         marketCapService: MarketCapServiceProtocol,
         poolService: ExplorePoolsServiceInputProtocol,
         apyService: APYServiceProtocol?,
-        assetViewModelFactory: AssetViewModelFactoryProtocol,
+        assetViewModelFactory: AssetViewModelFactory,
         poolsService: PoolsServiceInputProtocol,
         poolViewModelsFactory: PoolViewModelFactoryProtocol,
         providerFactory: BalanceProviderFactory,
@@ -104,7 +105,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     func showAssetList(on viewController: UIViewController?, viewModelService: ExploreAssetViewModelService) {
         let viewModel = ViewAssetListViewModel(viewModelService: viewModelService, wireframe: self)
         
-        let assetListController = ProductListViewController(viewModel: viewModel)
+        let assetListController = ExploreListViewController(viewModel: viewModel)
         viewModel.view = assetListController
         
         let containerView = BlurViewController()
@@ -120,7 +121,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     func showPoolList(on viewController: UIViewController?, viewModelService: ExplorePoolViewModelService) {
         let viewModel = ViewPoolListViewModel(viewModelService: viewModelService, wireframe: self, accountPoolsService: poolsService)
         
-        let assetListController = ProductListViewController(viewModel: viewModel)
+        let assetListController = ExploreListViewController(viewModel: viewModel)
         viewModel.view = assetListController
         
         let containerView = BlurViewController()
@@ -187,5 +188,27 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         containerView.add(assetDetailNavigationController)
         
         viewController?.present(containerView, animated: true)
+    }
+    
+    func showLiquidity(on controller: UIViewController?) {
+        guard let fiatService = fiatService, let networkFacade = networkFacade else { return }
+        
+        guard let assetDetailsController = LiquidityViewFactory.createView(poolInfo: nil,
+                                                                           assetManager: assetManager,
+                                                                           fiatService: fiatService,
+                                                                           poolsService: poolsService,
+                                                                           operationFactory: networkFacade,
+                                                                           assetsProvider: assetsProvider) else { return }
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        
+        let navigationController = UINavigationController(rootViewController: assetDetailsController)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.addCustomTransitioning()
+        
+        containerView.add(navigationController)
+        
+        controller?.present(containerView, animated: true)
     }
 }

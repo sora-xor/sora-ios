@@ -204,7 +204,7 @@
 "wallet.receive.xor" = "收到XOR";
 "common.share" = "分享";
 "contacts.search.hint" = "电话号码或账户";
-"contacts.search.empty.state.title" = "无搜索结果";
+"search.empty.state" = "没有结果";
 "contacts.empty.state.title" = "重要联系人将出现在这里";
 "about.software" = "软件";
 "about.version" = "版本";
@@ -441,8 +441,6 @@
 "polkaswap.network.fee.info" = "网络费用用于保证 SORA 系统的增长和稳定的性能。";
 "polkaswap.maximum.sold.info" = "如果在确认之前有一个较大而不利的价格变动，您的交易将被取消。";
 "polkaswap.maximum.sold" = "最大销售量";
-"polkaswap.xyk" = "XYK";
-"polkaswap.tbc" = "TBC";
 "polkaswap.info.title" = "免责声明";
 "polkaswap.info.faq" = "Polkaswap 常见问题";
 "polkaswap.pool.not.created" = "未创建流动池";
@@ -550,8 +548,6 @@
 "common.remove" = "移除";
 "liquidity.added" = "增加了%@流动性";
 "liquidity.removed" = "移除%@流动性";
-"liquidity.pair.creation.title" = "您是第一个流动性提供者";
-"liquidity.pair.creation.description" = "您添加的代币比例将决定此池子的价格。一旦您对比率满意，请点击供应以进行审核。";
 "remove.pool.confirmation.description" = "产出是估计的。如果价格变化超过%s%%，您的交易将被取消。";
 "remove.pool.confirmation.title" = "确认移除";
 "polkaswap.not.enough.tokens.in.pool" = "流动池中没有足够的代币";
@@ -903,7 +899,6 @@
 "sora.card.option.logout.description" = "您即将退出 SORA Card。您仍然可以使用 SORA Card 独立应用程序，但余额将不再在 SORA 钱包中可用。";
 "sora.card.details.card.management.coming.soon" = "即将推出卡片管理功能";
 "sora.card.banner.title.card.info" = "卡片信息";
-"polkaswap.liquidity.synthetic.fee" = "合成费用";
 "polkaswap.liquidity.total.fee" = "兑换费用";
 "polkaswap.liquidity.total.fee.desc" = "你的兑换涉及到合成费用和流动性提供者费用。\n当兑换通过合成资产的XST流动性来源时，会计算合成费用；而当兑换通过流动性池时，则会计算流动性提供者费用。";
-"polkaswap.liquidity.synthetic.fee.desc" = "合成费用由合成资产费用和动态费用组成，以防止抢先交易。合成资产费用在资产注册时确定，并可以通过治理随时更改。动态费用基于预言机价格的百分比变化而定。";
+"explore.create.pool" = "Create pool";
