@@ -30,6 +30,7 @@
 
 import Foundation
 import SoraUIKit
+import SoraFoundation
 
 public final class ExplorePoolView: SoramitsuControl {
     
@@ -131,9 +132,12 @@ public final class ExplorePoolView: SoramitsuControl {
         return label
     }()
 
+    private let localizationManager = LocalizationManager.shared
+    
     override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         setup()
+        setupSemantics()
     }
     
     required init?(coder: NSCoder) {
@@ -176,5 +180,11 @@ private extension ExplorePoolView {
             secondCurrencyImageView.leadingAnchor.constraint(equalTo: firstCurrencyImageView.leadingAnchor, constant: 24),
             secondCurrencyImageView.trailingAnchor.constraint(equalTo: currenciesView.trailingAnchor),
         ])
+    }
+    
+    func setupSemantics() {
+        let alignment: NSTextAlignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
+        titleLabel.sora.alignment = alignment
+        subtitleLabel.sora.alignment = alignment
     }
 }

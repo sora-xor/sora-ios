@@ -67,8 +67,7 @@ final class MoreMenuCell: SoramitsuTableViewCell {
         let isRTL: Bool = (LocalizationManager.shared.selectedLocalization == "ar") || (LocalizationManager.shared.selectedLocalization == "he")
         let semanticContentAttribute: UISemanticContentAttribute = isRTL ? .forceRightToLeft : .forceLeftToRight
         categoryItem.horizontalStack.semanticContentAttribute = semanticContentAttribute
-        categoryItem.subtitleView.semanticContentAttribute = semanticContentAttribute
-        categoryItem.circle.semanticContentAttribute = semanticContentAttribute
+        categoryItem.verticalStack.semanticContentAttribute = semanticContentAttribute
         categoryItem.titleLabel.sora.alignment = isRTL ? .right : .left
         categoryItem.subtitleLabel.sora.alignment = isRTL ? .right : .left
     }

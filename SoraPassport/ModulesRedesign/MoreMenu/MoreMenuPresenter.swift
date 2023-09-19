@@ -200,4 +200,10 @@ extension MoreMenuPresenter: EventVisitorProtocol {
             self?.reload()
         }
     }
+    
+    func processLanguageChanged(event: LanguageChanged) {
+        DispatchQueue.main.async { [weak self] in
+            self?.view?.refreshNavigationBar()
+        }
+    }
 }

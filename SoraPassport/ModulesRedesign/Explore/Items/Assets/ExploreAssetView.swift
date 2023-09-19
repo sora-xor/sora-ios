@@ -31,6 +31,7 @@
 import Foundation
 import SoraUIKit
 import Combine
+import SoraFoundation
 
 public final class ExploreAssetView: SoramitsuView {
     
@@ -132,9 +133,12 @@ public final class ExploreAssetView: SoramitsuView {
         return view
     }()
     
+    private let localizationManager = LocalizationManager.shared
+    
     override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         setup()
+        setupSemantics()
     }
     
     required init?(coder: NSCoder) {
@@ -174,5 +178,11 @@ private extension ExploreAssetView {
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             stackView.heightAnchor.constraint(equalToConstant: 40),
         ])
+    }
+    
+    func setupSemantics() {
+        let alignment: NSTextAlignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
+        titleLabel.sora.alignment = alignment
+        subtitleLabel.sora.alignment = alignment
     }
 }

@@ -89,7 +89,7 @@ final class ExploreAssetsCell: SoramitsuTableViewCell {
         button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
                                                        fontData: FontType.buttonM,
                                                        textColor: .accentPrimary,
-                                                       alignment: .left)
+                                                       alignment: .natural)
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.assetsItem?.expandHandler?()
         }
@@ -121,7 +121,7 @@ final class ExploreAssetsCell: SoramitsuTableViewCell {
             openFullListAssetsButton?.sora.attributedText = SoramitsuTextItem(text: currentTitle,
                                                            fontData: FontType.buttonM,
                                                            textColor: .accentPrimary,
-                                                           alignment: .left)
+                                                           alignment: .natural)
         }
     }
 
@@ -180,6 +180,16 @@ final class ExploreAssetsCell: SoramitsuTableViewCell {
 
         fullStackView.addArrangedSubviews(openFullListAssetsButton)
     }
+    
+    private func updateLayout() {
+        let alignment: NSTextAlignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
+        titleLabel.sora.alignment = alignment
+        subtitleLabel.sora.alignment = alignment
+        openFullListAssetsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
+                                                       fontData: FontType.buttonM,
+                                                       textColor: .accentPrimary,
+                                                       alignment: alignment)
+    }
 }
 
 extension ExploreAssetsCell: CellProtocol {
@@ -194,5 +204,6 @@ extension ExploreAssetsCell: CellProtocol {
         
         let viewModels = Array((item.viewModelService?.viewModels ?? []).prefix(5))
         updateContent(with: viewModels)
+        updateLayout()
     }
 }

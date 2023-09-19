@@ -34,6 +34,7 @@ import SoraFoundation
 final class PoolsCell: SoramitsuTableViewCell {
     
     private var poolsItem: PoolsItem?
+    private var localizationManager = LocalizationManager.shared
     
     private let shimmerView: SoramitsuShimmerView = {
         let view = SoramitsuShimmerView()
@@ -186,6 +187,12 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
         fullStackView.addArrangedSubviews(openFullListPoolsButton)
         fullStackView.sora.isHidden = item.poolViewModels.isEmpty
         shimmerView.sora.alpha = item.state == .loading ? 1 : 0
+        
+        let alignment: NSTextAlignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
+        openFullListPoolsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
+                                                                          fontData: FontType.buttonM,
+                                                                          textColor: .accentPrimary,
+                                                                          alignment: alignment)
     }
 }
 
