@@ -147,6 +147,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                         reloadItem?([item])
                     }
                 }
+                
                 OperationManagerFacade.runtimeBuildingQueue.addOperation(persistentOperation)
             })
         }
