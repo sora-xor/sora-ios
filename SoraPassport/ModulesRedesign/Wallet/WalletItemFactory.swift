@@ -148,7 +148,6 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                     }
                 }
                 
-                ApplicationConfig.shared.accountLoadedPools.remove(currentAccount?.address ?? "")
                 OperationManagerFacade.runtimeBuildingQueue.addOperation(persistentOperation)
             })
         }
