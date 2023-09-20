@@ -111,6 +111,7 @@ final class ApplicationConfig {
     static let shared: ApplicationConfig! = ApplicationConfig()
 
     static var logger: LoggerProtocol = Logger.shared
+    var accountLoadedPools: Set<String> = []
 
     private struct Constants {
         static let infoConfigKey = "AppConfigName"
@@ -383,15 +384,6 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: "enabledCardIdentifiers")
-        }
-    }
-    
-    var accountLoadedPools: [String] {
-        get {
-            return UserDefaults.standard.array(forKey: "accountLoadedPools") as? [String] ?? []
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "accountLoadedPools")
         }
     }
     

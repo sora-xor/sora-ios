@@ -159,7 +159,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             
             editViewService.viewModels = models
             ApplicationConfig.shared.enabledCardIdentifiers = enabledIds
-            ApplicationConfig.shared.accountLoadedPools.append(self.address)
+            ApplicationConfig.shared.accountLoadedPools.insert(self.address)
             
             DispatchQueue.main.async {
                 self.updateItems()
