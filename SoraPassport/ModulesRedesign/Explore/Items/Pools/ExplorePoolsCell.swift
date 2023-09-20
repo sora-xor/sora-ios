@@ -184,7 +184,7 @@ final class ExplorePoolsCell: SoramitsuTableViewCell {
     }
     
     private func updateLayout() {
-        let alignment: NSTextAlignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
         titleLabel.sora.alignment = alignment
         subtitleLabel.sora.alignment = alignment
         openFullListAssetsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),

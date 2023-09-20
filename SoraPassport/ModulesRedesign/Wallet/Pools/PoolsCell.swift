@@ -188,7 +188,7 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
         fullStackView.sora.isHidden = item.poolViewModels.isEmpty
         shimmerView.sora.alpha = item.state == .loading ? 1 : 0
         
-        let alignment: NSTextAlignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
         openFullListPoolsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
                                                                           fontData: FontType.buttonM,
                                                                           textColor: .accentPrimary,

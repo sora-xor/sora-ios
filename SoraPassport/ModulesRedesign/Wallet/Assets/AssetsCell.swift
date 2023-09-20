@@ -188,7 +188,7 @@ extension AssetsCell: SoramitsuTableViewCellProtocol {
         fullStackView.addArrangedSubviews(openFullListAssetsButton)
         shimmerView.sora.alpha = (assetsItem?.assetViewModels.isEmpty ?? true) ? 1 : 0
         
-        let alignment: NSTextAlignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
         openFullListAssetsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
                                                                           fontData: FontType.buttonM,
                                                                           textColor: .accentPrimary,

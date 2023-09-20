@@ -69,7 +69,7 @@ class AppSettingsCell: SoramitsuTableViewCell {
     }
     
     private func updateSemantics() {
-        let semanticContentAttribute: UISemanticContentAttribute = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .forceRightToLeft : .forceLeftToRight
+        let semanticContentAttribute: UISemanticContentAttribute = localizationManager.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         menuItem.semanticContentAttribute = semanticContentAttribute
     }
 }

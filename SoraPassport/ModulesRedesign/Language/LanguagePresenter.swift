@@ -42,10 +42,6 @@ final class LanguagePresenter {
         eventCenter.add(observer: self, dispatchIn: .main)
     }
     
-//    deinit {
-//        eventCenter.remove(observer: self)
-//    }
-    
     private func createModel() -> LanguageModel {
         selectedLanguage = localizationManager?.selectedLanguage
         var sections: [SoramitsuTableViewSection] = []
@@ -89,7 +85,6 @@ final class LanguagePresenter {
                 guard let delegate = UIApplication.shared.delegate as? AppDelegate else { return }
                 delegate.setupLanguage()
                 EventCenter.shared.notify(with: LanguageChanged())
-//                self?.view?.updateHierarchy()
             }
         }
         

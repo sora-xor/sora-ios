@@ -62,7 +62,7 @@ final class LanguageCell: SoramitsuTableViewCell {
     }
     
     func updayeLayout() {
-        let semanticContentAttribute: UISemanticContentAttribute = (LocalizationManager.shared.selectedLocalization == "ar") || (LocalizationManager.shared.selectedLocalization == "he") ? .forceRightToLeft : .forceLeftToRight
+        let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         itemView.semanticContentAttribute = semanticContentAttribute
     }
 }

@@ -40,6 +40,10 @@ extension LocalizationManagerProtocol {
     var selectedLanguage: Language {
         return Language(code: selectedLocalization)
     }
+    
+    var isRightToLeft: Bool {
+        return (selectedLocalization == "ar") || (selectedLocalization == "he")
+    }
 }
 
 extension LocalizationManager {

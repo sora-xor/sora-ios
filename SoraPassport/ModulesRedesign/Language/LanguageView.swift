@@ -83,7 +83,7 @@ final class LanguageView: SoramitsuViewController & LanguageViewProtocol {
     }
     
     func updateLayout() {
-        let semanticContentAttribute: UISemanticContentAttribute = (LocalizationManager.shared.selectedLocalization == "ar") || (LocalizationManager.shared.selectedLocalization == "he") ? .forceRightToLeft : .forceLeftToRight
+        let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         navigationController?.navigationBar.semanticContentAttribute = semanticContentAttribute
     }
 }

@@ -55,7 +55,7 @@ final class EnabledView: SoramitsuView {
         label.sora.font = FontType.textM
         label.sora.textColor = .fgPrimary
         label.sora.isUserInteractionEnabled = false
-        label.sora.alignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
+        label.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         return label
     }()
 

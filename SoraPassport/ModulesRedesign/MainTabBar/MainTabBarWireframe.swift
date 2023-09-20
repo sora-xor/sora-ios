@@ -204,7 +204,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
             tabBarController.viewControllers = viewcontrollers
         }
         
-        tabBarController.tabBar.semanticContentAttribute = (LocalizationManager.shared.selectedLocalization == "ar") || (LocalizationManager.shared.selectedLocalization == "he") ? .forceRightToLeft : .forceLeftToRight
+        tabBarController.tabBar.semanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
     }
 
     // MARK: Private
