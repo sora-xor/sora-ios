@@ -152,13 +152,14 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 models.removeAll(where: { $0.id == poolId })
                 enabledIds.removeAll(where: { $0 == poolId } )
             } else {
-                if !enabledIds.contains(where: { $0 == poolId }) {
+                if !enabledIds.contains(where: { $0 == poolId }) && !ApplicationConfig.shared.accountLoadedPools.contains(self.address)  {
                     enabledIds.append(poolId)
                 }
             }
             
             editViewService.viewModels = models
             ApplicationConfig.shared.enabledCardIdentifiers = enabledIds
+            ApplicationConfig.shared.accountLoadedPools.append(self.address)
             
             DispatchQueue.main.async {
                 self.updateItems()
@@ -225,7 +226,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
     func fetchAssets(completion: @escaping ([SoramitsuTableViewItemProtocol]) -> Void) {
         walletItems = buildItems()
-        completion(walletItems)
+        updateItems()
     }
 
     func showSoraCardDetails() {

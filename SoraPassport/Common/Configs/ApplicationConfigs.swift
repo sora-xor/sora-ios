@@ -386,6 +386,15 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         }
     }
     
+    var accountLoadedPools: [String] {
+        get {
+            return UserDefaults.standard.array(forKey: "accountLoadedPools") as? [String] ?? []
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "accountLoadedPools")
+        }
+    }
+    
     var commonConfigUrl: String {
         #if F_RELEASE
         return "https://config.polkaswap2.io/prod/common.json"
