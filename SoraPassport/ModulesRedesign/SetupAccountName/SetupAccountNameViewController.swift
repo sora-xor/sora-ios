@@ -57,19 +57,25 @@ final class SetupAccountNameViewController: SoramitsuViewController {
     }()
     
     private lazy var usernameField: InputField = {
-        InputField().then {
-            $0.textField.textContentType = .nickname
-            $0.textField.autocapitalizationType = .none
-            $0.textField.autocorrectionType = .no
-            $0.textField.spellCheckingType = .no
-            $0.textField.keyboardType = .alphabet
-            $0.sora.state = .default
-            $0.sora.titleLabelText = R.string.localizable.personalInfoUsernameV1(preferredLanguages: .currentLocale)
-            $0.textField.returnKeyType = .done
-            $0.textField.sora.placeholder = R.string.localizable.personalInfoUsernameV1(preferredLanguages: .currentLocale)
-            $0.sora.descriptionLabelText = R.string.localizable.onboardingCreateAccountSubtitle(preferredLanguages: .currentLocale)
-            $0.textField.delegate = self
+        let view = InputField()
+        view.textField.textContentType = .nickname
+        view.textField.autocapitalizationType = .none
+        view.textField.autocorrectionType = .no
+        view.textField.spellCheckingType = .no
+        view.textField.keyboardType = .alphabet
+        view.sora.state = .default
+        view.sora.titleLabelText = R.string.localizable.personalInfoUsernameV1(preferredLanguages: .currentLocale)
+        view.textField.returnKeyType = .done
+        view.textField.sora.placeholder = R.string.localizable.personalInfoUsernameV1(preferredLanguages: .currentLocale)
+        view.sora.descriptionLabelText = R.string.localizable.onboardingCreateAccountSubtitle(preferredLanguages: .currentLocale)
+        view.textField.delegate = self
+        #if (arch(x86_64))
+        view.textField.sora.addHandler(for: .editingChanged) { [weak self] in
+            //INFO: Added for autotests
+            self?.viewModel?.inputHandler.changeValue(to: view.textField.sora.text ?? "")
         }
+        #endif
+        return view
     }()
 
     private lazy var createAccountButton: SoramitsuButton = {
@@ -136,6 +142,10 @@ extension SetupAccountNameViewController: UITextFieldDelegate {
     func textField(_ textField: UITextField,
                    shouldChangeCharactersIn range: NSRange,
                    replacementString string: String) -> Bool {
+        //INFO: on x86_64 architecture it called twice and make crash of app in didReceiveReplacement method. Added for autotests
+        #if (arch(x86_64))
+            return true
+        #endif
 
         guard let viewModel = viewModel else {
             return true

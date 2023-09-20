@@ -57,24 +57,24 @@ struct AppearanceFactory {
                                              for: .normal)
     }
 
-    // TODO: SN-264. UINavigationBar configuration to decorator ??
     private static func configureGlobalNavigationBar() {
-
-        UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: R.color.neumorphism.textDark() as Any,
-                                                            .font: UIFont.styled(for: .title1) as Any]
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
-        appearance.backgroundColor = UIColor.clear
-        appearance.backgroundEffect = UIBlurEffect(style: .light)
+        appearance.backgroundColor = .clear
+        appearance.titleTextAttributes = [.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgPrimary) as Any]
+        appearance.largeTitleTextAttributes = [.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgPrimary) as Any]
+        appearance.backgroundEffect = UIBlurEffect(style: SoramitsuUI.shared.theme == .light ? .light : .dark)
         
         let scrollingAppearance = UINavigationBarAppearance()
         scrollingAppearance.configureWithTransparentBackground()
         scrollingAppearance.backgroundColor = .clear
+        scrollingAppearance.titleTextAttributes = [.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgPrimary) as Any]
+        scrollingAppearance.largeTitleTextAttributes = [.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgPrimary) as Any]
         
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = scrollingAppearance
         UINavigationBar.appearance().compactAppearance = scrollingAppearance
-        UINavigationBar.appearance().tintColor = UIColor(hex: "#EE2233")
+        UINavigationBar.appearance().tintColor = SoramitsuUI.shared.theme.palette.color(.accentPrimary)
         
         let backImage = R.image.wallet.backArrow()
         

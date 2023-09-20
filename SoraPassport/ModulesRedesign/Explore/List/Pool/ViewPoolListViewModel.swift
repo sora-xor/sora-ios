@@ -35,42 +35,33 @@ import BigInt
 import Combine
 import IrohaCrypto
 
-protocol ViewPoolListViewModelProtocol: Produtable {
-    typealias ItemType = AssetListItem
-}
-
 final class ViewPoolListViewModel {
 
-    var setupNavigationBar: ((WalletViewMode) -> Void)?
+    var setupNavigationBar: ((UIBarButtonItem?) -> Void)?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var dissmiss: ((Bool) -> Void)?
-    var updateHandler: (() -> Void)?
 
     var poolItems: [ExplorePoolListItem] = [] {
         didSet {
-            setupTableViewItems(with: poolItems)
+            setupItems?(poolItems)
         }
     }
 
     var filteredPoolItems: [ExplorePoolListItem] = [] {
         didSet {
-            setupTableViewItems(with: filteredPoolItems)
+            setupItems?(filteredPoolItems)
         }
     }
 
-    var mode: WalletViewMode = .selection
-
     var isActiveSearch: Bool = false {
         didSet {
-            setupTableViewItems(with: isActiveSearch ? filteredPoolItems : poolItems)
+            setupItems?(isActiveSearch ? filteredPoolItems : poolItems)
         }
     }
 
     var searchText: String = "" {
         didSet {
             guard !searchText.isEmpty else {
-                setupTableViewItems(with: poolItems)
+                setupItems?(poolItems)
                 return
             }
             filterAssetList(with: searchText.lowercased())
@@ -92,7 +83,7 @@ final class ViewPoolListViewModel {
     }
 }
 
-extension ViewPoolListViewModel: ViewPoolListViewModelProtocol {
+extension ViewPoolListViewModel: Explorable {
     var navigationTitle: String {
         R.string.localizable.discoveryPolkaswapPools(preferredLanguages: .currentLocale)
     }
@@ -101,19 +92,20 @@ extension ViewPoolListViewModel: ViewPoolListViewModelProtocol {
         R.string.localizable.assetListSearchPlaceholder(preferredLanguages: .currentLocale)
     }
     
-    var items: [ManagebleItem] {
-        isActiveSearch ? filteredPoolItems : poolItems
-    }
-
-    func canMoveAsset(from: Int, to: Int) -> Bool {
-        false
-    }
-
-    func didMoveAsset(from: Int, to: Int) {}
-    
     func viewDidLoad() {
-        setupNavigationBar?(mode)
+        let button = UIBarButtonItem(title: R.string.localizable.exploreCreatePool(preferredLanguages: .currentLocale),
+                                     style: .plain,
+                                     target: self,
+                                     action: #selector(createPool))
+        button.setTitleTextAttributes([ .font: UIFont.systemFont(ofSize: 13, weight: .bold) ], for: .normal)
+        
+        setupNavigationBar?(button)
         setupSubscription()
+    }
+    
+    @objc
+    func createPool() {
+        wireframe.showLiquidity(on: view)
     }
 }
 
@@ -144,8 +136,7 @@ private extension ViewPoolListViewModel {
                     }
                     return item
                 }
-                
-                
+
                 self?.poolItems = items
             }
             .store(in: &cancellables)
@@ -155,14 +146,5 @@ private extension ViewPoolListViewModel {
         filteredPoolItems = poolItems.filter { item in
             item.viewModel.title?.lowercased().contains(query) ?? false
         }
-    }
-
-    func setupTableViewItems(with items: [ExplorePoolListItem]) {
-        if isActiveSearch {
-            setupItems?(items)
-            return
-        }
-
-        setupItems?(items)
     }
 }

@@ -204,7 +204,7 @@
 "wallet.receive.xor" = "استلام XOR";
 "common.share" = "مشاركة";
 "contacts.search.hint" = "رقم الهاتف أو معرف الحساب";
-"contacts.search.empty.state.title" = "لا توجد نتائج بحث";
+"search.empty.state" = "لا توجد نتائج بحث";
 "contacts.empty.state.title" = "هنا ستظهر أهم جهات الاتصال";
 "about.software" = "البرمجيات";
 "about.version" = "الإصدار";
@@ -441,8 +441,6 @@
 "polkaswap.network.fee.info" = "تُستخدم رسوم الشبكة لتأمين نمو نظام سورا بآداء مستقر.";
 "polkaswap.maximum.sold.info" = "ستتعثر وتسترجع معاملتك حال طرأت حركة سعرية بفارق كبير قبل اتمامها.";
 "polkaswap.maximum.sold" = "الحد الاعلى المباع";
-"polkaswap.xyk" = "XYK";
-"polkaswap.tbc" = "TBC";
 "polkaswap.info.title" = "اخلاء مسؤولية";
 "polkaswap.info.faq" = "الأسئلة الشائعة حول بولكاسواب";
 "polkaswap.pool.not.created" = "لم يتم إنشاء الحوض";
@@ -550,8 +548,6 @@
 "common.remove" = "إزالة";
 "liquidity.added" = "اضف %@ سيولة";
 "liquidity.removed" = "السيولة %@ المزالة";
-"liquidity.pair.creation.title" = "انت اول موفر سيولة";
-"liquidity.pair.creation.description" = "سعر هذا الحوض سيحدد بناء على تقييم العملات الي تضيفها عندما يكون معدل التقييم مرضياً بالنسبة لك، انقر للبت بالعرض.";
 "remove.pool.confirmation.description" = "الناتج يقدر. إذا تغير السعر أكثر من %s %% ، فستعود معاملتك.";
 "remove.pool.confirmation.title" = "تأكيد الإزالة";
 "polkaswap.not.enough.tokens.in.pool" = "لا توجد عملات كافية في الحوض";
@@ -903,7 +899,6 @@
 "sora.card.option.logout.description" = "You are about to log out of SORA Card. You will still have access to the SORA Card standalone app, but the balance will no longer be available to you in the SORA Wallet.";
 "sora.card.details.card.management.coming.soon" = "Card management is coming soon";
 "sora.card.banner.title.card.info" = "Card info";
-"polkaswap.liquidity.synthetic.fee" = "Synthetic fee";
 "polkaswap.liquidity.total.fee" = "Swap fee";
 "polkaswap.liquidity.total.fee.desc" = "Your swap involves both a Synthetic fee and an LP fee.\nThe Synthetic fee is accounted when the swap goes through the XST liquidity source for synthetic assets, and the LP fee when the swap goes through liquidity pools.";
-"polkaswap.liquidity.synthetic.fee.desc" = "The synthetic fee is composed of a synthetic asset fee and a dynamic fee to prevent front-running. The synthetic asset fee is determined upon the asset registration and can be changed at any time through governance. The dynamic fee is based on the percentage change in the oracle price.";
+"explore.create.pool" = "Create pool";

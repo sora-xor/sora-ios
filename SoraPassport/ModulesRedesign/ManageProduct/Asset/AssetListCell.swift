@@ -90,6 +90,7 @@ extension AssetListCell: SoramitsuTableViewCellProtocol {
         assetView.sora.isFavorite = item.assetInfo.visible
         assetView.sora.upAmountText = item.assetViewModel.fiatText
         assetView.dragDropImageView.isHidden = true
+        assetView.amountDownLabel.sora.attributedText = item.assetViewModel.deltaPriceText
         
         assetView.favoriteButton.sora.isEnabled = item.canFavorite
 

@@ -52,9 +52,3 @@ extension ExplorePoolListItem: SoramitsuTableViewItemProtocol {
         poolHandler?(viewModel)
     }
 }
-
-extension ExplorePoolListItem: ManagebleItem {
-    var title: String {
-        viewModel.title ?? ""
-    }
-}

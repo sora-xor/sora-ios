@@ -57,9 +57,3 @@ extension PoolListItem: SoramitsuTableViewItemProtocol {
         tapHandler?()
     }
 }
-
-extension PoolListItem: ManagebleItem {
-    var title: String {
-        poolViewModel.title
-    }
-}

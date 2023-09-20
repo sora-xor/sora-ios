@@ -52,9 +52,3 @@ extension ExploreAssetListItem: SoramitsuTableViewItemProtocol {
         assetHandler?(viewModel.assetId)
     }
 }
-
-extension ExploreAssetListItem: ManagebleItem {
-    var title: String {
-        viewModel.title ?? ""
-    }
-}

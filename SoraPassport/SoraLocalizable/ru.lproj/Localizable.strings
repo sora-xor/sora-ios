@@ -204,7 +204,7 @@
 "wallet.receive.xor" = "Получить XOR";
 "common.share" = "Поделиться";
 "contacts.search.hint" = "Номер телефона или аккаунт";
-"contacts.search.empty.state.title" = "Нет результатов";
+"search.empty.state" = "Нет результатов";
 "contacts.empty.state.title" = "Важные контакты будут отображаться здесь";
 "about.software" = "Приложение";
 "about.version" = "Версия";
@@ -441,8 +441,6 @@
 "polkaswap.network.fee.info" = "Комиссия сети используется для обеспечения роста и стабильности системы SORA.";
 "polkaswap.maximum.sold.info" = "Ваша транзакция будет отменена, если произойдет значительное неблагоприятное изменение цены до ее подтверждения.";
 "polkaswap.maximum.sold" = "Макс. продажа";
-"polkaswap.xyk" = "XYK";
-"polkaswap.tbc" = "TBC";
 "polkaswap.info.title" = "Дисклеймер";
 "polkaswap.info.faq" = "Polkaswap FAQ";
 "polkaswap.pool.not.created" = "Пул не создан";
@@ -550,8 +548,6 @@
 "common.remove" = "Удалить";
 "liquidity.added" = "Добавлена %@ ликвидность";
 "liquidity.removed" = "Возвращена %@ ликвидность";
-"liquidity.pair.creation.title" = "Вы первый провайдер ликвидности";
-"liquidity.pair.creation.description" = "Соотношение токенов, которое вы добавляете, будет определять цену этого пула. Как только вы будете довольны ставкой, нажмите «Добавить», чтобы проверить данные.";
 "remove.pool.confirmation.description" = "Результат оценивается. Если цена изменится более чем на %s%% ваша транзакция будет отменена.";
 "remove.pool.confirmation.title" = "Подтвердить Удалить";
 "polkaswap.not.enough.tokens.in.pool" = "Недостаточно токенов в пуле";
@@ -903,7 +899,6 @@
 "sora.card.option.logout.description" = "You are about to log out of SORA Card. You will still have access to the SORA Card standalone app, but the balance will no longer be available to you in the SORA Wallet.";
 "sora.card.details.card.management.coming.soon" = "Card management is coming soon";
 "sora.card.banner.title.card.info" = "Card info";
-"polkaswap.liquidity.synthetic.fee" = "Комиссия за синтетический токен";
 "polkaswap.liquidity.total.fee" = "Комиссия обмена";
 "polkaswap.liquidity.total.fee.desc" = "Ваш своп включает в себя как синтетическую комиссию, так и комиссию LP.\nСинтетическая комиссия учитывается, когда обмен проходит через источник ликвидности XST для синтетических активов, а комиссия LP - когда своп проходит через пулы ликвидности.";
-"polkaswap.liquidity.synthetic.fee.desc" = "Синтетическая комиссия состоит из комиссии за синтетический актив и динамической комиссии для предотвращения опережения. Плата за синтетические активы определяется при регистрации актива и может быть изменена в любое время посредством управления. Динамическая плата основана на процентном изменении цены оракула.";
+"explore.create.pool" = "Create pool";

@@ -204,7 +204,7 @@
 "wallet.receive.xor" = "Nhận XOR";
 "common.share" = "Chia sẻ";
 "contacts.search.hint" = "Số điện thoại hoặc id tài khoản";
-"contacts.search.empty.state.title" = "Không có kết quả tìm kiếm";
+"search.empty.state" = "Không có kết quả tìm kiếm";
 "contacts.empty.state.title" = "Hầu hết các liên hệ quan trọng sẽ xuất hiện ở đây";
 "about.software" = "Phần mềm";
 "about.version" = "Phiên bản";
@@ -441,8 +441,6 @@
 "polkaswap.network.fee.info" = "Phí mạng được sử dụng để đảm bảo sự tăng trưởng và hiệu suất ổn định của hệ thống SORA.";
 "polkaswap.maximum.sold.info" = "Giao dịch của bạn sẽ được hoàn tác nếu có một biến động giá lớn hay một biến động không thuận lợi trước khi nó được xác nhận.";
 "polkaswap.maximum.sold" = "Tối đa đã bán";
-"polkaswap.xyk" = "XYK";
-"polkaswap.tbc" = "TBC";
 "polkaswap.info.title" = "Tuyên bố từ chối trách nhiệm";
 "polkaswap.info.faq" = "Câu hỏi thường gặp về Polkaswap";
 "polkaswap.pool.not.created" = "Pool chưa được tạo";
@@ -550,8 +548,6 @@
 "common.remove" = "Gỡ bỏ";
 "liquidity.added" = "Đã thêm %@ thanh khoản";
 "liquidity.removed" = "Đã rút %@ thanh khoản";
-"liquidity.pair.creation.title" = "Bạn là nhà cung cấp thanh khoản đầu tiên";
-"liquidity.pair.creation.description" = "Tỷ lệ token bạn thêm vào sẽ thiết lập giá của pool này. Một khi bạn hài lòng với tỷ lệ cung cấp hãy nhấp chuột để xem xét.";
 "remove.pool.confirmation.description" = "Kết quả chỉ là ước lượng. Nếu giá biến động hơn %s%% thì giao dịch của bạn sẽ bị hoàn tác.";
 "remove.pool.confirmation.title" = "Xác nhận Rút";
 "polkaswap.not.enough.tokens.in.pool" = "Không đủ token trong pool";
@@ -903,7 +899,6 @@
 "sora.card.option.logout.description" = "Bạn sắp đăng xuất khỏi Thẻ SORA. Bạn sẽ vẫn có quyền truy cập vào ứng dụng độc lập Thẻ SORA, nhưng số dư sẽ không còn khả dụng cho bạn trong Ví SORA.";
 "sora.card.details.card.management.coming.soon" = "Quản lý thẻ sắp ra mắt";
 "sora.card.banner.title.card.info" = "Thông tin thẻ";
-"polkaswap.liquidity.synthetic.fee" = "Phí tổng hợp";
 "polkaswap.liquidity.total.fee" = "Phí hoán đổi";
 "polkaswap.liquidity.total.fee.desc" = "Hoán đổi của bạn bao gồm cả phí Tổng hợp và phí LP.\n Phí tổng hợp được tính khi hoán đổi đi qua nguồn thanh khoản XST cho tài sản tổng hợp và phí LP khi hoán đổi đi qua nhóm thanh khoản.";
-"polkaswap.liquidity.synthetic.fee.desc" = "Phí tổng hợp bao gồm phí tài sản tổng hợp và phí động để ngăn chặn việc chạy trước. Phí tài sản tổng hợp được xác định khi đăng ký tài sản và có thể được thay đổi bất cứ lúc nào thông qua quản trị. Phí động dựa trên tỷ lệ phần trăm thay đổi trong giá oracle.";
+"explore.create.pool" = "Create pool";

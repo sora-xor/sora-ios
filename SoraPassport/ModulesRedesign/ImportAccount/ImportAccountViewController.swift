@@ -132,6 +132,11 @@ extension ImportAccountViewController: UITextFieldDelegate {
                    shouldChangeCharactersIn range: NSRange,
                    replacementString string: String) -> Bool {
         
+        //INFO: on x86_64 architecture it called twice and make crash of app in didReceiveReplacement method. Added for autotests
+        #if (arch(x86_64))
+            return true
+        #endif
+        
         guard let viewModel = viewModel else {
             return true
         }
@@ -148,6 +153,11 @@ extension ImportAccountViewController: UITextFieldDelegate {
 
 extension ImportAccountViewController: InputTextViewDelegate {
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        //INFO: on x86_64 architecture it called twice and make crash of app in didReceiveReplacement method. Added for autotests
+        #if (arch(x86_64))
+            return true
+        #endif
+
         guard let model = sourceViewModel else {
             return false
         }
@@ -164,6 +174,10 @@ extension ImportAccountViewController: InputTextViewDelegate {
     
     func textViewDidChange(_ textView: UITextView) {
         createAccountButton.sora.isEnabled = !textView.text.isEmpty
+        //INFO: Added for autotests
+        #if (arch(x86_64))
+            sourceViewModel?.inputHandler.changeValue(to: textView.text)
+        #endif
     }
 }
 

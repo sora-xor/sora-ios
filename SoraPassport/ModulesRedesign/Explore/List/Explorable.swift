@@ -28,28 +28,14 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import UIKit
+import SoraUIKit
 
-protocol InputFieldPresentable {
-    func requestInput(for viewModel: InputFieldViewModelProtocol,
-                      from view: ControllerBackedProtocol?)
-}
-
-extension InputFieldPresentable {
-    func requestInput(for viewModel: InputFieldViewModelProtocol,
-                      from view: ControllerBackedProtocol?) {
-
-        var currentController = view?.controller
-
-        if currentController == nil {
-            currentController = UIApplication.shared.delegate?.window??.rootViewController
-        }
-
-        guard let presentingController = currentController else {
-            return
-        }
-
-        let presenter = AlertInputFieldPresenter(viewModel: viewModel)
-        presenter.present(from: presentingController)
-    }
+protocol Explorable: AnyObject {
+    var searchBarPlaceholder: String { get }
+    var searchText: String { get set }
+    var isActiveSearch: Bool { get set }
+    var setupNavigationBar: ((UIBarButtonItem?) -> Void)? { get set }
+    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
+    var navigationTitle: String { get }
+    func viewDidLoad()
 }

@@ -45,11 +45,21 @@ final class ExploreItemFactory {
 
 extension ExploreItemFactory {
     
-    func createExploreAssetViewModel(with assetId: String, serialNumber: String, price: Decimal?, marketCap: Decimal) -> ExploreAssetViewModel? {
+    func createExploreAssetViewModel(with assetId: String, serialNumber: String, price: Decimal?, deltaPrice: Decimal?, marketCap: Decimal) -> ExploreAssetViewModel? {
         guard let assetInfo = assetManager.assetInfo(for: assetId) else { return nil }
 
         let fiatText = price != nil ? "$" + (NumberFormatter.fiat.stringFromDecimal(price ?? .zero) ?? "") : ""
         let marketCapText = "$" + marketCap.formatNumber()
+        
+        var deltaArributedText: SoramitsuTextItem?
+        if let deltaPrice {
+            let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(deltaPrice) ?? "")%"
+            let deltaColor: SoramitsuColor = deltaPrice > 0 ? .statusSuccess : .statusError
+            deltaArributedText = SoramitsuTextItem(text: deltaText,
+                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
+                                                                                       textColor: deltaColor,
+                                                                                       alignment: .right))
+        }
         
         return ExploreAssetViewModel(assetId: assetId,
                                      symbol: assetInfo.symbol,
@@ -57,7 +67,8 @@ extension ExploreItemFactory {
                                      price: fiatText,
                                      serialNumber: serialNumber,
                                      marketCap: marketCapText,
-                                     icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""))
+                                     icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
+                                     deltaPrice: deltaArributedText)
     }
 
     func createPoolsItem(with pool: ExplorePool, serialNumber: String, apy: Decimal? = nil) -> ExplorePoolViewModel? {

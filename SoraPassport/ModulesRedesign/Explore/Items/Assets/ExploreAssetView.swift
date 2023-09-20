@@ -124,6 +124,8 @@ public final class ExploreAssetView: SoramitsuView {
         label.sora.alignment = .right
         label.sora.text = " "
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        label.sora.loadingPlaceholder.type = .shimmer
+        label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
         return label
     }()
     

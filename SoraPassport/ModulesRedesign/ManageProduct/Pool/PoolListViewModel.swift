@@ -128,22 +128,6 @@ extension PoolListViewModel: PoolListViewModelProtocol {
         R.string.localizable.commonSearchPools(preferredLanguages: .currentLocale)
     }
     
-    var items: [ManagebleItem] {
-        isActiveSearch ? filteredPoolItems : poolItems
-    }
-
-    func canMoveAsset(from: Int, to: Int) -> Bool {
-        let firstNotFavoriteIndex = poolItems.firstIndex { !$0.poolInfo.isFavorite } ?? poolItems.count
-        let isFavorite = poolItems[from].poolInfo.isFavorite
-        return (isFavorite ? firstNotFavoriteIndex >= to : firstNotFavoriteIndex <= to)
-    }
-
-    func didMoveAsset(from: Int, to: Int) {
-        let item = poolItems.remove(at: from)
-        poolItems.insert(item, at: to)
-        setupItems?(poolItems)
-    }
-    
     func viewDidLoad() {
         setupNavigationBar?(mode)
         poolsService?.loadAccountPools(isNeedForceUpdate: false)

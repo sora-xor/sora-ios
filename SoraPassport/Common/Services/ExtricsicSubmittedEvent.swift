@@ -28,23 +28,20 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import SoraUIKit
+import Foundation
 
-protocol Produtable: AnyObject {
-    var searchBarPlaceholder: String { get }
-    var searchText: String { get set }
-    var mode: WalletViewMode { get set }
-    var isActiveSearch: Bool { get set }
-    var setupNavigationBar: ((WalletViewMode) -> Void)? { get set }
-    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
-    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
-    var dissmiss: ((Bool) -> Void)? { get set }
-    var navigationTitle: String { get }
-    func viewDidLoad()
-    func viewDissmissed()
+struct ExtricsicSubmittedEvent: EventProtocol {
+
+    let extrinsicHex: String
+    let extrinsicInfo: ExtrinsicInfo
+
+    init(extrinsicHex: String, extrinsicInfo: ExtrinsicInfo) {
+        self.extrinsicHex = extrinsicHex
+        self.extrinsicInfo = extrinsicInfo
+    }
+
+    func accept(visitor: EventVisitorProtocol) {
+        visitor.processExtricsicSubmmited(event: self)
+    }
 }
 
-extension Produtable {
-    func viewDissmissed() {}
-    var navigationTitle: String { "" }
-}

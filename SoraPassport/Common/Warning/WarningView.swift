@@ -55,7 +55,6 @@ final class WarningView: SoramitsuView {
 
     let containterView: SoramitsuView = {
         let view = SoramitsuView()
-        view.sora.borderWidth = 1
         view.sora.cornerRadius = .max
         return view
     }()
@@ -69,20 +68,11 @@ final class WarningView: SoramitsuView {
         return stackView
     }()
     
-    let titleLabel: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.numberOfLines = 1
-        label.sora.alignment = .center
-        label.sora.font = FontType.paragraphBoldS
-
-        return label
-    }()
-    
     let descriptionLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.numberOfLines = 0
         label.sora.alignment = .center
-        label.sora.font = FontType.paragraphS
+        label.sora.font = FontType.paragraphXS
         label.sora.textColor = .statusError
         return label
     }()
@@ -94,10 +84,6 @@ final class WarningView: SoramitsuView {
     }
     
     func setupView(with model: WarningViewModel) {
-        titleLabel.sora.text = model.title
-        titleLabel.sora.textColor = model.contentColor
-        titleLabel.sora.isHidden = model.title.isEmpty
-        
         descriptionLabel.sora.text = model.descriptionText
         descriptionLabel.sora.textColor = model.contentColor
         
@@ -110,7 +96,7 @@ final class WarningView: SoramitsuView {
     private func setupSubviews() {
         addSubview(containterView)
         containterView.addSubviews(stackView)
-        stackView.addArrangedSubviews(titleLabel, descriptionLabel)
+        stackView.addArrangedSubviews(descriptionLabel)
     }
 
     private func setupConstrains() {

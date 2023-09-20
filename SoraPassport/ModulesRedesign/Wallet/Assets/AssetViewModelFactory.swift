@@ -34,11 +34,6 @@ import SoraUIKit
 import XNetworking
 import SoraFoundation
 
-protocol AssetViewModelFactoryProtocol: AnyObject {
-    func createAssetViewModel(with balanceData: BalanceData, fiatData: [FiatData], mode: WalletViewMode) -> AssetViewModel?
-    func createAssetViewModel(with asset: AssetInfo, fiatData: [FiatData], mode: WalletViewMode) -> AssetViewModel?
-}
-
 final class AssetViewModelFactory {
     let walletAssets: [AssetInfo]
     let assetManager: AssetManagerProtocol
@@ -60,8 +55,8 @@ final class AssetViewModelFactory {
     }
 }
 
-extension AssetViewModelFactory: AssetViewModelFactoryProtocol {
-    func createAssetViewModel(with balanceData: BalanceData, fiatData: [FiatData], mode: WalletViewMode) -> AssetViewModel? {
+extension AssetViewModelFactory {
+    func createAssetViewModel(with balanceData: BalanceData, fiatData: [FiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
         guard let asset = walletAssets.first(where: { $0.identifier == balanceData.identifier }),
               let assetInfo = assetManager.assetInfo(for: asset.identifier) else {
             return nil
@@ -74,16 +69,28 @@ extension AssetViewModelFactory: AssetViewModelFactoryProtocol {
             fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
         }
         
+        var deltaArributedText: SoramitsuTextItem?
+        if let priceDelta {
+            let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(priceDelta) ?? "")%"
+            let deltaColor: SoramitsuColor = priceDelta > 0 ? .statusSuccess : .statusError
+            deltaArributedText = SoramitsuTextItem(text: deltaText,
+                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
+                                                                                       textColor: deltaColor,
+                                                                                       alignment: .right))
+        }
+        
+        
         return AssetViewModel(identifier: asset.identifier,
                               title: asset.name,
                               subtitle: balance,
                               fiatText: fiatText,
                               icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
                               mode: mode,
-                              isFavorite: assetInfo.visible)
+                              isFavorite: assetInfo.visible,
+                              deltaPriceText: deltaArributedText)
     }
     
-    func createAssetViewModel(with asset: AssetInfo, fiatData: [FiatData], mode: WalletViewMode) -> AssetViewModel? {
+    func createAssetViewModel(with asset: AssetInfo, fiatData: [FiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
         var fiatText = ""
         if let usdPrice = fiatData.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue {
             let formatter = usdPrice > 0.01 ? NumberFormatter.fiat : NumberFormatter.cryptoAssets

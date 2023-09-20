@@ -111,6 +111,7 @@ final class ApplicationConfig {
     static let shared: ApplicationConfig! = ApplicationConfig()
 
     static var logger: LoggerProtocol = Logger.shared
+    var accountLoadedPools: Set<String> = []
 
     private struct Constants {
         static let infoConfigKey = "AppConfigName"

@@ -37,7 +37,7 @@ protocol GenerateQRWireframeProtocol: AnyObject {
     func showAssetSelection(
         assetManager: AssetManagerProtocol,
         fiatService: FiatServiceProtocol,
-        assetViewModelFactory: AssetViewModelFactoryProtocol,
+        assetViewModelFactory: AssetViewModelFactory,
         assetsProvider: AssetProviderProtocol?,
         assetIds: [String],
         completion: @escaping (String) -> Void
@@ -96,16 +96,19 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
     func showAssetSelection(
         assetManager: AssetManagerProtocol,
         fiatService: FiatServiceProtocol,
-        assetViewModelFactory: AssetViewModelFactoryProtocol,
+        assetViewModelFactory: AssetViewModelFactory,
         assetsProvider: AssetProviderProtocol?,
         assetIds: [String],
         completion: @escaping (String) -> Void
     ) {
+        let marketCapService = MarketCapService(assetManager: assetManager)
+        
         let viewModel = SelectAssetViewModel(assetViewModelFactory: assetViewModelFactory,
                                              fiatService: fiatService,
                                              assetManager: assetManager,
                                              assetsProvider: assetsProvider,
-                                             assetIds: assetIds)
+                                             assetIds: assetIds,
+                                             marketCapService: marketCapService)
         viewModel.selectionCompletion = completion
 
         let assetListController = ProductListViewController(viewModel: viewModel)

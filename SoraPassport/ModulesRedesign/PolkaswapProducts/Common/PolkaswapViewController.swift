@@ -212,6 +212,11 @@ final class PolkaswapViewController: SoramitsuViewController {
         viewModel.viewDidLoad()
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        viewModel.viewWillAppear()
+    }
+    
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         spaceConstraint?.constant = UIScreen.main.bounds.height - 300

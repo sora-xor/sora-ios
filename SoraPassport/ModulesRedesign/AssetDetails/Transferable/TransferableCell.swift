@@ -152,7 +152,8 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.titleLabel.sora.text = R.string.localizable.commonSend(preferredLanguages: .currentLocale)
         view.button.sora.leftImage = R.image.wallet.send()
         view.button.sora.horizontalOffset = 16
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.accessibilityIdentifier = "assetDetails.send"
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.send)
         }
         return view
@@ -163,7 +164,8 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.titleLabel.sora.text = R.string.localizable.commonReceive(preferredLanguages: .currentLocale)
         view.button.sora.leftImage = R.image.wallet.receive()
         view.button.sora.horizontalOffset = 16
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.accessibilityIdentifier = "assetDetails.receive"
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.receive)
         }
         return view
@@ -174,6 +176,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.titleLabel.sora.text = R.string.localizable.historySwap(preferredLanguages: .currentLocale)
         view.button.sora.leftImage = R.image.wallet.swap()
         view.button.sora.horizontalOffset = 16
+        view.accessibilityIdentifier = "assetDetails.swap"
         view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.swap)
         }
@@ -185,7 +188,8 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.titleLabel.sora.text = R.string.localizable.commonBuy(preferredLanguages: .currentLocale)
         view.button.sora.leftImage = R.image.wallet.buy()
         view.button.sora.horizontalOffset = 16
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.accessibilityIdentifier = "assetDetails.buy"
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.buy)
         }
         return view

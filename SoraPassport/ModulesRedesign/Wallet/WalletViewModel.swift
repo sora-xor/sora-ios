@@ -152,13 +152,14 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 models.removeAll(where: { $0.id == poolId })
                 enabledIds.removeAll(where: { $0 == poolId } )
             } else {
-                if !enabledIds.contains(where: { $0 == poolId }) {
+                if !enabledIds.contains(where: { $0 == poolId }) && !ApplicationConfig.shared.accountLoadedPools.contains(self.address)  {
                     enabledIds.append(poolId)
                 }
             }
             
             editViewService.viewModels = models
             ApplicationConfig.shared.enabledCardIdentifiers = enabledIds
+            ApplicationConfig.shared.accountLoadedPools.insert(self.address)
             
             DispatchQueue.main.async {
                 self.updateItems()
@@ -184,8 +185,13 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             items.append(accountItem)
         }
         
-        if enabledIds.contains(Cards.soraCard.id), let soraCardItem = walletItems.first(where: { $0 is SCCardItem }) {
+        if enabledIds.contains(Cards.soraCard.id) {
+            let soraCard = initSoraCard()
+            let soraCardItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardItem(with: self,
+                                                                                              service: soraCard)
             items.append(soraCardItem)
+            ConfigService.shared.config.isSoraCardEnabled = true
+            soraCard.isSCBannerHidden = false
         }
         
         if enabledIds.contains(Cards.referralProgram.id), let friendsItem = walletItems.first(where: { $0 is FriendsItem }) {
@@ -220,7 +226,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
     func fetchAssets(completion: @escaping ([SoramitsuTableViewItemProtocol]) -> Void) {
         walletItems = buildItems()
-        completion(walletItems)
+        updateItems()
     }
 
     func showSoraCardDetails() {
@@ -395,6 +401,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         let factory = AssetViewModelFactory(walletAssets: assets,
                                             assetManager: assetManager,
                                             fiatService: fiatService)
+        let marketCap = MarketCapService(assetManager: assetManager)
         
         wireframe?.showFullListAssets(on: view?.controller,
                                       assetManager: assetManager,
@@ -410,6 +417,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                       sharingFactory: sharingFactory,
                                       referralFactory: referralFactory,
                                       assetsProvider: assetsProvider,
+                                      marketCapService: marketCap,
                                       updateHandler: updateAssets)
     }
     

@@ -37,9 +37,24 @@ import BigInt
 struct ExploreAssetLiquidity {
     let tokenId: String
     let marketCap: Decimal
+    let oldPrice: Decimal
 }
 
 struct ExploreAssetViewModel: Hashable {
+    static func == (lhs: ExploreAssetViewModel, rhs: ExploreAssetViewModel) -> Bool {
+        lhs.assetId == rhs.assetId
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(assetId)
+        hasher.combine(symbol)
+        hasher.combine(title)
+        hasher.combine(serialNumber)
+        hasher.combine(marketCap)
+        hasher.combine(icon)
+        hasher.combine(deltaPrice?.attributedString.string)
+    }
+    
     var assetId: String?
     var symbol: String?
     var title: String?
@@ -47,6 +62,7 @@ struct ExploreAssetViewModel: Hashable {
     var serialNumber: String
     var marketCap: String?
     var icon: UIImage?
+    var deltaPrice: SoramitsuAttributedText?
 }
 
 

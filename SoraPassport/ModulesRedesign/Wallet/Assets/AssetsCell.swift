@@ -170,6 +170,7 @@ extension AssetsCell: SoramitsuTableViewCellProtocol {
             assetView.sora.subtitleText = assetModel.subtitle
             assetView.sora.isHidden = !item.isExpand
             assetView.sora.upAmountText = assetModel.fiatText
+            assetView.amountDownLabel.sora.attributedText = assetModel.deltaPriceText
             assetView.tappableArea.sora.isHidden = false
             assetView.tappableArea.sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
                 assetsItem?.assetHandler?(assetModel.identifier)

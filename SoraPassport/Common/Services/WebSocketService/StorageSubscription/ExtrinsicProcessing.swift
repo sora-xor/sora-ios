@@ -44,6 +44,13 @@ struct ExtrinsicProcessingResult {
 protocol ExtrinsicProcessing {
     func process(
         extrinsicIndex: UInt32,
+        extrinsic: Extrinsic,
+        eventRecords: [EventRecord],
+        coderFactory: RuntimeCoderFactoryProtocol
+    ) -> ExtrinsicProcessingResult?
+    
+    func process(
+        extrinsicIndex: UInt32,
         extrinsicData: Data,
         eventRecords: [EventRecord],
         coderFactory: RuntimeCoderFactoryProtocol
@@ -259,6 +266,18 @@ extension ExtrinsicProcessor: ExtrinsicProcessing {
             print(error)
             return nil
         }
+    }
+    
+    func process(
+        extrinsicIndex: UInt32,
+        extrinsic: Extrinsic,
+        eventRecords: [EventRecord],
+        coderFactory: RuntimeCoderFactoryProtocol
+    ) -> ExtrinsicProcessingResult? {
+        return process(extrinsicIndex: extrinsicIndex,
+                       extrinsic: extrinsic,
+                       eventRecords: eventRecords,
+                       metadata: coderFactory.metadata)
     }
 
     func process(

@@ -86,7 +86,7 @@ final class ExploreAssetsCell: SoramitsuTableViewCell {
     private lazy var openFullListAssetsButton: SoramitsuButton = {
         let button = SoramitsuButton(size: .extraSmall, type: .text(.primary))
         button.sora.horizontalOffset = 0
-        button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
+        button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.showMore(preferredLanguages: .currentLocale),
                                                        fontData: FontType.buttonM,
                                                        textColor: .accentPrimary,
                                                        alignment: .natural)
@@ -161,6 +161,11 @@ final class ExploreAssetsCell: SoramitsuTableViewCell {
             if let price = assetModel.price {
                 assetView.amountUpLabel.sora.text = price
                 assetView.amountUpLabel.sora.loadingPlaceholder.type = .none
+            }
+            
+            if let delta = assetModel.deltaPrice {
+                assetView.amountDownLabel.sora.attributedText = delta
+                assetView.amountDownLabel.sora.loadingPlaceholder.type = .none
             }
 
             assetView.tappableArea.sora.isHidden = false
