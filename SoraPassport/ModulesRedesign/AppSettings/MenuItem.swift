@@ -64,7 +64,7 @@ class MenuItem: SoramitsuView {
 
     let arrow: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
-        imageView.image = R.image.iconSmallArrow()!
+        imageView.image = R.image.iconSmallArrow()!.imageFlippedForRightToLeftLayoutDirection()
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()

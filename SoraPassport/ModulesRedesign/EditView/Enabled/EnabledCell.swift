@@ -31,6 +31,7 @@
 import UIKit
 import SoraUIKit
 import SnapKit
+import SoraFoundation
 
 final class EnabledCell: SoramitsuTableViewCell {
     
@@ -62,7 +63,7 @@ final class EnabledCell: SoramitsuTableViewCell {
         label.sora.text = R.string.localizable.commonEnabled(preferredLanguages: .currentLocale).uppercased()
         label.sora.font = FontType.headline4
         label.sora.textColor = .fgSecondary
-        label.sora.alignment = .left
+        label.sora.alignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
         return label
     }()
     
@@ -82,9 +83,11 @@ final class EnabledCell: SoramitsuTableViewCell {
         label.sora.text = R.string.localizable.commonDisabled(preferredLanguages: .currentLocale).uppercased()
         label.sora.font = FontType.headline4
         label.sora.textColor = .fgSecondary
-        label.sora.alignment = .left
+        label.sora.alignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
         return label
     }()
+    
+    private let localizationManager = LocalizationManager.shared
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)

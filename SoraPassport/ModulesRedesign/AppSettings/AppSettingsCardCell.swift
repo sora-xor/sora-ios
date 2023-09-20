@@ -30,6 +30,7 @@
 
 import SoraUIKit
 import Anchorage
+import SoraFoundation
 
 class AppSettingsCardCell: SoramitsuTableViewCell {
 
@@ -51,6 +52,8 @@ class AppSettingsCardCell: SoramitsuTableViewCell {
 
         return view
     }()
+    
+    private var localizationManager = LocalizationManager.shared
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -98,7 +101,9 @@ extension AppSettingsCardCell: SoramitsuTableViewCellProtocol {
 
     private func titleView(for title: String) -> MenuTitleItem {
         let view = MenuTitleItem(frame: .zero)
+        let alignment: NSTextAlignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
         view.titleLabel.sora.text = title
+        view.titleLabel.sora.alignment = alignment
         return view
     }
 
@@ -123,7 +128,10 @@ extension AppSettingsCardCell: SoramitsuTableViewCellProtocol {
 
         view.onTap = item.onTap
         view.onSwitch = item.onSwitch
-
+        
+        let alignment: NSTextAlignment = (localizationManager.selectedLocalization == "ar") || (localizationManager.selectedLocalization == "he") ? .right : .left
+        view.titleLabel.sora.alignment = alignment
+        
         return view
     }
 

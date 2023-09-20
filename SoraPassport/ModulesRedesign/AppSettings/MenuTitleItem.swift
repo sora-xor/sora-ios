@@ -57,8 +57,8 @@ class MenuTitleItem: SoramitsuView {
     }
 
     private func setupConstrains() {
-        titleLabel.leftAnchor == leftAnchor + 24
-        titleLabel.rightAnchor == rightAnchor + 24
+        titleLabel.leadingAnchor == leadingAnchor + 24
+        titleLabel.trailingAnchor == trailingAnchor + 24
         titleLabel.topAnchor == topAnchor + 24
         titleLabel.bottomAnchor == bottomAnchor
     }
