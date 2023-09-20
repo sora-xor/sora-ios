@@ -87,9 +87,14 @@ final class InputAssetAmountWireframe: InputAssetAmountWireframeProtocol {
 
         let assetListController = ProductListViewController(viewModel: viewModel)
         
-        let navigationController = UINavigationController(rootViewController: assetListController)
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
         
-        controller?.present(navigationController, animated: true)
+        let navigationController = UINavigationController(rootViewController: assetListController)
+        navigationController.navigationBar.backgroundColor = .clear
+        
+        containerView.add(navigationController)
+        controller?.present(containerView, animated: true)
     }
     
     func showSelectAddress(on controller: UIViewController?,
