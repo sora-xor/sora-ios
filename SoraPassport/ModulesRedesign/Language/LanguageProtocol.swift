@@ -34,7 +34,7 @@ protocol LanguageViewProtocol: ControllerBackedProtocol {
     var presenter: LanguagePresenterProtocol? { get set }
     
     func update(model: LanguageModel)
-    func updateHierarchy()
+    func updateLayout()
 }
 
 protocol LanguagePresenterProtocol: AnyObject {

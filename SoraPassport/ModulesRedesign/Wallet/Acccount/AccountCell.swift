@@ -46,7 +46,7 @@ final class AccountCell: SoramitsuTableViewCell {
 
     private let arrowImageView: SoramitsuImageView = {
         let view = SoramitsuImageView()
-        view.image = R.image.wallet.rightArrow()
+        view.image = R.image.wallet.rightArrow()?.imageFlippedForRightToLeftLayoutDirection()
         view.sora.tintColor = .fgPrimary
         view.translatesAutoresizingMaskIntoConstraints = false
         view.setContentCompressionResistancePriority(.required, for: .horizontal)

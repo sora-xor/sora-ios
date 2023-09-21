@@ -34,8 +34,13 @@ import SCard
 
 final class LanguagePresenter {
     weak var view: LanguageViewProtocol?
-    
+    let eventCenter: EventCenterProtocol
     private var selectedLanguage: Language?
+    
+    init(eventCenter: EventCenterProtocol) {
+        self.eventCenter = eventCenter
+        eventCenter.add(observer: self, dispatchIn: .main)
+    }
     
     private func createModel() -> LanguageModel {
         selectedLanguage = localizationManager?.selectedLanguage
@@ -76,8 +81,10 @@ final class LanguagePresenter {
             
             return LanguageItem(code: code, title: title, subtitle: subtitle, selected: isSelected) { [weak self] in
                 self?.localizationManager?.selectedLocalization = code
-                UIView.appearance().semanticContentAttribute = (code == "ar") || (code == "he") ? .forceRightToLeft : .forceLeftToRight
-                self?.view?.updateHierarchy()
+                
+                guard let delegate = UIApplication.shared.delegate as? AppDelegate else { return }
+                delegate.setupLanguage()
+                EventCenter.shared.notify(with: LanguageChanged())
             }
         }
         
@@ -101,5 +108,11 @@ extension LanguagePresenter: Localizable {
     func applyLocalization() {
         let model = createModel()
         view?.update(model: model)
+    }
+}
+
+extension LanguagePresenter: EventVisitorProtocol {
+    func processLanguageChanged(event: LanguageChanged) {
+        view?.updateLayout()
     }
 }

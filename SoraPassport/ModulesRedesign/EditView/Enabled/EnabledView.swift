@@ -32,6 +32,7 @@ import Foundation
 import UIKit
 import SoraUIKit
 import SnapKit
+import SoraFoundation
 
 final class EnabledView: SoramitsuView {
     
@@ -49,12 +50,12 @@ final class EnabledView: SoramitsuView {
         return button
     }()
     
-    public let titleLabel: SoramitsuLabel = {
+    public lazy var titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textM
         label.sora.textColor = .fgPrimary
-        label.sora.alignment = .left
         label.sora.isUserInteractionEnabled = false
+        label.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         return label
     }()
 
@@ -64,6 +65,8 @@ final class EnabledView: SoramitsuView {
         view.sora.isHidden = true
         return view
     }()
+    
+    private let localizationManager = LocalizationManager.shared
     
     init() {
         super.init(frame: .zero)
@@ -82,8 +85,8 @@ private extension EnabledView {
         addSubview(tappableArea)
         
         stackView.addArrangedSubviews([
-            checkmarkButton,
-            titleLabel
+            titleLabel,
+            checkmarkButton
         ])
         
         tappableArea.snp.makeConstraints { make in
@@ -93,6 +96,14 @@ private extension EnabledView {
         stackView.snp.makeConstraints { make in
             make.edges.equalTo(self)
             make.height.equalTo(56)
+        }
+        
+        titleLabel.snp.makeConstraints { make in
+            make.leading.equalTo(stackView)
+        }
+        
+        checkmarkButton.snp.makeConstraints { make in
+            make.trailing.equalTo(stackView)
         }
     }
 }

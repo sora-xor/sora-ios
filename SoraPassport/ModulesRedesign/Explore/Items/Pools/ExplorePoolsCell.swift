@@ -182,6 +182,16 @@ final class ExplorePoolsCell: SoramitsuTableViewCell {
 
         fullStackView.addArrangedSubviews(openFullListAssetsButton)
     }
+    
+    private func updateLayout() {
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        titleLabel.sora.alignment = alignment
+        subtitleLabel.sora.alignment = alignment
+        openFullListAssetsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
+                                                       fontData: FontType.buttonM,
+                                                       textColor: .accentPrimary,
+                                                       alignment: alignment)
+    }
 }
 
 extension ExplorePoolsCell: CellProtocol {
@@ -196,5 +206,6 @@ extension ExplorePoolsCell: CellProtocol {
         
         let viewModels = Array((item.viewModelService?.viewModels ?? []).prefix(5))
         updateContent(with: viewModels)
+        updateLayout()
     }
 }

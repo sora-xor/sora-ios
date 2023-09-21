@@ -280,7 +280,7 @@ PODS:
     - SSFModels
     - SSFUtils
     - TweetNacl (~> 1.0.0)
-  - SSFModels (0.1.18):
+  - SSFModels (0.1.20):
     - IrohaCrypto
   - SSFUtils (0.1.17):
     - BigInt (~> 5.0)
@@ -440,7 +440,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: 920ce3e16f2e452acf0bf8d1b1b719db2cc59042
+    :commit: 25745ef0fa9c6ac710ef54b63de35a7804e94288
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui.git
@@ -504,7 +504,7 @@ SPEC CHECKSUMS:
   SoraUIKit: d46da32cd6bd9d5706b6a3cede4a89a36663c329
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
   SSFCloudStorage: 37fbba3ad3e93a637d9c1a9b85910f4fa29596de
-  SSFModels: 5e65b8f385647175c4e59f42cc79a48e503a028a
+  SSFModels: afdeb5bb331de6efa902d961e61a76e1d26aab04
   SSFUtils: 3fe2cb3cf68522536da733f41331b30d2cf97acd
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63

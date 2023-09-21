@@ -41,6 +41,7 @@ protocol MoreMenuViewProtocol: ControllerBackedProtocol {
     
     func set(title: String)
     func update(snapshot: MoreMenuSnapshot)
+    func refreshNavigationBar()
 }
 
 protocol MoreMenuPresenterProtocol: AnyObject {

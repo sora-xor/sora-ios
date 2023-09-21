@@ -121,6 +121,8 @@ class CategoryItem: SoramitsuView {
         rightImageView.widthAnchor == 24
         subtitleView.heightAnchor == 14
         horizontalStack.edgeAnchors == edgeAnchors
+        subtitleLabel.leadingAnchor == subtitleView.leadingAnchor
+        subtitleLabel.trailingAnchor == subtitleView.trailingAnchor
     }
 
     func addCircle() {
@@ -128,6 +130,7 @@ class CategoryItem: SoramitsuView {
         circle.heightAnchor == 8
         circle.widthAnchor == 8
         circle.topAnchor == subtitleView.topAnchor + 3
+        circle.leadingAnchor == subtitleView.leadingAnchor
         subtitleLabel.leadingAnchor == circle.trailingAnchor + 4
     }
 }

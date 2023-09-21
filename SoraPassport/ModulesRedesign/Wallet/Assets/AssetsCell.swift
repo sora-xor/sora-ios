@@ -84,7 +84,7 @@ final class AssetsCell: SoramitsuTableViewCell {
         button.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
                                                        fontData: FontType.buttonM,
                                                        textColor: .accentPrimary,
-                                                       alignment: .left)
+                                                       alignment: .natural)
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.assetsItem?.expandButtonHandler?()
         }
@@ -112,14 +112,14 @@ final class AssetsCell: SoramitsuTableViewCell {
             R.string.localizable.commonExpand(preferredLanguages: locale.rLanguages)
         }
         
-        localizationManager.addObserver(with: openFullListAssetsButton) { [weak openFullListAssetsButton, weak arrowButton] (_, _) in
+        localizationManager.addObserver(with: openFullListAssetsButton) { [weak openFullListAssetsButton, weak arrowButton, weak localizationManager] (_, _) in
             guard let assetsItem = self.assetsItem else { return }
             let currentTitle = localizableTitle.value(for: self.localizationManager.selectedLocale)
             arrowButton?.configure(title: assetsItem.title, isExpand: assetsItem.isExpand)
             openFullListAssetsButton?.sora.attributedText = SoramitsuTextItem(text: currentTitle,
                                                            fontData: FontType.buttonM,
                                                            textColor: .accentPrimary,
-                                                           alignment: .left)
+                                                                              alignment: .natural)
         }
     }
 
@@ -187,6 +187,12 @@ extension AssetsCell: SoramitsuTableViewCellProtocol {
         openFullListAssetsButton.sora.isHidden = !item.isExpand
         fullStackView.addArrangedSubviews(openFullListAssetsButton)
         shimmerView.sora.alpha = (assetsItem?.assetViewModels.isEmpty ?? true) ? 1 : 0
+        
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        openFullListAssetsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
+                                                                          fontData: FontType.buttonM,
+                                                                          textColor: .accentPrimary,
+                                                                          alignment: alignment)
     }
 }
 

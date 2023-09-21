@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
-
+import SoraFoundation
 
 final class MoreMenuViewController: SoramitsuViewController & MoreMenuViewProtocol {
     var presenter: MoreMenuPresenterProtocol?
@@ -84,6 +84,12 @@ final class MoreMenuViewController: SoramitsuViewController & MoreMenuViewProtoc
         dataSource.apply(snapshot, animatingDifferences: true)
     }
 
+    func refreshNavigationBar() {
+        guard let navigationBar = navigationController?.navigationBar else { return }
+        let window = navigationBar.superview
+        navigationBar.removeFromSuperview()
+        window?.addSubview(navigationBar)
+    }
 }
 
 

@@ -30,6 +30,7 @@
 
 import SoraUIKit
 import Anchorage
+import SoraFoundation
 
 final class LanguageCell: SoramitsuTableViewCell {
     
@@ -59,6 +60,11 @@ final class LanguageCell: SoramitsuTableViewCell {
         itemView.topAnchor == contentView.topAnchor
         itemView.bottomAnchor == contentView.bottomAnchor
     }
+    
+    func updayeLayout() {
+        let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        itemView.semanticContentAttribute = semanticContentAttribute
+    }
 }
 
 extension LanguageCell: SoramitsuTableViewCellProtocol {
@@ -71,5 +77,7 @@ extension LanguageCell: SoramitsuTableViewCellProtocol {
         itemView.subtitleLabel.sora.text = item.subtitle
         itemView.isSelectedLanguage = item.selected
         itemView.onTap = item.onTap
+        
+        updayeLayout()
     }
 }

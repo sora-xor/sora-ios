@@ -30,6 +30,7 @@
 
 import SoraUIKit
 import Anchorage
+import SoraFoundation
 
 class AppSettingsCell: SoramitsuTableViewCell {
 
@@ -41,6 +42,8 @@ class AppSettingsCell: SoramitsuTableViewCell {
         view.sora.backgroundColor = .custom(uiColor: .clear)
         return view
     }()
+    
+    private var localizationManager = LocalizationManager.shared
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -64,6 +67,11 @@ class AppSettingsCell: SoramitsuTableViewCell {
         menuItem.topAnchor == contentView.topAnchor + 8
         menuItem.bottomAnchor == contentView.bottomAnchor - 8
     }
+    
+    private func updateSemantics() {
+        let semanticContentAttribute: UISemanticContentAttribute = localizationManager.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        menuItem.semanticContentAttribute = semanticContentAttribute
+    }
 }
 
 extension AppSettingsCell: SoramitsuTableViewCellProtocol {
@@ -85,6 +93,8 @@ extension AppSettingsCell: SoramitsuTableViewCellProtocol {
         }
         menuItem.onTap = item.onTap
         menuItem.onSwitch = item.onSwitch
+        
+        updateSemantics()
     }
 }
 
