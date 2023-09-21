@@ -43,6 +43,7 @@ protocol PoolListWireframeProtocol {
                          providerFactory: BalanceProviderFactory,
                          operationFactory: WalletNetworkOperationFactoryProtocol,
                          assetsProvider: AssetProviderProtocol,
+                         marketCapService: MarketCapServiceProtocol,
                          dismissHandler: (() -> Void)?)
 }
 
@@ -55,6 +56,7 @@ final class PoolListWireframe: PoolListWireframeProtocol {
                          providerFactory: BalanceProviderFactory,
                          operationFactory: WalletNetworkOperationFactoryProtocol,
                          assetsProvider: AssetProviderProtocol,
+                         marketCapService: MarketCapServiceProtocol,
                          dismissHandler: (() -> Void)?) {
         guard let assetDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
                                                                              assetManager: assetManager,
@@ -63,6 +65,7 @@ final class PoolListWireframe: PoolListWireframeProtocol {
                                                                              providerFactory: providerFactory,
                                                                              operationFactory: operationFactory,
                                                                              assetsProvider: assetsProvider,
+                                                                             marketCapService: marketCapService,
                                                                              dismissHandler: dismissHandler) else {
             return
         }

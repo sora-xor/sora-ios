@@ -40,6 +40,7 @@ protocol GenerateQRWireframeProtocol: AnyObject {
         assetViewModelFactory: AssetViewModelFactory,
         assetsProvider: AssetProviderProtocol?,
         assetIds: [String],
+        marketCapService: MarketCapServiceProtocol,
         completion: @escaping (String) -> Void
     )
     
@@ -61,6 +62,7 @@ protocol GenerateQRWireframeProtocol: AnyObject {
                     assetsProvider: AssetProviderProtocol?,
                     providerFactory: BalanceProviderFactory,
                     feeProvider: FeeProviderProtocol,
+                    marketCapService: MarketCapServiceProtocol,
                     scanCompletion: @escaping (ScanQRResult) -> Void)
     
     func showConfirmSendingAsset(on controller: UIViewController?,
@@ -82,7 +84,8 @@ protocol GenerateQRWireframeProtocol: AnyObject {
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   assetsProvider: AssetProviderProtocol,
                   qrEncoder: WalletQREncoderProtocol,
-                  sharingFactory: AccountShareFactoryProtocol)
+                  sharingFactory: AccountShareFactoryProtocol,
+                  marketCapService: MarketCapServiceProtocol)
 }
 
 final class GenerateQRWireframe: GenerateQRWireframeProtocol {
@@ -99,9 +102,9 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
         assetViewModelFactory: AssetViewModelFactory,
         assetsProvider: AssetProviderProtocol?,
         assetIds: [String],
+        marketCapService: MarketCapServiceProtocol,
         completion: @escaping (String) -> Void
     ) {
-        let marketCapService = MarketCapService(assetManager: assetManager)
         
         let viewModel = SelectAssetViewModel(assetViewModelFactory: assetViewModelFactory,
                                              fiatService: fiatService,
@@ -157,6 +160,7 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
                     assetsProvider: AssetProviderProtocol?,
                     providerFactory: BalanceProviderFactory,
                     feeProvider: FeeProviderProtocol,
+                    marketCapService: MarketCapServiceProtocol,
                     scanCompletion: @escaping (ScanQRResult) -> Void) {
         guard let currentUser = SelectedWalletSettings.shared.currentAccount else { return }
         
@@ -172,6 +176,7 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
                                                     isGeneratedQRCodeScreenShown: true,
                                                     providerFactory: providerFactory,
                                                     feeProvider: feeProvider,
+                                                    marketCapService: marketCapService,
                                                     completion: scanCompletion)
         containerView.add(scanView.controller)
         view.present(containerView, animated: true)
@@ -220,7 +225,8 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   assetsProvider: AssetProviderProtocol,
                   qrEncoder: WalletQREncoderProtocol,
-                  sharingFactory: AccountShareFactoryProtocol) {
+                  sharingFactory: AccountShareFactoryProtocol,
+                  marketCapService: MarketCapServiceProtocol) {
         let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedTokenId,
                                                   selectedAddress: selectedAddress,
                                                   fiatService: fiatService,
@@ -230,7 +236,8 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
                                                   wireframe: InputAssetAmountWireframe(),
                                                   assetsProvider: assetsProvider,
                                                   qrEncoder: qrEncoder,
-                                                  sharingFactory: sharingFactory)
+                                                  sharingFactory: sharingFactory,
+                                                  marketCapService: marketCapService)
         let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
         viewModel.view = inputAmountController
         

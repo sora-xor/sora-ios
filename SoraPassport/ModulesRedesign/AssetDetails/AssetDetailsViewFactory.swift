@@ -32,13 +32,13 @@ import Foundation
 import RobinHood
 import CommonWallet
 
-protocol AssetDetailsViewFactoryProtocol: AnyObject {
+final class AssetDetailsViewFactory {
     static func createView(assetInfo: AssetInfo,
                            assetManager: AssetManagerProtocol,
                            fiatService: FiatServiceProtocol,
                            assetViewModelFactory: AssetViewModelFactory,
                            poolsService: PoolsServiceInputProtocol,
-                           poolViewModelsFactory: PoolViewModelFactoryProtocol,
+                           poolViewModelsFactory: PoolViewModelFactory,
                            providerFactory: BalanceProviderFactory,
                            networkFacade: WalletNetworkOperationFactoryProtocol?,
                            accountId: String,
@@ -47,25 +47,8 @@ protocol AssetDetailsViewFactoryProtocol: AnyObject {
                            qrEncoder: WalletQREncoderProtocol,
                            sharingFactory: AccountShareFactoryProtocol,
                            referralFactory: ReferralsOperationFactoryProtocol,
-                           assetsProvider: AssetProviderProtocol?) -> AssetDetailsViewController?
-}
-
-final class AssetDetailsViewFactory: AssetDetailsViewFactoryProtocol {
-    static func createView(assetInfo: AssetInfo,
-                           assetManager: AssetManagerProtocol,
-                           fiatService: FiatServiceProtocol,
-                           assetViewModelFactory: AssetViewModelFactory,
-                           poolsService: PoolsServiceInputProtocol,
-                           poolViewModelsFactory: PoolViewModelFactoryProtocol,
-                           providerFactory: BalanceProviderFactory,
-                           networkFacade: WalletNetworkOperationFactoryProtocol?,
-                           accountId: String,
-                           address: String,
-                           polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
-                           qrEncoder: WalletQREncoderProtocol,
-                           sharingFactory: AccountShareFactoryProtocol,
-                           referralFactory: ReferralsOperationFactoryProtocol,
-                           assetsProvider: AssetProviderProtocol?) -> AssetDetailsViewController? {
+                           assetsProvider: AssetProviderProtocol?,
+                           marketCapService: MarketCapServiceProtocol) -> AssetDetailsViewController? {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let aseetList = assetManager.getAssetList() else { return nil }
 
@@ -92,7 +75,8 @@ final class AssetDetailsViewFactory: AssetDetailsViewFactoryProtocol {
                                               qrEncoder: qrEncoder,
                                               sharingFactory: sharingFactory,
                                               referralFactory: referralFactory,
-                                              assetsProvider: assetsProvider)
+                                              assetsProvider: assetsProvider,
+                                              marketCapService: marketCapService)
 
         let view = AssetDetailsViewController(viewModel: viewModel)
         viewModel.view = view

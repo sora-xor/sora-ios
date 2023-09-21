@@ -42,6 +42,7 @@ protocol LiquidityWireframeProtocol: AlertPresentable {
                              assetViewModelFactory: AssetViewModelFactory,
                              assetsProvider: AssetProviderProtocol?,
                              assetIds: [String],
+                             marketCapService: MarketCapServiceProtocol,
                              completion: @escaping (String) -> Void)
     
     func showSlippageTolerance(on controller: UINavigationController?, currentLocale: Float, completion: @escaping (Float) -> Void)
@@ -113,9 +114,8 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
                              assetViewModelFactory: AssetViewModelFactory,
                              assetsProvider: AssetProviderProtocol?,
                              assetIds: [String],
+                             marketCapService: MarketCapServiceProtocol,
                              completion: @escaping (String) -> Void) {
-        let marketCapService = MarketCapService(assetManager: assetManager)
-
         let viewModel = SelectAssetViewModel(assetViewModelFactory: assetViewModelFactory,
                                              fiatService: fiatService,
                                              assetManager: assetManager,

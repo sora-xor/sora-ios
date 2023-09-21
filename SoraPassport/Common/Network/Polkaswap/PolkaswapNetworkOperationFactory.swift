@@ -75,8 +75,8 @@ protocol PolkaswapNetworkOperationFactoryProtocol: AnyObject {
     func accountPoolsApy(accountId: String) -> JSONRPCOperation<[String], [Data]>
     func accountPools(accountId: Data, baseAssetId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<AccountPools>>
     func poolProperties(baseAsset: String, targetAsset: String) throws -> JSONRPCListOperation<JSONScaleDecodable<PoolProperties>>
-    func poolProvidersBalance(reservesAccountId: Data, accountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>>
-    func poolTotalIssuances(reservesAccountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>>
+    func poolProvidersBalance() throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>>
+    func poolTotalIssuances() throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>>
     func poolReserves(baseAsset: String, targetAsset: String) throws -> JSONRPCListOperation<JSONScaleDecodable<PoolReserves>>
     func isPairEnabled(dexId: UInt32, assetId: String, tokenAddress: String) -> JSONRPCOperation<[JSONAny], Bool>
 }
@@ -170,26 +170,20 @@ final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryPr
         )
     }
     
-    func poolProvidersBalance(reservesAccountId: Data, accountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>> {
+    func poolProvidersBalance() throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>> {
         return JSONRPCListOperation<JSONScaleDecodable<Balance>>(
             engine: engine,
             method: RPCMethod.getStorage,
-            parameters: [
-                try StorageKeyFactory().poolProvidersKey(
-                    reservesAccountId: reservesAccountId,
-                    accountId: accountId
-                ).toHex(includePrefix: true)
-            ]
+            parameters: []
+
         )
     }
     
-    func poolTotalIssuances(reservesAccountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>> {
+    func poolTotalIssuances() throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>> {
         JSONRPCListOperation<JSONScaleDecodable<Balance>>(
             engine: engine,
             method: RPCMethod.getStorage,
-            parameters: [
-                try StorageKeyFactory().accountPoolTotalIssuancesKeyForId(reservesAccountId).toHex(includePrefix: true)
-            ]
+            parameters: []
         )
     }
     

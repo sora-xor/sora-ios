@@ -177,7 +177,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.button.sora.leftImage = R.image.wallet.swap()
         view.button.sora.horizontalOffset = 16
         view.accessibilityIdentifier = "assetDetails.swap"
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.swap)
         }
         return view

@@ -92,6 +92,7 @@ final class InputSendInfoViewModel {
     private let accountId: String
     private var qrEncoder: WalletQREncoderProtocol
     private var sharingFactory: AccountShareFactoryProtocol
+    private let marketCapService: MarketCapServiceProtocol
     
     init(
         address: String,
@@ -102,7 +103,8 @@ final class InputSendInfoViewModel {
         assetsProvider: AssetProviderProtocol?,
         wireframe: GenerateQRWireframeProtocol?,
         qrEncoder: WalletQREncoderProtocol,
-        sharingFactory: AccountShareFactoryProtocol
+        sharingFactory: AccountShareFactoryProtocol,
+        marketCapService: MarketCapServiceProtocol
     ) {
         self.address = address
         self.accountId = accountId
@@ -113,6 +115,7 @@ final class InputSendInfoViewModel {
         self.wireframe = wireframe
         self.qrEncoder = qrEncoder
         self.sharingFactory = sharingFactory
+        self.marketCapService = marketCapService
     }
     
     func transform(input: AnyPublisher<Input, Never>) -> AnyPublisher<Output, Never> {
@@ -129,6 +132,7 @@ final class InputSendInfoViewModel {
                                                    assetViewModelFactory: assetViewModelFactory,
                                                    assetsProvider: self.assetsProvider,
                                                    assetIds: assetInfos.map { $0.assetId },
+                                                   marketCapService: self.marketCapService,
                                                    completion: { selectedAssetId in
                     self.asset = assetManager.assetInfo(for: selectedAssetId)
                 })

@@ -70,6 +70,7 @@ extension APYService: APYServiceProtocol {
                 guard let self = self,
                       let reservesAccountData = try? poolPropertiesOperation.extractResultData()?.underlyingValue?.reservesAccountId,
                       let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
+                    continuation.resume(returning: nil)
                     return
                 }
                 
@@ -94,7 +95,7 @@ extension APYService: APYServiceProtocol {
             
             queryOperation.addDependency(poolPropertiesOperation)
             
-            operationManager.enqueue(operations: [poolPropertiesOperation, queryOperation], in: .blockAfter)
+            operationManager.enqueue(operations: [poolPropertiesOperation, queryOperation], in: .transient)
         }
     }
 }

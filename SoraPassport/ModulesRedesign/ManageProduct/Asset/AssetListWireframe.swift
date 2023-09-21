@@ -41,7 +41,7 @@ protocol AssetListWireframeProtocol {
                           fiatService: FiatServiceProtocol,
                           assetViewModelFactory: AssetViewModelFactory,
                           poolsService: PoolsServiceInputProtocol,
-                          poolViewModelsFactory: PoolViewModelFactoryProtocol,
+                          poolViewModelsFactory: PoolViewModelFactory,
                           providerFactory: BalanceProviderFactory,
                           networkFacade: WalletNetworkOperationFactoryProtocol?,
                           accountId: String,
@@ -50,7 +50,8 @@ protocol AssetListWireframeProtocol {
                           qrEncoder: WalletQREncoderProtocol,
                           sharingFactory: AccountShareFactoryProtocol,
                           referralFactory: ReferralsOperationFactoryProtocol,
-                          assetsProvider: AssetProviderProtocol?)
+                          assetsProvider: AssetProviderProtocol?,
+                          marketCapService: MarketCapServiceProtocol)
 }
 
 final class AssetListWireframe: AssetListWireframeProtocol {
@@ -60,7 +61,7 @@ final class AssetListWireframe: AssetListWireframeProtocol {
                           fiatService: FiatServiceProtocol,
                           assetViewModelFactory: AssetViewModelFactory,
                           poolsService: PoolsServiceInputProtocol,
-                          poolViewModelsFactory: PoolViewModelFactoryProtocol,
+                          poolViewModelsFactory: PoolViewModelFactory,
                           providerFactory: BalanceProviderFactory,
                           networkFacade: WalletNetworkOperationFactoryProtocol?,
                           accountId: String,
@@ -69,7 +70,8 @@ final class AssetListWireframe: AssetListWireframeProtocol {
                           qrEncoder: WalletQREncoderProtocol,
                           sharingFactory: AccountShareFactoryProtocol,
                           referralFactory: ReferralsOperationFactoryProtocol,
-                          assetsProvider: AssetProviderProtocol?) {
+                          assetsProvider: AssetProviderProtocol?,
+                          marketCapService: MarketCapServiceProtocol) {
         guard let assetDetailsController = AssetDetailsViewFactory.createView(assetInfo: assetInfo,
                                                                               assetManager: assetManager,
                                                                               fiatService: fiatService,
@@ -84,7 +86,8 @@ final class AssetListWireframe: AssetListWireframeProtocol {
                                                                               qrEncoder: qrEncoder,
                                                                               sharingFactory: sharingFactory,
                                                                               referralFactory: referralFactory,
-                                                                              assetsProvider: assetsProvider) else {
+                                                                              assetsProvider: assetsProvider,
+                                                                              marketCapService: marketCapService) else {
             return
         }
         

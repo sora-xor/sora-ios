@@ -41,6 +41,7 @@ final class ScanQRViewFactory {
                            isGeneratedQRCodeScreenShown: Bool = false,
                            providerFactory: BalanceProviderFactory,
                            feeProvider: FeeProviderProtocol,
+                           marketCapService: MarketCapServiceProtocol,
                            completion: ((ScanQRResult) -> Void)?) -> ScanQRViewProtocol {
         let qrScanServiceFactory = WalletQRCaptureServiceFactory()
         let assets = assetManager.getAssetList()?.map { asset in
@@ -70,6 +71,7 @@ final class ScanQRViewFactory {
                                         isGeneratedQRCodeScreenShown: isGeneratedQRCodeScreenShown,
                                         providerFactory: providerFactory,
                                         feeProvider: feeProvider,
+                                        marketCapService: marketCapService,
                                         completion: completion)
         
         let scanView = ScanQRViewController(viewModel: viewModel)

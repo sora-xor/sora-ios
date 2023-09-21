@@ -135,6 +135,7 @@ final class InputAssetAmountViewModel {
     private weak var assetsProvider: AssetProviderProtocol?
     private var qrEncoder: WalletQREncoderProtocol
     private var sharingFactory: AccountShareFactoryProtocol
+    private var marketCapService: MarketCapServiceProtocol
     init(
         selectedTokenId: String?,
         selectedAddress: String?,
@@ -146,7 +147,8 @@ final class InputAssetAmountViewModel {
         assetsProvider: AssetProviderProtocol?,
         qrEncoder: WalletQREncoderProtocol,
         sharingFactory: AccountShareFactoryProtocol,
-        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
+        marketCapService: MarketCapServiceProtocol
     ) {
         self.selectedAddress = selectedAddress
         self.fiatService = fiatService
@@ -159,6 +161,7 @@ final class InputAssetAmountViewModel {
         self.assetsProvider = assetsProvider
         self.qrEncoder = qrEncoder
         self.sharingFactory = sharingFactory
+        self.marketCapService = marketCapService
         self.warningViewModelFactory = warningViewModelFactory
     }
 }
@@ -207,7 +210,8 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
                                       fiatService: fiatService,
                                       assetViewModelFactory: factory,
                                       assetsProvider: assetsProvider,
-                                      assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                      assetIds: assets.map { $0.identifier },
+                                      marketCapService: marketCapService) { [weak self] assetId in
             self?.firstAssetId = assetId
         }
     }
@@ -334,7 +338,8 @@ extension InputAssetAmountViewModel {
                                     sharingFactory: sharingFactory,
                                     assetsProvider: assetsProvider,
                                     providerFactory: providerFactory,
-                                    feeProvider: feeProvider) { [weak self] result in
+                                    feeProvider: feeProvider,
+                                    marketCapService: marketCapService) { [weak self] result in
             self?.selectedAddress = result.firstName
             if let assetId = result.receiverInfo?.assetId {
                 self?.firstAssetId = assetId

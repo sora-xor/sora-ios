@@ -902,3 +902,5 @@
 "polkaswap.liquidity.total.fee" = "Phí hoán đổi";
 "polkaswap.liquidity.total.fee.desc" = "Hoán đổi của bạn bao gồm cả phí Tổng hợp và phí LP.\n Phí tổng hợp được tính khi hoán đổi đi qua nguồn thanh khoản XST cho tài sản tổng hợp và phí LP khi hoán đổi đi qua nhóm thanh khoản.";
 "explore.create.pool" = "Create pool";
+"backup.account.already.exist" = "Backup already exists. Proceed to rewrite it.";
+"common.rewrite" = "Rewrite";

@@ -57,6 +57,7 @@ protocol AccountOptionsInteractorInputProtocol: AnyObject {
     func updateUsername(_ username: String)
     var currentAccount: AccountItem { get }
     var accountHasEntropy: Bool { get }
+    func checkCurrentAccountBackedup() async -> Bool
     func deleteBackup(completion: @escaping (Error?) -> Void)
     func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?)
 }

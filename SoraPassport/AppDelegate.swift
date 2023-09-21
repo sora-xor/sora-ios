@@ -33,9 +33,9 @@ import Firebase
 import SCard
 import GoogleSignIn
 import SoraUIKit
+import SoraFoundation
 #if F_DEV
 import FLEX
-import SoraFoundation
 #endif
 
 @UIApplicationMain

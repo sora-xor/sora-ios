@@ -38,8 +38,8 @@ protocol PoolsServiceInputProtocol: AnyObject {
     func loadAccountPools(isNeedForceUpdate: Bool)
     func updatePools(_ pools: [PoolInfo])
     func getPool(by id: String) -> PoolInfo?
-    func getPool(by baseAssetId: String, targetAssetId: String) -> PoolInfo?
-    func loadPools(currentAsset: AssetInfo, completion: ([PoolInfo]) -> Void)
+    func getPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo?
+    func loadPools(currentAsset: AssetInfo) async -> [PoolInfo]
     func loadTargetPools(for baseAssetId: String) -> [PoolInfo]
     func appendDelegate(delegate: PoolsServiceOutput)
     
@@ -188,12 +188,12 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
         return currentPools.first { $0.poolId == id }
     }
     
-    func getPool(by baseAssetId: String, targetAssetId: String) -> PoolInfo? {
+    func getPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo? {
         if let localPool = currentPools.first(where: { $0.targetAssetId == targetAssetId && $0.baseAssetId == baseAssetId }) {
             return localPool
         }
         
-        guard let poolDetails = try? (networkFacade as? WalletNetworkFacade)?.getPoolDetails(baseAsset: baseAssetId,
+        guard let poolDetails = try? await (networkFacade as? WalletNetworkFacade)?.getPoolDetails(baseAsset: baseAssetId,
                                                                                              targetAsset: targetAssetId) else { return nil }
         
         return PoolInfo(baseAssetId: poolDetails.baseAsset,
@@ -235,9 +235,8 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
         operationManager.enqueue(operations: [operation], in: .blockAfter)
     }
     
-    func loadPools(currentAsset: AssetInfo, completion: ([PoolInfo]) -> Void) {
-        let founded = currentPools.filter { $0.baseAssetId == currentAsset.assetId || $0.targetAssetId == currentAsset.assetId }
-        completion(founded)
+    func loadPools(currentAsset: AssetInfo) async -> [PoolInfo] {
+        return currentPools.filter { $0.baseAssetId == currentAsset.assetId || $0.targetAssetId == currentAsset.assetId }
     }
     
     func loadTargetPools(for baseAssetId: String) -> [PoolInfo] {
@@ -245,77 +244,79 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
     }
     
     func loadAccountPools(isNeedForceUpdate: Bool) {
-        if !currentPools.isEmpty && !isNeedForceUpdate {
-            let sortedPools = currentPools.sorted(by: orderSort)
-            outputs.forEach {
-                $0.loaded(pools: sortedPools)
+        Task {
+            if !currentPools.isEmpty && !isNeedForceUpdate {
+                let sortedPools = currentPools.sorted(by: orderSort)
+                outputs.forEach {
+                    $0.loaded(pools: sortedPools)
+                }
+                return
             }
-            return
-        }
 
-        guard let fetchRemotePoolsOperation = try? (networkFacade as? WalletNetworkFacade)?.getAccountPoolsDetails() else { return }
-        let fetchOperation = poolRepository.fetchAllOperation(with: RepositoryFetchOptions())
-        
-        let processingOperation: BaseOperation<PoolsChanges> = ClosureOperation { [weak self] in
-            guard let self = self else { return PoolsChanges(newOrUpdatedItems: [], removedItems: []) }
-            let localPools = try fetchOperation.extractNoCancellableResultData()
-            let remotePoolDetails = (try? fetchRemotePoolsOperation.targetOperation.extractResultData()) ?? []
-            let accountId = (self.networkFacade as? WalletNetworkFacade)?.accountSettings.accountId ?? ""
+            guard let fetchRemotePoolsOperation = try? await (networkFacade as? WalletNetworkFacade)?.getAccountPoolsDetails() else { return }
+            let fetchOperation = poolRepository.fetchAllOperation(with: RepositoryFetchOptions())
+            
+            let processingOperation: BaseOperation<PoolsChanges> = ClosureOperation { [weak self] in
+                guard let self = self else { return PoolsChanges(newOrUpdatedItems: [], removedItems: []) }
+                let localPools = try fetchOperation.extractNoCancellableResultData()
+                let remotePoolDetails = (try? fetchRemotePoolsOperation.targetOperation.extractResultData()) ?? []
+                let accountId = (self.networkFacade as? WalletNetworkFacade)?.accountSettings.accountId ?? ""
 
-            let remotePoolInfo = remotePoolDetails.enumerated().map { (index, poolDetail) -> PoolInfo in
-                let idData = NSMutableData()
-                idData.append(Data(poolDetail.baseAsset.utf8))
-                idData.append(Data(poolDetail.targetAsset.utf8))
-                idData.append(Data(accountId.utf8))
-                let poolId = String(idData.hashValue)
+                let remotePoolInfo = remotePoolDetails.enumerated().map { (index, poolDetail) -> PoolInfo in
+                    let idData = NSMutableData()
+                    idData.append(Data(poolDetail.baseAsset.utf8))
+                    idData.append(Data(poolDetail.targetAsset.utf8))
+                    idData.append(Data(accountId.utf8))
+                    let poolId = String(idData.hashValue)
+                    
+                    return PoolInfo(baseAssetId: poolDetail.baseAsset,
+                                    targetAssetId: poolDetail.targetAsset,
+                                    poolId: poolId,
+                                    isFavorite: localPools.first { $0.poolId == poolId }?.isFavorite ?? true,
+                                    accountId: accountId,
+                                    yourPoolShare: poolDetail.yourPoolShare,
+                                    baseAssetPooledByAccount: poolDetail.baseAssetPooledByAccount,
+                                    targetAssetPooledByAccount: poolDetail.targetAssetPooledByAccount,
+                                    baseAssetPooledTotal: poolDetail.baseAssetPooledTotal,
+                                    targetAssetPooledTotal: poolDetail.targetAssetPooledTotal,
+                                    totalIssuances: poolDetail.totalIssuances,
+                                    baseAssetReserves: poolDetail.baseAssetReserves,
+                                    targetAssetReserves: poolDetail.targetAssetReserves,
+                                    accountPoolBalance: poolDetail.accountPoolBalance)
+                }.sorted { $0.isFavorite && !$1.isFavorite }
                 
-                return PoolInfo(baseAssetId: poolDetail.baseAsset,
-                                targetAssetId: poolDetail.targetAsset,
-                                poolId: poolId,
-                                isFavorite: localPools.first { $0.poolId == poolId }?.isFavorite ?? true,
-                                accountId: accountId,
-                                yourPoolShare: poolDetail.yourPoolShare,
-                                baseAssetPooledByAccount: poolDetail.baseAssetPooledByAccount,
-                                targetAssetPooledByAccount: poolDetail.targetAssetPooledByAccount,
-                                baseAssetPooledTotal: poolDetail.baseAssetPooledTotal,
-                                targetAssetPooledTotal: poolDetail.targetAssetPooledTotal,
-                                totalIssuances: poolDetail.totalIssuances,
-                                baseAssetReserves: poolDetail.baseAssetReserves,
-                                targetAssetReserves: poolDetail.targetAssetReserves,
-                                accountPoolBalance: poolDetail.accountPoolBalance)
-            }.sorted { $0.isFavorite && !$1.isFavorite }
-            
-            if self.currentOrder.isEmpty {
-                self.currentOrder = remotePoolInfo.map { $0.poolId }
+                if self.currentOrder.isEmpty {
+                    self.currentOrder = remotePoolInfo.map { $0.poolId }
+                }
+
+                let sortedPools = remotePoolInfo.sorted(by: self.orderSort)
+                self.currentPools = sortedPools
+                self.outputs.forEach {
+                    $0.loaded(pools: sortedPools)
+                }
+                
+                let newOrUpdatedItems = remotePoolInfo.filter { !localPools.contains($0) }
+                let removedItems = localPools.filter { !remotePoolInfo.contains($0) }
+                
+                return PoolsChanges(newOrUpdatedItems: newOrUpdatedItems, removedItems: removedItems)
             }
 
-            let sortedPools = remotePoolInfo.sorted(by: self.orderSort)
-            self.currentPools = sortedPools
-            self.outputs.forEach {
-                $0.loaded(pools: sortedPools)
+            let localSaveOperation = poolRepository.saveOperation({
+                let changes = try processingOperation.extractNoCancellableResultData()
+                return changes.newOrUpdatedItems
+            }, {
+                let changes = try processingOperation.extractNoCancellableResultData()
+                return changes.removedItems.map(\.poolId)
+            })
+            
+            processingOperation.addDependency(fetchOperation)
+            fetchRemotePoolsOperation.allOperations.forEach { operation in
+                processingOperation.addDependency(operation)
             }
-            
-            let newOrUpdatedItems = remotePoolInfo.filter { !localPools.contains($0) }
-            let removedItems = localPools.filter { !remotePoolInfo.contains($0) }
-            
-            return PoolsChanges(newOrUpdatedItems: newOrUpdatedItems, removedItems: removedItems)
-        }
+            localSaveOperation.addDependency(processingOperation)
 
-        let localSaveOperation = poolRepository.saveOperation({
-            let changes = try processingOperation.extractNoCancellableResultData()
-            return changes.newOrUpdatedItems
-        }, {
-            let changes = try processingOperation.extractNoCancellableResultData()
-            return changes.removedItems.map(\.poolId)
-        })
-        
-        processingOperation.addDependency(fetchOperation)
-        fetchRemotePoolsOperation.allOperations.forEach { operation in
-            processingOperation.addDependency(operation)
+            operationManager.enqueue(operations: fetchRemotePoolsOperation.allOperations + [fetchOperation, processingOperation, localSaveOperation], in: .transient)
         }
-        localSaveOperation.addDependency(processingOperation)
-
-        operationManager.enqueue(operations: fetchRemotePoolsOperation.allOperations + [fetchOperation, processingOperation, localSaveOperation], in: .transient)
     }
     
     func updatePools(_ pools: [PoolInfo]) {

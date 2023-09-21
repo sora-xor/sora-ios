@@ -85,6 +85,7 @@ extension PoolListCell: SoramitsuTableViewCellProtocol {
         poolView.sora.mode = item.poolViewModel.mode
         poolView.sora.upAmountText = item.poolViewModel.fiatText
         poolView.sora.isFavorite = item.poolInfo.isFavorite
+        poolView.amountDownLabel.sora.attributedText = item.poolViewModel.deltaArributedText
 
         assetItem = item
     }

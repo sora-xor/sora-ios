@@ -290,6 +290,8 @@ extension MainTabBarViewFactory {
                                                         runtimeRegistry: runtimeRegistry,
                                                         selectedAccount: selectedAccount)
         
+        let marketCapService = MarketCapService.shared
+        
         let walletController = RedesignWalletViewFactory.createView(providerFactory: providerFactory,
                                                                     assetManager: assetManager,
                                                                     fiatService: FiatService.shared,
@@ -302,7 +304,8 @@ extension MainTabBarViewFactory {
                                                                     poolsService: poolsService,
                                                                     referralFactory: referralFactory,
                                                                     assetsProvider: assetsProvider,
-                                                                    walletContext: walletContext)
+                                                                    walletContext: walletContext,
+                                                                    marketCapService: marketCapService)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)
@@ -425,10 +428,10 @@ extension MainTabBarViewFactory {
                                         publicKey: selectedAccount.publicKeyData,
                                         username: selectedAccount.username)
         
-        let marketCap = MarketCapService(assetManager: assetManager)
+        let marketCapService = MarketCapService.shared
         let fiatService = FiatService.shared
         let itemFactory = ExploreItemFactory(assetManager: assetManager)
-        let assetViewModelsService = ExploreAssetViewModelService(marketCapService: marketCap,
+        let assetViewModelsService = ExploreAssetViewModelService(marketCapService: marketCapService,
                                                                   fiatService: fiatService,
                                                                   itemFactory: itemFactory,
                                                                   assetManager: assetManager)
@@ -477,7 +480,7 @@ extension MainTabBarViewFactory {
         let wireframe = ExploreWireframe(fiatService: fiatService,
                                          itemFactory: itemFactory,
                                          assetManager: assetManager,
-                                         marketCapService: marketCap,
+                                         marketCapService: marketCapService,
                                          poolService: explorePoolsService,
                                          apyService: APYService.shared,
                                          assetViewModelFactory: factory,
@@ -529,13 +532,16 @@ extension MainTabBarViewFactory {
         
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
+        let marketCapService = MarketCapService.shared
+        
         guard let swapController = SwapViewFactory.createView(selectedTokenId: WalletAssetId.xor.rawValue,
                                                               selectedSecondTokenId: "",
                                                               assetManager: assetManager,
                                                               fiatService: FiatService.shared,
                                                               networkFacade: walletContext.networkOperationFactory,
                                                               polkaswapNetworkFacade: polkaswapContext,
-                                                              assetsProvider: assetsProvider) else { return nil }
+                                                              assetsProvider: assetsProvider,
+                                                              marketCapService: marketCapService) else { return nil }
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)

@@ -34,7 +34,7 @@ import CommonWallet
 import SoraUIKit
 import UIKit
 
-protocol SwapViewFactoryProtocol: AnyObject {
+final class SwapViewFactory {
     static func createView(
         selectedTokenId: String,
         selectedSecondTokenId: String,
@@ -42,18 +42,8 @@ protocol SwapViewFactoryProtocol: AnyObject {
         fiatService: FiatServiceProtocol,
         networkFacade: WalletNetworkOperationFactoryProtocol?,
         polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-        assetsProvider: AssetProviderProtocol?) -> UIViewController?
-}
-
-final class SwapViewFactory: SwapViewFactoryProtocol {
-    static func createView(
-        selectedTokenId: String,
-        selectedSecondTokenId: String,
-        assetManager: AssetManagerProtocol,
-        fiatService: FiatServiceProtocol,
-        networkFacade: WalletNetworkOperationFactoryProtocol?,
-        polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-        assetsProvider: AssetProviderProtocol?) -> UIViewController? {
+        assetsProvider: AssetProviderProtocol?,
+        marketCapService: MarketCapServiceProtocol) -> UIViewController? {
         let interactor = PolkaswapMainInteractor(operationManager: OperationManager(),
                                                  eventCenter: EventCenter.shared)
         interactor.polkaswapNetworkFacade = polkaswapNetworkFacade
@@ -69,7 +59,8 @@ final class SwapViewFactory: SwapViewFactoryProtocol {
             networkFacade: networkFacade,
             assetsProvider: assetsProvider,
             lpServiceFee: LPFeeService(),
-            polkaswapNetworkFacade: polkaswapNetworkFacade)
+            polkaswapNetworkFacade: polkaswapNetworkFacade,
+            marketCapService: marketCapService)
         
         interactor.presenter = viewModel
         
@@ -88,6 +79,3 @@ final class SwapViewFactory: SwapViewFactoryProtocol {
         return containerView
     }
 }
-
-
-

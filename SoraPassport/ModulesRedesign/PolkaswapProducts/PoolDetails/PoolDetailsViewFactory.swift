@@ -32,7 +32,7 @@ import Foundation
 import RobinHood
 import CommonWallet
 
-protocol PoolDetailsViewFactoryProtocol: AnyObject {
+final class PoolDetailsViewFactory {
     static func createView(poolInfo: PoolInfo,
                            assetManager: AssetManagerProtocol,
                            fiatService: FiatServiceProtocol,
@@ -40,17 +40,7 @@ protocol PoolDetailsViewFactoryProtocol: AnyObject {
                            providerFactory: BalanceProviderFactory,
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol?,
-                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController?
-}
-
-final class PoolDetailsViewFactory: PoolDetailsViewFactoryProtocol {
-    static func createView(poolInfo: PoolInfo,
-                           assetManager: AssetManagerProtocol,
-                           fiatService: FiatServiceProtocol,
-                           poolsService: PoolsServiceInputProtocol,
-                           providerFactory: BalanceProviderFactory,
-                           operationFactory: WalletNetworkOperationFactoryProtocol,
-                           assetsProvider: AssetProviderProtocol?,
+                           marketCapService: MarketCapServiceProtocol,
                            dismissHandler: (() -> Void)?) -> PoolDetailsViewController? {
         guard let engine = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else { return nil }
         let farmingService = DemeterFarmingService(operationFactory: DemeterFarmingOperationFactory(engine: engine))
@@ -63,7 +53,8 @@ final class PoolDetailsViewFactory: PoolDetailsViewFactoryProtocol {
                                              providerFactory: providerFactory,
                                              operationFactory: operationFactory,
                                              assetsProvider: assetsProvider,
-                                             farmingService: farmingService)
+                                             farmingService: farmingService,
+                                             marketCapService: marketCapService)
         viewModel.dismissHandler = dismissHandler
 
         let view = PoolDetailsViewController(viewModel: viewModel)

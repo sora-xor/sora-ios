@@ -75,10 +75,24 @@ final class PriceCell: SoramitsuTableViewCell {
         return label
     }()
     
+    let priceContainerView: SoramitsuStackView = {
+        var view = SoramitsuStackView()
+        view.sora.axis = .horizontal
+        view.sora.distribution = .fill
+        view.sora.alignment = .center
+        view.spacing = 8
+        return view
+    }()
+    
     private let priceLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline3
         label.sora.textColor = .fgSecondary
+        return label
+    }()
+    
+    private let priceTrendLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
         return label
     }()
 
@@ -94,7 +108,8 @@ final class PriceCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupView() {
-        stackView.addArrangedSubviews(oneCurrencyImageView, symbolLabel, ecosystemLabel, priceLabel)
+        priceContainerView.addArrangedSubviews(priceLabel, priceTrendLabel)
+        stackView.addArrangedSubviews(oneCurrencyImageView, symbolLabel, ecosystemLabel, priceContainerView)
         contentView.addSubviews(containerView, stackView)
     }
 
@@ -124,6 +139,8 @@ extension PriceCell: SoramitsuTableViewCellProtocol {
         symbolLabel.sora.text = item.assetViewModel.subtitle
         ecosystemLabel.sora.text = item.assetViewModel.title
         priceLabel.sora.text = item.assetViewModel.fiatText
+        priceTrendLabel.sora.isHidden = item.assetViewModel.deltaPriceText == nil
+        priceTrendLabel.sora.attributedText = item.assetViewModel.deltaPriceText
     }
 }
 
