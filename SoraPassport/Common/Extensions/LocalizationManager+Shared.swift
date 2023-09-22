@@ -42,7 +42,7 @@ extension LocalizationManagerProtocol {
     }
     
     var isRightToLeft: Bool {
-        return (selectedLocalization == "ar") || (selectedLocalization == "he")
+        return (selectedLocalization == "ar") || (selectedLocalization == "he") || (selectedLocalization == "fa")
     }
 }
 

@@ -61,8 +61,10 @@ extension AssetViewModelFactory {
               let assetInfo = assetManager.assetInfo(for: asset.identifier) else {
             return nil
         }
-
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
         let balance = (formatter.stringFromDecimal(balanceData.balance.decimalValue) ?? "") + " " + asset.symbol
+        let balanceReversed = asset.symbol + " " + (formatter.stringFromDecimal(balanceData.balance.decimalValue) ?? "")
         var fiatText = ""
         if let priceUsd = fiatData.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue {
             let fiatDecimal = balanceData.balance.decimalValue * priceUsd
@@ -72,8 +74,9 @@ extension AssetViewModelFactory {
         var deltaArributedText: SoramitsuTextItem?
         if let priceDelta {
             let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(priceDelta) ?? "")%"
+            let deltaTextReversed = "%\(NumberFormatter.fiat.stringFromDecimal(priceDelta) ?? "")"
             let deltaColor: SoramitsuColor = priceDelta > 0 ? .statusSuccess : .statusError
-            deltaArributedText = SoramitsuTextItem(text: deltaText,
+            deltaArributedText = SoramitsuTextItem(text: isRTL ? deltaTextReversed : deltaText,
                                                    attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
                                                                                        textColor: deltaColor,
                                                                                        alignment: .right))
@@ -82,7 +85,7 @@ extension AssetViewModelFactory {
         
         return AssetViewModel(identifier: asset.identifier,
                               title: asset.name,
-                              subtitle: balance,
+                              subtitle: isRTL ? balanceReversed : balance,
                               fiatText: fiatText,
                               icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
                               mode: mode,

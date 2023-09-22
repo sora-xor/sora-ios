@@ -174,6 +174,7 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
             poolView.sora.addHandler(for: .touchUpInside) { [weak poolsItem] in
                 poolsItem?.poolHandler?(poolModel.identifier)
             }
+            poolView.isRightToLeft = localizationManager.isRightToLeft
             return poolView
         }
 

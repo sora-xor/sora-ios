@@ -29,10 +29,12 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
+import SoraFoundation
 
 final class ActivityCell: SoramitsuTableViewCell {
 
     private var assetItem: ActivityItem?
+    private var localizationManager = LocalizationManager.shared
 
     private lazy var historyView: HistoryTransactionView = {
         let view = HistoryTransactionView()
@@ -87,5 +89,11 @@ extension ActivityCell: SoramitsuTableViewCellProtocol {
         historyView.sora.fiatText = item.model.fiatText
         historyView.sora.isNeedTwoTokens = item.model.isNeedTwoImage
         historyView.sora.statusImage = item.model.status.image
+        
+        let defaultAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        let reversedAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .left : .right
+        historyView.amountUpLabel.sora.alignment = reversedAlignment
+        historyView.titleLabel.sora.alignment = defaultAlignment
+        historyView.subtitleLabel.sora.alignment = defaultAlignment
     }
 }

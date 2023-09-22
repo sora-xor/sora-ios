@@ -33,9 +33,9 @@ import Firebase
 import SCard
 import GoogleSignIn
 import SoraUIKit
+import SoraFoundation
 #if F_DEV
 import FLEX
-import SoraFoundation
 #endif
 
 @UIApplicationMain
@@ -160,6 +160,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func setupLanguage() {
         let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         UIView.appearance().semanticContentAttribute = semanticContentAttribute
+        UINavigationBar.appearance().semanticContentAttribute = semanticContentAttribute
     }
 }
 
