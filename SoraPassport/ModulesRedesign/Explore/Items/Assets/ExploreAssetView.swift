@@ -117,6 +117,12 @@ public final class ExploreAssetView: SoramitsuView {
         return label
     }()
     
+    public let amountDownView: SoramitsuView = {
+        let view = SoramitsuView()
+        view.sora.backgroundColor = .custom(uiColor: .clear)
+        return view
+    }()
+    
     public let amountDownLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
@@ -159,7 +165,9 @@ private extension ExploreAssetView {
         infoStackView.addArrangedSubview(subtitleLabel)
         
         amountStackView.addArrangedSubview(amountUpLabel)
-        amountStackView.addArrangedSubview(amountDownLabel)
+        amountStackView.addArrangedSubview(amountDownView)
+        
+        amountDownView.addSubview(amountDownLabel)
         
         stackView.addArrangedSubview(serialNumber)
         stackView.addArrangedSubview(assetImageView)
@@ -179,12 +187,17 @@ private extension ExploreAssetView {
             stackView.centerXAnchor.constraint(equalTo: centerXAnchor),
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             stackView.heightAnchor.constraint(equalToConstant: 40),
+            
+            amountDownLabel.trailingAnchor.constraint(equalTo: amountDownView.trailingAnchor)
         ])
     }
     
     func setupSemantics() {
-        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
-        titleLabel.sora.alignment = alignment
-        subtitleLabel.sora.alignment = alignment
+        let defaultAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        let reversedAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .left : .right
+        titleLabel.sora.alignment = defaultAlignment
+        subtitleLabel.sora.alignment = defaultAlignment
+        amountUpLabel.sora.alignment = reversedAlignment
+        amountDownLabel.sora.alignment = reversedAlignment
     }
 }
