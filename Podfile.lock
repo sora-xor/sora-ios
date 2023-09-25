@@ -269,7 +269,7 @@ PODS:
   - SoraUI/PinView (1.10.3):
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
-  - SoraUIKit (1.0.4)
+  - SoraUIKit (1.0.6)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
@@ -333,7 +333,7 @@ DEPENDENCIES:
   - SoraFoundation
   - SoraKeystore
   - SoraUI
-  - SoraUIKit (from `https://github.com/soramitsu/ios-ui.git`, tag `1.0.4`)
+  - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.0.6`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
@@ -416,8 +416,8 @@ EXTERNAL SOURCES:
     :branch: release/1.2.0
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
-    :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.4
+    :git: https://github.com/soramitsu/ios-ui
+    :tag: 1.0.6
   Starscream:
     :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -443,8 +443,8 @@ CHECKOUT OPTIONS:
     :commit: 25745ef0fa9c6ac710ef54b63de35a7804e94288
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
-    :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.4
+    :git: https://github.com/soramitsu/ios-ui
+    :tag: 1.0.6
   Starscream:
     :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -501,7 +501,7 @@ SPEC CHECKSUMS:
   SoraFoundation: 988d90ee3159311b02e42aeba0cf7e85d8bc724c
   SoraKeystore: 92cff6e2a12f212dd64ed089970ff7c365247b1c
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
-  SoraUIKit: d46da32cd6bd9d5706b6a3cede4a89a36663c329
+  SoraUIKit: 9c9cf7c39b6228fe57347641615c936148be6041
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
   SSFCloudStorage: 37fbba3ad3e93a637d9c1a9b85910f4fa29596de
   SSFModels: afdeb5bb331de6efa902d961e61a76e1d26aab04
@@ -516,6 +516,6 @@ SPEC CHECKSUMS:
   XNetworking: 968483e8c77c510128b120efa3fdf4fe524af674
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: d62ecffafe8a55ad2c7bdc08da6aaa791914761f
+PODFILE CHECKSUM: fcc8e95f7e9ed1b055d00736c5f7d5ae5adef43d
 
 COCOAPODS: 1.12.1
