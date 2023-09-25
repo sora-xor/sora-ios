@@ -41,7 +41,7 @@ final class PoolDetailsItemFactory {
         formatter.roundingMode = .floor
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 2
-        formatter.locale = LocalizationManager.shared.selectedLocale
+        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
         return formatter
     }()
     

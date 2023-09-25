@@ -175,6 +175,7 @@ extension AssetsCell: SoramitsuTableViewCellProtocol {
             assetView.tappableArea.sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
                 assetsItem?.assetHandler?(assetModel.identifier)
             }
+            assetView.isRightToLeft = localizationManager.isRightToLeft
             return assetView
         }
 

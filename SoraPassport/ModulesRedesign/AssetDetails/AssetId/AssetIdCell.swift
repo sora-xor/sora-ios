@@ -29,8 +29,11 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
+import SoraFoundation
 
 final class AssetIdCell: SoramitsuTableViewCell {
+    
+    private let localizationManager = LocalizationManager.shared
     
     private let fullStackView: SoramitsuStackView = {
         var view = SoramitsuStackView()
@@ -82,6 +85,14 @@ final class AssetIdCell: SoramitsuTableViewCell {
             fullStackView.topAnchor.constraint(equalTo: contentView.topAnchor),
         ])
     }
+    
+    private func updateSemantics() {
+        let semanticContentAttribute: UISemanticContentAttribute = localizationManager.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        fullStackView.semanticContentAttribute = semanticContentAttribute
+        titleLabel.sora.alignment = alignment
+        assetIdLabel.sora.alignment = alignment
+    }
 }
 
 extension AssetIdCell: SoramitsuTableViewCellProtocol {
@@ -92,6 +103,8 @@ extension AssetIdCell: SoramitsuTableViewCellProtocol {
         }
         
         assetIdLabel.sora.text = item.assetId
+        
+        updateSemantics()
     }
 }
 

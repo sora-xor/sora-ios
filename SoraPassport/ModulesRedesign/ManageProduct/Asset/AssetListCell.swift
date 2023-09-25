@@ -29,10 +29,12 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
+import SoraFoundation
 
 final class AssetListCell: SoramitsuTableViewCell {
 
     private var assetItem: AssetListItem?
+    private var localizationManager = LocalizationManager.shared
 
     private lazy var assetView: AssetView = {
         let view = AssetView(mode: .view)
@@ -93,7 +95,8 @@ extension AssetListCell: SoramitsuTableViewCellProtocol {
         assetView.amountDownLabel.sora.attributedText = item.assetViewModel.deltaPriceText
         
         assetView.favoriteButton.sora.isEnabled = item.canFavorite
-
+        assetView.isRightToLeft = localizationManager.isRightToLeft
+        
         assetItem = item
     }
 }

@@ -30,6 +30,7 @@
 
 import SoraUIKit
 import CommonWallet
+import SoraFoundation
 
 enum TransferableActionType {
     case send
@@ -42,6 +43,7 @@ enum TransferableActionType {
 final class TransferableCell: SoramitsuTableViewCell {
     
     var item: TransferableItem?
+    private var localizationManager = LocalizationManager.shared
     
     private let containerView: SoramitsuStackView = {
         var view = SoramitsuStackView()
@@ -275,8 +277,11 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
             return
         }
         self.item = item
-        let balanceText = NumberFormatter.cryptoAssets.stringFromDecimal(item.balance.decimalValue) ?? ""
-        balanceLabel.sora.text = balanceText + " " + item.assetInfo.symbol
+        let text = NumberFormatter.cryptoAssets.stringFromDecimal(item.balance.decimalValue) ?? ""
+        let balanceText = text + " " + item.assetInfo.symbol
+        let balanceTextReversed = item.assetInfo.symbol + " " + text
+        balanceLabel.sora.text = localizationManager.isRightToLeft ? balanceTextReversed : balanceText
+        balanceLabel.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         fiatLabel.sora.text = item.fiat
         transferableContainerView.sora.isHidden = !item.isNeedTransferable
         separatorView.sora.isHidden = !item.isNeedTransferable

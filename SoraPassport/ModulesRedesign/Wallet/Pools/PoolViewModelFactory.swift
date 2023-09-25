@@ -32,6 +32,7 @@ import Foundation
 import CommonWallet
 import SoraUIKit
 import XNetworking
+import SoraFoundation
 
 final class PoolViewModelFactory {
     let walletAssets: [AssetInfo]
@@ -65,7 +66,8 @@ extension PoolViewModelFactory {
         guard let targetAssetInfo = assetManager.assetInfo(for: targetAsset.identifier) else { return nil }
         
         guard let rewardAssetInfo = assetManager.assetInfo(for: WalletAssetId.pswap.rawValue) else { return nil }
-
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
         let baseBalance = formatter.stringFromDecimal(pool.baseAssetPooledByAccount ?? Decimal(0)) ?? ""
         let targetBalance = formatter.stringFromDecimal(pool.targetAssetPooledByAccount ?? Decimal(0)) ?? ""
         
@@ -77,6 +79,9 @@ extension PoolViewModelFactory {
             fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
         }
         
+        let title = isRTL ? "\(targetAsset.symbol)-\(baseAsset.symbol)" : "\(baseAsset.symbol)-\(targetAsset.symbol)"
+        let subtitle = isRTL ? "\(targetAsset.symbol) \(targetBalance) - \(baseAsset.symbol) \(baseBalance)" : "\(baseBalance) \(baseAsset.symbol) - \(targetBalance) \(targetAsset.symbol)"
+
         var deltaArributedText: SoramitsuTextItem?
         if let priceTrend {
             let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(priceTrend) ?? "")%"
@@ -88,8 +93,8 @@ extension PoolViewModelFactory {
         }
         
         return PoolViewModel(identifier: pool.poolId,
-                             title: "\(baseAsset.symbol)-\(targetAsset.symbol)",
-                             subtitle: "\(baseBalance) \(baseAsset.symbol) - \(targetBalance) \(targetAsset.symbol)",
+                             title: title,
+                             subtitle: subtitle,
                              fiatText: fiatText,
                              baseAssetImage: RemoteSerializer.shared.image(with: baseAssetInfo.icon ?? ""),
                              targetAssetImage: RemoteSerializer.shared.image(with: targetAssetInfo.icon ?? ""),

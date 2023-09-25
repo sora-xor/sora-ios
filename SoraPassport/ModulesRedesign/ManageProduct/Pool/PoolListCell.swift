@@ -29,10 +29,12 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
+import SoraFoundation
 
 final class PoolListCell: SoramitsuTableViewCell {
 
     private var assetItem: PoolListItem?
+    private var localizationManager = LocalizationManager.shared
 
     private lazy var poolView: PoolView = {
         let view = PoolView(mode: .view)
@@ -85,8 +87,8 @@ extension PoolListCell: SoramitsuTableViewCellProtocol {
         poolView.sora.mode = item.poolViewModel.mode
         poolView.sora.upAmountText = item.poolViewModel.fiatText
         poolView.sora.isFavorite = item.poolInfo.isFavorite
+        poolView.isRightToLeft = localizationManager.isRightToLeft
         poolView.amountDownLabel.sora.attributedText = item.poolViewModel.deltaArributedText
-
         assetItem = item
     }
 }

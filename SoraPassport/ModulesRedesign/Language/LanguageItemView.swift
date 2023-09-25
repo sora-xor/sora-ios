@@ -30,8 +30,11 @@
 
 import SoraUIKit
 import Anchorage
+import SoraFoundation
 
 final class LanguageItemView: SoramitsuView {
+    
+    private let localizationManager = LocalizationManager.shared
     
     let stack: SoramitsuStackView = {
         var view = SoramitsuStackView()

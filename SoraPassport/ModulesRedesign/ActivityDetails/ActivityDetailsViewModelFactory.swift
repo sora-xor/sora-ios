@@ -47,19 +47,21 @@ protocol ActivityDetailsViewModelFactoryProtocol {
 final class ActivityDetailsViewModelFactory {
     let assetManager: AssetManagerProtocol
     
+    let localizationManager = LocalizationManager.shared
+    
     let formatter: NumberFormatter = {
         let formatter = NumberFormatter.amount
         formatter.roundingMode = .floor
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 8
-        formatter.locale = LocalizationManager.shared.selectedLocale
+        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
         return formatter
     }()
     
     let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd MMM. YYYY, HH:mm"
-        formatter.locale = LocalizationManager.shared.selectedLocale
+        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
         return formatter
     }()
     
@@ -89,7 +91,10 @@ extension ActivityDetailsViewModelFactory: ActivityDetailsViewModelFactoryProtoc
         let dateViewModel = DetailViewModel(title: R.string.localizable.transactionDate(preferredLanguages: .currentLocale),
                                               assetAmountText: dateText)
         
-        let feeText = SoramitsuTextItem(text: "\(NumberFormatter.cryptoAssets.stringFromDecimal(transactionBase.fee.decimalValue) ?? "") XOR",
+        let fee = "\(NumberFormatter.cryptoAssets.stringFromDecimal(transactionBase.fee.decimalValue) ?? "") XOR"
+        let feeReversed = "XOR \(NumberFormatter.cryptoAssets.stringFromDecimal(transactionBase.fee.decimalValue) ?? "")"
+        
+        let feeText = SoramitsuTextItem(text: localizationManager.isRightToLeft ? feeReversed : fee,
                                         fontData: FontType.textS,
                                         textColor: .fgPrimary,
                                         alignment: .right)
@@ -109,7 +114,10 @@ extension ActivityDetailsViewModelFactory: ActivityDetailsViewModelFactoryProtoc
             tapHandler: networkFeeTapHandler
         )
         
-        let lpFeeText = SoramitsuTextItem(text: "\(NumberFormatter.cryptoAssets.stringFromDecimal(transaction.lpFee.decimalValue) ?? "") XOR",
+        let lpFee = "\(NumberFormatter.cryptoAssets.stringFromDecimal(transaction.lpFee.decimalValue) ?? "") XOR"
+        let lpFeeReversed = "XOR \(NumberFormatter.cryptoAssets.stringFromDecimal(transaction.lpFee.decimalValue) ?? "")"
+        
+        let lpFeeText = SoramitsuTextItem(text: localizationManager.isRightToLeft ? lpFeeReversed : lpFee,
                                         fontData: FontType.textS,
                                         textColor: .fgPrimary,
                                         alignment: .right)

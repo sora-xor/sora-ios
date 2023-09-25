@@ -137,10 +137,12 @@ private extension ActivityViewModelFactory {
             symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
         }
         
+        let isRTL = LocalizationManager.shared.isRightToLeft
         let firstBalance = formatter.stringFromDecimal(transaction.amount.decimalValue) ?? ""
         let text = transaction.transferType == .incoming ? "+ \(firstBalance) \(assetInfo?.symbol ?? "")" : "\(firstBalance) \(assetInfo?.symbol ?? "")"
+        let textReversed = transaction.transferType == .incoming ? "\(assetInfo?.symbol ?? "") \(firstBalance) +" : "\(assetInfo?.symbol ?? "") \(firstBalance)"
         let textColor: SoramitsuColor = transaction.transferType == .incoming ? .statusSuccess : .fgPrimary
-        let firstBalanceText = SoramitsuTextItem(text: text,
+        let firstBalanceText = SoramitsuTextItem(text: isRTL ? textReversed : text,
                                                  fontData: FontType.textM,
                                                  textColor: textColor,
                                                  alignment: .right)
@@ -181,27 +183,30 @@ private extension ActivityViewModelFactory {
             toSymbolViewModel = WalletSvgImageViewModel(svgString: toIconString)
         }
         
+        let isRTL = LocalizationManager.shared.isRightToLeft
         let fromBalance = formatter.stringFromDecimal(swap.fromAmount.decimalValue) ?? ""
-        let fromBalanceText = SoramitsuTextItem(text: "\(fromBalance) \(fromAsset?.symbol ?? "")",
+        let fromBalanceText = SoramitsuTextItem(text: isRTL ? "\(fromAsset?.symbol ?? "") \(fromBalance)" : "\(fromBalance) \(fromAsset?.symbol ?? "")",
                                                 fontData: FontType.textM,
                                                 textColor: .fgPrimary,
                                                 alignment: .right)
-        let arrowText = SoramitsuTextItem(text: " → ",
+        let arrowText = SoramitsuTextItem(text: isRTL ? " ← " : " → ",
                                                 fontData: FontType.textM,
                                                 textColor: .fgPrimary,
                                                 alignment: .right)
         
         let toBalance = formatter.stringFromDecimal(swap.toAmount.decimalValue) ?? ""
-        let toBalanceText = SoramitsuTextItem(text: "\(toBalance) \(toAssetInfo?.symbol ?? "")",
+        let toBalanceText = SoramitsuTextItem(text: isRTL ? "\(toAssetInfo?.symbol ?? "") \(toBalance)" : "\(toBalance) \(toAssetInfo?.symbol ?? "")",
                                               fontData: FontType.textM,
                                               textColor: .statusSuccess,
                                               alignment: .right)
 
-        let balanceText: SoramitsuAttributedText = [ fromBalanceText, arrowText, toBalanceText ]
+        let balanceText: SoramitsuAttributedText = isRTL ? [ toBalanceText, arrowText, fromBalanceText ] : [ fromBalanceText, arrowText, toBalanceText ]
+        
+        let subtitle = isRTL ? "\(toAsset?.symbol ?? "") ← \(fromAsset?.symbol ?? "")" : "\(fromAsset?.symbol ?? "") → \(toAsset?.symbol ?? "")"
         
         return ActivityContentViewModel(txHash: swap.base.txHash,
                                         title: R.string.localizable.polkaswapSwapped(preferredLanguages: .currentLocale),
-                                        subtitle: "\(fromAsset?.symbol ?? "") → \(toAsset?.symbol ?? "")",
+                                        subtitle: subtitle,
                                         typeTransactionImage: R.image.wallet.swap(),
                                         firstAssetImageViewModel: fromSymbolViewModel,
                                         secondAssetImageViewModel: toSymbolViewModel,
@@ -237,10 +242,12 @@ private extension ActivityViewModelFactory {
             toSymbolViewModel = WalletSvgImageViewModel(svgString: toIconString)
         }
         
+        let isRTL = LocalizationManager.shared.isRightToLeft
         let textColor: SoramitsuColor = liquidity.type == .add ? .fgPrimary : .statusSuccess
         let fromBalance = formatter.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
         let fromText = liquidity.type == .withdraw ? "+ \(fromBalance) \(fromAsset?.symbol ?? "")" : "\(fromBalance) \(fromAsset?.symbol ?? "")"
-        let fromBalanceText = SoramitsuTextItem(text: fromText,
+        let fromTextReversed = liquidity.type == .withdraw ? "\(fromAsset?.symbol ?? "") \(fromBalance) +" : " \(fromAsset?.symbol ?? "") \(fromBalance)"
+        let fromBalanceText = SoramitsuTextItem(text: isRTL ? fromTextReversed : fromText,
                                                 fontData: FontType.textM,
                                                 textColor: textColor,
                                                 alignment: .right)
@@ -252,18 +259,20 @@ private extension ActivityViewModelFactory {
         
         let toBalance = formatter.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
         let toText = liquidity.type == .withdraw ? "+ \(toBalance) \(toAssetInfo?.symbol ?? "")" : "\(toBalance) \(toAssetInfo?.symbol ?? "")"
-        let toBalanceText = SoramitsuTextItem(text: toText,
+        let toTextReversed = liquidity.type == .withdraw ? "\(toAssetInfo?.symbol ?? "") \(toBalance) +" : " \(toAssetInfo?.symbol ?? "") \(toBalance)"
+        let toBalanceText = SoramitsuTextItem(text: isRTL ? toTextReversed : toText,
                                               fontData: FontType.textM,
                                               textColor: textColor,
                                               alignment: .right)
         
-        let balanceText: SoramitsuAttributedText = [ toBalanceText, slashText, fromBalanceText ]
+        let balanceText: SoramitsuAttributedText = isRTL ? [ toBalanceText, slashText, fromBalanceText ] : [ fromBalanceText, slashText, toBalanceText ]
         
         let title = R.string.localizable.activityPoolTitle(preferredLanguages: .currentLocale)
+        let subtitle = isRTL ? "\(toAsset?.symbol ?? "") / \(fromAsset?.symbol ?? "")" : "\(fromAsset?.symbol ?? "") / \(toAsset?.symbol ?? "")"
         
         return ActivityContentViewModel(txHash: liquidity.base.txHash,
                                         title: title,
-                                        subtitle: "\(toAsset?.symbol ?? "") / \(fromAsset?.symbol ?? "")",
+                                        subtitle: subtitle,
                                         typeTransactionImage: liquidity.type.image,
                                         firstAssetImageViewModel: toSymbolViewModel,
                                         secondAssetImageViewModel: fromSymbolViewModel,
@@ -281,10 +290,12 @@ private extension ActivityViewModelFactory {
             symbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
         }
         
+        let isRTL = LocalizationManager.shared.isRightToLeft
         let textColor: SoramitsuColor = bond.type == .unbond ? .statusSuccess : .fgPrimary
         let balance = formatter.stringFromDecimal(bond.amount.decimalValue) ?? ""
         let text = bond.type == .unbond ? "+ \(balance) \(assetInfo?.symbol ?? "")" : "\(balance) \(assetInfo?.symbol ?? "")"
-        let balanceText = SoramitsuTextItem(text: text,
+        let textReversed = bond.type == .unbond ? "\(assetInfo?.symbol ?? "") \(balance) +" : "\(assetInfo?.symbol ?? "") \(balance)"
+        let balanceText = SoramitsuTextItem(text: isRTL ? textReversed : text,
                                                 fontData: FontType.textM,
                                                 textColor: textColor,
                                                 alignment: .right)
