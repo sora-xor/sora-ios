@@ -73,6 +73,7 @@ final class PoolDetailsViewModel {
     private let group = DispatchGroup()
     private var apy: Decimal?
     private var pools: [StakedPool] = []
+    private var marketCapService: MarketCapServiceProtocol
     
     init(
         wireframe: PoolDetailsWireframeProtocol?,
@@ -84,7 +85,8 @@ final class PoolDetailsViewModel {
         providerFactory: BalanceProviderFactory,
         operationFactory: WalletNetworkOperationFactoryProtocol,
         assetsProvider: AssetProviderProtocol?,
-        farmingService: DemeterFarmingServiceProtocol
+        farmingService: DemeterFarmingServiceProtocol,
+        marketCapService: MarketCapServiceProtocol
     ) {
         self.poolInfo = poolInfo
         self.apyService = APYService.shared
@@ -97,6 +99,7 @@ final class PoolDetailsViewModel {
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
         self.farmingService = farmingService
+        self.marketCapService = marketCapService
         self.poolsService?.appendDelegate(delegate: self)
         self.poolsService?.subscribePoolsReserves([poolInfo])
     }
@@ -137,6 +140,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                                  providerFactory: providerFactory,
                                  operationFactory: operationFactory,
                                  assetsProvider: assetsProvider,
+                                 marketCapService: marketCapService,
                                  completionHandler: dissmissIfNeeded)
     }
 }

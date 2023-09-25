@@ -110,27 +110,31 @@ final class RemoveLiquidityViewModel {
     
     var firstAssetId: String = "" {
         didSet {
-            guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
-            let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
-            view?.updateFirstAsset(symbol: asset.symbol, image: image)
-            setupBalanceDataProvider()
-            if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                poolInfo = poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+            Task {
+                guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
+                let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
+                view?.updateFirstAsset(symbol: asset.symbol, image: image)
+                setupBalanceDataProvider()
+                if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
+                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+                }
+                recalculate(field: .one)
             }
-            recalculate(field: .one)
         }
     }
     
     var secondAssetId: String = "" {
         didSet {
-            guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
-            let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
-            view?.updateSecondAsset(symbol: asset.symbol, image: image)
-            setupBalanceDataProvider()
-            if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                poolInfo = poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+            Task {
+                guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
+                let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
+                view?.updateSecondAsset(symbol: asset.symbol, image: image)
+                setupBalanceDataProvider()
+                if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
+                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+                }
+                recalculate(field: .two)
             }
-            recalculate(field: .two)
         }
     }
     
@@ -210,6 +214,7 @@ final class RemoveLiquidityViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private var stakedPools: [StakedPool] = []
     private var warningViewModelFactory: WarningViewModelFactory
+    private var marketCapService: MarketCapServiceProtocol
     private var stackedPercentage: Decimal {
         return stakedPools.map {
             let accountPoolBalance = poolInfo?.accountPoolBalance ?? .zero
@@ -241,7 +246,8 @@ final class RemoveLiquidityViewModel {
         operationFactory: WalletNetworkOperationFactoryProtocol,
         assetsProvider: AssetProviderProtocol?,
         farmingService: DemeterFarmingServiceProtocol,
-        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
+        marketCapService: MarketCapServiceProtocol
     ) {
         self.poolInfo = poolInfo
         self.apyService = apyService
@@ -257,6 +263,7 @@ final class RemoveLiquidityViewModel {
         self.farmingService = farmingService
         self.stakedPools = stakedPools
         self.warningViewModelFactory = warningViewModelFactory
+        self.marketCapService = marketCapService
     }
 }
 
@@ -330,7 +337,8 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.firstAssetId = assetId
         }
     }
@@ -351,7 +359,8 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.secondAssetId = assetId
         }
     }

@@ -73,8 +73,8 @@ extension AssetViewModelFactory {
         
         var deltaArributedText: SoramitsuTextItem?
         if let priceDelta {
-            let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(priceDelta) ?? "")%"
-            let deltaTextReversed = "%\(NumberFormatter.fiat.stringFromDecimal(priceDelta) ?? "")"
+            let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(priceDelta * 100) ?? "")%"
+            let deltaTextReversed = "%\(NumberFormatter.fiat.stringFromDecimal(priceDelta * 100) ?? "")"
             let deltaColor: SoramitsuColor = priceDelta > 0 ? .statusSuccess : .statusError
             deltaArributedText = SoramitsuTextItem(text: isRTL ? deltaTextReversed : deltaText,
                                                    attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
@@ -100,12 +100,23 @@ extension AssetViewModelFactory {
             fiatText = "$" + (formatter.stringFromDecimal(usdPrice) ?? "")
         }
 
+        var deltaArributedText: SoramitsuTextItem?
+        if let priceDelta {
+            let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(priceDelta * 100) ?? "")%"
+            let deltaColor: SoramitsuColor = priceDelta > 0 ? .statusSuccess : .statusError
+            deltaArributedText = SoramitsuTextItem(text: deltaText,
+                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
+                                                                                       textColor: deltaColor,
+                                                                                       alignment: .right))
+        }
+
         return AssetViewModel(identifier: asset.assetId,
                               title: asset.name,
                               subtitle: asset.symbol,
                               fiatText: fiatText,
                               icon: RemoteSerializer.shared.image(with: asset.icon ?? ""),
                               mode: mode,
-                              isFavorite: asset.visible)
+                              isFavorite: asset.visible,
+                              deltaPriceText: deltaArributedText)
     }
 }

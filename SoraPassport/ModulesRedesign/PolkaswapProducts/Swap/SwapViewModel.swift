@@ -231,6 +231,7 @@ final class SwapViewModel {
     private var selectedSecondTokenId: String
     private weak var assetsProvider: AssetProviderProtocol?
     private var lpServiceFee: LPFeeServiceProtocol
+    private let marketCapService: MarketCapServiceProtocol
     
     private var warningViewModelFactory: WarningViewModelFactory
     private var warningViewModel: WarningViewModel? {
@@ -267,7 +268,8 @@ final class SwapViewModel {
         assetsProvider: AssetProviderProtocol?,
         lpServiceFee: LPFeeServiceProtocol,
         polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
+        marketCapService: MarketCapServiceProtocol
     ) {
         self.assetsProvider = assetsProvider
         self.fiatService = fiatService
@@ -283,6 +285,7 @@ final class SwapViewModel {
         self.lpServiceFee = lpServiceFee
         self.polkaswapNetworkFacade = polkaswapNetworkFacade
         self.warningViewModelFactory = warningViewModelFactory
+        self.marketCapService = marketCapService
     }
     
     deinit {
@@ -364,7 +367,8 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.firstAssetId = assetId
         }
     }
@@ -383,7 +387,8 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.secondAssetId = assetId
         }
     }

@@ -99,12 +99,12 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         }
         
         if let createAccountRequest = createAccountRequest, let mnemonic = mnemonic {
+            self.view?.showLoading()
             createAccountService?.createAccount(request: createAccountRequest, mnemonic: mnemonic) { [weak self] result in
                 guard let self = self, let result = result, case .success(let account) = result else { return }
     
                 self.updateBackupedAccount(with: account, password: password)
                 
-                self.view?.showLoading()
                 self.cloudStorageService.saveBackupAccount(account: self.backupAccount, password: password) { [weak self] result in
                     self?.view?.hideLoading()
                     self?.handler(result)

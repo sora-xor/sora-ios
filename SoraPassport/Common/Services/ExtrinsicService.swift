@@ -37,7 +37,7 @@ import BigInt
 typealias FeeExtrinsicResult = Result<RuntimeDispatchInfo, Error>
 typealias ExtrinsicBuilderClosure = (ExtrinsicBuilderProtocol) throws -> (ExtrinsicBuilderProtocol)
 typealias EstimateFeeClosure = (Result<String, Error>) -> Void
-typealias ExtrinsicSubmitClosure = (Result<String, Error>, _ extrinsicHash: String?) -> Void
+typealias ExtrinsicSubmitClosure = (Result<String, Error>, _ extrinsicHash: String?, _ extrinsic: Extrinsic?) -> Void
 typealias SubmitAndWatchExtrinsicResult = (result: Result<String, Error>, extrinsicHash: String?)
 typealias SubmitExtrinsicResult = Result<String, Error>
 
@@ -292,9 +292,10 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         submitOperation.completionBlock = {
             queue.async {
                 if let result = submitOperation.result {
-                    completionClosure(result, watch ? submitOperation.parameters?.first : nil)
+                    let extrinsicBuilderResult = try? builderOperation.extractNoCancellableResultData()
+                    completionClosure(result, watch ? submitOperation.parameters?.first : nil, extrinsicBuilderResult?.object)
                 } else {
-                    completionClosure(.failure(BaseOperationError.parentOperationCancelled), nil)
+                    completionClosure(.failure(BaseOperationError.parentOperationCancelled), nil, nil)
                 }
             }
         }

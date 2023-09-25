@@ -50,7 +50,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     let apyService: APYServiceProtocol?
     let assetViewModelFactory: AssetViewModelFactory
     let poolsService: PoolsServiceInputProtocol
-    let poolViewModelsFactory: PoolViewModelFactoryProtocol
+    let poolViewModelsFactory: PoolViewModelFactory
     let providerFactory: BalanceProviderFactory
     let networkFacade: WalletNetworkOperationFactoryProtocol?
     let accountId: String
@@ -70,7 +70,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         apyService: APYServiceProtocol?,
         assetViewModelFactory: AssetViewModelFactory,
         poolsService: PoolsServiceInputProtocol,
-        poolViewModelsFactory: PoolViewModelFactoryProtocol,
+        poolViewModelsFactory: PoolViewModelFactory,
         providerFactory: BalanceProviderFactory,
         networkFacade: WalletNetworkOperationFactoryProtocol?,
         accountId: String,
@@ -152,7 +152,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
                                                                               qrEncoder: qrEncoder,
                                                                               sharingFactory: sharingFactory,
                                                                               referralFactory: referralFactory,
-                                                                              assetsProvider: assetsProvider) else {
+                                                                              assetsProvider: assetsProvider,
+                                                                              marketCapService: marketCapService) else {
             return
         }
         
@@ -173,6 +174,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
                                                                              providerFactory: providerFactory,
                                                                              operationFactory: networkFacade,
                                                                              assetsProvider: assetsProvider,
+                                                                             marketCapService: marketCapService,
                                                                              dismissHandler: nil) else {
             return
         }
@@ -198,7 +200,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
                                                                            fiatService: fiatService,
                                                                            poolsService: poolsService,
                                                                            operationFactory: networkFacade,
-                                                                           assetsProvider: assetsProvider) else { return }
+                                                                           assetsProvider: assetsProvider,
+                                                                           marketCapService: marketCapService) else { return }
         
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen

@@ -554,6 +554,7 @@
 		36F94EDB291E545000E211FE /* LiquidityWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F94ED6291E545000E211FE /* LiquidityWireframe.swift */; };
 		36F94EDC291E545000E211FE /* LiquidityViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F94ED7291E545000E211FE /* LiquidityViewFactory.swift */; };
 		36F94EDE291E561E00E211FE /* PoolDetailFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F94EDD291E561E00E211FE /* PoolDetailFactory.swift */; };
+		36FB41E52ABCA7E100E7696F /* PriceTrendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FB41E42ABCA7E100E7696F /* PriceTrendService.swift */; };
 		36FE0FDB2954103D00117E82 /* InputAssetAmountWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FDA2954103D00117E82 /* InputAssetAmountWireframe.swift */; };
 		36FE0FDD29557F7E00117E82 /* ContactsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FDC29557F7E00117E82 /* ContactsWireframe.swift */; };
 		36FE0FE02955B1AC00117E82 /* ConfirmSendingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FDF2955B1AB00117E82 /* ConfirmSendingViewModel.swift */; };
@@ -1886,6 +1887,7 @@
 		36F94ED6291E545000E211FE /* LiquidityWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiquidityWireframe.swift; sourceTree = "<group>"; };
 		36F94ED7291E545000E211FE /* LiquidityViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiquidityViewFactory.swift; sourceTree = "<group>"; };
 		36F94EDD291E561E00E211FE /* PoolDetailFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailFactory.swift; sourceTree = "<group>"; };
+		36FB41E42ABCA7E100E7696F /* PriceTrendService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PriceTrendService.swift; sourceTree = "<group>"; };
 		36FE0FDA2954103D00117E82 /* InputAssetAmountWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InputAssetAmountWireframe.swift; sourceTree = "<group>"; };
 		36FE0FDC29557F7E00117E82 /* ContactsWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsWireframe.swift; sourceTree = "<group>"; };
 		36FE0FDF2955B1AB00117E82 /* ConfirmSendingViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfirmSendingViewModel.swift; sourceTree = "<group>"; };
@@ -3290,6 +3292,7 @@
 		029879192181AF3E0085E605 /* Foundation */ = {
 			isa = PBXGroup;
 			children = (
+				36FB41E42ABCA7E100E7696F /* PriceTrendService.swift */,
 				0298791A2181AF4D0085E605 /* String+Path.swift */,
 				02CFA4DB218981A5000E9483 /* Decimal+String.swift */,
 				02D46836218E3B8200F9D3D0 /* SoraNSPredicate+Validation.swift */,
@@ -6239,7 +6242,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EE02178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassportTests" */;
 			buildPhases = (
-				1C088EF0567CF776BD42F6AD /* [CP] Check Pods Manifest.lock */,
+				C36CDA1D4F34384E4B8D3932 /* [CP] Check Pods Manifest.lock */,
 				02623F0A2179F1C50011250E /* ModuleMocks */,
 				026AEA5221B4FFF0002EEB67 /* CommonMocks */,
 				02623EC52178C0930011250E /* Sources */,
@@ -6571,28 +6574,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Name of the resource we're selectively copying\nGOOGLESERVICE_INFO_PLIST=GoogleService-Info.plist\n\n# Get references to a version of the GoogleService-Info.plist based on config\nGOOGLESERVICE_INFO_CONFIG=${PROJECT_DIR}/${TARGET_NAME}/Configs/${FIREBASE_CONFIG}\n\n# Make sure that plist exists\necho \"Looking for ${GOOGLESERVICE_INFO_CONFIG}\"\nif [ ! -f $GOOGLESERVICE_INFO_CONFIG ]\nthen\necho \"No ${FIREBASE_CONFIG} found. Please ensure it's in the proper directory.\"\nexit 1\nfi\n\n# Get a reference to the destination location for the GoogleService-Info.plist\nPLIST_DESTINATION=${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/${GOOGLESERVICE_INFO_PLIST}\necho \"Will copy ${GOOGLESERVICE_INFO_PLIST} to final destination: ${PLIST_DESTINATION}\"\n\n# Copy GoogleService-Info.plist\necho \"Using ${FIREBASE_CONFIG}\"\ncp \"${GOOGLESERVICE_INFO_CONFIG}\" \"${PLIST_DESTINATION}\"\n";
-		};
-		1C088EF0567CF776BD42F6AD /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportTests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
 		};
 		364EA8442A094205001A0FD4 /* Inject Secrets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -6959,6 +6940,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		C36CDA1D4F34384E4B8D3932 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-SoraPassportTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		EF6CB2C1A6795C20F8E909C4 /* [CP] Check Pods Manifest.lock */ = {
@@ -7898,6 +7901,7 @@
 				36C370EE2823E0370027BA77 /* ReferrerCell.swift in Sources */,
 				3611062C29784A23003A6352 /* SetupAccountNameViewFactory.swift in Sources */,
 				36C370E42823B0890027BA77 /* AvailableInvitationsCell.swift in Sources */,
+				36FB41E52ABCA7E100E7696F /* PriceTrendService.swift in Sources */,
 				360FF4212A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift in Sources */,
 				366A782A2A31FE3700A6DDF9 /* AccountImportedViewFactory.swift in Sources */,
 				849C5690237C8A6500350CB0 /* InvitationAppliedEvent.swift in Sources */,
@@ -8374,7 +8378,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = APV84TNMCN;
+				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
@@ -8384,7 +8388,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -8513,7 +8517,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = APV84TNMCN;
+				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -8522,7 +8526,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -8713,7 +8717,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = APV84TNMCN;
+				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
@@ -8723,7 +8727,7 @@
 					"@executable_path/Frameworks",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited)";
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -8741,7 +8745,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = APV84TNMCN;
+				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -8750,7 +8754,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -9049,7 +9053,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = APV84TNMCN;
+				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -9058,7 +9062,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev1;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;

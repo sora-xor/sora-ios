@@ -59,12 +59,57 @@ final class AccountOptionsPresenter {
     private var appEventService = AppEventService()
     private var backupState: BackupState {
         didSet {
-            view?.setupOptions(with: backupState, hasEntropy: interactor.accountHasEntropy)
+            DispatchQueue.main.async {
+                self.view?.setupOptions(with: self.backupState, hasEntropy: self.interactor.accountHasEntropy)
+            }
         }
     }
 
     init(backupState: BackupState) {
         self.backupState = backupState
+    }
+    
+    private func handle(_ account: OpenBackupAccount?) {
+        Task {
+            let isCurrentAccountBackedup = await interactor.checkCurrentAccountBackedup()
+            view?.hideLoading()
+            
+            if isCurrentAccountBackedup {
+                backupState = .backedUp
+                showAlert(about: account)
+                return
+            }
+            
+            DispatchQueue.main.async {
+                self.showPasswordScreen(with: account)
+            }
+        }
+    }
+    
+    private func showPasswordScreen(with account: OpenBackupAccount?) {
+        guard let account else { return }
+        wireframe?.setupBackupAccountPassword(on: view,
+                                              account: account,
+                                              completion: { [weak self] in
+            guard let self = self else { return }
+            self.backupState = ApplicationConfig.shared.backupedAccountAddresses.contains(account.address) ? .backedUp : .notBackedUp
+            self.view?.setupOptions(with: self.backupState, hasEntropy: self.interactor.accountHasEntropy)
+        })
+    }
+    
+    private func showAlert(about account: OpenBackupAccount?) {
+        let title = R.string.localizable.backupAccountAlreadyExist(preferredLanguages: .currentLocale)
+        let closeActionTitle = R.string.localizable.commonClose(preferredLanguages: .currentLocale)
+        let reviewTitle = R.string.localizable.review(preferredLanguages: .currentLocale)
+        
+        let reviewAction = AlertPresentableAction(title: reviewTitle, style: .normal) { [weak self] in
+            self?.showPasswordScreen(with: account)
+        }
+        let viewModel = AlertPresentableViewModel(title: title, message: nil, actions: [reviewAction], closeAction: closeActionTitle)
+        
+        DispatchQueue.main.async {
+            self.view?.present(viewModel: viewModel, style: .alert, from: self.view)
+        }
     }
 }
 
@@ -109,15 +154,7 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     func createBackup() {
         view?.showLoading()
         interactor.signInToGoogleIfNeeded { [weak self] account in
-            self?.view?.hideLoading()
-            guard let account else { return }
-            self?.wireframe?.setupBackupAccountPassword(on: self?.view,
-                                                        account: account,
-                                                        completion: { [weak self] in
-                guard let self = self else { return }
-                self.backupState = ApplicationConfig.shared.backupedAccountAddresses.contains(account.address) ? .backedUp : .notBackedUp
-                self.view?.setupOptions(with: self.backupState, hasEntropy: self.interactor.accountHasEntropy)
-            })
+            self?.handle(account)
         }
     }
     

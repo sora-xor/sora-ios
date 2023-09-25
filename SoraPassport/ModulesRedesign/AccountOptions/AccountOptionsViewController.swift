@@ -300,7 +300,9 @@ extension AccountOptionsViewController: AccountOptionsViewProtocol {
     }
 
     func hideLoading() {
-        loadingView.isHidden = true
+        DispatchQueue.main.async {
+            self.loadingView.isHidden = true
+        }
     }
 }
 

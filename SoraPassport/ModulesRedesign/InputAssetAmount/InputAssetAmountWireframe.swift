@@ -41,6 +41,7 @@ protocol InputAssetAmountWireframeProtocol: AlertPresentable {
                              assetViewModelFactory: AssetViewModelFactory,
                              assetsProvider: AssetProviderProtocol?,
                              assetIds: [String],
+                             marketCapService: MarketCapServiceProtocol,
                              completion: @escaping (String) -> Void)
     
     func showSelectAddress(on controller: UIViewController?,
@@ -54,6 +55,7 @@ protocol InputAssetAmountWireframeProtocol: AlertPresentable {
                            assetsProvider: AssetProviderProtocol?,
                            providerFactory: BalanceProviderFactory,
                            feeProvider: FeeProviderProtocol,
+                           marketCapService: MarketCapServiceProtocol,
                            completion: ((ScanQRResult) -> Void)?)
     
     func showConfirmSendingAsset(on controller: UINavigationController?,
@@ -75,8 +77,8 @@ final class InputAssetAmountWireframe: InputAssetAmountWireframeProtocol {
                              assetViewModelFactory: AssetViewModelFactory,
                              assetsProvider: AssetProviderProtocol?,
                              assetIds: [String],
+                             marketCapService: MarketCapServiceProtocol,
                              completion: @escaping (String) -> Void) {
-        let marketCapService = MarketCapService(assetManager: assetManager)
         let viewModel = SelectAssetViewModel(assetViewModelFactory: assetViewModelFactory,
                                              fiatService: fiatService,
                                              assetManager: assetManager,
@@ -108,6 +110,7 @@ final class InputAssetAmountWireframe: InputAssetAmountWireframeProtocol {
                            assetsProvider: AssetProviderProtocol?,
                            providerFactory: BalanceProviderFactory,
                            feeProvider: FeeProviderProtocol,
+                           marketCapService: MarketCapServiceProtocol,
                            completion: ((ScanQRResult) -> Void)?) {
         guard let currentUser = SelectedWalletSettings.shared.currentAccount else { return }
         let viewModelFactory = ContactsViewModelFactory(dataStorageFacade: SubstrateDataStorageFacade.shared)
@@ -127,7 +130,8 @@ final class InputAssetAmountWireframe: InputAssetAmountWireframeProtocol {
                                           sharingFactory: sharingFactory,
                                           assetsProvider: assetsProvider,
                                           providerFactory: providerFactory,
-                                          feeProvider: feeProvider
+                                          feeProvider: feeProvider,
+                                          marketCapService: marketCapService
         )
         viewModel.completion = completion
         let receiveController = ContactsViewController(viewModel: viewModel)

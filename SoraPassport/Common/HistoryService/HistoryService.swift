@@ -48,6 +48,7 @@ protocol HistoryServiceProtocol {
     func getHistory(count: Int, assetId: String?, completion: @escaping (Result<[Transaction], Swift.Error>) -> Void)
     func getPageHistory(count: Int, page: Int, assetId: String?, completion: @escaping (Result<HistoryPage, Swift.Error>) -> Void)
     func getTransaction(by txHash: String) -> Transaction?
+    func getHistory(count: Int, assetId: String?) async throws -> [Transaction]
 }
 
 final class HistoryService {
@@ -66,8 +67,21 @@ final class HistoryService {
 }
 
 extension HistoryService: HistoryServiceProtocol {
+    @available(*, renamed: "getHistory(count:assetId:)")
     func getHistory(count: Int, assetId: String?, completion: @escaping (Result<[Transaction], Swift.Error>) -> Void) {
-        let filter: ((TxHistoryItem) -> KotlinBoolean)? = assetId != nil ? { item in
+        Task {
+            do {
+                let result = try await getHistory(count: count, assetId: assetId)
+                completion(.success(result))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    
+    func getHistory(count: Int, assetId: String?) async throws -> [Transaction] {
+        let filter1: ((TxHistoryItem) -> KotlinBoolean)? = assetId != nil ? { item in
             let callPath = KmmCallCodingPath(moduleName: item.module, callName: item.method)
             
             if callPath.isTransfer {
@@ -101,44 +115,46 @@ extension HistoryService: HistoryServiceProtocol {
         let queryOperation = SubqueryHistoryOperation<TxHistoryResult<TxHistoryItem>>(address: address,
                                                                                       count: count,
                                                                                       page: 1,
-                                                                                      filter: filter)
-
-        queryOperation.completionBlock = { [weak self] in
-            do {
-                guard let self = self, let address = SelectedWalletSettings.shared.currentAccount?.address else { return }
-                let response = try queryOperation.extractNoCancellableResultData()
-                let remoteTransactions: [Transaction] = self.historyMapper.map(items: response.items as? [TxHistoryItem] ?? []).compactMap { $0 }
-                let localTransaction = self.localStorage.transactions[address] ?? []
-                
-                let existingHashes = Set(remoteTransactions.map { $0.base.txHash })
-
-                let hashesToRemove: [String] = localTransaction.compactMap { item in
-                    if existingHashes.contains(item.base.txHash) {
-                        return item.base.txHash
-                    }
-                    return nil
-                }
-
-                let filterSet = Set(hashesToRemove)
-                let localMergeItems: [Transaction] = localTransaction.filter { !filterSet.contains($0.base.txHash) }
-
-                let transactionsItems = (localMergeItems + remoteTransactions).sorted(by: { item1, item2 in
-                    Int64(item1.base.timestamp) ?? 0 > Int64(item2.base.timestamp) ?? 0
-                })
-                
-                completion(.success(transactionsItems))
-                
-                transactionsItems.forEach { transaction in
-                    if !self.transactions.map({ $0.base.txHash }).contains(transaction.base.txHash) {
-                        self.transactions.append(transaction)
-                    }
-                }
-            } catch let error {
-                completion(.failure(error))
-            }
-        }
+                                                                                      filter: filter1)
         
-        operationManager.enqueue(operations: [queryOperation], in: .transient)
+        return try await withCheckedThrowingContinuation { continuation in
+            queryOperation.completionBlock = { [weak self] in
+                do {
+                    guard let self1 = self, let address = SelectedWalletSettings.shared.currentAccount?.address else { return }
+                    let response = try queryOperation.extractNoCancellableResultData()
+                    let remoteTransactions: [Transaction] = self1.historyMapper.map(items: response.items as? [TxHistoryItem] ?? []).compactMap { $0 }
+                    let localTransaction = self1.localStorage.transactions[address] ?? []
+                    
+                    let existingHashes = Set(remoteTransactions.map { $0.base.txHash })
+                    
+                    let hashesToRemove: [String] = localTransaction.compactMap { item in
+                        if existingHashes.contains(item.base.txHash) {
+                            return item.base.txHash
+                        }
+                        return nil
+                    }
+                    
+                    let filterSet = Set(hashesToRemove)
+                    let localMergeItems: [Transaction] = localTransaction.filter { !filterSet.contains($0.base.txHash) }
+                    
+                    let transactionsItems = (localMergeItems + remoteTransactions).sorted(by: { item1, item2 in
+                        Int64(item1.base.timestamp) ?? 0 > Int64(item2.base.timestamp) ?? 0
+                    })
+                    
+                    continuation.resume(with: .success(transactionsItems))
+                    
+                    transactionsItems.forEach { transaction in
+                        if !self1.transactions.map({ $0.base.txHash }).contains(transaction.base.txHash) {
+                            self1.transactions.append(transaction)
+                        }
+                    }
+                } catch let error {
+                    continuation.resume(with: .failure(error))
+                }
+            }
+            
+            operationManager.enqueue(operations: [queryOperation], in: .transient)
+        }
     }
     
     func getPageHistory(count: Int, page: Int, assetId: String?, completion: @escaping (Result<HistoryPage, Swift.Error>) -> Void) {

@@ -150,7 +150,9 @@ class MigrationService: MigrationServiceProtocol {
                                                       signature: signature.rawData().toHex())
             return try builder.adding(call: migrateCall)
         }
-        extrinsicService.submit(closure, signer: signer, watch: true, runningIn: .main) { [weak self] result, extrinsicHash in
+        extrinsicService.submit(closure, signer: signer, watch: true, runningIn: .main) { [weak self] result, extrinsicHash, extrinsic in
+            guard let extrinsic = extrinsic else { return }
+            
             switch result {
             case .success(let hash):
                 self?.logger.info("Did receive extrinsic hash: \(extrinsicHash), subscription \(hash)")
@@ -166,7 +168,8 @@ class MigrationService: MigrationServiceProtocol {
                         if let self = self {
                             DispatchQueue.main.async {
                                 self.getBlockEvents(block,
-                                                    extrinsicHash: extrinsicHash!,
+                                                    extrinsicHash: extrinsicHash ?? "",
+                                                    extrinsic: extrinsic,
                                                     extrinsicProcessor: extrinsicProcessor,
                                                     engine: engine,
                                                     coderOperation: self.runtimeRegistry!.fetchCoderFactoryOperation(),
@@ -194,6 +197,7 @@ class MigrationService: MigrationServiceProtocol {
 
     private func getBlockEvents(_ hash: String,
                                 extrinsicHash: String,
+                                extrinsic: Extrinsic,
                                 extrinsicProcessor: ExtrinsicProcessing,
                                 engine: JSONRPCEngine,
                                 coderOperation: BaseOperation<RuntimeCoderFactoryProtocol>,
@@ -234,11 +238,10 @@ class MigrationService: MigrationServiceProtocol {
                 let blockExtrinsics = try parseOperation.extractResultData()
 
                 let eventIndex = blockExtrinsics?.firstIndex(of: extrinsicHash)!
-                let extrinsicData = try Data(hex: extrinsicHash)
 
                 if let processingResult = extrinsicProcessor.process(
                     extrinsicIndex: UInt32(eventIndex!),
-                    extrinsicData: extrinsicData,
+                    extrinsic: extrinsic,
                     eventRecords: records,
                     coderFactory: coderFactory
                     ),

@@ -34,10 +34,6 @@ import SoraUIKit
 import XNetworking
 import SoraFoundation
 
-protocol PoolViewModelFactoryProtocol: AnyObject {
-    func createPoolViewModel(with pool: PoolInfo, fiatData: [FiatData], mode: WalletViewMode) -> PoolViewModel?
-}
-
 final class PoolViewModelFactory {
     let walletAssets: [AssetInfo]
     let assetManager: AssetManagerProtocol
@@ -60,9 +56,9 @@ final class PoolViewModelFactory {
     }
 }
 
-extension PoolViewModelFactory: PoolViewModelFactoryProtocol {
+extension PoolViewModelFactory {
     
-    func createPoolViewModel(with pool: PoolInfo, fiatData: [FiatData], mode: WalletViewMode) -> PoolViewModel? {
+    func createPoolViewModel(with pool: PoolInfo, fiatData: [FiatData], mode: WalletViewMode, priceTrend: Decimal? = nil) -> PoolViewModel? {
         guard let baseAsset = walletAssets.first(where: { $0.identifier == pool.baseAssetId  }) else { return nil }
         guard let targetAsset = walletAssets.first(where: { $0.identifier == pool.targetAssetId }) else { return nil }
         
@@ -85,6 +81,16 @@ extension PoolViewModelFactory: PoolViewModelFactoryProtocol {
         
         let title = isRTL ? "\(targetAsset.symbol)-\(baseAsset.symbol)" : "\(baseAsset.symbol)-\(targetAsset.symbol)"
         let subtitle = isRTL ? "\(targetAsset.symbol) \(targetBalance) - \(baseAsset.symbol) \(baseBalance)" : "\(baseBalance) \(baseAsset.symbol) - \(targetBalance) \(targetAsset.symbol)"
+
+        var deltaArributedText: SoramitsuTextItem?
+        if let priceTrend {
+            let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(priceTrend) ?? "")%"
+            let deltaColor: SoramitsuColor = priceTrend > 0 ? .statusSuccess : .statusError
+            deltaArributedText = SoramitsuTextItem(text: deltaText,
+                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
+                                                                                       textColor: deltaColor,
+                                                                                       alignment: .right))
+        }
         
         return PoolViewModel(identifier: pool.poolId,
                              title: title,
@@ -94,6 +100,7 @@ extension PoolViewModelFactory: PoolViewModelFactoryProtocol {
                              targetAssetImage: RemoteSerializer.shared.image(with: targetAssetInfo.icon ?? ""),
                              rewardAssetImage: RemoteSerializer.shared.image(with: rewardAssetInfo.icon ?? ""),
                              mode: mode,
-                             isFavorite: true)
+                             isFavorite: true,
+                             deltaArributedText: deltaArributedText)
     }
 }

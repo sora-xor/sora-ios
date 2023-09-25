@@ -50,6 +50,7 @@ protocol WalletItemFactoryProtocol: AnyObject {
                            qrEncoder: WalletQREncoderProtocol,
                            sharingFactory: AccountShareFactoryProtocol,
                            accountRepository: AnyDataProviderRepository<AccountItem>,
+                           marketCapService: MarketCapServiceProtocol,
                            reloadItem: (([SoramitsuTableViewItemProtocol]) -> Void)?) -> SoramitsuTableViewItemProtocol
 
     func createSoraCardItem(with walletViewModel: RedesignWalletViewModelProtocol,
@@ -58,14 +59,16 @@ protocol WalletItemFactoryProtocol: AnyObject {
     func createAssetsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                           assetManager: AssetManagerProtocol,
                           assetsProvider: AssetProviderProtocol,
-                          fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol
+                          fiatService: FiatServiceProtocol,
+                          marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol
     
     func createPoolsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                          poolService: PoolsServiceInputProtocol,
                          networkFacade: WalletNetworkOperationFactoryProtocol,
                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                          assetManager: AssetManagerProtocol,
-                         fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol
+                         fiatService: FiatServiceProtocol,
+                         marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol
     
     func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                                  assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol
@@ -89,6 +92,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                            qrEncoder: WalletQREncoderProtocol,
                            sharingFactory: AccountShareFactoryProtocol,
                            accountRepository: AnyDataProviderRepository<AccountItem>,
+                           marketCapService: MarketCapServiceProtocol,
                            reloadItem: (([SoramitsuTableViewItemProtocol]) -> Void)?) -> SoramitsuTableViewItemProtocol {
         let currentAccount = SelectedWalletSettings.shared.currentAccount
         var accountName = currentAccount?.username ?? ""
@@ -116,6 +120,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                                       providerFactory: providerFactory,
                                       feeProvider: feeProvider,
                                       isScanQRShown: false,
+                                      marketCapService: marketCapService,
                                       closeHandler: nil)
         }
         
@@ -197,20 +202,19 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
     func createAssetsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                           assetManager: AssetManagerProtocol,
                           assetsProvider: AssetProviderProtocol,
-                          fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol {
+                          fiatService: FiatServiceProtocol,
+                          marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol {
         
         let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
                                             assetManager: assetManager,
                                             fiatService: fiatService)
-        
-        let marketCap = MarketCapService(assetManager: assetManager)
         
         let assetsItem = AssetsItem(title: R.string.localizable.liquidAssets(preferredLanguages: .currentLocale),
                                     assetProvider: assetsProvider,
                                     assetManager: assetManager,
                                     fiatService: fiatService,
                                     assetViewModelsFactory: factory,
-                                    marketCapService: marketCap)
+                                    marketCapService: marketCapService)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.liquidAssets(preferredLanguages: locale.rLanguages)
@@ -249,7 +253,8 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                          networkFacade: WalletNetworkOperationFactoryProtocol,
                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                          assetManager: AssetManagerProtocol,
-                         fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol {
+                         fiatService: FiatServiceProtocol,
+                         marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol {
         
         let factory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
                                             assetManager: assetManager,
@@ -258,7 +263,8 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         let poolsItem = PoolsItem(title: R.string.localizable.pooledAssets(preferredLanguages: .currentLocale),
                                   poolsService: poolService,
                                   fiatService: fiatService,
-                                  poolViewModelsFactory: factory)
+                                  poolViewModelsFactory: factory,
+                                  marketCapService: marketCapService)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.pooledAssets(preferredLanguages: locale.rLanguages)

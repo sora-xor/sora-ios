@@ -94,6 +94,7 @@ final class ScanQRViewModel: NSObject {
     private let networkFacade: WalletNetworkOperationFactoryProtocol?
     private let providerFactory: BalanceProviderFactory
     private let feeProvider: FeeProviderProtocol
+    private let marketCapService: MarketCapServiceProtocol
     
     
     var qrExtractionService: WalletQRExtractionServiceProtocol?
@@ -112,6 +113,7 @@ final class ScanQRViewModel: NSObject {
          isGeneratedQRCodeScreenShown: Bool,
          providerFactory: BalanceProviderFactory,
          feeProvider: FeeProviderProtocol,
+         marketCapService: MarketCapServiceProtocol,
          completion: ((ScanQRResult) -> Void)?) {
         self.networkService = networkService
         self.localSearchEngine = localSearchEngine
@@ -127,6 +129,7 @@ final class ScanQRViewModel: NSObject {
         self.isGeneratedQRCodeScreenShown = isGeneratedQRCodeScreenShown
         self.providerFactory = providerFactory
         self.feeProvider = feeProvider
+        self.marketCapService = marketCapService
 
         let qrDecoder = qrCoderFactory.createDecoder()
         self.qrScanMatcher = InvoiceScanMatcher(decoder: qrDecoder)
@@ -436,7 +439,8 @@ extension ScanQRViewModel: ScanQRViewModelProtocol {
             assetsProvider: assetsProvider,
             networkFacade: networkFacade,
             providerFactory: providerFactory,
-            feeProvider: feeProvider
+            feeProvider: feeProvider,
+            marketCapService: marketCapService
         ) { [weak self] in
             self?.qrScanService.start()
         }

@@ -71,21 +71,21 @@ extension ExploreItemFactory {
                                      deltaPrice: deltaArributedText)
     }
 
-    func createPoolsItem(with pool: ExplorePool, serialNumber: String, apy: Decimal? = nil) -> ExplorePoolViewModel? {
-        guard let baseAssetInfo = assetManager.assetInfo(for: pool.baseAssetId) else { return nil }
-        guard let targetAssetInfo = assetManager.assetInfo(for: pool.targetAssetId) else { return nil }
+    func createPoolsItem(with pool: ExplorePool, serialNumber: String, apy: Decimal? = nil) -> ExplorePoolViewModel {
+        let baseAssetInfo = assetManager.assetInfo(for: pool.baseAssetId)
+        let targetAssetInfo = assetManager.assetInfo(for: pool.targetAssetId)
 
         let tvl = "$" + pool.tvl.formatNumber()
         let apyText: String? = apy != nil ? "\(NumberFormatter.percent.stringFromDecimal((apy ?? .zero) * 100) ?? "")% APY" : nil
 
         return ExplorePoolViewModel(poolId: pool.id.description,
-                                    title: "\(baseAssetInfo.symbol)-\(targetAssetInfo.symbol)",
+                                    title: "\(baseAssetInfo?.symbol ?? "??")-\(targetAssetInfo?.symbol ?? "??")",
                                     tvl: tvl,
                                     serialNumber: serialNumber,
                                     apy: apyText,
-                                    baseAssetId: baseAssetInfo.assetId,
-                                    targetAssetId: targetAssetInfo.assetId,
-                                    baseAssetIcon: RemoteSerializer.shared.image(with: baseAssetInfo.icon ?? ""),
-                                    targetAssetIcon:  RemoteSerializer.shared.image(with: targetAssetInfo.icon ?? ""))
+                                    baseAssetId: baseAssetInfo?.assetId ?? "",
+                                    targetAssetId: targetAssetInfo?.assetId ?? "",
+                                    baseAssetIcon: RemoteSerializer.shared.image(with: baseAssetInfo?.icon ?? ""),
+                                    targetAssetIcon:  RemoteSerializer.shared.image(with: targetAssetInfo?.icon ?? ""))
     }
 }

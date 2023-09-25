@@ -171,6 +171,7 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
             poolView.sora.subtitleText = poolModel.subtitle
             poolView.sora.isHidden = !item.isExpand
             poolView.sora.upAmountText = poolModel.fiatText
+            poolView.amountDownLabel.sora.attributedText = poolModel.deltaArributedText
             poolView.sora.addHandler(for: .touchUpInside) { [weak poolsItem] in
                 poolsItem?.poolHandler?(poolModel.identifier)
             }
