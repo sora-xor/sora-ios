@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import XNetworking
+import sorawallet
 
 protocol FiatServiceObserverProtocol: AnyObject {
     func processFiat(data: [FiatData])

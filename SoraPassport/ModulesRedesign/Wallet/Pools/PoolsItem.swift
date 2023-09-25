@@ -32,7 +32,7 @@ import Foundation
 import SoraUIKit
 import CommonWallet
 import RobinHood
-import XNetworking
+import sorawallet
 
 enum PoolItemState {
     case loading

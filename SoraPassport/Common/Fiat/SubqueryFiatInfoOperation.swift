@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import RobinHood
-import XNetworking
+import sorawallet
 import Foundation
 
 public final class SubqueryFiatInfoOperation<ResultType>: BaseOperation<ResultType> {

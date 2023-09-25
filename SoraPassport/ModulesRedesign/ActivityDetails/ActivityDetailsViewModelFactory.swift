@@ -32,7 +32,7 @@ import Foundation
 import CommonWallet
 import SoraUIKit
 import UIKit
-import XNetworking
+import sorawallet
 import SoraFoundation
 
 protocol ActivityDetailsViewModelFactoryProtocol {

@@ -31,7 +31,7 @@
 import Foundation
 import RobinHood
 import BigInt
-import XNetworking
+import sorawallet
 import SSFUtils
 
 enum PoolError: Swift.Error {

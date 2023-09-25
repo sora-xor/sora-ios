@@ -32,7 +32,7 @@ import Foundation
 import UIKit
 import RobinHood
 import CommonWallet
-import XNetworking
+import sorawallet
 import SoraUIKit
 
 protocol LiquidityWireframeProtocol: AlertPresentable {

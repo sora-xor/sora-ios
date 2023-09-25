@@ -31,7 +31,7 @@
 import Foundation
 import IrohaCrypto
 import RobinHood
-import XNetworking
+import sorawallet
 
 protocol APYServiceProtocol: AnyObject {
     func getApy(for baseAssetId: String, targetAssetId: String, completion: @escaping (Decimal?) -> Void)

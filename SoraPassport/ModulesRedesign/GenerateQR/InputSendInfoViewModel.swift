@@ -31,7 +31,7 @@
 import Foundation
 import SoraUIKit
 import CommonWallet
-import XNetworking
+import sorawallet
 import Combine
 
 final class InputSendInfoViewModel {

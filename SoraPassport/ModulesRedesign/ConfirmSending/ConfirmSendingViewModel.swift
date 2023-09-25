@@ -34,7 +34,7 @@ import SoraUIKit
 import CommonWallet
 import RobinHood
 import SoraFoundation
-import XNetworking
+import sorawallet
 
 enum ConfirmationState: Equatable {
     case notEnoughtBalance(String)

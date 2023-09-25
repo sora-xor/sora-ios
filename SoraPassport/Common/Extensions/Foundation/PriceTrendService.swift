@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import XNetworking
+import sorawallet
 
 protocol PriceTrendServiceProtocol {
     func getPriceTrend(for pool: PoolInfo, fiatData: [FiatData], marketCapInfo: [AssetsInfo]) -> Decimal
