@@ -44,6 +44,10 @@ extension LocalizationManagerProtocol {
     var isRightToLeft: Bool {
         return (selectedLocalization == "ar") || (selectedLocalization == "he") || (selectedLocalization == "fa")
     }
+    
+    var isArabic: Bool {
+        return selectedLocalization == "ar"
+    }
 }
 
 extension LocalizationManager {

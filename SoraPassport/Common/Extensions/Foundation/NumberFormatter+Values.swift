@@ -57,7 +57,7 @@ extension NumberFormatter {
         formatter.roundingMode = .floor
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 2
-        formatter.locale = LocalizationManager.shared.selectedLocale
+        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
         return formatter
     }()
 
@@ -107,7 +107,7 @@ extension NumberFormatter {
         formatter.roundingMode = .floor
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 2
-        formatter.locale = LocalizationManager.shared.selectedLocale
+        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
         return formatter
     }
     
@@ -116,7 +116,7 @@ extension NumberFormatter {
         formatter.roundingMode = .floor
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 3
-        formatter.locale = LocalizationManager.shared.selectedLocale
+        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
         return formatter
     }
     
@@ -125,7 +125,7 @@ extension NumberFormatter {
         formatter.roundingMode = .floor
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 7
-        formatter.locale = LocalizationManager.shared.selectedLocale
+        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
         return formatter
     }
     
@@ -134,7 +134,7 @@ extension NumberFormatter {
         formatter.roundingMode = .floor
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 8
-        formatter.locale = LocalizationManager.shared.selectedLocale
+        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
         return formatter
     }
     
