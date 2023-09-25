@@ -109,13 +109,15 @@ final class GenerateQRViewModel {
                                                                assetsProvider: assetsProvider,
                                                                wireframe: wireframe,
                                                                qrEncoder: qrEncoder,
-                                                               sharingFactory: sharingFactory)
+                                                               sharingFactory: sharingFactory,
+                                                               marketCapService: marketCapService)
 
     private var currentImage: UIImage?
     private let fiatService: FiatServiceProtocol?
     private let assetManager: AssetManagerProtocol?
     private let assetsProvider: AssetProviderProtocol?
     private let isScanQRShown: Bool
+    private let marketCapService: MarketCapServiceProtocol
     
     init(
         qrService: WalletQRServiceProtocol,
@@ -130,6 +132,7 @@ final class GenerateQRViewModel {
         networkFacade: WalletNetworkOperationFactoryProtocol?,
         providerFactory: BalanceProviderFactory,
         feeProvider: FeeProviderProtocol,
+        marketCapService: MarketCapServiceProtocol,
         isScanQRShown: Bool = true
     ) {
         self.qrService = qrService
@@ -145,6 +148,7 @@ final class GenerateQRViewModel {
         self.feeProvider = feeProvider
         self.providerFactory = providerFactory
         self.isScanQRShown = isScanQRShown
+        self.marketCapService = marketCapService
 
         self.accountRepository = AnyDataProviderRepository(
             UserDataStorageFacade.shared
@@ -188,6 +192,7 @@ extension GenerateQRViewModel: GenerateQRViewModelProtocol {
                               assetsProvider: assetsProvider,
                               providerFactory: providerFactory,
                               feeProvider: feeProvider,
+                              marketCapService: marketCapService,
                               scanCompletion: completion)
     }
 }
@@ -279,6 +284,7 @@ private extension GenerateQRViewModel {
                             networkFacade: networkFacade,
                             assetsProvider: assetsProvider,
                             qrEncoder: qrEncoder,
-                            sharingFactory: sharingFactory)
+                            sharingFactory: sharingFactory,
+                            marketCapService: marketCapService)
     }
 }

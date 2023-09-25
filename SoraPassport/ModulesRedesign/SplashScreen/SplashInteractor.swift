@@ -90,6 +90,7 @@ final class SplashInteractor: SplashInteractorProtocol {
 
     private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo]) {
         AssetManager.networkAssets = assetsInfo
+        MarketCapService.shared.assetsIds = assetsInfo.map { $0.assetId }
 
         socketService.throttle()
 

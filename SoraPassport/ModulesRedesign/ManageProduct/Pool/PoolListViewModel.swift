@@ -90,22 +90,26 @@ final class PoolListViewModel {
     }
 
     weak var assetManager: AssetManagerProtocol?
-    var poolViewModelFactory: PoolViewModelFactoryProtocol
-    var fiatService: FiatServiceProtocol?
+    var poolViewModelFactory: PoolViewModelFactory
+    var fiatService: FiatServiceProtocol
     var poolsService: PoolsServiceInputProtocol?
     var wireframe: PoolListWireframeProtocol = PoolListWireframe()
     var providerFactory: BalanceProviderFactory
     weak var view: UIViewController?
     var operationFactory: WalletNetworkOperationFactoryProtocol
     var assetsProvider: AssetProviderProtocol
+    var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
+    let marketCapService: MarketCapServiceProtocol
 
     init(poolsService: PoolsServiceInputProtocol,
          assetManager: AssetManagerProtocol,
          fiatService: FiatServiceProtocol,
-         poolViewModelFactory: PoolViewModelFactoryProtocol,
+         poolViewModelFactory: PoolViewModelFactory,
          providerFactory: BalanceProviderFactory,
          operationFactory: WalletNetworkOperationFactoryProtocol,
-         assetsProvider: AssetProviderProtocol
+         assetsProvider: AssetProviderProtocol,
+         marketCapService: MarketCapServiceProtocol
+         
     ) {
         self.poolViewModelFactory = poolViewModelFactory
         self.fiatService = fiatService
@@ -114,6 +118,7 @@ final class PoolListViewModel {
         self.providerFactory = providerFactory
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
+        self.marketCapService = marketCapService
     }
     func dissmissIfNeeded() {
         if poolItems.isEmpty {
@@ -136,14 +141,24 @@ extension PoolListViewModel: PoolListViewModelProtocol {
 
 extension PoolListViewModel: PoolsServiceOutput {
     func loaded(pools: [PoolInfo]) {
-        if pools.isEmpty {
-            dissmiss?(false)
-        }
+        Task {
+            if pools.isEmpty {
+                dissmiss?(false)
+            }
 
-        fiatService?.getFiat { [weak self] fiatData in
-            self?.poolItems = pools.compactMap { pool in
-                guard let self = self,
-                        let viewModel = self.poolViewModelFactory.createPoolViewModel(with: pool, fiatData: fiatData, mode: .view) else {
+            async let fiatData = fiatService.getFiat()
+            
+            async let marketCapInfo = marketCapService.getMarketCap()
+            
+            let poolInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: marketCapInfo)
+            
+            self.poolItems = pools.compactMap { pool in
+                let poolChangePrice = priceTrendService.getPriceTrend(for: pool, fiatData: poolInfo.fiatData, marketCapInfo: poolInfo.marketCapInfo)
+                
+                guard let viewModel = poolViewModelFactory.createPoolViewModel(with: pool,
+                                                                                    fiatData: poolInfo.fiatData,
+                                                                                    mode: .view,
+                                                                                    priceTrend: poolChangePrice) else {
                     return nil
                 }
                 
@@ -160,11 +175,8 @@ extension PoolListViewModel: PoolsServiceOutput {
     }
     
     func showPoolDetails(poolInfo: PoolInfo) {
-        guard let assetManager = assetManager, let fiatService = fiatService, let poolsService = poolsService else { return }
-        let assets = assetManager.getAssetList() ?? []
-        
-        let balanceProvider = try? providerFactory.createBalanceDataProvider(for: assets, onlyVisible: false)
-        
+        guard let assetManager = assetManager, let poolsService = poolsService else { return }
+
         wireframe.showPoolDetails(on: view,
                                   poolInfo: poolInfo,
                                   assetManager: assetManager,
@@ -173,6 +185,7 @@ extension PoolListViewModel: PoolsServiceOutput {
                                   providerFactory: providerFactory,
                                   operationFactory: operationFactory,
                                   assetsProvider: assetsProvider,
+                                  marketCapService: marketCapService,
                                   dismissHandler: dissmissIfNeeded)
     }
 }

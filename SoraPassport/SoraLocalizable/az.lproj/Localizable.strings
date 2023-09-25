@@ -902,3 +902,5 @@
 "polkaswap.liquidity.total.fee" = "Ümumi ödəniş";
 "polkaswap.liquidity.total.fee.desc" = "Ümumi ödəniş ödənişdən ibarətdir";
 "explore.create.pool" = "Hovuz yaradın";
+"backup.account.already.exist" = "Yedək artıq mövcuddur. Yenidən yazmağa davam edin.";
+"common.rewrite" = "Yenidən yazmaq";

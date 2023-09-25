@@ -45,6 +45,7 @@ protocol ScanQRWireframeProtocol {
                         networkFacade: WalletNetworkOperationFactoryProtocol?,
                         providerFactory: BalanceProviderFactory,
                         feeProvider: FeeProviderProtocol,
+                        marketCapService: MarketCapServiceProtocol,
                         closeHandler: (() -> Void)?)
 }
 
@@ -61,6 +62,7 @@ final class ScanQRWireframe: ScanQRWireframeProtocol {
                         networkFacade: WalletNetworkOperationFactoryProtocol?,
                         providerFactory: BalanceProviderFactory,
                         feeProvider: FeeProviderProtocol,
+                        marketCapService: MarketCapServiceProtocol,
                         closeHandler: (() -> Void)?) {
         let qrService = WalletQRService(operationFactory: WalletQROperationFactory(), encoder: qrEncoder)
        
@@ -76,7 +78,8 @@ final class ScanQRWireframe: ScanQRWireframeProtocol {
             qrEncoder: qrEncoder,
             networkFacade: networkFacade,
             providerFactory: providerFactory,
-            feeProvider: feeProvider
+            feeProvider: feeProvider,
+            marketCapService: marketCapService
         )
         viewModel.closeHadler = closeHandler
         let viewController = GenerateQRViewController(viewModel: viewModel)

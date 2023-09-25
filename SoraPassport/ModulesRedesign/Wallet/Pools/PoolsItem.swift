@@ -32,11 +32,17 @@ import Foundation
 import SoraUIKit
 import CommonWallet
 import RobinHood
+import XNetworking
 
 enum PoolItemState {
     case loading
     case empty
     case viewModel
+}
+
+struct PoolItemInfo {
+    let fiatData: [FiatData]
+    let marketCapInfo: [AssetsInfo]
 }
 
 final class PoolsItem: NSObject {
@@ -47,33 +53,43 @@ final class PoolsItem: NSObject {
     var poolViewModels: [PoolViewModel] = []
     var isExpand: Bool
     let poolsService: PoolsServiceInputProtocol?
-    let poolViewModelsFactory: PoolViewModelFactoryProtocol
+    let poolViewModelsFactory: PoolViewModelFactory
     weak var fiatService: FiatServiceProtocol?
     var updateHandler: (() -> Void)?
     var expandButtonHandler: (() -> Void)?
     var arrowButtonHandler: (() -> Void)?
     var poolHandler: ((String) -> Void)?
     var state: PoolItemState = .loading
-
+    var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
+    let marketCapService: MarketCapServiceProtocol
+    
     init(title: String,
          isExpand: Bool = true,
          poolsService: PoolsServiceInputProtocol?,
          fiatService: FiatServiceProtocol?,
-         poolViewModelsFactory: PoolViewModelFactoryProtocol) {
+         poolViewModelsFactory: PoolViewModelFactory,
+         marketCapService: MarketCapServiceProtocol) {
         self.title = title
         self.isExpand = isExpand
         self.fiatService = fiatService
         self.poolsService = poolsService
         self.poolViewModelsFactory = poolViewModelsFactory
+        self.marketCapService = marketCapService
     }
 }
 
 extension PoolsItem: PoolsServiceOutput {
     func loaded(pools: [PoolInfo]) {
-        self.fiatService?.getFiat { fiatData in
+        Task {
+            async let fiatData = fiatService?.getFiat() ?? []
+            
+            async let marketCapInfo = marketCapService.getMarketCap()
+            
+            let poolInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: marketCapInfo)
+            
             let fiatDecimal = pools.filter { $0.isFavorite }.reduce(Decimal(0), { partialResult, pool in
-                if let baseAssetPriceUsd = fiatData.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue,
-                   let targetAssetPriceUsd = fiatData.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue,
+                if let baseAssetPriceUsd = poolInfo.fiatData.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue,
+                   let targetAssetPriceUsd = poolInfo.fiatData.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue,
                    let baseAssetPooledByAccount = pool.baseAssetPooledByAccount,
                    let targetAssetPooledByAccount = pool.targetAssetPooledByAccount {
                     
@@ -83,13 +99,14 @@ extension PoolsItem: PoolsServiceOutput {
                 }
                 return partialResult
             })
-
+            
             self.moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
             
-            
             self.poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
+                let poolChangePrice = self.priceTrendService.getPriceTrend(for: item, fiatData: poolInfo.fiatData, marketCapInfo: poolInfo.marketCapInfo)
+                return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: poolInfo.fiatData, mode: .view, priceTrend: poolChangePrice)
             }
+
             if self.poolViewModels.isEmpty {
                 self.state = .empty
             } else {

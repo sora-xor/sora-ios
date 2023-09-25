@@ -85,6 +85,7 @@ final class RedesignWalletViewModel {
     var walletContext: CommonWalletContextProtocol
     var editViewService: EditViewServiceProtocol
     let feeProvider = FeeProvider()
+    let marketCapService: MarketCapServiceProtocol
     
     init(wireframe: RedesignWalletWireframeProtocol?,
          providerFactory: BalanceProviderFactory,
@@ -101,7 +102,8 @@ final class RedesignWalletViewModel {
          referralFactory: ReferralsOperationFactoryProtocol,
          assetsProvider: AssetProviderProtocol,
          walletContext: CommonWalletContextProtocol,
-         editViewService: EditViewServiceProtocol) {
+         editViewService: EditViewServiceProtocol,
+         marketCapService: MarketCapServiceProtocol) {
         self.wireframe = wireframe
         self.accountId = accountId
         self.address = address
@@ -124,6 +126,7 @@ final class RedesignWalletViewModel {
         self.poolService = poolsService
         self.walletContext = walletContext
         self.editViewService = editViewService
+        self.marketCapService = marketCapService
         setupModels()
     }
 
@@ -252,6 +255,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                         qrEncoder: qrEncoder,
                                                         sharingFactory: sharingFactory,
                                                         accountRepository: accountRepository,
+                                                        marketCapService: marketCapService,
                                                         reloadItem: reloadItem)
         
         items.append(accountItem)
@@ -273,7 +277,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         let assetItem: SoramitsuTableViewItemProtocol = itemFactory.createAssetsItem(with: self,
                                                                                      assetManager: assetManager,
                                                                                      assetsProvider: assetsProvider,
-                                                                                     fiatService: fiatService)
+                                                                                     fiatService: fiatService,
+                                                                                     marketCapService: marketCapService)
         items.append(assetItem)
         
         
@@ -282,7 +287,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                                                    networkFacade: networkFacade,
                                                                                    polkaswapNetworkFacade: polkaswapNetworkFacade,
                                                                                    assetManager: assetManager,
-                                                                                   fiatService: fiatService)
+                                                                                   fiatService: fiatService,
+                                                                                   marketCapService: marketCapService)
         items.append(poolItem)
         
         
@@ -368,6 +374,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         }
 
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
+        let marketCapService = MarketCapService.shared
 
         guard let swapController = SwapViewFactory.createView(selectedTokenId: "",
                                                               selectedSecondTokenId: WalletAssetId.xor.rawValue,
@@ -375,7 +382,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                               fiatService: FiatService.shared,
                                                               networkFacade: walletContext.networkOperationFactory,
                                                               polkaswapNetworkFacade: polkaswapContext,
-                                                              assetsProvider: assetsProvider) else { return nil }
+                                                              assetsProvider: assetsProvider,
+                                                              marketCapService: marketCapService) else { return nil }
 
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)
@@ -401,7 +409,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         let factory = AssetViewModelFactory(walletAssets: assets,
                                             assetManager: assetManager,
                                             fiatService: fiatService)
-        let marketCap = MarketCapService(assetManager: assetManager)
         
         wireframe?.showFullListAssets(on: view?.controller,
                                       assetManager: assetManager,
@@ -417,7 +424,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                       sharingFactory: sharingFactory,
                                       referralFactory: referralFactory,
                                       assetsProvider: assetsProvider,
-                                      marketCapService: marketCap,
+                                      marketCapService: marketCapService,
                                       updateHandler: updateAssets)
     }
     
@@ -435,7 +442,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                      poolViewModelFactory: factory,
                                      providerFactory: providerFactory,
                                      operationFactory: networkFacade,
-                                     assetsProvider: assetsProvider)
+                                     assetsProvider: assetsProvider,
+                                     marketCapService: marketCapService)
     }
     
     func showAssetDetails(with assetInfo: AssetInfo) {
@@ -462,7 +470,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                     qrEncoder: qrEncoder,
                                     sharingFactory: sharingFactory,
                                     referralFactory: referralFactory,
-                                    assetsProvider: assetsProvider)
+                                    assetsProvider: assetsProvider,
+                                    marketCapService: marketCapService)
     }
     
     func showPoolDetails(with pool: PoolInfo) {
@@ -473,7 +482,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                    poolsService: poolService,
                                    providerFactory: providerFactory,
                                    operationFactory: networkFacade,
-                                   assetsProvider: assetsProvider)
+                                   assetsProvider: assetsProvider,
+                                   marketCapService: marketCapService)
     }
     
     func showReferralProgram(assetManager: AssetManagerProtocol) {

@@ -81,6 +81,7 @@ final class SelectAssetViewModel {
     private weak var assetsProvider: AssetProviderProtocol?
     private var marketCapService: MarketCapServiceProtocol
     var assetIds: [String] = []
+    private let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
 
     init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
@@ -118,19 +119,21 @@ private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) {
         
         Task {
-            guard let fiatData = await self.fiatService?.getFiat() else { return }
+            async let fiatData = self.fiatService?.getFiat() ?? []
             
-            let assetInfo = await self.marketCapService.getMarketCap()
+            async let assetInfo = self.marketCapService.getMarketCap()
+            
+            let poolItemInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: assetInfo)
             
             self.assetItems = balanceItems.compactMap { balance in
 
-                let oldPrice: Decimal = Decimal(Double(truncating: assetInfo.first(where: { $0.tokenId == balance.identifier })?.hourDelta ?? 0))
-                let price: Decimal = fiatData.first(where: { $0.id == balance.identifier })?.priceUsd?.decimalValue ?? 0
-                let deltaPrice = price / oldPrice - 1
+                let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier,
+                                                                 fiatData: poolItemInfo.fiatData,
+                                                                 marketCapInfo: poolItemInfo.marketCapInfo)
                 
                 guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
                       let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
-                                                                                      fiatData: fiatData,
+                                                                                      fiatData: poolItemInfo.fiatData,
                                                                                       mode: self.mode,
                                                                                       priceDelta: deltaPrice) else {
                     return nil

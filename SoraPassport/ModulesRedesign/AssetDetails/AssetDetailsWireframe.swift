@@ -47,7 +47,8 @@ protocol AssetDetailsWireframeProtocol {
                   fiatService: FiatServiceProtocol,
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-                  assetsProvider: AssetProviderProtocol?)
+                  assetsProvider: AssetProviderProtocol?,
+                  marketCapService: MarketCapServiceProtocol)
     
     func showReceive(on controller: UIViewController?,
                      selectedAsset: AssetInfo,
@@ -68,7 +69,8 @@ protocol AssetDetailsWireframeProtocol {
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   assetsProvider: AssetProviderProtocol?,
                   qrEncoder: WalletQREncoderProtocol,
-                  sharingFactory: AccountShareFactoryProtocol)
+                  sharingFactory: AccountShareFactoryProtocol,
+                  marketCapService: MarketCapServiceProtocol)
     
     func showFrozenBalance(on controller: UIViewController?, frozenDetailViewModels: [BalanceDetailViewModel])
 
@@ -81,7 +83,8 @@ protocol AssetDetailsWireframeProtocol {
                          poolsService: PoolsServiceInputProtocol,
                          providerFactory: BalanceProviderFactory,
                          operationFactory: WalletNetworkOperationFactoryProtocol,
-                         assetsProvider: AssetProviderProtocol?)
+                         assetsProvider: AssetProviderProtocol?,
+                         marketCapService: MarketCapServiceProtocol)
 }
 
 final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
@@ -155,14 +158,16 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                   fiatService: FiatServiceProtocol,
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-                  assetsProvider: AssetProviderProtocol?) {
+                  assetsProvider: AssetProviderProtocol?,
+                  marketCapService: MarketCapServiceProtocol) {
         guard let swapController = SwapViewFactory.createView(selectedTokenId: selectedTokenId,
                                                               selectedSecondTokenId: "",
                                                               assetManager: assetManager,
                                                               fiatService: fiatService,
                                                               networkFacade: networkFacade,
                                                               polkaswapNetworkFacade: polkaswapNetworkFacade,
-                                                              assetsProvider: assetsProvider) else { return }
+                                                              assetsProvider: assetsProvider,
+                                                              marketCapService: marketCapService) else { return }
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
         containerView.add(swapController)
@@ -179,7 +184,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   assetsProvider: AssetProviderProtocol?,
                   qrEncoder: WalletQREncoderProtocol,
-                  sharingFactory: AccountShareFactoryProtocol) {
+                  sharingFactory: AccountShareFactoryProtocol,
+                  marketCapService: MarketCapServiceProtocol) {
         let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedAsset.assetId,
                                                   selectedAddress: nil,
                                                   fiatService: fiatService,
@@ -189,7 +195,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                                                   wireframe: InputAssetAmountWireframe(),
                                                   assetsProvider: assetsProvider,
                                                   qrEncoder: qrEncoder,
-                                                  sharingFactory: sharingFactory)
+                                                  sharingFactory: sharingFactory,
+                                                  marketCapService: marketCapService)
         let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
         viewModel.view = inputAmountController
         
@@ -259,7 +266,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                          poolsService: PoolsServiceInputProtocol,
                          providerFactory: BalanceProviderFactory,
                          operationFactory: WalletNetworkOperationFactoryProtocol,
-                         assetsProvider: AssetProviderProtocol?) {
+                         assetsProvider: AssetProviderProtocol?,
+                         marketCapService: MarketCapServiceProtocol) {
         guard let assetDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
                                                                              assetManager: assetManager,
                                                                              fiatService: fiatService,
@@ -267,6 +275,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                                                                              providerFactory: providerFactory,
                                                                              operationFactory: operationFactory,
                                                                              assetsProvider: assetsProvider,
+                                                                             marketCapService: marketCapService,
                                                                              dismissHandler: nil) else {
             return
         }

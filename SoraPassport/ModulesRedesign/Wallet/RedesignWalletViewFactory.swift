@@ -32,7 +32,7 @@ import Foundation
 import RobinHood
 import CommonWallet
 
-protocol RedesignWalletViewFactoryProtocol: AnyObject {
+final class RedesignWalletViewFactory {
     static func createView(providerFactory: BalanceProviderFactory,
                            assetManager: AssetManagerProtocol,
                            fiatService: FiatServiceProtocol,
@@ -45,23 +45,8 @@ protocol RedesignWalletViewFactoryProtocol: AnyObject {
                            poolsService: PoolsServiceInputProtocol,
                            referralFactory: ReferralsOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol,
-                           walletContext: CommonWalletContextProtocol) -> RedesignWalletViewController
-}
-
-final class RedesignWalletViewFactory: RedesignWalletViewFactoryProtocol {
-    static func createView(providerFactory: BalanceProviderFactory,
-                           assetManager: AssetManagerProtocol,
-                           fiatService: FiatServiceProtocol,
-                           networkFacade: WalletNetworkOperationFactoryProtocol,
-                           accountId: String,
-                           address: String,
-                           polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
-                           qrEncoder: WalletQREncoderProtocol,
-                           sharingFactory: AccountShareFactoryProtocol,
-                           poolsService: PoolsServiceInputProtocol,
-                           referralFactory: ReferralsOperationFactoryProtocol,
-                           assetsProvider: AssetProviderProtocol,
-                           walletContext: CommonWalletContextProtocol) -> RedesignWalletViewController {
+                           walletContext: CommonWalletContextProtocol,
+                           marketCapService: MarketCapServiceProtocol) -> RedesignWalletViewController {
         let editViewService = EditViewService(poolsService: poolsService)
         poolsService.appendDelegate(delegate: editViewService)
         
@@ -80,7 +65,8 @@ final class RedesignWalletViewFactory: RedesignWalletViewFactoryProtocol {
                                                 referralFactory: referralFactory,
                                                 assetsProvider: assetsProvider,
                                                 walletContext: walletContext,
-                                                editViewService: editViewService)
+                                                editViewService: editViewService,
+                                                marketCapService: marketCapService)
         
         let view = RedesignWalletViewController(viewModel: viewModel)
         viewModel.view = view

@@ -43,6 +43,7 @@ protocol ContactsWireframeProtocol {
                     assetsProvider: AssetProviderProtocol?,
                     providerFactory: BalanceProviderFactory,
                     feeProvider: FeeProviderProtocol,
+                    marketCapService: MarketCapServiceProtocol,
                     completion: ((ScanQRResult) -> Void)?)
 }
 
@@ -55,6 +56,7 @@ final class ContactsWireframe: ContactsWireframeProtocol {
                     assetsProvider: AssetProviderProtocol?,
                     providerFactory: BalanceProviderFactory,
                     feeProvider: FeeProviderProtocol,
+                    marketCapService: MarketCapServiceProtocol,
                     completion: ((ScanQRResult) -> Void)?) {
         guard let currentUser = SelectedWalletSettings.shared.currentAccount else { return }
         
@@ -69,6 +71,7 @@ final class ContactsWireframe: ContactsWireframeProtocol {
                                                     assetsProvider: assetsProvider,
                                                     providerFactory: providerFactory,
                                                     feeProvider: feeProvider,
+                                                    marketCapService: marketCapService,
                                                     completion: completion)
         containerView.add(scanView.controller)
         view?.present(containerView, animated: true)

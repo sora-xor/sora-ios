@@ -158,6 +158,25 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
             completion?(account)
         }
     }
+    
+    func checkCurrentAccountBackedup() async -> Bool {
+        return await withCheckedContinuation { continuation in
+            cloudStorageService.getBackupAccounts { [weak self] result in
+                guard let self = self else { return }
+                
+                switch result {
+                case .success(let accounts):
+                    let backupedAddresses = accounts.map { $0.address }
+                    ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses
+                    
+                    let searchingResult = backupedAddresses.contains(self.currentAccount.address)
+                    continuation.resume(returning: searchingResult)
+                case .failure:
+                    continuation.resume(returning: false)
+                }
+            }
+        }
+    }
 
     func logoutAndClean() {
         let idToRemove = self.account.identifier

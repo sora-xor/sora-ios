@@ -96,7 +96,6 @@ struct PoolDetails: Equatable {
     let baseAsset: String
     let targetAsset: String
     let yourPoolShare: Decimal
-    var sbAPYL: Double
     let baseAssetPooledByAccount: Decimal
     let targetAssetPooledByAccount: Decimal
     let baseAssetPooledTotal: Decimal

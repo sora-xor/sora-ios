@@ -34,17 +34,22 @@ import RobinHood
 import XNetworking
 
 protocol MarketCapServiceProtocol: AnyObject {
+    var assetsIds: [String] { get set }
     func getMarketCap() async -> [AssetsInfo]
 }
 
 final class MarketCapService {
+    static let shared = MarketCapService()
     private let operationManager: OperationManager = OperationManager()
     private var expiredDate: Date = Date()
     private var marketCap: [AssetsInfo] = []
-    private weak var assetManager: AssetManagerProtocol?
     
-    init(assetManager: AssetManagerProtocol?) {
-        self.assetManager = assetManager
+    var assetsIds: [String] = [] {
+        didSet {
+            Task {
+                marketCap = await getMarketCap()
+            }
+        }
     }
 }
 
@@ -57,16 +62,15 @@ extension MarketCapService: MarketCapServiceProtocol {
                 return
             }
             
-            let assetIds = assetManager?.getAssetList()?.map { $0.assetId } ?? []
+            let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: assetsIds)
             
-            let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL,
-                                                                              assetIds: assetIds)
-            
-            queryOperation.completionBlock = {
+            queryOperation.completionBlock = { [weak self] in
                 guard let response = try? queryOperation.extractNoCancellableResultData() else {
                     continuation.resume(returning: [])
                     return
                 }
+                self?.marketCap = response
+                self?.expiredDate = Date().addingTimeInterval(120)
                 continuation.resume(returning: response)
             }
             

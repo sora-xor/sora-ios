@@ -902,3 +902,5 @@
 "polkaswap.liquidity.total.fee" = "Комиссия обмена";
 "polkaswap.liquidity.total.fee.desc" = "Ваш своп включает в себя как синтетическую комиссию, так и комиссию LP.\nСинтетическая комиссия учитывается, когда обмен проходит через источник ликвидности XST для синтетических активов, а комиссия LP - когда своп проходит через пулы ликвидности.";
 "explore.create.pool" = "Create pool";
+"backup.account.already.exist" = "Backup already exists. Proceed to rewrite it.";
+"common.rewrite" = "Rewrite";

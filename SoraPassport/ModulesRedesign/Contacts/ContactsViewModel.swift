@@ -70,7 +70,7 @@ final class ContactsViewModel: NSObject {
     private let assetsProvider: AssetProviderProtocol?
     private let providerFactory: BalanceProviderFactory
     private let feeProvider: FeeProviderProtocol
-
+    private var marketCapService: MarketCapServiceProtocol
     private let assetId: String
 
     private var searchPattern = ""
@@ -97,7 +97,8 @@ final class ContactsViewModel: NSObject {
          sharingFactory: AccountShareFactoryProtocol,
          assetsProvider: AssetProviderProtocol?,
          providerFactory: BalanceProviderFactory,
-         feeProvider: FeeProviderProtocol
+         feeProvider: FeeProviderProtocol,
+         marketCapService: MarketCapServiceProtocol
     ) {
         self.dataProvider = dataProvider
         self.walletService = walletService
@@ -112,6 +113,7 @@ final class ContactsViewModel: NSObject {
         self.assetsProvider = assetsProvider
         self.providerFactory = providerFactory
         self.feeProvider = feeProvider
+        self.marketCapService = marketCapService
     }
     
 
@@ -296,6 +298,7 @@ extension ContactsViewModel: ContactsViewModelProtocol {
                              assetsProvider: assetsProvider,
                              providerFactory: providerFactory,
                              feeProvider: feeProvider,
+                             marketCapService: marketCapService,
                              completion: { [weak self] result in
             guard result.firstName != self?.settingsManager.currentAccount?.address else {
                 self?.view?.show(error: R.string.localizable.invoiceScanErrorMatch(preferredLanguages: .currentLocale))

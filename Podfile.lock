@@ -333,7 +333,7 @@ DEPENDENCIES:
   - SoraFoundation
   - SoraKeystore
   - SoraUI
-  - SoraUIKit (from `https://github.com/soramitsu/ios-ui.git`, tag `1.0.4`)
+  - SoraUIKit (from `https://github.com/soramitsu/ios-ui.git`, tag `1.0.5`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
@@ -417,7 +417,7 @@ EXTERNAL SOURCES:
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.4
+    :tag: 1.0.5
   Starscream:
     :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -444,7 +444,7 @@ CHECKOUT OPTIONS:
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.4
+    :tag: 1.0.5
   Starscream:
     :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -516,6 +516,6 @@ SPEC CHECKSUMS:
   XNetworking: 968483e8c77c510128b120efa3fdf4fe524af674
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: d62ecffafe8a55ad2c7bdc08da6aaa791914761f
+PODFILE CHECKSUM: 6e7f1417300d50f92aeadeacad6d98f7c34d377f
 
 COCOAPODS: 1.12.1

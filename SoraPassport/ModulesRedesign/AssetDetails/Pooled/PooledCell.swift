@@ -99,6 +99,7 @@ extension PooledCell: SoramitsuTableViewCellProtocol {
             poolView.sora.titleText = poolModel.title
             poolView.sora.subtitleText = poolModel.subtitle
             poolView.sora.upAmountText = poolModel.fiatText
+            poolView.amountDownLabel.sora.attributedText = poolModel.deltaArributedText
             poolView.sora.addHandler(for: .touchUpInside) {
                 item.openPoolDetailsHandler?(poolModel.identifier)
             }

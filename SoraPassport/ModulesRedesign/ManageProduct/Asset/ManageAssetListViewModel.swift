@@ -111,6 +111,7 @@ final class ManageAssetListViewModel {
     let referralFactory: ReferralsOperationFactoryProtocol
     private weak var assetsProvider: AssetProviderProtocol?
     private var marketCapService: MarketCapServiceProtocol
+    private var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
 
     init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
@@ -172,19 +173,21 @@ extension ManageAssetListViewModel: AssetProviderObserverProtocol {
 private extension ManageAssetListViewModel {
     func items(with balanceItems: [BalanceData]) {
         Task {
-            guard let fiatData = await self.fiatService?.getFiat() else { return }
-
-            let assetInfo = await self.marketCapService.getMarketCap()
+            async let fiatData = self.fiatService?.getFiat() ?? []
             
+            async let assetInfo = self.marketCapService.getMarketCap()
+            
+            let poolItemInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: assetInfo)
+
             self.assetItems = balanceItems.compactMap { balance in
                 
-                let oldPrice: Decimal = Decimal(Double(truncating: assetInfo.first(where: { $0.tokenId == balance.identifier })?.hourDelta ?? 0))
-                let price: Decimal = fiatData.first(where: { $0.id == balance.identifier })?.priceUsd?.decimalValue ?? 0
-                let deltaPrice = price / oldPrice - 1
+                let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier,
+                                                                 fiatData: poolItemInfo.fiatData,
+                                                                 marketCapInfo: poolItemInfo.marketCapInfo)
                 
                 guard let assetInfo = assetManager?.assetInfo(for: balance.identifier),
                       let viewModel = assetViewModelFactory.createAssetViewModel(with: balance,
-                                                                                 fiatData: fiatData,
+                                                                                 fiatData: poolItemInfo.fiatData,
                                                                                  mode: mode,
                                                                                  priceDelta: deltaPrice) else {
                     return nil
@@ -282,6 +285,7 @@ private extension ManageAssetListViewModel {
                                    qrEncoder: qrEncoder,
                                    sharingFactory: sharingFactory,
                                    referralFactory: referralFactory,
-                                   assetsProvider: assetsProvider)
+                                   assetsProvider: assetsProvider,
+                                   marketCapService: marketCapService)
     }
 }

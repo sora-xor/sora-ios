@@ -79,18 +79,12 @@ extension FiatService: FiatServiceProtocol {
     
     func getFiat(completion: @escaping ([FiatData]) -> Void) {
         Task {
-            if fiatData.isEmpty {
-                let fiatData = await updateFiatData()
+            guard expiredDate < Date() || fiatData.isEmpty else {
                 completion(fiatData)
                 return
             }
-            
-            if expiredDate < Date() {
-                let fiatData = await updateFiatData()
-                completion(fiatData)
-                return
-            }
-            
+
+            let fiatData = await updateFiatData()
             completion(fiatData)
         }
     }
@@ -98,7 +92,7 @@ extension FiatService: FiatServiceProtocol {
     func getFiat() async -> [FiatData] {
         return await withCheckedContinuation { continuation in
             Task {
-                if !fiatData.isEmpty && expiredDate < Date() {
+                guard expiredDate < Date() || fiatData.isEmpty else {
                     continuation.resume(with: .success(fiatData))
                     return
                 }

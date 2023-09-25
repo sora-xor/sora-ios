@@ -50,6 +50,7 @@ final class AssetsItem: NSObject {
     let assetProvider: AssetProviderProtocol
     let assetManager: AssetManagerProtocol
     let marketCapService: MarketCapServiceProtocol
+    let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
 
     init(title: String,
          isExpand: Bool = true,
@@ -71,16 +72,18 @@ final class AssetsItem: NSObject {
     
     public func updateContent() {
         Task {
-            guard let fiatData = await fiatService?.getFiat() else { return }
+            async let fiatData = fiatService?.getFiat() ?? []
 
-            let assetInfo = await marketCapService.getMarketCap()
+            async let assetInfo = marketCapService.getMarketCap()
+            
+            let poolItemInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: assetInfo)
 
             let assetIds = assetManager.getAssetList()?.filter { $0.visible }.map { $0.assetId } ?? []
 
             let items = assetProvider.getBalances(with: assetIds)
 
             let fiatDecimal = items.reduce(Decimal(0), { partialResult, balanceData in
-                if let priceUsd = fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
+                if let priceUsd = poolItemInfo.fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
                     return partialResult + balanceData.balance.decimalValue * priceUsd
                 }
                 return partialResult
@@ -89,11 +92,14 @@ final class AssetsItem: NSObject {
             moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
 
             assetViewModels = items.compactMap { item in
-                let oldPrice = Decimal(Double(truncating: assetInfo.first(where: { $0.tokenId == item.identifier })?.hourDelta ?? 0))
-                let price = fiatData.first(where: { $0.id == item.identifier })?.priceUsd?.decimalValue ?? 0
-                let deltaPrice = price / oldPrice - 1
+                let deltaPrice = priceTrendService.getPriceTrend(for: item.identifier,
+                                                                 fiatData: poolItemInfo.fiatData,
+                                                                 marketCapInfo: poolItemInfo.marketCapInfo)
                 
-                return self.assetViewModelsFactory.createAssetViewModel(with: item, fiatData: fiatData, mode: .view, priceDelta: deltaPrice)
+                return self.assetViewModelsFactory.createAssetViewModel(with: item,
+                                                                        fiatData: poolItemInfo.fiatData,
+                                                                        mode: .view,
+                                                                        priceDelta: deltaPrice)
             }
 
             updateHandler?()

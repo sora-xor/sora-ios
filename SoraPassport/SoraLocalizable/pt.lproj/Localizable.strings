@@ -902,3 +902,5 @@
 "polkaswap.liquidity.total.fee" = "Swap fee";
 "polkaswap.liquidity.total.fee.desc" = "Your swap involves both a Synthetic fee and an LP fee.\nThe Synthetic fee is accounted when the swap goes through the XST liquidity source for synthetic assets, and the LP fee when the swap goes through liquidity pools.";
 "explore.create.pool" = "Create pool";
+"backup.account.already.exist" = "Backup already exists. Proceed to rewrite it.";
+"common.rewrite" = "Rewrite";
