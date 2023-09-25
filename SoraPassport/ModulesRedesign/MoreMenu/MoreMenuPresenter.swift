@@ -58,6 +58,7 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
     var wireframe: MoreMenuWireframeProtocol!
     
     init() {
+        SoramitsuUI.updates.addObserver(self)
         EventCenter.shared.add(observer: self)
     }
 
@@ -202,6 +203,14 @@ extension MoreMenuPresenter: EventVisitorProtocol {
     }
     
     func processLanguageChanged(event: LanguageChanged) {
+        DispatchQueue.main.async { [weak self] in
+            self?.view?.refreshNavigationBar()
+        }
+    }
+}
+
+extension MoreMenuPresenter: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
         DispatchQueue.main.async { [weak self] in
             self?.view?.refreshNavigationBar()
         }
