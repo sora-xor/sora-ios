@@ -71,9 +71,17 @@ final class AppSettingsView: SoramitsuViewController & AppSettingsViewProtocol {
 
     func update(model: AppSettingsModel) {
         self.model = model
+        refreshNavigationBar()
         tableView.sora.sections = model.sections
         navigationItem.title = model.title
         setNeedsStatusBarAppearanceUpdate()
         
+    }
+    
+    private func refreshNavigationBar() {
+        guard let navigationBar = navigationController?.navigationBar else { return }
+        let window = navigationBar.superview
+        navigationBar.removeFromSuperview()
+        window?.addSubview(navigationBar)
     }
 }
