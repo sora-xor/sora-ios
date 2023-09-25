@@ -31,8 +31,11 @@
 import Foundation
 import SoraUIKit
 import UIKit
+import SoraFoundation
 
 final class ActivityDetailView: SoramitsuControl {
+    
+    private let localizationManager = LocalizationManager.shared
     
     let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
@@ -54,6 +57,7 @@ final class ActivityDetailView: SoramitsuControl {
         super.init(frame: .zero)
         setup()
         setupLayout()
+        setupSemantics()
     }
 
     required init?(coder: NSCoder) {
@@ -77,5 +81,11 @@ final class ActivityDetailView: SoramitsuControl {
             valueLabel.bottomAnchor.constraint(equalTo: bottomAnchor),
             valueLabel.centerXAnchor.constraint(equalTo: centerXAnchor)
         ])
+    }
+    
+    private func setupSemantics() {
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        titleLabel.sora.alignment = alignment
+        valueLabel.sora.alignment = alignment
     }
 }

@@ -29,10 +29,12 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
+import SoraFoundation
 
 final class PooledCell: SoramitsuTableViewCell {
     
     private var activityItem: PooledItem?
+    private var localizationManager = LocalizationManager.shared
 
     private let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
@@ -75,6 +77,14 @@ final class PooledCell: SoramitsuTableViewCell {
             fullStackView.topAnchor.constraint(equalTo: contentView.topAnchor),
         ])
     }
+    
+    private func updateSemantics() {
+        let semanticContentAttribute: UISemanticContentAttribute = localizationManager.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        
+        fullStackView.semanticContentAttribute = semanticContentAttribute
+        titleLabel.sora.alignment = alignment
+    }
 }
 
 extension PooledCell: SoramitsuTableViewCellProtocol {
@@ -102,11 +112,14 @@ extension PooledCell: SoramitsuTableViewCellProtocol {
             poolView.sora.addHandler(for: .touchUpInside) {
                 item.openPoolDetailsHandler?(poolModel.identifier)
             }
+            poolView.isRightToLeft = localizationManager.isRightToLeft
             return poolView
         }
 
         fullStackView.addArrangedSubviews(poolViews)
         activityItem = item
+        
+        updateSemantics()
     }
 }
 

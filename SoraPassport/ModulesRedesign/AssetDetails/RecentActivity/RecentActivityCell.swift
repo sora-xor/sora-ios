@@ -29,10 +29,12 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
+import SoraFoundation
 
 final class RecentActivityCell: SoramitsuTableViewCell {
     
     private var activityItem: RecentActivityItem?
+    private var localizationManager = LocalizationManager.shared
 
     private let titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
@@ -91,6 +93,18 @@ final class RecentActivityCell: SoramitsuTableViewCell {
             openFullActivityButton.heightAnchor.constraint(equalToConstant: 32)
         ])
     }
+    
+    private func updateSemantics() {
+        let semanticContentAttribute: UISemanticContentAttribute = localizationManager.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        
+        fullStackView.semanticContentAttribute = semanticContentAttribute
+        titleLabel.sora.alignment = alignment
+        openFullActivityButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.showMore(preferredLanguages: .currentLocale),
+                                                       fontData: FontType.buttonM,
+                                                       textColor: .accentPrimary,
+                                                       alignment: alignment)
+    }
 }
 
 extension RecentActivityCell: SoramitsuTableViewCellProtocol {
@@ -126,6 +140,7 @@ extension RecentActivityCell: SoramitsuTableViewCellProtocol {
             view.sora.addHandler(for: .touchUpInside) {
                 item.openActivityDetailsHandler?(model.txHash)
             }
+            view.isRightToLeft = localizationManager.isRightToLeft
             return view
         }
 
@@ -137,6 +152,8 @@ extension RecentActivityCell: SoramitsuTableViewCellProtocol {
         fullStackView.addArrangedSubviews(openFullActivityButton)
 
         self.activityItem = item
+        
+        updateSemantics()
     }
 }
 

@@ -160,7 +160,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func setupLanguage() {
         let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         UIView.appearance().semanticContentAttribute = semanticContentAttribute
-        UINavigationBar.appearance().semanticContentAttribute = semanticContentAttribute
     }
 }
 

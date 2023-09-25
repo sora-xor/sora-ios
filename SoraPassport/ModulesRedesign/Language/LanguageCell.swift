@@ -63,7 +63,10 @@ final class LanguageCell: SoramitsuTableViewCell {
     
     func updayeLayout() {
         let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        let alignment: NSTextAlignment = LocalizationManager.shared.isRightToLeft ? .right : .left
         itemView.semanticContentAttribute = semanticContentAttribute
+        itemView.titleLabel.sora.alignment = alignment
+        itemView.subtitleLabel.sora.alignment = alignment
     }
 }
 
