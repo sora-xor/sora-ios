@@ -35,7 +35,7 @@ abstract_target 'SoraPassportAll' do
   pod 'IdensicMobileSDK', :http => 'https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.1.tar.gz'
   pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.2.0'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
-  pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.61/AppCommonNetworking/XNetworking/XNetworking.podspec'
+  pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/release/0.1.1/core/sorawallet/sorawallet.podspec'
   pod 'SSFCloudStorage'
 
   target 'SoraPassportTests' do
@@ -54,7 +54,7 @@ abstract_target 'SoraPassportAll' do
       pod 'SoraFoundation'
       pod 'GoogleAPIClientForREST/Core'
       pod 'GoogleAPIClientForREST/Drive'
-      pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.61/AppCommonNetworking/XNetworking/XNetworking.podspec'
+      pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/release/0.1.1/core/sorawallet/sorawallet.podspec'
   end
   
   target 'SoraPassportUITests' do

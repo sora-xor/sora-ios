@@ -32,7 +32,7 @@ import UIKit
 import SoraUIKit
 import CommonWallet
 import RobinHood
-import XNetworking
+import sorawallet
 
 protocol ReceiveViewModelProtocol {
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }

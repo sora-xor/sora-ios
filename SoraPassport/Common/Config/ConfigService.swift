@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import XNetworking
+import sorawallet
 
 protocol ConfigServiceProtocol: AnyObject {
     var config: RemoteConfig { get }

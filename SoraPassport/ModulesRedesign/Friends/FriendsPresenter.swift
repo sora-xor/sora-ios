@@ -33,7 +33,7 @@ import SoraKeystore
 import SoraFoundation
 import SoraUI
 import BigInt
-import XNetworking
+import sorawallet
 import FearlessUtils
 import CommonWallet
 

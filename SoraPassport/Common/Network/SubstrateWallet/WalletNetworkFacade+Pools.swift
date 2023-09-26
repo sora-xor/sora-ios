@@ -31,7 +31,7 @@
 import Foundation
 import RobinHood
 import BigInt
-import XNetworking
+import sorawallet
 import SSFUtils
 
 enum PoolError: Swift.Error {
@@ -129,7 +129,6 @@ extension WalletNetworkFacade {
             }
             poolProvidersBalanceOperation.configurationBlock = {
                 guard let accountId = self.address.accountId, let reservesAccountId = try? poolPropertiesOperation.extractResultData()?.underlyingValue?.reservesAccountId else {
-                    continuetion.resume(throwing: PoolError.noProperties)
                     return
                 }
             
@@ -146,7 +145,6 @@ extension WalletNetworkFacade {
             
             accountPoolTotalIssuancesOperation.configurationBlock = {
                 guard let reservesAccountId = try? poolPropertiesOperation.extractResultData()?.underlyingValue?.reservesAccountId else {
-                    continuetion.resume(throwing: PoolError.noProperties)
                     return
                 }
                 let accountPoolKey = (try? StorageKeyFactory().accountPoolTotalIssuancesKeyForId(reservesAccountId.value)) ?? Data()
@@ -167,10 +165,7 @@ extension WalletNetworkFacade {
                     return
                 }
                 
-                guard let accountPoolBalance = try? poolProvidersBalanceOperation.extractResultData()?.underlyingValue else {
-                    continuetion.resume(throwing: PoolError.noProperties)
-                    return
-                }
+                let accountPoolBalance = (try? poolProvidersBalanceOperation.extractResultData()?.underlyingValue) ?? Balance(value: 0)
                 
                 guard let totalIssuances = try? accountPoolTotalIssuancesOperation.extractResultData()?.underlyingValue else {
                     continuetion.resume(throwing: PoolError.noProperties)

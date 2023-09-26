@@ -31,7 +31,7 @@
 import CommonWallet
 import FearlessUtils
 import RobinHood
-import XNetworking
+import sorawallet
 
 protocol PoolsServiceInputProtocol: AnyObject {
     func subscribePoolsReserves(_ poolsDetails: [PoolInfo])

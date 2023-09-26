@@ -33,7 +33,7 @@ import SoraUIKit
 import CommonWallet
 import RobinHood
 import SoraFoundation
-import XNetworking
+import sorawallet
 
 final class RemoveLiquidityViewModel {
     var detailsItem: PoolDetailsItem?

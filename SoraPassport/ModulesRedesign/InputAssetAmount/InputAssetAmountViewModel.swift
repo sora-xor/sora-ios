@@ -33,7 +33,7 @@ import SoraUIKit
 import CommonWallet
 import RobinHood
 import SoraFoundation
-import XNetworking
+import sorawallet
 
 protocol InputAssetAmountViewModelProtocol: InputAccessoryViewDelegate {
     var inputedFirstAmount: Decimal { get set }

@@ -78,7 +78,7 @@ final class ExploreAssetViewModelService {
             let fullListAssets = sortedAssetMarketCap.enumerated().compactMap { (index, marketCap) in
                 
                 let price = result.fiatData.first(where: { $0.id == marketCap.tokenId })?.priceUsd?.decimalValue ?? 0
-                let deltaPrice = (price / marketCap.oldPrice - 1) * 100
+                let deltaPrice: Decimal? = marketCap.oldPrice > 0 ? (price / marketCap.oldPrice - 1) * 100 : nil
                 return self.itemFactory.createExploreAssetViewModel(with: marketCap.tokenId,
                                                                     serialNumber: String(index + 1),
                                                                     price: price,

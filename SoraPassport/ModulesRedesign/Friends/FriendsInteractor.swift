@@ -33,7 +33,7 @@ import RobinHood
 import SoraKeystore
 import FearlessUtils
 import BigInt
-import XNetworking
+import sorawallet
 import IrohaCrypto
 
 final class FriendsInteractor {

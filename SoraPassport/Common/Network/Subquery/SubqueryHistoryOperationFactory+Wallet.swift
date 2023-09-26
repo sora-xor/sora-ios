@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import XNetworking
+import sorawallet
 
 extension SubqueryHistoryOperationFactory: WalletRemoteHistoryFactoryProtocol {
     func createOperationWrapper(

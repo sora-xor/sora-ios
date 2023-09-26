@@ -31,7 +31,7 @@
 import Foundation
 import IrohaCrypto
 import RobinHood
-import XNetworking
+import sorawallet
 
 protocol MarketCapServiceProtocol: AnyObject {
     var assetsIds: [String] { get set }

@@ -354,19 +354,27 @@ extension PolkaswapViewController: LiquidityViewProtocol {
     }
     
     func update(slippageTolerance: String) {
-        optionsView.slipageButton.sora.title = slippageTolerance
+        DispatchQueue.main.async {
+            self.optionsView.slipageButton.sora.title = slippageTolerance
+        }
     }
     
     func update(selectedMarket: String) {
-        optionsView.marketButton.sora.title = selectedMarket
+        DispatchQueue.main.async {
+            self.optionsView.marketButton.sora.title = selectedMarket
+        }
     }
     
     func set(firstAmountText: String) {
-        assetsView.firstAsset.textField.sora.text = firstAmountText == "0" ? "" : firstAmountText
+        DispatchQueue.main.async {
+            self.assetsView.firstAsset.textField.sora.text = firstAmountText == "0" ? "" : firstAmountText
+        }
     }
     
     func set(secondAmountText: String) {
-        assetsView.secondAsset.textField.sora.text = secondAmountText == "0" ? "" : secondAmountText
+        DispatchQueue.main.async {
+            self.assetsView.secondAsset.textField.sora.text = secondAmountText == "0" ? "" : secondAmountText
+        }
     }
     
     func setupButton(isEnabled: Bool) {
@@ -379,11 +387,14 @@ extension PolkaswapViewController: LiquidityViewProtocol {
     }
     
     func focus(field: FocusedField) {
-        if field == .one {
-            assetsView.firstAsset.textField.becomeFirstResponder()
-        } else {
-            assetsView.secondAsset.textField.becomeFirstResponder()
+        DispatchQueue.main.async {
+            if field == .one {
+                self.assetsView.firstAsset.textField.becomeFirstResponder()
+            } else {
+                self.assetsView.secondAsset.textField.becomeFirstResponder()
+            }
         }
+        
     }
     
     func updateFirstAsset(state: InputFieldState, amountColor: SoramitsuColor, fiatColor: SoramitsuColor) {
@@ -403,19 +414,28 @@ extension PolkaswapViewController: LiquidityViewProtocol {
     }
     
     func update(isNeedLoadingState: Bool) {
-        reviewLiquidity.sora.loadingPlaceholder.type = isNeedLoadingState ? .shimmer : .none
+        DispatchQueue.main.async {
+            self.reviewLiquidity.sora.loadingPlaceholder.type = isNeedLoadingState ? .shimmer : .none
+        }
     }
     
     func updateMiddleButton(isEnabled: Bool) {
-        assetsView.middleButton.sora.isEnabled = isEnabled
+        DispatchQueue.main.async {
+            self.assetsView.middleButton.sora.isEnabled = isEnabled
+        }
     }
     
     func setupMarketButton(isLoadingState: Bool) {
-        optionsView.marketButton.sora.loadingPlaceholder.type = isLoadingState ? .shimmer : .none
+        DispatchQueue.main.async {
+            self.optionsView.marketButton.sora.loadingPlaceholder.type = isLoadingState ? .shimmer : .none
+        }
+        
     }
     
     func setAccessoryView(isHidden: Bool) {
-        accessoryView.isHidden = isHidden
+        DispatchQueue.main.async {
+            self.accessoryView.isHidden = isHidden
+        }
     }
 
     func updateReviewButton(title: String) {
@@ -425,7 +445,9 @@ extension PolkaswapViewController: LiquidityViewProtocol {
     }
     
     func updateWarinignView(model: WarningViewModel) {
-        warningView.setupView(with: model)
+        DispatchQueue.main.async {
+            self.warningView.setupView(with: model)
+        }
     }
 }
 

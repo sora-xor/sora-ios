@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import XNetworking
+import sorawallet
 
 final class HistoryPage {
     let transactions: [Transaction]

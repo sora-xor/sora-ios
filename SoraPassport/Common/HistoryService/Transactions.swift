@@ -30,7 +30,7 @@
 
 import Foundation
 import UIKit
-import XNetworking
+import sorawallet
 import SoraUIKit
 
 protocol Transaction {

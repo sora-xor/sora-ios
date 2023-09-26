@@ -31,7 +31,7 @@
 import Foundation
 import CommonWallet
 import SoraUIKit
-import XNetworking
+import sorawallet
 import SoraFoundation
 
 final class PoolViewModelFactory {
