@@ -32,6 +32,7 @@ import UIKit
 import SoraUIKit
 import CommonWallet
 import RobinHood
+import SoraFoundation
 
 protocol SelectAssetViewModelProtocol: Produtable {
     typealias ItemType = AssetListItem
@@ -62,6 +63,29 @@ final class SelectAssetViewModel {
     var isActiveSearch: Bool = false {
         didSet {
             setupItems?(isActiveSearch ? filteredAssetItems : assetItems)
+        }
+    }
+    
+    var poolItemInfo: PoolItemInfo? {
+        didSet {
+            let fiatData = poolItemInfo?.fiatData ?? []
+            let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
+            
+            assetItems.forEach { item in
+                
+                let fiatText = FiatTextBuilder().build(fiatData: fiatData, amount: item.balance, assetId: item.assetInfo.assetId)
+                
+                var deltaArributedText = DeltaPriceBuilder().build(fiatData: fiatData,
+                                                                   marketCapInfo: marketCapInfo,
+                                                                   assetId: item.assetViewModel.identifier)
+                
+                item.assetViewModel.fiatText = fiatText
+                item.assetViewModel.deltaPriceText = deltaArributedText
+            }
+            
+            DispatchQueue.main.async {
+                self.reloadItems?(self.assetItems)
+            }
         }
     }
 
@@ -117,40 +141,36 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 
 private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) {
+        assetItems = balanceItems.compactMap { balance in
+            
+            let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier,
+                                                             fiatData: [],
+                                                             marketCapInfo: [])
+            
+            guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
+                  let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
+                                                                                  assetInfo: assetInfo,
+                                                                                  fiatData: [],
+                                                                                  mode: self.mode,
+                                                                                  priceDelta: deltaPrice) else {
+                return nil
+            }
+            
+            let item = AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
+            
+            item.assetHandler = { [weak self] identifier in
+                self?.dissmiss?(true)
+                self?.selectionCompletion?(identifier)
+            }
+            
+            item.favoriteHandle = { item in
+                item.assetInfo.visible = !item.assetInfo.visible
+            }
+            return item
+        }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
         
         Task {
-            async let fiatData = self.fiatService?.getFiat() ?? []
-            
-            async let assetInfo = self.marketCapService.getMarketCap()
-            
-            let poolItemInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: assetInfo)
-            
-            self.assetItems = balanceItems.compactMap { balance in
-
-                let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier,
-                                                                 fiatData: poolItemInfo.fiatData,
-                                                                 marketCapInfo: poolItemInfo.marketCapInfo)
-                
-                guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
-                      let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
-                                                                                      fiatData: poolItemInfo.fiatData,
-                                                                                      mode: self.mode,
-                                                                                      priceDelta: deltaPrice) else {
-                    return nil
-                }
-
-                let item = AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
-
-                item.assetHandler = { [weak self] identifier in
-                    self?.dissmiss?(true)
-                    self?.selectionCompletion?(identifier)
-                }
-        
-                item.favoriteHandle = { item in
-                    item.assetInfo.visible = !item.assetInfo.visible
-                }
-                return item
-            }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
+            poolItemInfo = await PriceInfoService.shared.getPriceInfo()
         }
     }
 

@@ -59,7 +59,7 @@ struct ExploreAssetViewModel: Hashable {
     var symbol: String?
     var title: String?
     var price: String?
-    var serialNumber: String
+    var serialNumber: String = ""
     var marketCap: String?
     var icon: UIImage?
     var deltaPrice: SoramitsuAttributedText?

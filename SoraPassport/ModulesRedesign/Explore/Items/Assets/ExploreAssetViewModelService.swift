@@ -58,15 +58,15 @@ final class ExploreAssetViewModelService {
     
     func setup() {
         Task {
-            async let assetInfo = marketCapService.getMarketCap()
+            async let assetInfo = self.marketCapService.getMarketCap()
             
-            async let fiat = fiatService?.getFiat() ?? []
+            async let fiat = self.fiatService?.getFiat() ?? []
             
             let result = await PoolItemInfo(fiatData: fiat, marketCapInfo: assetInfo)
             
             let assetMarketCap = result.marketCapInfo.compactMap { asset in
                 let amount = BigUInt(asset.liquidity) ?? 0
-                let precision = Int16(assetManager.assetInfo(for: asset.tokenId)?.precision ?? 0)
+                let precision = Int16(self.assetManager.assetInfo(for: asset.tokenId)?.precision ?? 0)
                 let price = result.fiatData.first { asset.tokenId == $0.id }?.priceUsd?.decimalValue ?? 0
                 let marketCap = (Decimal.fromSubstrateAmount(amount, precision: precision) ?? 0) * price
                 let oldPrice = Decimal(Double(truncating: asset.hourDelta ?? 0))
@@ -75,17 +75,18 @@ final class ExploreAssetViewModelService {
 
             let sortedAssetMarketCap = assetMarketCap.sorted { $0.marketCap > $1.marketCap }
             
-            let fullListAssets = sortedAssetMarketCap.enumerated().compactMap { (index, marketCap) in
-                
+            var fullListAssets = sortedAssetMarketCap.compactMap { marketCap in
                 let price = result.fiatData.first(where: { $0.id == marketCap.tokenId })?.priceUsd?.decimalValue ?? 0
                 let deltaPrice: Decimal? = marketCap.oldPrice > 0 ? (price / marketCap.oldPrice - 1) * 100 : nil
                 return self.itemFactory.createExploreAssetViewModel(with: marketCap.tokenId,
-                                                                    serialNumber: String(index + 1),
                                                                     price: price,
                                                                     deltaPrice: deltaPrice,
                                                                     marketCap: marketCap.marketCap)
             }
-            viewModels = fullListAssets
+
+            (0..<fullListAssets.count).forEach { fullListAssets[$0].serialNumber += "\($0 + 1)" }
+
+            self.viewModels = fullListAssets
         }
     }
 }

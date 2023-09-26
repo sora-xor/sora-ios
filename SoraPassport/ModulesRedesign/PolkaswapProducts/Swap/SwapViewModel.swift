@@ -345,6 +345,7 @@ extension SwapViewModel: LiquidityViewModelProtocol {
 
         view?.updateMiddleButton(isEnabled: false)
         view?.setupButton(isEnabled: false)
+        updateAssetsBalance()
         assetsProvider?.add(observer: self)
         updateDetails()
     }

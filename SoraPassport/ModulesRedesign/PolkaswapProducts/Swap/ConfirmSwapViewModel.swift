@@ -166,10 +166,21 @@ final class ConfirmSwapViewModel {
         timer?.invalidate()
         timer = nil
     }
+    
+    private func updateBalanceData() {
+        if !self.firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [self.firstAssetId]).first {
+            self.firstAssetBalance = firstAssetBalance
+        }
+        
+        if !self.secondAssetId.isEmpty, let secondAssetBalance = assetsProvider?.getBalances(with: [self.secondAssetId]).first {
+            self.secondAssetBalance = secondAssetBalance
+        }
+    }
 }
 
 extension ConfirmSwapViewModel: ConfirmViewModelProtocol {
     func viewDidLoad() {
+        updateBalanceData()
         setupContent()
         subscribeToPoolUpdates()
         assetsProvider?.add(observer: self)
@@ -178,13 +189,7 @@ extension ConfirmSwapViewModel: ConfirmViewModelProtocol {
 
 extension ConfirmSwapViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        if !self.firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [self.firstAssetId]).first {
-            self.firstAssetBalance = firstAssetBalance
-        }
-        
-        if !self.secondAssetId.isEmpty, let secondAssetBalance = assetsProvider?.getBalances(with: [self.secondAssetId]).first {
-            self.secondAssetBalance = secondAssetBalance
-        }
+        updateBalanceData()
     }
 }
 

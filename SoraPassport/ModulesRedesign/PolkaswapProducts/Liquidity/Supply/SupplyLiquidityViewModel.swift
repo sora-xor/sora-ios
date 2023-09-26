@@ -110,7 +110,7 @@ final class SupplyLiquidityViewModel {
                 guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
                 let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
                 view?.updateFirstAsset(symbol: asset.symbol, image: image)
-                setupBalanceDataProvider()
+                updateBalanceData()
                 if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
                     poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
                 }
@@ -126,7 +126,7 @@ final class SupplyLiquidityViewModel {
                 guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
                 let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
                 view?.updateSecondAsset(symbol: asset.symbol, image: image)
-                setupBalanceDataProvider()
+                updateBalanceData()
                 if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
                     poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
                 }
@@ -185,7 +185,7 @@ final class SupplyLiquidityViewModel {
     private var apy: Decimal?
     private var fiatData: [FiatData] = [] {
         didSet {
-            setupBalanceDataProvider()
+            updateBalanceData()
         }
     }
 
@@ -279,6 +279,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             self.secondAssetId = secondAssetId
         }
 
+        updateBalanceData()
         slippageTolerance = 0.5
         assetsProvider?.add(observer: self)
         if !secondAssetId.isEmpty {
@@ -424,13 +425,13 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
 
 extension SupplyLiquidityViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        setupBalanceDataProvider()
+        updateBalanceData()
     }
 }
 
 extension SupplyLiquidityViewModel {
     
-    func setupBalanceDataProvider() {
+    func updateBalanceData() {
         if !firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [firstAssetId]).first {
             self.firstAssetBalance = firstAssetBalance
         }

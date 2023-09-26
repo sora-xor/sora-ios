@@ -75,12 +75,12 @@ final class ExploreViewModel {
     var wireframe: ExploreWireframeProtocol
     var view: ControllerBackedProtocol?
     
-    weak var accountPoolsService: AccountPoolsService?
+    weak var accountPoolsService: PoolsServiceInputProtocol?
     var assetViewModelsService: ExploreAssetViewModelService
     var poolViewModelsService: ExplorePoolViewModelService
 
     init(wireframe: ExploreWireframeProtocol,
-         accountPoolsService: AccountPoolsService,
+         accountPoolsService: PoolsServiceInputProtocol,
          assetViewModelsService: ExploreAssetViewModelService,
          poolViewModelsService: ExplorePoolViewModelService) {
         self.wireframe = wireframe

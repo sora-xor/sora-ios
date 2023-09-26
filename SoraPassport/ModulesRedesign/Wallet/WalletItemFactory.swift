@@ -60,14 +60,16 @@ protocol WalletItemFactoryProtocol: AnyObject {
                           assetManager: AssetManagerProtocol,
                           assetsProvider: AssetProviderProtocol,
                           fiatService: FiatServiceProtocol,
+                          itemService: AssetsItemService,
                           marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol
     
     func createPoolsItem(with walletViewModel: RedesignWalletViewModelProtocol,
-                         poolService: PoolsServiceInputProtocol,
+                         poolsService: PoolsServiceInputProtocol,
                          networkFacade: WalletNetworkOperationFactoryProtocol,
                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                          assetManager: AssetManagerProtocol,
                          fiatService: FiatServiceProtocol,
+                         poolsViewModelService: PoolsItemService,
                          marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol
     
     func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
@@ -203,18 +205,12 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                           assetManager: AssetManagerProtocol,
                           assetsProvider: AssetProviderProtocol,
                           fiatService: FiatServiceProtocol,
+                          itemService: AssetsItemService,
                           marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol {
-        
-        let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
-                                            assetManager: assetManager,
-                                            fiatService: fiatService)
         
         let assetsItem = AssetsItem(title: R.string.localizable.liquidAssets(preferredLanguages: .currentLocale),
                                     assetProvider: assetsProvider,
-                                    assetManager: assetManager,
-                                    fiatService: fiatService,
-                                    assetViewModelsFactory: factory,
-                                    marketCapService: marketCapService)
+                                    service: itemService)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.liquidAssets(preferredLanguages: locale.rLanguages)
@@ -225,10 +221,12 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
             assetsItem?.title = currentTitle
         }
         
-        assetsItem.updateHandler = { [weak walletViewModel, weak assetsItem] in
+        let updateHandler = { [weak walletViewModel, weak assetsItem] in
             guard let walletViewModel = walletViewModel, let assetsItem = assetsItem else { return }
             walletViewModel.reloadItem?([assetsItem])
         }
+        assetsItem.updateHandler = updateHandler
+        itemService.updateHandler = updateHandler
         
         assetsItem.arrowButtonHandler = { [weak assetsItem] in
             guard let assetsItem = assetsItem else { return }
@@ -249,22 +247,18 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
     }
     
     func createPoolsItem(with walletViewModel: RedesignWalletViewModelProtocol,
-                         poolService: PoolsServiceInputProtocol,
+                         poolsService: PoolsServiceInputProtocol,
                          networkFacade: WalletNetworkOperationFactoryProtocol,
                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                          assetManager: AssetManagerProtocol,
                          fiatService: FiatServiceProtocol,
+                         poolsViewModelService: PoolsItemService,
                          marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol {
         
-        let factory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
-                                            assetManager: assetManager,
-                                           fiatService: fiatService)
-        
-        let poolsItem = PoolsItem(title: R.string.localizable.pooledAssets(preferredLanguages: .currentLocale),
-                                  poolsService: poolService,
-                                  fiatService: fiatService,
-                                  poolViewModelsFactory: factory,
-                                  marketCapService: marketCapService)
+//        let itemService = PoolsItemService(marketCapService: marketCapService,
+//                                           fiatService: fiatService,
+//                                           poolViewModelsFactory: factory)
+        let poolsItem = PoolsItem(title: R.string.localizable.pooledAssets(preferredLanguages: .currentLocale), service: poolsViewModelService)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.pooledAssets(preferredLanguages: locale.rLanguages)
@@ -275,12 +269,13 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
             poolsItem?.title = currentTitle
         }
         
-        poolService.appendDelegate(delegate: poolsItem)
+//        poolsService.appendDelegate(delegate: poolsItem)
         
-        poolsItem.updateHandler = { [weak poolsItem, weak walletViewModel] in
+        let updateHandler = { [weak poolsItem, weak walletViewModel] in
             guard let walletViewModel = walletViewModel, let poolsItem = poolsItem else { return }
             walletViewModel.reloadItem?([poolsItem])
         }
+        poolsViewModelService.updateHandler = updateHandler
         
         poolsItem.arrowButtonHandler = { [weak poolsItem] in
             guard let poolsItem = poolsItem else { return }
@@ -292,8 +287,8 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
             walletViewModel?.showFullListPools()
         }
         
-        poolsItem.poolHandler = { [weak poolService, weak walletViewModel] identifier in
-            guard let poolInfo = poolService?.getPool(by: identifier) else { return }
+        poolsItem.poolHandler = { [weak poolsService, weak walletViewModel] identifier in
+            guard let poolInfo = poolsService?.getPool(by: identifier) else { return }
             walletViewModel?.showPoolDetails(with: poolInfo)
         }
         

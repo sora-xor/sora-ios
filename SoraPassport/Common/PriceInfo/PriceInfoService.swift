@@ -33,48 +33,43 @@ import IrohaCrypto
 import RobinHood
 import sorawallet
 
-protocol MarketCapServiceProtocol: AnyObject {
-    var assetsIds: [String] { get set }
-    func getMarketCap() async -> [AssetsInfo]
+protocol PriceInfoServiceProtocol: AnyObject {
+    func setup()
+    var priceInfo: PoolItemInfo? { get }
+    func getPriceInfo() async -> PoolItemInfo
 }
 
-final class MarketCapService {
-    static let shared = MarketCapService()
-    private let operationManager: OperationManager = OperationManager()
+final class PriceInfoService {
+    static let shared = PriceInfoService()
+    var priceInfo: PoolItemInfo?
     private var expiredDate: Date = Date()
-    private var marketCap: [AssetsInfo] = []
+    private let fiatService = FiatService.shared
+    private let marketCapService = MarketCapService.shared
+}
+
+extension PriceInfoService: PriceInfoServiceProtocol {
     
-    var assetsIds: [String] = [] {
-        didSet {
-            Task {
-                marketCap = await getMarketCap()
-            }
+    func setup() {
+        Task {
+            async let fiatData = self.fiatService.getFiat()
+            
+            async let assetInfo = self.marketCapService.getMarketCap()
+            
+            priceInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: assetInfo)
         }
     }
-}
-
-extension MarketCapService: MarketCapServiceProtocol {
     
-    func getMarketCap() async -> [AssetsInfo] {
-        return await withCheckedContinuation { continuation in
-            guard expiredDate < Date() || marketCap.isEmpty else {
-                continuation.resume(returning: marketCap)
-                return
-            }
+    func getPriceInfo() async -> PoolItemInfo {
+        guard let priceInfo else {
+            async let fiatData = self.fiatService.getFiat()
             
-            let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: assetsIds)
+            async let assetInfo = self.marketCapService.getMarketCap()
             
-            queryOperation.completionBlock = { [weak self] in
-                guard let response = try? queryOperation.extractNoCancellableResultData() else {
-                    continuation.resume(returning: [])
-                    return
-                }
-                self?.marketCap = response
-                self?.expiredDate = Date().addingTimeInterval(600)
-                continuation.resume(returning: response)
-            }
-            
-            operationManager.enqueue(operations: [queryOperation], in: .transient)
+            let priceInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: assetInfo)
+            self.priceInfo = priceInfo
+            return priceInfo
         }
+        
+        return priceInfo
     }
 }

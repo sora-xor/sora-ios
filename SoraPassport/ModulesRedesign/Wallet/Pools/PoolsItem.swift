@@ -48,73 +48,21 @@ struct PoolItemInfo {
 final class PoolsItem: NSObject {
 
     var title: String
-    var moneyText: String = ""
-    
-    var poolViewModels: [PoolViewModel] = []
     var isExpand: Bool
-    let poolsService: PoolsServiceInputProtocol?
-    let poolViewModelsFactory: PoolViewModelFactory
-    weak var fiatService: FiatServiceProtocol?
+    let service: PoolsItemService
+    
     var updateHandler: (() -> Void)?
     var expandButtonHandler: (() -> Void)?
     var arrowButtonHandler: (() -> Void)?
     var poolHandler: ((String) -> Void)?
-    var state: PoolItemState = .loading
-    var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
-    let marketCapService: MarketCapServiceProtocol
+
     
     init(title: String,
          isExpand: Bool = true,
-         poolsService: PoolsServiceInputProtocol?,
-         fiatService: FiatServiceProtocol?,
-         poolViewModelsFactory: PoolViewModelFactory,
-         marketCapService: MarketCapServiceProtocol) {
+         service: PoolsItemService) {
         self.title = title
         self.isExpand = isExpand
-        self.fiatService = fiatService
-        self.poolsService = poolsService
-        self.poolViewModelsFactory = poolViewModelsFactory
-        self.marketCapService = marketCapService
-    }
-}
-
-extension PoolsItem: PoolsServiceOutput {
-    func loaded(pools: [PoolInfo]) {
-        Task {
-            async let fiatData = fiatService?.getFiat() ?? []
-            
-            async let marketCapInfo = marketCapService.getMarketCap()
-            
-            let poolInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: marketCapInfo)
-            
-            let fiatDecimal = pools.filter { $0.isFavorite }.reduce(Decimal(0), { partialResult, pool in
-                if let baseAssetPriceUsd = poolInfo.fiatData.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue,
-                   let targetAssetPriceUsd = poolInfo.fiatData.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue,
-                   let baseAssetPooledByAccount = pool.baseAssetPooledByAccount,
-                   let targetAssetPooledByAccount = pool.targetAssetPooledByAccount {
-                    
-                    let baseAssetFiatAmount = baseAssetPooledByAccount * baseAssetPriceUsd
-                    let targetAssetFiatAmount = targetAssetPooledByAccount * targetAssetPriceUsd
-                    return partialResult + baseAssetFiatAmount + targetAssetFiatAmount
-                }
-                return partialResult
-            })
-            
-            self.moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
-            
-            self.poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                let poolChangePrice = self.priceTrendService.getPriceTrend(for: item, fiatData: poolInfo.fiatData, marketCapInfo: poolInfo.marketCapInfo)
-                return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: poolInfo.fiatData, mode: .view, priceTrend: poolChangePrice)
-            }
-
-            if self.poolViewModels.isEmpty {
-                self.state = .empty
-            } else {
-                self.state = .viewModel
-            }
-            
-            self.updateHandler?()
-        }
+        self.service = service
     }
 }
 

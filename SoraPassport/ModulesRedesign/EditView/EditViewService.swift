@@ -51,7 +51,6 @@ final class EditViewService {
 
 extension EditViewService: EditViewServiceProtocol {
     func loadModels(completion: ((Bool) -> Void)?) {
-        poolsService.loadAccountPools(isNeedForceUpdate: false)
         self.completion = completion
     }
     
