@@ -87,12 +87,7 @@ extension InputRewardAmountPresenter: InputRewardAmountViewDelegate {
 
 extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol {
     func received(_ balance: Decimal) {
-        let formatter = NumberFormatter.amount
-        formatter.roundingMode = .floor
-        formatter.maximumFractionDigits = Int(feeAsset.precision)
-        formatter.decimalSeparator = "."
-        
-        let balanceText = (formatter.stringFromDecimal(balance) ?? "") + " \(feeAsset.symbol)"
+        let balanceText = (NumberFormatter.cryptoAssets.stringFromDecimal(balance) ?? "") + " \(feeAsset.symbol)"
         let feeAmount = "\(fee) \(feeAsset.symbol)"
         let actionButtonIsEnabled = type == .unbond ? fee <= balance : false
         
