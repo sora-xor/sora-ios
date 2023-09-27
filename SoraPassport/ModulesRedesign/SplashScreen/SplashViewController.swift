@@ -47,13 +47,11 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     }()
     
     private var messageLabel: SoramitsuLabel = {
-        let title = SoramitsuTextItem(text: R.string.localizable.launchScreenLoadingTitle(preferredLanguages: .currentLocale),
-                                      fontData: FontType.headline3,
-                                      textColor: .fgPrimary,
-                                      alignment: .center)
-        
         let label = SoramitsuLabel()
-        label.sora.attributedText = title
+        label.sora.text = R.string.localizable.launchScreenLoadingTitle(preferredLanguages: .currentLocale)
+        label.sora.font = FontType.headline3
+        label.sora.textColor = .custom(uiColor: UIColor(hex: "#281818"))
+        label.sora.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
