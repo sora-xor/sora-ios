@@ -269,7 +269,7 @@ PODS:
   - SoraUI/PinView (1.10.3):
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
-  - SoraUIKit (1.0.6)
+  - SoraUIKit (1.0.8)
   - sorawallet (0.1.1)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
@@ -283,7 +283,7 @@ PODS:
     - TweetNacl (~> 1.0.0)
   - SSFModels (0.1.20):
     - IrohaCrypto
-  - SSFUtils (0.1.17):
+  - SSFUtils (0.1.21):
     - BigInt (~> 5.0)
     - IrohaCrypto/ed25519
     - IrohaCrypto/Scrypt
@@ -333,7 +333,7 @@ DEPENDENCIES:
   - SoraFoundation
   - SoraKeystore
   - SoraUI
-  - SoraUIKit (from `https://github.com/soramitsu/ios-ui.git`, tag `1.0.6`)
+  - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.0.8`)
   - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.1.1/core/sorawallet/sorawallet.podspec`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
@@ -416,8 +416,8 @@ EXTERNAL SOURCES:
     :branch: release/1.2.0
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
-    :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.6
+    :git: https://github.com/soramitsu/ios-ui
+    :tag: 1.0.8
   sorawallet:
     :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.1.1/core/sorawallet/sorawallet.podspec
   Starscream:
@@ -440,11 +440,11 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: 25745ef0fa9c6ac710ef54b63de35a7804e94288
+    :commit: e872066276cf8594db65b3422485873b575fe92e
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
-    :git: https://github.com/soramitsu/ios-ui.git
-    :tag: 1.0.6
+    :git: https://github.com/soramitsu/ios-ui
+    :tag: 1.0.8
   Starscream:
     :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -501,12 +501,12 @@ SPEC CHECKSUMS:
   SoraFoundation: 988d90ee3159311b02e42aeba0cf7e85d8bc724c
   SoraKeystore: 92cff6e2a12f212dd64ed089970ff7c365247b1c
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
-  SoraUIKit: 9c9cf7c39b6228fe57347641615c936148be6041
+  SoraUIKit: 2561487e4fe761a7007d72a15a1458e06d986323
   sorawallet: 156409e3542f41cc3acef7e13eb6cb1c7d0b64c4
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
   SSFCloudStorage: 37fbba3ad3e93a637d9c1a9b85910f4fa29596de
   SSFModels: afdeb5bb331de6efa902d961e61a76e1d26aab04
-  SSFUtils: 3fe2cb3cf68522536da733f41331b30d2cf97acd
+  SSFUtils: 848a8d5869f4a0d5ba911f7707be99b5e1b3f177
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5
@@ -516,6 +516,6 @@ SPEC CHECKSUMS:
   VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: e8e8f0783ae5fd5b8918ecde4efe3d2a17f798c2
+PODFILE CHECKSUM: 7425a6032261b4e9a0b69a6a86061ce371bf164f
 
 COCOAPODS: 1.12.1

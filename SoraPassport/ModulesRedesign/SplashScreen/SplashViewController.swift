@@ -50,7 +50,8 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         let label = SoramitsuLabel()
         label.sora.text = R.string.localizable.launchScreenLoadingTitle(preferredLanguages: .currentLocale)
         label.sora.font = FontType.headline3
-        label.sora.textColor = .custom(uiColor: UIColor(hex: "#281818"))
+        label.sora.textColor = .fgPrimary
+        label.sora.supportsPaletteMode = false
         label.sora.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
