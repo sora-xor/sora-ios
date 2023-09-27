@@ -233,6 +233,13 @@
 		3616552A291D8D1500060A8D /* DetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36165529291D8D1500060A8D /* DetailViewModel.swift */; };
 		3616552E291D92FE00060A8D /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616552D291D92FE00060A8D /* DetailView.swift */; };
 		36165530291DAB9800060A8D /* PoolDetailsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3616552F291DAB9800060A8D /* PoolDetailsViewFactory.swift */; };
+		3618AE482AC3042D00F582BD /* FiatTextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE472AC3042D00F582BD /* FiatTextBuilder.swift */; };
+		3618AE4A2AC3071300F582BD /* DeltaPriceBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE492AC3071300F582BD /* DeltaPriceBuilder.swift */; };
+		3618AE4C2AC3271200F582BD /* AssetsItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE4B2AC3271200F582BD /* AssetsItemService.swift */; };
+		3618AE4E2AC34B4900F582BD /* PoolsItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE4D2AC34B4900F582BD /* PoolsItemService.swift */; };
+		3618AE502AC35C7300F582BD /* MainScreenPoolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE4F2AC35C7300F582BD /* MainScreenPoolView.swift */; };
+		3618AE522AC3617D00F582BD /* MainScreenAssetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE512AC3617D00F582BD /* MainScreenAssetView.swift */; };
+		3618AE552AC43C6B00F582BD /* PriceInfoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618AE542AC43C6B00F582BD /* PriceInfoService.swift */; };
 		36197A11293100B40036DFA2 /* LiquidityViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36197A10293100B40036DFA2 /* LiquidityViewModelProtocol.swift */; };
 		36197A132931027A0036DFA2 /* FocusedField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36197A122931027A0036DFA2 /* FocusedField.swift */; };
 		361EF580291170CC00D0DCCF /* UIViewController+ChildViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361EF57F291170CC00D0DCCF /* UIViewController+ChildViewController.swift */; };
@@ -1546,6 +1553,13 @@
 		36165529291D8D1500060A8D /* DetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailViewModel.swift; sourceTree = "<group>"; };
 		3616552D291D92FE00060A8D /* DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
 		3616552F291DAB9800060A8D /* PoolDetailsViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolDetailsViewFactory.swift; sourceTree = "<group>"; };
+		3618AE472AC3042D00F582BD /* FiatTextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiatTextBuilder.swift; sourceTree = "<group>"; };
+		3618AE492AC3071300F582BD /* DeltaPriceBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeltaPriceBuilder.swift; sourceTree = "<group>"; };
+		3618AE4B2AC3271200F582BD /* AssetsItemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetsItemService.swift; sourceTree = "<group>"; };
+		3618AE4D2AC34B4900F582BD /* PoolsItemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolsItemService.swift; sourceTree = "<group>"; };
+		3618AE4F2AC35C7300F582BD /* MainScreenPoolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainScreenPoolView.swift; sourceTree = "<group>"; };
+		3618AE512AC3617D00F582BD /* MainScreenAssetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainScreenAssetView.swift; sourceTree = "<group>"; };
+		3618AE542AC43C6B00F582BD /* PriceInfoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceInfoService.swift; sourceTree = "<group>"; };
 		36197A10293100B40036DFA2 /* LiquidityViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidityViewModelProtocol.swift; sourceTree = "<group>"; };
 		36197A122931027A0036DFA2 /* FocusedField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusedField.swift; sourceTree = "<group>"; };
 		361EF57F291170CC00D0DCCF /* UIViewController+ChildViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+ChildViewController.swift"; sourceTree = "<group>"; };
@@ -3065,6 +3079,7 @@
 		02623EF92179D0B50011250E /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				3618AE532AC43C5D00F582BD /* PriceInfo */,
 				363EAB662A7BCAC400603361 /* MarketCap */,
 				360FF41D2A568E2400D94BA9 /* DemeterFarming */,
 				368E73202A4484F7001B7BAF /* Warning */,
@@ -3820,6 +3835,14 @@
 			path = PoolDetails;
 			sourceTree = "<group>";
 		};
+		3618AE532AC43C5D00F582BD /* PriceInfo */ = {
+			isa = PBXGroup;
+			children = (
+				3618AE542AC43C6B00F582BD /* PriceInfoService.swift */,
+			);
+			path = PriceInfo;
+			sourceTree = "<group>";
+		};
 		361EF57E291170B500D0DCCF /* UIViewController */ = {
 			isa = PBXGroup;
 			children = (
@@ -3903,9 +3926,11 @@
 			isa = PBXGroup;
 			children = (
 				3603A3912917E1FD00DF6EFE /* PoolsCell.swift */,
-				3603A3922917E1FD00DF6EFE /* PoolsItem.swift */,
 				3603A3902917E1FD00DF6EFE /* PoolViewModel.swift */,
 				3603A3932917E1FD00DF6EFE /* PoolViewModelFactory.swift */,
+				3603A3922917E1FD00DF6EFE /* PoolsItem.swift */,
+				3618AE4D2AC34B4900F582BD /* PoolsItemService.swift */,
+				3618AE4F2AC35C7300F582BD /* MainScreenPoolView.swift */,
 			);
 			path = Pools;
 			sourceTree = "<group>";
@@ -4062,6 +4087,7 @@
 			children = (
 				363EAB672A7BCBE500603361 /* MarketCapService.swift */,
 				363EAB682A7BCBE500603361 /* SubqueryMarketCapOperation.swift */,
+				3618AE492AC3071300F582BD /* DeltaPriceBuilder.swift */,
 			);
 			path = MarketCap;
 			sourceTree = "<group>";
@@ -4622,10 +4648,12 @@
 		36ADDDAC28EC89C20080A41C /* Assets */ = {
 			isa = PBXGroup;
 			children = (
+				36ADDDB128ECB5390080A41C /* AssetViewModel.swift */,
 				36ADDDAE28EC8A140080A41C /* AssetsCell.swift */,
 				36ADDDAD28EC8A140080A41C /* AssetsItem.swift */,
-				36ADDDB128ECB5390080A41C /* AssetViewModel.swift */,
 				367C55A228FCA631008FC55F /* AssetViewModelFactory.swift */,
+				3618AE4B2AC3271200F582BD /* AssetsItemService.swift */,
+				3618AE512AC3617D00F582BD /* MainScreenAssetView.swift */,
 			);
 			path = Assets;
 			sourceTree = "<group>";
@@ -4657,6 +4685,7 @@
 			children = (
 				36A619FE295D02A300B3C752 /* SubqueryFiatInfoOperation.swift */,
 				36B7D611295C941B00ECBBF6 /* FiatService.swift */,
+				3618AE472AC3042D00F582BD /* FiatTextBuilder.swift */,
 			);
 			path = Fiat;
 			sourceTree = "<group>";
@@ -7261,6 +7290,8 @@
 				362DAD8C29F53283005562B0 /* PinSetupInteractor.swift in Sources */,
 				843BBB0023AE9FDE0047100A /* Locale+Localization.swift in Sources */,
 				5E6587EB28CA1CEA000E7234 /* DispatchQueue+debounce.swift in Sources */,
+				3618AE482AC3042D00F582BD /* FiatTextBuilder.swift in Sources */,
+				3618AE552AC43C6B00F582BD /* PriceInfoService.swift in Sources */,
 				5E138FEF2830201C0010AB54 /* InitializePoolCall.swift in Sources */,
 				3635B7152933E99500B2B728 /* ChoiceMarketViewModel.swift in Sources */,
 				9441F8DF25C9699400775559 /* AccountItem.swift in Sources */,
@@ -7277,6 +7308,7 @@
 				3661C9E62858B65100660434 /* RewardSeparatorCell.swift in Sources */,
 				3666CBDB2905AD880098F4AC /* RecentActivityCell.swift in Sources */,
 				94B3001526FB772400F239D7 /* SubqueryHistory.swift in Sources */,
+				3618AE4E2AC34B4900F582BD /* PoolsItemService.swift in Sources */,
 				36B961F8294B2B02002A35BA /* ReceiveItem.swift in Sources */,
 				9441FAA025CAC42F00775559 /* AccountImportPreferredInfo.swift in Sources */,
 				0253FCDE2214051E00D3AD49 /* VotesHistoryFetchMock.swift in Sources */,
@@ -7381,6 +7413,7 @@
 				5E9774F22A31AE040047BCA2 /* AccountExportWireframe.swift in Sources */,
 				36FE0FDB2954103D00117E82 /* InputAssetAmountWireframe.swift in Sources */,
 				32384B8622364CEF00346C90 /* AnimatableCollectionViewCell.swift in Sources */,
+				3618AE4C2AC3271200F582BD /* AssetsItemService.swift in Sources */,
 				3692D69F2910725200B8B274 /* ActivityItem.swift in Sources */,
 				8409323E2341FCC30013C871 /* ProjectViewEvent.swift in Sources */,
 				945A56FA25DE7DC5003E4023 /* SubstrateDataProviderFactory.swift in Sources */,
@@ -7565,6 +7598,7 @@
 				B2FEEA9A2A8A3E030014EC32 /* CIKeys.generated.swift in Sources */,
 				9441FA6725CAB08700775559 /* ContactsLocalSearchEngine.swift in Sources */,
 				363BDAFF2938CCF6000F5608 /* HeaderActivityDetailsCell.swift in Sources */,
+				3618AE502AC35C7300F582BD /* MainScreenPoolView.swift in Sources */,
 				366A782B2A31FE3700A6DDF9 /* AccountImportedWireframe.swift in Sources */,
 				9441F8E925C9699400775559 /* LegalData.swift in Sources */,
 				360FF41A2A557BD500D94BA9 /* StakedItem.swift in Sources */,
@@ -7824,6 +7858,7 @@
 				36165528291D834400060A8D /* PoolDetailsHeaderView.swift in Sources */,
 				9441F92725C96CC300775559 /* CryptoType+Utils.swift in Sources */,
 				94497F5D25F9154500FD4F14 /* MigrationWireframe.swift in Sources */,
+				3618AE522AC3617D00F582BD /* MainScreenAssetView.swift in Sources */,
 				9441F93E25C96D0600775559 /* TransactionHistoryItem+Extrinsic.swift in Sources */,
 				364BB470292A3C1F00DE90A6 /* ConfirmWireframe.swift in Sources */,
 				3635B71129338FF800B2B728 /* SwapViewFactory.swift in Sources */,
@@ -8056,6 +8091,7 @@
 				36E00BB029DB2DAD0023D8BD /* AssetProvider.swift in Sources */,
 				9481B479286EFC4600A472E2 /* CommonTypesSyncService.swift in Sources */,
 				36DB198A29EDC5CB00B3E3BF /* AccountCreationMetadata.swift in Sources */,
+				3618AE4A2AC3071300F582BD /* DeltaPriceBuilder.swift in Sources */,
 				94B3008726FC97A500F239D7 /* SubqueryHistoryElement+Wallet.swift in Sources */,
 				9481B48E286EFE8E00A472E2 /* ChainModel.swift in Sources */,
 				94922FD328ACF689009BF91B /* LocalStorageKeyFactory.swift in Sources */,

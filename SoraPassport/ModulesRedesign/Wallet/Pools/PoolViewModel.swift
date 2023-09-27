@@ -50,9 +50,9 @@ struct PoolViewModel {
          title: String,
          subtitle: String,
          fiatText: String,
-         baseAssetImage: UIImage?,
-         targetAssetImage: UIImage?,
-         rewardAssetImage: UIImage?,
+         baseAssetImage: UIImage? = nil,
+         targetAssetImage: UIImage? = nil,
+         rewardAssetImage: UIImage? = nil,
          mode: WalletViewMode = .view,
          isFavorite: Bool = false,
          deltaArributedText: SoramitsuTextItem? = nil) {

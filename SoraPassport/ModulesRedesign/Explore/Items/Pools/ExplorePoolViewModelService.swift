@@ -35,7 +35,7 @@ import BigInt
 final class ExplorePoolViewModelService {
     var apyService: APYServiceProtocol
     let itemFactory: ExploreItemFactory
-    var poolService: ExplorePoolsServiceInputProtocol
+    var poolsService: ExplorePoolsServiceInputProtocol
     
     @Published var viewModels: [ExplorePoolViewModel] = [ ExplorePoolViewModel(serialNumber: "1"),
                                                           ExplorePoolViewModel(serialNumber: "2"),
@@ -45,17 +45,17 @@ final class ExplorePoolViewModelService {
     
     init(
         itemFactory: ExploreItemFactory,
-        poolService: ExplorePoolsServiceInputProtocol,
+        poolsService: ExplorePoolsServiceInputProtocol,
         apyService: APYServiceProtocol
     ) {
-        self.poolService = poolService
+        self.poolsService = poolsService
         self.itemFactory = itemFactory
         self.apyService = apyService
     }
     
     func setup() {
         Task {
-            let pools = (try? await poolService.getPools()) ?? []
+            let pools = (try? await poolsService.getPools()) ?? []
             
             viewModels = pools.enumerated().compactMap { (index, pool) in
                 return itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1))

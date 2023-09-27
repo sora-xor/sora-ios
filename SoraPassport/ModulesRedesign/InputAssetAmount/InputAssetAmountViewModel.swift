@@ -68,7 +68,7 @@ final class InputAssetAmountViewModel {
             }
             let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
             view?.updateFirstAsset(symbol: asset.symbol, image: image)
-            setupBalanceDataProvider()
+            updateBalanceData()
             view?.set(firstAmountText: "0")
             inputedFirstAmount = 0
         }
@@ -178,6 +178,8 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
     }
     
     func viewDidLoad() {
+        updateBalanceData()
+        
         if let selectedAddress = selectedAddress {
             view?.updateRecipientView(with: selectedAddress)
         } else {
@@ -241,12 +243,12 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
 
 extension InputAssetAmountViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        setupBalanceDataProvider()
+        updateBalanceData()
     }
 }
 
 extension InputAssetAmountViewModel {
-    func setupBalanceDataProvider() {
+    func updateBalanceData() {
         if !firstAssetId.isEmpty, let balance = assetsProvider?.getBalances(with: [firstAssetId]).first {
             firstAssetBalance = balance
         }

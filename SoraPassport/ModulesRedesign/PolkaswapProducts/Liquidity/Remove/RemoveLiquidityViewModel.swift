@@ -114,7 +114,7 @@ final class RemoveLiquidityViewModel {
                 guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
                 let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
                 view?.updateFirstAsset(symbol: asset.symbol, image: image)
-                setupBalanceDataProvider()
+                updateBalanceData()
                 if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
                     poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
                 }
@@ -129,7 +129,7 @@ final class RemoveLiquidityViewModel {
                 guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
                 let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
                 view?.updateSecondAsset(symbol: asset.symbol, image: image)
-                setupBalanceDataProvider()
+                updateBalanceData()
                 if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
                     poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
                 }
@@ -201,7 +201,7 @@ final class RemoveLiquidityViewModel {
     private let feeProvider: FeeProviderProtocol
     private var fiatData: [FiatData] = [] {
         didSet {
-            setupBalanceDataProvider()
+            updateBalanceData()
         }
     }
     private var apy: Decimal?
@@ -297,6 +297,7 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
             self.secondAssetId = secondAssetId
         }
 
+        updateBalanceData()
         slippageTolerance = 0.5
         assetsProvider?.add(observer: self)
         view?.focus(field: .one)
@@ -414,13 +415,13 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
 
 extension RemoveLiquidityViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        setupBalanceDataProvider()
+        updateBalanceData()
     }
 }
 
 extension RemoveLiquidityViewModel {
     
-    func setupBalanceDataProvider() {
+    func updateBalanceData() {
         if !firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [firstAssetId]).first {
             self.firstAssetBalance = firstAssetBalance
         }

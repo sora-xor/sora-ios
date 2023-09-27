@@ -103,6 +103,12 @@ extension PooledCell: SoramitsuTableViewCellProtocol {
         
         let poolViews = item.poolViewModels.map { poolModel -> PoolView in
             let poolView = PoolView(mode: .view)
+            poolView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
+            poolView.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
+            poolView.rewardImageView.sora.loadingPlaceholder.type = .none
+            poolView.titleLabel.sora.loadingPlaceholder.type = .none
+            poolView.subtitleLabel.sora.loadingPlaceholder.type = .none
+            poolView.amountUpLabel.sora.loadingPlaceholder.type = .none
             poolView.sora.firstPoolImage = poolModel.baseAssetImage
             poolView.sora.secondPoolImage = poolModel.targetAssetImage
             poolView.sora.rewardTokenImage = poolModel.rewardAssetImage

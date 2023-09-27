@@ -74,7 +74,7 @@ final class RedesignWalletViewModel {
     var itemFactory: WalletItemFactoryProtocol
     let networkFacade: WalletNetworkOperationFactoryProtocol
     let polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol
-    let poolService: PoolsServiceInputProtocol
+    let poolsService: PoolsServiceInputProtocol
     let accountId: String
     let address: String
     let qrEncoder: WalletQREncoderProtocol
@@ -86,6 +86,8 @@ final class RedesignWalletViewModel {
     var editViewService: EditViewServiceProtocol
     let feeProvider = FeeProvider()
     let marketCapService: MarketCapServiceProtocol
+    let poolsViewModelService: PoolsItemService
+    let assetsViewModelService: AssetsItemService
     
     init(wireframe: RedesignWalletWireframeProtocol?,
          providerFactory: BalanceProviderFactory,
@@ -103,6 +105,8 @@ final class RedesignWalletViewModel {
          assetsProvider: AssetProviderProtocol,
          walletContext: CommonWalletContextProtocol,
          editViewService: EditViewServiceProtocol,
+         poolsViewModelService: PoolsItemService,
+         assetsViewModelService: AssetsItemService,
          marketCapService: MarketCapServiceProtocol) {
         self.wireframe = wireframe
         self.accountId = accountId
@@ -117,17 +121,18 @@ final class RedesignWalletViewModel {
         self.sharingFactory = sharingFactory
         self.referralFactory = referralFactory
         self.assetsProvider = assetsProvider
+        self.assetsViewModelService = assetsViewModelService
         self.accountRepository = AnyDataProviderRepository(
             UserDataStorageFacade.shared
             .createRepository(filter: nil,
                               sortDescriptors: [],
                               mapper: AnyCoreDataMapper(AccountItemMapper()))
         )
-        self.poolService = poolsService
+        self.poolsService = poolsService
         self.walletContext = walletContext
         self.editViewService = editViewService
         self.marketCapService = marketCapService
-        setupModels()
+        self.poolsViewModelService = poolsViewModelService
     }
 
     @SCStream private var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
@@ -221,8 +226,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             assetItem.updateContent()
         }
 
-        if let poolItem = walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
-            poolItem.poolsService?.loadAccountPools(isNeedForceUpdate: false)
+        if walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem != nil {
+            poolsService.loadAccountPools(isNeedForceUpdate: false)
         }
     }
     
@@ -241,7 +246,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     private func buildItems() -> [SoramitsuTableViewItemProtocol] {
         
         var items: [SoramitsuTableViewItemProtocol] = []
-        let enabledIds = ApplicationConfig.shared.enabledCardIdentifiers
         
         let accountItem = itemFactory.createAccountItem(with: self ,
                                                         view: view,
@@ -278,22 +282,24 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                                                      assetManager: assetManager,
                                                                                      assetsProvider: assetsProvider,
                                                                                      fiatService: fiatService,
+                                                                                     itemService: assetsViewModelService,
                                                                                      marketCapService: marketCapService)
         items.append(assetItem)
         
         
         let poolItem: SoramitsuTableViewItemProtocol = itemFactory.createPoolsItem(with: self,
-                                                                                   poolService: poolService,
+                                                                                   poolsService: poolsService,
                                                                                    networkFacade: networkFacade,
                                                                                    polkaswapNetworkFacade: polkaswapNetworkFacade,
                                                                                    assetManager: assetManager,
                                                                                    fiatService: fiatService,
+                                                                                   poolsViewModelService: poolsViewModelService,
                                                                                    marketCapService: marketCapService)
         items.append(poolItem)
         
         
         let editViewItem: SoramitsuTableViewItemProtocol = itemFactory.createEditViewItem(with: self,
-                                                                                          poolsService: poolService,
+                                                                                          poolsService: poolsService,
                                                                                           editViewService: editViewService)
         items.append(editViewItem)
         
@@ -326,7 +332,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
         var refreshBalanceTimer = Timer()
         refreshBalanceTimer.invalidate()
-        refreshBalanceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [refreshBalanceTimer] _ in
+        refreshBalanceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             balanceProvider?.refresh()
         }
 
@@ -415,7 +421,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                       fiatService: fiatService,
                                       assetViewModelFactory: factory,
                                       providerFactory: providerFactory,
-                                      poolService: poolService,
+                                      poolsService: poolsService,
                                       networkFacade: networkFacade,
                                       accountId: accountId,
                                       address: address,
@@ -434,7 +440,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                            fiatService: fiatService)
         
         wireframe?.showFullListPools(on: view?.controller,
-                                     poolService: poolService,
+                                     poolsService: poolsService,
                                      networkFacade: networkFacade,
                                      polkaswapNetworkFacade: polkaswapNetworkFacade,
                                      assetManager: assetManager,
@@ -460,7 +466,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                     assetManager: assetManager,
                                     fiatService: fiatService,
                                     assetViewModelFactory: factory,
-                                    poolsService: poolService,
+                                    poolsService: poolsService,
                                     poolViewModelsFactory: poolFactory,
                                     providerFactory: providerFactory,
                                     networkFacade: networkFacade,
@@ -479,7 +485,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                    poolInfo: pool,
                                    assetManager: assetManager,
                                    fiatService: fiatService,
-                                   poolsService: poolService,
+                                   poolsService: poolsService,
                                    providerFactory: providerFactory,
                                    operationFactory: networkFacade,
                                    assetsProvider: assetsProvider,

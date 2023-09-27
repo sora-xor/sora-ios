@@ -72,7 +72,7 @@ final class AssetProvider {
             }
         }
 
-        let options = DataProviderObserverOptions(alwaysNotifyOnRefresh: true)
+        let options = DataProviderObserverOptions()
         balanceProvider?.addObserver(self,
                                     deliverOn: .main,
                                     executing: changesBlock,
@@ -99,7 +99,6 @@ extension AssetProvider: AssetProviderProtocol {
 
             if !self.observers.contains(where: { $0.observer === observer }) {
                 self.observers.append(AssetProviderObserver(observer: observer))
-                self.notify()
             }
         }
     }
