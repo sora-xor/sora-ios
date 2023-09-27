@@ -38,6 +38,12 @@ final class PoolListCell: SoramitsuTableViewCell {
 
     private lazy var poolView: PoolView = {
         let view = PoolView(mode: .view)
+        view.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
+        view.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
+        view.rewardImageView.sora.loadingPlaceholder.type = .none
+        view.titleLabel.sora.loadingPlaceholder.type = .none
+        view.subtitleLabel.sora.loadingPlaceholder.type = .none
+        view.amountUpLabel.sora.loadingPlaceholder.type = .none
         view.sora.favoriteButtonImage = R.image.wallet.star()
         view.sora.unfavoriteButtonImage = R.image.wallet.unstar()
         view.sora.unvisibilityButtonImage = R.image.wallet.crossedOutEye()

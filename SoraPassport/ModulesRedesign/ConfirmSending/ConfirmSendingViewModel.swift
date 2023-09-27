@@ -156,10 +156,18 @@ final class ConfirmSendingViewModel {
         self.walletService = walletService
         self.assetsProvider = assetsProvider
     }
+    
+    private func updateBalanceData() {
+        if !assetId.isEmpty, let balance = assetsProvider?.getBalances(with: [assetId]).first {
+            firstAssetBalance = balance
+        }
+    }
+    
 }
 
 extension ConfirmSendingViewModel: ConfirmViewModelProtocol {
     func viewDidLoad() {
+        updateBalanceData()
         assetsProvider?.add(observer: self)
     }
 }
@@ -177,9 +185,7 @@ extension ConfirmSendingViewModel: ConfirmSendingViewModelProtocol {
 
 extension ConfirmSendingViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        if !assetId.isEmpty, let balance = assetsProvider?.getBalances(with: [assetId]).first {
-            firstAssetBalance = balance
-        }
+        updateBalanceData()
     }
 }
 

@@ -38,6 +38,11 @@ final class AssetListCell: SoramitsuTableViewCell {
 
     private lazy var assetView: AssetView = {
         let view = AssetView(mode: .view)
+        view.assetImageView.sora.loadingPlaceholder.type = .none
+        view.titleLabel.sora.loadingPlaceholder.type = .none
+        view.subtitleLabel.sora.loadingPlaceholder.type = .none
+        view.amountUpLabel.sora.loadingPlaceholder.type = .none
+        view.amountDownLabel.sora.loadingPlaceholder.type = .none
         view.sora.favoriteButtonImage = R.image.wallet.star()
         view.sora.unfavoriteButtonImage = R.image.wallet.unstar()
         view.sora.dragDropImage = R.image.wallet.burger()

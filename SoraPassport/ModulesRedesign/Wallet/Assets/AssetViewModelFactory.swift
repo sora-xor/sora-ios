@@ -93,6 +93,40 @@ extension AssetViewModelFactory {
                               deltaPriceText: deltaArributedText)
     }
     
+    func createAssetViewModel(with balanceData: BalanceData, assetInfo: AssetInfo, fiatData: [FiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        let balance = (formatter.stringFromDecimal(balanceData.balance.decimalValue) ?? "") + " " + assetInfo.symbol
+        let balanceReversed = assetInfo.symbol + " " + (formatter.stringFromDecimal(balanceData.balance.decimalValue) ?? "")
+        
+        var fiatText = ""
+        if let priceUsd = fiatData.first(where: { $0.id == assetInfo.assetId })?.priceUsd?.decimalValue {
+            let fiatDecimal = balanceData.balance.decimalValue * priceUsd
+            fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
+        }
+        
+        var deltaArributedText: SoramitsuTextItem?
+        if let priceDelta {
+            let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(priceDelta * 100) ?? "")%"
+            let deltaTextReversed = "%\(NumberFormatter.fiat.stringFromDecimal(priceDelta * 100) ?? "")"
+            let deltaColor: SoramitsuColor = priceDelta > 0 ? .statusSuccess : .statusError
+            deltaArributedText = SoramitsuTextItem(text: isRTL ? deltaTextReversed : deltaText,
+                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
+                                                                                       textColor: deltaColor,
+                                                                                       alignment: .right))
+        }
+        
+        
+        return AssetViewModel(identifier: assetInfo.identifier,
+                              title: assetInfo.name,
+                              subtitle: isRTL ? balanceReversed : balance,
+                              fiatText: fiatText,
+                              icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
+                              mode: mode,
+                              isFavorite: assetInfo.visible,
+                              deltaPriceText: deltaArributedText)
+    }
+    
     func createAssetViewModel(with asset: AssetInfo, fiatData: [FiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
         var fiatText = ""
         if let usdPrice = fiatData.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue {

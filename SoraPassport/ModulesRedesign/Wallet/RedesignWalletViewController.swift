@@ -76,26 +76,22 @@ final class RedesignWalletViewController: SoramitsuViewController {
         }
         
         viewModel.setupItems = { [weak self] items in
-            self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+            UIView.performWithoutAnimation {
+                self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+            }
+            
         }
 
         viewModel.fetchAssets { [weak self] items in
-            self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+            UIView.performWithoutAnimation {
+                self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+            }
         }
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        viewModel.updateAssets()
     }
 
     private func setupView() {
         soramitsuView.sora.backgroundColor = .bgPage
         view.addSubview(tableView)
-        
-        let refreshControl = UIRefreshControl()
-        refreshControl.addTarget(self, action: #selector(refreshContent), for: .valueChanged)
-        tableView.refreshControl = refreshControl
     }
 
     private func setupConstraints() {
@@ -105,12 +101,6 @@ final class RedesignWalletViewController: SoramitsuViewController {
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
-    }
-    
-    @objc
-    func refreshContent(refreshControl: UIRefreshControl) {
-        viewModel.updateAssets()
-        refreshControl.endRefreshing()
     }
 }
 

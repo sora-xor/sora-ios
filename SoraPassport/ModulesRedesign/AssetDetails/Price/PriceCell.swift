@@ -96,8 +96,6 @@ final class PriceCell: SoramitsuTableViewCell {
         return label
     }()
 
-    private var assetView = AssetView(mode: .view)
-
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupView()

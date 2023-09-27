@@ -55,61 +55,8 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
         let sortedAssets = assetManager.sortedAssets(userAssets, onlyVisible: onlyVisible)
 
         let balanceOperation = fetchBalanceInfoForAssets(sortedAssets)
-        let priceOperations: [CompoundOperationWrapper<Price?>] = sortedAssets.compactMap {
-            if let assetId = WalletAssetId(rawValue: $0.identifier) {
-                return fetchPriceOperation(assetId)
-            } else {
-                return nil
-            }
-        }
 
-        let mergeOperation: BaseOperation<[BalanceData]?> = ClosureOperation {
-            // extract prices
-
-            let prices = priceOperations.compactMap { operation in
-                try? operation.targetOperation
-                    .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-            }
-
-            // match balance with price and form context
-
-            let balances: [BalanceData]? = try balanceOperation.targetOperation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)?
-                .map { balanceData in
-                    guard let price = prices
-                        .first(where: { $0.assetId.rawValue == balanceData.identifier }) else {
-                        return balanceData
-                    }
-
-                    let context = BalanceContext(context: balanceData.context ?? [:])
-                        .byChangingPrice(price.lastValue, newPriceChange: price.change)
-                        .toContext()
-
-                    return BalanceData(identifier: balanceData.identifier,
-                                       balance: balanceData.balance,
-                                       context: context)
-                }
-
-            return (balances ?? [])
-        }
-
-        let flatenedPriceOperations: [Operation] = priceOperations
-            .reduce(into: []) { result, compoundOperation in
-                result.append(contentsOf: compoundOperation.allOperations)
-            }
-
-        flatenedPriceOperations.forEach { priceOperation in
-            balanceOperation.allOperations.forEach { balanceOperation in
-                balanceOperation.addDependency(priceOperation)
-            }
-        }
-
-        let dependencies = balanceOperation.allOperations + flatenedPriceOperations
-
-        dependencies.forEach { mergeOperation.addDependency($0) }
-
-        return CompoundOperationWrapper(targetOperation: mergeOperation,
-                                        dependencies: dependencies)
+        return balanceOperation
     }
 
     func fetchTransactionHistoryOperation(

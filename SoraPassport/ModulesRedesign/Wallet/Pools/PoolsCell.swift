@@ -30,17 +30,35 @@
 
 import SoraUIKit
 import SoraFoundation
+import Combine
 
 final class PoolsCell: SoramitsuTableViewCell {
     
-    private var poolsItem: PoolsItem?
-    private var localizationManager = LocalizationManager.shared
+    private var cancellables: Set<AnyCancellable> = []
     
-    private let shimmerView: SoramitsuShimmerView = {
-        let view = SoramitsuShimmerView()
-        view.sora.cornerRadius = .max
-        return view
-    }()
+    private var poolsItem: PoolsItem? {
+        didSet {
+            guard let item = poolsItem else { return }
+            item.service.$moneyText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    if !value.isEmpty {
+                        self?.moneyLabel.sora.loadingPlaceholder.type = .none
+                    }
+                    self?.moneyLabel.sora.text = value
+                }
+                .store(in: &cancellables)
+            item.service.$poolViewModels
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.updateContent(with: value)
+                }
+                .store(in: &cancellables)
+        }
+    }
+    private var views: [MainScreenPoolView]?
+    private var localizationManager = LocalizationManager.shared
     
     private lazy var arrowButton: WalletHeaderView = {
         let button = WalletHeaderView()
@@ -63,7 +81,6 @@ final class PoolsCell: SoramitsuTableViewCell {
         view.sora.axis = .vertical
         view.sora.cornerRadius = .max
         view.sora.distribution = .fill
-        view.sora.isHidden = true
         view.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
         view.isLayoutMarginsRelativeArrangement = true
         return view
@@ -101,7 +118,6 @@ final class PoolsCell: SoramitsuTableViewCell {
 
     private func setupView() {
         contentView.addSubviews(fullStackView)
-        contentView.addSubviews(shimmerView)
         
         mainInfoView.addSubviews(arrowButton, moneyLabel)
         fullStackView.addArrangedSubviews(mainInfoView)
@@ -136,13 +152,89 @@ final class PoolsCell: SoramitsuTableViewCell {
             fullStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             fullStackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             fullStackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            
-            shimmerView.leadingAnchor.constraint(equalTo: fullStackView.leadingAnchor),
-            shimmerView.centerYAnchor.constraint(equalTo: fullStackView.centerYAnchor),
-            shimmerView.centerXAnchor.constraint(equalTo: fullStackView.centerXAnchor),
-            shimmerView.topAnchor.constraint(equalTo: fullStackView.topAnchor),
         ])
     }
+    
+    private func updateContent(with viewModels: [PoolViewModel]) {
+        if views == nil {
+            rearange(with: viewModels)
+            return
+        }
+
+        if views?.isEmpty ?? true {
+            return
+        }
+
+        if viewModels.count == views?.count {
+            viewModels.enumerated().forEach { (index, poolModel) in
+                self.update(poolView: self.views?[index], poolModel: poolModel)
+            }
+            return
+        }
+        
+        rearange(with: viewModels)
+    }
+    
+    func rearange(with viewModels: [PoolViewModel]) {
+        fullStackView.arrangedSubviews.filter { $0 is MainScreenPoolView }.forEach { subview in
+            fullStackView.removeArrangedSubview(subview)
+            subview.removeFromSuperview()
+        }
+
+        views = viewModels.map { poolModel -> MainScreenPoolView in
+            let poolView = MainScreenPoolView()
+            update(poolView: poolView, poolModel: poolModel)
+            return poolView
+        }
+
+        fullStackView.addArrangedSubviews(views ?? [])
+        
+        if let poolView = views?.last {
+            fullStackView.setCustomSpacing(8, after: poolView)
+        }
+
+        fullStackView.addArrangedSubviews(openFullListPoolsButton)
+        layoutIfNeeded()
+        setNeedsLayout()
+    }
+    
+    func update(poolView: MainScreenPoolView?, poolModel: PoolViewModel) {
+        poolView?.sora.isHidden = !(self.poolsItem?.isExpand ?? false)
+        if let icon = poolModel.baseAssetImage {
+            poolView?.firstCurrencyImageView.sora.picture = .logo(image: icon)
+        }
+        poolView?.firstCurrencyImageView.sora.loadingPlaceholder.type = poolModel.baseAssetImage != nil ? .none : .shimmer
+
+        if let icon = poolModel.targetAssetImage {
+            poolView?.secondCurrencyImageView.sora.picture = .logo(image: icon)
+        }
+        poolView?.secondCurrencyImageView.sora.loadingPlaceholder.type = poolModel.targetAssetImage != nil ? .none : .shimmer
+
+        if let icon = poolModel.rewardAssetImage {
+            poolView?.rewardImageView.sora.picture = .logo(image: icon)
+        }
+        poolView?.rewardImageView.sora.loadingPlaceholder.type = poolModel.rewardAssetImage != nil ? .none : .shimmer
+        
+        if !poolModel.title.isEmpty {
+            poolView?.titleLabel.sora.text = poolModel.title
+        }
+        poolView?.titleLabel.sora.loadingPlaceholder.type = !poolModel.title.isEmpty ? .none : .shimmer
+
+        if !poolModel.subtitle.isEmpty {
+            poolView?.subtitleLabel.sora.text = poolModel.subtitle
+        }
+        poolView?.subtitleLabel.sora.loadingPlaceholder.type = !poolModel.subtitle.isEmpty ? .none : .shimmer
+
+        if !poolModel.fiatText.isEmpty {
+            poolView?.amountUpLabel.sora.text = poolModel.fiatText
+        }
+        poolView?.amountUpLabel.sora.loadingPlaceholder.type = !poolModel.fiatText.isEmpty ? .none : .shimmer
+
+        poolView?.sora.addHandler(for: .touchUpInside) { [weak poolsItem] in
+            poolsItem?.poolHandler?(poolModel.identifier)
+        }
+    }
+    
 }
 
 extension PoolsCell: SoramitsuTableViewCellProtocol {
@@ -151,44 +243,18 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
-        poolsItem = item
-        
-        moneyLabel.sora.text = item.moneyText
+        if poolsItem == nil {
+            poolsItem = item
+        }
+       
+        moneyLabel.sora.text = item.service.moneyText
 
         arrowButton.configure(title: item.title, isExpand: item.isExpand)
 
-        fullStackView.arrangedSubviews.filter { $0 is PoolView || $0 is SoramitsuButton }.forEach { subview in
-            fullStackView.removeArrangedSubview(subview)
-            subview.removeFromSuperview()
-        }
-
-        let poolViews = item.poolViewModels.map { poolModel -> PoolView in
-            let poolView = PoolView(mode: .view)
-            poolView.sora.firstPoolImage = poolModel.baseAssetImage
-            poolView.sora.secondPoolImage = poolModel.targetAssetImage
-            poolView.sora.rewardTokenImage = poolModel.rewardAssetImage
-            poolView.sora.titleText = poolModel.title
-            poolView.sora.subtitleText = poolModel.subtitle
-            poolView.sora.isHidden = !item.isExpand
-            poolView.sora.upAmountText = poolModel.fiatText
-            poolView.amountDownLabel.sora.attributedText = poolModel.deltaArributedText
-            poolView.sora.addHandler(for: .touchUpInside) { [weak poolsItem] in
-                poolsItem?.poolHandler?(poolModel.identifier)
-            }
-            poolView.isRightToLeft = localizationManager.isRightToLeft
-            return poolView
-        }
-
-        fullStackView.addArrangedSubviews(poolViews)
-        
-        if let poolView = poolViews.last {
-            fullStackView.setCustomSpacing(8, after: poolView)
-        }
+        let viewModels = Array(item.service.poolViewModels)
+        updateContent(with: viewModels)
 
         openFullListPoolsButton.sora.isHidden = !item.isExpand
-        fullStackView.addArrangedSubviews(openFullListPoolsButton)
-        fullStackView.sora.isHidden = item.poolViewModels.isEmpty
-        shimmerView.sora.alpha = item.state == .loading ? 1 : 0
         
         let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
         openFullListPoolsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),

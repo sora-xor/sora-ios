@@ -65,7 +65,7 @@ final class FiatService {
                     return
                 }
                 self.fiatData = response
-                self.expiredDate = Date().addingTimeInterval(120)
+                self.expiredDate = Date().addingTimeInterval(600)
                 self.notify()
                 continuation.resume(returning: response)
             }

@@ -132,6 +132,8 @@ extension AssetDetailsViewModel: AssetDetailsViewModelProtocol {
                                                                       insets: insets,
                                                                       cornerRadius: .max), count: 4)
         setupItems?(shimmers)
+         
+        updateContent()
         assetsProvider?.add(observer: self)
     }
 }
@@ -181,7 +183,7 @@ private extension AssetDetailsViewModel {
             
             async let referralBalance = assetInfo.isFeeAsset ? getReferralBalance() : nil
             
-            async let pools = poolsService?.loadPools(currentAsset: assetInfo) ?? []
+            let pools = poolsService?.loadPools(currentAsset: assetInfo) ?? []
 
             let assetDetailsContent = await AssetDetailsContent(updateResult: updateResult,
                                                                 transactions: transactions,
@@ -195,11 +197,7 @@ private extension AssetDetailsViewModel {
     func updateBalanceItems(with balance: BalanceData) async -> [SoramitsuTableViewItemProtocol] {
         return await withCheckedContinuation { continuation in
             Task {
-                async let fiatData = self.fiatService?.getFiat() ?? []
-                
-                async let marketCapInfo = self.marketCapService.getMarketCap()
-                
-                let poolItemInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: marketCapInfo)
+                let poolItemInfo = await PriceInfoService.shared.getPriceInfo()
                 
                 let deltaPrice: Decimal? = priceTrendService.getPriceTrend(for: balance.identifier,
                                                                            fiatData: poolItemInfo.fiatData,
@@ -301,11 +299,7 @@ private extension AssetDetailsViewModel {
     func updatePooledtem(with pools: [PoolInfo]) async -> PooledItem {
         return await withCheckedContinuation { continuation in
             Task {
-                async let fiatData = fiatService?.getFiat() ?? []
-                
-                async let marketCapInfo = marketCapService.getMarketCap()
-                
-                let poolItemInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: marketCapInfo)
+                let poolItemInfo = await PriceInfoService.shared.getPriceInfo()
                 
                 let viewModels = pools.compactMap { pool in
                     let priceTrend = priceTrendService.getPriceTrend(for: pool, fiatData: poolItemInfo.fiatData, marketCapInfo: poolItemInfo.marketCapInfo)
@@ -376,7 +370,7 @@ private extension AssetDetailsViewModel {
                         item.balance = Amount(value: balance.balance.decimalValue)
                     }
                 }
-                
+                continuation.resume(with: .success(true))
                 self.reloadItems?(self.balanceItems)
             }
         }

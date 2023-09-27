@@ -63,6 +63,29 @@ final class ManageAssetListViewModel {
         }
     }
 
+    var poolItemInfo: PoolItemInfo? {
+        didSet {
+            let fiatData = poolItemInfo?.fiatData ?? []
+            let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
+            
+            assetItems.forEach { item in
+                
+                let fiatText = FiatTextBuilder().build(fiatData: fiatData, amount: item.balance, assetId: item.assetInfo.assetId)
+                
+                var deltaArributedText = DeltaPriceBuilder().build(fiatData: fiatData,
+                                                                   marketCapInfo: marketCapInfo,
+                                                                   assetId: item.assetViewModel.identifier)
+                
+                item.assetViewModel.fiatText = fiatText
+                item.assetViewModel.deltaPriceText = deltaArributedText
+            }
+            
+            DispatchQueue.main.async {
+                self.reloadItems?(self.assetItems)
+            }
+        }
+    }
+
     var mode: WalletViewMode = .view {
         didSet {
             if mode == .view {
@@ -99,7 +122,7 @@ final class ManageAssetListViewModel {
     var assetViewModelFactory: AssetViewModelFactory
     weak var fiatService: FiatServiceProtocol?
     var providerFactory: BalanceProviderFactory
-    var poolService: PoolsServiceInputProtocol
+    var poolsService: PoolsServiceInputProtocol
     var networkFacade: WalletNetworkOperationFactoryProtocol?
     var accountId: String
     var address: String
@@ -117,7 +140,7 @@ final class ManageAssetListViewModel {
          fiatService: FiatServiceProtocol,
          assetManager: AssetManagerProtocol?,
          providerFactory: BalanceProviderFactory,
-         poolService: PoolsServiceInputProtocol,
+         poolsService: PoolsServiceInputProtocol,
          networkFacade: WalletNetworkOperationFactoryProtocol?,
          accountId: String,
          address: String,
@@ -133,7 +156,7 @@ final class ManageAssetListViewModel {
         self.fiatService = fiatService
         self.assetManager = assetManager
         self.providerFactory = providerFactory
-        self.poolService = poolService
+        self.poolsService = poolsService
         self.networkFacade = networkFacade
         self.accountId = accountId
         self.address = address
@@ -144,6 +167,7 @@ final class ManageAssetListViewModel {
         self.updateHandler = updateHandler
         self.assetsProvider = assetsProvider
         self.marketCapService = marketCapService
+        self.poolItemInfo = PriceInfoService.shared.priceInfo
     }
 }
 
@@ -154,6 +178,11 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
 
     func viewDidLoad() {
         setupNavigationBar?(mode)
+        
+        let ids = (assetManager?.getAssetList() ?? []).map { $0.identifier }
+        let balanceData = assetsProvider?.getBalances(with: ids) ?? []
+        items(with: balanceData)
+        
         assetsProvider?.add(observer: self)
     }
     
@@ -172,41 +201,41 @@ extension ManageAssetListViewModel: AssetProviderObserverProtocol {
 
 private extension ManageAssetListViewModel {
     func items(with balanceItems: [BalanceData]) {
-        Task {
-            async let fiatData = self.fiatService?.getFiat() ?? []
-            
-            async let assetInfo = self.marketCapService.getMarketCap()
-            
-            let poolItemInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: assetInfo)
-
-            self.assetItems = balanceItems.compactMap { balance in
-                
-                let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier,
-                                                                 fiatData: poolItemInfo.fiatData,
-                                                                 marketCapInfo: poolItemInfo.marketCapInfo)
-                
-                guard let assetInfo = assetManager?.assetInfo(for: balance.identifier),
-                      let viewModel = assetViewModelFactory.createAssetViewModel(with: balance,
-                                                                                 fiatData: poolItemInfo.fiatData,
-                                                                                 mode: mode,
-                                                                                 priceDelta: deltaPrice) else {
-                    return nil
-                }
-                
-                let item = AssetListItem(assetInfo: assetInfo,
-                                         assetViewModel: viewModel,
-                                         balance: balance.balance.decimalValue)
-
-                item.assetHandler = { [weak self] identifier in
-                    self?.showAssetDetails(with: assetInfo)
-                }
+        let fiatData = poolItemInfo?.fiatData ?? []
+        let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
         
-                item.favoriteHandle = { item in
-                    item.assetInfo.visible = !item.assetInfo.visible
-                }
-                
-                return item
-            }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
+        self.assetItems = balanceItems.compactMap { balance in
+            
+            let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier, fiatData: fiatData, marketCapInfo: marketCapInfo)
+            
+            guard let assetInfo = assetManager?.assetInfo(for: balance.identifier),
+                  let viewModel = assetViewModelFactory.createAssetViewModel(with: balance,
+                                                                             assetInfo: assetInfo,
+                                                                             fiatData: fiatData,
+                                                                             mode: mode,
+                                                                             priceDelta: deltaPrice) else {
+                return nil
+            }
+            
+            let item = AssetListItem(assetInfo: assetInfo,
+                                     assetViewModel: viewModel,
+                                     balance: balance.balance.decimalValue)
+            
+            item.assetHandler = { [weak self] identifier in
+                self?.showAssetDetails(with: assetInfo)
+            }
+            
+            item.favoriteHandle = { item in
+                item.assetInfo.visible = !item.assetInfo.visible
+            }
+            
+            return item
+        }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
+
+        if fiatData.isEmpty || marketCapInfo.isEmpty {
+            Task {
+                poolItemInfo = await PriceInfoService.shared.getPriceInfo()
+            }
         }
     }
 
@@ -251,13 +280,6 @@ private extension ManageAssetListViewModel {
 
         setupItems?(resultItems)
     }
-
-    func setupBalanceDataProvider() {
-        let ids = (assetManager?.getAssetList() ?? []).map { $0.identifier }
-        if let balanceData = assetsProvider?.getBalances(with: ids) {
-            items(with: balanceData)
-        }
-    }
     
     func showAssetDetails(with assetInfo: AssetInfo) {
         guard let assetManager = assetManager, let fiatService = fiatService else { return }
@@ -275,7 +297,7 @@ private extension ManageAssetListViewModel {
                                    assetManager: assetManager,
                                    fiatService: fiatService,
                                    assetViewModelFactory: factory,
-                                   poolsService: poolService,
+                                   poolsService: poolsService,
                                    poolViewModelsFactory: poolFactory,
                                    providerFactory: providerFactory,
                                    networkFacade: networkFacade,
