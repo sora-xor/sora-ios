@@ -132,7 +132,8 @@ extension TotalRewardsCell: Reusable {
         guard let viewModel = viewModel as? TotalRewardsViewModel else { return }
         amountInvitationsLabel.sora.text = "\(viewModel.invetationCount)"
         xorLabel.sora.text = "\(viewModel.totalRewardsAmount) " + viewModel.assetSymbol
-        expandableArea.sora.isHidden = false
+        expandableArea.sora.isHidden = viewModel.totalRewardsAmount.isZero
+        expandButton.sora.isHidden = viewModel.totalRewardsAmount.isZero
         delegate = viewModel.delegate
     }
 }
