@@ -41,7 +41,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                             fiatService: FiatServiceProtocol,
                             assetViewModelFactory: AssetViewModelFactory,
                             providerFactory: BalanceProviderFactory,
-                            poolService: PoolsServiceInputProtocol,
+                            poolsService: PoolsServiceInputProtocol,
                             networkFacade: WalletNetworkOperationFactoryProtocol?,
                             accountId: String,
                             address: String,
@@ -54,7 +54,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                             updateHandler: (() -> Void)?)
     
     func showFullListPools(on controller: UIViewController?,
-                           poolService: PoolsServiceInputProtocol,
+                           poolsService: PoolsServiceInputProtocol,
                            networkFacade: WalletNetworkOperationFactoryProtocol,
                            polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                            assetManager: AssetManagerProtocol,
@@ -152,7 +152,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                             fiatService: FiatServiceProtocol,
                             assetViewModelFactory: AssetViewModelFactory,
                             providerFactory: BalanceProviderFactory,
-                            poolService: PoolsServiceInputProtocol,
+                            poolsService: PoolsServiceInputProtocol,
                             networkFacade: WalletNetworkOperationFactoryProtocol?,
                             accountId: String,
                             address: String,
@@ -167,7 +167,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                  fiatService: fiatService,
                                                  assetManager: assetManager,
                                                  providerFactory: providerFactory,
-                                                 poolService: poolService,
+                                                 poolsService: poolsService,
                                                  networkFacade: networkFacade,
                                                  accountId: accountId,
                                                  address: address,
@@ -193,7 +193,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
     }
     
     func showFullListPools(on controller: UIViewController?,
-                           poolService: PoolsServiceInputProtocol,
+                           poolsService: PoolsServiceInputProtocol,
                            networkFacade: WalletNetworkOperationFactoryProtocol,
                            polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                            assetManager: AssetManagerProtocol,
@@ -203,7 +203,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol,
                            marketCapService: MarketCapServiceProtocol) {
-        let viewModel = PoolListViewModel(poolsService: poolService,
+        let viewModel = PoolListViewModel(poolsService: poolsService,
                                           assetManager: assetManager,
                                           fiatService: fiatService,
                                           poolViewModelFactory: poolViewModelFactory,
@@ -212,7 +212,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                           assetsProvider: assetsProvider,
                                           marketCapService: marketCapService)
         
-        poolService.appendDelegate(delegate: viewModel)
+        poolsService.appendDelegate(delegate: viewModel)
         
         let assetListController = ProductListViewController(viewModel: viewModel)
         viewModel.view = assetListController

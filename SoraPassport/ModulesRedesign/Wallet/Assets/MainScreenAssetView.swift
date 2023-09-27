@@ -33,48 +33,17 @@ import SoraUIKit
 import Combine
 import SoraFoundation
 
-public final class ExploreAssetView: SoramitsuView {
+public final class MainScreenAssetView: SoramitsuControl {
     
     // MARK: - UI
-    
-    public let stackView: UIStackView = {
-        let stackView = UIStackView()
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.axis = .horizontal
-        stackView.distribution = .fill
-        stackView.spacing = 0
-        stackView.isUserInteractionEnabled = false
-        return stackView
-    }()
-    
-    public let serialNumber: SoramitsuLabel = {
-        let label = SoramitsuLabel()
-        label.sora.font = FontType.textBoldXS
-        label.sora.textColor = .fgSecondary
-        label.widthAnchor.constraint(equalToConstant: 24).isActive = true
-        return label
-    }()
     
     public let assetImageView: SoramitsuImageView = {
         let view = SoramitsuImageView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        view.widthAnchor.constraint(equalToConstant: 40).isActive = true
         view.isUserInteractionEnabled = false
         view.sora.loadingPlaceholder.type = .shimmer
         view.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
         return view
-    }()
-    
-    public let infoStackView: UIStackView = {
-        let stackView = UIStackView()
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.axis = .vertical
-        stackView.spacing = 4
-        stackView.isUserInteractionEnabled = false
-        stackView.distribution = .fillEqually
-        stackView.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        return stackView
     }()
     
     public let titleLabel: SoramitsuLabel = {
@@ -84,6 +53,8 @@ public final class ExploreAssetView: SoramitsuView {
         label.sora.isUserInteractionEnabled = false
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return label
     }()
     
@@ -94,19 +65,9 @@ public final class ExploreAssetView: SoramitsuView {
         label.sora.isUserInteractionEnabled = false
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return label
-    }()
-    
-    public let amountStackView: UIStackView = {
-        let stackView = UIStackView()
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.axis = .vertical
-        stackView.distribution = .fillEqually
-        stackView.spacing = 4
-        stackView.isUserInteractionEnabled = false
-        stackView.setContentHuggingPriority(.required, for: .horizontal)
-        stackView.setContentCompressionResistancePriority(.required, for: .horizontal)
-        return stackView
     }()
     
     public let amountUpLabel: SoramitsuLabel = {
@@ -114,6 +75,7 @@ public final class ExploreAssetView: SoramitsuView {
         label.sora.font = FontType.textM
         label.sora.textColor = .fgPrimary
         label.sora.alignment = .right
+        label.setContentHuggingPriority(.required, for: .horizontal)
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
@@ -126,16 +88,11 @@ public final class ExploreAssetView: SoramitsuView {
         label.sora.textColor = .statusSuccess
         label.sora.alignment = .right
         label.sora.text = " "
+        label.setContentHuggingPriority(.required, for: .horizontal)
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
         return label
-    }()
-    
-    public let tappableArea: SoramitsuControl = {
-        let view = SoramitsuControl()
-        view.sora.isHidden = true
-        return view
     }()
     
     private let localizationManager = LocalizationManager.shared
@@ -151,43 +108,46 @@ public final class ExploreAssetView: SoramitsuView {
     }
 }
 
-private extension ExploreAssetView {
+private extension MainScreenAssetView {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
 
-        addSubview(stackView)
-        addSubview(tappableArea)
-        
-        infoStackView.addArrangedSubview(titleLabel)
-        infoStackView.addArrangedSubview(subtitleLabel)
-        
-        amountStackView.addArrangedSubview(amountUpLabel)
-        amountStackView.addArrangedSubview(amountDownLabel)
-        
-        stackView.addArrangedSubview(serialNumber)
-        stackView.addArrangedSubview(assetImageView)
-        stackView.setCustomSpacing(8, after: assetImageView)
-        stackView.addArrangedSubview(infoStackView)
-        stackView.setCustomSpacing(8, after: infoStackView)
-        stackView.addArrangedSubview(amountStackView)
+        addSubview(assetImageView)
+        addSubview(titleLabel)
+        addSubview(subtitleLabel)
+        addSubview(amountUpLabel)
+        addSubview(amountDownLabel)
 
         NSLayoutConstraint.activate([
-            tappableArea.leadingAnchor.constraint(equalTo: leadingAnchor),
-            tappableArea.topAnchor.constraint(equalTo: topAnchor),
-            tappableArea.centerXAnchor.constraint(equalTo: centerXAnchor),
-            tappableArea.centerYAnchor.constraint(equalTo: centerYAnchor),
+            assetImageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            assetImageView.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            assetImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            assetImageView.heightAnchor.constraint(equalToConstant: 40),
+            assetImageView.widthAnchor.constraint(equalToConstant: 40),
             
-            amountStackView.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
-            amountStackView.centerYAnchor.constraint(equalTo: stackView.centerYAnchor),
-
-            infoStackView.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            infoStackView.centerYAnchor.constraint(equalTo: stackView.centerYAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
+            titleLabel.topAnchor.constraint(equalTo: assetImageView.topAnchor),
+            titleLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            titleLabel.heightAnchor.constraint(equalToConstant: 20),
             
-            stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stackView.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            stackView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            stackView.heightAnchor.constraint(equalToConstant: 40),
+            amountUpLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
+            amountUpLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            amountUpLabel.topAnchor.constraint(equalTo: assetImageView.topAnchor),
+            amountUpLabel.heightAnchor.constraint(equalToConstant: 20),
+            amountUpLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            
+            subtitleLabel.topAnchor.constraint(greaterThanOrEqualTo: titleLabel.bottomAnchor, constant: 2),
+            subtitleLabel.leadingAnchor.constraint(equalTo: assetImageView.trailingAnchor, constant: 8),
+            subtitleLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
+            subtitleLabel.heightAnchor.constraint(equalToConstant: 14),
+            subtitleLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            
+            amountDownLabel.topAnchor.constraint(greaterThanOrEqualTo: amountUpLabel.bottomAnchor, constant: 1),
+            amountDownLabel.leadingAnchor.constraint(equalTo: subtitleLabel.trailingAnchor, constant: 8),
+            amountDownLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            amountDownLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
+            amountDownLabel.heightAnchor.constraint(equalToConstant: 14),
+            amountDownLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
         ])
     }
     

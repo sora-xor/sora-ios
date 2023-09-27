@@ -46,7 +46,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     let itemFactory: ExploreItemFactory
     let assetManager: AssetManagerProtocol
     let marketCapService: MarketCapServiceProtocol
-    let poolService: ExplorePoolsServiceInputProtocol
+    let explorePoolsService: ExplorePoolsServiceInputProtocol
     let apyService: APYServiceProtocol?
     let assetViewModelFactory: AssetViewModelFactory
     let poolsService: PoolsServiceInputProtocol
@@ -66,7 +66,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         itemFactory: ExploreItemFactory,
         assetManager: AssetManagerProtocol,
         marketCapService: MarketCapServiceProtocol,
-        poolService: ExplorePoolsServiceInputProtocol,
+        explorePoolsService: ExplorePoolsServiceInputProtocol,
         apyService: APYServiceProtocol?,
         assetViewModelFactory: AssetViewModelFactory,
         poolsService: PoolsServiceInputProtocol,
@@ -86,7 +86,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         self.itemFactory = itemFactory
         self.assetManager = assetManager
         self.marketCapService = marketCapService
-        self.poolService = poolService
+        self.explorePoolsService = explorePoolsService
         self.apyService = apyService
         self.assetViewModelFactory = assetViewModelFactory
         self.poolsService = poolsService

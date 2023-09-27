@@ -134,24 +134,48 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         
         let assetsProvider = AssetProvider(assetManager: assetManager, providerFactory: providerFactory)
         
+        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+                                            assetManager: assetManager,
+                                            fiatService: FiatService.shared)
+        
+        let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
+                                            fiatService: FiatService.shared,
+                                            assetViewModelsFactory: assetViewModelsFactory,
+                                            assetManager: assetManager,
+                                            assetProvider: assetsProvider)
+        assetsProvider.add(observer: assetsViewModelService)
+        
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
-        let poolService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
+        let poolsService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
                                        networkFacade: walletContext.networkOperationFactory,
                                        polkaswapNetworkFacade: polkaswapContext,
                                        config: ApplicationConfig.shared)
+        
+        let factory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+                                            assetManager: assetManager,
+                                           fiatService: FiatService.shared)
+        
+        let poolsViewModelService = PoolsItemService(marketCapService: MarketCapService.shared,
+                                           fiatService: FiatService.shared,
+                                           poolViewModelsFactory: factory)
+        poolsService.appendDelegate(delegate: poolsViewModelService)
+
 
         let redesignViewController = MainTabBarViewFactory.createWalletRedesignController(walletContext: walletContext,
                                                                                           assetManager: assetManager,
-                                                                                          poolsService: poolService,
+                                                                                          poolsService: poolsService,
                                                                                           assetsProvider: assetsProvider,
+                                                                                          poolsViewModelService: poolsViewModelService,
+                                                                                          assetsViewModelService: assetsViewModelService,
                                                                                           localizationManager: LocalizationManager.shared)
 
         let investController = MainTabBarViewFactory.createInvestController(walletContext: walletContext,
-                                                            assetManager: assetManager,
-                                                            networkFacade: walletContext.networkOperationFactory,
-                                                            polkaswapNetworkFacade: polkaswapContext,
-                                                            assetsProvider: assetsProvider)
+                                                                            assetManager: assetManager,
+                                                                            networkFacade: walletContext.networkOperationFactory,
+                                                                            polkaswapNetworkFacade: polkaswapContext,
+                                                                            poolsService: poolsService,
+                                                                            assetsProvider: assetsProvider)
 
         guard let tabBarController = view as? UITabBarController else {
             return

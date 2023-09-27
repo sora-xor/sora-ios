@@ -151,10 +151,6 @@ extension ActivityViewModel: SoramitsuTableViewPaginationHandlerProtocol {
             }
         }
     }
-    
-    func possibleToMakePullToRefresh() -> Bool {
-        return assetId == nil
-    }
 }
 
 extension ActivityViewModel: EventVisitorProtocol {

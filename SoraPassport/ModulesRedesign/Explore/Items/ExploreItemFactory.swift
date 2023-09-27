@@ -45,7 +45,7 @@ final class ExploreItemFactory {
 
 extension ExploreItemFactory {
     
-    func createExploreAssetViewModel(with assetId: String, serialNumber: String, price: Decimal?, deltaPrice: Decimal?, marketCap: Decimal) -> ExploreAssetViewModel? {
+    func createExploreAssetViewModel(with assetId: String, price: Decimal?, deltaPrice: Decimal?, marketCap: Decimal) -> ExploreAssetViewModel? {
         guard let assetInfo = assetManager.assetInfo(for: assetId) else { return nil }
 
         let fiatText = price != nil ? "$" + (NumberFormatter.fiat.stringFromDecimal(price ?? .zero) ?? "") : ""
@@ -65,7 +65,6 @@ extension ExploreItemFactory {
                                      symbol: assetInfo.symbol,
                                      title: assetInfo.name,
                                      price: fiatText,
-                                     serialNumber: serialNumber,
                                      marketCap: marketCapText,
                                      icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
                                      deltaPrice: deltaArributedText)

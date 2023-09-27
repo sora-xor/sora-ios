@@ -145,12 +145,8 @@ extension PoolListViewModel: PoolsServiceOutput {
             if pools.isEmpty {
                 dissmiss?(false)
             }
-
-            async let fiatData = fiatService.getFiat()
             
-            async let marketCapInfo = marketCapService.getMarketCap()
-            
-            let poolInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: marketCapInfo)
+            let poolInfo = await PriceInfoService.shared.getPriceInfo()
             
             self.poolItems = pools.compactMap { pool in
                 let poolChangePrice = priceTrendService.getPriceTrend(for: pool, fiatData: poolInfo.fiatData, marketCapInfo: poolInfo.marketCapInfo)

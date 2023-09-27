@@ -79,11 +79,9 @@ extension WalletNetworkFacade {
             let storageKeyFactory = StorageKeyFactory()
             let accountInfoKey = try storageKeyFactory.accountInfoKeyForId(accountId)
             
-            let identifier = localStorageIdFactory.createIdentifier(for: accountInfoKey)
-            
             let accountInfoOperation: CompoundOperationWrapper<AccountInfo?> = createAccountInfoFetchOperation(accountId)
 
-            var dependencies = assets.map({ factory.createUsableBalanceOperation(accountId: selectedAccount.address, assetId: $0.identifier) })
+            let dependencies = assets.map({ factory.createUsableBalanceOperation(accountId: selectedAccount.address, assetId: $0.identifier) })
             
             let eraOperation = factory.createActiveEraOperation()
             let stackingInfoOperation = factory.createStackingIngoOperation(accountId: accountId)

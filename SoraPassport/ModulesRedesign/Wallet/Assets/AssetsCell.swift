@@ -30,17 +30,36 @@
 
 import SoraUIKit
 import SoraFoundation
+import Combine
 
 final class AssetsCell: SoramitsuTableViewCell {
     
-    private var assetsItem: AssetsItem?
-    private var localizationManager = LocalizationManager.shared
+    private var cancellables: Set<AnyCancellable> = []
     
-    private let shimmerView: SoramitsuShimmerView = {
-        let view = SoramitsuShimmerView()
-        view.sora.cornerRadius = .max
-        return view
-    }()
+    private var assetsItem: AssetsItem? {
+        didSet {
+            guard let item = assetsItem else { return }
+            item.service?.$moneyText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    if !value.isEmpty {
+                        self?.moneyLabel.sora.loadingPlaceholder.type = .none
+                    }
+                    self?.moneyLabel.sora.text = value
+                }
+                .store(in: &cancellables)
+            item.service?.$assetViewModels
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.updateContent(with: value, isNeedRearrange: value.count != self.views.count)
+                }
+                .store(in: &cancellables)
+        }
+    }
+    
+    private var views: [MainScreenAssetView] = []
+    private var localizationManager = LocalizationManager.shared
     
     private lazy var arrowButton: WalletHeaderView = {
         let button = WalletHeaderView()
@@ -56,6 +75,7 @@ final class AssetsCell: SoramitsuTableViewCell {
         label.sora.font = FontType.headline2
         label.sora.textColor = .fgPrimary
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.sora.loadingPlaceholder.type = .shimmer
         return label
     }()
 
@@ -102,7 +122,6 @@ final class AssetsCell: SoramitsuTableViewCell {
 
     private func setupView() {
         contentView.addSubview(fullStackView)
-        contentView.addSubview(shimmerView)
         
         mainInfoView.addSubviews(arrowButton, moneyLabel)
         fullStackView.addArrangedSubviews(mainInfoView)
@@ -137,12 +156,92 @@ final class AssetsCell: SoramitsuTableViewCell {
             fullStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             fullStackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             fullStackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            
-            shimmerView.leadingAnchor.constraint(equalTo: fullStackView.leadingAnchor),
-            shimmerView.centerYAnchor.constraint(equalTo: fullStackView.centerYAnchor),
-            shimmerView.centerXAnchor.constraint(equalTo: fullStackView.centerXAnchor),
-            shimmerView.topAnchor.constraint(equalTo: fullStackView.topAnchor),
         ])
+    }
+    
+    private func updateContent(with viewModels: [AssetViewModel], isNeedRearrange: Bool = true) {
+        if !isNeedRearrange {
+            viewModels.enumerated().forEach { (index, assetModel) in
+                self.views[index].sora.isHidden = !(assetsItem?.isExpand ?? false)
+                
+                if let icon = assetModel.icon {
+                    self.views[index].assetImageView.sora.picture = .logo(image: icon)
+                }
+                self.views[index].assetImageView.sora.loadingPlaceholder.type = assetModel.icon == nil ? .shimmer : .none
+
+                if !assetModel.title.isEmpty {
+                    self.views[index].titleLabel.sora.text = assetModel.title
+                }
+                self.views[index].titleLabel.sora.loadingPlaceholder.type = assetModel.title.isEmpty ? .shimmer : .none
+
+                if !assetModel.subtitle.isEmpty {
+                    self.views[index].subtitleLabel.sora.text = assetModel.subtitle
+                }
+                self.views[index].subtitleLabel.sora.loadingPlaceholder.type = assetModel.subtitle.isEmpty ? .shimmer : .none
+
+                if !assetModel.fiatText.isEmpty {
+                    self.views[index].amountUpLabel.sora.text = assetModel.fiatText
+                }
+                self.views[index].amountUpLabel.sora.loadingPlaceholder.type = assetModel.fiatText.isEmpty ? .shimmer : .none
+
+                if let delta = assetModel.deltaPriceText {
+                    self.views[index].amountDownLabel.sora.attributedText = delta
+                }
+                self.views[index].amountDownLabel.sora.loadingPlaceholder.type = assetModel.deltaPriceText == nil ? .shimmer : .none
+                self.views[index].sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
+                    assetsItem?.assetHandler?(assetModel.identifier)
+                }
+            }
+            return
+        }
+        fullStackView.arrangedSubviews.filter { $0 is MainScreenAssetView }.forEach { subview in
+            fullStackView.removeArrangedSubview(subview)
+            subview.removeFromSuperview()
+        }
+
+        views = viewModels.map { assetModel -> MainScreenAssetView in
+            let assetView = MainScreenAssetView()
+            assetView.sora.isHidden = !(assetsItem?.isExpand ?? false)
+            
+            if let icon = assetModel.icon {
+                assetView.assetImageView.sora.picture = .logo(image: icon)
+            }
+            assetView.assetImageView.sora.loadingPlaceholder.type = assetModel.icon == nil ? .shimmer : .none
+
+            if !assetModel.title.isEmpty {
+                assetView.titleLabel.sora.text = assetModel.title
+            }
+            assetView.titleLabel.sora.loadingPlaceholder.type = assetModel.title.isEmpty ? .shimmer : .none
+
+            if !assetModel.subtitle.isEmpty {
+                assetView.subtitleLabel.sora.text = assetModel.subtitle
+            }
+            assetView.subtitleLabel.sora.loadingPlaceholder.type = assetModel.subtitle.isEmpty ? .shimmer : .none
+
+            if !assetModel.fiatText.isEmpty {
+                assetView.amountUpLabel.sora.text = assetModel.fiatText
+            }
+            assetView.amountUpLabel.sora.loadingPlaceholder.type = assetModel.fiatText.isEmpty ? .shimmer : .none
+
+            if let delta = assetModel.deltaPriceText {
+                assetView.amountDownLabel.sora.attributedText = delta
+            }
+            assetView.amountDownLabel.sora.loadingPlaceholder.type = assetModel.deltaPriceText == nil ? .shimmer : .none
+
+            assetView.sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
+                assetsItem?.assetHandler?(assetModel.identifier)
+            }
+            return assetView
+        }
+
+        fullStackView.addArrangedSubviews(views)
+        
+        if let assetView = views.last {
+            fullStackView.setCustomSpacing(8, after: assetView)
+        }
+
+        fullStackView.addArrangedSubviews(openFullListAssetsButton)
+        setNeedsLayout()
     }
 }
 
@@ -152,42 +251,17 @@ extension AssetsCell: SoramitsuTableViewCellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
-        assetsItem = item
-        
-        moneyLabel.sora.text = item.moneyText
+
+        if assetsItem == nil {
+            assetsItem = item
+        }
 
         arrowButton.configure(title: item.title, isExpand: item.isExpand)
 
-        fullStackView.arrangedSubviews.filter { $0 is AssetView || $0 is SoramitsuButton }.forEach { subview in
-            fullStackView.removeArrangedSubview(subview)
-            subview.removeFromSuperview()
-        }
-
-        let assetViews = item.assetViewModels.map { assetModel -> AssetView in
-            let assetView = AssetView(mode: .view)
-            assetView.sora.firstAssetImage = assetModel.icon
-            assetView.sora.titleText = assetModel.title
-            assetView.sora.subtitleText = assetModel.subtitle
-            assetView.sora.isHidden = !item.isExpand
-            assetView.sora.upAmountText = assetModel.fiatText
-            assetView.amountDownLabel.sora.attributedText = assetModel.deltaPriceText
-            assetView.tappableArea.sora.isHidden = false
-            assetView.tappableArea.sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
-                assetsItem?.assetHandler?(assetModel.identifier)
-            }
-            assetView.isRightToLeft = localizationManager.isRightToLeft
-            return assetView
-        }
-
-        fullStackView.addArrangedSubviews(assetViews)
+        let viewModels = Array((item.service?.assetViewModels ?? []))
+        updateContent(with: viewModels)
         
-        if let assetView = assetViews.last {
-            fullStackView.setCustomSpacing(8, after: assetView)
-        }
-
         openFullListAssetsButton.sora.isHidden = !item.isExpand
-        fullStackView.addArrangedSubviews(openFullListAssetsButton)
-        shimmerView.sora.alpha = (assetsItem?.assetViewModels.isEmpty ?? true) ? 1 : 0
         
         let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
         openFullListAssetsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),

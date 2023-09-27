@@ -46,6 +46,8 @@ final class RedesignWalletViewFactory {
                            referralFactory: ReferralsOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol,
                            walletContext: CommonWalletContextProtocol,
+                           poolsViewModelService: PoolsItemService,
+                           assetsViewModelService: AssetsItemService,
                            marketCapService: MarketCapServiceProtocol) -> RedesignWalletViewController {
         let editViewService = EditViewService(poolsService: poolsService)
         poolsService.appendDelegate(delegate: editViewService)
@@ -66,6 +68,8 @@ final class RedesignWalletViewFactory {
                                                 assetsProvider: assetsProvider,
                                                 walletContext: walletContext,
                                                 editViewService: editViewService,
+                                                poolsViewModelService: poolsViewModelService,
+                                                assetsViewModelService: assetsViewModelService,
                                                 marketCapService: marketCapService)
         
         let view = RedesignWalletViewController(viewModel: viewModel)

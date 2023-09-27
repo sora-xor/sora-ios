@@ -39,7 +39,7 @@ protocol PoolsServiceInputProtocol: AnyObject {
     func updatePools(_ pools: [PoolInfo])
     func getPool(by id: String) -> PoolInfo?
     func getPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo?
-    func loadPools(currentAsset: AssetInfo) async -> [PoolInfo]
+    func loadPools(currentAsset: AssetInfo) -> [PoolInfo]
     func loadTargetPools(for baseAssetId: String) -> [PoolInfo]
     func appendDelegate(delegate: PoolsServiceOutput)
     
@@ -235,7 +235,7 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
         operationManager.enqueue(operations: [operation], in: .blockAfter)
     }
     
-    func loadPools(currentAsset: AssetInfo) async -> [PoolInfo] {
+    func loadPools(currentAsset: AssetInfo) -> [PoolInfo] {
         return currentPools.filter { $0.baseAssetId == currentAsset.assetId || $0.targetAssetId == currentAsset.assetId }
     }
     
