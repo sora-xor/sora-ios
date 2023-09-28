@@ -66,7 +66,13 @@ final class ExplorePoolViewModelService {
                 return self.itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1), apy: apy)
             })
 
-            self.viewModels = (try? await viewModels) ?? []
+            let result = (try? await viewModels) ?? []
+            
+            if result.isEmpty {
+                setup()
+            } else {
+                self.viewModels = result
+            }
         }
     }
 }
