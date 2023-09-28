@@ -283,7 +283,7 @@ PODS:
     - TweetNacl (~> 1.0.0)
   - SSFModels (0.1.20):
     - IrohaCrypto
-  - SSFUtils (0.1.21):
+  - SSFUtils (0.1.20):
     - BigInt (~> 5.0)
     - IrohaCrypto/ed25519
     - IrohaCrypto/Scrypt
@@ -506,7 +506,7 @@ SPEC CHECKSUMS:
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
   SSFCloudStorage: 37fbba3ad3e93a637d9c1a9b85910f4fa29596de
   SSFModels: afdeb5bb331de6efa902d961e61a76e1d26aab04
-  SSFUtils: 848a8d5869f4a0d5ba911f7707be99b5e1b3f177
+  SSFUtils: 7d0fd4ff54a816d287fc880e7df5c63f07564d51
   Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5

@@ -90,6 +90,7 @@ final class ExploreAssetsCell: SoramitsuTableViewCell {
                                                        fontData: FontType.buttonM,
                                                        textColor: .accentPrimary,
                                                        alignment: .natural)
+        button.isUserInteractionEnabled = false
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.assetsItem?.expandHandler?()
         }
@@ -184,6 +185,7 @@ final class ExploreAssetsCell: SoramitsuTableViewCell {
         }
 
         fullStackView.addArrangedSubviews(openFullListAssetsButton)
+        openFullListAssetsButton.isUserInteractionEnabled = !(viewModels.first?.symbol?.isEmpty ?? true)
     }
     
     private func updateLayout() {
