@@ -49,15 +49,6 @@ final class ActivityDetailsViewModelFactory {
     
     let localizationManager = LocalizationManager.shared
     
-    let formatter: NumberFormatter = {
-        let formatter = NumberFormatter.amount
-        formatter.roundingMode = .floor
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 8
-        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
-        return formatter
-    }()
-    
     let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd MMM. YYYY, HH:mm"

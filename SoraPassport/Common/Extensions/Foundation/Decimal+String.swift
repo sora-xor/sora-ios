@@ -69,7 +69,8 @@ extension Decimal {
             return "\(sign)\(text)K"
 
         case 0...:
-            return "\(self)"
+            let text = NumberFormatter.fiat.stringFromDecimal(num) ?? ""
+            return "\(sign)\(text)"
 
         default:
             return "\(sign)\(self)"

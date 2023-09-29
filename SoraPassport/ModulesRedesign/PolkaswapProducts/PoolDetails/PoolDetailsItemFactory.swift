@@ -36,15 +36,6 @@ import FearlessUtils
 import SoraFoundation
 
 final class PoolDetailsItemFactory {
-    let percentFormatter: NumberFormatter = {
-        let formatter = NumberFormatter.amount
-        formatter.roundingMode = .floor
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 2
-        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
-        return formatter
-    }()
-    
     func createAccountItem(
         with assetManager: AssetManagerProtocol,
         poolInfo: PoolInfo,
@@ -100,7 +91,7 @@ final class PoolDetailsItemFactory {
 
         let progressTitle = R.string.localizable.polkaswapFarmingPoolShare(preferredLanguages: .currentLocale)
 
-        let text = SoramitsuTextItem(text: "\(percentFormatter.stringFromDecimal(percentage) ?? "")%",
+        let text = SoramitsuTextItem(text: "\(NumberFormatter.percent.stringFromDecimal(percentage) ?? "")%",
                                      fontData: FontType.textS,
                                      textColor: .fgPrimary,
                                      alignment: .right)
