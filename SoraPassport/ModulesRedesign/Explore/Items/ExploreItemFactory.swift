@@ -53,7 +53,7 @@ extension ExploreItemFactory {
         
         var deltaArributedText: SoramitsuTextItem?
         if let deltaPrice {
-            let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(deltaPrice) ?? "")%"
+            let deltaText = "\(NumberFormatter.percent.stringFromDecimal(deltaPrice) ?? "")%"
             let deltaColor: SoramitsuColor = deltaPrice > 0 ? .statusSuccess : .statusError
             deltaArributedText = SoramitsuTextItem(text: deltaText,
                                                    attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,

@@ -138,6 +138,17 @@ extension NumberFormatter {
         return formatter
     }
     
+    static var cryptoAmounts: NumberFormatter {
+        let formatter = NumberFormatter.amount
+        formatter.roundingMode = .floor
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 3
+        formatter.groupingSeparator = ","
+        formatter.decimalSeparator = "."
+        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
+        return formatter
+    }
+    
     static func inputedAmoutFormatter(with precision: UInt32) -> NumberFormatter {
         let formatter = NumberFormatter()
         formatter.roundingMode = .floor

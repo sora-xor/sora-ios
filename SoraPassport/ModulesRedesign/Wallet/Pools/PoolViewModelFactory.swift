@@ -39,16 +39,6 @@ final class PoolViewModelFactory {
     let assetManager: AssetManagerProtocol
     weak var fiatService: FiatServiceProtocol?
     
-    let formatter: NumberFormatter = {
-        let formatter = NumberFormatter.amount
-        formatter.roundingMode = .floor
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 3
-        formatter.groupingSeparator = ","
-        formatter.decimalSeparator = "."
-        return formatter
-    }()
-    
     init(walletAssets: [AssetInfo], assetManager: AssetManagerProtocol, fiatService: FiatServiceProtocol?) {
         self.walletAssets = walletAssets
         self.assetManager = assetManager
@@ -68,8 +58,8 @@ extension PoolViewModelFactory {
         guard let rewardAssetInfo = assetManager.assetInfo(for: WalletAssetId.pswap.rawValue) else { return nil }
         
         let isRTL = LocalizationManager.shared.isRightToLeft
-        let baseBalance = formatter.stringFromDecimal(pool.baseAssetPooledByAccount ?? Decimal(0)) ?? ""
-        let targetBalance = formatter.stringFromDecimal(pool.targetAssetPooledByAccount ?? Decimal(0)) ?? ""
+        let baseBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(pool.baseAssetPooledByAccount ?? Decimal(0)) ?? ""
+        let targetBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(pool.targetAssetPooledByAccount ?? Decimal(0)) ?? ""
         
         var fiatText = ""
         if let firstPriceUsd = fiatData.first(where: { $0.id == baseAsset.identifier })?.priceUsd?.decimalValue,
@@ -84,7 +74,7 @@ extension PoolViewModelFactory {
 
         var deltaArributedText: SoramitsuTextItem?
         if let priceTrend {
-            let deltaText = "\(NumberFormatter.fiat.stringFromDecimal(priceTrend) ?? "")%"
+            let deltaText = "\(NumberFormatter.percent.stringFromDecimal(priceTrend) ?? "")%"
             let deltaColor: SoramitsuColor = priceTrend > 0 ? .statusSuccess : .statusError
             deltaArributedText = SoramitsuTextItem(text: deltaText,
                                                    attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,

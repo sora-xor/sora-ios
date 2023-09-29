@@ -85,24 +85,6 @@ protocol DetailViewModelFactoryProtocol {
 
 final class DetailViewModelFactory {
     let assetManager: AssetManagerProtocol
-
-    let formatter: NumberFormatter = {
-        let formatter = NumberFormatter.amount
-        formatter.roundingMode = .floor
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 8
-        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
-        return formatter
-    }()
-    
-    let percentFormatter: NumberFormatter = {
-        let formatter = NumberFormatter.amount
-        formatter.roundingMode = .floor
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 2
-        formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
-        return formatter
-    }()
     
     init(assetManager: AssetManagerProtocol) {
         self.assetManager = assetManager
@@ -121,7 +103,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let targetAssetSymbol = targetAsset?.symbol.uppercased() ?? ""
         
         if let apyValue = apy {
-            let apyText = "\(percentFormatter.stringFromDecimal(apyValue * 100) ?? "")% APY"
+            let apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
             let assetAmountText = SoramitsuTextItem(text: apyText,
                                                     fontData: FontType.textBoldS,
                                                     textColor: .fgPrimary,
@@ -155,7 +137,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         }
         
         let baseAssetPooledByAccount = poolInfo.baseAssetPooledByAccount ?? 0
-        let basePooledAmount = formatter.stringFromDecimal(baseAssetPooledByAccount) ?? ""
+        let basePooledAmount = NumberFormatter.cryptoAssets.stringFromDecimal(baseAssetPooledByAccount) ?? ""
         let baseAssetPooledText = SoramitsuTextItem(text: "\(basePooledAmount) \(baseAssetSymbol)",
                                                     fontData: FontType.textS,
                                                     textColor: .fgPrimary,
@@ -167,7 +149,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         }
         
         let targetAssetPooledByAccount = poolInfo.targetAssetPooledByAccount ?? 0
-        let targetPooledAmount = formatter.stringFromDecimal(targetAssetPooledByAccount) ?? ""
+        let targetPooledAmount = NumberFormatter.cryptoAssets.stringFromDecimal(targetAssetPooledByAccount) ?? ""
         let targetAssetPooledText = SoramitsuTextItem(text: "\(targetPooledAmount) \(targetAssetSymbol)",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,
@@ -214,7 +196,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         viewModels.append(yourPoolShareViewModel)
         
         if let apyValue = apy {
-            let apyText = "\(percentFormatter.stringFromDecimal(apyValue * 100) ?? "")% APY"
+            let apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
             let assetAmountText = SoramitsuTextItem(text: apyText,
                                                     fontData: FontType.textBoldS,
                                                     textColor: .fgPrimary,
@@ -281,7 +263,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                                  assetAmountText: yourPoolShareText)
         
         let apyValue = apy ?? 0
-        let apyText = "\(percentFormatter.stringFromDecimal(apyValue * 100) ?? "")% APY"
+        let apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
         let assetAmountText = SoramitsuTextItem(text: apyText,
                                                 fontData: FontType.textBoldS,
                                                 textColor: .fgPrimary,
