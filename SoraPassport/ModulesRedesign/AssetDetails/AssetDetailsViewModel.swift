@@ -197,7 +197,7 @@ private extension AssetDetailsViewModel {
     func updateBalanceItems(with balance: BalanceData) async -> [SoramitsuTableViewItemProtocol] {
         return await withCheckedContinuation { continuation in
             Task {
-                let poolItemInfo = await PriceInfoService.shared.getPriceInfo()
+                let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: [balance.identifier])
                 
                 let deltaPrice: Decimal? = priceTrendService.getPriceTrend(for: balance.identifier,
                                                                            fiatData: poolItemInfo.fiatData,
@@ -299,11 +299,9 @@ private extension AssetDetailsViewModel {
     func updatePooledtem(with pools: [PoolInfo]) async -> PooledItem {
         return await withCheckedContinuation { continuation in
             Task {
-                let poolItemInfo = await PriceInfoService.shared.getPriceInfo()
-                
-                let viewModels = pools.compactMap { pool in
-                    let priceTrend = priceTrendService.getPriceTrend(for: pool, fiatData: poolItemInfo.fiatData, marketCapInfo: poolItemInfo.marketCapInfo)
-                    return self.poolViewModelsFactory.createPoolViewModel(with: pool, fiatData: poolItemInfo.fiatData, mode: .view, priceTrend: priceTrend)
+                let viewModels = try await pools.concurrentMap { pool in
+                    let fiatData = await self.fiatService?.getFiat() ?? []
+                    return await self.poolViewModelsFactory.createPoolViewModel(with: pool, fiatData: fiatData, mode: .view)
                 }
                 
                 let item = PooledItem(assetInfo: self.assetInfo, poolViewModels: viewModels)

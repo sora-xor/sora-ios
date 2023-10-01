@@ -63,7 +63,7 @@ final class ManageAssetListViewModel {
         }
     }
 
-    var poolItemInfo: PoolItemInfo? {
+    var poolItemInfo: PriceInfo? {
         didSet {
             let fiatData = poolItemInfo?.fiatData ?? []
             let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
@@ -72,7 +72,7 @@ final class ManageAssetListViewModel {
                 
                 let fiatText = FiatTextBuilder().build(fiatData: fiatData, amount: item.balance, assetId: item.assetInfo.assetId)
                 
-                var deltaArributedText = DeltaPriceBuilder().build(fiatData: fiatData,
+                let deltaArributedText = DeltaPriceBuilder().build(fiatData: fiatData,
                                                                    marketCapInfo: marketCapInfo,
                                                                    assetId: item.assetViewModel.identifier)
                 
@@ -181,7 +181,7 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
         
         let ids = (assetManager?.getAssetList() ?? []).map { $0.identifier }
         let balanceData = assetsProvider?.getBalances(with: ids) ?? []
-        items(with: balanceData)
+        self.items(with: balanceData)
         
         assetsProvider?.add(observer: self)
     }
@@ -204,7 +204,7 @@ private extension ManageAssetListViewModel {
         let fiatData = poolItemInfo?.fiatData ?? []
         let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
         
-        self.assetItems = balanceItems.compactMap { balance in
+        assetItems = balanceItems.compactMap { balance in
             
             let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier, fiatData: fiatData, marketCapInfo: marketCapInfo)
             
@@ -232,10 +232,9 @@ private extension ManageAssetListViewModel {
             return item
         }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
 
-        if fiatData.isEmpty || marketCapInfo.isEmpty {
-            Task {
-                poolItemInfo = await PriceInfoService.shared.getPriceInfo()
-            }
+        Task {
+            let assetIds = balanceItems.map { $0.identifier }
+            poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
         }
     }
 

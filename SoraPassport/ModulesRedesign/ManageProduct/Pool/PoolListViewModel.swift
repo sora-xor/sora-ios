@@ -100,6 +100,7 @@ final class PoolListViewModel {
     var assetsProvider: AssetProviderProtocol
     var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
     let marketCapService: MarketCapServiceProtocol
+    let updateHandler: (() -> Void)?
 
     init(poolsService: PoolsServiceInputProtocol,
          assetManager: AssetManagerProtocol,
@@ -108,8 +109,8 @@ final class PoolListViewModel {
          providerFactory: BalanceProviderFactory,
          operationFactory: WalletNetworkOperationFactoryProtocol,
          assetsProvider: AssetProviderProtocol,
-         marketCapService: MarketCapServiceProtocol
-         
+         marketCapService: MarketCapServiceProtocol,
+         updateHandler: (() -> Void)?
     ) {
         self.poolViewModelFactory = poolViewModelFactory
         self.fiatService = fiatService
@@ -119,6 +120,7 @@ final class PoolListViewModel {
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
         self.marketCapService = marketCapService
+        self.updateHandler = updateHandler
     }
     func dissmissIfNeeded() {
         if poolItems.isEmpty {
@@ -137,6 +139,10 @@ extension PoolListViewModel: PoolListViewModelProtocol {
         setupNavigationBar?(mode)
         poolsService?.loadAccountPools(isNeedForceUpdate: false)
     }
+    
+    func viewDissmissed() {
+        updateHandler?()
+    }
 }
 
 extension PoolListViewModel: PoolsServiceOutput {
@@ -146,15 +152,10 @@ extension PoolListViewModel: PoolsServiceOutput {
                 dissmiss?(false)
             }
             
-            let poolInfo = await PriceInfoService.shared.getPriceInfo()
-            
-            self.poolItems = pools.compactMap { pool in
-                let poolChangePrice = priceTrendService.getPriceTrend(for: pool, fiatData: poolInfo.fiatData, marketCapInfo: poolInfo.marketCapInfo)
+            self.poolItems = try await pools.concurrentMap { pool in
+                let fiatData = await self.fiatService.getFiat()
                 
-                guard let viewModel = poolViewModelFactory.createPoolViewModel(with: pool,
-                                                                                    fiatData: poolInfo.fiatData,
-                                                                                    mode: .view,
-                                                                                    priceTrend: poolChangePrice) else {
+                guard let viewModel = self.poolViewModelFactory.createPoolViewModel(with: pool, fiatData: fiatData, mode: .view) else {
                     return nil
                 }
                 

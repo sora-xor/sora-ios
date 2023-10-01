@@ -254,10 +254,6 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                          fiatService: FiatServiceProtocol,
                          poolsViewModelService: PoolsItemService,
                          marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol {
-        
-//        let itemService = PoolsItemService(marketCapService: marketCapService,
-//                                           fiatService: fiatService,
-//                                           poolViewModelsFactory: factory)
         let poolsItem = PoolsItem(title: R.string.localizable.pooledAssets(preferredLanguages: .currentLocale), service: poolsViewModelService)
         
         let localizableTitle = LocalizableResource { locale in
@@ -268,8 +264,6 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
             let currentTitle = localizableTitle.value(for: LocalizationManager.shared.selectedLocale)
             poolsItem?.title = currentTitle
         }
-        
-//        poolsService.appendDelegate(delegate: poolsItem)
         
         let updateHandler = { [weak poolsItem, weak walletViewModel] in
             guard let walletViewModel = walletViewModel, let poolsItem = poolsItem else { return }

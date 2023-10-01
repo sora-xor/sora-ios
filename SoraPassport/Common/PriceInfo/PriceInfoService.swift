@@ -33,43 +33,57 @@ import IrohaCrypto
 import RobinHood
 import sorawallet
 
+struct PriceInfo {
+    let fiatData: [FiatData]
+    let marketCapInfo: Set<MarketCapInfo>
+}
+
 protocol PriceInfoServiceProtocol: AnyObject {
-    func setup()
-    var priceInfo: PoolItemInfo? { get }
-    func getPriceInfo() async -> PoolItemInfo
+    var priceInfo: PriceInfo? { get }
+    func setup(for assetIds: [String])
+    func getPriceInfo(for assetIds: [String]) async -> PriceInfo
 }
 
 final class PriceInfoService {
     static let shared = PriceInfoService()
-    var priceInfo: PoolItemInfo?
-    private var expiredDate: Date = Date()
+    var priceInfo: PriceInfo?
     private let fiatService = FiatService.shared
     private let marketCapService = MarketCapService.shared
+    
+    private func downloadInfo(for assetIds: [String]) async -> PriceInfo {
+        async let fiatData = self.fiatService.getFiat()
+        async let assetInfo = self.marketCapService.getMarketCap(for: assetIds)
+        
+        return await PriceInfo(fiatData: fiatData, marketCapInfo: assetInfo)
+    }
 }
 
 extension PriceInfoService: PriceInfoServiceProtocol {
     
-    func setup() {
+    func setup(for assetIds: [String]) {
         Task {
-            async let fiatData = self.fiatService.getFiat()
-            
-            async let assetInfo = self.marketCapService.getMarketCap()
-            
-            priceInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: assetInfo)
+            priceInfo = await downloadInfo(for: assetIds)
         }
     }
     
-    func getPriceInfo() async -> PoolItemInfo {
-        guard let priceInfo else {
-            async let fiatData = self.fiatService.getFiat()
+    func getPriceInfo(for assetIds: [String]) async -> PriceInfo {
+        if let priceInfo {
+            let searchableInfo = Set(assetIds.map { MarketCapInfo(assetId: $0) })
+            let result = searchableInfo.subtracting(priceInfo.marketCapInfo)
             
-            async let assetInfo = self.marketCapService.getMarketCap()
-            
-            let priceInfo = await PoolItemInfo(fiatData: fiatData, marketCapInfo: assetInfo)
-            self.priceInfo = priceInfo
-            return priceInfo
+            if !result.isEmpty || priceInfo.fiatData.isEmpty {
+                
+                let priceInfo = await downloadInfo(for: assetIds)
+                self.priceInfo = priceInfo
+                return priceInfo
+                
+            } else {
+                return priceInfo
+            }
         }
         
+        let priceInfo = await downloadInfo(for: assetIds)
+        self.priceInfo = priceInfo
         return priceInfo
     }
 }

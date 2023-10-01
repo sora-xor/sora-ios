@@ -66,7 +66,7 @@ final class SelectAssetViewModel {
         }
     }
     
-    var poolItemInfo: PoolItemInfo? {
+    var poolItemInfo: PriceInfo? {
         didSet {
             let fiatData = poolItemInfo?.fiatData ?? []
             let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
@@ -119,6 +119,7 @@ final class SelectAssetViewModel {
         self.assetsProvider = assetsProvider
         self.assetIds = assetIds
         self.marketCapService = marketCapService
+        self.poolItemInfo = PriceInfoService.shared.priceInfo
     }
 }
 
@@ -141,16 +142,19 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 
 private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) {
+        let fiatData = poolItemInfo?.fiatData ?? []
+        let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
+        
         assetItems = balanceItems.compactMap { balance in
             
             let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier,
-                                                             fiatData: [],
-                                                             marketCapInfo: [])
+                                                             fiatData: fiatData,
+                                                             marketCapInfo: marketCapInfo)
             
             guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
                   let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
                                                                                   assetInfo: assetInfo,
-                                                                                  fiatData: [],
+                                                                                  fiatData: fiatData,
                                                                                   mode: self.mode,
                                                                                   priceDelta: deltaPrice) else {
                 return nil
@@ -170,7 +174,8 @@ private extension SelectAssetViewModel {
         }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
         
         Task {
-            poolItemInfo = await PriceInfoService.shared.getPriceInfo()
+            let assetIds = balanceItems.map { $0.identifier }
+            poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
         }
     }
 

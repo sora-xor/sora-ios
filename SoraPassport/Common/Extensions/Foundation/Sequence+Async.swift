@@ -46,7 +46,7 @@ extension Sequence {
      }
     
     func concurrentMap<T>(
-        _ transform: @escaping (Element) async throws -> T
+        _ transform: @escaping (Element) async throws -> T?
     ) async throws -> [T] {
         let tasks = compactMap { element in
             Task {

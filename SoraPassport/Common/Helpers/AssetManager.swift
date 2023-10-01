@@ -32,6 +32,7 @@ import Foundation
 import SoraKeystore
 import CommonWallet
 import RobinHood
+import sorawallet
 
 protocol AssetManagerProtocol: AnyObject {
     func assetInfo(for identifier: String) -> AssetInfo?
@@ -82,7 +83,7 @@ final class AssetManager: AssetManagerProtocol {
             self?.handle(changes: changes)
         }
 
-        let failureClosure: (Error) -> Void = { error in
+        let failureClosure: (Swift.Error) -> Void = { error in
             Logger.shared.error("Unexpected error chains listener setup: \(error)")
         }
 
@@ -100,7 +101,6 @@ final class AssetManager: AssetManagerProtocol {
             failing: failureClosure,
             options: options
         )
-
     }
 
     private func handle(changes: [DataProviderChange<ChainModel>]) {
@@ -127,6 +127,12 @@ final class AssetManager: AssetManagerProtocol {
         Logger.shared.info("ASSET MANAGER SETUP \(chain?.chainAssets)")
         let chainAssets = chain?.chainAssets.map { $0.asset } ?? []
         self.updateWhitelisted(chainAssets)
+        
+        FiatService.shared.getFiat { [weak self] data in
+            self?.assets?.enumerated().forEach({ (index, asset) in
+                self?.assets?[index].fiatPrice = data.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue ?? .zero
+            })
+        }
     }
 
     func sortedAssets(_ list: [WalletAsset], onlyVisible: Bool = false) -> [WalletAsset] {

@@ -32,46 +32,102 @@ import Foundation
 import IrohaCrypto
 import RobinHood
 import sorawallet
+import BigInt
+
+struct MarketCapInfo: Hashable {
+    let assetId: String
+    let hourDelta: Decimal
+    let liquidity: Decimal
+    
+    init(assetId: String,
+         hourDelta: Decimal = 0,
+         liquidity: Decimal = 0) {
+        self.assetId = assetId
+        self.hourDelta = hourDelta
+        self.liquidity = liquidity
+    }
+    
+    static func == (lhs: MarketCapInfo, rhs: MarketCapInfo) -> Bool {
+        lhs.assetId == rhs.assetId
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(assetId)
+    }
+}
 
 protocol MarketCapServiceProtocol: AnyObject {
-    var assetsIds: [String] { get set }
-    func getMarketCap() async -> [AssetsInfo]
+    func getMarketCap(for assetId: String) async -> MarketCapInfo
+    func getMarketCap(for assetIds: [String]) async -> Set<MarketCapInfo>
 }
 
 final class MarketCapService {
     static let shared = MarketCapService()
     private let operationManager: OperationManager = OperationManager()
     private var expiredDate: Date = Date()
-    private var marketCap: [AssetsInfo] = []
-    
-    var assetsIds: [String] = [] {
-        didSet {
-            Task {
-                marketCap = await getMarketCap()
-            }
-        }
-    }
+    private var marketCapInfos: Set<MarketCapInfo> = []
 }
 
 extension MarketCapService: MarketCapServiceProtocol {
     
-    func getMarketCap() async -> [AssetsInfo] {
+    func getMarketCap(for assetIds: [String]) async -> Set<MarketCapInfo> {
         return await withCheckedContinuation { continuation in
-            guard expiredDate < Date() || marketCap.isEmpty else {
-                continuation.resume(returning: marketCap)
+            let searchableInfo = Set(assetIds.map { MarketCapInfo(assetId: $0) })
+            let result = searchableInfo.subtracting(marketCapInfos)
+            
+            guard expiredDate < Date() || !result.isEmpty else {
+                continuation.resume(returning: marketCapInfos)
                 return
             }
             
-            let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: assetsIds)
+            let findAssetIds = result.map { $0.assetId }
+            
+            let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: findAssetIds)
             
             queryOperation.completionBlock = { [weak self] in
-                guard let response = try? queryOperation.extractNoCancellableResultData() else {
+                guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
                     continuation.resume(returning: [])
                     return
                 }
-                self?.marketCap = response
-                self?.expiredDate = Date().addingTimeInterval(600)
-                continuation.resume(returning: response)
+                
+                let result = response.map { info in
+                    let bigIntLiquidity = BigUInt(info.liquidity) ?? BigUInt(0)
+                    return MarketCapInfo(assetId: info.tokenId,
+                                         hourDelta: Decimal(Double(truncating: info.hourDelta ?? 0)),
+                                         liquidity: Decimal.fromSubstrateAmount(bigIntLiquidity, precision: 18) ?? 0)
+                }
+                
+                self.marketCapInfos.formUnion(result)
+                self.expiredDate = Date().addingTimeInterval(600)
+                continuation.resume(returning: self.marketCapInfos)
+            }
+            
+            operationManager.enqueue(operations: [queryOperation], in: .transient)
+        }
+    }
+    
+    func getMarketCap(for assetId: String) async -> MarketCapInfo {
+        return await withCheckedContinuation { continuation in
+            if let marketCapInfo = marketCapInfos.first(where: { $0.assetId == assetId }), expiredDate < Date() {
+                continuation.resume(returning: marketCapInfo)
+                return
+            }
+            
+            let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: [assetId])
+            
+            queryOperation.completionBlock = { [weak self] in
+                guard let self = self, let response = try? queryOperation.extractNoCancellableResultData().first else {
+                    continuation.resume(returning: MarketCapInfo(assetId: assetId))
+                    return
+                }
+                let bigIntLiquidity = BigUInt(response.liquidity) ?? BigUInt(0)
+                let marketCapInfo = MarketCapInfo(assetId: response.tokenId,
+                                                  hourDelta: Decimal(Double(truncating: response.hourDelta ?? 0)),
+                                                  liquidity: Decimal.fromSubstrateAmount(bigIntLiquidity, precision: 18) ?? 0)
+                self.marketCapInfos.insert(marketCapInfo)
+                
+                self.expiredDate = Date().addingTimeInterval(600)
+                continuation.resume(returning: marketCapInfo)
             }
             
             operationManager.enqueue(operations: [queryOperation], in: .transient)
