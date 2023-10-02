@@ -70,3 +70,11 @@ extension UIViewController {
         navigationController.popViewController(animated: true)
     }
 }
+
+extension SoramitsuViewController: UIScrollViewDelegate {
+    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if scrollView.isTracking, scrollView.contentOffset.y < -120 {
+            close()
+        }
+    }
+}

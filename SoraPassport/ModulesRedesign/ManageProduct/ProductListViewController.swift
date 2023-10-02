@@ -43,10 +43,10 @@ final class ProductListViewController: SoramitsuViewController {
         tableView.sora.cornerMask = .all
         tableView.sora.cornerRadius = .extraLarge
         tableView.sora.estimatedRowHeight = UITableView.automaticDimension
-        tableView.sora.context = SoramitsuTableViewContext(scrollView: tableView, viewController: self)
         tableView.sectionHeaderHeight = .zero
         tableView.keyboardDismissMode = .onDrag
         tableView.contentInset = UIEdgeInsets(top: 16, left: 0, bottom: 16, right: 0)
+        tableView.scrollViewDelegate = self
         return tableView
     }()
 
@@ -172,13 +172,5 @@ extension ProductListViewController: UISearchControllerDelegate {
 
     func willDismissSearchController(_ searchController: UISearchController) {
         viewModel.isActiveSearch = false
-    }
-}
-
-extension ProductListViewController: UIScrollViewDelegate {
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView.isTracking, scrollView.contentOffset.y < -236 {
-            close()
-        }
     }
 }

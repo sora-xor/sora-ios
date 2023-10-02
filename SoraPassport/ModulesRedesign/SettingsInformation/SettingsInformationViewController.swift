@@ -107,11 +107,3 @@ extension SettingsInformationViewController: UITableViewDelegate {
     }
     
 }
-
-extension SettingsInformationViewController: UIScrollViewDelegate {
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView.isTracking, scrollView.contentOffset.y < -200 {
-            close()
-        }
-    }
-}
