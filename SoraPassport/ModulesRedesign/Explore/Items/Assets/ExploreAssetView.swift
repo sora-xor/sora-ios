@@ -51,7 +51,7 @@ public final class ExploreAssetView: SoramitsuView {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
-        label.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        label.widthAnchor.constraint(equalToConstant: 30).isActive = true
         return label
     }()
     

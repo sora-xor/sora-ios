@@ -133,6 +133,9 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                            poolViewModelsFactory: poolViewModelsfactory)
         poolsService.appendDelegate(delegate: poolsViewModelService)
         
+        let editViewService = EditViewService(poolsService: poolsService)
+        poolsService.appendDelegate(delegate: editViewService)
+        
         
         guard let walletController = createWalletRedesignController(walletContext: walletContext,
                                                                     assetManager: assetManager,
@@ -140,6 +143,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                     assetsProvider: assetsProvider,
                                                                     poolsViewModelService: poolsViewModelService,
                                                                     assetsViewModelService: assetsViewModelService,
+                                                                    editViewService: editViewService,
                                                                     localizationManager: localizationManager) else {
             return
         }
@@ -246,12 +250,16 @@ extension MainTabBarViewFactory {
 
         poolsService.appendDelegate(delegate: poolsViewModelService)
         
+        let editViewService = EditViewService(poolsService: poolsService)
+        poolsService.appendDelegate(delegate: editViewService)
+        
         guard let walletController = createWalletRedesignController(walletContext: walletContext,
                                                                     assetManager: assetManager,
                                                                     poolsService: poolsService,
                                                                     assetsProvider: assetsProvider,
                                                                     poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService) else {
+                                                                    assetsViewModelService: assetsViewModelService,
+                                                                    editViewService: editViewService) else {
             return nil
         }
         
@@ -301,6 +309,7 @@ extension MainTabBarViewFactory {
                                                assetsProvider: AssetProviderProtocol,
                                                poolsViewModelService: PoolsItemService,
                                                assetsViewModelService: AssetsItemService,
+                                               editViewService: EditViewServiceProtocol,
                                                localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) -> UIViewController? {
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
               let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
@@ -355,7 +364,8 @@ extension MainTabBarViewFactory {
                                                                     walletContext: walletContext,
                                                                     poolsViewModelService: poolsViewModelService,
                                                                     assetsViewModelService: assetsViewModelService,
-                                                                    marketCapService: marketCapService)
+                                                                    marketCapService: marketCapService,
+                                                                    editViewService: editViewService)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)

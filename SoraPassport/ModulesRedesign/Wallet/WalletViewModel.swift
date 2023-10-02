@@ -141,6 +141,7 @@ final class RedesignWalletViewModel {
 extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     
     func setupModels() {
+        poolsService.loadAccountPools(isNeedForceUpdate: false)
         editViewService.loadModels { [weak editViewService, weak self] isPoolAvailable in
             guard
                 let editViewService = editViewService,
@@ -159,10 +160,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             if !isPoolAvailable {
                 models.removeAll(where: { $0.id == poolId })
                 enabledIds.removeAll(where: { $0 == poolId } )
-            } else {
-                if !enabledIds.contains(where: { $0 == poolId }) && !ApplicationConfig.shared.accountLoadedPools.contains(self.address)  {
-                    enabledIds.append(poolId)
-                }
             }
             
             editViewService.viewModels = models
@@ -170,7 +167,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             ApplicationConfig.shared.accountLoadedPools.insert(self.address)
             
             DispatchQueue.main.async {
-                self.updateItems()
+                if let poolsItem = self.walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
+                    poolsItem.isHidden = !enabledIds.contains(Cards.pooledAssets.id)
+                    self.reloadItem?([poolsItem])
+                }
             }
         }
     }
@@ -210,8 +210,12 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             items.append(assetsItem)
         }
         
-        if enabledIds.contains(Cards.pooledAssets.id), let poolsItem = walletItems.first(where: { $0 is PoolsItem }) {
-            items.append(poolsItem)
+        if let poolsItem = walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
+            poolsItem.isHidden = !enabledIds.contains(Cards.pooledAssets.id)
+            
+            if enabledIds.contains(Cards.pooledAssets.id) {
+                items.append(poolsItem)
+            }
         }
         
         if let editViewItem = walletItems.first(where: { $0 is EditViewItem }) {
@@ -235,6 +239,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     func fetchAssets(completion: @escaping ([SoramitsuTableViewItemProtocol]) -> Void) {
         walletItems = buildItems()
         updateItems()
+        setupModels()
     }
 
     func showSoraCardDetails() {
@@ -247,7 +252,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         
         var items: [SoramitsuTableViewItemProtocol] = []
         
-        let accountItem = itemFactory.createAccountItem(with: self ,
+        let accountItem = itemFactory.createAccountItem(with: self,
                                                         view: view,
                                                         wireframe: wireframe,
                                                         feeProvider: feeProvider,
@@ -449,7 +454,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                      providerFactory: providerFactory,
                                      operationFactory: networkFacade,
                                      assetsProvider: assetsProvider,
-                                     marketCapService: marketCapService)
+                                     marketCapService: marketCapService,
+                                     updateHandler: updateAssets)
     }
     
     func showAssetDetails(with assetInfo: AssetInfo) {

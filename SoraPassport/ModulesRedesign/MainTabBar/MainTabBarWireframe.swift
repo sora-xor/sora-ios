@@ -160,6 +160,9 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                            fiatService: FiatService.shared,
                                            poolViewModelsFactory: factory)
         poolsService.appendDelegate(delegate: poolsViewModelService)
+        
+        let editViewService = EditViewService(poolsService: poolsService)
+        poolsService.appendDelegate(delegate: editViewService)
 
 
         let redesignViewController = MainTabBarViewFactory.createWalletRedesignController(walletContext: walletContext,
@@ -168,6 +171,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                                                                           assetsProvider: assetsProvider,
                                                                                           poolsViewModelService: poolsViewModelService,
                                                                                           assetsViewModelService: assetsViewModelService,
+                                                                                          editViewService: editViewService,
                                                                                           localizationManager: LocalizationManager.shared)
 
         let investController = MainTabBarViewFactory.createInvestController(walletContext: walletContext,

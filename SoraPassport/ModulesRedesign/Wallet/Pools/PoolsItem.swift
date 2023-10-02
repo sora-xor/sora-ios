@@ -40,15 +40,11 @@ enum PoolItemState {
     case viewModel
 }
 
-struct PoolItemInfo {
-    let fiatData: [FiatData]
-    let marketCapInfo: [AssetsInfo]
-}
-
 final class PoolsItem: NSObject {
 
     var title: String
     var isExpand: Bool
+    var isHidden: Bool
     let service: PoolsItemService
     
     var updateHandler: (() -> Void)?
@@ -59,9 +55,11 @@ final class PoolsItem: NSObject {
     
     init(title: String,
          isExpand: Bool = true,
+         isHidden: Bool = false,
          service: PoolsItemService) {
         self.title = title
         self.isExpand = isExpand
+        self.isHidden = isHidden
         self.service = service
     }
 }

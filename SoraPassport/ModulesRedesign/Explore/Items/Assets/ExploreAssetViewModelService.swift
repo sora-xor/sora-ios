@@ -58,17 +58,13 @@ final class ExploreAssetViewModelService {
     
     func setup() {
         Task {
-            let result = await PriceInfoService.shared.getPriceInfo()
+            let assetIds = (self.assetManager.getAssetList() ?? []).map { $0.assetId }
+            let result = await PriceInfoService.shared.getPriceInfo(for: assetIds)
             
             let assetMarketCap = result.marketCapInfo.compactMap { asset in
-                let amount = BigUInt(asset.liquidity) ?? 0
-                let precision = Int16(self.assetManager.assetInfo(for: asset.tokenId)?.precision ?? 0)
-                let price = result.fiatData.first { asset.tokenId == $0.id }?.priceUsd?.decimalValue ?? 0
-                let marketCap = (Decimal.fromSubstrateAmount(amount, precision: precision) ?? 0) * price
-                let oldPrice = Decimal(Double(truncating: asset.hourDelta ?? 0))
-                return ExploreAssetLiquidity(tokenId: asset.tokenId, marketCap: marketCap, oldPrice: oldPrice)
+                let price = result.fiatData.first { asset.assetId == $0.id }?.priceUsd?.decimalValue ?? 0
+                return ExploreAssetLiquidity(tokenId: asset.assetId, marketCap: asset.liquidity * price, oldPrice: asset.hourDelta)
             }.sorted { $0.marketCap > $1.marketCap }
-
             
             var fullListAssets = assetMarketCap.compactMap { marketCap in
                 let price = result.fiatData.first(where: { $0.id == marketCap.tokenId })?.priceUsd?.decimalValue ?? 0

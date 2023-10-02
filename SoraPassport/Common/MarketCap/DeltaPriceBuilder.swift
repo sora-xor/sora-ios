@@ -13,7 +13,7 @@ import SoraFoundation
 struct DeltaPriceBuilder {
     private let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
     
-    func build(fiatData: [FiatData], marketCapInfo: [AssetsInfo], assetId: String) -> SoramitsuTextItem? {
+    func build(fiatData: [FiatData], marketCapInfo: Set<MarketCapInfo>, assetId: String) -> SoramitsuTextItem? {
         let deltaPrice = priceTrendService.getPriceTrend(for: assetId,
                                                          fiatData: fiatData,
                                                          marketCapInfo: marketCapInfo)
