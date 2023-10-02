@@ -115,6 +115,7 @@ final class PolkaswapViewController: SoramitsuViewController {
             self?.viewModel.focusedField = .one
         }
         view.firstAsset.textField.sora.addHandler(for: .editingChanged) { [weak self] in
+            self?.reviewLiquidity.sora.isEnabled = false
             self?.viewModel.focusedField = .one
             self?.viewModel.inputedFirstAmount = Decimal(string: self?.assetsView.firstAsset.textField.text ?? "", locale: Locale.current) ?? 0
             self?.viewModel.recalculate(field: .one)
@@ -132,6 +133,7 @@ final class PolkaswapViewController: SoramitsuViewController {
             self?.viewModel.focusedField = .two
         }
         view.secondAsset.textField.sora.addHandler(for: .editingChanged) { [weak self] in
+            self?.reviewLiquidity.sora.isEnabled = false
             self?.viewModel.focusedField = .two
             self?.viewModel.inputedSecondAmount = Decimal(string: self?.assetsView.secondAsset.textField.text ?? "", locale: Locale.current) ?? 0
             self?.viewModel.recalculate(field: .two)
