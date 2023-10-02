@@ -95,11 +95,3 @@ extension ActivityDetailsViewController: ActivityDetailsViewProtocol {
         }
     }
 }
-
-extension ActivityDetailsViewController: UIScrollViewDelegate {
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView.isTracking, scrollView.contentOffset.y < -120 {
-            viewModel.dismiss()
-        }
-    }
-}

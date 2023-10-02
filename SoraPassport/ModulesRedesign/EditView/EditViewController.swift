@@ -34,7 +34,7 @@ import SoraFoundation
 import SnapKit
 import Combine
 
-final class EditViewController: SoramitsuViewController {
+final class EditViewController: SoramitsuViewController, UITableViewDelegate {
     
     private lazy var tableView: UITableView = {
         let tableView = UITableView()
@@ -50,6 +50,7 @@ final class EditViewController: SoramitsuViewController {
               tableView.sectionHeaderTopPadding = 0
         }
         tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.delegate = self
         return tableView
     }()
     

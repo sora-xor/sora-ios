@@ -47,6 +47,7 @@ final class ExploreListViewController: SoramitsuViewController {
         tableView.sectionHeaderHeight = .zero
         tableView.keyboardDismissMode = .onDrag
         tableView.contentInset = UIEdgeInsets(top: 16, left: 0, bottom: 16, right: 0)
+        tableView.scrollViewDelegate = self
         return tableView
     }()
 
@@ -131,13 +132,5 @@ extension ExploreListViewController: UISearchControllerDelegate {
 
     func willDismissSearchController(_ searchController: UISearchController) {
         viewModel.isActiveSearch = false
-    }
-}
-
-extension ExploreListViewController: UIScrollViewDelegate {
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView.isTracking, scrollView.contentOffset.y < -236 {
-            close()
-        }
     }
 }
