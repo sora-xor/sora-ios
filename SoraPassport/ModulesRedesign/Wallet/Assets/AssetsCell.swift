@@ -42,9 +42,7 @@ final class AssetsCell: SoramitsuTableViewCell {
             item.service?.$moneyText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    if !value.isEmpty {
-                        self?.moneyLabel.sora.loadingPlaceholder.type = .none
-                    }
+                    self?.moneyLabel.sora.loadingPlaceholder.type = !value.isEmpty ? .none : .shimmer
                     self?.moneyLabel.sora.text = value
                 }
                 .store(in: &cancellables)
@@ -76,6 +74,7 @@ final class AssetsCell: SoramitsuTableViewCell {
         label.sora.textColor = .fgPrimary
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         label.sora.loadingPlaceholder.type = .shimmer
+        label.sora.cornerRadius = .small
         return label
     }()
 
@@ -151,6 +150,8 @@ final class AssetsCell: SoramitsuTableViewCell {
             
             moneyLabel.trailingAnchor.constraint(equalTo: mainInfoView.trailingAnchor),
             moneyLabel.centerYAnchor.constraint(equalTo: arrowButton.centerYAnchor),
+            moneyLabel.heightAnchor.constraint(equalToConstant: 21),
+            moneyLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
             
             fullStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             fullStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),

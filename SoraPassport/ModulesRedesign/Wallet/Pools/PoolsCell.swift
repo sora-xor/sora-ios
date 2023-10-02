@@ -34,6 +34,7 @@ import Combine
 
 final class PoolsCell: SoramitsuTableViewCell {
     
+    private var heightConstraint: NSLayoutConstraint?
     private var cancellables: Set<AnyCancellable> = []
     
     private var poolsItem: PoolsItem? {
@@ -42,9 +43,7 @@ final class PoolsCell: SoramitsuTableViewCell {
             item.service.$moneyText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
-                    if !value.isEmpty {
-                        self?.moneyLabel.sora.loadingPlaceholder.type = .none
-                    }
+                    self?.moneyLabel.sora.loadingPlaceholder.type = !value.isEmpty ? .none : .shimmer
                     self?.moneyLabel.sora.text = value
                 }
                 .store(in: &cancellables)
@@ -72,6 +71,8 @@ final class PoolsCell: SoramitsuTableViewCell {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline2
         label.sora.textColor = .fgPrimary
+        label.sora.loadingPlaceholder.type = .shimmer
+        label.sora.cornerRadius = .small
         return label
     }()
 
@@ -139,6 +140,8 @@ final class PoolsCell: SoramitsuTableViewCell {
     }
 
     private func setupConstraints() {
+        heightConstraint = fullStackView.heightAnchor.constraint(equalToConstant: 0)
+        
         NSLayoutConstraint.activate([
             arrowButton.leadingAnchor.constraint(equalTo: mainInfoView.leadingAnchor),
             arrowButton.topAnchor.constraint(equalTo: mainInfoView.topAnchor),
@@ -147,6 +150,8 @@ final class PoolsCell: SoramitsuTableViewCell {
             
             moneyLabel.trailingAnchor.constraint(equalTo: mainInfoView.trailingAnchor),
             moneyLabel.centerYAnchor.constraint(equalTo: arrowButton.centerYAnchor),
+            moneyLabel.heightAnchor.constraint(equalToConstant: 21),
+            moneyLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
 
             fullStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             fullStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
@@ -261,6 +266,7 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
                                                                           fontData: FontType.buttonM,
                                                                           textColor: .accentPrimary,
                                                                           alignment: alignment)
+        heightConstraint?.isActive = item.service.poolViewModels.isEmpty || item.isHidden
     }
 }
 

@@ -40,7 +40,7 @@ final class AssetsItemService {
     var fiatService: FiatServiceProtocol?
     let assetViewModelsFactory: AssetViewModelFactory
     let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
-    var poolItemInfo: PoolItemInfo?
+    var poolItemInfo: PriceInfo?
     var updateHandler: (() -> Void)?
     
     @Published var assetViewModels: [AssetViewModel] = [ AssetViewModel(identifier: "1", title: "", subtitle: "", fiatText: ""),
@@ -66,8 +66,8 @@ final class AssetsItemService {
     }
     
     func setup() {
+        let assetIds = assetManager.getAssetList()?.filter { $0.visible }.map { $0.assetId } ?? []
         if poolItemInfo == nil {
-            let assetIds = assetManager.getAssetList()?.filter { $0.visible }.map { $0.assetId } ?? []
             let items = assetProvider.getBalances(with: assetIds)
 
             assetViewModels = items.compactMap { item in
@@ -77,7 +77,7 @@ final class AssetsItemService {
         }
 
         Task {
-            let poolItemInfo = await PriceInfoService.shared.getPriceInfo()
+            let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
             self.poolItemInfo = poolItemInfo
             
             let assetIds = assetManager.getAssetList()?.filter { $0.visible }.map { $0.assetId } ?? []
@@ -102,6 +102,7 @@ final class AssetsItemService {
                                                                         mode: .view,
                                                                         priceDelta: deltaPrice)
             }
+            updateHandler?()
         }
     }
 }

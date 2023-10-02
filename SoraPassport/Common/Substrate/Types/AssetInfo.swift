@@ -51,6 +51,7 @@ struct AssetInfo: Codable {
     @StringCodable var precision: UInt32
     var icon: String?
     var visible: Bool
+    var fiatPrice: Decimal?
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -61,6 +62,7 @@ struct AssetInfo: Codable {
         precision = try container.decode(StringCodable<UInt32>.self, forKey: .precision).wrappedValue
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         visible = try container.decodeIfPresent(Bool.self, forKey: .visible) ?? false
+        fiatPrice = try container.decodeIfPresent(Decimal.self, forKey: .visible)
     }
 
     init(

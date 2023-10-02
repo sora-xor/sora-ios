@@ -32,26 +32,24 @@ import Foundation
 import sorawallet
 
 protocol PriceTrendServiceProtocol {
-    func getPriceTrend(for pool: PoolInfo, fiatData: [FiatData], marketCapInfo: [AssetsInfo]) -> Decimal
-    func getPriceTrend(for assetId: String, fiatData: [FiatData], marketCapInfo: [AssetsInfo]) -> Decimal?
+    func getPriceTrend(for assetId: String, fiatData: [FiatData], marketCapInfo: Set<MarketCapInfo>) -> Decimal?
+    func getPriceTrend(for pool: PoolInfo, fiatData: [FiatData], marketCapInfo: Set<MarketCapInfo>) -> Decimal
 }
 
 final class PriceTrendService {}
 
 extension PriceTrendService: PriceTrendServiceProtocol {
-    
-    func getPriceTrend(for assetId: String, fiatData: [FiatData], marketCapInfo: [AssetsInfo]) -> Decimal? {
-        let actualPrice = fiatData.first(where: { $0.id == assetId })?.priceUsd?.decimalValue ?? 0
-        let oldPrice = Decimal(Double(truncating: marketCapInfo.first(where: { $0.tokenId == assetId })?.hourDelta ?? 0))
-        
-        if oldPrice == 0 {
+
+    func getPriceTrend(for assetId: String, fiatData: [FiatData], marketCapInfo: Set<MarketCapInfo>) -> Decimal? {
+        guard let oldPrice = marketCapInfo.first(where: { $0.assetId == assetId })?.hourDelta, oldPrice != 0 else {
             return nil
         }
-
+        
+        let actualPrice = fiatData.first(where: { $0.id == assetId })?.priceUsd?.decimalValue ?? 0
         return actualPrice / oldPrice - 1
     }
     
-    func getPriceTrend(for pool: PoolInfo, fiatData: [FiatData], marketCapInfo: [AssetsInfo]) -> Decimal {
+    func getPriceTrend(for pool: PoolInfo, fiatData: [FiatData], marketCapInfo: Set<MarketCapInfo>) -> Decimal {
         let baseAssetChangePrice = getPriceTrend(for: pool.baseAssetId, fiatData: fiatData, marketCapInfo: marketCapInfo) ?? 0
         let targetAssetChangePrice = getPriceTrend(for: pool.targetAssetId, fiatData: fiatData, marketCapInfo: marketCapInfo) ?? 0
         

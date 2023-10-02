@@ -63,7 +63,8 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                            providerFactory: BalanceProviderFactory,
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol,
-                           marketCapService: MarketCapServiceProtocol)
+                           marketCapService: MarketCapServiceProtocol,
+                           updateHandler: (() -> Void)?)
     
     func showAssetDetails(on viewController: UIViewController?,
                           assetInfo: AssetInfo,
@@ -202,7 +203,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                            providerFactory: BalanceProviderFactory,
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol,
-                           marketCapService: MarketCapServiceProtocol) {
+                           marketCapService: MarketCapServiceProtocol,
+                           updateHandler: (() -> Void)?) {
         let viewModel = PoolListViewModel(poolsService: poolsService,
                                           assetManager: assetManager,
                                           fiatService: fiatService,
@@ -210,7 +212,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                           providerFactory: providerFactory,
                                           operationFactory: operationFactory,
                                           assetsProvider: assetsProvider,
-                                          marketCapService: marketCapService)
+                                          marketCapService: marketCapService,
+                                          updateHandler: updateHandler)
         
         poolsService.appendDelegate(delegate: viewModel)
         

@@ -63,8 +63,7 @@ final class PoolsItemService {
     func setup(with pools: [PoolInfo]) {
         if fiatData.isEmpty {
             self.poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                let poolChangePrice = self.priceTrendService.getPriceTrend(for: item, fiatData: [], marketCapInfo: [])
-                return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view, priceTrend: poolChangePrice)
+                return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
             }
 
             self.updateHandler?()
@@ -92,6 +91,7 @@ final class PoolsItemService {
             self.poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
                 return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
             }
+            self.updateHandler?()
         }
     }
 }
