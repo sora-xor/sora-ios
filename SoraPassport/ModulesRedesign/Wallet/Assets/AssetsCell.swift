@@ -75,17 +75,21 @@ final class AssetsCell: SoramitsuTableViewCell {
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.cornerRadius = .small
+        label.sora.alignment = .right
         return label
     }()
 
+    private let containerView: SoramitsuView = {
+        var view = SoramitsuView()
+        view.sora.backgroundColor = .bgSurface
+        view.sora.cornerRadius = .max
+        return view
+    }()
+    
     private let fullStackView: SoramitsuStackView = {
         var view = SoramitsuStackView()
-        view.sora.backgroundColor = .bgSurface
         view.sora.axis = .vertical
-        view.sora.cornerRadius = .max
         view.sora.distribution = .fill
-        view.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
-        view.isLayoutMarginsRelativeArrangement = true
         return view
     }()
 
@@ -120,7 +124,8 @@ final class AssetsCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupView() {
-        contentView.addSubview(fullStackView)
+        contentView.addSubview(containerView)
+        containerView.addSubview(fullStackView)
         
         mainInfoView.addSubviews(arrowButton, moneyLabel)
         fullStackView.addArrangedSubviews(mainInfoView)
@@ -130,7 +135,7 @@ final class AssetsCell: SoramitsuTableViewCell {
             R.string.localizable.commonExpand(preferredLanguages: locale.rLanguages)
         }
         
-        localizationManager.addObserver(with: openFullListAssetsButton) { [weak openFullListAssetsButton, weak arrowButton, weak localizationManager] (_, _) in
+        localizationManager.addObserver(with: openFullListAssetsButton) { [weak openFullListAssetsButton, weak arrowButton] (_, _) in
             guard let assetsItem = self.assetsItem else { return }
             let currentTitle = localizableTitle.value(for: self.localizationManager.selectedLocale)
             arrowButton?.configure(title: assetsItem.title, isExpand: assetsItem.isExpand)
@@ -153,10 +158,15 @@ final class AssetsCell: SoramitsuTableViewCell {
             moneyLabel.heightAnchor.constraint(equalToConstant: 21),
             moneyLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
             
-            fullStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            fullStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            fullStackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            fullStackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            
+            fullStackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
+            fullStackView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            fullStackView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            fullStackView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
         ])
     }
     

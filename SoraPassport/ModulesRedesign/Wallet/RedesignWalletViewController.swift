@@ -45,7 +45,7 @@ final class RedesignWalletViewController: SoramitsuViewController {
         tableView.delaysContentTouches = true
         tableView.canCancelContentTouches = true
         tableView.contentInsetAdjustmentBehavior = .never
-        tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
+        tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 65, right: 0)
         if #available(iOS 15.0, *) {
               tableView.sectionHeaderTopPadding = 0
          }
@@ -99,7 +99,7 @@ final class RedesignWalletViewController: SoramitsuViewController {
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 40)
         ])
     }
 }
