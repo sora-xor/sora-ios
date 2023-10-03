@@ -86,10 +86,14 @@ extension EditViewModel: EditViewModelProtocol {
                 return
             case .selected:
                 viewModel.state = .disabled
-                ApplicationConfig.shared.enabledCardIdentifiers.removeAll(where: { $0 == viewModel.id })
+                var config = ApplicationConfig.shared.getAvailableApplicationSections()
+                config.removeAll(where: { $0 == viewModel.id })
+                ApplicationConfig.shared.updateAvailableApplicationSections(cards: config)
             case .disabled:
                 viewModel.state = .selected
-                ApplicationConfig.shared.enabledCardIdentifiers.append(viewModel.id)
+                var config = ApplicationConfig.shared.getAvailableApplicationSections()
+                config.append(viewModel.id)
+                ApplicationConfig.shared.updateAvailableApplicationSections(cards: config)
             }
 
             self?.reloadView(with: EnabledSection(items: [.enabled(item)]))

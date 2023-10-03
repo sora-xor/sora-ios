@@ -73,6 +73,7 @@ final class ProductListViewController: SoramitsuViewController {
         searchController.obscuresBackgroundDuringPresentation = false
 
         navigationItem.searchController = searchController
+        navigationItem.hidesSearchBarWhenScrolling = false
 
         navigationItem.title = viewModel.navigationTitle
 

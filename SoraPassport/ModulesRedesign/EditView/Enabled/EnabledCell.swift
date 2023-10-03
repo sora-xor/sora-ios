@@ -135,7 +135,7 @@ extension EnabledCell: SoramitsuTableViewCellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
-        let enabledIds = ApplicationConfig.shared.enabledCardIdentifiers
+        let enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
         
         enabledItem = item
         

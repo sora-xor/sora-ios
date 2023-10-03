@@ -127,12 +127,6 @@ final class AssetManager: AssetManagerProtocol {
         Logger.shared.info("ASSET MANAGER SETUP \(chain?.chainAssets)")
         let chainAssets = chain?.chainAssets.map { $0.asset } ?? []
         self.updateWhitelisted(chainAssets)
-        
-        FiatService.shared.getFiat { [weak self] data in
-            self?.assets?.enumerated().forEach({ (index, asset) in
-                self?.assets?[index].fiatPrice = data.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue ?? .zero
-            })
-        }
     }
 
     func sortedAssets(_ list: [WalletAsset], onlyVisible: Bool = false) -> [WalletAsset] {
