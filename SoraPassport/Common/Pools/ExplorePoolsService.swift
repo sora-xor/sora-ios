@@ -87,7 +87,6 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
             
             let mapOperation = ClosureOperation<Void> { [weak self] in
                 guard let self = self else { return }
-                print("OLOLO mapOperation \(Date())")
                 self.pools = self.pools.sorted(by: { $0.tvl > $1.tvl })
                 continuation.resume(returning: self.pools)
             }
@@ -97,7 +96,6 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                     
                     if let operation = try? polkaswapOperationFactory?.poolReserves(baseAsset: baseAssetId, targetAsset: targetAssetId) {
                         operation.completionBlock = { [weak self] in
-                            print("OLOLO operation completionBlock \(Date())")
                             guard let reserves = try? operation.extractResultData()?.underlyingValue?.reserves else { return }
                             let reservesDecimal = Decimal.fromSubstrateAmount(reserves.value, precision: 18) ?? .zero
                             
@@ -126,7 +124,7 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                 }
             }
 
-            operationManager.enqueue(operations: operations + [mapOperation], in: .blockAfter)
+            operationManager.enqueue(operations: operations + [mapOperation], in: .transient)
         }
     }
 }
