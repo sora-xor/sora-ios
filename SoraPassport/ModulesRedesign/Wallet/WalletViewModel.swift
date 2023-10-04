@@ -164,7 +164,6 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             
             editViewService.viewModels = models
             ApplicationConfig.shared.updateAvailableApplicationSections(cards: enabledIds)
-            ApplicationConfig.shared.accountLoadedPools.insert(self.address)
             
             DispatchQueue.main.async {
                 if let poolsItem = self.walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {

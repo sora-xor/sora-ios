@@ -34,8 +34,8 @@ final class WarningViewModelFactory {
     func insufficientBalanceViewModel(feeAssetSymbol: String, feeAmount: Decimal, isHidden: Bool = true) -> WarningViewModel {
         let feeAmount = NumberFormatter.cryptoAssets.stringFromDecimal(feeAmount) ?? ""
         let title = R.string.localizable.commonTitleWarning(preferredLanguages: .currentLocale)
-        let descriptionText = R.string.localizable.swapConfirmationScreenWarningBalanceAfterwardsTransactionIsTooSmall(feeAssetSymbol,
-                                                                                                                       feeAmount,
+        let descriptionText = R.string.localizable.swapConfirmationScreenWarningBalanceAfterwardsTransactionIsTooSmall(feeAmount + " " + feeAssetSymbol,
+                                                                                                                       "",
                                                                                                                        preferredLanguages: .currentLocale)
         return WarningViewModel(
             title: title,
