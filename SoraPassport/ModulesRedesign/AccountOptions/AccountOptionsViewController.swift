@@ -91,7 +91,7 @@ final class AccountOptionsViewController: SoramitsuViewController {
 
     private lazy var usernameField: InputField = {
         InputField().then {
-            $0.sora.leftImage = R.image.profile.editName()
+            $0.sora.leftImage = R.image.profile.editName()?.tinted(with: SoramitsuUI.shared.theme.palette.color(.fgSecondary))
             $0.sora.state = .default
             $0.sora.titleLabelText = R.string.localizable.personalInfoUsernameV1(preferredLanguages: .currentLocale)
             $0.textField.returnKeyType = .done

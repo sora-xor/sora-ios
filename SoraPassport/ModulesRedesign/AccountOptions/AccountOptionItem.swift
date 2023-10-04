@@ -58,6 +58,7 @@ class AccountOptionItem: SoramitsuView {
 
     let leftImageView: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
+        imageView.sora.tintColor = .fgSecondary
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
