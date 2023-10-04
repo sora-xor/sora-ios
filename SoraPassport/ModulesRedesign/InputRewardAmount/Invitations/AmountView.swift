@@ -37,12 +37,14 @@ final class AmountView: SoramitsuView {
     let plusButton: ImageButton = {
         ImageButton(size: CGSize(width: 24, height: 24)).then {
             $0.sora.image = R.image.roundPlus()
+            $0.sora.tintColor = .fgSecondary
         }
     }()
 
     let minusButton: ImageButton = {
         ImageButton(size: CGSize(width: 24, height: 24)).then {
             $0.sora.image = R.image.roundMinus()
+            $0.sora.tintColor = .fgSecondary
         }
     }()
 

@@ -46,6 +46,7 @@ final class FeeView: SoramitsuView {
     let infoButton: ImageButton = {
         let button = ImageButton(size: CGSize(width: 14, height: 14))
         button.sora.image = R.image.wallet.info()
+        button.sora.tintColor = .fgSecondary
         return button
     }()
     

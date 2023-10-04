@@ -48,7 +48,7 @@ final class FriendsCell: SoramitsuTableViewCell {
         label.sora.text = R.string.localizable.settingsInviteTitle(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.headline2
-        label.numberOfLines = 2
+        label.sora.numberOfLines = 0
         return label
     }()
     
@@ -57,7 +57,7 @@ final class FriendsCell: SoramitsuTableViewCell {
         label.sora.text = R.string.localizable.referralTitle(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.paragraphXS
-        label.numberOfLines = 2
+        label.sora.numberOfLines = 0
         return label
     }()
     
@@ -65,29 +65,31 @@ final class FriendsCell: SoramitsuTableViewCell {
         let imageView = SoramitsuImageView()
         imageView.image = R.image.archerGirl()
         imageView.sora.contentMode = .scaleAspectFill
+        imageView.setContentHuggingPriority(.required, for: .vertical)
         return imageView
     }()
     
     private lazy var startInvitingButton: SoramitsuButton = {
         let title = SoramitsuTextItem(text: R.string.localizable.referralStartInviting(preferredLanguages: .currentLocale) ,
                                       fontData: FontType.textBoldS ,
-                                      textColor: .bgSurface,
+                                      textColor: .custom(uiColor: Colors.white100),
                                       alignment: .center)
-        
+
         let button = SoramitsuButton()
         button.sora.horizontalOffset = 0
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .accentPrimary
         button.sora.attributedText = title
         button.sora.isUserInteractionEnabled = false
+        button.sora.horizontalOffset = 8
         return button
     }()
     
     private lazy var closeButton: ImageButton = {
-        let button = ImageButton(size: CGSize(width: 24, height: 24))
+        let button = ImageButton(size: CGSize(width: 32, height: 32))
         button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .custom(uiColor: .clear)
-        button.sora.image = R.image.roundClose()
+        button.sora.backgroundColor = .bgSurface
+        button.sora.image = R.image.close()
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.friendsItem?.onClose?()
         }
@@ -123,20 +125,20 @@ final class FriendsCell: SoramitsuTableViewCell {
         titleLabel.snp.makeConstraints { make in
             make.top.equalTo(containerView).offset(16)
             make.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(124)
+            make.trailing.equalTo(pictureView.snp.leading).offset(-17)
         }
         
         descriptionLabel.snp.makeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(8)
             make.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(151)
+            make.trailing.equalTo(pictureView.snp.leading).offset(-17)
         }
         
         startInvitingButton.snp.makeConstraints { make in
             make.top.equalTo(descriptionLabel.snp.bottom).offset(12)
             make.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(107)
             make.height.equalTo(32)
+            make.bottom.equalTo(containerView).offset(-16)
         }
         
         pictureView.snp.makeConstraints { make in
