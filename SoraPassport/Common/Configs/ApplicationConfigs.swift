@@ -117,6 +117,7 @@ final class ApplicationConfig {
         static let infoConfigKey = "AppConfigName"
         static let configFilename = "appConfig"
         static let configFileExt = "plist"
+        static let enabledCards = "enabledCardIdentifiers"
     }
 
     private var config: InternalConfig
@@ -377,14 +378,22 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         }
     }
     
-    var enabledCardIdentifiers: [Int] {
-        get {
-            let defaultIdentifiers = Cards.allCases.filter { $0.defaultState != .disabled }.map { $0.id }
-            return UserDefaults.standard.array(forKey: "enabledCardIdentifiers") as? [Int] ?? defaultIdentifiers
+    func getAvailableApplicationSections() -> [Int] {
+        let defaultIdentifiers = Cards.allCases.filter { $0.defaultState != .disabled }.map { $0.id }
+        
+        if let address = SelectedWalletSettings.shared.currentAccount?.address,
+           let allAccountConfig = UserDefaults.standard.object(forKey: Constants.enabledCards) as? [String : [Int]] {
+            return allAccountConfig[address] ?? defaultIdentifiers
         }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "enabledCardIdentifiers")
-        }
+        
+        return defaultIdentifiers
+    }
+    
+    func updateAvailableApplicationSections(cards: [Int]) {
+        let address = SelectedWalletSettings.shared.currentAccount?.address ?? ""
+        var allAccountConfig = UserDefaults.standard.object(forKey: Constants.enabledCards) as? [String : [Int]]
+        allAccountConfig?[address] = cards
+        UserDefaults.standard.set(allAccountConfig, forKey: Constants.enabledCards)
     }
     
     var commonConfigUrl: String {

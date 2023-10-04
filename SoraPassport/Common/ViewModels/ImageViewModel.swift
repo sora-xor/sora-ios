@@ -84,7 +84,7 @@ extension ImageViewModel: ImageViewModelProtocol {
     }
 
     func loadImage(with completionBlock: @escaping (UIImage?, Error?) -> Void) {
-        let imageResource = ImageResource(downloadURL: url)
+        let imageResource = Kingfisher.ImageResource(downloadURL: url)
 
         let options: KingfisherOptionsInfo = [.callbackQueue(.mainCurrentOrAsync),
                                               .cacheSerializer(FormatIndicatedCacheSerializer.png),
@@ -94,7 +94,7 @@ extension ImageViewModel: ImageViewModelProtocol {
 
         imageTask = KingfisherManager.shared.retrieveImage(with: imageResource,
                                                            options: options,
-                                                           progressBlock: nil) { [weak self] result in
+                                                           progressBlock: nil) { result in
             switch result {
             case .success(let value):
                 completionBlock(value.image, nil)

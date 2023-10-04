@@ -83,11 +83,12 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
             let baseAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
             let targetAssetIds: [String] = assetManager?.getAssetList()?.filter { !baseAssetIds.contains($0.assetId) }.map { $0.assetId } ?? []
             var operations: [Operation] = []
-            var pools: [ExplorePool] = []
+            self.pools = []
             
             let mapOperation = ClosureOperation<Void> { [weak self] in
                 guard let self = self else { return }
-                self.pools = pools.sorted(by: { $0.tvl > $1.tvl })
+                print("OLOLO mapOperation \(Date())")
+                self.pools = self.pools.sorted(by: { $0.tvl > $1.tvl })
                 continuation.resume(returning: self.pools)
             }
             
@@ -96,6 +97,7 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                     
                     if let operation = try? polkaswapOperationFactory?.poolReserves(baseAsset: baseAssetId, targetAsset: targetAssetId) {
                         operation.completionBlock = { [weak self] in
+                            print("OLOLO operation completionBlock \(Date())")
                             guard let reserves = try? operation.extractResultData()?.underlyingValue?.reserves else { return }
                             let reservesDecimal = Decimal.fromSubstrateAmount(reserves.value, precision: 18) ?? .zero
                             
@@ -110,7 +112,7 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                                 idData.append(Data(accountId.utf8))
                                 let poolId = String(idData.hashValue)
                                 
-                                pools.append(ExplorePool(id: poolId,
+                                self?.pools.append(ExplorePool(id: poolId,
                                                          baseAssetId: baseAssetId,
                                                          targetAssetId: targetAssetId,
                                                          tvl: priceUsd * reservesDecimal * 2))

@@ -73,17 +73,21 @@ final class PoolsCell: SoramitsuTableViewCell {
         label.sora.textColor = .fgPrimary
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.cornerRadius = .small
+        label.sora.alignment = .right
         return label
     }()
 
+    private let containerView: SoramitsuView = {
+        var view = SoramitsuView()
+        view.sora.backgroundColor = .bgSurface
+        view.sora.cornerRadius = .max
+        return view
+    }()
+    
     private let fullStackView: SoramitsuStackView = {
         var view = SoramitsuStackView()
-        view.sora.backgroundColor = .bgSurface
         view.sora.axis = .vertical
-        view.sora.cornerRadius = .max
         view.sora.distribution = .fill
-        view.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
-        view.isLayoutMarginsRelativeArrangement = true
         return view
     }()
     
@@ -118,7 +122,8 @@ final class PoolsCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupView() {
-        contentView.addSubviews(fullStackView)
+        contentView.addSubview(containerView)
+        containerView.addSubview(fullStackView)
         
         mainInfoView.addSubviews(arrowButton, moneyLabel)
         fullStackView.addArrangedSubviews(mainInfoView)
@@ -140,7 +145,7 @@ final class PoolsCell: SoramitsuTableViewCell {
     }
 
     private func setupConstraints() {
-        heightConstraint = fullStackView.heightAnchor.constraint(equalToConstant: 0)
+        heightConstraint = containerView.heightAnchor.constraint(equalToConstant: 0)
         
         NSLayoutConstraint.activate([
             arrowButton.leadingAnchor.constraint(equalTo: mainInfoView.leadingAnchor),
@@ -153,10 +158,15 @@ final class PoolsCell: SoramitsuTableViewCell {
             moneyLabel.heightAnchor.constraint(equalToConstant: 21),
             moneyLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
 
-            fullStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            fullStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            fullStackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            fullStackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            
+            fullStackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
+            fullStackView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            fullStackView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            fullStackView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
         ])
     }
     

@@ -452,11 +452,3 @@ extension PolkaswapViewController: LiquidityViewProtocol {
         }
     }
 }
-
-extension PolkaswapViewController: UIScrollViewDelegate {
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView.isTracking, scrollView.contentOffset.y < -236 {
-            close()
-        }
-    }
-}
