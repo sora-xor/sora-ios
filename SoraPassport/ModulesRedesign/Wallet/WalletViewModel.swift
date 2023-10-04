@@ -148,7 +148,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                 let self = self
             else { return }
             
-            var enabledIds = ApplicationConfig.shared.enabledCardIdentifiers
+            var enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
             let poolId = Cards.pooledAssets.id
 
             var models = Cards.allCases.map { card in
@@ -163,7 +163,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             }
             
             editViewService.viewModels = models
-            ApplicationConfig.shared.enabledCardIdentifiers = enabledIds
+            ApplicationConfig.shared.updateAvailableApplicationSections(cards: enabledIds)
             ApplicationConfig.shared.accountLoadedPools.insert(self.address)
             
             DispatchQueue.main.async {
@@ -176,18 +176,22 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     }
 
     func closeSC() {
-        ApplicationConfig.shared.enabledCardIdentifiers.removeAll(where: { $0 == Cards.soraCard.id })
+        var config = ApplicationConfig.shared.getAvailableApplicationSections()
+        config.removeAll(where: { $0 == Cards.soraCard.id })
+        ApplicationConfig.shared.updateAvailableApplicationSections(cards: config)
         SCard.shared?.isSCBannerHidden = true
     }
     
     func closeReferralProgram() {
-        ApplicationConfig.shared.enabledCardIdentifiers.removeAll(where: { $0 == Cards.referralProgram.id })
+        var config = ApplicationConfig.shared.getAvailableApplicationSections()
+        config.removeAll(where: { $0 == Cards.referralProgram.id })
+        ApplicationConfig.shared.updateAvailableApplicationSections(cards: config)
         isReferralProgramHidden = true
     }
     
     func updateItems() {
         var items: [SoramitsuTableViewItemProtocol] = []
-        let enabledIds = ApplicationConfig.shared.enabledCardIdentifiers
+        let enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
         
         if let accountItem = walletItems.first(where: { $0 is AccountTableViewItem }) {
             items.append(accountItem)

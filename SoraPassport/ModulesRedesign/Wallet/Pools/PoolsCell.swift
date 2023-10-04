@@ -145,7 +145,7 @@ final class PoolsCell: SoramitsuTableViewCell {
     }
 
     private func setupConstraints() {
-        heightConstraint = fullStackView.heightAnchor.constraint(equalToConstant: 0)
+        heightConstraint = containerView.heightAnchor.constraint(equalToConstant: 0)
         
         NSLayoutConstraint.activate([
             arrowButton.leadingAnchor.constraint(equalTo: mainInfoView.leadingAnchor),

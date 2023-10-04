@@ -97,6 +97,10 @@ post_install do |installer|
         config.build_settings["DEVELOPMENT_TEAM"] = "YLWWUD25VZ"
         config.build_settings['CODE_SIGN_STYLE'] = "Manual"
         config.build_settings['CODE_SIGN_IDENTITY'] = "iPhone Developer"
+        xcconfig_path = config.base_configuration_reference.real_path
+        xcconfig = File.read(xcconfig_path)
+        xcconfig_mod = xcconfig.gsub(/DT_TOOLCHAIN_DIR/, "TOOLCHAIN_DIR")
+        File.open(xcconfig_path, "w") { |file| file << xcconfig_mod }
     end
   end
 end
