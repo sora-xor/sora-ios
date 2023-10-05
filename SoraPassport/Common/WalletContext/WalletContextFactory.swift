@@ -37,7 +37,9 @@ import RobinHood
 import FearlessUtils
 
 protocol WalletContextFactoryProtocol: AnyObject {
-    func createContext(connection: JSONRPCEngine) throws -> CommonWalletContextProtocol
+    func createContext(connection: JSONRPCEngine,
+                       assetManager: AssetManagerProtocol,
+                       accountSettings: WalletAccountSettingsProtocol) throws -> CommonWalletContextProtocol
 }
 
 enum WalletContextFactoryError: Error {
@@ -84,15 +86,13 @@ final class WalletContextFactory {
 extension WalletContextFactory: WalletContextFactoryProtocol {
     //swiftlint:disable:next function_body_length
 
-    func createContext(connection: JSONRPCEngine) throws -> CommonWalletContextProtocol {
+    func createContext(connection: JSONRPCEngine,
+                       assetManager: AssetManagerProtocol,
+                       accountSettings: WalletAccountSettingsProtocol) throws -> CommonWalletContextProtocol {
 
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             throw WalletContextFactoryError.missingAccount
         }
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        assetManager.setup(for: SelectedWalletSettings.shared)
-        
-        let accountSettings = try primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager)
 
         logger.debug("Loading wallet account: \(selectedAccount.address)")
 

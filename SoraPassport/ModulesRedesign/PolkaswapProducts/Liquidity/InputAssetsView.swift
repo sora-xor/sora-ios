@@ -48,7 +48,7 @@ final class InputAssetsView: SoramitsuView {
     
     public let middleButton: ImageButton = {
         let view = ImageButton(size: CGSize(width: 24, height: 24))
-        view.sora.backgroundColor = .bgSurface
+        view.sora.backgroundColor = .custom(uiColor: Colors.white100)
         view.sora.cornerRadius = .circle
         return view
     }()

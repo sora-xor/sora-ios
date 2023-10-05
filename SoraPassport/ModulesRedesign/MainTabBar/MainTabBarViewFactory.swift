@@ -53,15 +53,29 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let view = MainTabBarViewController()
         view.localizationManager = LocalizationManager.shared
         
+        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
+        assetManager.setup(for: SelectedWalletSettings.shared)
+        
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
             return nil
         }
-        
-        guard let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
+
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
             return nil
         }
         
-        guard let viewControllers = redesignedViewControllers(for: view, walletContext: walletContext) else {
+        guard let walletContext = try? WalletContextFactory().createContext(connection: connection, 
+                                                                            assetManager: assetManager,
+                                                                            accountSettings: accountSettings) else {
+            return nil
+        }
+        
+        guard let viewControllers = redesignedViewControllers(for: view,
+                                                              walletContext: walletContext,
+                                                              assetManager: assetManager,
+                                                              accountSettings: accountSettings) else {
             return nil
         }
         
@@ -86,35 +100,35 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         assetManager.setup(for: SelectedWalletSettings.shared)
         
-        guard
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-            let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
-            return
-        }
-        
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
         
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
+        guard
+            let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+            let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager),
+            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+            let walletContext = try? WalletContextFactory().createContext(connection: connection,
+                                                                          assetManager: assetManager,
+                                                                          accountSettings: accountSettings) else {
             return
         }
         
+        let assetInfos = assetManager.getAssetList() ?? []
         let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
                                                      cacheFacade: CoreDataCacheFacade.shared,
                                                      networkOperationFactory: walletContext.networkOperationFactory,
                                                      identifierFactory: SingleProviderIdentifierFactory())
         
-        let assetsProvider = AssetProvider(assetManager: assetManager, providerFactory: providerFactory)
+        let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
         
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
                                             fiatService: FiatService.shared)
         
         let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
-                                            fiatService: FiatService.shared,
-                                            assetViewModelsFactory: assetViewModelsFactory,
-                                            assetManager: assetManager,
-                                            assetProvider: assetsProvider)
+                                                       fiatService: FiatService.shared,
+                                                       assetViewModelsFactory: assetViewModelsFactory,
+                                                       assetInfos: assetInfos,
+                                                       assetProvider: assetsProvider)
         assetsProvider.add(observer: assetsViewModelService)
         
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
@@ -124,7 +138,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                               polkaswapNetworkFacade: polkaswapContext,
                                               config: ApplicationConfig.shared)
         
-        let poolViewModelsfactory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+        let poolViewModelsfactory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
                                            fiatService: FiatService.shared)
         
@@ -144,6 +158,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                     poolsViewModelService: poolsViewModelService,
                                                                     assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
+                                                                    accountSettings: accountSettings,
                                                                     localizationManager: localizationManager) else {
             return
         }
@@ -202,32 +217,28 @@ extension MainTabBarViewFactory {
 
 extension MainTabBarViewFactory {
     private static func redesignedViewControllers(for view: MainTabBarViewController,
-                                                  walletContext: CommonWalletContextProtocol) -> [UIViewController]? {
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
-        
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
-            return nil
-        }
+                                                  walletContext: CommonWalletContextProtocol,
+                                                  assetManager: AssetManagerProtocol,
+                                                  accountSettings: WalletAccountSettingsProtocol) -> [UIViewController]? {
         
         let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
                                                      cacheFacade: CoreDataCacheFacade.shared,
                                                      networkOperationFactory: walletContext.networkOperationFactory,
                                                      identifierFactory: SingleProviderIdentifierFactory())
         
-        let assetsProvider = AssetProvider(assetManager: assetManager, providerFactory: providerFactory)
         
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+        let assetInfos = assetManager.getAssetList() ?? []
+        let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
+        
+        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
                                             fiatService: FiatService.shared)
         
         let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
-                                            fiatService: FiatService.shared,
-                                            assetViewModelsFactory: assetViewModelsFactory,
-                                            assetManager: assetManager,
-                                            assetProvider: assetsProvider)
+                                                       fiatService: FiatService.shared,
+                                                       assetViewModelsFactory: assetViewModelsFactory,
+                                                       assetInfos: assetInfos,
+                                                       assetProvider: assetsProvider)
         assetsProvider.add(observer: assetsViewModelService)
         
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
@@ -240,7 +251,7 @@ extension MainTabBarViewFactory {
                                               polkaswapNetworkFacade: polkaswapContext,
                                               config: ApplicationConfig.shared)
         
-        let factory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+        let factory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
                                            fiatService: FiatService.shared)
         
@@ -259,15 +270,18 @@ extension MainTabBarViewFactory {
                                                                     assetsProvider: assetsProvider,
                                                                     poolsViewModelService: poolsViewModelService,
                                                                     assetsViewModelService: assetsViewModelService,
-                                                                    editViewService: editViewService) else {
+                                                                    editViewService: editViewService,
+                                                                    accountSettings: accountSettings) else {
             return nil
         }
         
-        guard let settingsController = createMoreMenuController(walletContext: walletContext, assetsProvider: assetsProvider) else {
+        guard let settingsController = createMoreMenuController(walletContext: walletContext,
+                                                                assetsProvider: assetsProvider,
+                                                                accountSettings: accountSettings) else {
             return nil
         }
         
-        guard let activityController = createActivityController(with: assetManager) else {
+        guard let activityController = createActivityController(with: assetManager, assetInfos: assetInfos) else {
             return nil
         }
         
@@ -276,7 +290,9 @@ extension MainTabBarViewFactory {
                                                             networkFacade: walletContext.networkOperationFactory,
                                                             polkaswapNetworkFacade: polkaswapContext,
                                                             poolsService: poolsService,
-                                                            assetsProvider: assetsProvider) else {
+                                                            accountSettings: accountSettings,
+                                                            assetsProvider: assetsProvider, 
+                                                            walletAssets: assetInfos) else {
             return nil
         }
         
@@ -310,17 +326,14 @@ extension MainTabBarViewFactory {
                                                poolsViewModelService: PoolsItemService,
                                                assetsViewModelService: AssetsItemService,
                                                editViewService: EditViewServiceProtocol,
+                                               accountSettings: WalletAccountSettingsProtocol,
                                                localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) -> UIViewController? {
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
-              let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
+              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
             return nil
         }
         
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
-        
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             return nil
         }
         
@@ -387,15 +400,13 @@ extension MainTabBarViewFactory {
     static func createMoreMenuController(
         for localizationManager: LocalizationManagerProtocol = LocalizationManager.shared,
         walletContext: CommonWalletContextProtocol,
-        assetsProvider: AssetProviderProtocol
+        assetsProvider: AssetProviderProtocol,
+        accountSettings: WalletAccountSettingsProtocol
     ) -> UIViewController? {
         
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         
-        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager)
-        else {
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             return nil
         }
         
@@ -443,8 +454,9 @@ extension MainTabBarViewFactory {
     
     static func createActivityController(
         with assetManager: AssetManagerProtocol,
+        assetInfos: [AssetInfo],
         localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) -> UIViewController? {
-            guard let view = ActivityViewFactory.createView(assetManager: assetManager) else {
+            guard let view = ActivityViewFactory.createView(assetManager: assetManager, aseetList: assetInfos) else {
                 return nil
             }
             
@@ -476,12 +488,12 @@ extension MainTabBarViewFactory {
                                        networkFacade: WalletNetworkOperationFactoryProtocol?,
                                        polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
                                        poolsService: PoolsServiceInputProtocol,
-                                       assetsProvider: AssetProviderProtocol) -> UINavigationController? {
+                                       accountSettings: WalletAccountSettingsProtocol,
+                                       assetsProvider: AssetProviderProtocol,
+                                       walletAssets: [AssetInfo]) -> UINavigationController? {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
-              let accountSettings = try? WalletPrimitiveFactory(keystore: Keychain()).createAccountSettings(for: selectedAccount,
-                                                                                                            assetManager: assetManager) else {
+              let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
             return nil
         }
         
@@ -495,13 +507,13 @@ extension MainTabBarViewFactory {
         let assetViewModelsService = ExploreAssetViewModelService(marketCapService: marketCapService,
                                                                   fiatService: fiatService,
                                                                   itemFactory: itemFactory,
-                                                                  assetManager: assetManager)
+                                                                  assetInfos: walletAssets)
         
-        let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+        let factory = AssetViewModelFactory(walletAssets: walletAssets,
                                             assetManager: assetManager,
                                             fiatService: fiatService)
         
-        let explorePoolsService = ExplorePoolsService(assetManager: assetManager,
+        let explorePoolsService = ExplorePoolsService(assetInfos: walletAssets,
                                                       fiatService: fiatService,
                                                       polkaswapOperationFactory: polkaswapNetworkFacade,
                                                       networkFacade: networkFacade)
@@ -510,7 +522,7 @@ extension MainTabBarViewFactory {
                                                                 poolsService: explorePoolsService,
                                                                 apyService: APYService.shared)
         
-        let poolFactory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+        let poolFactory = PoolViewModelFactory(walletAssets: walletAssets,
                                                assetManager: assetManager,
                                                fiatService: fiatService)
         

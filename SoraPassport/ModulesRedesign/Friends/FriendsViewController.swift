@@ -102,7 +102,7 @@ final class FriendsViewController: UIViewController {
     private lazy var startInvitingButton: SoramitsuButton = {
         let title = SoramitsuTextItem(text: R.string.localizable.referralStartInviting(preferredLanguages: .currentLocale) ,
                                       fontData: FontType.buttonM ,
-                                      textColor: .bgSurface,
+                                      textColor: .custom(uiColor: Colors.white100),
                                       alignment: .center)
         
         let button = SoramitsuButton()

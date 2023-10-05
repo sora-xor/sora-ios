@@ -78,6 +78,7 @@ final class AccountPoolsService {
     private let poolRepository: AnyDataProviderRepository<PoolInfo>
     private var currentPools: [PoolInfo] = []
     private var polkaswapOperationFactory: PolkaswapNetworkOperationFactoryProtocol
+    private var task: Task<Void, Swift.Error>?
     
     var currentOrder: [String] {
         get {
@@ -244,7 +245,8 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
     }
     
     func loadAccountPools(isNeedForceUpdate: Bool) {
-        Task {
+        task?.cancel()
+        task = Task {
             if !currentPools.isEmpty && !isNeedForceUpdate {
                 let sortedPools = currentPools.sorted(by: orderSort)
                 outputs.forEach {

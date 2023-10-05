@@ -55,6 +55,7 @@ final class AssetManager: AssetManagerProtocol {
     private let chainId: ChainModel.Id
     private var chain: ChainModel?
     private var settings: AccountSettings?
+    private let queue = DispatchQueue(label: "co.jp.soramitsu.sora.asset.manager", attributes: .concurrent)
     private var accountSettings: SelectedWalletSettings? {
         didSet {
             settings = accountSettings?.value?.settings ?? AccountSettings()

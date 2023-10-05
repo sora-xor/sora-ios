@@ -55,11 +55,13 @@ final class AccountMenuItemView: SoramitsuView {
         }
     }()
 
-    private var moreButton: UIButton = {
-        UIButton() .then {
-            $0.setImage(R.image.iconMenuInfo(), for: .normal)
-            $0.addTarget(self, action: #selector(onMoreTap), for: .touchUpInside)
-            $0.translatesAutoresizingMaskIntoConstraints = false
+    private lazy var moreButton: ImageButton = {
+        ImageButton(size: CGSize(width: 44, height: 44)).then {
+            $0.sora.image = R.image.iconMenuInfo()
+            $0.sora.tintColor = .accentTertiary
+            $0.sora.addHandler(for: .touchUpInside) { [weak self] in
+                self?.onMoreTap()
+            }
             $0.contentEdgeInsets = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
         }
     }()

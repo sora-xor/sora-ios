@@ -54,8 +54,8 @@ final class AssetProvider {
     private var observers: [AssetProviderObserver] = []
     private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.balance.provider")
     
-    init(assetManager: AssetManagerProtocol, providerFactory: BalanceProviderFactory) {
-        balanceProvider = try? providerFactory.createBalanceDataProvider(for: assetManager.getAssetList() ?? [], onlyVisible: false)
+    init(assetInfos: [AssetInfo], providerFactory: BalanceProviderFactory) {
+        balanceProvider = try? providerFactory.createBalanceDataProvider(for: assetInfos, onlyVisible: false)
         setupBalanceDataProvider()
         EventCenter.shared.add(observer: self)
     }

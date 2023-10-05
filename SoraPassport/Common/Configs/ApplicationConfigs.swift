@@ -111,7 +111,6 @@ final class ApplicationConfig {
     static let shared: ApplicationConfig! = ApplicationConfig()
 
     static var logger: LoggerProtocol = Logger.shared
-    var accountLoadedPools: Set<String> = []
 
     private struct Constants {
         static let infoConfigKey = "AppConfigName"
@@ -391,8 +390,8 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     
     func updateAvailableApplicationSections(cards: [Int]) {
         let address = SelectedWalletSettings.shared.currentAccount?.address ?? ""
-        var allAccountConfig = UserDefaults.standard.object(forKey: Constants.enabledCards) as? [String : [Int]]
-        allAccountConfig?[address] = cards
+        var allAccountConfig = (UserDefaults.standard.object(forKey: Constants.enabledCards) as? [String : [Int]]) ?? [:]
+        allAccountConfig[address] = cards
         UserDefaults.standard.set(allAccountConfig, forKey: Constants.enabledCards)
     }
     
