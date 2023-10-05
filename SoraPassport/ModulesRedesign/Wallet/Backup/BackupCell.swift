@@ -45,7 +45,7 @@ final class BackupCell: SoramitsuTableViewCell {
 
     private lazy var titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.text = R.string.localizable.settingsInviteTitle(preferredLanguages: .currentLocale)
+        label.sora.text = R.string.localizable.walletBackup(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.headline2
         label.numberOfLines = 0
@@ -54,7 +54,7 @@ final class BackupCell: SoramitsuTableViewCell {
 
     private lazy var descriptionLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
-        label.sora.text = R.string.localizable.referralTitle(preferredLanguages: .currentLocale)
+        label.sora.text = R.string.localizable.protectLossAccessFunds(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.paragraphXS
         label.numberOfLines = 0
@@ -70,7 +70,7 @@ final class BackupCell: SoramitsuTableViewCell {
     }()
     
     private lazy var backupButton: SoramitsuButton = {
-        let title = SoramitsuTextItem(text: R.string.localizable.commonBackup(preferredLanguages: .currentLocale) ,
+        let title = SoramitsuTextItem(text: R.string.localizable.backupNow(preferredLanguages: .currentLocale),
                                       fontData: FontType.textBoldS ,
                                       textColor: .custom(uiColor: Colors.white100),
                                       alignment: .center)
