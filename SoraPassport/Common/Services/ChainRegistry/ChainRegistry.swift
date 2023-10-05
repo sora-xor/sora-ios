@@ -40,6 +40,7 @@ protocol ChainRegistryProtocol: AnyObject {
     func getAssetManager(for chainId: ChainModel.Id) -> AssetManagerProtocol
     func getChain(for chainId: ChainModel.Id) -> ChainModel?
     func getActiveNode(for chainId: ChainModel.Id) -> ChainNodeModel? 
+    func subscribeToChians()
 
     func chainsSubscribe(
         _ target: AnyObject,
@@ -158,6 +159,30 @@ final class ChainRegistry {
                 logger?.error("Unexpected error on handling chains update: \(error)")
             }
         }
+    }
+    
+    func subscribeToChians() {
+        let updateClosure: ([DataProviderChange<ChainModel>]) -> Void = { [weak self] changes in
+            self?.handle(changes: changes)
+        }
+
+        let failureClosure: (Error) -> Void = { [weak self] error in
+            self?.logger?.error("Unexpected error chains listener setup: \(error)")
+        }
+
+        let options = StreamableProviderObserverOptions(
+            alwaysNotifyOnRefresh: false,
+            waitsInProgressSyncOnAdd: false,
+            refreshWhenEmpty: false
+        )
+
+        chainProvider.addObserver(
+            self,
+            deliverOn: DispatchQueue.global(qos: .userInitiated),
+            executing: updateClosure,
+            failing: failureClosure,
+            options: options
+        )
     }
 
     private func setupAssetManager(for chain: ChainModel) {

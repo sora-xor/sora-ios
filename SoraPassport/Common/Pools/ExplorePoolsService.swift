@@ -35,7 +35,7 @@ import sorawallet
 import IrohaCrypto
 
 protocol ExplorePoolsServiceInputProtocol: AnyObject {
-    func getPools() async throws -> [ExplorePool]
+    func getPools(with fiatData: [FiatData]) async throws -> [ExplorePool]
 }
 
 protocol ExplorePoolsServiceOutput: AnyObject {
@@ -53,18 +53,19 @@ final class ExplorePoolsService {
     
     private let operationManager: OperationManagerProtocol = OperationManager()
     private weak var polkaswapOperationFactory: PolkaswapNetworkOperationFactoryProtocol?
-    private weak var assetManager: AssetManagerProtocol?
     private weak var fiatService: FiatServiceProtocol?
     private var networkFacade: WalletNetworkOperationFactoryProtocol?
     private var pools: [ExplorePool] = []
+    private let assetInfos: [AssetInfo]
+    private var task: Task<Void, Swift.Error>?
     
     init(
-        assetManager: AssetManagerProtocol,
+        assetInfos: [AssetInfo],
         fiatService: FiatServiceProtocol?,
         polkaswapOperationFactory: PolkaswapNetworkOperationFactoryProtocol?,
         networkFacade: WalletNetworkOperationFactoryProtocol?
     ) {
-        self.assetManager = assetManager
+        self.assetInfos = assetInfos
         self.fiatService = fiatService
         self.polkaswapOperationFactory = polkaswapOperationFactory
         self.networkFacade = networkFacade
@@ -73,58 +74,74 @@ final class ExplorePoolsService {
 
 extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
     
-    func getPools() async throws -> [ExplorePool] {
-        return try await withCheckedThrowingContinuation { continuation in
-            if !pools.isEmpty {
-                continuation.resume(returning: pools)
+    func getPools(with fiatData: [FiatData]) async throws -> [ExplorePool] {
+        return await withCheckedContinuation { [weak self] continuation in
+            guard let self else {
+                continuation.resume(returning: [])
                 return
             }
-                
-            let baseAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
-            let targetAssetIds: [String] = assetManager?.getAssetList()?.filter { !baseAssetIds.contains($0.assetId) }.map { $0.assetId } ?? []
-            var operations: [Operation] = []
-            self.pools = []
-            
-            let mapOperation = ClosureOperation<Void> { [weak self] in
-                guard let self = self else { return }
-                self.pools = self.pools.sorted(by: { $0.tvl > $1.tvl })
-                continuation.resume(returning: self.pools)
-            }
-            
-            for baseAssetId in baseAssetIds {
-                for targetAssetId in targetAssetIds {
-                    
-                    if let operation = try? polkaswapOperationFactory?.poolReserves(baseAsset: baseAssetId, targetAsset: targetAssetId) {
-                        operation.completionBlock = { [weak self] in
-                            guard let reserves = try? operation.extractResultData()?.underlyingValue?.reserves else { return }
-                            let reservesDecimal = Decimal.fromSubstrateAmount(reserves.value, precision: 18) ?? .zero
-                            
-                            self?.fiatService?.getFiat(completion: { fiatData in
-                                let priceUsd = fiatData.first(where: { $0.id == baseAssetId })?.priceUsd?.decimalValue ?? .zero
-                                
-                                let accountId = (self?.networkFacade as? WalletNetworkFacade)?.accountSettings.accountId ?? ""
-                                
-                                let idData = NSMutableData()
-                                idData.append(Data(baseAssetId.utf8))
-                                idData.append(Data(targetAssetId.utf8))
-                                idData.append(Data(accountId.utf8))
-                                let poolId = String(idData.hashValue)
-                                
-                                self?.pools.append(ExplorePool(id: poolId,
-                                                         baseAssetId: baseAssetId,
-                                                         targetAssetId: targetAssetId,
-                                                         tvl: priceUsd * reservesDecimal * 2))
-                            })
-                        }
 
-                        mapOperation.addDependency(operation)
-                        operations.append(operation)
-                    }
-                    
+            self.task?.cancel()
+            self.task = Task {
+                if !self.pools.isEmpty {
+                    continuation.resume(returning: self.pools)
+                    return
                 }
-            }
+                
+                let baseAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
+                let targetAssetIds: [String] = self.assetInfos.filter { !baseAssetIds.contains($0.assetId) }.map { $0.assetId }
 
-            operationManager.enqueue(operations: operations + [mapOperation], in: .transient)
+                async let explorePools = self.collectPools(baseAssetIds: baseAssetIds, targetAssetIds: targetAssetIds).concurrentMap({ poolTuple in
+                    return await self.createExplorePool(poolTuple: poolTuple, fiatData: fiatData)
+                }).sorted(by: { $0.tvl > $1.tvl })
+                
+                let pools = (try? await explorePools) ?? []
+                self.pools = pools
+                continuation.resume(returning: pools)
+            }
+        }
+    }
+    
+    private func collectPools(baseAssetIds: [String], targetAssetIds: [String]) -> [(baseAssetId: String, targetAssetId: String)] {
+        var poolTuples: [(baseAssetId: String, targetAssetId: String)] = []
+        
+        for baseAssetId in baseAssetIds {
+            for targetAssetId in targetAssetIds {
+                poolTuples.append((baseAssetId, targetAssetId))
+            }
+        }
+        return poolTuples
+    }
+    
+    private func createExplorePool(poolTuple: (baseAssetId: String, targetAssetId: String), fiatData: [FiatData]) async -> ExplorePool? {
+        return await withCheckedContinuation { continuation in
+            let operation = try? polkaswapOperationFactory?.poolReserves(baseAsset: poolTuple.baseAssetId, targetAsset: poolTuple.targetAssetId)
+            operation?.completionBlock = { [weak self] in
+                
+                guard let reserves = try? operation?.extractResultData()?.underlyingValue?.reserves else { 
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let reservesDecimal = Decimal.fromSubstrateAmount(reserves.value, precision: 18) ?? .zero
+                
+                let priceUsd = fiatData.first(where: { $0.id == poolTuple.baseAssetId })?.priceUsd?.decimalValue ?? .zero
+                
+                let accountId = (self?.networkFacade as? WalletNetworkFacade)?.accountSettings.accountId ?? ""
+                
+                let idData = NSMutableData()
+                idData.append(Data(poolTuple.baseAssetId.utf8))
+                idData.append(Data(poolTuple.targetAssetId.utf8))
+                idData.append(Data(accountId.utf8))
+                let poolId = String(idData.hashValue)
+                
+                continuation.resume(returning: ExplorePool(id: poolId,
+                                                           baseAssetId: poolTuple.baseAssetId,
+                                                           targetAssetId: poolTuple.targetAssetId,
+                                                           tvl: priceUsd * reservesDecimal * 2))
+            }
+            if let operation {
+                operationManager.enqueue(operations: [operation], in: .transient)
+            }
         }
     }
 }

@@ -40,7 +40,6 @@ final class FriendsViewFactory: FriendsViewFactoryProtocol {
         let keychain = Keychain()
 
         let chainId = Chain.sora.genesisHash()
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: chainId)
         guard let engine = ChainRegistryFacade.sharedRegistry.getConnection(for: chainId),
               let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: chainId),
               let selectedAccount = SelectedWalletSettings.shared.currentAccount,

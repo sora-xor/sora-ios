@@ -112,36 +112,37 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     }
     
     func recreateWalletViewController(on view: MainTabBarViewProtocol?) {
-        guard
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-            let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
-            return
-        }
-        
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        
+        assetManager.setup(for: SelectedWalletSettings.shared)
+
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
         
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
+        guard
+            let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+            let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager),
+            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+            let walletContext = try? WalletContextFactory().createContext(connection: connection,
+                                                                          assetManager: assetManager,
+                                                                          accountSettings: accountSettings) else {
             return
         }
-        
+
+        let assetInfos = assetManager.getAssetList() ?? []
         let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
                                                      cacheFacade: CoreDataCacheFacade.shared,
                                                      networkOperationFactory: walletContext.networkOperationFactory,
                                                      identifierFactory: SingleProviderIdentifierFactory())
         
-        let assetsProvider = AssetProvider(assetManager: assetManager, providerFactory: providerFactory)
+        let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
         
-        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
                                             fiatService: FiatService.shared)
         
         let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
                                             fiatService: FiatService.shared,
                                             assetViewModelsFactory: assetViewModelsFactory,
-                                            assetManager: assetManager,
+                                            assetInfos: assetInfos,
                                             assetProvider: assetsProvider)
         assetsProvider.add(observer: assetsViewModelService)
         
@@ -152,7 +153,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                        polkaswapNetworkFacade: polkaswapContext,
                                        config: ApplicationConfig.shared)
         
-        let factory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+        let factory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
                                            fiatService: FiatService.shared)
         
@@ -171,7 +172,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                                                                           assetsProvider: assetsProvider,
                                                                                           poolsViewModelService: poolsViewModelService,
                                                                                           assetsViewModelService: assetsViewModelService,
-                                                                                          editViewService: editViewService,
+                                                                                          editViewService: editViewService, 
+                                                                                          accountSettings: accountSettings,
                                                                                           localizationManager: LocalizationManager.shared)
 
         let investController = MainTabBarViewFactory.createInvestController(walletContext: walletContext,
@@ -179,7 +181,9 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                                                             networkFacade: walletContext.networkOperationFactory,
                                                                             polkaswapNetworkFacade: polkaswapContext,
                                                                             poolsService: poolsService,
-                                                                            assetsProvider: assetsProvider)
+                                                                            accountSettings: accountSettings,
+                                                                            assetsProvider: assetsProvider,
+                                                                            walletAssets: assetInfos)
 
         guard let tabBarController = view as? UITabBarController else {
             return
@@ -198,7 +202,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         }
         
         if var viewcontrollers = tabBarController.viewControllers {
-            guard let activityController = MainTabBarViewFactory.createActivityController(with: assetManager) else { return }
+            guard let activityController = MainTabBarViewFactory.createActivityController(with: assetManager,
+                                                                                          assetInfos: assetInfos) else { return }
             
             viewcontrollers.remove(at: 3)
             viewcontrollers.insert(activityController, at: 3)

@@ -32,13 +32,12 @@ import Foundation
 import SoraFoundation
 
 protocol ActivityViewFactoryProtocol: AnyObject {
-    static func createView(assetManager: AssetManagerProtocol) -> ActivityViewController?
+    static func createView(assetManager: AssetManagerProtocol, aseetList: [AssetInfo]) -> ActivityViewController?
 }
 
 final class ActivityViewFactory: ActivityViewFactoryProtocol {
-    static func createView(assetManager: AssetManagerProtocol) -> ActivityViewController? {
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let aseetList = assetManager.getAssetList() else { return nil }
+    static func createView(assetManager: AssetManagerProtocol, aseetList: [AssetInfo]) -> ActivityViewController? {
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else { return nil }
 
         let localizationManager = LocalizationManager.shared
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,

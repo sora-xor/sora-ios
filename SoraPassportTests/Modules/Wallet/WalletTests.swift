@@ -15,15 +15,4 @@ class WalletTests: XCTestCase {
         try? keystore.deleteAll(for: "")
         settings.removeAll()
     }
-
-//    func testViewFactory() {
-//        settings.decentralizedId = Constants.dummyDid
-//        settings.publicKeyId = Constants.dummyPubKeyId
-//
-////        _ = createIdentity(with: keystore)
-//
-//        let walletContext = try? WalletContextFactory().createContext()
-//        XCTAssertNotNil(walletContext)
-//        XCTAssertNoThrow(try walletContext?.createRootController())
-//    }
 }

@@ -31,6 +31,7 @@
 import Foundation
 import RobinHood
 import FearlessUtils
+import SSFUtils
 
 protocol RuntimeProviderProtocol: AnyObject, RuntimeCodingServiceProtocol {
     var chainId: ChainModel.Id { get }
@@ -63,7 +64,7 @@ final class RuntimeProvider {
     private let snapshotHotOperationFactory: RuntimeHotBootSnapshotFactoryProtocol?
     private let eventCenter: EventCenterProtocol
     private let operationQueue: OperationQueue
-    private let dataHasher: StorageHasher
+    private let dataHasher: FearlessUtils.StorageHasher
     private let logger: LoggerProtocol?
     private let repository: AnyDataProviderRepository<RuntimeMetadataItem>
 
@@ -82,7 +83,7 @@ final class RuntimeProvider {
         snapshotHotOperationFactory: RuntimeHotBootSnapshotFactoryProtocol?,
         eventCenter: EventCenterProtocol,
         operationQueue: OperationQueue,
-        dataHasher: StorageHasher = .twox256,
+        dataHasher: FearlessUtils.StorageHasher = .twox256,
         logger: LoggerProtocol? = nil,
         repository: AnyDataProviderRepository<RuntimeMetadataItem>
     ) {
@@ -100,7 +101,7 @@ final class RuntimeProvider {
         eventCenter.add(observer: self, dispatchIn: DispatchQueue.global())
     }
 
-    private func buildSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: StorageHasher) {
+    private func buildSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: FearlessUtils.StorageHasher) {
         guard commonTypesFetched, chainTypesFetched, chainMetadataFetched else {
             return
         }
@@ -121,7 +122,7 @@ final class RuntimeProvider {
         operationQueue.addOperations(wrapper.allOperations, waitUntilFinished: false)
     }
 
-    private func buildHotSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: StorageHasher) {
+    private func buildHotSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: FearlessUtils.StorageHasher) {
         let wrapper = snapshotHotOperationFactory?.createRuntimeSnapshotWrapper(
             for: typesUsage,
             dataHasher: dataHasher
@@ -282,29 +283,17 @@ final class RuntimeProvider {
         with _: TimeInterval,
         closure _: RuntimeMetadataClosure?
     ) -> BaseOperation<RuntimeCoderFactoryProtocol> {
-        ClosureOperation { [weak self] in
-            guard let self = self else {
-                throw RuntimeProviderError.providerUnavailable
+        AwaitOperation { [weak self] in
+            try await withCheckedThrowingContinuation { continuation in
+                self?.fetchCoderFactory(runCompletionIn: nil) { factory in
+                    guard let factory = factory else {
+                        continuation.resume(with: .failure(RuntimeProviderError.providerUnavailable))
+                        return
+                    }
+
+                    continuation.resume(with: .success(factory))
+                }
             }
-
-            let queue = DispatchQueue(label: "jp.co.soramitsu.fearless.fetchCoder.\(self.chainId)", qos: .utility)
-
-            var fetchedFactory: RuntimeCoderFactoryProtocol?
-
-            let semaphore = DispatchSemaphore(value: 0)
-
-            self.fetchCoderFactory(runCompletionIn: queue) { factory in
-                fetchedFactory = factory
-                semaphore.signal()
-            }
-
-            semaphore.wait()
-
-            guard let factory = fetchedFactory else {
-                throw RuntimeProviderError.providerUnavailable
-            }
-
-            return factory
         }
     }
 }

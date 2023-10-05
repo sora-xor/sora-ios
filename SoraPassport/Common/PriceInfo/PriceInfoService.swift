@@ -49,6 +49,7 @@ final class PriceInfoService {
     var priceInfo: PriceInfo?
     private let fiatService = FiatService.shared
     private let marketCapService = MarketCapService.shared
+    private var task: Task<Void, Swift.Error>?
     
     private func downloadInfo(for assetIds: [String]) async -> PriceInfo {
         async let fiatData = self.fiatService.getFiat()
@@ -61,8 +62,9 @@ final class PriceInfoService {
 extension PriceInfoService: PriceInfoServiceProtocol {
     
     func setup(for assetIds: [String]) {
-        Task {
-            priceInfo = await downloadInfo(for: assetIds)
+        task?.cancel()
+        task = Task { [weak self] in
+            self?.priceInfo = await self?.downloadInfo(for: assetIds)
         }
     }
     

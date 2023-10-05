@@ -55,7 +55,8 @@ final class ExplorePoolViewModelService {
     
     func setup() {
         Task {
-            let pools = (try? await poolsService.getPools()) ?? []
+            let fiatData = await FiatService.shared.getFiat()
+            let pools = (try? await poolsService.getPools(with: fiatData)) ?? []
             
             viewModels = pools.enumerated().compactMap { (index, pool) in
                 return itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1))
