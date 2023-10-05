@@ -91,13 +91,12 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
 
     func showActivity(on controller: UIViewController, assetId: String, assetManager: AssetManagerProtocol) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else { return }
-        
+        let assets = assetManager.getAssetList() ?? []
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
                                             address: selectedAccount.address,
-                                            assets: assetManager.getAssetList() ?? [])
+                                            assets: assets)
         
-        let viewModelFactory = ActivityViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
-                                                                  assetManager: assetManager)
+        let viewModelFactory = ActivityViewModelFactory(walletAssets: assets, assetManager: assetManager)
         let viewModel = ActivityViewModel(historyService: historyService,
                                           viewModelFactory: viewModelFactory,
                                           wireframe: ActivityWireframe(),

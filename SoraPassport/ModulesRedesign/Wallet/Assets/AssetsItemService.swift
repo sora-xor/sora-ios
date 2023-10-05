@@ -35,7 +35,7 @@ import CommonWallet
 
 final class AssetsItemService {
     let assetProvider: AssetProviderProtocol
-    let assetManager: AssetManagerProtocol
+    let assetInfos: [AssetInfo]
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let assetViewModelsFactory: AssetViewModelFactory
@@ -55,18 +55,18 @@ final class AssetsItemService {
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
         assetViewModelsFactory: AssetViewModelFactory,
-        assetManager: AssetManagerProtocol,
+        assetInfos: [AssetInfo],
         assetProvider: AssetProviderProtocol
     ) {
         self.assetProvider = assetProvider
         self.marketCapService = marketCapService
         self.fiatService = fiatService
         self.assetViewModelsFactory = assetViewModelsFactory
-        self.assetManager = assetManager
+        self.assetInfos = assetInfos
     }
     
     func setup() {
-        let assetIds = assetManager.getAssetList()?.filter { $0.visible }.map { $0.assetId } ?? []
+        let assetIds = assetInfos.filter { $0.visible }.map { $0.assetId } 
         if poolItemInfo == nil {
             let items = assetProvider.getBalances(with: assetIds)
 
@@ -80,7 +80,7 @@ final class AssetsItemService {
             let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
             self.poolItemInfo = poolItemInfo
             
-            let assetIds = assetManager.getAssetList()?.filter { $0.visible }.map { $0.assetId } ?? []
+            let assetIds = assetInfos.filter { $0.visible }.map { $0.assetId } 
             let items = assetProvider.getBalances(with: assetIds)
             
             let fiatDecimal = items.reduce(Decimal(0), { partialResult, balanceData in

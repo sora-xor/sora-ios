@@ -57,7 +57,6 @@ struct MarketCapInfo: Hashable {
 }
 
 protocol MarketCapServiceProtocol: AnyObject {
-    func getMarketCap(for assetId: String) async -> MarketCapInfo
     func getMarketCap(for assetIds: [String]) async -> Set<MarketCapInfo>
 }
 
@@ -100,34 +99,6 @@ extension MarketCapService: MarketCapServiceProtocol {
                 self.marketCapInfos.formUnion(result)
                 self.expiredDate = Date().addingTimeInterval(600)
                 continuation.resume(returning: self.marketCapInfos)
-            }
-            
-            operationManager.enqueue(operations: [queryOperation], in: .transient)
-        }
-    }
-    
-    func getMarketCap(for assetId: String) async -> MarketCapInfo {
-        return await withCheckedContinuation { continuation in
-            if let marketCapInfo = marketCapInfos.first(where: { $0.assetId == assetId }), expiredDate < Date() {
-                continuation.resume(returning: marketCapInfo)
-                return
-            }
-            
-            let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: [assetId])
-            
-            queryOperation.completionBlock = { [weak self] in
-                guard let self = self, let response = try? queryOperation.extractNoCancellableResultData().first else {
-                    continuation.resume(returning: MarketCapInfo(assetId: assetId))
-                    return
-                }
-                let bigIntLiquidity = BigUInt(response.liquidity) ?? BigUInt(0)
-                let marketCapInfo = MarketCapInfo(assetId: response.tokenId,
-                                                  hourDelta: Decimal(Double(truncating: response.hourDelta ?? 0)),
-                                                  liquidity: Decimal.fromSubstrateAmount(bigIntLiquidity, precision: 18) ?? 0)
-                self.marketCapInfos.insert(marketCapInfo)
-                
-                self.expiredDate = Date().addingTimeInterval(600)
-                continuation.resume(returning: marketCapInfo)
             }
             
             operationManager.enqueue(operations: [queryOperation], in: .transient)

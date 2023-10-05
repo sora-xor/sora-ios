@@ -36,7 +36,7 @@ final class ExploreAssetViewModelService {
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let itemFactory: ExploreItemFactory
-    var assetManager: AssetManagerProtocol
+    private let assetInfos: [AssetInfo]
     
     @Published var viewModels: [ExploreAssetViewModel] = [ ExploreAssetViewModel(serialNumber: "1"),
                                                            ExploreAssetViewModel(serialNumber: "2"),
@@ -48,17 +48,17 @@ final class ExploreAssetViewModelService {
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
         itemFactory: ExploreItemFactory,
-        assetManager: AssetManagerProtocol
+        assetInfos: [AssetInfo]
     ) {
         self.marketCapService = marketCapService
         self.fiatService = fiatService
         self.itemFactory = itemFactory
-        self.assetManager = assetManager
+        self.assetInfos = assetInfos
     }
     
     func setup() {
         Task {
-            let assetIds = (self.assetManager.getAssetList() ?? []).map { $0.assetId }
+            let assetIds = assetInfos.map { $0.assetId }
             let result = await PriceInfoService.shared.getPriceInfo(for: assetIds)
             
             let assetMarketCap = result.marketCapInfo.compactMap { asset in

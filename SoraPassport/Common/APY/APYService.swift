@@ -44,13 +44,15 @@ final class APYService {
     private let operationManager: OperationManager = OperationManager()
     private var expiredDate: Date = Date()
     private var apy: [SbApyInfo] = []
+    private var task: Task<Void, Swift.Error>?
 }
 
 extension APYService: APYServiceProtocol {
     
     @available(*, renamed: "getApy(for:targetAssetId:)")
     func getApy(for baseAssetId: String, targetAssetId: String, completion: @escaping (Decimal?) -> Void) {
-        Task {
+        task?.cancel()
+        task = Task {
             let result = await getApy(for: baseAssetId, targetAssetId: targetAssetId)
             completion(result)
         }

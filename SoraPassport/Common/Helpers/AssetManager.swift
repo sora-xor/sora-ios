@@ -292,8 +292,6 @@ final class AssetManager: AssetManagerProtocol {
     }
 
     func getAssetList() -> [AssetInfo]? {
-        queue.sync {
-            return assets
-        }
+        assets
     }
 }

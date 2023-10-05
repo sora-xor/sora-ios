@@ -51,6 +51,7 @@ final class WalletNetworkFacade {
     let runtimeService: RuntimeCodingServiceProtocol
     let requestFactory: StorageRequestFactoryProtocol
     let engine: JSONRPCEngine
+    var task: Task<Void, Error>?
 
     lazy var localStorageKeyFactory = LocalStorageKeyFactory()
     lazy var remoteStorageKeyFactory = StorageKeyFactory()

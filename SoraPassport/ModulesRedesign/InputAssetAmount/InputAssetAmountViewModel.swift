@@ -203,7 +203,7 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
             return
         }
         
-        let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
+        let factory = AssetViewModelFactory(walletAssets: assets,
                                             assetManager: assetManager,
                                             fiatService: fiatService)
         

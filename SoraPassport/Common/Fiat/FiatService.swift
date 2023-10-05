@@ -54,6 +54,7 @@ final class FiatService {
     private var fiatData: [FiatData] = []
     private var observers: [FiatServiceObserver] = []
     private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.fiat.service")
+    private var task: Task<Void, Swift.Error>?
 
     private func updateFiatData() async -> [FiatData] {
         return await withCheckedContinuation { continuation in
@@ -78,7 +79,8 @@ final class FiatService {
 extension FiatService: FiatServiceProtocol {
     
     func getFiat(completion: @escaping ([FiatData]) -> Void) {
-        Task {
+        task?.cancel()
+        task = Task {
             guard expiredDate < Date() || fiatData.isEmpty else {
                 completion(fiatData)
                 return
@@ -91,7 +93,8 @@ extension FiatService: FiatServiceProtocol {
     
     func getFiat() async -> [FiatData] {
         return await withCheckedContinuation { continuation in
-            Task {
+            task?.cancel()
+            task = Task {
                 guard expiredDate < Date() || fiatData.isEmpty else {
                     continuation.resume(with: .success(fiatData))
                     return

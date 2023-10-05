@@ -371,31 +371,12 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         presenter: UIViewController,
         localizationManager: LocalizationManagerProtocol = LocalizationManager.shared
     ) -> UIViewController? {
-
-        guard
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-            let walletContext = try? WalletContextFactory().createContext(connection: connection)
-        else {
-            return nil
-        }
-
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        assetManager.setup(for: SelectedWalletSettings.shared)
-
-
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
-            return nil
-        }
-
-        let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
-        let marketCapService = MarketCapService.shared
-
         guard let swapController = SwapViewFactory.createView(selectedTokenId: "",
                                                               selectedSecondTokenId: WalletAssetId.xor.rawValue,
                                                               assetManager: assetManager,
-                                                              fiatService: FiatService.shared,
+                                                              fiatService: fiatService,
                                                               networkFacade: walletContext.networkOperationFactory,
-                                                              polkaswapNetworkFacade: polkaswapContext,
+                                                              polkaswapNetworkFacade: polkaswapNetworkFacade,
                                                               assetsProvider: assetsProvider,
                                                               marketCapService: marketCapService) else { return nil }
 

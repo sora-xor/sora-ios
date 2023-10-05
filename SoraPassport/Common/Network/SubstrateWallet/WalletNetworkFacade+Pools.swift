@@ -43,7 +43,8 @@ enum PoolError: Swift.Error {
 extension WalletNetworkFacade {
     func getAccountPoolsDetails() async throws -> CompoundOperationWrapper<[PoolDetails]> {
         return try await withCheckedThrowingContinuation({ continuetion in
-            Task {
+            self.task?.cancel()
+            self.task = Task {
                 let processingOperation: AwaitOperation<[PoolDetails]> = AwaitOperation { [weak self] in
                     guard let weakSelf = self else { return [] }
                     
