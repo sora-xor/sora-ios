@@ -618,7 +618,7 @@
 "history.unbonded.tokens" = "Несвязанные токены XOR";
 "history.referrer" = "Реферер";
 "history.referral" = "Реферал";
-"export.account.options" = "Параметры открытия счета";
+"export.account.options" = "Открыть настройки аккаунта";
 "export.select.account" = "Выберите учетную запись/аккаунт для пакетного экспорта";
 "common.backup" = "Резервная копия";
 "export.protection.json.title" = "Экспорт JSON";
@@ -887,7 +887,7 @@
 "something.went.wrong" = "Что-то пошло не так";
 "unexpected.error" = "Произошла непредвиденная ошибка.\n\nВы можете решить эту проблему в сообществе SORA в Telegram чате @SORAhappiness.";
 "sora.card.settings.headline" = "Card settings";
-"sora.card.option.logout" = "Log out SORA Card";
+"sora.card.option.logout" = "Выйти из SORA Card";
 "sora.card.iban.headline" = "IBAN account details";
 "sora.card.referral.headline" = "Refer SORA Card.\nGet €20 bonus. ";
 "sora.card.refer.and.earn.action" = "Refer & Earn";
@@ -904,3 +904,9 @@
 "explore.create.pool" = "Create pool";
 "backup.account.already.exist" = "Backup already exists. Proceed to rewrite it.";
 "common.rewrite" = "Rewrite";
+"backup.not.enough.space.error" = "Backup failed. Not enough space on your Google Drive. Free some space and try again.";
+"support.chat" = "Чат поддержки";
+"cant.load.balance" = "Не удается загрузить баланс";
+"protect.loss.access.funds" = "Protect yourself from losing access to your funds";
+"backup.now" = "Backup now";
+"wallet.backup" = "Wallet backup";

@@ -887,7 +887,7 @@
 "something.went.wrong" = "Une erreur s'est produite";
 "unexpected.error" = "An unexpected error has occured.\n\nYou may troubleshoot this issue in SORA community at the @SORAhappiness Telegram chat.";
 "sora.card.settings.headline" = "Card settings";
-"sora.card.option.logout" = "Log out SORA Card";
+"sora.card.option.logout" = "Log out of SORA Card";
 "sora.card.iban.headline" = "IBAN account details";
 "sora.card.referral.headline" = "Refer SORA Card.\nGet €20 bonus. ";
 "sora.card.refer.and.earn.action" = "Parrainer et gagner";
@@ -904,3 +904,9 @@
 "explore.create.pool" = "Create pool";
 "backup.account.already.exist" = "Backup already exists. Proceed to rewrite it.";
 "common.rewrite" = "Rewrite";
+"backup.not.enough.space.error" = "Backup failed. Not enough space on your Google Drive. Free some space and try again.";
+"support.chat" = "Support chat";
+"cant.load.balance" = "Can't load balance";
+"protect.loss.access.funds" = "Protect yourself from losing access to your funds";
+"backup.now" = "Backup now";
+"wallet.backup" = "Wallet backup";

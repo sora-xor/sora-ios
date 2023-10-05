@@ -904,3 +904,9 @@
 "explore.create.pool" = "Hovuz yaradın";
 "backup.account.already.exist" = "Yedək artıq mövcuddur. Yenidən yazmağa davam edin.";
 "common.rewrite" = "Yenidən yazmaq";
+"backup.not.enough.space.error" = "Yedəkləmə alınmadı. Google Diskinizdə kifayət qədər yer yoxdur. Bir az yer boşaltın və yenidən cəhd edin.";
+"support.chat" = "Dəstək söhbəti";
+"cant.load.balance" = "Balansı yükləmək mümkün deyil";
+"protect.loss.access.funds" = "Özünüzü pulunuza girişi itirməkdən qoruyun";
+"backup.now" = "İndi yedəkləyin";
+"wallet.backup" = "Pulqabı ehtiyat nüsxəsi";

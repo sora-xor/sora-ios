@@ -54,6 +54,7 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func showEditView(poolsService: PoolsServiceInputProtocol,
                       editViewService: EditViewServiceProtocol,
                       completion: (() -> Void)?)
+    func showBackupAccount()
 }
 
 final class RedesignWalletViewModel {
@@ -205,6 +206,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             soraCard.isSCBannerHidden = false
         }
         
+        if let backupItem = walletItems.first(where: { $0 is BackupItem }) {
+            items.append(backupItem)
+        }
+        
         if enabledIds.contains(Cards.referralProgram.id), let friendsItem = walletItems.first(where: { $0 is FriendsItem }) {
             items.append(friendsItem)
         }
@@ -279,6 +284,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         ConfigService.shared.config.isSoraCardEnabled = true
         soraCard.isSCBannerHidden = false
         
+        let backupItem: SoramitsuTableViewItemProtocol = itemFactory.createBackupItem(with: self,
+                                                                                      assetManager: assetManager)
+        items.append(backupItem)
         
         let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self,
                                                                                               assetManager: assetManager)
@@ -495,5 +503,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                 poolsService: poolsService,
                                 editViewService: editViewService,
                                 completion: completion)
+    }
+    
+    func showBackupAccount() {
+        wireframe?.showAccountOptions(from: view,
+                                      account: SelectedWalletSettings.shared.currentAccount)
     }
 }

@@ -78,6 +78,8 @@ protocol WalletItemFactoryProtocol: AnyObject {
     func createEditViewItem(with walletViewModel: RedesignWalletViewModel,
                             poolsService: PoolsServiceInputProtocol,
                             editViewService: EditViewServiceProtocol) -> SoramitsuTableViewItemProtocol
+    func createBackupItem(with walletViewModel: RedesignWalletViewModelProtocol,
+                                 assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol
 }
 
 final class WalletItemFactory: WalletItemFactoryProtocol {
@@ -303,5 +305,18 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         }
         
         return editViewItem
+    }
+    
+    func createBackupItem(with walletViewModel: RedesignWalletViewModelProtocol,
+                          assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol {
+        
+        let backupItem = BackupItem()
+        
+        backupItem.onTap = { [weak walletViewModel] in
+            guard let walletViewModel = walletViewModel else { return }
+            walletViewModel.showBackupAccount()
+        }
+        
+        return backupItem
     }
 }

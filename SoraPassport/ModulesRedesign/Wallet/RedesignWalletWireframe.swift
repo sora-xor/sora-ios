@@ -135,6 +135,9 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                       poolsService: PoolsServiceInputProtocol,
                       editViewService: EditViewServiceProtocol,
                       completion: (() -> Void)?)
+    
+    func showAccountOptions(from view: RedesignWalletViewProtocol?,
+                            account: AccountItem?)
 }
 
 final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
@@ -440,6 +443,27 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                   completion: completion)
         
         let navigationController = SoraNavigationController(rootViewController: editView)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.addCustomTransitioning()
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        containerView.add(navigationController)
+        
+        controller.present(containerView, animated: true)
+    }
+    
+    func showAccountOptions(from view: RedesignWalletViewProtocol?,
+                            account: AccountItem?) {
+        guard
+            let account = account,
+            let viewController = AccountOptionsViewFactory.createView(account: account) as? UIViewController,
+            let controller = view?.controller
+        else {
+            return
+        }
+        
+        let navigationController = SoraNavigationController(rootViewController: viewController)
         navigationController.navigationBar.backgroundColor = .clear
         navigationController.addCustomTransitioning()
         

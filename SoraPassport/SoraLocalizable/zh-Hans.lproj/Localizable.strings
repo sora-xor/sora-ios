@@ -902,5 +902,11 @@
 "polkaswap.liquidity.total.fee" = "兑换费用";
 "polkaswap.liquidity.total.fee.desc" = "你的兑换涉及到合成费用和流动性提供者费用。\n当兑换通过合成资产的XST流动性来源时，会计算合成费用；而当兑换通过流动性池时，则会计算流动性提供者费用。";
 "explore.create.pool" = "创建池子";
-"backup.account.already.exist" = "Backup already exists. Proceed to rewrite it.";
-"common.rewrite" = "Rewrite";
+"backup.account.already.exist" = "备份已存在。继续覆盖它。";
+"common.rewrite" = "重写";
+"backup.not.enough.space.error" = "备份失败。您的Google Drive空间不足，请释放一些空间并重试。";
+"support.chat" = "Support chat";
+"cant.load.balance" = "Can't load balance";
+"protect.loss.access.funds" = "Protect yourself from losing access to your funds";
+"backup.now" = "Backup now";
+"wallet.backup" = "Wallet backup";

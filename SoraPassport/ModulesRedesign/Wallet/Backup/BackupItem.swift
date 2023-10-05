@@ -30,26 +30,24 @@
 
 import SoraUIKit
 
-final class WarningViewModelFactory {
-    func insufficientBalanceViewModel(feeAssetSymbol: String, feeAmount: Decimal, isHidden: Bool = true) -> WarningViewModel {
-        let feeAmount = NumberFormatter.cryptoAssets.stringFromDecimal(feeAmount) ?? ""
-        let title = R.string.localizable.commonTitleWarning(preferredLanguages: .currentLocale)
-        let descriptionText = R.string.localizable.swapConfirmationScreenWarningBalanceAfterwardsTransactionIsTooSmall(feeAmount + " " + feeAssetSymbol,
-                                                                                                                       preferredLanguages: .currentLocale)
-        return WarningViewModel(
-            title: title,
-            descriptionText: descriptionText,
-            isHidden: isHidden,
-            containterBackgroundColor: .statusErrorContainer,
-            contentColor: .statusError)
-    }
+final class BackupItem: NSObject {
     
-    func poolShareStackedViewModel(isHidden: Bool = true) -> WarningViewModel {
-        let descriptionText = R.string.localizable.polkaswapFarmingPoolInFarmingHint(preferredLanguages: .currentLocale)
-        return WarningViewModel(
-            descriptionText: descriptionText,
-            isHidden: isHidden,
-            containterBackgroundColor: .statusWarningContainer,
-            contentColor: .statusWarning)
+    var onTap: (() -> Void)?
+    
+    override init() {
+        super.init()
     }
 }
+
+extension BackupItem: SoramitsuTableViewItemProtocol {
+    var cellType: AnyClass { BackupCell.self }
+    
+    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
+    
+    var clipsToBounds: Bool { false }
+    
+    func itemActionTap(with context: SoramitsuTableViewContext?) {
+        onTap?()
+    }
+}
+

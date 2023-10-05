@@ -269,7 +269,7 @@ PODS:
   - SoraUI/PinView (1.10.3):
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
-  - SoraUIKit (1.1.0)
+  - SoraUIKit (1.1.1)
   - sorawallet (0.1.1)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
@@ -333,7 +333,7 @@ DEPENDENCIES:
   - SoraFoundation
   - SoraKeystore
   - SoraUI
-  - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.0`)
+  - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.1`)
   - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.1.1/core/sorawallet/sorawallet.podspec`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
@@ -417,7 +417,7 @@ EXTERNAL SOURCES:
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
-    :tag: 1.1.0
+    :tag: 1.1.1
   sorawallet:
     :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.1.1/core/sorawallet/sorawallet.podspec
   Starscream:
@@ -440,11 +440,11 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: a153da4e49c426c650ae0548438cdb0ec26d3a0e
+    :commit: 730b185f5287de15130f9d342c8b28f7868f85c8
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
-    :tag: 1.1.0
+    :tag: 1.1.1
   Starscream:
     :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -501,7 +501,7 @@ SPEC CHECKSUMS:
   SoraFoundation: 988d90ee3159311b02e42aeba0cf7e85d8bc724c
   SoraKeystore: 92cff6e2a12f212dd64ed089970ff7c365247b1c
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
-  SoraUIKit: 5d602552684b98276f164fee8764f9145c6d9e8b
+  SoraUIKit: 71422b96debe323e73c2046e9a79b2130c2acb07
   sorawallet: 156409e3542f41cc3acef7e13eb6cb1c7d0b64c4
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
   SSFCloudStorage: 37fbba3ad3e93a637d9c1a9b85910f4fa29596de
@@ -516,6 +516,6 @@ SPEC CHECKSUMS:
   VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 8bb5dc6db964752fec446ec8c2ed761335bfe54b
+PODFILE CHECKSUM: 19d030548a5761184ba9d9a5b7d7d349b7cfa9a1
 
 COCOAPODS: 1.12.1
