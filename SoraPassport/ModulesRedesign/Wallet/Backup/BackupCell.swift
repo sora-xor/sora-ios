@@ -31,10 +31,10 @@
 import SoraUIKit
 import SnapKit
 
-final class FriendsCell: SoramitsuTableViewCell {
-    
-    private var friendsItem: FriendsItem?
-    
+final class BackupCell: SoramitsuTableViewCell {
+
+    private var backupItem: BackupItem?
+
     private lazy var containerView: SoramitsuView = {
         let view = SoramitsuView()
         view.sora.backgroundColor = .bgSurface
@@ -42,57 +42,47 @@ final class FriendsCell: SoramitsuTableViewCell {
         view.sora.clipsToBounds = false
         return view
     }()
-    
+
     private lazy var titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.text = R.string.localizable.settingsInviteTitle(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.headline2
-        label.numberOfLines = 2
+        label.numberOfLines = 0
         return label
     }()
-    
+
     private lazy var descriptionLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.text = R.string.localizable.referralTitle(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.paragraphXS
-        label.numberOfLines = 2
+        label.numberOfLines = 0
         return label
     }()
     
     private lazy var pictureView: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
-        imageView.image = R.image.archerGirl()
+        imageView.image = R.image.katanaGirl()
         imageView.sora.contentMode = .scaleAspectFill
+        imageView.setContentHuggingPriority(.required, for: .vertical)
         return imageView
     }()
     
-    private lazy var startInvitingButton: SoramitsuButton = {
-        let title = SoramitsuTextItem(text: R.string.localizable.referralStartInviting(preferredLanguages: .currentLocale) ,
+    private lazy var backupButton: SoramitsuButton = {
+        let title = SoramitsuTextItem(text: R.string.localizable.commonBackup(preferredLanguages: .currentLocale) ,
                                       fontData: FontType.textBoldS ,
-                                      textColor: .bgSurface,
+                                      textColor: .custom(uiColor: Colors.white100),
                                       alignment: .center)
         
         let button = SoramitsuButton()
+        button.sora.horizontalOffset = 8
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .accentPrimary
         button.sora.attributedText = title
         button.sora.isUserInteractionEnabled = false
         return button
     }()
-    
-    private lazy var closeButton: ImageButton = {
-        let button = ImageButton(size: CGSize(width: 24, height: 24))
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .custom(uiColor: .clear)
-        button.sora.image = R.image.roundClose()
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.friendsItem?.onClose?()
-        }
-        return button
-    }()
-    
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -106,9 +96,8 @@ final class FriendsCell: SoramitsuTableViewCell {
     
     private func setupHierarchy() {
         contentView.addSubview(containerView)
-        contentView.addSubview(closeButton)
 
-        containerView.addSubviews([titleLabel, descriptionLabel, startInvitingButton, pictureView])
+        containerView.addSubviews([titleLabel, descriptionLabel, backupButton, pictureView])
     }
     
     private func setupLayout() {
@@ -122,41 +111,37 @@ final class FriendsCell: SoramitsuTableViewCell {
         titleLabel.snp.makeConstraints { make in
             make.top.equalTo(containerView).offset(16)
             make.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(124)
+            make.trailing.equalTo(pictureView.snp.leading).offset(-8)
         }
         
         descriptionLabel.snp.makeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(8)
             make.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(151)
+            make.trailing.equalTo(pictureView.snp.leading).offset(-8)
         }
         
-        startInvitingButton.snp.makeConstraints { make in
+        backupButton.snp.makeConstraints { make in
             make.top.equalTo(descriptionLabel.snp.bottom).offset(12)
             make.leading.equalTo(containerView).offset(24)
-            make.bottom.equalTo(containerView).offset(-16)
+            make.bottom.equalTo(containerView).offset(-24)
             make.height.equalTo(32)
         }
         
         pictureView.snp.makeConstraints { make in
-            make.trailing.bottom.centerY.equalTo(containerView)
-            make.width.equalTo(136)
-            make.height.equalTo(164)
-        }
-        
-        closeButton.snp.makeConstraints { make in
-            make.top.equalTo(contentView).offset(24)
-            make.trailing.equalTo(contentView).offset(-32)
+            make.centerY.trailing.equalTo(containerView)
+            make.width.equalTo(164)
+            make.height.equalTo(148)
         }
     }
 }
 
-extension FriendsCell: SoramitsuTableViewCellProtocol {
+extension BackupCell: SoramitsuTableViewCellProtocol {
     func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
-        guard let item = item as? FriendsItem else {
+        guard let item = item as? BackupItem else {
             assertionFailure("Incorect type of item")
             return
         }
-        friendsItem = item
+        
+        backupItem = item
     }
 }
