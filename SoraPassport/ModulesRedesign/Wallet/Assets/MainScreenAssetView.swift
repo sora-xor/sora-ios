@@ -82,6 +82,12 @@ public final class MainScreenAssetView: SoramitsuControl {
         return label
     }()
     
+    public let amountDownView: SoramitsuView = {
+        let view = SoramitsuView()
+        view.sora.backgroundColor = .custom(uiColor: .clear)
+        return view
+    }()
+    
     public let amountDownLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
@@ -116,7 +122,9 @@ private extension MainScreenAssetView {
         addSubview(titleLabel)
         addSubview(subtitleLabel)
         addSubview(amountUpLabel)
-        addSubview(amountDownLabel)
+        addSubview(amountDownView)
+        
+        amountDownView.addSubview(amountDownLabel)
 
         NSLayoutConstraint.activate([
             assetImageView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -142,12 +150,16 @@ private extension MainScreenAssetView {
             subtitleLabel.heightAnchor.constraint(equalToConstant: 14),
             subtitleLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
             
-            amountDownLabel.topAnchor.constraint(greaterThanOrEqualTo: amountUpLabel.bottomAnchor, constant: 1),
-            amountDownLabel.leadingAnchor.constraint(equalTo: subtitleLabel.trailingAnchor, constant: 8),
-            amountDownLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            amountDownLabel.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
-            amountDownLabel.heightAnchor.constraint(equalToConstant: 14),
-            amountDownLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            amountDownView.topAnchor.constraint(greaterThanOrEqualTo: amountUpLabel.bottomAnchor, constant: 1),
+            amountDownView.leadingAnchor.constraint(equalTo: subtitleLabel.trailingAnchor, constant: 8),
+            amountDownView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            amountDownView.bottomAnchor.constraint(equalTo: assetImageView.bottomAnchor),
+            amountDownView.heightAnchor.constraint(equalToConstant: 14),
+            amountDownView.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            
+            amountDownLabel.topAnchor.constraint(equalTo: amountDownView.topAnchor),
+            amountDownLabel.trailingAnchor.constraint(equalTo: amountDownView.trailingAnchor),
+            amountDownLabel.bottomAnchor.constraint(equalTo: amountDownView.bottomAnchor),
         ])
     }
     
