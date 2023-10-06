@@ -195,7 +195,9 @@ private extension MainScreenPoolView {
     
     func setupSemantics() {
         let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        let reversedAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .left : .right
         titleLabel.sora.alignment = alignment
         subtitleLabel.sora.alignment = alignment
+        amountUpLabel.sora.alignment = reversedAlignment
     }
 }
