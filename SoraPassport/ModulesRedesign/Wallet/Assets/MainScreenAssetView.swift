@@ -81,7 +81,7 @@ public final class MainScreenAssetView: SoramitsuControl {
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
         return label
     }()
-    
+
     public let amountDownLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS

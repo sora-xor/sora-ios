@@ -70,7 +70,7 @@ extension AssetViewModelFactory {
             deltaArributedText = SoramitsuTextItem(text: isRTL ? deltaTextReversed : deltaText,
                                                    attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
                                                                                        textColor: deltaColor,
-                                                                                       alignment: .right))
+                                                                                       alignment: isRTL ? .left : .right))
         }
         
         
@@ -104,7 +104,7 @@ extension AssetViewModelFactory {
             deltaArributedText = SoramitsuTextItem(text: isRTL ? deltaTextReversed : deltaText,
                                                    attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
                                                                                        textColor: deltaColor,
-                                                                                       alignment: .right))
+                                                                                       alignment: isRTL ? .left : .right))
         }
         
         
@@ -119,6 +119,9 @@ extension AssetViewModelFactory {
     }
     
     func createAssetViewModel(with asset: AssetInfo, fiatData: [FiatData], mode: WalletViewMode, priceDelta: Decimal? = nil) -> AssetViewModel? {
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        
         var fiatText = ""
         if let usdPrice = fiatData.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue {
             let formatter = usdPrice > 0.01 ? NumberFormatter.fiat : NumberFormatter.cryptoAssets
@@ -128,11 +131,12 @@ extension AssetViewModelFactory {
         var deltaArributedText: SoramitsuTextItem?
         if let priceDelta {
             let deltaText = "\(NumberFormatter.percent.stringFromDecimal(priceDelta * 100) ?? "")%"
+            let deltaTextReversed = "%\(NumberFormatter.percent.stringFromDecimal(priceDelta * 100) ?? "")"
             let deltaColor: SoramitsuColor = priceDelta > 0 ? .statusSuccess : .statusError
-            deltaArributedText = SoramitsuTextItem(text: deltaText,
+            deltaArributedText = SoramitsuTextItem(text: isRTL ? deltaTextReversed : deltaText,
                                                    attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
                                                                                        textColor: deltaColor,
-                                                                                       alignment: .right))
+                                                                                       alignment: isRTL ? .left : .right))
         }
 
         return AssetViewModel(identifier: asset.assetId,
