@@ -263,6 +263,7 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
         }
        
         moneyLabel.sora.text = item.service.moneyText
+        moneyLabel.sora.alignment = localizationManager.isRightToLeft ? .left : .right
 
         arrowButton.configure(title: item.title, isExpand: item.isExpand)
 
@@ -270,12 +271,10 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
         updateContent(with: viewModels)
 
         openFullListPoolsButton.sora.isHidden = !item.isExpand
-        
-        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
         openFullListPoolsButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonExpand(preferredLanguages: .currentLocale),
                                                                           fontData: FontType.buttonM,
                                                                           textColor: .accentPrimary,
-                                                                          alignment: alignment)
+                                                                          alignment: localizationManager.isRightToLeft ? .right : .left)
         heightConstraint?.isActive = item.service.poolViewModels.isEmpty || item.isHidden
     }
 }
