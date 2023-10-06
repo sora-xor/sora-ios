@@ -81,13 +81,7 @@ public final class MainScreenAssetView: SoramitsuControl {
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
         return label
     }()
-    
-//    public let amountDownView: SoramitsuView = {
-//        let view = SoramitsuView()
-//        view.sora.backgroundColor = .custom(uiColor: .clear)
-//        return view
-//    }()
-    
+
     public let amountDownLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
@@ -123,8 +117,6 @@ private extension MainScreenAssetView {
         addSubview(subtitleLabel)
         addSubview(amountUpLabel)
         addSubview(amountDownLabel)
-        
-//        amountDownView.addSubview(amountDownLabel)
 
         NSLayoutConstraint.activate([
             assetImageView.leadingAnchor.constraint(equalTo: leadingAnchor),
