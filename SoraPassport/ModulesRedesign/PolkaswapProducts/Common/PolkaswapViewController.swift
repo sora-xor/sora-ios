@@ -53,6 +53,7 @@ protocol LiquidityViewProtocol: ControllerBackedProtocol, Warningable {
     func focus(field: FocusedField)
     func update(isNeedLoadingState: Bool)
     func updateReviewButton(title: String)
+    func updateFirstLiquidityWarinignView(model: WarningViewModel)
 }
 
 final class PolkaswapViewController: SoramitsuViewController {
@@ -173,6 +174,12 @@ final class PolkaswapViewController: SoramitsuViewController {
         }
         return button
     }()
+    
+    private lazy var firstLiquidityWarningView: WarningView = {
+        let view = WarningView()
+        view.sora.isHidden = true
+        return view
+    }()
 
     var viewModel: LiquidityViewModelProtocol
 
@@ -236,6 +243,7 @@ final class PolkaswapViewController: SoramitsuViewController {
         
         stackView.addArrangedSubview(assetsView)
         stackView.addArrangedSubview(optionsView)
+        stackView.addArrangedSubview(firstLiquidityWarningView)
         stackView.addArrangedSubview(warningView)
         stackView.addArrangedSubview(reviewLiquidity)
     }
@@ -258,6 +266,9 @@ final class PolkaswapViewController: SoramitsuViewController {
             
             warningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             warningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
+            
+            firstLiquidityWarningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
+            firstLiquidityWarningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
 
             reviewLiquidity.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             reviewLiquidity.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
@@ -449,6 +460,12 @@ extension PolkaswapViewController: LiquidityViewProtocol {
     func updateWarinignView(model: WarningViewModel) {
         DispatchQueue.main.async {
             self.warningView.setupView(with: model)
+        }
+    }
+    
+    func updateFirstLiquidityWarinignView(model: WarningViewModel) {
+        DispatchQueue.main.async {
+            self.firstLiquidityWarningView.setupView(with: model)
         }
     }
 }

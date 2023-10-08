@@ -44,6 +44,7 @@ final class AssetsCell: SoramitsuTableViewCell {
                 .sink { [weak self] value in
                     self?.moneyLabel.sora.loadingPlaceholder.type = !value.isEmpty ? .none : .shimmer
                     self?.moneyLabel.sora.text = value
+                    self?.moneyLabel.sora.cornerRadius = !value.isEmpty ? .zero : .small
                 }
                 .store(in: &cancellables)
             item.service?.$assetViewModels

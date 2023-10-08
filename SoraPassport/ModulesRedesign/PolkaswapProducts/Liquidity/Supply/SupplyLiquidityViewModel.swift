@@ -211,6 +211,13 @@ final class SupplyLiquidityViewModel {
         }
     }
     
+    private lazy var firstLiquidityProviderWarningViewModel: WarningViewModel? = warningViewModelFactory.firstLiquidityProviderViewModel() {
+        didSet {
+            guard let firstLiquidityProviderWarningViewModel else { return }
+            view?.updateWarinignView(model: firstLiquidityProviderWarningViewModel)
+        }
+    }
+    
     private var isEnoughtFirstAssetLiquidity: Bool {
         return inputedFirstAmount + fee <= firstAssetBalance.balance.decimalValue
     }
@@ -523,6 +530,9 @@ extension SupplyLiquidityViewModel {
             if let fromAsset = self.assetManager?.assetInfo(for: self.firstAssetId), fromAsset.isFeeAsset {
                 self.warningViewModel?.isHidden = self.firstAssetBalance.balance.decimalValue - self.inputedFirstAmount - self.fee > self.fee
             }
+            
+            let isNeedFirstLiquidityProviderWarning = transactionType == .liquidityAddNewPool || transactionType == .liquidityAddToExistingPoolFirstTime
+            self.firstLiquidityProviderWarningViewModel?.isHidden = !isNeedFirstLiquidityProviderWarning
             
             let basedAmount = self.focusedField == .one ? self.inputedFirstAmount : self.inputedSecondAmount
             let targetAmount = self.focusedField == .one ? self.inputedSecondAmount : self.inputedFirstAmount
