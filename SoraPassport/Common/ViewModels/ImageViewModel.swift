@@ -54,7 +54,7 @@ extension ImageViewModel: ImageViewModelProtocol {
     }
 
     func loadImage(with completionBlock: @escaping (UIImage?, Error?) -> Void) {
-        let imageResource = ImageResource(downloadURL: url)
+        let imageResource = Kingfisher.ImageResource(downloadURL: url)
 
         let options: KingfisherOptionsInfo = [.callbackQueue(.mainCurrentOrAsync),
                                               .cacheSerializer(FormatIndicatedCacheSerializer.png),
