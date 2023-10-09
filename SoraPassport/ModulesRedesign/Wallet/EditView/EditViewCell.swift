@@ -42,7 +42,7 @@ final class EditViewCell: SoramitsuTableViewCell {
                                       textColor: .accentSecondary,
                                       alignment: .center)
         let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
+        button.sora.horizontalOffset = 16
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .bgSurface
         button.sora.attributedText = title
@@ -69,7 +69,6 @@ final class EditViewCell: SoramitsuTableViewCell {
             make.top.equalTo(contentView).offset(8)
             make.center.equalTo(contentView)
             make.height.equalTo(40)
-            make.width.equalTo(108)
         }
     }
 }
