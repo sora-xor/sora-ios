@@ -52,4 +52,13 @@ final class WarningViewModelFactory {
             containterBackgroundColor: .statusWarningContainer,
             contentColor: .statusWarning)
     }
+    
+    func firstLiquidityProviderViewModel(isHidden: Bool = true) -> WarningViewModel {
+        let descriptionText = R.string.localizable.confirnSupplyLiquidityFirstProviderWarning(preferredLanguages: .currentLocale)
+        return WarningViewModel(
+            descriptionText: descriptionText,
+            isHidden: isHidden,
+            containterBackgroundColor: .statusWarningContainer,
+            contentColor: .statusWarning)
+    }
 }
