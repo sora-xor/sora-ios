@@ -140,6 +140,13 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
             poolView.sora.subtitleText = poolModel.subtitle
             poolView.sora.isHidden = !item.isExpand
             poolView.sora.upAmountText = poolModel.fiatText
+            poolView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
+            poolView.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
+            poolView.rewardImageView.sora.loadingPlaceholder.type = .none
+            poolView.titleLabel.sora.loadingPlaceholder.type = .none
+            poolView.subtitleLabel.sora.loadingPlaceholder.type = .none
+            poolView.amountUpLabel.sora.loadingPlaceholder.type = .none
+            poolView.amountDownLabel.sora.loadingPlaceholder.type = .none
             poolView.sora.addHandler(for: .touchUpInside) { [weak poolsItem] in
                 poolsItem?.poolHandler?(poolModel.identifier)
             }
