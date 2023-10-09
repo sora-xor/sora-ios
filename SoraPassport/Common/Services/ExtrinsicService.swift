@@ -124,9 +124,8 @@ final class ExtrinsicService {
                                                          of: currentCryptoType.utilsType,
                                                          using: codingFactory.createEncoder(),
                                                          metadata: codingFactory.metadata)
-
-            return try builder.build(encodingBy: codingFactory.createEncoder(),
-                                     metadata: codingFactory.metadata)
+            let extrinsic = try builder.buildExtrinsic(metadata: codingFactory.metadata)
+            return try builder.build(encodingBy: codingFactory.createEncoder(), extrinsic: extrinsic)
         }
     }
 }
