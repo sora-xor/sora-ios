@@ -86,6 +86,7 @@ final class AccountCreateViewController: SoramitsuViewController {
         button.sora.leftImage = R.image.googleIcon()
         button.sora.borderColor = .accentSecondary
         button.sora.borderWidth = 1
+        button.sora.isHidden = true
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.presenter.backupToGoogle()
         }
@@ -152,7 +153,7 @@ final class AccountCreateViewController: SoramitsuViewController {
         view.backgroundColor = .clear
 
         shareButton.isHidden = mode == .registration || mode == .registrationWithoutAccessToGoogle
-        googleButton.isHidden = mode == .view || mode == .registration
+        googleButton.isHidden = true
         nextButton.isHidden = mode == .view
     }
 

@@ -333,11 +333,12 @@ extension ChainRegistry: ConnectionPoolDelegate {
             let currentNodeIndex = Int(allNodes.firstIndex(where: { $0.url == url } ) ?? 0)
             let nextNodeIndex = currentNodeIndex + 1
 
-            if currentNodeIndex + 1 >= allNodes.count {
-                DispatchQueue.main.async {
-                    self.networkStatusPresenter?.didDecideUnreachableNodesAllertPresentation()
-                }
-            } else {
+//            if currentNodeIndex + 1 >= allNodes.count {
+//                DispatchQueue.main.async {
+//                    self.networkStatusPresenter?.didDecideUnreachableNodesAllertPresentation()
+//                }
+//            } else {
+            if nextNodeIndex < allNodes.count {
                 let currentNode = allNodes[currentNodeIndex]
                 let nextNode = allNodes[nextNodeIndex]
 
@@ -345,6 +346,7 @@ extension ChainRegistry: ConnectionPoolDelegate {
                 eventCenter.notify(with: event)
                 changeSelectedNode(from: failedChain, to: nextNode)
             }
+//            }
             return
         }
 
