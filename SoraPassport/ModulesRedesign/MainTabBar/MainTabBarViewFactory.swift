@@ -259,10 +259,16 @@ extension MainTabBarViewFactory {
                                                         engine: connection,
                                                         runtimeRegistry: runtimeRegistry,
                                                         selectedAccount: selectedAccount)
-        
+
+        guard let engine = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+            return nil
+        }
+        let farmingService = DemeterFarmingService(operationFactory: DemeterFarmingOperationFactory(engine: engine))
+
         let walletController = RedesignWalletViewFactory.createView(providerFactory: providerFactory,
                                                                     assetManager: assetManager,
                                                                     fiatService: FiatService.shared,
+                                                                    farmingService: farmingService,
                                                                     networkFacade: walletContext.networkOperationFactory,
                                                                     accountId: accountSettings.accountId,
                                                                     address: selectedAccount.address,

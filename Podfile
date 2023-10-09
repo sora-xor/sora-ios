@@ -33,7 +33,7 @@ abstract_target 'SoraPassportAll' do
   pod 'SnapKit'
   pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui.git', :tag => '1.0.2'
   pod 'IdensicMobileSDK', :http => 'https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.1.tar.gz'
-  pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.1.0'
+  pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :tag => '1.1.0'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
   pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.57/AppCommonNetworking/XNetworking/XNetworking.podspec'
   pod 'SSFCloudStorage'
@@ -97,6 +97,10 @@ post_install do |installer|
         config.build_settings["DEVELOPMENT_TEAM"] = "YLWWUD25VZ"
         config.build_settings['CODE_SIGN_STYLE'] = "Manual"
         config.build_settings['CODE_SIGN_IDENTITY'] = "iPhone Developer"
+        xcconfig_path = config.base_configuration_reference.real_path
+        xcconfig = File.read(xcconfig_path)
+        xcconfig_mod = xcconfig.gsub(/DT_TOOLCHAIN_DIR/, "TOOLCHAIN_DIR")
+        File.open(xcconfig_path, "w") { |file| file << xcconfig_mod }
     end
   end
 end
