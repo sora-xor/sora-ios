@@ -354,6 +354,12 @@ extension PincodeViewController: PinSetupViewProtocol {
     func update(mode: PincodeMode) {
         self.mode = mode
     }
+    
+    func askBiometryPermission() {
+        let title = R.string.localizable.biometryAuthAccess(preferredLanguages: .currentLocale)
+        let message = R.string.localizable.askBiometryAccessSetting(preferredLanguages: .currentLocale)
+        askOpenApplicationSettings(with: message, title: title, from: self, locale: Locale.current)
+    }
 }
 
 extension PincodeViewController: SoramitsuNumpadDelegate {

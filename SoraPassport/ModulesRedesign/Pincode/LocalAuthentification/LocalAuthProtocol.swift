@@ -33,7 +33,7 @@ import Foundation
 protocol LocalAuthInteractorInputProtocol: AnyObject {
     var allowManualBiometryAuth: Bool { get }
 
-    func startAuth()
+    func startAuth(completion: (() -> Void)?)
     func process(pin: String)
     func getPinCodeCount()
     func getInputBlockDate() -> Date?

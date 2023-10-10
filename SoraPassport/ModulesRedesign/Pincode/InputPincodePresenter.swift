@@ -86,13 +86,17 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
         }
 
         view?.didChangeAccessoryState(enabled: interactor.allowManualBiometryAuth)
-        interactor.startAuth()
+        interactor.startAuth { [weak self] in
+            self?.view?.askBiometryPermission()
+        }
     }
 
     func cancel() {}
 
     func activateBiometricAuth() {
-        interactor.startAuth()
+        interactor.startAuth { [weak self] in
+            self?.view?.askBiometryPermission()
+        }
     }
 
     func submit(pin: String) {

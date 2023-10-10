@@ -761,7 +761,6 @@
 "sora.card.annual.service.fee" = "€0 jaarlijkse service kosten";
 "sora.card.free.card.issuance" = "Gratis kaartuitgifte";
 "sora.card.free.card.issuance.conditions.xor" = "Als u voor ten minste € 100 aan XOR op uw SORA-rekening bezit, inzet of liquiditeit verschaft.";
-"sora.card.free.card.issuance.conditions.euro" = "of €20 applicatie kosten";
 "sora.card.enable.card.title" = "Kaart activeren";
 "recovery.enter.passphrase.title" = "Voer uw geheime wachtwoord in";
 "onboarding.enter.passphrase" = "Passphrase invoeren";
@@ -910,3 +909,5 @@
 "protect.loss.access.funds" = "Protect yourself from losing access to your funds";
 "backup.now" = "Backup now";
 "wallet.backup" = "Wallet backup";
+"biometry.auth.access" = "Biometric Authentication Access";
+"ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";
