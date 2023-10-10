@@ -761,7 +761,6 @@
 "sora.card.annual.service.fee" = "€0 वार्षिक सेवा शुल्क";
 "sora.card.free.card.issuance" = "नि: शुल्क कार्ड जारी करना";
 "sora.card.free.card.issuance.conditions.xor" = "यदि आप अपने SORA खाते में कम से कम €100 मूल्य के XOR को रखते हैं, Staking पर लगाते हैं या Liquidity  प्रदान करते हैं";
-"sora.card.free.card.issuance.conditions.euro" = "या 20 € आवेदन शुल्क";
 "sora.card.enable.card.title" = "कार्ड सक्षम करें";
 "recovery.enter.passphrase.title" = "अपना गुप्त passphrase दर्ज करें";
 "onboarding.enter.passphrase" = "Passphrase दर्ज करें";
@@ -910,3 +909,5 @@
 "protect.loss.access.funds" = "Protect yourself from losing access to your funds";
 "backup.now" = "Backup now";
 "wallet.backup" = "Wallet backup";
+"biometry.auth.access" = "Biometric Authentication Access";
+"ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";

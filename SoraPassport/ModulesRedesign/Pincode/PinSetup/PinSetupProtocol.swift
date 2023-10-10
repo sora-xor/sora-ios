@@ -31,7 +31,7 @@
 import UIKit
 import SoraUIKit
 
-protocol PinSetupViewProtocol: ControllerBackedProtocol {
+protocol PinSetupViewProtocol: ControllerBackedProtocol, ApplicationSettingsPresentable {
     func didRequestBiometryUsage(
         biometryType: AvailableBiometryType,
         completionBlock: @escaping (Bool) -> Void)
@@ -51,6 +51,7 @@ protocol PinSetupViewProtocol: ControllerBackedProtocol {
     func setupTitleLabel(text: String)
     func resetTitleColor()
     func animateWrongInputError(with completion: @escaping (Bool) -> Void)
+    func askBiometryPermission()
 }
 
 protocol PinSetupPresenterProtocol {

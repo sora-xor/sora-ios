@@ -761,7 +761,6 @@
 "sora.card.annual.service.fee" = "Phí dịch vụ hàng năm € 0";
 "sora.card.free.card.issuance" = "Miễn phí phát hành thẻ";
 "sora.card.free.card.issuance.conditions.xor" = "Nếu bạn nắm giữ, stake hoặc cung cấp thanh khoản cho XOR trị giá ít nhất €100 trong tài khoản SORA của mình";
-"sora.card.free.card.issuance.conditions.euro" = "hoặc phí đăng ký 20 €";
 "sora.card.enable.card.title" = "Mở khóa thẻ";
 "recovery.enter.passphrase.title" = "Nhập cụm mật khẩu ví gốc (Raw seed)";
 "onboarding.enter.passphrase" = "Nhập chuỗi từ khóa khôi phục";
@@ -905,8 +904,10 @@
 "backup.account.already.exist" = "Sao lưu đã tồn tại. Tiến hành viết lại nó.";
 "common.rewrite" = "Ghi lại";
 "backup.not.enough.space.error" = "Sao lưu không thành công. Không đủ dung lượng trên Google Drive của bạn. Hãy giải phóng một số dung lượng và thử lại.";
-"support.chat" = "Support chat";
-"cant.load.balance" = "Can't load balance";
-"protect.loss.access.funds" = "Protect yourself from losing access to your funds";
-"backup.now" = "Backup now";
-"wallet.backup" = "Wallet backup";
+"support.chat" = "Trò chuyện với hỗ trợ";
+"cant.load.balance" = "Không thể tải số dư";
+"protect.loss.access.funds" = "Bảo vệ bạn khỏi mất quyền truy cập vào tiền của bạn";
+"backup.now" = "Sao lưu ngay";
+"wallet.backup" = "Sao lưu ví";
+"biometry.auth.access" = "Biometric Authentication Access";
+"ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";

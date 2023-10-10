@@ -761,7 +761,6 @@
 "sora.card.annual.service.fee" = "年服务费€0";
 "sora.card.free.card.issuance" = "免费发卡";
 "sora.card.free.card.issuance.conditions.xor" = "如果您在SORA账户中持有、质押或提供流动性达到至少价值100欧元的XOR";
-"sora.card.free.card.issuance.conditions.euro" = "或 20 欧元的申请费";
 "sora.card.enable.card.title" = "启用卡片";
 "recovery.enter.passphrase.title" = "输入您的私密密码短语";
 "onboarding.enter.passphrase" = "输入密码短语";
@@ -910,3 +909,5 @@
 "protect.loss.access.funds" = "Protect yourself from losing access to your funds";
 "backup.now" = "Backup now";
 "wallet.backup" = "Wallet backup";
+"biometry.auth.access" = "Biometric Authentication Access";
+"ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";

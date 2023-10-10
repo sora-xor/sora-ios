@@ -761,7 +761,6 @@
 "sora.card.annual.service.fee" = "€0 דמי שירות שנתיים";
 "sora.card.free.card.issuance" = "הנפקת כרטיס חינם";
 "sora.card.free.card.issuance.conditions.xor" = "אם אתה מחזיק, נועל או מספק נזילות בשווי של לפחות 100 אירו של XOR בחשבון סורה שלך";
-"sora.card.free.card.issuance.conditions.euro" = "או 20 € דמי רישום";
 "sora.card.enable.card.title" = "הפוך כרטיס לזמין";
 "recovery.enter.passphrase.title" = "הזן את מילות המפתח הסודיות שלך";
 "onboarding.enter.passphrase" = "הזן את מילות המפתח שלך";
@@ -910,3 +909,5 @@
 "protect.loss.access.funds" = "Protect yourself from losing access to your funds";
 "backup.now" = "Backup now";
 "wallet.backup" = "Wallet backup";
+"biometry.auth.access" = "Biometric Authentication Access";
+"ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";

@@ -130,7 +130,7 @@ class LocalAuthInteractor {
 
     private(set) var pincode: String?
 
-    private func performBiometryAuth() {
+    private func performBiometryAuth(completion: (() -> Void)?) {
         guard state == .checkingBiometry else { return }
 
         let biometryUsageOptional = settingsManager.biometryEnabled
@@ -142,6 +142,7 @@ class LocalAuthInteractor {
 
         guard biometryAuth.availableBiometryType != .none else {
             state = .waitingPincode
+            completion?()
             return
         }
 
@@ -205,11 +206,11 @@ extension LocalAuthInteractor: LocalAuthInteractorInputProtocol {
         }
     }
 
-    func startAuth() {
+    func startAuth(completion: (() -> Void)?) {
         guard state == .waitingPincode else { return }
 
         state = .checkingBiometry
-        performBiometryAuth()
+        performBiometryAuth(completion: completion)
     }
 
     func process(pin: String) {

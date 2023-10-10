@@ -761,7 +761,6 @@
 "sora.card.annual.service.fee" = "€ 0 Yuran Perkhidmatan Tahunan";
 "sora.card.free.card.issuance" = "Pengeluaran kad percuma";
 "sora.card.free.card.issuance.conditions.xor" = "Jika anda memegang, mempertaruhkan atau menyediakan kecairan untuk sekurang-kurangnya €100 nilai XOR dalam akaun SORA anda";
-"sora.card.free.card.issuance.conditions.euro" = "atau 20 € yuran permohonan";
 "sora.card.enable.card.title" = "Dayakan kad";
 "recovery.enter.passphrase.title" = "Masukkan frasa laluan rahsia anda";
 "onboarding.enter.passphrase" = "Masukkan frasa laluan";
@@ -910,3 +909,5 @@
 "protect.loss.access.funds" = "Protect yourself from losing access to your funds";
 "backup.now" = "Backup now";
 "wallet.backup" = "Wallet backup";
+"biometry.auth.access" = "Biometric Authentication Access";
+"ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";

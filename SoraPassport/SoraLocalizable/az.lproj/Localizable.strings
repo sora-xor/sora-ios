@@ -761,7 +761,6 @@
 "sora.card.annual.service.fee" = "€0 annual service fee";
 "sora.card.free.card.issuance" = "Free card issuance";
 "sora.card.free.card.issuance.conditions.xor" = "If you hold, stake or provide liquidity for at least €100 worth of XOR in your SORA account";
-"sora.card.free.card.issuance.conditions.euro" = "və ya €20 ərizə haqqı";
 "sora.card.enable.card.title" = "Enable card";
 "recovery.enter.passphrase.title" = "Enter your secret Passphrase";
 "onboarding.enter.passphrase" = "Enter Passphrase";
@@ -910,3 +909,5 @@
 "protect.loss.access.funds" = "Özünüzü pulunuza girişi itirməkdən qoruyun";
 "backup.now" = "İndi yedəkləyin";
 "wallet.backup" = "Pulqabı ehtiyat nüsxəsi";
+"biometry.auth.access" = "Biometrik Doğrulama Girişi";
+"ask.biometry.access.setting" = "Təəssüf ki, əvvəllər biometrik autentifikasiyaya girişi rədd etdiniz. İndi daxil olmaq istərdinizmi?";

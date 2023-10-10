@@ -55,7 +55,9 @@ extension AuthorizationPresenter: PinSetupPresenterProtocol {
         }
 
         view?.didChangeAccessoryState(enabled: interactor.allowManualBiometryAuth)
-        interactor.startAuth()
+        interactor.startAuth { [weak self] in
+            self?.view?.askBiometryPermission()
+        }
     }
 
     func cancel() {
@@ -63,7 +65,9 @@ extension AuthorizationPresenter: PinSetupPresenterProtocol {
     }
 
     func activateBiometricAuth() {
-        interactor.startAuth()
+        interactor.startAuth { [weak self] in
+            self?.view?.askBiometryPermission()
+        }
     }
 
     func submit(pin: String) {

@@ -761,7 +761,6 @@
 "sora.card.annual.service.fee" = "Roční servisní poplatek 0 €";
 "sora.card.free.card.issuance" = "Vydání karty zdarma";
 "sora.card.free.card.issuance.conditions.xor" = "Pokud na svém účtu SORA držíte, stakujete nebo poskytujete likviditu XOR v hodnotě alespoň 100 EUR";
-"sora.card.free.card.issuance.conditions.euro" = "nebo poplatek €20 za podání žádosti";
 "sora.card.enable.card.title" = "Povolit kartu";
 "recovery.enter.passphrase.title" = "Zadejte svou tajnou přístupovou frázi";
 "onboarding.enter.passphrase" = "Zadejte přístupovou frázi";
@@ -910,3 +909,5 @@
 "protect.loss.access.funds" = "Protect yourself from losing access to your funds";
 "backup.now" = "Backup now";
 "wallet.backup" = "Wallet backup";
+"biometry.auth.access" = "Biometric Authentication Access";
+"ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";
