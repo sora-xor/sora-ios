@@ -33,6 +33,7 @@ import Then
 import Anchorage
 import SoraUI
 import SoraUIKit
+import SoraFoundation
 
 protocol AvailableInvitationsCellDelegate: InvitationLinkViewDelegate {
     func changeBoundedAmount(to type: InputRewardAmountType)
@@ -45,6 +46,8 @@ final class AvailableInvitationsCell: SoramitsuTableViewCell {
             linkView.delegate = delegate
         }
     }
+    
+    private let localizationManager = LocalizationManager.shared
 
     // MARK: - Outlets
     private var containerView: SoramitsuView = {
@@ -57,11 +60,12 @@ final class AvailableInvitationsCell: SoramitsuTableViewCell {
         }
     }()
 
-    private var titleLabel: SoramitsuLabel = {
+    private lazy var titleLabel: SoramitsuLabel = {
         SoramitsuLabel().then {
             $0.sora.text = R.string.localizable.referralInvitationLinkTitle(preferredLanguages: .currentLocale)
             $0.sora.textColor = .fgPrimary
             $0.sora.font = FontType.headline2
+            $0.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         }
     }()
 
@@ -79,11 +83,12 @@ final class AvailableInvitationsCell: SoramitsuTableViewCell {
         }
     }()
 
-    private var bondedLabel: SoramitsuLabel = {
+    private lazy var bondedLabel: SoramitsuLabel = {
         SoramitsuLabel().then {
             $0.sora.text = R.string.localizable.walletBonded(preferredLanguages: .currentLocale)
             $0.sora.textColor = .fgSecondary
             $0.sora.font = FontType.textBoldXS
+            $0.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         }
     }()
 

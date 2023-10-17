@@ -30,10 +30,12 @@
 
 import SoraUIKit
 import SnapKit
+import SoraFoundation
 
 final class BackupCell: SoramitsuTableViewCell {
 
     private var backupItem: BackupItem?
+    private let localizationManager = LocalizationManager.shared
 
     private lazy var containerView: SoramitsuView = {
         let view = SoramitsuView()
@@ -133,6 +135,12 @@ final class BackupCell: SoramitsuTableViewCell {
             make.height.equalTo(148)
         }
     }
+    
+    func setupSemantics() {
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        titleLabel.sora.alignment = alignment
+        descriptionLabel.sora.alignment = alignment
+    }
 }
 
 extension BackupCell: SoramitsuTableViewCellProtocol {
@@ -143,5 +151,7 @@ extension BackupCell: SoramitsuTableViewCellProtocol {
         }
         
         backupItem = item
+        
+        setupSemantics()
     }
 }

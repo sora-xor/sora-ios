@@ -31,7 +31,7 @@
 import UIKit
 import SoraUIKit
 import SnapKit
-
+import SoraFoundation
 
 final class ReferrerLinkView: SoramitsuView {
 
@@ -49,6 +49,7 @@ final class ReferrerLinkView: SoramitsuView {
         label.sora.text = R.string.localizable.referralReferralLink(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgSecondary
         label.sora.font = FontType.textXS
+        label.sora.alignment = LocalizationManager.shared.isRightToLeft ? .right : .left
         return label
     }()
     
