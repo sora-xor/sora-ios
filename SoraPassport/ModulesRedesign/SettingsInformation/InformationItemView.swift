@@ -93,14 +93,14 @@ class InformationItemView: SoramitsuView {
 
     let arrow: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
-        imageView.image = R.image.iconSmallArrow()?.tinted(with: SoramitsuUI.shared.theme.palette.color(.fgSecondary))
+        imageView.image = R.image.iconSmallArrow()?.tinted(with: SoramitsuUI.shared.theme.palette.color(.fgSecondary))?.imageFlippedForRightToLeftLayoutDirection()
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
     
     let link: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
-        imageView.image = R.image.arrowTopRight()?.tinted(with: SoramitsuUI.shared.theme.palette.color(.fgSecondary))
+        imageView.image = R.image.arrowTopRight()?.tinted(with: SoramitsuUI.shared.theme.palette.color(.fgSecondary))?.imageFlippedForRightToLeftLayoutDirection()
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()

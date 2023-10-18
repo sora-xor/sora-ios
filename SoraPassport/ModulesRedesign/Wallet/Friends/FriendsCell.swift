@@ -30,10 +30,12 @@
 
 import SoraUIKit
 import SnapKit
+import SoraFoundation
 
 final class FriendsCell: SoramitsuTableViewCell {
     
     private var friendsItem: FriendsItem?
+    private let localizationManager = LocalizationManager.shared
     
     private lazy var containerView: SoramitsuView = {
         let view = SoramitsuView()
@@ -151,6 +153,12 @@ final class FriendsCell: SoramitsuTableViewCell {
             make.trailing.equalTo(contentView).offset(-32)
         }
     }
+    
+    func setupSemantics() {
+        let alignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
+        titleLabel.sora.alignment = alignment
+        descriptionLabel.sora.alignment = alignment
+    }
 }
 
 extension FriendsCell: SoramitsuTableViewCellProtocol {
@@ -160,5 +168,7 @@ extension FriendsCell: SoramitsuTableViewCellProtocol {
             return
         }
         friendsItem = item
+        
+        setupSemantics()
     }
 }

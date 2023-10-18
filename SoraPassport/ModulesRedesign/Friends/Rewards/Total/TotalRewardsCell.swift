@@ -33,6 +33,7 @@ import Then
 import Anchorage
 import SoraUI
 import SoraUIKit
+import SoraFoundation
 
 protocol TotalRewardsCellDelegate: AnyObject {
     func expandButtonTapped()
@@ -43,6 +44,7 @@ final class TotalRewardsCell: SoramitsuTableViewCell {
     weak var delegate: TotalRewardsCellDelegate?
 
     private var rotated: Bool = false
+    private let localizationManager = LocalizationManager.shared
 
     // MARK: - Outlets
     private var containerView: SoramitsuView = {
@@ -71,11 +73,12 @@ final class TotalRewardsCell: SoramitsuTableViewCell {
         }
     }()
     
-    private var bondedLabel: SoramitsuLabel = {
+    private lazy var bondedLabel: SoramitsuLabel = {
         SoramitsuLabel().then {
             $0.sora.text = R.string.localizable.referralTotalRewards(preferredLanguages: .currentLocale)
             $0.sora.textColor = .fgPrimary
             $0.sora.font = FontType.textM
+            $0.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         }
     }()
 
