@@ -51,7 +51,7 @@ final class ActivityDetailsViewModelFactory {
     
     let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "dd MMM. YYYY, HH:mm"
+        formatter.dateFormat = LocalizationManager.shared.dateFormat
         formatter.locale = !LocalizationManager.shared.isArabic ? LocalizationManager.shared.selectedLocale : nil
         return formatter
     }()
