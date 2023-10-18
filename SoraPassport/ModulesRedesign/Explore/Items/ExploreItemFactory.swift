@@ -37,6 +37,7 @@ import IrohaCrypto
 
 final class ExploreItemFactory {
     let assetManager: AssetManagerProtocol
+    let localizationManager = LocalizationManager.shared
 
     init(assetManager: AssetManagerProtocol) {
         self.assetManager = assetManager
@@ -48,17 +49,19 @@ extension ExploreItemFactory {
     func createExploreAssetViewModel(with assetId: String, price: Decimal?, deltaPrice: Decimal?, marketCap: Decimal) -> ExploreAssetViewModel? {
         guard let assetInfo = assetManager.assetInfo(for: assetId) else { return nil }
 
+        let isRightToLeft = localizationManager.isRightToLeft
         let fiatText = price != nil ? "$" + (NumberFormatter.fiat.stringFromDecimal(price ?? .zero) ?? "") : ""
         let marketCapText = "$" + marketCap.formatNumber()
         
         var deltaArributedText: SoramitsuTextItem?
         if let deltaPrice {
             let deltaText = "\(NumberFormatter.percent.stringFromDecimal(deltaPrice) ?? "")%"
+            let deltaTextReversed = "%\(NumberFormatter.percent.stringFromDecimal(deltaPrice) ?? "")"
             let deltaColor: SoramitsuColor = deltaPrice > 0 ? .statusSuccess : .statusError
-            deltaArributedText = SoramitsuTextItem(text: deltaText,
+            deltaArributedText = SoramitsuTextItem(text: isRightToLeft ? deltaTextReversed : deltaText,
                                                    attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
                                                                                        textColor: deltaColor,
-                                                                                       alignment: .right))
+                                                                                       alignment: isRightToLeft ? .left : .right))
         }
         
         return ExploreAssetViewModel(assetId: assetId,
@@ -75,10 +78,13 @@ extension ExploreItemFactory {
         let targetAssetInfo = assetManager.assetInfo(for: pool.targetAssetId)
 
         let tvl = "$" + pool.tvl.formatNumber()
-        let apyText: String? = apy != nil ? "\(NumberFormatter.percent.stringFromDecimal((apy ?? .zero) * 100) ?? "")% APY" : nil
-
+        let apyString = localizationManager.isRightToLeft ? "%\(NumberFormatter.percent.stringFromDecimal((apy ?? .zero) * 100) ?? "") APY" : "\(NumberFormatter.percent.stringFromDecimal((apy ?? .zero) * 100) ?? "")% APY"
+        let apyText: String? = apy != nil ? apyString : nil
+        
+        let title = localizationManager.isRightToLeft ? "\(targetAssetInfo?.symbol ?? "??")-\(baseAssetInfo?.symbol ?? "??")" : "\(baseAssetInfo?.symbol ?? "??")-\(targetAssetInfo?.symbol ?? "??")"
+        
         return ExplorePoolViewModel(poolId: pool.id.description,
-                                    title: "\(baseAssetInfo?.symbol ?? "??")-\(targetAssetInfo?.symbol ?? "??")",
+                                    title: title,
                                     tvl: tvl,
                                     serialNumber: serialNumber,
                                     apy: apyText,
