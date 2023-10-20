@@ -102,7 +102,7 @@ final class AccountCell: SoramitsuTableViewCell {
         clipsToBounds = false
         contentView.clipsToBounds = false
         contentView.addSubview(containerView)
-        containerView.addSubviews([accountLabel, arrowImageView, scanQrButton])
+        containerView.addSubviews(accountLabel, arrowImageView, scanQrButton)
     }
 
     private func setupConstraints() {
