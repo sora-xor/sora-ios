@@ -15,7 +15,6 @@ def pipeline = new org.ios.AppPipeline(
     sonarTestsDirs: './SoraPassportTests,./SoraPassportIntegrationTests,./SoraPassportUITests',
     jobParams: jobParams,
     label: "mac-sora",
-    //label: "macos-ios-1-2",
     appPushNoti: true,
     dojoProductType: 'sora'
 )
