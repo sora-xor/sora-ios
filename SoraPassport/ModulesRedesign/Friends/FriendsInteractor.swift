@@ -99,17 +99,11 @@ extension FriendsInteractor: FriendsInteractorInputProtocol {
 
         group.enter()
         getExtrinsicFee { [weak self] in
-            self?.group.leave()
-        }
-
-        group.enter()
-        getFee(with: .bond) { [weak self] in
-            self?.group.leave()
-        }
-
-        group.enter()
-        getFee(with: .unbond) { [weak self] in
-            self?.group.leave()
+            self?.getFee(with: .bond) { [weak self] in
+                self?.getFee(with: .unbond) { [weak self] in
+                    self?.group.leave()
+                }
+            }
         }
 
         group.notify(queue: .main) { [weak self] in

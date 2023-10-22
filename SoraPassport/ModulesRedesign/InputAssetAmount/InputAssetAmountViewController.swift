@@ -248,6 +248,8 @@ extension InputAssetAmountViewController: InputAssetAmountViewProtocol {
     }
     
     func updateWarinignView(model: WarningViewModel) {
-        warningView.setupView(with: model)
+        DispatchQueue.main.async {
+            self.warningView.setupView(with: model)
+        }
     }
 }
