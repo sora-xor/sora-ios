@@ -1,3 +1,33 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import UIKit
 import SoraUIKit
 import CommonWallet
@@ -17,13 +47,13 @@ final class PoolListViewModel {
     
     var poolItems: [PoolListItem] = [] {
         didSet {
-            setupTableViewItems(with: poolItems)
+            setupItems?(poolItems)
         }
     }
 
     var filteredPoolItems: [PoolListItem] = [] {
         didSet {
-            setupTableViewItems(with: filteredPoolItems)
+            setupItems?(filteredPoolItems)
         }
     }
 
@@ -39,20 +69,20 @@ final class PoolListViewModel {
                 item.poolViewModel.mode = mode
             }
 
-            setupTableViewItems(with: isActiveSearch ? filteredPoolItems : poolItems)
+            setupItems?(isActiveSearch ? filteredPoolItems : poolItems)
         }
     }
 
     var isActiveSearch: Bool = false {
         didSet {
-            setupTableViewItems(with: isActiveSearch ? filteredPoolItems : poolItems)
+            setupItems?(isActiveSearch ? filteredPoolItems : poolItems)
         }
     }
 
     var searchText: String = "" {
         didSet {
             guard !searchText.isEmpty else {
-                setupTableViewItems(with: poolItems)
+                setupItems?(poolItems)
                 return
             }
             filterAssetList(with: searchText.lowercased())
@@ -60,22 +90,27 @@ final class PoolListViewModel {
     }
 
     weak var assetManager: AssetManagerProtocol?
-    var poolViewModelFactory: PoolViewModelFactoryProtocol
-    var fiatService: FiatServiceProtocol?
+    var poolViewModelFactory: PoolViewModelFactory
+    var fiatService: FiatServiceProtocol
     var poolsService: PoolsServiceInputProtocol?
     var wireframe: PoolListWireframeProtocol = PoolListWireframe()
     var providerFactory: BalanceProviderFactory
     weak var view: UIViewController?
     var operationFactory: WalletNetworkOperationFactoryProtocol
     var assetsProvider: AssetProviderProtocol
+    var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
+    let marketCapService: MarketCapServiceProtocol
+    let updateHandler: (() -> Void)?
 
     init(poolsService: PoolsServiceInputProtocol,
          assetManager: AssetManagerProtocol,
          fiatService: FiatServiceProtocol,
-         poolViewModelFactory: PoolViewModelFactoryProtocol,
+         poolViewModelFactory: PoolViewModelFactory,
          providerFactory: BalanceProviderFactory,
          operationFactory: WalletNetworkOperationFactoryProtocol,
-         assetsProvider: AssetProviderProtocol
+         assetsProvider: AssetProviderProtocol,
+         marketCapService: MarketCapServiceProtocol,
+         updateHandler: (() -> Void)?
     ) {
         self.poolViewModelFactory = poolViewModelFactory
         self.fiatService = fiatService
@@ -84,6 +119,8 @@ final class PoolListViewModel {
         self.providerFactory = providerFactory
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
+        self.marketCapService = marketCapService
+        self.updateHandler = updateHandler
     }
     func dissmissIfNeeded() {
         if poolItems.isEmpty {
@@ -98,38 +135,27 @@ extension PoolListViewModel: PoolListViewModelProtocol {
         R.string.localizable.commonSearchPools(preferredLanguages: .currentLocale)
     }
     
-    var items: [ManagebleItem] {
-        isActiveSearch ? filteredPoolItems : poolItems
-    }
-
-    func canMoveAsset(from: Int, to: Int) -> Bool {
-        let firstNotFavoriteIndex = poolItems.firstIndex { !$0.poolInfo.isFavorite } ?? poolItems.count
-        let isFavorite = poolItems[from].poolInfo.isFavorite
-        return (isFavorite ? firstNotFavoriteIndex >= to : firstNotFavoriteIndex <= to)
-    }
-
-    func didMoveAsset(from: Int, to: Int) {
-        let item = poolItems.remove(at: from)
-        poolItems.insert(item, at: to)
-        setupItems?(poolItems)
-    }
-    
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        poolsService?.loadPools(isNeedForceUpdate: false)
+        poolsService?.loadAccountPools(isNeedForceUpdate: false)
+    }
+    
+    func viewDissmissed() {
+        updateHandler?()
     }
 }
 
 extension PoolListViewModel: PoolsServiceOutput {
     func loaded(pools: [PoolInfo]) {
-        if pools.isEmpty {
-            dissmiss?(false)
-        }
-
-        fiatService?.getFiat { [weak self] fiatData in
-            self?.poolItems = pools.compactMap { pool in
-                guard let self = self,
-                        let viewModel = self.poolViewModelFactory.createPoolViewModel(with: pool, fiatData: fiatData, mode: .view) else {
+        Task {
+            if pools.isEmpty {
+                dissmiss?(false)
+            }
+            
+            self.poolItems = try await pools.concurrentMap { pool in
+                let fiatData = await self.fiatService.getFiat()
+                
+                guard let viewModel = self.poolViewModelFactory.createPoolViewModel(with: pool, fiatData: fiatData, mode: .view) else {
                     return nil
                 }
                 
@@ -146,11 +172,8 @@ extension PoolListViewModel: PoolsServiceOutput {
     }
     
     func showPoolDetails(poolInfo: PoolInfo) {
-        guard let assetManager = assetManager, let fiatService = fiatService, let poolsService = poolsService else { return }
-        let assets = assetManager.getAssetList() ?? []
-        
-        let balanceProvider = try? providerFactory.createBalanceDataProvider(for: assets, onlyVisible: false)
-        
+        guard let assetManager = assetManager, let poolsService = poolsService else { return }
+
         wireframe.showPoolDetails(on: view,
                                   poolInfo: poolInfo,
                                   assetManager: assetManager,
@@ -159,6 +182,7 @@ extension PoolListViewModel: PoolsServiceOutput {
                                   providerFactory: providerFactory,
                                   operationFactory: operationFactory,
                                   assetsProvider: assetsProvider,
+                                  marketCapService: marketCapService,
                                   dismissHandler: dissmissIfNeeded)
     }
 }
@@ -173,9 +197,5 @@ private extension PoolListViewModel {
     func saveUpdates() {
         let poolInfos = self.poolItems.map({ $0.poolInfo })
         poolsService?.updatePools(poolInfos)
-    }
-
-    func setupTableViewItems(with items: [PoolListItem]) {
-        setupItems?(isActiveSearch ? filteredPoolItems : poolItems)
     }
 }

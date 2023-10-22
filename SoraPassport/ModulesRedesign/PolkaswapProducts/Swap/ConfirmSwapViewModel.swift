@@ -1,9 +1,39 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import UIKit
 import SoraUIKit
 import CommonWallet
 import RobinHood
 import SoraFoundation
-import XNetworking
+import sorawallet
 
 final class ConfirmSwapViewModel {
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
@@ -28,6 +58,7 @@ final class ConfirmSwapViewModel {
     var lpFee: Decimal
     var swapVariant: SwapVariant
     var minMaxValue: Decimal
+    var timer: Timer?
     private var dexId: UInt32
     private let interactor: PolkaswapMainInteractorInputProtocol
     private var quoteParams: PolkaswapMainInteractorQuoteParams
@@ -130,10 +161,26 @@ final class ConfirmSwapViewModel {
         self.fiatData = fiatData
         self.eventCenter = eventCenter
     }
+    
+    deinit {
+        timer?.invalidate()
+        timer = nil
+    }
+    
+    private func updateBalanceData() {
+        if !self.firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [self.firstAssetId]).first {
+            self.firstAssetBalance = firstAssetBalance
+        }
+        
+        if !self.secondAssetId.isEmpty, let secondAssetBalance = assetsProvider?.getBalances(with: [self.secondAssetId]).first {
+            self.secondAssetBalance = secondAssetBalance
+        }
+    }
 }
 
 extension ConfirmSwapViewModel: ConfirmViewModelProtocol {
     func viewDidLoad() {
+        updateBalanceData()
         setupContent()
         subscribeToPoolUpdates()
         assetsProvider?.add(observer: self)
@@ -142,13 +189,7 @@ extension ConfirmSwapViewModel: ConfirmViewModelProtocol {
 
 extension ConfirmSwapViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        if !self.firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [self.firstAssetId]).first {
-            self.firstAssetBalance = firstAssetBalance
-        }
-        
-        if !self.secondAssetId.isEmpty, let secondAssetBalance = assetsProvider?.getBalances(with: [self.secondAssetId]).first {
-            self.secondAssetBalance = secondAssetBalance
-        }
+        updateBalanceData()
     }
 }
 
@@ -230,6 +271,9 @@ extension ConfirmSwapViewModel {
     }
     
     func submit() {
+        timer?.invalidate()
+        timer = nil
+        
         let networkFeeDescription = FeeDescription(identifier: WalletAssetId.xor.rawValue,
                                                    assetId: WalletAssetId.xor.rawValue,
                                                    type: "fee",
@@ -301,29 +345,14 @@ extension ConfirmSwapViewModel {
     }
     
     func subscribeToPoolUpdates() {
-        let xorID = WalletAssetId.xor.rawValue
         guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else { return }
 
-        interactor.unsubscribePoolXYK()
-        interactor.unsubscribePoolTBC()
-
-        if market == .smart || market == .xyk {
-            if xorID != firstAssetId {
-                interactor.subscribePoolXYK(assetId1: xorID, assetId2: firstAssetId)
-            }
-            if xorID != secondAssetId {
-                interactor.subscribePoolXYK(assetId1: xorID, assetId2: secondAssetId)
-            }
+        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
+            self?.loadQuote()
         }
-
-        if market == .smart || market == .tbc {
-            interactor.subscribePoolTBC(assetId: xorID)
-            if xorID != firstAssetId {
-                interactor.subscribePoolTBC(assetId: firstAssetId)
-            }
-            if xorID != secondAssetId {
-                interactor.subscribePoolTBC(assetId: secondAssetId)
-            }
+        
+        if let timer {
+            RunLoop.current.add(timer, forMode: .common)
         }
     }
     
@@ -440,10 +469,10 @@ extension ConfirmSwapViewModel: DetailViewModelDelegate {
         )
     }
     
-    func lpFeeInfoButtonTapped() {
+    func swapFeeInfoButtonTapped() {
         wireframe?.present(
-            message: R.string.localizable.polkaswapLiqudityFeeInfo(preferredLanguages: .currentLocale),
-            title: R.string.localizable.polkaswapLiqudityFee(preferredLanguages: .currentLocale),
+            message: R.string.localizable.polkaswapLiquidityTotalFeeDesc(preferredLanguages: .currentLocale),
+            title: R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale),
             closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
             from: view
         )

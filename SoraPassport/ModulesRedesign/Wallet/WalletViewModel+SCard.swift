@@ -47,7 +47,7 @@ extension RedesignWalletViewModel {
         referralBalance = nil
         xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
 
-        poolService.appendDelegate(delegate: self)
+        poolsService.appendDelegate(delegate: self)
         balanceProvider?.removeObserver(self)
         balanceProvider = try? providerFactory.createBalanceDataProvider(for: [.xor], onlyVisible: false)
         let changesBlock = { [weak self] (changes: [DataProviderChange<[BalanceData]>]) -> Void in
@@ -89,7 +89,7 @@ extension RedesignWalletViewModel {
                     self?.singleSidedXorFarmedPools = totalPooledTokens
 
                     /// pooled xor
-                    self?.poolService.loadPools(isNeedForceUpdate: false)
+                    self?.poolsService.loadAccountPools(isNeedForceUpdate: false)
                 }
 
                 return
@@ -119,21 +119,20 @@ extension RedesignWalletViewModel {
 
 extension RedesignWalletViewModel: PoolsServiceOutput {
     func loaded(pools: [PoolInfo]) {
-        poolService.loadPools(currentAsset: .xor, completion: { [weak self] poolInfos in
-            var xorPooledTotal = Decimal(0)
-            poolInfos.forEach { poolInfo in
-                if poolInfo.baseAssetId == .xor {
-                    xorPooledTotal += poolInfo.targetAssetPooledByAccount ?? .zero
-                } else {
-                    xorPooledTotal += poolInfo.baseAssetPooledByAccount  ?? .zero
-                }
+        let poolInfos = poolsService.loadPools(currentAsset: .xor)
+        var xorPooledTotal = Decimal(0)
+        poolInfos.forEach { poolInfo in
+            if poolInfo.baseAssetId == .xor {
+                xorPooledTotal += poolInfo.targetAssetPooledByAccount ?? .zero
+            } else {
+                xorPooledTotal += poolInfo.baseAssetPooledByAccount  ?? .zero
             }
-            if let totalXorBalance = self?.totalXorBalance,
-               let referralBalance = self?.referralBalance,
-               let singleSidedXorFarmedPools = self?.singleSidedXorFarmedPools
-            {
-                self?.xorBalanceStream.wrappedValue = totalXorBalance + referralBalance + xorPooledTotal + singleSidedXorFarmedPools
-            }
-        })
+        }
+        if let totalXorBalance = totalXorBalance,
+           let referralBalance = referralBalance,
+           let singleSidedXorFarmedPools = singleSidedXorFarmedPools
+        {
+            xorBalanceStream.wrappedValue = totalXorBalance + referralBalance + xorPooledTotal + singleSidedXorFarmedPools
+        }
     }
 }

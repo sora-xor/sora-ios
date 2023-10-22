@@ -1,9 +1,39 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import UIKit
 import SoraUIKit
 import CommonWallet
 import RobinHood
 import SoraFoundation
-import XNetworking
+import sorawallet
 
 final class RemoveLiquidityViewModel {
     var detailsItem: PoolDetailsItem?
@@ -80,27 +110,31 @@ final class RemoveLiquidityViewModel {
     
     var firstAssetId: String = "" {
         didSet {
-            guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
-            let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
-            view?.updateFirstAsset(symbol: asset.symbol, image: image)
-            setupBalanceDataProvider()
-            if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                poolInfo = poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+            Task {
+                guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
+                let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
+                view?.updateFirstAsset(symbol: asset.symbol, image: image)
+                updateBalanceData()
+                if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
+                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+                }
+                recalculate(field: .one)
             }
-            recalculate(field: .one)
         }
     }
     
     var secondAssetId: String = "" {
         didSet {
-            guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
-            let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
-            view?.updateSecondAsset(symbol: asset.symbol, image: image)
-            setupBalanceDataProvider()
-            if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                poolInfo = poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+            Task {
+                guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
+                let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
+                view?.updateSecondAsset(symbol: asset.symbol, image: image)
+                updateBalanceData()
+                if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
+                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+                }
+                recalculate(field: .two)
             }
-            recalculate(field: .two)
         }
     }
     
@@ -132,7 +166,7 @@ final class RemoveLiquidityViewModel {
 
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
             
-            if availableTargetAssetPooledByAccount  <= inputedFirstAmount {
+            if availableTargetAssetPooledByAccount <= inputedSecondAmount {
                 inputedSecondAmount = availableTargetAssetPooledByAccount
                 view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
             }
@@ -167,10 +201,10 @@ final class RemoveLiquidityViewModel {
     private let feeProvider: FeeProviderProtocol
     private var fiatData: [FiatData] = [] {
         didSet {
-            setupBalanceDataProvider()
+            updateBalanceData()
         }
     }
-    private var apy: SbApyInfo?
+    private var apy: Decimal?
     private var fee: Decimal = 0
     
     private var isPairEnabled: Bool = true
@@ -180,6 +214,7 @@ final class RemoveLiquidityViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private var stakedPools: [StakedPool] = []
     private var warningViewModelFactory: WarningViewModelFactory
+    private var marketCapService: MarketCapServiceProtocol
     private var stackedPercentage: Decimal {
         return stakedPools.map {
             let accountPoolBalance = poolInfo?.accountPoolBalance ?? .zero
@@ -211,7 +246,8 @@ final class RemoveLiquidityViewModel {
         operationFactory: WalletNetworkOperationFactoryProtocol,
         assetsProvider: AssetProviderProtocol?,
         farmingService: DemeterFarmingServiceProtocol,
-        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
+        marketCapService: MarketCapServiceProtocol
     ) {
         self.poolInfo = poolInfo
         self.apyService = apyService
@@ -227,6 +263,7 @@ final class RemoveLiquidityViewModel {
         self.farmingService = farmingService
         self.stakedPools = stakedPools
         self.warningViewModelFactory = warningViewModelFactory
+        self.marketCapService = marketCapService
     }
 }
 
@@ -260,6 +297,7 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
             self.secondAssetId = secondAssetId
         }
 
+        updateBalanceData()
         slippageTolerance = 0.5
         assetsProvider?.add(observer: self)
         view?.focus(field: .one)
@@ -277,7 +315,7 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
     func apyInfoButtonTapped() {
         wireframe?.present(
             message: R.string.localizable.polkaswapSbApyInfo(),
-            title: R.string.localizable.poolApyTitle(),
+            title: Constants.apyTitle,
             closeAction: R.string.localizable.commonOk(),
             from: view
         )
@@ -300,7 +338,8 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.firstAssetId = assetId
         }
     }
@@ -321,7 +360,8 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.secondAssetId = assetId
         }
     }
@@ -375,13 +415,13 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
 
 extension RemoveLiquidityViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        setupBalanceDataProvider()
+        updateBalanceData()
     }
 }
 
 extension RemoveLiquidityViewModel {
     
-    func setupBalanceDataProvider() {
+    func updateBalanceData() {
         if !firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [firstAssetId]).first {
             self.firstAssetBalance = firstAssetBalance
         }

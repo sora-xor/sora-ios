@@ -1,9 +1,39 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import UIKit
 import SoraUIKit
 import CommonWallet
 import RobinHood
 import SoraFoundation
-import XNetworking
+import sorawallet
 
 final class SwapViewModel {
     var detailsItem: PoolDetailsItem?
@@ -19,6 +49,7 @@ final class SwapViewModel {
     let eventCenter: EventCenterProtocol
     let interactor: PolkaswapMainInteractorInputProtocol
     let networkFacade: WalletNetworkOperationFactoryProtocol?
+    var timer: Timer?
     
     let debouncer = Debouncer(interval: 0.8)
     
@@ -200,6 +231,7 @@ final class SwapViewModel {
     private var selectedSecondTokenId: String
     private weak var assetsProvider: AssetProviderProtocol?
     private var lpServiceFee: LPFeeServiceProtocol
+    private let marketCapService: MarketCapServiceProtocol
     
     private var warningViewModelFactory: WarningViewModelFactory
     private var warningViewModel: WarningViewModel? {
@@ -236,7 +268,8 @@ final class SwapViewModel {
         assetsProvider: AssetProviderProtocol?,
         lpServiceFee: LPFeeServiceProtocol,
         polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
+        marketCapService: MarketCapServiceProtocol
     ) {
         self.assetsProvider = assetsProvider
         self.fiatService = fiatService
@@ -252,6 +285,12 @@ final class SwapViewModel {
         self.lpServiceFee = lpServiceFee
         self.polkaswapNetworkFacade = polkaswapNetworkFacade
         self.warningViewModelFactory = warningViewModelFactory
+        self.marketCapService = marketCapService
+    }
+    
+    deinit {
+        timer?.invalidate()
+        timer = nil
     }
 }
 
@@ -306,8 +345,13 @@ extension SwapViewModel: LiquidityViewModelProtocol {
 
         view?.updateMiddleButton(isEnabled: false)
         view?.setupButton(isEnabled: false)
+        updateAssetsBalance()
         assetsProvider?.add(observer: self)
         updateDetails()
+    }
+    
+    func viewWillAppear() {
+        subscribeToPoolUpdates()
     }
     
     func choiсeBaseAssetButtonTapped() {
@@ -324,7 +368,8 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.firstAssetId = assetId
         }
     }
@@ -343,7 +388,8 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.secondAssetId = assetId
         }
     }
@@ -366,6 +412,9 @@ extension SwapViewModel: LiquidityViewModelProtocol {
     }
     
     func reviewButtonTapped() {
+        timer?.invalidate()
+        timer = nil
+        
         guard let assetManager = assetManager, let amounts = amounts, let quoteParams = quoteParams else { return }
         wireframe?.showSwapConfirmation(on: view?.controller.navigationController,
                                         baseAssetId: firstAssetId,
@@ -416,6 +465,11 @@ extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
     }
     
     func didLoadQuote(_ quote: SwapValues?, dexId: UInt32, params: PolkaswapMainInteractorQuoteParams) {
+        guard updateButtonState()  else {
+            view?.update(isNeedLoadingState: false)
+            return
+        }
+
         guard let quote = quote else {
             view?.setupButton(isEnabled: false)
             view?.update(isNeedLoadingState: false)
@@ -604,29 +658,14 @@ extension SwapViewModel {
     }
     
     func subscribeToPoolUpdates() {
-        let xorID = WalletAssetId.xor.rawValue
         guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else { return }
 
-        interactor.unsubscribePoolXYK()
-        interactor.unsubscribePoolTBC()
-
-        if selectedMarket == .smart || selectedMarket == .xyk {
-            if xorID != firstAssetId {
-                interactor.subscribePoolXYK(assetId1: xorID, assetId2: firstAssetId)
-            }
-            if xorID != secondAssetId {
-                interactor.subscribePoolXYK(assetId1: xorID, assetId2: secondAssetId)
-            }
+        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
+            self?.loadQuote()
         }
-
-        if selectedMarket == .smart || selectedMarket == .tbc {
-            interactor.subscribePoolTBC(assetId: xorID)
-            if xorID != firstAssetId {
-                interactor.subscribePoolTBC(assetId: firstAssetId)
-            }
-            if xorID != secondAssetId {
-                interactor.subscribePoolTBC(assetId: secondAssetId)
-            }
+        
+        if let timer {
+            RunLoop.current.add(timer, forMode: .common)
         }
     }
     
@@ -671,9 +710,16 @@ extension SwapViewModel {
     }
     
     func updateWarningModel() {
-        let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
-        
-        var isDisclamerHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
+        guard let feeAsset = assetManager?.getAssetList()?.first(where: { $0.isFeeAsset }),
+              let feeAssetBalance = assetsProvider?.getBalances(with: [feeAsset.assetId]).first else { return }
+
+        var isDisclamerHidden = true
+
+        if feeAsset.assetId == firstAssetId {
+            isDisclamerHidden = firstAssetBalance.balance.decimalValue - inputedFirstAmount - fee > fee
+        } else {
+            isDisclamerHidden = feeAssetBalance.balance.decimalValue - fee > fee
+        }
         
         if firstAssetId.isEmpty ||
             secondAssetId.isEmpty ||
@@ -684,7 +730,7 @@ extension SwapViewModel {
         }
 
         warningViewModel = warningViewModelFactory.insufficientBalanceViewModel(
-            feeAssetSymbol: feeAssetSymbol,
+            feeAssetSymbol: feeAsset.symbol,
             feeAmount: fee,
             isHidden: isDisclamerHidden
         )
@@ -711,10 +757,10 @@ extension SwapViewModel: DetailViewModelDelegate {
         )
     }
     
-    func lpFeeInfoButtonTapped() {
+    func swapFeeInfoButtonTapped() {
         wireframe?.present(
-            message: R.string.localizable.polkaswapLiqudityFeeInfo(preferredLanguages: .currentLocale),
-            title: R.string.localizable.polkaswapLiqudityFee(preferredLanguages: .currentLocale),
+            message: R.string.localizable.polkaswapLiquidityTotalFeeDesc(preferredLanguages: .currentLocale),
+            title: R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale),
             closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
             from: view
         )

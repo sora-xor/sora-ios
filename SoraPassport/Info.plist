@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 	<key>AppConfigName</key>
 	<string>$(SORA_APPLICATION_CONFIG)</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -27,14 +29,14 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>$(SORA_IOS_GOOGLE_URL_SCHEME_PROD)</string>
+				<string>$(SORA_GOOGLE_URL_SCHEME_DEBUG)</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>4</string>
 	<key>GIDClientID</key>
-	<string>$(SORA_IOS_GOOGLE_TOKEN_PROD)</string>
+	<string>$(SORA_GOOGLE_TOKEN_DEBUG)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
@@ -70,7 +72,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
 </dict>
 </plist>

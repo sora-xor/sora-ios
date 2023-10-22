@@ -1,3 +1,33 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import Foundation
 import SCard
 import UIKit
@@ -17,7 +47,8 @@ protocol AssetDetailsWireframeProtocol {
                   fiatService: FiatServiceProtocol,
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-                  assetsProvider: AssetProviderProtocol?)
+                  assetsProvider: AssetProviderProtocol?,
+                  marketCapService: MarketCapServiceProtocol)
     
     func showReceive(on controller: UIViewController?,
                      selectedAsset: AssetInfo,
@@ -38,7 +69,8 @@ protocol AssetDetailsWireframeProtocol {
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   assetsProvider: AssetProviderProtocol?,
                   qrEncoder: WalletQREncoderProtocol,
-                  sharingFactory: AccountShareFactoryProtocol)
+                  sharingFactory: AccountShareFactoryProtocol,
+                  marketCapService: MarketCapServiceProtocol)
     
     func showFrozenBalance(on controller: UIViewController?, frozenDetailViewModels: [BalanceDetailViewModel])
 
@@ -51,20 +83,20 @@ protocol AssetDetailsWireframeProtocol {
                          poolsService: PoolsServiceInputProtocol,
                          providerFactory: BalanceProviderFactory,
                          operationFactory: WalletNetworkOperationFactoryProtocol,
-                         assetsProvider: AssetProviderProtocol?)
+                         assetsProvider: AssetProviderProtocol?,
+                         marketCapService: MarketCapServiceProtocol)
 }
 
 final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
 
     func showActivity(on controller: UIViewController, assetId: String, assetManager: AssetManagerProtocol) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else { return }
-        
+        let assets = assetManager.getAssetList() ?? []
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
                                             address: selectedAccount.address,
-                                            assets: assetManager.getAssetList() ?? [])
+                                            assets: assets)
         
-        let viewModelFactory = ActivityViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
-                                                                  assetManager: assetManager)
+        let viewModelFactory = ActivityViewModelFactory(walletAssets: assets, assetManager: assetManager)
         let viewModel = ActivityViewModel(historyService: historyService,
                                           viewModelFactory: viewModelFactory,
                                           wireframe: ActivityWireframe(),
@@ -125,14 +157,16 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                   fiatService: FiatServiceProtocol,
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-                  assetsProvider: AssetProviderProtocol?) {
+                  assetsProvider: AssetProviderProtocol?,
+                  marketCapService: MarketCapServiceProtocol) {
         guard let swapController = SwapViewFactory.createView(selectedTokenId: selectedTokenId,
                                                               selectedSecondTokenId: "",
                                                               assetManager: assetManager,
                                                               fiatService: fiatService,
                                                               networkFacade: networkFacade,
                                                               polkaswapNetworkFacade: polkaswapNetworkFacade,
-                                                              assetsProvider: assetsProvider) else { return }
+                                                              assetsProvider: assetsProvider,
+                                                              marketCapService: marketCapService) else { return }
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
         containerView.add(swapController)
@@ -149,7 +183,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                   networkFacade: WalletNetworkOperationFactoryProtocol?,
                   assetsProvider: AssetProviderProtocol?,
                   qrEncoder: WalletQREncoderProtocol,
-                  sharingFactory: AccountShareFactoryProtocol) {
+                  sharingFactory: AccountShareFactoryProtocol,
+                  marketCapService: MarketCapServiceProtocol) {
         let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedAsset.assetId,
                                                   selectedAddress: nil,
                                                   fiatService: fiatService,
@@ -159,7 +194,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                                                   wireframe: InputAssetAmountWireframe(),
                                                   assetsProvider: assetsProvider,
                                                   qrEncoder: qrEncoder,
-                                                  sharingFactory: sharingFactory)
+                                                  sharingFactory: sharingFactory,
+                                                  marketCapService: marketCapService)
         let inputAmountController = InputAssetAmountViewController(viewModel: viewModel)
         viewModel.view = inputAmountController
         
@@ -229,7 +265,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                          poolsService: PoolsServiceInputProtocol,
                          providerFactory: BalanceProviderFactory,
                          operationFactory: WalletNetworkOperationFactoryProtocol,
-                         assetsProvider: AssetProviderProtocol?) {
+                         assetsProvider: AssetProviderProtocol?,
+                         marketCapService: MarketCapServiceProtocol) {
         guard let assetDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
                                                                              assetManager: assetManager,
                                                                              fiatService: fiatService,
@@ -237,6 +274,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                                                                              providerFactory: providerFactory,
                                                                              operationFactory: operationFactory,
                                                                              assetsProvider: assetsProvider,
+                                                                             marketCapService: marketCapService,
                                                                              dismissHandler: nil) else {
             return
         }

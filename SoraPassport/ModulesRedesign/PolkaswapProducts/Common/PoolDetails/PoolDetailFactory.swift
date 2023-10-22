@@ -1,22 +1,52 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import Foundation
 import CommonWallet
 import SoraUIKit
 import UIKit
-import XNetworking
+import sorawallet
 import SoraFoundation
 
 protocol DetailViewModelDelegate: AnyObject {
     func networkFeeInfoButtonTapped()
-    func lpFeeInfoButtonTapped()
+    func swapFeeInfoButtonTapped()
     func minMaxReceivedInfoButtonTapped()
 }
 
 protocol DetailViewModelFactoryProtocol {
-    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: SbApyInfo?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel]
+    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: Decimal?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel]
     func createSupplyLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo?,
-                                         apy: SbApyInfo?,
+                                         apy: Decimal?,
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
@@ -28,7 +58,7 @@ protocol DetailViewModelFactoryProtocol {
     func createRemoveLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo,
-                                         apy: SbApyInfo?,
+                                         apy: Decimal?,
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
@@ -55,24 +85,6 @@ protocol DetailViewModelFactoryProtocol {
 
 final class DetailViewModelFactory {
     let assetManager: AssetManagerProtocol
-
-    let formatter: NumberFormatter = {
-        let formatter = NumberFormatter.amount
-        formatter.roundingMode = .floor
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 8
-        formatter.locale = LocalizationManager.shared.selectedLocale
-        return formatter
-    }()
-    
-    let percentFormatter: NumberFormatter = {
-        let formatter = NumberFormatter.amount
-        formatter.roundingMode = .floor
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 2
-        formatter.locale = LocalizationManager.shared.selectedLocale
-        return formatter
-    }()
     
     init(assetManager: AssetManagerProtocol) {
         self.assetManager = assetManager
@@ -80,7 +92,7 @@ final class DetailViewModelFactory {
 }
 
 extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
-    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: SbApyInfo?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel] {
+    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: Decimal?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel] {
         var viewModels: [DetailViewModel] = []
         
         let baseAsset = assetManager.assetInfo(for: poolInfo.baseAssetId)
@@ -90,13 +102,13 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let baseAssetSymbol = baseAsset?.symbol.uppercased() ?? ""
         let targetAssetSymbol = targetAsset?.symbol.uppercased() ?? ""
         
-        if let apyValue = apy?.sbApy {
-            let apyText = "\(percentFormatter.stringFromDecimal(apyValue.decimalValue * 100) ?? "")% APY"
+        if let apyValue = apy {
+            let apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
             let assetAmountText = SoramitsuTextItem(text: apyText,
                                                     fontData: FontType.textBoldS,
                                                     textColor: .fgPrimary,
                                                     alignment: .right)
-            let apyDetailsViewModel = DetailViewModel(title: R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale),
+            let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
                                                       assetAmountText: assetAmountText)
             apyDetailsViewModel.infoHandler = { [weak viewModel] in
                 viewModel?.apyInfoButtonTapped()
@@ -124,31 +136,37 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
             viewModels.append(yourPoolShareViewModel)
         }
         
-        let basePooledAmount = formatter.stringFromDecimal(poolInfo.baseAssetPooledByAccount ?? 0) ?? ""
+        let baseAssetPooledByAccount = poolInfo.baseAssetPooledByAccount ?? 0
+        let basePooledAmount = NumberFormatter.cryptoAssets.stringFromDecimal(baseAssetPooledByAccount) ?? ""
         let baseAssetPooledText = SoramitsuTextItem(text: "\(basePooledAmount) \(baseAssetSymbol)",
                                                     fontData: FontType.textS,
                                                     textColor: .fgPrimary,
                                                     alignment: .right)
         let basePooledAmountDetailsViewModel = DetailViewModel(title: "Your \(baseAssetSymbol) pooled",
                                                                assetAmountText: baseAssetPooledText)
-        viewModels.append(basePooledAmountDetailsViewModel)
+        if baseAssetPooledByAccount > 0 {
+            viewModels.append(basePooledAmountDetailsViewModel)
+        }
         
-        let targetPooledAmount = formatter.stringFromDecimal(poolInfo.targetAssetPooledByAccount ?? 0) ?? ""
+        let targetAssetPooledByAccount = poolInfo.targetAssetPooledByAccount ?? 0
+        let targetPooledAmount = NumberFormatter.cryptoAssets.stringFromDecimal(targetAssetPooledByAccount) ?? ""
         let targetAssetPooledText = SoramitsuTextItem(text: "\(targetPooledAmount) \(targetAssetSymbol)",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,
                                                       alignment: .right)
         let targetPooledAmountDetailsViewModel = DetailViewModel(title: "Your \(targetAssetSymbol) pooled",
                                                                  assetAmountText: targetAssetPooledText)
-        viewModels.append(targetPooledAmountDetailsViewModel)
-        
+        if targetAssetPooledByAccount > 0 {
+            viewModels.append(targetPooledAmountDetailsViewModel)
+        }
+
         return viewModels
     }
     
     func createSupplyLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo?,
-                                         apy: SbApyInfo?,
+                                         apy: Decimal?,
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
@@ -177,14 +195,13 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                                  assetAmountText: yourPoolShareText)
         viewModels.append(yourPoolShareViewModel)
         
-        if let apy = apy {
-            let apyValue = apy.sbApy ?? 0
-            let apyText = "\(percentFormatter.stringFromDecimal(apyValue.decimalValue * 100) ?? "")% APY"
+        if let apyValue = apy {
+            let apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
             let assetAmountText = SoramitsuTextItem(text: apyText,
                                                     fontData: FontType.textBoldS,
                                                     textColor: .fgPrimary,
                                                     alignment: .right)
-            let apyDetailsViewModel = DetailViewModel(title: R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale),
+            let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
                                                       assetAmountText: assetAmountText)
             apyDetailsViewModel.infoHandler = {
                 viewModel.apyInfoButtonTapped()
@@ -225,7 +242,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
     func createRemoveLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo,
-                                         apy: SbApyInfo?,
+                                         apy: Decimal?,
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
@@ -245,13 +262,13 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let yourPoolShareViewModel = DetailViewModel(title: R.string.localizable.poolShareTitle1(preferredLanguages: .currentLocale),
                                                                  assetAmountText: yourPoolShareText)
         
-        let apyValue = apy?.sbApy ?? 0
-        let apyText = "\(percentFormatter.stringFromDecimal(apyValue.decimalValue * 100) ?? "")% APY"
+        let apyValue = apy ?? 0
+        let apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
         let assetAmountText = SoramitsuTextItem(text: apyText,
                                                 fontData: FontType.textBoldS,
                                                 textColor: .fgPrimary,
                                                 alignment: .right)
-        let apyDetailsViewModel = DetailViewModel(title: R.string.localizable.poolApyTitle(preferredLanguages: .currentLocale),
+        let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
                                                   assetAmountText: assetAmountText)
         apyDetailsViewModel.infoHandler = {
             viewModel.apyInfoButtonTapped()
@@ -345,12 +362,12 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                             fontData: FontType.textBoldXS,
                                             textColor: .fgSecondary,
                                             alignment: .right)
-        let lpFeeViewModel = DetailViewModel(title: R.string.localizable.polkaswapLiqudityFee(preferredLanguages: .currentLocale),
+        let lpFeeViewModel = DetailViewModel(title: R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale),
                                              assetAmountText: lpFeeText,
                                              fiatAmountText: fiatLpFeeText)
         
         lpFeeViewModel.infoHandler = { [weak viewModel] in
-            viewModel?.lpFeeInfoButtonTapped()
+            viewModel?.swapFeeInfoButtonTapped()
         }
         
         return [minMaxReceivedViewModel, fromAssetToAsset, toAssetFromAsset, routeModel, feeViewModel, lpFeeViewModel]

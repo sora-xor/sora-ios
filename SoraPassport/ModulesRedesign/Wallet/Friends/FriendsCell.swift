@@ -1,3 +1,33 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import SoraUIKit
 import SnapKit
 
@@ -18,7 +48,7 @@ final class FriendsCell: SoramitsuTableViewCell {
         label.sora.text = R.string.localizable.settingsInviteTitle(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.headline2
-        label.numberOfLines = 2
+        label.sora.numberOfLines = 0
         return label
     }()
     
@@ -27,7 +57,7 @@ final class FriendsCell: SoramitsuTableViewCell {
         label.sora.text = R.string.localizable.referralTitle(preferredLanguages: .currentLocale)
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.paragraphXS
-        label.numberOfLines = 2
+        label.sora.numberOfLines = 0
         return label
     }()
     
@@ -35,29 +65,30 @@ final class FriendsCell: SoramitsuTableViewCell {
         let imageView = SoramitsuImageView()
         imageView.image = R.image.archerGirl()
         imageView.sora.contentMode = .scaleAspectFill
+        imageView.setContentHuggingPriority(.required, for: .vertical)
         return imageView
     }()
     
     private lazy var startInvitingButton: SoramitsuButton = {
         let title = SoramitsuTextItem(text: R.string.localizable.referralStartInviting(preferredLanguages: .currentLocale) ,
                                       fontData: FontType.textBoldS ,
-                                      textColor: .bgSurface,
+                                      textColor: .custom(uiColor: Colors.white100),
                                       alignment: .center)
-        
+
         let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
         button.sora.cornerRadius = .circle
         button.sora.backgroundColor = .accentPrimary
         button.sora.attributedText = title
         button.sora.isUserInteractionEnabled = false
+        button.sora.horizontalOffset = 8
         return button
     }()
     
     private lazy var closeButton: ImageButton = {
-        let button = ImageButton(size: CGSize(width: 24, height: 24))
+        let button = ImageButton(size: CGSize(width: 32, height: 32))
         button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .custom(uiColor: .clear)
-        button.sora.image = R.image.roundClose()
+        button.sora.backgroundColor = .bgSurface
+        button.sora.image = R.image.close()
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.friendsItem?.onClose?()
         }
@@ -93,24 +124,24 @@ final class FriendsCell: SoramitsuTableViewCell {
         titleLabel.snp.makeConstraints { make in
             make.top.equalTo(containerView).offset(16)
             make.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(124)
+            make.trailing.equalTo(pictureView.snp.leading).offset(-17)
         }
         
         descriptionLabel.snp.makeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(8)
             make.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(151)
+            make.trailing.equalTo(pictureView.snp.leading).offset(-17)
         }
         
         startInvitingButton.snp.makeConstraints { make in
             make.top.equalTo(descriptionLabel.snp.bottom).offset(12)
             make.leading.equalTo(containerView).offset(24)
-            make.width.equalTo(107)
             make.height.equalTo(32)
+            make.bottom.equalTo(containerView).offset(-16)
         }
         
         pictureView.snp.makeConstraints { make in
-            make.top.trailing.bottom.equalTo(containerView)
+            make.trailing.bottom.centerY.equalTo(containerView)
             make.width.equalTo(136)
             make.height.equalTo(164)
         }

@@ -1,7 +1,38 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import UIKit
 import SoraUIKit
 import CommonWallet
 import RobinHood
+import SoraFoundation
 
 protocol SelectAssetViewModelProtocol: Produtable {
     typealias ItemType = AssetListItem
@@ -17,44 +48,51 @@ final class SelectAssetViewModel {
 
     var assetItems: [AssetListItem] = [] {
         didSet {
-            setupTableViewItems(with: assetItems)
+            setupItems?(assetItems)
         }
     }
 
     var filteredAssetItems: [AssetListItem] = [] {
         didSet {
-            setupTableViewItems(with: filteredAssetItems)
+            setupItems?(filteredAssetItems)
         }
     }
 
-    var isNeedZeroBalance: Bool = false {
-        didSet {
-            setupTableViewItems(with: isActiveSearch ? filteredAssetItems : assetItems)
-        }
-    }
-
-    var mode: WalletViewMode = .selection {
-        didSet {
-            setupNavigationBar?(mode)
-
-            assetItems.forEach { item in
-                item.assetViewModel.mode = mode
-            }
-
-            setupTableViewItems(with: isActiveSearch ? filteredAssetItems : assetItems)
-        }
-    }
+    var mode: WalletViewMode = .selection
 
     var isActiveSearch: Bool = false {
         didSet {
-            setupTableViewItems(with: isActiveSearch ? filteredAssetItems : assetItems)
+            setupItems?(isActiveSearch ? filteredAssetItems : assetItems)
+        }
+    }
+    
+    var poolItemInfo: PriceInfo? {
+        didSet {
+            let fiatData = poolItemInfo?.fiatData ?? []
+            let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
+            
+            assetItems.forEach { item in
+                
+                let fiatText = FiatTextBuilder().build(fiatData: fiatData, amount: item.balance, assetId: item.assetInfo.assetId)
+                
+                var deltaArributedText = DeltaPriceBuilder().build(fiatData: fiatData,
+                                                                   marketCapInfo: marketCapInfo,
+                                                                   assetId: item.assetViewModel.identifier)
+                
+                item.assetViewModel.fiatText = fiatText
+                item.assetViewModel.deltaPriceText = deltaArributedText
+            }
+            
+            DispatchQueue.main.async {
+                self.reloadItems?(self.assetItems)
+            }
         }
     }
 
     var searchText: String = "" {
         didSet {
             guard !searchText.isEmpty else {
-                setupTableViewItems(with: assetItems)
+                setupItems?(assetItems)
                 return
             }
             filterAssetList(with: searchText.lowercased())
@@ -62,44 +100,36 @@ final class SelectAssetViewModel {
     }
 
     weak var assetManager: AssetManagerProtocol?
-    var assetViewModelFactory: AssetViewModelFactoryProtocol
+    var assetViewModelFactory: AssetViewModelFactory
     weak var fiatService: FiatServiceProtocol?
     private weak var assetsProvider: AssetProviderProtocol?
+    private var marketCapService: MarketCapServiceProtocol
     var assetIds: [String] = []
+    private let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
 
-    init(assetViewModelFactory: AssetViewModelFactoryProtocol,
+    init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
          assetManager: AssetManagerProtocol?,
          assetsProvider: AssetProviderProtocol?,
-         assetIds: [String]) {
+         assetIds: [String],
+         marketCapService: MarketCapServiceProtocol) {
         self.assetViewModelFactory = assetViewModelFactory
         self.fiatService = fiatService
         self.assetManager = assetManager
         self.assetsProvider = assetsProvider
         self.assetIds = assetIds
+        self.marketCapService = marketCapService
+        self.poolItemInfo = PriceInfoService.shared.priceInfo
     }
 }
 
 extension SelectAssetViewModel: SelectAssetViewModelProtocol {
+    var navigationTitle: String {
+        R.string.localizable.chooseToken(preferredLanguages: .currentLocale)
+    }
+
     var searchBarPlaceholder: String {
         R.string.localizable.assetListSearchPlaceholder(preferredLanguages: .currentLocale)
-    }
-    
-    var items: [ManagebleItem] {
-        isActiveSearch ? filteredAssetItems : assetItems
-    }
-
-    func canMoveAsset(from: Int, to: Int) -> Bool {
-        let firstNotFavoriteIndex = assetItems.firstIndex { !$0.assetViewModel.isFavorite } ?? items.count
-        let isFavorite = assetItems[from].assetViewModel.isFavorite
-        let isTryToChangeXorPosition = to == 0
-        return (isFavorite ? firstNotFavoriteIndex >= to : firstNotFavoriteIndex <= to) && !isTryToChangeXorPosition
-    }
-
-    func didMoveAsset(from: Int, to: Int) {
-        let item = assetItems.remove(at: from)
-        assetItems.insert(item, at: to)
-        setupItems?(assetItems)
     }
     
     func viewDidLoad() {
@@ -112,34 +142,45 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 
 private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) {
-
-        fiatService?.getFiat { [weak self] fiatData in
-            self?.assetItems = balanceItems.compactMap { balance in
-                guard let self = self,
-                      let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
-                      let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
-                                                                                      fiatData: fiatData,
-                                                                                      mode: self.mode) else {
-                    return nil
-                }
-
-                let item = AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
-
-                item.assetHandler = { [weak self] identifier in
-                    self?.dissmiss?(true)
-                    self?.selectionCompletion?(identifier)
-                }
+        let fiatData = poolItemInfo?.fiatData ?? []
+        let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
         
-                item.favoriteHandle = { item in
-                    item.assetInfo.visible = !item.assetInfo.visible
-                }
-                return item
-            }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
+        assetItems = balanceItems.compactMap { balance in
+            
+            let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier,
+                                                             fiatData: fiatData,
+                                                             marketCapInfo: marketCapInfo)
+            
+            guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
+                  let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
+                                                                                  assetInfo: assetInfo,
+                                                                                  fiatData: fiatData,
+                                                                                  mode: self.mode,
+                                                                                  priceDelta: deltaPrice) else {
+                return nil
+            }
+            
+            let item = AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
+            
+            item.assetHandler = { [weak self] identifier in
+                self?.dissmiss?(true)
+                self?.selectionCompletion?(identifier)
+            }
+            
+            item.favoriteHandle = { item in
+                item.assetInfo.visible = !item.assetInfo.visible
+            }
+            return item
+        }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
+        
+        Task {
+            let assetIds = balanceItems.map { $0.identifier }
+            poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
         }
     }
 
     func filterAssetList(with query: String) {
-        filteredAssetItems = self.assetItems.filter { item in
+        filteredAssetItems = query == "" ? assetItems : assetItems.filter { item in
             return item.assetInfo.assetId.lowercased().contains(query) ||
             item.assetInfo.symbol.lowercased().contains(query) ||
             item.assetViewModel.title.lowercased().contains(query)
@@ -147,11 +188,7 @@ private extension SelectAssetViewModel {
     }
 
     func saveUpdates() {
-        let assetInfos = self.assetItems.map({ $0.assetInfo })
+        let assetInfos = assetItems.map({ $0.assetInfo })
         assetManager?.saveAssetList(assetInfos)
-    }
-
-    func setupTableViewItems(with items: [AssetListItem]) {
-        setupItems?(isActiveSearch ? filteredAssetItems : items)
     }
 }

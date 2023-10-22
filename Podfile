@@ -31,11 +31,11 @@ abstract_target 'SoraPassportAll' do
   pod 'lottie-ios', '~> 3.5.0'  
   pod 'Nantes'
   pod 'SnapKit'
-  pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui.git', :tag => '1.1.1'
+  pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui', :tag => '1.1.1'
   pod 'IdensicMobileSDK', :http => 'https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz'
-  pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :tag => '1.2.0'
+  pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :tag => '1.3.0'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
-  pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.57/AppCommonNetworking/XNetworking/XNetworking.podspec'
+  pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/release/0.1.1/core/sorawallet/sorawallet.podspec'
   pod 'SSFCloudStorage'
 
   target 'SoraPassportTests' do
@@ -52,9 +52,9 @@ abstract_target 'SoraPassportAll' do
       pod 'FearlessUtils', :git => 'https://github.com/soramitsu/fearless-utils-iOS.git', :branch => 'feature/fearless-utils-for-sora'
       pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :branch => 'feature/sora-propositions'
       pod 'SoraFoundation'
-      pod 'XNetworking', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/0.0.57/AppCommonNetworking/XNetworking/XNetworking.podspec'
       pod 'GoogleAPIClientForREST/Core'
       pod 'GoogleAPIClientForREST/Drive'
+      pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/release/0.1.1/core/sorawallet/sorawallet.podspec'
   end
   
   target 'SoraPassportUITests' do

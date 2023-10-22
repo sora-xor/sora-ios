@@ -1,3 +1,33 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import BigInt
 import CommonWallet
 import FearlessUtils
@@ -25,61 +55,8 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
         let sortedAssets = assetManager.sortedAssets(userAssets, onlyVisible: onlyVisible)
 
         let balanceOperation = fetchBalanceInfoForAssets(sortedAssets)
-        let priceOperations: [CompoundOperationWrapper<Price?>] = sortedAssets.compactMap {
-            if let assetId = WalletAssetId(rawValue: $0.identifier) {
-                return fetchPriceOperation(assetId)
-            } else {
-                return nil
-            }
-        }
 
-        let mergeOperation: BaseOperation<[BalanceData]?> = ClosureOperation {
-            // extract prices
-
-            let prices = priceOperations.compactMap { operation in
-                try? operation.targetOperation
-                    .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-            }
-
-            // match balance with price and form context
-
-            let balances: [BalanceData]? = try balanceOperation.targetOperation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)?
-                .map { balanceData in
-                    guard let price = prices
-                        .first(where: { $0.assetId.rawValue == balanceData.identifier }) else {
-                        return balanceData
-                    }
-
-                    let context = BalanceContext(context: balanceData.context ?? [:])
-                        .byChangingPrice(price.lastValue, newPriceChange: price.change)
-                        .toContext()
-
-                    return BalanceData(identifier: balanceData.identifier,
-                                       balance: balanceData.balance,
-                                       context: context)
-                }
-
-            return (balances ?? [])
-        }
-
-        let flatenedPriceOperations: [Operation] = priceOperations
-            .reduce(into: []) { result, compoundOperation in
-                result.append(contentsOf: compoundOperation.allOperations)
-            }
-
-        flatenedPriceOperations.forEach { priceOperation in
-            balanceOperation.allOperations.forEach { balanceOperation in
-                balanceOperation.addDependency(priceOperation)
-            }
-        }
-
-        let dependencies = balanceOperation.allOperations + flatenedPriceOperations
-
-        dependencies.forEach { mergeOperation.addDependency($0) }
-
-        return CompoundOperationWrapper(targetOperation: mergeOperation,
-                                        dependencies: dependencies)
+        return balanceOperation
     }
 
     func fetchTransactionHistoryOperation(

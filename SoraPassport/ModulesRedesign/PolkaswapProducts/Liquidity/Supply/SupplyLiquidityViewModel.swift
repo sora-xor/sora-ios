@@ -1,9 +1,39 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import UIKit
 import SoraUIKit
 import CommonWallet
 import RobinHood
 import SoraFoundation
-import XNetworking
+import sorawallet
 
 final class SupplyLiquidityViewModel {
     var detailsItem: PoolDetailsItem?
@@ -76,29 +106,33 @@ final class SupplyLiquidityViewModel {
     
     var firstAssetId: String = "" {
         didSet {
-            guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
-            let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
-            view?.updateFirstAsset(symbol: asset.symbol, image: image)
-            setupBalanceDataProvider()
-            if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                poolInfo = poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+            Task {
+                guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
+                let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
+                view?.updateFirstAsset(symbol: asset.symbol, image: image)
+                updateBalanceData()
+                if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
+                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+                }
+                view?.setAccessoryView(isHidden: false)
+                recalculate(field: .one)
             }
-            view?.setAccessoryView(isHidden: false)
-            recalculate(field: .one)
         }
     }
     
     var secondAssetId: String = "" {
         didSet {
-            guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
-            let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
-            view?.updateSecondAsset(symbol: asset.symbol, image: image)
-            setupBalanceDataProvider()
-            if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                poolInfo = poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+            Task {
+                guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
+                let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
+                view?.updateSecondAsset(symbol: asset.symbol, image: image)
+                updateBalanceData()
+                if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
+                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+                }
+                view?.setAccessoryView(isHidden: false)
+                recalculate(field: .two)
             }
-            view?.setAccessoryView(isHidden: false)
-            recalculate(field: .two)
         }
     }
     
@@ -148,10 +182,10 @@ final class SupplyLiquidityViewModel {
         }
     }
     private let feeProvider: FeeProviderProtocol
-    private var apy: SbApyInfo?
+    private var apy: Decimal?
     private var fiatData: [FiatData] = [] {
         didSet {
-            setupBalanceDataProvider()
+            updateBalanceData()
         }
     }
 
@@ -167,13 +201,20 @@ final class SupplyLiquidityViewModel {
     private var transactionType: TransactionType = .liquidityAdd
     private let operationFactory: WalletNetworkOperationFactoryProtocol
     private weak var assetsProvider: AssetProviderProtocol?
-    private let regex = try? NSRegularExpression(pattern: "0[xX]03[0-9a-fA-F]+")
+    private var marketCapService: MarketCapServiceProtocol
     
     private var warningViewModelFactory: WarningViewModelFactory
     private var warningViewModel: WarningViewModel? {
         didSet {
             guard let warningViewModel else { return }
             view?.updateWarinignView(model: warningViewModel)
+        }
+    }
+    
+    private lazy var firstLiquidityProviderWarningViewModel: WarningViewModel? = warningViewModelFactory.firstLiquidityProviderViewModel() {
+        didSet {
+            guard let firstLiquidityProviderWarningViewModel else { return }
+            view?.updateWarinignView(model: firstLiquidityProviderWarningViewModel)
         }
     }
     
@@ -195,7 +236,8 @@ final class SupplyLiquidityViewModel {
         detailsFactory: DetailViewModelFactoryProtocol,
         operationFactory: WalletNetworkOperationFactoryProtocol,
         assetsProvider: AssetProviderProtocol?,
-        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory()
+        warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
+        marketCapService: MarketCapServiceProtocol
     ) {
         self.poolInfo = poolInfo
         self.fiatService = fiatService
@@ -208,6 +250,7 @@ final class SupplyLiquidityViewModel {
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
         self.warningViewModelFactory = warningViewModelFactory
+        self.marketCapService = marketCapService
     }
 }
 
@@ -243,6 +286,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             self.secondAssetId = secondAssetId
         }
 
+        updateBalanceData()
         slippageTolerance = 0.5
         assetsProvider?.add(observer: self)
         if !secondAssetId.isEmpty {
@@ -266,7 +310,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
     func apyInfoButtonTapped() {
         wireframe?.present(
             message: R.string.localizable.polkaswapSbApyInfo(),
-            title: "",
+            title: Constants.apyTitle,
             closeAction: R.string.localizable.commonOk(),
             from: view
         )
@@ -284,11 +328,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             acceptableAssets.append(xstUsdAsset)
         }
         
-        let assets = acceptableAssets.filter({ asset in
-            let assetId = asset.identifier
-            let range = NSRange(location: 0, length: assetId.count)
-            return assetId != secondAssetId && regex?.firstMatch(in: assetId, range: range) == nil
-        })
+        let assets = acceptableAssets.filter { $0.identifier != secondAssetId }
         
         let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
                                             assetManager: assetManager,
@@ -299,7 +339,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.firstAssetId = assetId
         }
     }
@@ -313,15 +354,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
                   var assetFilter = assetId != firstAssetId
                   
                   var unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
-
-                  if firstAssetId == WalletAssetId.xstusd.rawValue {
-                      unAcceptableAssetIds.append(WalletAssetId.xst.rawValue)
-                  }
                   
-                  assetFilter = assetFilter && !unAcceptableAssetIds.contains(assetId)
-                  
-                  let range = NSRange(location: 0, length: assetId.count)
-                  return assetFilter && regex?.firstMatch(in: assetId, range: range) == nil
+                  return assetFilter && !unAcceptableAssetIds.contains(assetId)
               }) else { return }
 
         let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
@@ -333,7 +367,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
                                        fiatService: fiatService,
                                        assetViewModelFactory: factory,
                                        assetsProvider: assetsProvider,
-                                       assetIds: assets.map { $0.identifier }) { [weak self] assetId in
+                                       assetIds: assets.map { $0.identifier },
+                                       marketCapService: marketCapService) { [weak self] assetId in
             self?.secondAssetId = assetId
         }
     }
@@ -397,13 +432,13 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
 
 extension SupplyLiquidityViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        setupBalanceDataProvider()
+        updateBalanceData()
     }
 }
 
 extension SupplyLiquidityViewModel {
     
-    func setupBalanceDataProvider() {
+    func updateBalanceData() {
         if !firstAssetId.isEmpty, let firstAssetBalance = assetsProvider?.getBalances(with: [firstAssetId]).first {
             self.firstAssetBalance = firstAssetBalance
         }
@@ -495,6 +530,9 @@ extension SupplyLiquidityViewModel {
             if let fromAsset = self.assetManager?.assetInfo(for: self.firstAssetId), fromAsset.isFeeAsset {
                 self.warningViewModel?.isHidden = self.firstAssetBalance.balance.decimalValue - self.inputedFirstAmount - self.fee > self.fee
             }
+            
+            let isNeedFirstLiquidityProviderWarning = transactionType == .liquidityAddNewPool || transactionType == .liquidityAddToExistingPoolFirstTime
+            self.firstLiquidityProviderWarningViewModel?.isHidden = !isNeedFirstLiquidityProviderWarning
             
             let basedAmount = self.focusedField == .one ? self.inputedFirstAmount : self.inputedSecondAmount
             let targetAmount = self.focusedField == .one ? self.inputedSecondAmount : self.inputedFirstAmount

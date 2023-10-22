@@ -1,5 +1,36 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import SoraUIKit
 import CommonWallet
+import SoraFoundation
 
 enum TransferableActionType {
     case send
@@ -12,6 +43,7 @@ enum TransferableActionType {
 final class TransferableCell: SoramitsuTableViewCell {
     
     var item: TransferableItem?
+    private var localizationManager = LocalizationManager.shared
     
     private let containerView: SoramitsuStackView = {
         var view = SoramitsuStackView()
@@ -122,7 +154,8 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.titleLabel.sora.text = R.string.localizable.commonSend(preferredLanguages: .currentLocale)
         view.button.sora.leftImage = R.image.wallet.send()
         view.button.sora.horizontalOffset = 16
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.accessibilityIdentifier = "assetDetails.send"
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.send)
         }
         return view
@@ -133,7 +166,8 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.titleLabel.sora.text = R.string.localizable.commonReceive(preferredLanguages: .currentLocale)
         view.button.sora.leftImage = R.image.wallet.receive()
         view.button.sora.horizontalOffset = 16
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.accessibilityIdentifier = "assetDetails.receive"
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.receive)
         }
         return view
@@ -144,7 +178,8 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.titleLabel.sora.text = R.string.localizable.historySwap(preferredLanguages: .currentLocale)
         view.button.sora.leftImage = R.image.wallet.swap()
         view.button.sora.horizontalOffset = 16
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.accessibilityIdentifier = "assetDetails.swap"
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.swap)
         }
         return view
@@ -155,7 +190,8 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.titleLabel.sora.text = R.string.localizable.commonBuy(preferredLanguages: .currentLocale)
         view.button.sora.leftImage = R.image.wallet.buy()
         view.button.sora.horizontalOffset = 16
-        view.button.sora.addHandler(for: .touchUpInside) { [weak self] in
+        view.accessibilityIdentifier = "assetDetails.buy"
+        view.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.actionHandler?(.buy)
         }
         return view
@@ -241,8 +277,11 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
             return
         }
         self.item = item
-        let balanceText = NumberFormatter.cryptoAssets.stringFromDecimal(item.balance.decimalValue) ?? ""
-        balanceLabel.sora.text = balanceText + " " + item.assetInfo.symbol
+        let text = NumberFormatter.cryptoAssets.stringFromDecimal(item.balance.decimalValue) ?? ""
+        let balanceText = text + " " + item.assetInfo.symbol
+        let balanceTextReversed = item.assetInfo.symbol + " " + text
+        balanceLabel.sora.text = localizationManager.isRightToLeft ? balanceTextReversed : balanceText
+        balanceLabel.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         fiatLabel.sora.text = item.fiat
         transferableContainerView.sora.isHidden = !item.isNeedTransferable
         separatorView.sora.isHidden = !item.isNeedTransferable

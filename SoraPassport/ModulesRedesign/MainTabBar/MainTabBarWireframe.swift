@@ -1,3 +1,33 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import Foundation
 import CommonWallet
 import SoraFoundation
@@ -82,47 +112,78 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
     }
     
     func recreateWalletViewController(on view: MainTabBarViewProtocol?) {
-        guard
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-            let walletContext = try? WalletContextFactory().createContext(connection: connection) else {
-            return
-        }
-        
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        
+        assetManager.setup(for: SelectedWalletSettings.shared)
+
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
         
-        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
+        guard
+            let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+            let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager),
+            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+            let walletContext = try? WalletContextFactory().createContext(connection: connection,
+                                                                          assetManager: assetManager,
+                                                                          accountSettings: accountSettings) else {
             return
         }
-        
+
+        let assetInfos = assetManager.getAssetList() ?? []
         let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
                                                      cacheFacade: CoreDataCacheFacade.shared,
                                                      networkOperationFactory: walletContext.networkOperationFactory,
                                                      identifierFactory: SingleProviderIdentifierFactory())
         
-        let assetsProvider = AssetProvider(assetManager: assetManager, providerFactory: providerFactory)
+        let assetsProvider = AssetProvider(assetInfos: assetInfos, providerFactory: providerFactory)
+        
+        let assetViewModelsFactory = AssetViewModelFactory(walletAssets: assetInfos,
+                                            assetManager: assetManager,
+                                            fiatService: FiatService.shared)
+        
+        let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
+                                            fiatService: FiatService.shared,
+                                            assetViewModelsFactory: assetViewModelsFactory,
+                                            assetInfos: assetInfos,
+                                            assetProvider: assetsProvider)
+        assetsProvider.add(observer: assetsViewModelService)
         
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
         
-        let poolService = PoolsService(operationManager: OperationManagerFacade.sharedManager,
+        let poolsService = AccountPoolsService(operationManager: OperationManagerFacade.sharedManager,
                                        networkFacade: walletContext.networkOperationFactory,
                                        polkaswapNetworkFacade: polkaswapContext,
                                        config: ApplicationConfig.shared)
+        
+        let factory = PoolViewModelFactory(walletAssets: assetInfos,
+                                            assetManager: assetManager,
+                                           fiatService: FiatService.shared)
+        
+        let poolsViewModelService = PoolsItemService(marketCapService: MarketCapService.shared,
+                                           fiatService: FiatService.shared,
+                                           poolViewModelsFactory: factory)
+        poolsService.appendDelegate(delegate: poolsViewModelService)
+        
+        let editViewService = EditViewService(poolsService: poolsService)
+        poolsService.appendDelegate(delegate: editViewService)
+
 
         let redesignViewController = MainTabBarViewFactory.createWalletRedesignController(walletContext: walletContext,
                                                                                           assetManager: assetManager,
-                                                                                          poolsService: poolService,
+                                                                                          poolsService: poolsService,
                                                                                           assetsProvider: assetsProvider,
+                                                                                          poolsViewModelService: poolsViewModelService,
+                                                                                          assetsViewModelService: assetsViewModelService,
+                                                                                          editViewService: editViewService, 
+                                                                                          accountSettings: accountSettings,
                                                                                           localizationManager: LocalizationManager.shared)
 
         let investController = MainTabBarViewFactory.createInvestController(walletContext: walletContext,
-                                                            assetManager: assetManager,
-                                                            networkFacade: walletContext.networkOperationFactory,
-                                                            poolService: poolService,
-                                                            polkaswapNetworkFacade: polkaswapContext,
-                                                            assetsProvider: assetsProvider)
+                                                                            assetManager: assetManager,
+                                                                            networkFacade: walletContext.networkOperationFactory,
+                                                                            polkaswapNetworkFacade: polkaswapContext,
+                                                                            poolsService: poolsService,
+                                                                            accountSettings: accountSettings,
+                                                                            assetsProvider: assetsProvider,
+                                                                            walletAssets: assetInfos)
 
         guard let tabBarController = view as? UITabBarController else {
             return
@@ -141,7 +202,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         }
         
         if var viewcontrollers = tabBarController.viewControllers {
-            guard let activityController = MainTabBarViewFactory.createActivityController(with: assetManager) else { return }
+            guard let activityController = MainTabBarViewFactory.createActivityController(with: assetManager,
+                                                                                          assetInfos: assetInfos) else { return }
             
             viewcontrollers.remove(at: 3)
             viewcontrollers.insert(activityController, at: 3)
@@ -174,6 +236,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
             viewcontrollers.insert(fakeSwapViewController, at: 2)
             tabBarController.viewControllers = viewcontrollers
         }
+        
+        tabBarController.tabBar.semanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
     }
 
     // MARK: Private

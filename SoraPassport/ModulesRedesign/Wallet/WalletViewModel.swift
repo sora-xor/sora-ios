@@ -1,3 +1,33 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import UIKit
 import SoraUIKit
 import CommonWallet
@@ -21,7 +51,10 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func showSoraCardDetails()
     func showInternerConnectionAlert()
     func showReferralProgram(assetManager: AssetManagerProtocol)
-    func showEditView(completion: (() -> Void)?)
+    func showEditView(poolsService: PoolsServiceInputProtocol,
+                      editViewService: EditViewServiceProtocol,
+                      completion: (() -> Void)?)
+    func showBackupAccount()
 }
 
 final class RedesignWalletViewModel {
@@ -43,7 +76,7 @@ final class RedesignWalletViewModel {
     var itemFactory: WalletItemFactoryProtocol
     let networkFacade: WalletNetworkOperationFactoryProtocol
     let polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol
-    let poolService: PoolsServiceInputProtocol
+    let poolsService: PoolsServiceInputProtocol
     let accountId: String
     let address: String
     let qrEncoder: WalletQREncoderProtocol
@@ -52,7 +85,11 @@ final class RedesignWalletViewModel {
     var referralFactory: ReferralsOperationFactoryProtocol
     var assetsProvider: AssetProviderProtocol
     var walletContext: CommonWalletContextProtocol
+    var editViewService: EditViewServiceProtocol
     let feeProvider = FeeProvider()
+    let marketCapService: MarketCapServiceProtocol
+    let poolsViewModelService: PoolsItemService
+    let assetsViewModelService: AssetsItemService
     
     init(wireframe: RedesignWalletWireframeProtocol?,
          providerFactory: BalanceProviderFactory,
@@ -69,7 +106,11 @@ final class RedesignWalletViewModel {
          poolsService: PoolsServiceInputProtocol,
          referralFactory: ReferralsOperationFactoryProtocol,
          assetsProvider: AssetProviderProtocol,
-         walletContext: CommonWalletContextProtocol) {
+         walletContext: CommonWalletContextProtocol,
+         editViewService: EditViewServiceProtocol,
+         poolsViewModelService: PoolsItemService,
+         assetsViewModelService: AssetsItemService,
+         marketCapService: MarketCapServiceProtocol) {
         self.wireframe = wireframe
         self.accountId = accountId
         self.address = address
@@ -84,14 +125,18 @@ final class RedesignWalletViewModel {
         self.sharingFactory = sharingFactory
         self.referralFactory = referralFactory
         self.assetsProvider = assetsProvider
+        self.assetsViewModelService = assetsViewModelService
         self.accountRepository = AnyDataProviderRepository(
             UserDataStorageFacade.shared
             .createRepository(filter: nil,
                               sortDescriptors: [],
                               mapper: AnyCoreDataMapper(AccountItemMapper()))
         )
-        self.poolService = poolsService
+        self.poolsService = poolsService
         self.walletContext = walletContext
+        self.editViewService = editViewService
+        self.marketCapService = marketCapService
+        self.poolsViewModelService = poolsViewModelService
     }
 
     @SCStream internal var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
@@ -102,18 +147,97 @@ final class RedesignWalletViewModel {
 }
 
 extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
+    
+    func setupModels() {
+        poolsService.loadAccountPools(isNeedForceUpdate: false)
+        editViewService.loadModels { [weak editViewService, weak self] isPoolAvailable in
+            guard
+                let editViewService = editViewService,
+                let self = self
+            else { return }
+            
+            var enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
+            let poolId = Cards.pooledAssets.id
+
+            var models = Cards.allCases.map { card in
+                EnabledViewModel(id: card.id,
+                                 title: card.title,
+                                 state: card.defaultState)
+            }
+            
+            if !isPoolAvailable {
+                models.removeAll(where: { $0.id == poolId })
+                enabledIds.removeAll(where: { $0 == poolId } )
+            }
+            
+            editViewService.viewModels = models
+            ApplicationConfig.shared.updateAvailableApplicationSections(cards: enabledIds)
+            
+            DispatchQueue.main.async {
+                if let poolsItem = self.walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
+                    poolsItem.isHidden = !enabledIds.contains(Cards.pooledAssets.id)
+                    self.reloadItem?([poolsItem])
+                }
+            }
+        }
+    }
 
     func closeSC() {
+        var config = ApplicationConfig.shared.getAvailableApplicationSections()
+        config.removeAll(where: { $0 == Cards.soraCard.id })
+        ApplicationConfig.shared.updateAvailableApplicationSections(cards: config)
         SCard.shared?.isSCBannerHidden = true
     }
     
     func closeReferralProgram() {
+        var config = ApplicationConfig.shared.getAvailableApplicationSections()
+        config.removeAll(where: { $0 == Cards.referralProgram.id })
+        ApplicationConfig.shared.updateAvailableApplicationSections(cards: config)
         isReferralProgramHidden = true
     }
     
     func updateItems() {
-        walletItems = buildItems()
-        setupItems?(walletItems)
+        var items: [SoramitsuTableViewItemProtocol] = []
+        let enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
+        
+        if let accountItem = walletItems.first(where: { $0 is AccountTableViewItem }) {
+            items.append(accountItem)
+        }
+        
+        if enabledIds.contains(Cards.soraCard.id) {
+            let soraCard = initSoraCard()
+            let soraCardItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardItem(with: self,
+                                                                                              service: soraCard)
+            items.append(soraCardItem)
+            ConfigService.shared.config.isSoraCardEnabled = true
+            soraCard.isSCBannerHidden = false
+        }
+        
+        if let backupItem = walletItems.first(where: { $0 is BackupItem }) {
+            items.append(backupItem)
+        }
+        
+        if enabledIds.contains(Cards.referralProgram.id), let friendsItem = walletItems.first(where: { $0 is FriendsItem }) {
+            items.append(friendsItem)
+        }
+        
+        if enabledIds.contains(Cards.liquidAssets.id), let assetsItem = walletItems.first(where: { $0 is AssetsItem }) {
+            items.append(assetsItem)
+        }
+        
+        if let poolsItem = walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
+            poolsItem.isHidden = !enabledIds.contains(Cards.pooledAssets.id)
+            
+            if enabledIds.contains(Cards.pooledAssets.id) {
+                items.append(poolsItem)
+            }
+        }
+        
+        if let editViewItem = walletItems.first(where: { $0 is EditViewItem }) {
+            items.append(editViewItem)
+        }
+        
+        setupItems?(items)
     }
 
     func updateAssets() {
@@ -121,15 +245,16 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             assetItem.updateContent()
         }
 
-        if let poolItem = walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem {
-            poolItem.poolsService?.loadPools(isNeedForceUpdate: false)
+        if walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem != nil {
+            poolsService.loadAccountPools(isNeedForceUpdate: false)
         }
     }
     
 
     func fetchAssets(completion: @escaping ([SoramitsuTableViewItemProtocol]) -> Void) {
         walletItems = buildItems()
-        completion(walletItems)
+        updateItems()
+        setupModels()
     }
 
     func showSoraCardDetails() {
@@ -141,9 +266,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     private func buildItems() -> [SoramitsuTableViewItemProtocol] {
         
         var items: [SoramitsuTableViewItemProtocol] = []
-        let enabledIds = ApplicationConfig.shared.enabledCardIdentifiers
         
-        let accountItem = itemFactory.createAccountItem(with: self ,
+        let accountItem = itemFactory.createAccountItem(with: self,
                                                         view: view,
                                                         wireframe: wireframe,
                                                         feeProvider: feeProvider,
@@ -155,34 +279,52 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                                         qrEncoder: qrEncoder,
                                                         sharingFactory: sharingFactory,
                                                         accountRepository: accountRepository,
+                                                        marketCapService: marketCapService,
                                                         reloadItem: reloadItem)
         
         items.append(accountItem)
         
         let soraCard = initSoraCard()
-        if !soraCard.isSCBannerHidden && ConfigService.shared.config.isSoraCardEnabled && enabledIds.contains(Cards.soraCard.id) {
-            let soraCardItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardItem(with: self,
-                                                                                              service: soraCard)
-            items.append(soraCardItem)
-        }
+        let soraCardItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardItem(with: self,
+                                                                                          service: soraCard)
+        items.append(soraCardItem)
+        ConfigService.shared.config.isSoraCardEnabled = true
+        soraCard.isSCBannerHidden = false
         
-        if enabledIds.contains(Cards.liquidAssets.id) {
-            let assetItem: SoramitsuTableViewItemProtocol = itemFactory.createAssetsItem(with: self,
-                                                                                         assetManager: assetManager,
-                                                                                         assetsProvider: assetsProvider,
-                                                                                         fiatService: fiatService)
-            items.append(assetItem)
-        }
+        let backupItem: SoramitsuTableViewItemProtocol = itemFactory.createBackupItem(with: self,
+                                                                                      assetManager: assetManager)
+        items.append(backupItem)
         
-        if enabledIds.contains(Cards.pooledAssets.id) {
-            let poolItem: SoramitsuTableViewItemProtocol = itemFactory.createPoolsItem(with: self,
-                                                                                       poolService: poolService,
-                                                                                       networkFacade: networkFacade,
-                                                                                       polkaswapNetworkFacade: polkaswapNetworkFacade,
-                                                                                       assetManager: assetManager,
-                                                                                       fiatService: fiatService)
-            items.append(poolItem)
-        }
+        let friendsItem: SoramitsuTableViewItemProtocol = itemFactory.createInviteFriendsItem(with: self,
+                                                                                              assetManager: assetManager)
+        items.append(friendsItem)
+        isReferralProgramHidden = false
+        
+        
+        let assetItem: SoramitsuTableViewItemProtocol = itemFactory.createAssetsItem(with: self,
+                                                                                     assetManager: assetManager,
+                                                                                     assetsProvider: assetsProvider,
+                                                                                     fiatService: fiatService,
+                                                                                     itemService: assetsViewModelService,
+                                                                                     marketCapService: marketCapService)
+        items.append(assetItem)
+        
+        
+        let poolItem: SoramitsuTableViewItemProtocol = itemFactory.createPoolsItem(with: self,
+                                                                                   poolsService: poolsService,
+                                                                                   networkFacade: networkFacade,
+                                                                                   polkaswapNetworkFacade: polkaswapNetworkFacade,
+                                                                                   assetManager: assetManager,
+                                                                                   fiatService: fiatService,
+                                                                                   poolsViewModelService: poolsViewModelService,
+                                                                                   marketCapService: marketCapService)
+        items.append(poolItem)
+        
+        
+        let editViewItem: SoramitsuTableViewItemProtocol = itemFactory.createEditViewItem(with: self,
+                                                                                          poolsService: poolsService,
+                                                                                          editViewService: editViewService)
+        items.append(editViewItem)
         
         return items
     }
@@ -196,31 +338,14 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         presenter: UIViewController,
         localizationManager: LocalizationManagerProtocol = LocalizationManager.shared
     ) -> UIViewController? {
-
-        guard
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-            let walletContext = try? WalletContextFactory().createContext(connection: connection)
-        else {
-            return nil
-        }
-
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        assetManager.setup(for: SelectedWalletSettings.shared)
-
-
-        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
-            return nil
-        }
-
-        let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
-
         guard let swapController = SwapViewFactory.createView(selectedTokenId: "",
                                                               selectedSecondTokenId: WalletAssetId.xor.rawValue,
                                                               assetManager: assetManager,
-                                                              fiatService: FiatService.shared,
+                                                              fiatService: fiatService,
                                                               networkFacade: walletContext.networkOperationFactory,
-                                                              polkaswapNetworkFacade: polkaswapContext,
-                                                              assetsProvider: assetsProvider) else { return nil }
+                                                              polkaswapNetworkFacade: polkaswapNetworkFacade,
+                                                              assetsProvider: assetsProvider,
+                                                              marketCapService: marketCapService) else { return nil }
 
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)
@@ -252,7 +377,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                       fiatService: fiatService,
                                       assetViewModelFactory: factory,
                                       providerFactory: providerFactory,
-                                      poolService: poolService,
+                                      poolsService: poolsService,
                                       networkFacade: networkFacade,
                                       accountId: accountId,
                                       address: address,
@@ -261,6 +386,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                       sharingFactory: sharingFactory,
                                       referralFactory: referralFactory,
                                       assetsProvider: assetsProvider,
+                                      marketCapService: marketCapService,
                                       updateHandler: updateAssets)
     }
     
@@ -270,7 +396,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                            fiatService: fiatService)
         
         wireframe?.showFullListPools(on: view?.controller,
-                                     poolService: poolService,
+                                     poolsService: poolsService,
                                      networkFacade: networkFacade,
                                      polkaswapNetworkFacade: polkaswapNetworkFacade,
                                      assetManager: assetManager,
@@ -278,7 +404,9 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                      poolViewModelFactory: factory,
                                      providerFactory: providerFactory,
                                      operationFactory: networkFacade,
-                                     assetsProvider: assetsProvider)
+                                     assetsProvider: assetsProvider,
+                                     marketCapService: marketCapService,
+                                     updateHandler: updateAssets)
     }
     
     func showAssetDetails(with assetInfo: AssetInfo) {
@@ -295,7 +423,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                     assetManager: assetManager,
                                     fiatService: fiatService,
                                     assetViewModelFactory: factory,
-                                    poolsService: poolService,
+                                    poolsService: poolsService,
                                     poolViewModelsFactory: poolFactory,
                                     providerFactory: providerFactory,
                                     networkFacade: networkFacade,
@@ -305,7 +433,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                     qrEncoder: qrEncoder,
                                     sharingFactory: sharingFactory,
                                     referralFactory: referralFactory,
-                                    assetsProvider: assetsProvider)
+                                    assetsProvider: assetsProvider,
+                                    marketCapService: marketCapService)
     }
     
     func showPoolDetails(with pool: PoolInfo) {
@@ -313,10 +442,11 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                    poolInfo: pool,
                                    assetManager: assetManager,
                                    fiatService: fiatService,
-                                   poolsService: poolService,
+                                   poolsService: poolsService,
                                    providerFactory: providerFactory,
                                    operationFactory: networkFacade,
-                                   assetsProvider: assetsProvider)
+                                   assetsProvider: assetsProvider,
+                                   marketCapService: marketCapService)
     }
     
     func showReferralProgram(assetManager: AssetManagerProtocol) {
@@ -325,8 +455,17 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                        assetManager: assetManager)
     }
     
-    func showEditView(completion: (() -> Void)?) {
+    func showEditView(poolsService: PoolsServiceInputProtocol,
+                      editViewService: EditViewServiceProtocol,
+                      completion: (() -> Void)?) {
         wireframe?.showEditView(from: view,
+                                poolsService: poolsService,
+                                editViewService: editViewService,
                                 completion: completion)
+    }
+    
+    func showBackupAccount() {
+        wireframe?.showAccountOptions(from: view,
+                                      account: SelectedWalletSettings.shared.currentAccount)
     }
 }

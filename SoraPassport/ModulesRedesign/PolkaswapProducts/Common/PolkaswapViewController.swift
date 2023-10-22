@@ -1,3 +1,33 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import Foundation
 import UIKit
 import SoraUIKit
@@ -23,6 +53,7 @@ protocol LiquidityViewProtocol: ControllerBackedProtocol, Warningable {
     func focus(field: FocusedField)
     func update(isNeedLoadingState: Bool)
     func updateReviewButton(title: String)
+    func updateFirstLiquidityWarinignView(model: WarningViewModel)
 }
 
 final class PolkaswapViewController: SoramitsuViewController {
@@ -85,6 +116,7 @@ final class PolkaswapViewController: SoramitsuViewController {
             self?.viewModel.focusedField = .one
         }
         view.firstAsset.textField.sora.addHandler(for: .editingChanged) { [weak self] in
+            self?.reviewLiquidity.sora.isEnabled = false
             self?.viewModel.focusedField = .one
             self?.viewModel.inputedFirstAmount = Decimal(string: self?.assetsView.firstAsset.textField.text ?? "", locale: Locale.current) ?? 0
             self?.viewModel.recalculate(field: .one)
@@ -102,6 +134,7 @@ final class PolkaswapViewController: SoramitsuViewController {
             self?.viewModel.focusedField = .two
         }
         view.secondAsset.textField.sora.addHandler(for: .editingChanged) { [weak self] in
+            self?.reviewLiquidity.sora.isEnabled = false
             self?.viewModel.focusedField = .two
             self?.viewModel.inputedSecondAmount = Decimal(string: self?.assetsView.secondAsset.textField.text ?? "", locale: Locale.current) ?? 0
             self?.viewModel.recalculate(field: .two)
@@ -140,6 +173,12 @@ final class PolkaswapViewController: SoramitsuViewController {
             self?.viewModel.reviewButtonTapped()
         }
         return button
+    }()
+    
+    private lazy var firstLiquidityWarningView: WarningView = {
+        let view = WarningView()
+        view.sora.isHidden = true
+        return view
     }()
 
     var viewModel: LiquidityViewModelProtocol
@@ -182,6 +221,11 @@ final class PolkaswapViewController: SoramitsuViewController {
         viewModel.viewDidLoad()
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        viewModel.viewWillAppear()
+    }
+    
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         spaceConstraint?.constant = UIScreen.main.bounds.height - 300
@@ -199,6 +243,7 @@ final class PolkaswapViewController: SoramitsuViewController {
         
         stackView.addArrangedSubview(assetsView)
         stackView.addArrangedSubview(optionsView)
+        stackView.addArrangedSubview(firstLiquidityWarningView)
         stackView.addArrangedSubview(warningView)
         stackView.addArrangedSubview(reviewLiquidity)
     }
@@ -221,6 +266,9 @@ final class PolkaswapViewController: SoramitsuViewController {
             
             warningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             warningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
+            
+            firstLiquidityWarningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
+            firstLiquidityWarningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
 
             reviewLiquidity.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             reviewLiquidity.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
@@ -319,19 +367,27 @@ extension PolkaswapViewController: LiquidityViewProtocol {
     }
     
     func update(slippageTolerance: String) {
-        optionsView.slipageButton.sora.title = slippageTolerance
+        DispatchQueue.main.async {
+            self.optionsView.slipageButton.sora.title = slippageTolerance
+        }
     }
     
     func update(selectedMarket: String) {
-        optionsView.marketButton.sora.title = selectedMarket
+        DispatchQueue.main.async {
+            self.optionsView.marketButton.sora.title = selectedMarket
+        }
     }
     
     func set(firstAmountText: String) {
-        assetsView.firstAsset.textField.sora.text = firstAmountText == "0" ? "" : firstAmountText
+        DispatchQueue.main.async {
+            self.assetsView.firstAsset.textField.sora.text = firstAmountText == "0" ? "" : firstAmountText
+        }
     }
     
     func set(secondAmountText: String) {
-        assetsView.secondAsset.textField.sora.text = secondAmountText == "0" ? "" : secondAmountText
+        DispatchQueue.main.async {
+            self.assetsView.secondAsset.textField.sora.text = secondAmountText == "0" ? "" : secondAmountText
+        }
     }
     
     func setupButton(isEnabled: Bool) {
@@ -344,11 +400,14 @@ extension PolkaswapViewController: LiquidityViewProtocol {
     }
     
     func focus(field: FocusedField) {
-        if field == .one {
-            assetsView.firstAsset.textField.becomeFirstResponder()
-        } else {
-            assetsView.secondAsset.textField.becomeFirstResponder()
+        DispatchQueue.main.async {
+            if field == .one {
+                self.assetsView.firstAsset.textField.becomeFirstResponder()
+            } else {
+                self.assetsView.secondAsset.textField.becomeFirstResponder()
+            }
         }
+        
     }
     
     func updateFirstAsset(state: InputFieldState, amountColor: SoramitsuColor, fiatColor: SoramitsuColor) {
@@ -368,19 +427,28 @@ extension PolkaswapViewController: LiquidityViewProtocol {
     }
     
     func update(isNeedLoadingState: Bool) {
-        reviewLiquidity.sora.loadingPlaceholder.type = isNeedLoadingState ? .shimmer : .none
+        DispatchQueue.main.async {
+            self.reviewLiquidity.sora.loadingPlaceholder.type = isNeedLoadingState ? .shimmer : .none
+        }
     }
     
     func updateMiddleButton(isEnabled: Bool) {
-        assetsView.middleButton.sora.isEnabled = isEnabled
+        DispatchQueue.main.async {
+            self.assetsView.middleButton.sora.isEnabled = isEnabled
+        }
     }
     
     func setupMarketButton(isLoadingState: Bool) {
-        optionsView.marketButton.sora.loadingPlaceholder.type = isLoadingState ? .shimmer : .none
+        DispatchQueue.main.async {
+            self.optionsView.marketButton.sora.loadingPlaceholder.type = isLoadingState ? .shimmer : .none
+        }
+        
     }
     
     func setAccessoryView(isHidden: Bool) {
-        accessoryView.isHidden = isHidden
+        DispatchQueue.main.async {
+            self.accessoryView.isHidden = isHidden
+        }
     }
 
     func updateReviewButton(title: String) {
@@ -390,14 +458,14 @@ extension PolkaswapViewController: LiquidityViewProtocol {
     }
     
     func updateWarinignView(model: WarningViewModel) {
-//        warningView.setupView(with: model)
+        DispatchQueue.main.async {
+            self.warningView.setupView(with: model)
+        }
     }
-}
-
-extension PolkaswapViewController: UIScrollViewDelegate {
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView.isTracking, scrollView.contentOffset.y < -236 {
-            close()
+    
+    func updateFirstLiquidityWarinignView(model: WarningViewModel) {
+        DispatchQueue.main.async {
+            self.firstLiquidityWarningView.setupView(with: model)
         }
     }
 }

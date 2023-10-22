@@ -1,3 +1,33 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import Foundation
 import FearlessUtils
 import RobinHood
@@ -7,9 +37,14 @@ import BigInt
 typealias FeeExtrinsicResult = Result<RuntimeDispatchInfo, Error>
 typealias ExtrinsicBuilderClosure = (ExtrinsicBuilderProtocol) throws -> (ExtrinsicBuilderProtocol)
 typealias EstimateFeeClosure = (Result<String, Error>) -> Void
-typealias ExtrinsicSubmitClosure = (Result<String, Error>, _ extrinsicHash: String?) -> Void
+typealias ExtrinsicSubmitClosure = (Result<String, Error>, _ extrinsicHash: String?, _ extrinsic: Extrinsic?) -> Void
 typealias SubmitAndWatchExtrinsicResult = (result: Result<String, Error>, extrinsicHash: String?)
 typealias SubmitExtrinsicResult = Result<String, Error>
+
+struct ExtrinsicInfo {
+    let data: Data
+    let object: Extrinsic
+}
 
 protocol ExtrinsicServiceProtocol {
     func estimateFee(_ closure: @escaping ExtrinsicBuilderClosure,
@@ -95,7 +130,7 @@ final class ExtrinsicService {
                                           codingFactoryOperation: BaseOperation<RuntimeCoderFactoryProtocol>,
                                           customClosure: @escaping ExtrinsicBuilderClosure,
                                           signingClosure: @escaping (Data) throws -> Data)
-    -> BaseOperation<Data> {
+    -> BaseOperation<ExtrinsicInfo> {
 
         let currentCryptoType = cryptoType
         let currentAddress = address
@@ -125,7 +160,8 @@ final class ExtrinsicService {
                                                          using: codingFactory.createEncoder(),
                                                          metadata: codingFactory.metadata)
             let extrinsic = try builder.buildExtrinsic(metadata: codingFactory.metadata)
-            return try builder.build(encodingBy: codingFactory.createEncoder(), extrinsic: extrinsic)
+            let extrinsicData = try builder.build(encodingBy: codingFactory.createEncoder(), extrinsic: extrinsic)
+            return ExtrinsicInfo(data: extrinsicData, object: extrinsic)
         }
     }
 }
@@ -166,14 +202,14 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
     }
     
     private func feeDetailsOperation(queue: DispatchQueue,
-                                      builderOperation: BaseOperation<Data>,
+                                      builderOperation: BaseOperation<ExtrinsicInfo>,
                                       completionClosure: @escaping EstimateFeeClosure) -> JSONRPCListOperation<InclusionFeeInfo> {
         let infoOperation = JSONRPCListOperation<InclusionFeeInfo>(engine: engine,
                                                                    method: RPCMethod.feeDetails,
                                                                    timeout: 60)
         infoOperation.configurationBlock = {
             do {
-                let extrinsic = try builderOperation.extractNoCancellableResultData().toHex(includePrefix: true)
+                let extrinsic = try builderOperation.extractNoCancellableResultData().data.toHex(includePrefix: true)
                 infoOperation.parameters = [extrinsic]
             } catch {
                 infoOperation.result = .failure(error)
@@ -241,11 +277,11 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
                                                            timeout: 60)
         submitOperation.configurationBlock = {
             do {
-                let extrinsic = try builderOperation
-                    .extractNoCancellableResultData()
-                    .toHex(includePrefix: true)
+                let extrinsicBuilderResult = try builderOperation.extractNoCancellableResultData()
+                let extrinsicHex = extrinsicBuilderResult.data.toHex(includePrefix: true)
 
-                submitOperation.parameters = [extrinsic]
+                EventCenter.shared.notify(with: ExtricsicSubmittedEvent(extrinsicHex: extrinsicHex, extrinsicInfo: extrinsicBuilderResult))
+                submitOperation.parameters = [extrinsicHex]
             } catch {
                 submitOperation.result = .failure(error)
             }
@@ -256,9 +292,10 @@ extension ExtrinsicService: ExtrinsicServiceProtocol {
         submitOperation.completionBlock = {
             queue.async {
                 if let result = submitOperation.result {
-                    completionClosure(result, watch ? submitOperation.parameters?.first : nil)
+                    let extrinsicBuilderResult = try? builderOperation.extractNoCancellableResultData()
+                    completionClosure(result, watch ? submitOperation.parameters?.first : nil, extrinsicBuilderResult?.object)
                 } else {
-                    completionClosure(.failure(BaseOperationError.parentOperationCancelled), nil)
+                    completionClosure(.failure(BaseOperationError.parentOperationCancelled), nil, nil)
                 }
             }
         }

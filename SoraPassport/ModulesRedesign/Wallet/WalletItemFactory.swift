@@ -1,3 +1,33 @@
+// This file is part of the SORA network and Polkaswap app.
+
+// Copyright (c) 2022, 2023, Polka Biome Ltd. All rights reserved.
+// SPDX-License-Identifier: BSD-4-Clause
+
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+
+// Redistributions of source code must retain the above copyright notice, this list
+// of conditions and the following disclaimer.
+// Redistributions in binary form must reproduce the above copyright notice, this
+// list of conditions and the following disclaimer in the documentation and/or other
+// materials provided with the distribution.
+//
+// All advertising materials mentioning features or use of this software must display
+// the following acknowledgement: This product includes software developed by Polka Biome
+// Ltd., SORA, and Polkaswap.
+//
+// Neither the name of the Polka Biome Ltd. nor the names of its contributors may be used
+// to endorse or promote products derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY Polka Biome Ltd. AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Polka Biome Ltd. BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+// USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import Foundation
 import RobinHood
 import CommonWallet
@@ -20,6 +50,7 @@ protocol WalletItemFactoryProtocol: AnyObject {
                            qrEncoder: WalletQREncoderProtocol,
                            sharingFactory: AccountShareFactoryProtocol,
                            accountRepository: AnyDataProviderRepository<AccountItem>,
+                           marketCapService: MarketCapServiceProtocol,
                            reloadItem: (([SoramitsuTableViewItemProtocol]) -> Void)?) -> SoramitsuTableViewItemProtocol
 
     func createSoraCardItem(with walletViewModel: RedesignWalletViewModelProtocol,
@@ -28,19 +59,27 @@ protocol WalletItemFactoryProtocol: AnyObject {
     func createAssetsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                           assetManager: AssetManagerProtocol,
                           assetsProvider: AssetProviderProtocol,
-                          fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol
+                          fiatService: FiatServiceProtocol,
+                          itemService: AssetsItemService,
+                          marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol
     
     func createPoolsItem(with walletViewModel: RedesignWalletViewModelProtocol,
-                         poolService: PoolsServiceInputProtocol,
+                         poolsService: PoolsServiceInputProtocol,
                          networkFacade: WalletNetworkOperationFactoryProtocol,
                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                          assetManager: AssetManagerProtocol,
-                         fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol
+                         fiatService: FiatServiceProtocol,
+                         poolsViewModelService: PoolsItemService,
+                         marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol
     
     func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                                  assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol
     
-    func createEditViewItem(with walletViewModel: RedesignWalletViewModel) -> SoramitsuTableViewItemProtocol
+    func createEditViewItem(with walletViewModel: RedesignWalletViewModel,
+                            poolsService: PoolsServiceInputProtocol,
+                            editViewService: EditViewServiceProtocol) -> SoramitsuTableViewItemProtocol
+    func createBackupItem(with walletViewModel: RedesignWalletViewModelProtocol,
+                                 assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol
 }
 
 final class WalletItemFactory: WalletItemFactoryProtocol {
@@ -57,6 +96,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                            qrEncoder: WalletQREncoderProtocol,
                            sharingFactory: AccountShareFactoryProtocol,
                            accountRepository: AnyDataProviderRepository<AccountItem>,
+                           marketCapService: MarketCapServiceProtocol,
                            reloadItem: (([SoramitsuTableViewItemProtocol]) -> Void)?) -> SoramitsuTableViewItemProtocol {
         let currentAccount = SelectedWalletSettings.shared.currentAccount
         var accountName = currentAccount?.username ?? ""
@@ -84,6 +124,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                                       providerFactory: providerFactory,
                                       feeProvider: feeProvider,
                                       isScanQRShown: false,
+                                      marketCapService: marketCapService,
                                       closeHandler: nil)
         }
         
@@ -115,6 +156,7 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                         reloadItem?([item])
                     }
                 }
+                
                 OperationManagerFacade.runtimeBuildingQueue.addOperation(persistentOperation)
             })
         }
@@ -164,17 +206,13 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
     func createAssetsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                           assetManager: AssetManagerProtocol,
                           assetsProvider: AssetProviderProtocol,
-                          fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol {
-        
-        let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
-                                            assetManager: assetManager,
-                                            fiatService: fiatService)
+                          fiatService: FiatServiceProtocol,
+                          itemService: AssetsItemService,
+                          marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol {
         
         let assetsItem = AssetsItem(title: R.string.localizable.liquidAssets(preferredLanguages: .currentLocale),
                                     assetProvider: assetsProvider,
-                                    assetManager: assetManager,
-                                    fiatService: fiatService,
-                                    assetViewModelsFactory: factory)
+                                    service: itemService)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.liquidAssets(preferredLanguages: locale.rLanguages)
@@ -185,10 +223,12 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
             assetsItem?.title = currentTitle
         }
         
-        assetsItem.updateHandler = { [weak walletViewModel, weak assetsItem] in
+        let updateHandler = { [weak walletViewModel, weak assetsItem] in
             guard let walletViewModel = walletViewModel, let assetsItem = assetsItem else { return }
             walletViewModel.reloadItem?([assetsItem])
         }
+        assetsItem.updateHandler = updateHandler
+        itemService.updateHandler = updateHandler
         
         assetsItem.arrowButtonHandler = { [weak assetsItem] in
             guard let assetsItem = assetsItem else { return }
@@ -209,20 +249,14 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
     }
     
     func createPoolsItem(with walletViewModel: RedesignWalletViewModelProtocol,
-                         poolService: PoolsServiceInputProtocol,
+                         poolsService: PoolsServiceInputProtocol,
                          networkFacade: WalletNetworkOperationFactoryProtocol,
                          polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
                          assetManager: AssetManagerProtocol,
-                         fiatService: FiatServiceProtocol) -> SoramitsuTableViewItemProtocol {
-        
-        let factory = PoolViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
-                                            assetManager: assetManager,
-                                           fiatService: fiatService)
-        
-        let poolsItem = PoolsItem(title: R.string.localizable.pooledAssets(preferredLanguages: .currentLocale),
-                                  poolsService: poolService,
-                                  fiatService: fiatService,
-                                  poolViewModelsFactory: factory)
+                         fiatService: FiatServiceProtocol,
+                         poolsViewModelService: PoolsItemService,
+                         marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol {
+        let poolsItem = PoolsItem(title: R.string.localizable.pooledAssets(preferredLanguages: .currentLocale), service: poolsViewModelService)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.pooledAssets(preferredLanguages: locale.rLanguages)
@@ -233,12 +267,11 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
             poolsItem?.title = currentTitle
         }
         
-        poolService.appendDelegate(delegate: poolsItem)
-        
-        poolsItem.updateHandler = { [weak poolsItem, weak walletViewModel] in
+        let updateHandler = { [weak poolsItem, weak walletViewModel] in
             guard let walletViewModel = walletViewModel, let poolsItem = poolsItem else { return }
             walletViewModel.reloadItem?([poolsItem])
         }
+        poolsViewModelService.updateHandler = updateHandler
         
         poolsItem.arrowButtonHandler = { [weak poolsItem] in
             guard let poolsItem = poolsItem else { return }
@@ -250,23 +283,40 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
             walletViewModel?.showFullListPools()
         }
         
-        poolsItem.poolHandler = { [weak poolService, weak walletViewModel] identifier in
-            guard let poolInfo = poolService?.getPool(by: identifier) else { return }
+        poolsItem.poolHandler = { [weak poolsService, weak walletViewModel] identifier in
+            guard let poolInfo = poolsService?.getPool(by: identifier) else { return }
             walletViewModel?.showPoolDetails(with: poolInfo)
         }
         
         return poolsItem
     }
     
-    func createEditViewItem(with walletViewModel: RedesignWalletViewModel) -> SoramitsuTableViewItemProtocol {
+    func createEditViewItem(with walletViewModel: RedesignWalletViewModel,
+                            poolsService: PoolsServiceInputProtocol,
+                            editViewService: EditViewServiceProtocol) -> SoramitsuTableViewItemProtocol {
         
         let editViewItem = EditViewItem()
         
         editViewItem.onTap = { [weak walletViewModel] in
             guard let walletViewModel = walletViewModel else { return }
-            walletViewModel.showEditView(completion: walletViewModel.updateItems)
+            walletViewModel.showEditView(poolsService: poolsService,
+                                         editViewService: editViewService,
+                                         completion: walletViewModel.updateItems)
         }
         
         return editViewItem
+    }
+    
+    func createBackupItem(with walletViewModel: RedesignWalletViewModelProtocol,
+                          assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol {
+        
+        let backupItem = BackupItem()
+        
+        backupItem.onTap = { [weak walletViewModel] in
+            guard let walletViewModel = walletViewModel else { return }
+            walletViewModel.showBackupAccount()
+        }
+        
+        return backupItem
     }
 }
