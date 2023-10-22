@@ -156,7 +156,7 @@ PODS:
   - GTMSessionFetcher/Core (3.1.1)
   - GTMSessionFetcher/Full (3.1.1):
     - GTMSessionFetcher/Core
-  - IdensicMobileSDK (1.25.0)
+  - IdensicMobileSDK (1.27.0)
   - IrohaCrypto (0.9.0):
     - IrohaCrypto/BIP39 (= 0.9.0)
     - IrohaCrypto/blake2 (= 0.9.0)
@@ -319,7 +319,7 @@ DEPENDENCIES:
   - FLEX
   - GoogleAPIClientForREST/Core
   - GoogleAPIClientForREST/Drive
-  - "IdensicMobileSDK (from `{:http=>\"https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.1.tar.gz\"}`)"
+  - "IdensicMobileSDK (from `{:http=>\"https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz\"}`)"
   - IrohaCrypto (~> 0.9.0)
   - Kingfisher (from `https://github.com/onevcat/Kingfisher`, branch `version6-xcode13`)
   - lottie-ios (~> 3.5.0)
@@ -408,7 +408,7 @@ EXTERNAL SOURCES:
     :branch: feature/fearless-utils-for-sora
     :git: https://github.com/soramitsu/fearless-utils-iOS.git
   IdensicMobileSDK:
-    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.1.tar.gz
+    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz
   Kingfisher:
     :branch: version6-xcode13
     :git: https://github.com/onevcat/Kingfisher
@@ -435,7 +435,7 @@ CHECKOUT OPTIONS:
     :commit: 26dfc128d0d1f35aac0c44ffab3ef1f2071e003c
     :git: https://github.com/soramitsu/fearless-utils-iOS.git
   IdensicMobileSDK:
-    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.1.tar.gz
+    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.2.tar.gz
   Kingfisher:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
@@ -479,7 +479,7 @@ SPEC CHECKSUMS:
   GoogleUtilities: 13e2c67ede716b8741c7989e26893d151b2b2084
   GTMAppAuth: 99fb010047ba3973b7026e45393f51f27ab965ae
   GTMSessionFetcher: e8647203b65cee28c5f73d0f473d096653945e72
-  IdensicMobileSDK: 724b75dbb204a9c1ae1dafe5c1366b8aeb00b6cf
+  IdensicMobileSDK: 8b2d40c561e3a7de72841aca9c905b643008edd2
   IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3
   Kingfisher: 8b783c3d7be73a99b2172a743a5bc0a4dd331d79
   lottie-ios: c55158d67d0629a260625cc2ded2052b829e3c3e
@@ -516,6 +516,6 @@ SPEC CHECKSUMS:
   VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 3b9c5afcb7081cad29704ca5ec8438606a966c66
+PODFILE CHECKSUM: 1b13cdc2ffc2b5b755465d1e2b77d9a64a5b4c21
 
 COCOAPODS: 1.12.1
