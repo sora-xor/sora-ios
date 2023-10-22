@@ -69,6 +69,13 @@ extension PooledCell: SoramitsuTableViewCellProtocol {
             poolView.sora.titleText = poolModel.title
             poolView.sora.subtitleText = poolModel.subtitle
             poolView.sora.upAmountText = poolModel.fiatText
+            poolView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
+            poolView.secondCurrencyImageView.sora.loadingPlaceholder.type = .none
+            poolView.rewardImageView.sora.loadingPlaceholder.type = .none
+            poolView.titleLabel.sora.loadingPlaceholder.type = .none
+            poolView.subtitleLabel.sora.loadingPlaceholder.type = .none
+            poolView.amountUpLabel.sora.loadingPlaceholder.type = .none
+            poolView.amountDownLabel.sora.loadingPlaceholder.type = .none
             poolView.sora.addHandler(for: .touchUpInside) {
                 item.openPoolDetailsHandler?(poolModel.identifier)
             }

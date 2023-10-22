@@ -141,6 +141,11 @@ extension AssetsCell: SoramitsuTableViewCellProtocol {
             assetView.sora.isHidden = !item.isExpand
             assetView.sora.upAmountText = assetModel.fiatText
             assetView.tappableArea.sora.isHidden = false
+            assetView.assetImageView.sora.loadingPlaceholder.type = .none
+            assetView.titleLabel.sora.loadingPlaceholder.type = .none
+            assetView.subtitleLabel.sora.loadingPlaceholder.type = .none
+            assetView.amountUpLabel.sora.loadingPlaceholder.type = .none
+            assetView.amountDownLabel.sora.loadingPlaceholder.type = .none
             assetView.tappableArea.sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
                 assetsItem?.assetHandler?(assetModel.identifier)
             }
