@@ -154,6 +154,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 tableViewController.present(alertController, animated: true)
             }
         }
+
+        FLEXManager.shared.registerGlobalEntry(withName: "SCard update version") { tableViewController in
+
+            let title = "SCard update version"
+
+            let alertController = UIAlertController(title: title, message: SCard.shared?.iosClientVersion, preferredStyle: .alert)
+
+            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
+                UIPasteboard.general.string = data
+            }
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
+
+            alertController.addAction(cancelAction)
+            alertController.addAction(copyAction)
+
+            DispatchQueue.main.async {
+                tableViewController.present(alertController, animated: true)
+            }
+        }
+
         #endif
     }
     
