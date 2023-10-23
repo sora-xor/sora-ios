@@ -362,9 +362,11 @@ extension MainTabBarViewFactory {
         
         let marketCapService = MarketCapService.shared
         
+        let farmingService = DemeterFarmingService(operationFactory: DemeterFarmingOperationFactory(engine: connection))
         let walletController = RedesignWalletViewFactory.createView(providerFactory: providerFactory,
                                                                     assetManager: assetManager,
                                                                     fiatService: FiatService.shared,
+                                                                    farmingService: farmingService,
                                                                     networkFacade: walletContext.networkOperationFactory,
                                                                     accountId: accountSettings.accountId,
                                                                     address: selectedAccount.address,
