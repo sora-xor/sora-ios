@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Tối đa %@ ký hiệu";
 "wallet.account.share.asset.amount.message" = "Địa chỉ mạng %@ của tôi để nhận %@ %@ :";
 "wallet.account.share.asset.or.amount.message" = "Địa chỉ mạng %@ của tôi để nhận %@ :";
-"wallet.account.share.message" = "Địa chỉ mạng Sora của tôi để nhận:";
+"wallet.account.share.message" = "Địa chỉ mạng SORA của tôi để nhận:";
 "help.support.title" = "Hỗ trợ SORA";
 "tutorial.sign.up" = "Đăng ký";
 "tutorial.terms.and.conditions.1" = "Bằng cách đăng ký, bạn đồng ý với\n Điều khoản & Điều kiện và Chính sách Bảo mật";
@@ -909,5 +909,5 @@
 "protect.loss.access.funds" = "Bảo vệ bạn khỏi mất quyền truy cập vào tiền của bạn";
 "backup.now" = "Sao lưu ngay";
 "wallet.backup" = "Sao lưu ví";
-"biometry.auth.access" = "Biometric Authentication Access";
-"ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";
+"biometry.auth.access" = "Truy cập xác thực sinh trắc học";
+"ask.biometry.access.setting" = "Rất tiếc, bạn đã từ chối quyền truy cập vào xác thực sinh trắc học trước đó. Bạn có muốn truy cập ngay bây giờ không?";

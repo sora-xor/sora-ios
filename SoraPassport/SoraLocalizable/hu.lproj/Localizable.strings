@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Maximum %@ szimbólumok";
 "wallet.account.share.asset.amount.message" = "A %@ Fogadásra jogosult hálózati címem %@%@:";
 "wallet.account.share.asset.or.amount.message" = "A %@ Fogadásra jogosult hálózati címem %@:";
-"wallet.account.share.message" = "Saját Sora hálózati címem Fogadáshoz:";
+"wallet.account.share.message" = "Saját SORA hálózati címem Fogadáshoz:";
 "help.support.title" = "SORA ügyfélszolgálat";
 "tutorial.sign.up" = "Regisztráció";
 "tutorial.terms.and.conditions.1" = "A regisztrációval elfogadod\n Általános Szerződési Feltételeket és Adatvédelmi Irányelveket";
@@ -607,7 +607,7 @@
 "referral.referral.link" = "Referrer’s link or address";
 "common.name" = "Name";
 "export.account.details.backup.options" = "Backup options";
-"export.account.details.backup.description" = "If you loose access to this device, your funds will be lost, unless you back up!";
+"export.account.details.backup.description" = "If you lose access to this device, your funds will be lost, unless you back up!";
 "export.account.details.show.passphrase" = "Show Passphrase";
 "export.account.details.show.raw.seed" = "Show Raw Seed";
 "history.referral.bond.tokens" = "Bond tokens";

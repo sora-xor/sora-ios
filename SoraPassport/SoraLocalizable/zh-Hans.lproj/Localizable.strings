@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "最大 %@ 符号";
 "wallet.account.share.asset.amount.message" = "我用以接收的%@网络地址%@ %@：";
 "wallet.account.share.asset.or.amount.message" = "我的%@网络地址要接收%@：";
-"wallet.account.share.message" = "我用以接收的Sora网络地址：";
+"wallet.account.share.message" = "我用以接收的SORA网络地址：";
 "help.support.title" = "SORA支持";
 "tutorial.sign.up" = "注册";
 "tutorial.terms.and.conditions.1" = "签署即表示您同意\n条款和条件以及隐私政策";
@@ -607,7 +607,7 @@
 "referral.referral.link" = "推荐人的链接或地址";
 "common.name" = "姓名";
 "export.account.details.backup.options" = "备份选项";
-"export.account.details.backup.description" = "如果您无法访问此设备，您的资金将会丢失，除非您备份！";
+"export.account.details.backup.description" = "如果你无法访问这台设备，除非你进行备份，否则你的资金将会丢失！";
 "export.account.details.show.passphrase" = "显示密码短语";
 "export.account.details.show.raw.seed" = "显示原始种子";
 "history.referral.bond.tokens" = "绑定代币";
@@ -886,7 +886,7 @@
 "something.went.wrong" = "出了点问题";
 "unexpected.error" = "发生了意外错误。\n\n您可以在SORA社区的@SORAhappiness Telegram聊天中解决此问题。";
 "sora.card.settings.headline" = "卡片设置";
-"sora.card.option.logout" = "退出 SORA 卡";
+"sora.card.option.logout" = "退出SORA卡";
 "sora.card.iban.headline" = "IBAN账户详情";
 "sora.card.referral.headline" = "推荐SORA卡。\n获得20欧元奖金。";
 "sora.card.refer.and.earn.action" = "推荐并赚取";
@@ -904,10 +904,10 @@
 "backup.account.already.exist" = "备份已存在。继续覆盖它。";
 "common.rewrite" = "重写";
 "backup.not.enough.space.error" = "备份失败。您的Google Drive空间不足，请释放一些空间并重试。";
-"support.chat" = "Support chat";
-"cant.load.balance" = "Can't load balance";
-"protect.loss.access.funds" = "Protect yourself from losing access to your funds";
-"backup.now" = "Backup now";
-"wallet.backup" = "Wallet backup";
-"biometry.auth.access" = "Biometric Authentication Access";
-"ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";
+"support.chat" = "支持聊天";
+"cant.load.balance" = "无法加载余额";
+"protect.loss.access.funds" = "保护自己免于失去对资金的访问权限";
+"backup.now" = "立即备份";
+"wallet.backup" = "钱包备份";
+"biometry.auth.access" = "生物识别身份验证访问";
+"ask.biometry.access.setting" = "很遗憾，您之前拒绝了生物识别认证的访问权限。现在是否想要开启访问？";

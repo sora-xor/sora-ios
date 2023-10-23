@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Max. %@ symbolů";
 "wallet.account.share.asset.amount.message" = "Moje %@ síťová adresa pro příjem %@ %@ :";
 "wallet.account.share.asset.or.amount.message" = "Moje %@ síťová adresa pro příjem %@:";
-"wallet.account.share.message" = "Moje adresa sítě Sora pro příjem:";
+"wallet.account.share.message" = "Moje adresa sítě SORA pro příjem:";
 "help.support.title" = "SORA podpora";
 "tutorial.sign.up" = "Registrace";
 "tutorial.terms.and.conditions.1" = "Registrací souhlasíte se\n Smluvními podmínkami a Zásadami ochrany osobních údajů";
