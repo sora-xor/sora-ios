@@ -48,6 +48,10 @@ extension LocalizationManagerProtocol {
     var isArabic: Bool {
         return selectedLocalization == "ar"
     }
+    
+    var dateFormat: String {
+        return selectedLocalization == "he" ? "HH:mm, dd MMM. YYYY" : "dd MMM. YYYY, HH:mm" 
+    }
 }
 
 extension LocalizationManager {

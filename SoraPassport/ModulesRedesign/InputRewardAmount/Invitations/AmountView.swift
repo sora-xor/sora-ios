@@ -31,6 +31,7 @@
 import UIKit
 import SoraUIKit
 import Anchorage
+import SoraFoundation
 
 final class AmountView: SoramitsuView {
 
@@ -64,7 +65,7 @@ final class AmountView: SoramitsuView {
         SoramitsuLabel().then {
             $0.sora.font = FontType.textXS
             $0.sora.textColor = .fgSecondary
-            $0.sora.alignment = .left
+            $0.sora.alignment = LocalizationManager.shared.isRightToLeft ? .right : .left
         }
     }()
 
@@ -72,7 +73,7 @@ final class AmountView: SoramitsuView {
         SoramitsuLabel().then {
             $0.sora.font = FontType.textXS
             $0.sora.textColor = .fgSecondary
-            $0.sora.alignment = .right
+            $0.sora.alignment = LocalizationManager.shared.isRightToLeft ? .left : .right
         }
     }()
 
