@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Največ %@ simbolov";
 "wallet.account.share.asset.amount.message" = "Moj %@ omrežni naslov za prejemanje %@ %@ :";
 "wallet.account.share.asset.or.amount.message" = "Moj %@ omrežni naslov za prejemanje %@ :";
-"wallet.account.share.message" = "Naslov mojega Sora omrežja za prejemanje:";
+"wallet.account.share.message" = "Naslov mojega SORA omrežja za prejemanje:";
 "help.support.title" = "Podpora SORA";
 "tutorial.sign.up" = "Registrirajte se";
 "tutorial.terms.and.conditions.1" = "Z registracijo se strinjate s splošnimi pogoji in politiko zasebnosti";
@@ -607,7 +607,7 @@
 "referral.referral.link" = "Referrer’s link or address";
 "common.name" = "Name";
 "export.account.details.backup.options" = "Backup options";
-"export.account.details.backup.description" = "If you loose access to this device, your funds will be lost, unless you back up!";
+"export.account.details.backup.description" = "If you lose access to this device, your funds will be lost, unless you back up!";
 "export.account.details.show.passphrase" = "Show Passphrase";
 "export.account.details.show.raw.seed" = "Show Raw Seed";
 "history.referral.bond.tokens" = "Bond tokens";

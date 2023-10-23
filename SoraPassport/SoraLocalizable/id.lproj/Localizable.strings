@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Simbol %@ maks";
 "wallet.account.share.asset.amount.message" = "Saya %@ alamat Network untuk menerima %@ %@ :";
 "wallet.account.share.asset.or.amount.message" = "Saya %@ Alamat Network untuk Menerima %@ :";
-"wallet.account.share.message" = "Alamat Jaringan Sora Saya untuk Menerima:";
+"wallet.account.share.message" = "Alamat Jaringan SORA Saya untuk Menerima:";
 "help.support.title" = "SORA support";
 "tutorial.sign.up" = "Daftar";
 "tutorial.terms.and.conditions.1" = "Dengan mendaftar Anda setuju dengan\nSyarat & Ketentuan dan Kebijakan Privasi";
@@ -607,7 +607,7 @@
 "referral.referral.link" = "Referrer’s link or address";
 "common.name" = "Name";
 "export.account.details.backup.options" = "Backup options";
-"export.account.details.backup.description" = "If you loose access to this device, your funds will be lost, unless you back up!";
+"export.account.details.backup.description" = "If you lose access to this device, your funds will be lost, unless you back up!";
 "export.account.details.show.passphrase" = "Show Passphrase";
 "export.account.details.show.raw.seed" = "Show Raw Seed";
 "history.referral.bond.tokens" = "Bond tokens";

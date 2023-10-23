@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Maximal %@ Symbole";
 "wallet.account.share.asset.amount.message" = "Meine %@ Netzwerkadresse %@ %@ zum Empfangen:";
 "wallet.account.share.asset.or.amount.message" = "Meine %@ Netzwerkadresse %@ zum Empfangen:";
-"wallet.account.share.message" = "Meine Sora Netzwerk Empfangsadresse:";
+"wallet.account.share.message" = "Meine SORA Netzwerk Empfangsadresse:";
 "help.support.title" = "SORA Support";
 "tutorial.sign.up" = "Anmelden";
 "tutorial.terms.and.conditions.1" = "Mit deiner Anmeldung stimmst du den\nallgemeinen Geschäftsbedingungen und Datenschutzrichtlinien zu";
