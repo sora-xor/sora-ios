@@ -159,7 +159,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
             let title = "SCard update version"
 
-            let alertController = UIAlertController(title: title, message: SCard.shared?.iosClientVersion, preferredStyle: .alert)
+            let alertController = UIAlertController(title: title, message: SCard.currentSDKVersion, preferredStyle: .alert)
 
             let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
                 UIPasteboard.general.string = data
