@@ -125,15 +125,21 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     }
 
     func showPassphrase() {
-        wireframe.showPassphrase(from: view, account: interactor.currentAccount)
+        let account = interactor.currentAccount
+        ApplicationConfig.shared.updateAvailableBackupedAccounts(account: account)
+        wireframe.showPassphrase(from: view, account: account)
     }
 
     func showRawSeed() {
-        wireframe.showRawSeed(from: view, account: interactor.currentAccount)
+        let account = interactor.currentAccount
+        ApplicationConfig.shared.updateAvailableBackupedAccounts(account: account)
+        wireframe.showRawSeed(from: view, account: account)
     }
 
     func showJson() {
-        wireframe.showJson(account: interactor.currentAccount, from: view)
+        let account = interactor.currentAccount
+        ApplicationConfig.shared.updateAvailableBackupedAccounts(account: account)
+        wireframe.showJson(account: account, from: view)
     }
     
     func deleteBackup() {
@@ -153,6 +159,7 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     
     func createBackup() {
         view?.showLoading()
+        ApplicationConfig.shared.updateAvailableBackupedAccounts(account: interactor.currentAccount)
         interactor.signInToGoogleIfNeeded { [weak self] account in
             self?.handle(account)
         }
