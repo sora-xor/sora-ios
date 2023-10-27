@@ -410,6 +410,7 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         if !allAccountConfig.contains(address) {
             allAccountConfig.append(address)
             UserDefaults.standard.set(allAccountConfig, forKey: Constants.savedAddresses)
+            EventCenter.shared.notify(with: AccountBackuped())
         }
     }
     

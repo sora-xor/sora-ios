@@ -130,11 +130,6 @@ final class AccountOptionsViewController: SoramitsuViewController {
         presenter.setup()
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        EventCenter.shared.notify(with: AccountBackuped())
-    }
-
     private func configure() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         
