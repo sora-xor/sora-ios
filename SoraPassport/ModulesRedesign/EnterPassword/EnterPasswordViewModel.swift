@@ -110,6 +110,7 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
     
     func didReceiveAccountImport(error: Error) {
         errorText = error.localizedDescription
+        view?.hideLoading()
         reload()
     }
     
