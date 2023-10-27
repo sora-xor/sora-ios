@@ -130,7 +130,6 @@ final class AccountOptionsViewController: SoramitsuViewController {
         presenter.setup()
     }
 
-
     private func configure() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         

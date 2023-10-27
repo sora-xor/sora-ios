@@ -87,6 +87,7 @@ final class RedesignWalletViewModel {
     var walletContext: CommonWalletContextProtocol
     var editViewService: EditViewServiceProtocol
     let feeProvider = FeeProvider()
+    let eventCenter = EventCenter.shared
     let marketCapService: MarketCapServiceProtocol
     let poolsViewModelService: PoolsItemService
     let assetsViewModelService: AssetsItemService
@@ -137,6 +138,7 @@ final class RedesignWalletViewModel {
         self.editViewService = editViewService
         self.marketCapService = marketCapService
         self.poolsViewModelService = poolsViewModelService
+        self.eventCenter.add(observer: self, dispatchIn: .main)
     }
 
     @SCStream internal var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
@@ -199,6 +201,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     func updateItems() {
         var items: [SoramitsuTableViewItemProtocol] = []
         let enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
+        let backupedAccounts = ApplicationConfig.shared.getAvailableBackupedAccounts()
         
         if let accountItem = walletItems.first(where: { $0 is AccountTableViewItem }) {
             items.append(accountItem)
@@ -213,7 +216,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             soraCard.isSCBannerHidden = false
         }
         
-        if let backupItem = walletItems.first(where: { $0 is BackupItem }) {
+        if !backupedAccounts.contains(address), let backupItem = walletItems.first(where: { $0 is BackupItem }) {
             items.append(backupItem)
         }
         
@@ -467,5 +470,11 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     func showBackupAccount() {
         wireframe?.showAccountOptions(from: view,
                                       account: SelectedWalletSettings.shared.currentAccount)
+    }
+}
+
+extension RedesignWalletViewModel: EventVisitorProtocol {
+    func processAccountBackuped(event: AccountBackuped) {
+        updateItems()
     }
 }

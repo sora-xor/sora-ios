@@ -66,6 +66,7 @@ protocol EventVisitorProtocol: AnyObject {
     func processRuntimeCoderCreationFailed(event: RuntimeCoderCreationFailed)
     func processExtricsicSubmmited(event: ExtricsicSubmittedEvent)
     func processLanguageChanged(event: LanguageChanged)
+    func processAccountBackuped(event: AccountBackuped)
 
 //    func processSelectedNodeUpdated(event: SelectedNodeChangedEvent)
 
@@ -113,6 +114,8 @@ extension EventVisitorProtocol {
     func processExtricsicSubmmited(event: ExtricsicSubmittedEvent) {}
 
     func processLanguageChanged(event: LanguageChanged) {}
+    
+    func processAccountBackuped(event: AccountBackuped) {}
     
 //    func processUserInactive(event _: UserInactiveEvent) {}
 }
