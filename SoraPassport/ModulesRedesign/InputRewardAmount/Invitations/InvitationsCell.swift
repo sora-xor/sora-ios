@@ -32,6 +32,7 @@ import UIKit
 import SoraUIKit
 import SnapKit
 import SoraFoundation
+import Combine
 
 protocol InvitationsCellDelegate: AlertPresentable {
     func isMinusEnabled(_ currentInvitationCount: Decimal) -> Bool
@@ -58,6 +59,21 @@ final class InvitationsCell: SoramitsuTableViewCell {
             delegate?.userChanged(currentInvitationCount)
         }
     }
+    
+    private var cancellables: Set<AnyCancellable> = []
+    private weak var viewModel: InvitationsViewModel? {
+        didSet {
+            guard let viewModel = viewModel else { return }
+            viewModel.$isEnabled
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    guard let self = self else { return }
+                    self.button.sora.isEnabled = viewModel.isEnabled ?? false
+                }
+                .store(in: &cancellables)
+        }
+    }
+    
     private let localizationManager = LocalizationManager.shared
     
     private lazy var titleLabel: SoramitsuLabel = {
@@ -198,7 +214,7 @@ extension InvitationsCell: Reusable {
         descriptionLabel.sora.text = viewModel.description
         feeView.feeLabel.sora.text = "\(viewModel.fee) \(viewModel.feeSymbol)"
         button.sora.title = viewModel.buttonTitle
-        button.sora.isEnabled = viewModel.isEnabled
+        button.sora.isEnabled = viewModel.isEnabled ?? false
         
         amountView.textField.becomeFirstResponder()
         amountView.underMinusLabel.sora.text = "\(viewModel.bondedAmount) \(viewModel.feeSymbol)"
@@ -213,5 +229,6 @@ extension InvitationsCell: Reusable {
         self.currentInvitationCount = invitationCount
         self.fee = viewModel.fee
         self.delegate = viewModel.delegate
+        self.viewModel = viewModel
     }
 }

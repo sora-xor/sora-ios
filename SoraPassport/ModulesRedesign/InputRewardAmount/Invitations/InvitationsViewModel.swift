@@ -30,6 +30,7 @@
 
 import CoreGraphics
 import UIKit
+import Combine
 
 protocol InvitationsViewModelProtocol {
     var title: String? { get }
@@ -39,7 +40,7 @@ protocol InvitationsViewModelProtocol {
     var balance: String { get }
     var bondedAmount: Decimal { get }
     var buttonTitle: String { get }
-    var isEnabled: Bool { get }
+    var isEnabled: Bool? { get }
     var delegate: InvitationsCellDelegate? { get }
 }
 
@@ -51,7 +52,7 @@ class InvitationsViewModel: InvitationsViewModelProtocol {
     var balance: String
     var bondedAmount: Decimal
     var buttonTitle: String
-    var isEnabled: Bool
+    @Published var isEnabled: Bool?
     var delegate: InvitationsCellDelegate?
 
     init(title: String?,
@@ -61,7 +62,7 @@ class InvitationsViewModel: InvitationsViewModelProtocol {
          balance: String,
          bondedAmount: Decimal,
          buttonTitle: String,
-         isEnabled: Bool,
+         isEnabled: Bool?,
          delegate: InvitationsCellDelegate?) {
         self.title = title
         self.description = description
