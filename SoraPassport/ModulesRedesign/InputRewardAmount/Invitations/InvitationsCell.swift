@@ -61,7 +61,7 @@ final class InvitationsCell: SoramitsuTableViewCell {
     }
     
     private var cancellables: Set<AnyCancellable> = []
-    private weak var viewModel: ReferrerLinkViewModel? {
+    private weak var viewModel: InvitationsViewModel? {
         didSet {
             guard let viewModel = viewModel else { return }
             viewModel.$isEnabled
