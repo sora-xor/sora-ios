@@ -117,6 +117,8 @@ final class ApplicationConfig {
         static let configFilename = "appConfig"
         static let configFileExt = "plist"
         static let enabledCards = "enabledCardIdentifiers"
+        static let backupedAddresses = "backupedAccountAddresses"
+        static let savedAddresses = "savedAddresses"
     }
 
     private var config: InternalConfig
@@ -370,10 +372,10 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     
     var backupedAccountAddresses: [String] {
         get {
-            return UserDefaults.standard.array(forKey: "backupedAccountAddresses") as? [String] ?? []
+            return UserDefaults.standard.array(forKey: Constants.backupedAddresses) as? [String] ?? []
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: "backupedAccountAddresses")
+            UserDefaults.standard.set(newValue, forKey: Constants.backupedAddresses)
         }
     }
     
@@ -393,6 +395,22 @@ extension ApplicationConfig: ApplicationConfigProtocol {
         var allAccountConfig = (UserDefaults.standard.object(forKey: Constants.enabledCards) as? [String : [Int]]) ?? [:]
         allAccountConfig[address] = cards
         UserDefaults.standard.set(allAccountConfig, forKey: Constants.enabledCards)
+    }
+    
+    func getAvailableBackupedAccounts() -> [String] {
+        let savedAccounts = Set((UserDefaults.standard.array(forKey: Constants.savedAddresses)) as? [String] ?? [])
+        let backupedAccounts = Set((UserDefaults.standard.array(forKey: Constants.backupedAddresses)) as? [String] ?? [])
+        let allAccounts = Array(savedAccounts.union(backupedAccounts))
+        return allAccounts
+    }
+    
+    func updateAvailableBackupedAccounts(account: AccountItem) {
+        let address = account.address
+        var allAccountConfig = (UserDefaults.standard.array(forKey: Constants.savedAddresses)) as? [String] ?? []
+        if !allAccountConfig.contains(address) {
+            allAccountConfig.append(address)
+            UserDefaults.standard.set(allAccountConfig, forKey: Constants.savedAddresses)
+        }
     }
     
     var commonConfigUrl: String {
