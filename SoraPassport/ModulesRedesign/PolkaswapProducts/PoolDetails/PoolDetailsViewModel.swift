@@ -194,7 +194,8 @@ extension PoolDetailsViewModel {
                     items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
                 }
             }
-
+            
+            self.view?.hideLoading()
             self.setupItems?(items)
         }
     }
