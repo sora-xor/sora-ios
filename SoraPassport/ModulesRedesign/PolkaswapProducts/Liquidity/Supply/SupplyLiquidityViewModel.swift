@@ -214,7 +214,7 @@ final class SupplyLiquidityViewModel {
     private lazy var firstLiquidityProviderWarningViewModel: WarningViewModel? = warningViewModelFactory.firstLiquidityProviderViewModel() {
         didSet {
             guard let firstLiquidityProviderWarningViewModel else { return }
-            view?.updateWarinignView(model: firstLiquidityProviderWarningViewModel)
+            view?.updateFirstLiquidityWarinignView(model: firstLiquidityProviderWarningViewModel)
         }
     }
     
