@@ -113,13 +113,6 @@ final class PoolDetailsViewModel {
 
 extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func viewDidLoad() {
-        let insets = SoramitsuInsets(horizontal: 16, vertical: 8)
-        let shimmers = [SoramitsuLoadingTableViewItem(height: 136,
-                                                      type: .shimmer,
-                                                      insets: insets,
-                                                      cornerRadius: .max)]
-        setupItems?(shimmers)
-        
         updateContent()
     }
     
@@ -201,7 +194,8 @@ extension PoolDetailsViewModel {
                     items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
                 }
             }
-
+            
+            self.view?.hideLoading()
             self.setupItems?(items)
         }
     }

@@ -32,7 +32,10 @@ import Foundation
 import UIKit
 import SoraUIKit
 
-protocol PoolDetailsViewProtocol: ControllerBackedProtocol {}
+protocol PoolDetailsViewProtocol: ControllerBackedProtocol {
+    func showLoading()
+    func hideLoading()
+}
 
 final class PoolDetailsViewController: SoramitsuViewController {
 
@@ -44,6 +47,12 @@ final class PoolDetailsViewController: SoramitsuViewController {
         tableView.sectionHeaderHeight = .zero
         tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
         return tableView
+    }()
+    
+    private lazy var activityIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        return indicator
     }()
 
     var viewModel: PoolDetailsViewModelProtocol
@@ -62,7 +71,8 @@ final class PoolDetailsViewController: SoramitsuViewController {
 
         setupView()
         setupConstraints()
-
+        showLoading()
+        
         navigationItem.title = R.string.localizable.poolDetails(preferredLanguages: .currentLocale)
         
         addCloseButton()
@@ -95,6 +105,7 @@ final class PoolDetailsViewController: SoramitsuViewController {
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
+        view.addSubview(activityIndicator)
     }
 
     private func setupConstraints() {
@@ -103,8 +114,22 @@ final class PoolDetailsViewController: SoramitsuViewController {
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
     }
 }
 
-extension PoolDetailsViewController: PoolDetailsViewProtocol {}
+extension PoolDetailsViewController: PoolDetailsViewProtocol {
+    
+    func showLoading() {
+        activityIndicator.isHidden = false
+        activityIndicator.startAnimating()
+    }
+
+    func hideLoading() {
+        activityIndicator.isHidden = true
+        activityIndicator.stopAnimating()
+    }
+}
