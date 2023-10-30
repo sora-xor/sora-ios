@@ -423,9 +423,10 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
         }
         
-        updateButtonState()
         debouncer.perform { [weak self] in
-            self?.updateDetails()
+            self?.updateDetails { [weak self] in
+                self?.updateButtonState()
+            }
         }
     }
 }
@@ -494,7 +495,7 @@ extension SupplyLiquidityViewModel {
         })
     }
     
-    func updateDetails() {
+    func updateDetails(completion: (() -> Void)? = nil) {
         guard self.inputedFirstAmount > 0, self.inputedSecondAmount > 0 else { return }
 
         if !isPairPresented && !isPairEnabled {
@@ -548,6 +549,7 @@ extension SupplyLiquidityViewModel {
                                                                                isEnabled: self.isPairEnabled,
                                                                                fee: self.fee,
                                                                                viewModel: self)
+            completion?()
         }
     }
     
