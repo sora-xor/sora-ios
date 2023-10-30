@@ -479,20 +479,41 @@ extension SupplyLiquidityViewModel {
         guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else {
             return
         }
+        
+        let group = DispatchGroup()
 
+        group.enter()
         poolsService?.isPairPresentedInNetwork(baseAssetId: firstAssetId,
                                                targetAssetId: secondAssetId,
                                                accountId: "",
                                                completion: { [weak self] isPresented in
             self?.isPairPresented = isPresented
+            group.leave()
         })
         
+        group.enter()
         poolsService?.isPairEnabled(baseAssetId: firstAssetId,
                                     targetAssetId: secondAssetId,
                                     accountId: "",
                                     completion: { [weak self] isEnabled in
             self?.isPairEnabled = isEnabled
+            group.leave()
         })
+        
+        group.notify(queue: .main) { [weak self] in
+            guard let self else { return }
+            var isNeedWarning = false
+
+            if !self.isPairPresented && !self.isPairEnabled {
+                isNeedWarning = true
+            }
+
+            if self.isPairPresented && !self.isPairEnabled {
+                isNeedWarning = true
+            }
+
+            self.firstLiquidityProviderWarningViewModel?.isHidden = !isNeedWarning
+        }
     }
     
     func updateDetails(completion: (() -> Void)? = nil) {
@@ -531,9 +552,6 @@ extension SupplyLiquidityViewModel {
             if let fromAsset = self.assetManager?.assetInfo(for: self.firstAssetId), fromAsset.isFeeAsset {
                 self.warningViewModel?.isHidden = self.firstAssetBalance.balance.decimalValue - self.inputedFirstAmount - self.fee > self.fee
             }
-            
-            let isNeedFirstLiquidityProviderWarning = transactionType == .liquidityAddNewPool || transactionType == .liquidityAddToExistingPoolFirstTime
-            self.firstLiquidityProviderWarningViewModel?.isHidden = !isNeedFirstLiquidityProviderWarning
             
             let basedAmount = self.focusedField == .one ? self.inputedFirstAmount : self.inputedSecondAmount
             let targetAmount = self.focusedField == .one ? self.inputedSecondAmount : self.inputedFirstAmount
