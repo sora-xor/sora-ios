@@ -77,3 +77,17 @@ extension Decimal {
         }
     }
 }
+
+extension Decimal? {
+    func text() -> String {
+        guard let self, let priceValueText = NumberFormatter.fiat.stringFromDecimal(self) else {
+            return ""
+        }
+
+        if priceValueText == "0" {
+            return "<$0.01"
+        }
+        
+        return "$" + priceValueText
+    }
+}
