@@ -51,7 +51,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                             referralFactory: ReferralsOperationFactoryProtocol,
                             assetsProvider: AssetProviderProtocol,
                             marketCapService: MarketCapServiceProtocol,
-                            updateHandler: (() -> Void)?)
+                            updateHandler: ((UpdatedSection) -> Void)?)
     
     func showFullListPools(on controller: UIViewController?,
                            poolsService: PoolsServiceInputProtocol,
@@ -64,7 +64,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol,
                            marketCapService: MarketCapServiceProtocol,
-                           updateHandler: (() -> Void)?)
+                           updateHandler: ((UpdatedSection) -> Void)?)
     
     func showAssetDetails(on viewController: UIViewController?,
                           assetInfo: AssetInfo,
@@ -166,7 +166,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                             referralFactory: ReferralsOperationFactoryProtocol,
                             assetsProvider: AssetProviderProtocol,
                             marketCapService: MarketCapServiceProtocol,
-                            updateHandler: (() -> Void)?) {
+                            updateHandler: ((UpdatedSection) -> Void)?) {
         let viewModel = ManageAssetListViewModel(assetViewModelFactory: assetViewModelFactory,
                                                  fiatService: fiatService,
                                                  assetManager: assetManager,
@@ -207,7 +207,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol,
                            marketCapService: MarketCapServiceProtocol,
-                           updateHandler: (() -> Void)?) {
+                           updateHandler: ((UpdatedSection) -> Void)?) {
         let viewModel = PoolListViewModel(poolsService: poolsService,
                                           assetManager: assetManager,
                                           fiatService: fiatService,
