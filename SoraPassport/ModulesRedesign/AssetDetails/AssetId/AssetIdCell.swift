@@ -38,6 +38,7 @@ final class AssetIdCell: SoramitsuTableViewCell {
     private let fullStackView: SoramitsuStackView = {
         var view = SoramitsuStackView()
         view.sora.backgroundColor = .bgSurface
+        view.sora.shadow = .small
         view.sora.axis = .vertical
         view.sora.cornerRadius = .max
         view.sora.distribution = .fill
