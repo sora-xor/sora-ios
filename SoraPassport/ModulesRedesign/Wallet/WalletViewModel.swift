@@ -36,6 +36,11 @@ import SCard
 import SoraFoundation
 import SoraKeystore
 
+enum UpdatedSection {
+    case assets
+    case pools
+}
+
 protocol RedesignWalletViewModelProtocol: AnyObject {
     var reloadItem: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
@@ -43,7 +48,7 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func closeSC()
     func closeReferralProgram()
     func updateItems()
-    func updateAssets()
+    func updateAssets(updatedSection: UpdatedSection)
     func showFullListAssets()
     func showFullListPools()
     func showAssetDetails(with assetInfo: AssetInfo)
@@ -243,12 +248,12 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         setupItems?(items)
     }
 
-    func updateAssets() {
-        if let assetItem = walletItems.first(where: { $0 is AssetsItem }) as? AssetsItem {
-            assetItem.updateContent()
+    func updateAssets(updatedSection: UpdatedSection) {
+        if updatedSection == .assets {
+            (walletItems.filter({ $0 is AssetsItem }).first as? AssetsItem)?.updateContent()
         }
-
-        if walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem != nil {
+       
+        if updatedSection == .pools, walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem != nil {
             poolsService.loadAccountPools(isNeedForceUpdate: false)
         }
     }

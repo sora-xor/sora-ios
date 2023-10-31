@@ -43,7 +43,7 @@ final class ManageAssetListViewModel {
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var dissmiss: ((Bool) -> Void)?
-    var updateHandler: (() -> Void)?
+    var updateHandler: ((UpdatedSection) -> Void)?
 
     var assetItems: [AssetListItem] = [] {
         didSet {
@@ -150,7 +150,7 @@ final class ManageAssetListViewModel {
          referralFactory: ReferralsOperationFactoryProtocol,
          assetsProvider: AssetProviderProtocol?,
          marketCapService: MarketCapServiceProtocol,
-         updateHandler: (() -> Void)?
+         updateHandler: ((UpdatedSection) -> Void)?
     ) {
         self.assetViewModelFactory = assetViewModelFactory
         self.fiatService = fiatService
@@ -187,7 +187,7 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
     }
     
     func viewDissmissed() {
-        updateHandler?()
+        updateHandler?(.assets)
     }
 }
 

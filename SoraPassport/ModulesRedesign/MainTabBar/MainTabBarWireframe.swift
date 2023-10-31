@@ -142,7 +142,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
                                             fiatService: FiatService.shared,
                                             assetViewModelsFactory: assetViewModelsFactory,
-                                            assetInfos: assetInfos,
+                                            assetManager: assetManager,
                                             assetProvider: assetsProvider)
         assetsProvider.add(observer: assetsViewModelService)
         
