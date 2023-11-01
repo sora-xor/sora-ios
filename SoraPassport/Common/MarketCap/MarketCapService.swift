@@ -60,11 +60,19 @@ protocol MarketCapServiceProtocol: AnyObject {
     func getMarketCap(for assetIds: [String]) async -> Set<MarketCapInfo>
 }
 
-final class MarketCapService {
+actor MarketCapService {
     static let shared = MarketCapService()
     private let operationManager: OperationManager = OperationManager()
     private var expiredDate: Date = Date()
     private var marketCapInfos: Set<MarketCapInfo> = []
+    
+    private func updateMarketCapInfo(with newValues: [MarketCapInfo]) async {
+        marketCapInfos.formUnion(newValues)
+    }
+    
+    private func updateExpiredDate() async {
+        expiredDate = Date().addingTimeInterval(600)
+    }
 }
 
 extension MarketCapService: MarketCapServiceProtocol {
@@ -83,6 +91,8 @@ extension MarketCapService: MarketCapServiceProtocol {
             
             let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: findAssetIds)
             
+            operationManager.enqueue(operations: [queryOperation], in: .transient)
+            
             queryOperation.completionBlock = { [weak self] in
                 guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
                     continuation.resume(returning: [])
@@ -96,12 +106,12 @@ extension MarketCapService: MarketCapServiceProtocol {
                                          liquidity: Decimal.fromSubstrateAmount(bigIntLiquidity, precision: 18) ?? 0)
                 }
                 
-                self.marketCapInfos.formUnion(result)
-                self.expiredDate = Date().addingTimeInterval(600)
-                continuation.resume(returning: self.marketCapInfos)
+                Task {
+                    await self.updateMarketCapInfo(with: result)
+                    await self.updateExpiredDate()
+                    await continuation.resume(returning: self.marketCapInfos)
+                }
             }
-            
-            operationManager.enqueue(operations: [queryOperation], in: .transient)
         }
     }
 }
