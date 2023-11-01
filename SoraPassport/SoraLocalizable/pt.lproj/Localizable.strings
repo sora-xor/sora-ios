@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Máximo de %@ símbolos";
 "wallet.account.share.asset.amount.message" = "O meu endereço da rede %@ para receber %@ %@:";
 "wallet.account.share.asset.or.amount.message" = "O meu endereço da rede %@ para receber %@:";
-"wallet.account.share.message" = "O meu endereço da Rede Sora para Receber:";
+"wallet.account.share.message" = "O meu endereço da Rede SORA para Receber:";
 "help.support.title" = "Suporte da SORA";
 "tutorial.sign.up" = "Registe-se";
 "tutorial.terms.and.conditions.1" = "Ao registar-se, está a concordar com os\nTermos e Condições, e Política de Privacidade";
@@ -607,7 +607,7 @@
 "referral.referral.link" = "Referrer’s link or address";
 "common.name" = "Name";
 "export.account.details.backup.options" = "Backup options";
-"export.account.details.backup.description" = "If you loose access to this device, your funds will be lost, unless you back up!";
+"export.account.details.backup.description" = "If you lose access to this device, your funds will be lost, unless you back up!";
 "export.account.details.show.passphrase" = "Show Passphrase";
 "export.account.details.show.raw.seed" = "Show Raw Seed";
 "history.referral.bond.tokens" = "Bond tokens";

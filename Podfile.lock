@@ -207,7 +207,7 @@ PODS:
   - R.swift.Library (5.3.0)
   - ReachabilitySwift (5.0.0)
   - RobinHood (2.6.8)
-  - SCard (1.3.0):
+  - SCard (1.2.0):
     - IdensicMobileSDK
     - PayWingsOAuthSDK (= 1.2.2)
     - PayWingsOnboardingKYC (= 5.2.1)
@@ -327,7 +327,7 @@ DEPENDENCIES:
   - R.swift (~> 6.1.0)
   - ReachabilitySwift
   - RobinHood
-  - SCard (from `https://github.com/sora-xor/sora-card-ios`, tag `1.3.0`)
+  - SCard (from `https://github.com/sora-xor/sora-card-ios`, tag `1.2.0`)
   - SnapKit
   - SoraDocuments
   - SoraFoundation
@@ -414,7 +414,7 @@ EXTERNAL SOURCES:
     :git: https://github.com/onevcat/Kingfisher
   SCard:
     :git: https://github.com/sora-xor/sora-card-ios
-    :tag: 1.3.0
+    :tag: 1.2.0
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.2
@@ -441,7 +441,7 @@ CHECKOUT OPTIONS:
     :git: https://github.com/onevcat/Kingfisher
   SCard:
     :git: https://github.com/sora-xor/sora-card-ios
-    :tag: 1.3.0
+    :tag: 1.2.0
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.2
@@ -493,7 +493,7 @@ SPEC CHECKSUMS:
   R.swift.Library: 0fc583cb55a99e28901299cc451614cad1161962
   ReachabilitySwift: 985039c6f7b23a1da463388634119492ff86c825
   RobinHood: b775a72cc0ae55cee3dfb4a5668597aca20ba244
-  SCard: e2064d958ebd82603598b97b9d93988b4fae39af
+  SCard: df6c425839073a27774cdc35c8ffe0a57776e270
   scrypt.c: b42ae06183251329d2b2c620c226fb541a4a3592
   secp256k1.c: db47b726585d80f027423682eb369729e61b3b20
   SnapKit: e01d52ebb8ddbc333eefe2132acf85c8227d9c25
@@ -516,6 +516,6 @@ SPEC CHECKSUMS:
   VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: c8eb01b9d11b540072626e0ef86a3a4c04f77d3c
+PODFILE CHECKSUM: 624dd3e250307e46a022438e300b7b6e98b253fc
 
-COCOAPODS: 1.12.1
+COCOAPODS: 1.13.0

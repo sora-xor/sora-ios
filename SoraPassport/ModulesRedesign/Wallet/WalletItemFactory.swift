@@ -210,12 +210,12 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                           itemService: AssetsItemService,
                           marketCapService: MarketCapServiceProtocol) -> SoramitsuTableViewItemProtocol {
         
-        let assetsItem = AssetsItem(title: R.string.localizable.liquidAssets(preferredLanguages: .currentLocale),
+        let assetsItem = AssetsItem(title: R.string.localizable.commonAssets(preferredLanguages: .currentLocale),
                                     assetProvider: assetsProvider,
                                     service: itemService)
         
         let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.liquidAssets(preferredLanguages: locale.rLanguages)
+            R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)
         }
         
         LocalizationManager.shared.addObserver(with: assetsItem) { [weak assetsItem] (_, _) in

@@ -54,6 +54,7 @@ final class InputRewardAmountPresenter: InvitationsCellDelegate {
     private var type: InputRewardAmountType
     private var interactor: InputRewardAmountInteractorInputProtocol
     private let feeAsset: AssetInfo
+    weak var viewModel: InvitationsViewModel?
 
     private var items: [CellViewModel] = []
     private var currentBalance: Decimal = Decimal(0)
@@ -90,23 +91,24 @@ extension InputRewardAmountPresenter: InputRewardAmountInteractorOutputProtocol 
         let balanceText = (NumberFormatter.cryptoAssets.stringFromDecimal(balance) ?? "") + " \(feeAsset.symbol)"
         let feeAmount = "\(fee) \(feeAsset.symbol)"
         let actionButtonIsEnabled = type == .unbond ? fee <= balance : false
+        let item = InvitationsViewModel(title: type.title,
+                                        description: type.descriptionText(with: feeAmount) ,
+                                        fee: fee,
+                                        feeSymbol: feeAsset.symbol,
+                                        balance: balanceText,
+                                        bondedAmount: type == .bond ? 0 : currentBondedAmount,
+                                        buttonTitle: type.buttonTitle,
+                                        isEnabled: actionButtonIsEnabled,
+                                        delegate: self)
         
-        items.append(InvitationsViewModel(title: type.title,
-                                          description: type.descriptionText(with: feeAmount) ,
-                                          fee: fee,
-                                          feeSymbol: feeAsset.symbol,
-                                          balance: balanceText,
-                                          bondedAmount: type == .bond ? 0 : currentBondedAmount,
-                                          buttonTitle: type.buttonTitle,
-                                          isEnabled: actionButtonIsEnabled,
-                                          delegate: self))
+        items.append(item)
         
         DispatchQueue.main.async {
             self.view?.setup(with: self.items)
         }
 
+        viewModel = item
         self.currentBalance = balance
-        self.actionButtonIsEnabled = actionButtonIsEnabled
     }
 
     func referralBalanceOperationReceived(with result: Result<String, Error>) {
@@ -150,9 +152,9 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
     }
 
     func userChanged(_ currentInvitationCount: Decimal) {
+        guard let viewModel = viewModel else { return }
         currentBondedAmount = currentInvitationCount * fee
-        let actionButtonIsEnabled = isActionButtonEnabled(currentInvitationCount)
-        setActionButtonEnabled(actionButtonIsEnabled)
+        viewModel.isEnabled = isActionButtonEnabled(currentInvitationCount)
     }
     
     func networkFeeInfoButtonTapped() {
@@ -184,17 +186,5 @@ extension InputRewardAmountPresenter: ButtonCellDelegate {
 
     private func isPreviousBondedEnoughToUnbond(_ invitations: Decimal) -> Bool {
         return invitations * fee <= previousBondedAmount
-    }
-
-    private func setActionButtonEnabled(_ isEnabled: Bool) {
-        guard let buttonCellRow = items.firstIndex(where: { $0 is InvitationsViewModel }),
-                self.actionButtonIsEnabled != isEnabled else { return }
-
-        (items[buttonCellRow] as? InvitationsViewModel)?.isEnabled = isEnabled
-        (items[buttonCellRow] as? InvitationsViewModel)?.bondedAmount = currentBondedAmount
-        self.actionButtonIsEnabled = isEnabled
-
-        let buttonCellIndexPath = IndexPath(row: buttonCellRow, section: 0)
-        self.view?.reloadCell(at: buttonCellIndexPath, models: items)
     }
 }

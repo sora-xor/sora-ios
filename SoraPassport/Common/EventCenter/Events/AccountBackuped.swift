@@ -28,56 +28,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import CoreGraphics
-import UIKit
-import Combine
+import Foundation
 
-protocol InvitationsViewModelProtocol {
-    var title: String? { get }
-    var description: String { get }
-    var fee: Decimal { get }
-    var feeSymbol: String { get }
-    var balance: String { get }
-    var bondedAmount: Decimal { get }
-    var buttonTitle: String { get }
-    var isEnabled: Bool? { get }
-    var delegate: InvitationsCellDelegate? { get }
-}
-
-class InvitationsViewModel: InvitationsViewModelProtocol {
-    var title: String?
-    var description: String
-    var fee: Decimal
-    var feeSymbol: String
-    var balance: String
-    var bondedAmount: Decimal
-    var buttonTitle: String
-    @Published var isEnabled: Bool?
-    var delegate: InvitationsCellDelegate?
-
-    init(title: String?,
-         description: String,
-         fee: Decimal,
-         feeSymbol: String,
-         balance: String,
-         bondedAmount: Decimal,
-         buttonTitle: String,
-         isEnabled: Bool?,
-         delegate: InvitationsCellDelegate?) {
-        self.title = title
-        self.description = description
-        self.fee = fee
-        self.feeSymbol = feeSymbol
-        self.balance = balance
-        self.bondedAmount = bondedAmount
-        self.buttonTitle = buttonTitle
-        self.isEnabled = isEnabled
-        self.delegate = delegate
-    }
-}
-
-extension InvitationsViewModel: CellViewModel {
-    var cellReuseIdentifier: String {
-        return InvitationsCell.reuseIdentifier
+struct AccountBackuped: EventProtocol {
+    func accept(visitor: EventVisitorProtocol) {
+        visitor.processAccountBackuped(event: self)
     }
 }

@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Maksimum %@ simvol";
 "wallet.account.share.asset.amount.message" = "%@ %@qəbul etmək üçün mənim %@ şəbəkə ünvanım:";
 "wallet.account.share.asset.or.amount.message" = "%@ qəbul etmək üçün mənim %@ şəbəkə ünvanım:";
-"wallet.account.share.message" = "Qəbul etmək üçün mənim Sora şəbəkə ünvanım:";
+"wallet.account.share.message" = "Qəbul etmək üçün mənim SORA şəbəkə ünvanım:";
 "help.support.title" = "SORA dəstəyi";
 "tutorial.sign.up" = "Abunə olun";
 "tutorial.terms.and.conditions.1" = "İmzalamaqla Qaydalar və Şərtlər və Məxfilik Siyasəti ilə razılaşırsınız";
@@ -607,7 +607,7 @@
 "referral.referral.link" = "İstinad linki və ya ünvanı";
 "common.name" = "ad";
 "export.account.details.backup.options" = "Yedəkləmə seçimləri";
-"export.account.details.backup.description" = "If you loose access to this device, your funds will be lost, unless you back up!";
+"export.account.details.backup.description" = "Bu cihaza girişi itirsəniz, ehtiyat nüsxəsini çıxarmasanız, vəsaitiniz itiriləcək!";
 "export.account.details.show.passphrase" = "Parol ifadəsini göstərin";
 "export.account.details.show.raw.seed" = "Xam Toxumu göstərin";
 "history.referral.bond.tokens" = "İstiqraz nişanları";
