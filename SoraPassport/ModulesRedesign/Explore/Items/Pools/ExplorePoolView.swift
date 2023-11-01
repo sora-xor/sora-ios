@@ -50,7 +50,7 @@ public final class ExplorePoolView: SoramitsuControl {
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
         label.sora.alignment = localizationManager.isRightToLeft ? .right : .left
-        label.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        label.widthAnchor.constraint(equalToConstant: 30).isActive = true
         return label
     }()
     
