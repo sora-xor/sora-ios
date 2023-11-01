@@ -639,8 +639,10 @@ private extension MainTabBarViewFactory {
             return tabBarItem
         }
         
-        let normalAttributes = [NSAttributedString.Key.foregroundColor: R.color.baseContentTertiary()!]
-        let selectedAttributes = [NSAttributedString.Key.foregroundColor: R.color.neumorphism.tint()]
+        let normalAttributes = [NSAttributedString.Key.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgSecondary),
+                                NSAttributedString.Key.font: FontType.textBoldXS.font]
+        let selectedAttributes = [NSAttributedString.Key.foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary),
+                                  NSAttributedString.Key.font: FontType.textBoldXS.font]
         
         tabBarItem.setTitleTextAttributes(normalAttributes, for: .normal)
         tabBarItem.setTitleTextAttributes(selectedAttributes, for: .selected)
