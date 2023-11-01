@@ -386,17 +386,21 @@ extension MainTabBarViewFactory {
             R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)
         }
         
+        let image = R.image.tabBar.wallet()
         let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
         
-        walletController.navigationItem.largeTitleDisplayMode = .never
-        walletController.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.wallet())
-        
-        localizationManager.addObserver(with: walletController) { [weak walletController] (_, _) in
-            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-            walletController?.tabBarItem.title = currentTitle
+        let navigationController = SoraNavigationController().then {
+            $0.navigationBar.isHidden = true
+            $0.tabBarItem = createTabBarItem(title: currentTitle, image: image)
+            $0.viewControllers = [walletController]
         }
         
-        return walletController
+        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
+            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+            navigationController?.tabBarItem.title = currentTitle
+        }
+        
+        return navigationController
     }
     
     static func createMoreMenuController(
