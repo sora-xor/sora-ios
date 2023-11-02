@@ -41,6 +41,7 @@ protocol YourReferrerCellDelegate: AnyObject {
 final class YourReferrerCell: SoramitsuTableViewCell {
     
     private weak var delegate: YourReferrerCellDelegate?
+    private let localizationManager = LocalizationManager.shared
     
     private lazy var containerView: SoramitsuStackView = {
         SoramitsuStackView().then {
@@ -59,6 +60,7 @@ final class YourReferrerCell: SoramitsuTableViewCell {
             $0.sora.textColor = .fgPrimary
             $0.sora.font = FontType.paragraphM
             $0.sora.numberOfLines = 0
+            $0.sora.alignment = localizationManager.isRightToLeft ? .right : .left
             $0.setContentHuggingPriority(.required, for: .vertical)
         }
     }()
@@ -68,6 +70,7 @@ final class YourReferrerCell: SoramitsuTableViewCell {
             $0.sora.textColor = .fgSecondary
             $0.sora.font = FontType.textBoldXS
             $0.sora.numberOfLines = 0
+            $0.sora.alignment = localizationManager.isRightToLeft ? .right : .left
             $0.setContentHuggingPriority(.required, for: .vertical)
         }
     }()
@@ -78,6 +81,7 @@ final class YourReferrerCell: SoramitsuTableViewCell {
             $0.sora.font = FontType.paragraphXS
             $0.sora.numberOfLines = 0
             $0.sora.lineBreakMode = .byTruncatingMiddle
+            $0.sora.alignment = localizationManager.isRightToLeft ? .right : .left
             $0.setContentHuggingPriority(.required, for: .vertical)
         }
     }()

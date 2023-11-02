@@ -31,6 +31,7 @@
 import UIKit
 import SoraUIKit
 import SnapKit
+import SoraFoundation
 
 protocol InvitationsCellDelegate: AlertPresentable {
     func isMinusEnabled(_ currentInvitationCount: Decimal) -> Bool
@@ -57,12 +58,13 @@ final class InvitationsCell: SoramitsuTableViewCell {
             delegate?.userChanged(currentInvitationCount)
         }
     }
+    private let localizationManager = LocalizationManager.shared
     
     private lazy var titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline2
         label.sora.textColor = .fgPrimary
-        label.sora.alignment = .left
+        label.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         label.sora.numberOfLines = 0
         return label
     }()
@@ -71,7 +73,7 @@ final class InvitationsCell: SoramitsuTableViewCell {
         let label = SoramitsuLabel()
         label.sora.font = FontType.paragraphM
         label.sora.textColor = .fgPrimary
-        label.sora.alignment = .left
+        label.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         label.sora.numberOfLines = 0
         return label
     }()

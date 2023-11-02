@@ -29,10 +29,18 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
+import SoraFoundation
 
 final class AccountCell: SoramitsuTableViewCell {
     
     private var accountItem: AccountTableViewItem?
+    private let localizationManager = LocalizationManager.shared
+    
+    private let containerView: SoramitsuView = {
+        var view = SoramitsuView()
+        view.sora.backgroundColor = .custom(uiColor: .clear)
+        return view
+    }()
     
     private let accountLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
@@ -93,31 +101,29 @@ final class AccountCell: SoramitsuTableViewCell {
     private func setupView() {
         clipsToBounds = false
         contentView.clipsToBounds = false
-        contentView.addSubview(accountLabel)
-        contentView.addSubview(arrowImageView)
-        contentView.addSubview(scanQrButton)
-        contentView.addSubview(button)
+        contentView.addSubview(containerView)
+        containerView.addSubviews(accountLabel, arrowImageView, scanQrButton)
     }
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            accountLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
-            accountLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             
+            accountLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            accountLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+
             arrowImageView.leadingAnchor.constraint(equalTo: accountLabel.trailingAnchor, constant: 12),
             arrowImageView.centerYAnchor.constraint(equalTo: accountLabel.centerYAnchor),
             arrowImageView.heightAnchor.constraint(equalToConstant: 16),
             arrowImageView.widthAnchor.constraint(equalToConstant: 16),
             arrowImageView.trailingAnchor.constraint(lessThanOrEqualTo: scanQrButton.leadingAnchor, constant: -12),
-            
-            button.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            button.trailingAnchor.constraint(equalTo: arrowImageView.trailingAnchor),
-            button.topAnchor.constraint(equalTo: contentView.topAnchor),
-            button.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 
-            scanQrButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            scanQrButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            scanQrButton.topAnchor.constraint(equalTo: contentView.topAnchor),
+            scanQrButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            scanQrButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            scanQrButton.topAnchor.constraint(equalTo: containerView.topAnchor),
         ])
     }
 }

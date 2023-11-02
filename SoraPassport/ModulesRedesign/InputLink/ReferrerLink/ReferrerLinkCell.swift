@@ -50,6 +50,7 @@ final class ReferrerLinkCell: SoramitsuTableViewCell {
                 .store(in: &cancellables)
         }
     }
+    private let localizationManager = LocalizationManager.shared
     
     private lazy var containerView: SoramitsuStackView = {
         SoramitsuStackView().then {
@@ -68,6 +69,7 @@ final class ReferrerLinkCell: SoramitsuTableViewCell {
             $0.sora.textColor = .fgPrimary
             $0.sora.font = FontType.paragraphM
             $0.sora.numberOfLines = 0
+            $0.sora.alignment = localizationManager.isRightToLeft ? .right : .left
             $0.setContentHuggingPriority(.required, for: .vertical)
         }
     }()

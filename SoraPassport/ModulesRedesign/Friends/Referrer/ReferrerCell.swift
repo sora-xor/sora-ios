@@ -33,6 +33,7 @@ import Then
 import Anchorage
 import SoraUI
 import SoraUIKit
+import SoraFoundation
 
 protocol ReferrerCellDelegate: AnyObject {
     func enterLinkButtonTapped()
@@ -41,7 +42,8 @@ protocol ReferrerCellDelegate: AnyObject {
 final class ReferrerCell: SoramitsuTableViewCell {
 
     private var delegate: ReferrerCellDelegate?
-
+    private let localizationManager = LocalizationManager.shared
+    
     // MARK: - Outlets
     private var containerView: SoramitsuStackView = {
         SoramitsuStackView().then {
@@ -61,6 +63,7 @@ final class ReferrerCell: SoramitsuTableViewCell {
             $0.sora.text = R.string.localizable.referralYourReferrer(preferredLanguages: .currentLocale)
             $0.sora.textColor = .fgPrimary
             $0.sora.font = FontType.headline2
+            $0.sora.alignment = localizationManager.isRightToLeft ? .right : .left
         }
     }()
 

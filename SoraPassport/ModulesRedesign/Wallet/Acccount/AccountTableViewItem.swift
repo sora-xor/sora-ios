@@ -87,4 +87,8 @@ extension AccountTableViewItem: SoramitsuTableViewItemProtocol {
     func itemHeight(forWidth width: CGFloat, context: SoramitsuTableViewContext?) -> CGFloat {
         40
     }
+    
+    func itemActionTap(with context: SoramitsuTableViewContext?) {
+        accountHandler?(self)
+    }
 }
