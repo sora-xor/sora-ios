@@ -37,59 +37,73 @@ import RobinHood
 import SoraFoundation
 
 protocol AssetDetailsWireframeProtocol {
-    func showActivity(on controller: UIViewController,  assetId: String, assetManager: AssetManagerProtocol)
+    func showActivity(assetId: String)
 
-    func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol)
+    func showActivityDetails(model: Transaction)
     
-    func showSwap(on controller: UIViewController?,
-                  selectedTokenId: String,
-                  assetManager: AssetManagerProtocol,
-                  fiatService: FiatServiceProtocol,
-                  networkFacade: WalletNetworkOperationFactoryProtocol?,
-                  polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-                  assetsProvider: AssetProviderProtocol?,
-                  marketCapService: MarketCapServiceProtocol)
+    func showSwap()
     
-    func showReceive(on controller: UIViewController?,
-                     selectedAsset: AssetInfo,
-                     accountId: String,
-                     address: String,
-                     qrEncoder: WalletQREncoderProtocol,
-                     sharingFactory: AccountShareFactoryProtocol,
-                     fiatService: FiatServiceProtocol?,
-                     assetProvider: AssetProviderProtocol?,
-                     assetManager: AssetManagerProtocol?)
+    func showReceive()
     
-    func showSend(on controller: UIViewController?,
-                  selectedAsset: AssetInfo,
-                  fiatService: FiatServiceProtocol?,
-                  assetManager: AssetManagerProtocol?,
-                  eventCenter: EventCenterProtocol,
-                  providerFactory: BalanceProviderFactory,
-                  networkFacade: WalletNetworkOperationFactoryProtocol?,
-                  assetsProvider: AssetProviderProtocol?,
-                  qrEncoder: WalletQREncoderProtocol,
-                  sharingFactory: AccountShareFactoryProtocol,
-                  marketCapService: MarketCapServiceProtocol)
+    func showSend()
     
-    func showFrozenBalance(on controller: UIViewController?, frozenDetailViewModels: [BalanceDetailViewModel])
+    func showFrozenBalance(frozenDetailViewModels: [BalanceDetailViewModel])
 
-    func showXOne(on controller: UIViewController?, address: String, service: SCard)
+    func showXOne(service: SCard)
     
-    func showPoolDetails(on viewController: UIViewController?,
-                         poolInfo: PoolInfo,
-                         assetManager: AssetManagerProtocol,
-                         fiatService: FiatServiceProtocol,
-                         poolsService: PoolsServiceInputProtocol,
-                         providerFactory: BalanceProviderFactory,
-                         operationFactory: WalletNetworkOperationFactoryProtocol,
-                         assetsProvider: AssetProviderProtocol?,
-                         marketCapService: MarketCapServiceProtocol)
+    func showPoolDetails(poolInfo: PoolInfo,
+                         poolsService: PoolsServiceInputProtocol)
 }
 
 final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
+    weak var controller: UIViewController?
+    
+    private let accountId: String
+    private let address: String
+    private var assetManager: AssetManagerProtocol
+    private var fiatService: FiatServiceProtocol
+    private let eventCenter: EventCenterProtocol 
+    private var assetInfo: AssetInfo 
+    private let providerFactory: BalanceProviderFactory 
+    private let networkFacade: WalletNetworkOperationFactoryProtocol? 
+    private let polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol 
+    private var assetsProvider: AssetProviderProtocol 
+    private var marketCapService: MarketCapServiceProtocol
+    private let qrEncoder: WalletQREncoderProtocol 
+    private let sharingFactory: AccountShareFactoryProtocol 
+    
+    init(
+        accountId: String,
+        address: String,
+        assetManager: AssetManagerProtocol,
+        fiatService: FiatServiceProtocol,
+        eventCenter: EventCenterProtocol,
+        assetInfo: AssetInfo,
+        providerFactory: BalanceProviderFactory,
+        networkFacade: WalletNetworkOperationFactoryProtocol?,
+        polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol,
+        assetsProvider: AssetProviderProtocol,
+        marketCapService: MarketCapServiceProtocol,
+        qrEncoder: WalletQREncoderProtocol,
+        sharingFactory: AccountShareFactoryProtocol
+    ) {
+        self.accountId = accountId
+        self.address = address
+        self.assetManager = assetManager
+        self.fiatService = fiatService
+        self.eventCenter = eventCenter
+        self.assetInfo = assetInfo
+        self.providerFactory = providerFactory
+        self.networkFacade = networkFacade
+        self.polkaswapNetworkFacade = polkaswapNetworkFacade
+        self.assetsProvider = assetsProvider
+        self.marketCapService = marketCapService
+        self.qrEncoder = qrEncoder
+        self.sharingFactory = sharingFactory
+    }
+    
 
-    func showActivity(on controller: UIViewController, assetId: String, assetManager: AssetManagerProtocol) {
+    func showActivity(assetId: String) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else { return }
         let assets = assetManager.getAssetList() ?? []
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
@@ -101,7 +115,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                                           viewModelFactory: viewModelFactory,
                                           wireframe: ActivityWireframe(),
                                           assetManager: assetManager,
-                                          eventCenter: EventCenter.shared,
+                                          eventCenter: eventCenter,
                                           assetId: assetId)
         viewModel.localizationManager = LocalizationManager.shared
         viewModel.title = R.string.localizable.assetDetailsRecentActivity(preferredLanguages: .currentLocale)
@@ -123,10 +137,10 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         containerView.add(activityNavigationController)
 
 
-        controller.present(containerView, animated: true)
+        controller?.present(containerView, animated: true)
     }
     
-    func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol) {
+    func showActivityDetails(model: Transaction) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount, let aseetList = assetManager.getAssetList() else { return }
 
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
@@ -151,15 +165,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showSwap(on controller: UIViewController?,
-                  selectedTokenId: String,
-                  assetManager: AssetManagerProtocol,
-                  fiatService: FiatServiceProtocol,
-                  networkFacade: WalletNetworkOperationFactoryProtocol?,
-                  polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
-                  assetsProvider: AssetProviderProtocol?,
-                  marketCapService: MarketCapServiceProtocol) {
-        guard let swapController = SwapViewFactory.createView(selectedTokenId: selectedTokenId,
+    func showSwap() {
+        guard let swapController = SwapViewFactory.createView(selectedTokenId: assetInfo.assetId,
                                                               selectedSecondTokenId: "",
                                                               assetManager: assetManager,
                                                               fiatService: fiatService,
@@ -174,18 +181,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showSend(on controller: UIViewController?,
-                  selectedAsset: AssetInfo,
-                  fiatService: FiatServiceProtocol?,
-                  assetManager: AssetManagerProtocol?,
-                  eventCenter: EventCenterProtocol,
-                  providerFactory: BalanceProviderFactory,
-                  networkFacade: WalletNetworkOperationFactoryProtocol?,
-                  assetsProvider: AssetProviderProtocol?,
-                  qrEncoder: WalletQREncoderProtocol,
-                  sharingFactory: AccountShareFactoryProtocol,
-                  marketCapService: MarketCapServiceProtocol) {
-        let viewModel = InputAssetAmountViewModel(selectedTokenId: selectedAsset.assetId,
+    func showSend() {
+        let viewModel = InputAssetAmountViewModel(selectedTokenId: assetInfo.assetId,
                                                   selectedAddress: nil,
                                                   fiatService: fiatService,
                                                   assetManager: assetManager,
@@ -210,24 +207,16 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showReceive(on controller: UIViewController?,
-                     selectedAsset: AssetInfo,
-                     accountId: String,
-                     address: String,
-                     qrEncoder: WalletQREncoderProtocol,
-                     sharingFactory: AccountShareFactoryProtocol,
-                     fiatService: FiatServiceProtocol?,
-                     assetProvider: AssetProviderProtocol?,
-                     assetManager: AssetManagerProtocol?) {
+    func showReceive() {
         let qrService = WalletQRService(operationFactory: WalletQROperationFactory(), encoder: qrEncoder)
         
         let viewModel = ReceiveViewModel(qrService: qrService,
                                          sharingFactory: sharingFactory,
                                          accountId: accountId,
                                          address: address,
-                                         selectedAsset: selectedAsset,
+                                         selectedAsset: assetInfo,
                                          fiatService: fiatService,
-                                         assetProvider: assetProvider,
+                                         assetProvider: assetsProvider,
                                          assetManager: assetManager)
         let receiveController = ReceiveViewController(viewModel: viewModel)
         viewModel.view = receiveController
@@ -243,7 +232,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showFrozenBalance(on controller: UIViewController?, frozenDetailViewModels: [BalanceDetailViewModel]) {
+    func showFrozenBalance(frozenDetailViewModels: [BalanceDetailViewModel]) {
         let receiveController = BalanceDetailsViewController(viewModels: frozenDetailViewModels)
         
         let containerView = BlurViewController()
@@ -253,21 +242,15 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
 
-    func showXOne(on controller: UIViewController?, address: String, service: SCard) {
+    func showXOne(service: SCard) {
         let viewController = service.xOneViewController(address: address)
         controller?.present(viewController, animated: true)
     }
     
-    func showPoolDetails(on viewController: UIViewController?,
-                         poolInfo: PoolInfo,
-                         assetManager: AssetManagerProtocol,
-                         fiatService: FiatServiceProtocol,
-                         poolsService: PoolsServiceInputProtocol,
-                         providerFactory: BalanceProviderFactory,
-                         operationFactory: WalletNetworkOperationFactoryProtocol,
-                         assetsProvider: AssetProviderProtocol?,
-                         marketCapService: MarketCapServiceProtocol) {
-        guard let assetDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
+    func showPoolDetails(poolInfo: PoolInfo,
+                         poolsService: PoolsServiceInputProtocol) {
+        guard let operationFactory = networkFacade,
+              let assetDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
                                                                              assetManager: assetManager,
                                                                              fiatService: fiatService,
                                                                              poolsService: poolsService,
@@ -289,6 +272,6 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         
         containerView.add(assetDetailNavigationController)
         
-        viewController?.present(containerView, animated: true)
+        controller?.present(containerView, animated: true)
     }
 }

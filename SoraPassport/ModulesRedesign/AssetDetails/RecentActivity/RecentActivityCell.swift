@@ -30,10 +30,28 @@
 
 import SoraUIKit
 import SoraFoundation
+import Combine
 
 final class RecentActivityCell: SoramitsuTableViewCell {
     
-    private var activityItem: RecentActivityItem?
+    private var heightConstraint: NSLayoutConstraint?
+    private var offsetConstraint: NSLayoutConstraint?
+    
+    
+    private var cancellables: Set<AnyCancellable> = []
+    
+    private var activityItem: RecentActivityItem? {
+        didSet {
+            guard let item = activityItem else { return }
+            item.service.$historyViewModels
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.updateContent(with: value)
+                }
+                .store(in: &cancellables)
+        }
+    }
     private var localizationManager = LocalizationManager.shared
 
     private let titleLabel: SoramitsuLabel = {
@@ -44,14 +62,18 @@ final class RecentActivityCell: SoramitsuTableViewCell {
         return label
     }()
 
+    private let containerView: SoramitsuView = {
+        var view = SoramitsuView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.sora.backgroundColor = .bgSurface
+        view.sora.cornerRadius = .max
+        return view
+    }()
+
     private let fullStackView: SoramitsuStackView = {
         var view = SoramitsuStackView()
-        view.sora.backgroundColor = .bgSurface
         view.sora.axis = .vertical
-        view.sora.cornerRadius = .max
         view.sora.distribution = .fill
-        view.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
-        view.isLayoutMarginsRelativeArrangement = true
         return view
     }()
 
@@ -78,17 +100,26 @@ final class RecentActivityCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupView() {
-        contentView.addSubview(fullStackView)
+        contentView.addSubview(containerView)
+        containerView.addSubview(fullStackView)
         fullStackView.addArrangedSubviews(titleLabel)
         fullStackView.setCustomSpacing(16, after: titleLabel)
     }
 
     private func setupConstraints() {
+        heightConstraint = containerView.heightAnchor.constraint(equalToConstant: 0)
+        offsetConstraint = containerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16)
+        
         NSLayoutConstraint.activate([
-            fullStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
-            fullStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            fullStackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            fullStackView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            offsetConstraint,
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
+            fullStackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
+            fullStackView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            fullStackView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            fullStackView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
 
             openFullActivityButton.heightAnchor.constraint(equalToConstant: 32)
         ])
@@ -105,6 +136,70 @@ final class RecentActivityCell: SoramitsuTableViewCell {
                                                        textColor: .accentPrimary,
                                                        alignment: alignment)
     }
+    
+    private func updateContent(with viewModels: [ActivityContentViewModel]) {
+        fullStackView.arrangedSubviews.filter { $0 is ActivityView || $0 is SoramitsuButton }.forEach { subview in
+            fullStackView.removeArrangedSubview(subview)
+            subview.removeFromSuperview()
+        }
+        
+        let activityViews = viewModels.map { model -> ActivityView in
+            let view = ActivityView()
+            view.isUserInteractionEnabled = true
+            model.firstAssetImageViewModel?.loadImage { (icon, _) in
+                guard let icon else { return }
+                view.firstCurrencyImageView.sora.picture = .logo(image: icon)
+            }
+            view.firstCurrencyImageView.sora.loadingPlaceholder.type = model.firstAssetImageViewModel == nil ? .shimmer : .none
+            
+            model.secondAssetImageViewModel?.loadImage { (icon, _) in
+                guard let icon else { return }
+                view.secondCurrencyImageView.sora.picture = .logo(image: icon)
+            }
+            view.secondCurrencyImageView.sora.loadingPlaceholder.type = model.secondAssetImageViewModel == nil ? .shimmer : .none
+
+            view.titleLabel.sora.text = model.title
+            view.titleLabel.sora.loadingPlaceholder.type = model.title.isEmpty ? .shimmer : .none
+
+            view.subtitleLabel.sora.text = model.subtitle
+            view.subtitleLabel.sora.loadingPlaceholder.type = model.subtitle.isEmpty ? .shimmer : .none
+
+            if let image = model.typeTransactionImage {
+                view.transactionTypeImageView.sora.picture = .logo(image: image)
+            }
+            view.transactionTypeImageView.sora.loadingPlaceholder.type = model.typeTransactionImage == nil ? .shimmer : .none
+
+            view.amountUpLabel.sora.attributedText = model.firstBalanceText
+            view.amountUpLabel.sora.loadingPlaceholder.type = model.firstBalanceText.attributedString.string.isEmpty ? .shimmer : .none
+            view.amountView.sora.loadingPlaceholder.type = model.firstBalanceText.attributedString.string.isEmpty ? .shimmer : .none
+            
+            view.secondCurrencyImageView.isHidden = !model.isNeedTwoImage
+            view.oneCurrencyImageView.isHidden = model.isNeedTwoImage
+            view.firstCurrencyHeightContstaint?.constant = model.isNeedTwoImage ? 28 : 40
+
+            if let image = model.status.image {
+                view.statusImageView.sora.picture = .logo(image: image)
+            }
+            view.statusImageView.sora.isHidden = model.status.image == nil
+            
+
+            view.sora.addHandler(for: .touchUpInside) { [weak self] in
+                self?.activityItem?.openActivityDetailsHandler?(model.txHash)
+            }
+            view.isRightToLeft = localizationManager.isRightToLeft
+            return view
+        }
+
+        fullStackView.addArrangedSubviews(activityViews)
+        if let assetView = activityViews.last {
+            fullStackView.setCustomSpacing(8, after: assetView)
+        }
+
+        fullStackView.addArrangedSubviews(openFullActivityButton)
+        heightConstraint?.isActive = viewModels.isEmpty
+        offsetConstraint?.constant = viewModels.isEmpty ? 1 : 16
+        setNeedsLayout()
+    }
 }
 
 extension RecentActivityCell: SoramitsuTableViewCellProtocol {
@@ -113,46 +208,12 @@ extension RecentActivityCell: SoramitsuTableViewCellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
-        
-        fullStackView.arrangedSubviews.filter { $0 is HistoryTransactionView || $0 is SoramitsuButton }.forEach { subview in
-            fullStackView.removeArrangedSubview(subview)
-            subview.removeFromSuperview()
+        if activityItem == nil {
+            activityItem = item
         }
         
-        let assetViews = item.historyViewModels.map { model -> HistoryTransactionView in
-            let view = HistoryTransactionView()
-            view.isUserInteractionEnabled = true
-            model.firstAssetImageViewModel?.loadImage { (icon, _) in
-                view.sora.firstHistoryTransactionImage  = icon
-            }
-            
-            model.secondAssetImageViewModel?.loadImage { (icon, _) in
-                view.sora.secondHistoryTransactionImage = icon
-            }
-
-            view.sora.titleText = model.title
-            view.sora.subtitleText = model.subtitle
-            view.sora.transactionType = model.typeTransactionImage
-            view.sora.upAmountText = model.firstBalanceText
-            view.sora.fiatText = model.fiatText
-            view.sora.isNeedTwoTokens = model.isNeedTwoImage
-            view.sora.statusImage = model.status.image
-            view.sora.addHandler(for: .touchUpInside) {
-                item.openActivityDetailsHandler?(model.txHash)
-            }
-            view.isRightToLeft = localizationManager.isRightToLeft
-            return view
-        }
-
-        fullStackView.addArrangedSubviews(assetViews)
-        if let assetView = assetViews.last {
-            fullStackView.setCustomSpacing(8, after: assetView)
-        }
-
-        fullStackView.addArrangedSubviews(openFullActivityButton)
-
-        self.activityItem = item
-        
+        let viewModels = Array((item.service.historyViewModels))
+        updateContent(with: viewModels)
         updateSemantics()
     }
 }
