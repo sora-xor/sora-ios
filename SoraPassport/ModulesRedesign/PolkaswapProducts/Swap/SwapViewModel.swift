@@ -49,7 +49,6 @@ final class SwapViewModel {
     let eventCenter: EventCenterProtocol
     let interactor: PolkaswapMainInteractorInputProtocol
     let networkFacade: WalletNetworkOperationFactoryProtocol?
-    var timer: Timer?
     
     let debouncer = Debouncer(interval: 0.8)
     
@@ -286,11 +285,13 @@ final class SwapViewModel {
         self.polkaswapNetworkFacade = polkaswapNetworkFacade
         self.warningViewModelFactory = warningViewModelFactory
         self.marketCapService = marketCapService
+        self.eventCenter.add(observer: self)
     }
-    
-    deinit {
-        timer?.invalidate()
-        timer = nil
+}
+
+extension SwapViewModel: EventVisitorProtocol {
+    func processNewBlockAppeared(event: NewBlockEvent) {
+        loadQuote()
     }
 }
 
@@ -350,9 +351,6 @@ extension SwapViewModel: LiquidityViewModelProtocol {
         updateDetails()
     }
     
-    func viewWillAppear() {
-        subscribeToPoolUpdates()
-    }
     
     func choiсeBaseAssetButtonTapped() {
         guard let assetManager = assetManager,
@@ -412,9 +410,6 @@ extension SwapViewModel: LiquidityViewModelProtocol {
     }
     
     func reviewButtonTapped() {
-        timer?.invalidate()
-        timer = nil
-        
         guard let assetManager = assetManager, let amounts = amounts, let quoteParams = quoteParams else { return }
         wireframe?.showSwapConfirmation(on: view?.controller.navigationController,
                                         baseAssetId: firstAssetId,
@@ -460,7 +455,6 @@ extension SwapViewModel: PolkaswapMainInteractorOutputProtocol {
         marketSourcer.didLoad(serverMarketSources)
         view?.setupMarketButton(isLoadingState: false)
         updateSelectedMarketSourceIfNecessary()
-        subscribeToPoolUpdates()
         loadQuote()
     }
     
@@ -649,23 +643,9 @@ extension SwapViewModel {
                                                         filterMode: filterMode)
 
         debouncer.perform { [weak self] in
-            self?.view?.update(isNeedLoadingState: true)
-            
             DispatchQueue.global(qos: .userInteractive).async { [weak self] in
                 self?.interactor.quote(params: params)
             }
-        }
-    }
-    
-    func subscribeToPoolUpdates() {
-        guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else { return }
-
-        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
-            self?.loadQuote()
-        }
-        
-        if let timer {
-            RunLoop.current.add(timer, forMode: .common)
         }
     }
     

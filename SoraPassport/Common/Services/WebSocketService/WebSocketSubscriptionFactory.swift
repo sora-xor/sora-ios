@@ -119,6 +119,13 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
             engine: engine,
             networkType: type
         )
+        
+        let blockSubscription =
+            try createAccountInfoSubscription(
+                transferSubscription: transferSubscription,
+                accountId: accountId,
+                localStorageIdFactory: localStorageIdFactory
+            )
 
 //        let electionStatusSubscription = try createElectionStatusSubscription(
 //            childSubscriptionFactory,
@@ -158,6 +165,8 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
         let currentEraSubscription = try createCurrentEraSubscription(factory)
 
         let totalIssuanceSubscription = try createTotalIssuanceSubscription(factory)
+            
+        let newBlockSubscription = try createNewBlockSubscription(factory)
 
 //        let historyDepthSubscription = try createHistoryDepthSubscription(factory)
 
@@ -165,7 +174,8 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
             upgradeV28Subscription,
             activeEraSubscription,
             currentEraSubscription,
-            totalIssuanceSubscription
+            totalIssuanceSubscription,
+            newBlockSubscription
 //            historyDepthSubscription
         ]
 
@@ -214,6 +224,16 @@ final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
 
         return factory.createEmptyHandlingSubscription(remoteKey: remoteStorageKey)
     }
+    
+    private func createNewBlockSubscription(_ factory: ChildSubscriptionFactoryProtocol)
+        throws -> StorageChildSubscribing {
+        let remoteStorageKey = try storageKeyFactory.newBlock()
+
+        return factory.createEventEmittingSubscription(remoteKey: remoteStorageKey) { _ in
+            return NewBlockEvent()
+        }
+    }
+    
 
 //    private func createElectionStatusSubscription(
 //        _ factory: ChildSubscriptionFactoryProtocol,
