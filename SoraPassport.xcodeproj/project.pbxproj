@@ -504,6 +504,7 @@
 		36B7D612295C941B00ECBBF6 /* FiatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B7D611295C941B00ECBBF6 /* FiatService.swift */; };
 		36B961F7294B2B02002A35BA /* ReceiveCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B961F5294B2B01002A35BA /* ReceiveCell.swift */; };
 		36B961F8294B2B02002A35BA /* ReceiveItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B961F6294B2B01002A35BA /* ReceiveItem.swift */; };
+		36BB9B252AF4FCCF002A000D /* NewBlockEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BB9B242AF4FCCF002A000D /* NewBlockEvent.swift */; };
 		36C3708628228F450027BA77 /* ButtonCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708528228F450027BA77 /* ButtonCell.swift */; };
 		36C3708F2822960E0027BA77 /* ButtonViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708E2822960E0027BA77 /* ButtonViewModel.swift */; };
 		36C370E0282304460027BA77 /* InputRewardAmountPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370DF282304460027BA77 /* InputRewardAmountPresenter.swift */; };
@@ -1848,6 +1849,7 @@
 		36B7D611295C941B00ECBBF6 /* FiatService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FiatService.swift; sourceTree = "<group>"; };
 		36B961F5294B2B01002A35BA /* ReceiveCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReceiveCell.swift; sourceTree = "<group>"; };
 		36B961F6294B2B01002A35BA /* ReceiveItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReceiveItem.swift; sourceTree = "<group>"; };
+		36BB9B242AF4FCCF002A000D /* NewBlockEvent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NewBlockEvent.swift; sourceTree = "<group>"; };
 		36C3708528228F450027BA77 /* ButtonCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonCell.swift; sourceTree = "<group>"; };
 		36C3708E2822960E0027BA77 /* ButtonViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonViewModel.swift; sourceTree = "<group>"; };
 		36C370DF282304460027BA77 /* InputRewardAmountPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRewardAmountPresenter.swift; sourceTree = "<group>"; };
@@ -5163,6 +5165,7 @@
 		8409323123413C1F0013C871 /* Events */ = {
 			isa = PBXGroup;
 			children = (
+				36BB9B242AF4FCCF002A000D /* NewBlockEvent.swift */,
 				9481B49A286F019600A472E2 /* ChainsUpdatedEvent.swift */,
 				9481B497286F019400A472E2 /* ChainSyncEvents.swift */,
 				9481B499286F019600A472E2 /* RuntimeCoderEvents.swift */,
@@ -7519,6 +7522,7 @@
 				363DA66C2A04354600806A5B /* GenerateQRWireframe.swift in Sources */,
 				026AEA1921A7CA99002EEB67 /* ErrorPresentable.swift in Sources */,
 				3641DD3A2952C5B800CA32E0 /* InvoiceScanViewModel.swift in Sources */,
+				36BB9B252AF4FCCF002A000D /* NewBlockEvent.swift in Sources */,
 				94D4B66C28C75F55007F98EB /* StorageRequest.swift in Sources */,
 				3635B71D2934E83800B2B728 /* SwapDisclaimerViewModel.swift in Sources */,
 				5599B6CF2924D0CE00567396 /* MenuTitleItem.swift in Sources */,

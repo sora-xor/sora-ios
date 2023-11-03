@@ -42,6 +42,11 @@ enum PalleteName: String {
 }
 
 extension StorageKeyFactoryProtocol {
+    func newBlock() throws -> Data {
+        try createStorageKey(moduleName: "System",
+                             storageName: "ParentHash")
+    }
+    
     func updatedDualRefCount() throws -> Data {
         try createStorageKey(moduleName: "System",
                              storageName: "UpgradedToDualRefCount")
