@@ -36,6 +36,7 @@ import RobinHood
 final class SetupNameImportAccountPresenter {
     weak var view: UsernameSetupViewProtocol?
     var wireframe: UsernameSetupWireframeProtocol!
+    var interactor: AccountImportInteractorInputProtocol!
     var viewModel: InputViewModel!
     var completion: (() -> Void)?
     let settingsManager = SelectedWalletSettings.shared
@@ -47,14 +48,36 @@ final class SetupNameImportAccountPresenter {
     private let eventCenter: EventCenterProtocol
     private let operationManager: OperationManagerProtocol
     
+    private(set) var sourceType: AccountImportSource?
+    private(set) var cryptoType: CryptoType?
+    private(set) var networkType: Chain?
+    private(set) var sourceViewModel: InputViewModelProtocol?
+    private(set) var usernameViewModel: InputViewModelProtocol?
+    private(set) var passwordViewModel: InputViewModelProtocol?
+    private(set) var derivationPathViewModel: InputViewModelProtocol?
+    
     init(currentAccount: AccountItem,
          accountRepository: AnyDataProviderRepository<AccountItem>,
          eventCenter: EventCenterProtocol,
-         operationManager: OperationManagerProtocol) {
+         operationManager: OperationManagerProtocol,
+         sourceType: AccountImportSource?,
+         cryptoType: CryptoType?,
+         networkType: Chain?,
+         sourceViewModel: InputViewModelProtocol?,
+         usernameViewModel: InputViewModelProtocol?,
+         passwordViewModel: InputViewModelProtocol?,
+         derivationPathViewModel: InputViewModelProtocol?) {
         self.currentAccount = currentAccount
         self.accountRepository = accountRepository
         self.eventCenter = eventCenter
         self.operationManager = operationManager
+        self.sourceType = sourceType
+        self.cryptoType = cryptoType
+        self.networkType = networkType
+        self.sourceViewModel = sourceViewModel
+        self.usernameViewModel = usernameViewModel
+        self.passwordViewModel = passwordViewModel
+        self.derivationPathViewModel = derivationPathViewModel
     }
 }
 
@@ -69,17 +92,68 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
         viewModel = InputViewModel(inputHandler: inputHandling)
         view?.set(viewModel: viewModel)
     }
+    
+    func importAccount(with completion: (() -> Void)?) {
+        guard
+            let sourceType = sourceType,
+            let networkType = networkType,
+            let cryptoType = cryptoType,
+            let sourceViewModel = sourceViewModel,
+            let usernameViewModel = usernameViewModel
+        else {
+            return
+        }
+        
+        switch sourceType {
+        case .mnemonic:
+            let mnemonic = sourceViewModel.inputHandler.value
+            let username = usernameViewModel.inputHandler.value
+            let derivationPath = derivationPathViewModel?.inputHandler.value ?? ""
+            let request = AccountImportMnemonicRequest(mnemonic: mnemonic,
+                                                       username: username,
+                                                       networkType: networkType,
+                                                       derivationPath: derivationPath,
+                                                       cryptoType: cryptoType)
+            interactor.importAccountWithMnemonic(request: request, completion: completion)
+        case .seed:
+            let seed = sourceViewModel.inputHandler.value
+            let username = usernameViewModel.inputHandler.value
+            let derivationPath = derivationPathViewModel?.inputHandler.value ?? ""
+            let request = AccountImportSeedRequest(seed: seed,
+                                                   username: username,
+                                                   networkType: networkType,
+                                                   derivationPath: derivationPath,
+                                                   cryptoType: cryptoType)
+            interactor.importAccountWithSeed(request: request, completion: completion)
+        case .keystore:
+            let keystore = sourceViewModel.inputHandler.value
+            let password = passwordViewModel?.inputHandler.value ?? ""
+            let username = usernameViewModel.inputHandler.value
+            let request = AccountImportKeystoreRequest(keystore: keystore,
+                                                       password: password,
+                                                       username: username,
+                                                       networkType: networkType,
+                                                       cryptoType: cryptoType)
+
+            interactor.importAccountWithKeystore(request: request, completion: completion)
+        }
+    }
 
     func proceed() {
-        if let updated = settingsManager.currentAccount?.replacingUsername(userName ?? "") {
-            settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
-                if case .success = result {
-                    self?.eventCenter.notify(with: SelectedUsernameChanged())
+        let endingBlock: (() -> Void)? = { [weak self] in
+            guard let self = self else { return }
+            if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
+                self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
+                    if case .success = result {
+                        self?.eventCenter.notify(with: SelectedUsernameChanged())
+                    }
                 }
+                
+                self.completion == nil ? self.wireframe.showPinCode(from: view) : self.view?.controller.dismiss(animated: true, completion: completion)
             }
-            
-            completion == nil ? wireframe.showPinCode(from: view) : view?.controller.dismiss(animated: true, completion: completion)
         }
+        
+        completion == nil ? endingBlock?() : importAccount(with: endingBlock)
     }
     
     func endEditing() {}
