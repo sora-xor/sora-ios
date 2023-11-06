@@ -42,13 +42,27 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
         self.localizationManager = localizationManager
     }
 
-    func proceed(from view: AccountImportViewProtocol?) {
+    func proceed(from view: AccountImportViewProtocol?,
+                 sourceType: AccountImportSource?,
+                 cryptoType: CryptoType?,
+                 networkType: Chain?,
+                 sourceViewModel: InputViewModelProtocol?,
+                 usernameViewModel: InputViewModelProtocol?,
+                 passwordViewModel: InputViewModelProtocol?,
+                 derivationPathViewModel: InputViewModelProtocol?) {
         guard let navigationController = view?.controller.navigationController else {
             return
         }
-
+        
         guard let endAddingBlock = endAddingBlock,
-              let setupNameView = SetupAccountNameViewFactory.createViewForImport(endAddingBlock: endAddingBlock)?.controller else {
+              let setupNameView = SetupAccountNameViewFactory.createViewForImport(sourceType: sourceType,
+                                                                                  cryptoType: cryptoType,
+                                                                                  networkType: networkType,
+                                                                                  sourceViewModel: sourceViewModel,
+                                                                                  usernameViewModel: usernameViewModel,
+                                                                                  passwordViewModel: passwordViewModel,
+                                                                                  derivationPathViewModel: derivationPathViewModel,
+                                                                                  endAddingBlock: endAddingBlock)?.controller else {
             MainTransitionHelper.transitToMainTabBarController(closing: navigationController, animated: true)
             return
         }

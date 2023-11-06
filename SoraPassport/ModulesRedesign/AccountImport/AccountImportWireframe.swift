@@ -41,8 +41,15 @@ final class AccountImportWireframe: AccountImportWireframeProtocol {
     init(localizationManager: LocalizationManagerProtocol) {
         self.localizationManager = localizationManager
     }
-
-    func proceed(from view: AccountImportViewProtocol?) {
+    
+    func proceed(from view: AccountImportViewProtocol?, 
+                 sourceType: AccountImportSource? = nil,
+                 cryptoType: CryptoType? = nil,
+                 networkType: Chain? = nil,
+                 sourceViewModel: InputViewModelProtocol? = nil,
+                 usernameViewModel: InputViewModelProtocol? = nil,
+                 passwordViewModel: InputViewModelProtocol? = nil,
+                 derivationPathViewModel: InputViewModelProtocol? = nil) {
         guard let setupNameView = SetupAccountNameViewFactory.createViewForImport()?.controller else { return }
         view?.controller.navigationController?.pushViewController(setupNameView, animated: true)
     }
