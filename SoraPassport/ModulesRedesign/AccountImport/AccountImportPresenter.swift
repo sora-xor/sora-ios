@@ -357,40 +357,15 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
             presentDerivationPathError(sourceType: selectedSourceType, cryptoType: selectedCryptoType)
             return
         }
-
-        switch selectedSourceType {
-        case .mnemonic:
-            let mnemonic = sourceViewModel.inputHandler.value
-            let username = usernameViewModel.inputHandler.value
-            let derivationPath = derivationPathViewModel?.inputHandler.value ?? ""
-            let request = AccountImportMnemonicRequest(mnemonic: mnemonic,
-                                                       username: username,
-                                                       networkType: selectedNetworkType,
-                                                       derivationPath: derivationPath,
-                                                       cryptoType: selectedCryptoType)
-            interactor.importAccountWithMnemonic(request: request)
-        case .seed:
-            let seed = sourceViewModel.inputHandler.value
-            let username = usernameViewModel.inputHandler.value
-            let derivationPath = derivationPathViewModel?.inputHandler.value ?? ""
-            let request = AccountImportSeedRequest(seed: seed,
-                                                   username: username,
-                                                   networkType: selectedNetworkType,
-                                                   derivationPath: derivationPath,
-                                                   cryptoType: selectedCryptoType)
-            interactor.importAccountWithSeed(request: request)
-        case .keystore:
-            let keystore = sourceViewModel.inputHandler.value
-            let password = passwordViewModel?.inputHandler.value ?? ""
-            let username = usernameViewModel.inputHandler.value
-            let request = AccountImportKeystoreRequest(keystore: keystore,
-                                                       password: password,
-                                                       username: username,
-                                                       networkType: selectedNetworkType,
-                                                       cryptoType: selectedCryptoType)
-
-            interactor.importAccountWithKeystore(request: request)
-        }
+        
+        wireframe.proceed(from: view,
+                          sourceType: selectedSourceType,
+                          cryptoType: selectedCryptoType,
+                          networkType: selectedNetworkType,
+                          sourceViewModel: sourceViewModel,
+                          usernameViewModel: usernameViewModel,
+                          passwordViewModel: passwordViewModel,
+                          derivationPathViewModel: derivationPathViewModel)
     }
 
     func activateURL(_ url: URL) {
@@ -412,9 +387,7 @@ extension AccountImportPresenter: AccountImportInteractorOutputProtocol {
         applySourceType()
     }
 
-    func didCompleteAccountImport() {
-        wireframe.proceed(from: view)
-    }
+    func didCompleteAccountImport() {}
 
     func didReceiveAccountImport(error: Error) {
         let locale = localizationManager?.selectedLocale ?? Locale.current
