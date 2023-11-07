@@ -337,6 +337,35 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         return items
     }
 
+    internal func showReceiveController(in vc: UIViewController) {
+
+        let qrService = WalletQRService(operationFactory: WalletQROperationFactory(), encoder: qrEncoder)
+
+        let viewModel = ReceiveViewModel(
+            qrService: qrService,
+            sharingFactory: sharingFactory,
+            accountId: accountId,
+            address: address,
+            selectedAsset: .xor,
+            fiatService: fiatService,
+            assetProvider: assetsProvider,
+            assetManager: assetManager
+        )
+
+        let receiveController = ReceiveViewController(viewModel: viewModel)
+        viewModel.view = receiveController
+
+        let navigationController = UINavigationController(rootViewController: receiveController)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.addCustomTransitioning()
+
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        containerView.add(navigationController)
+
+        vc.present(containerView, animated: true)
+    }
+
     internal func showSwapController(in vc: UIViewController) {
         guard let swapController = createSwapController(presenter: vc) else { return }
         vc.present(swapController, animated: true)
