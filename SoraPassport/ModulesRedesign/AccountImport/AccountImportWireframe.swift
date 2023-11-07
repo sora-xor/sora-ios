@@ -50,7 +50,16 @@ final class AccountImportWireframe: AccountImportWireframeProtocol {
                  usernameViewModel: InputViewModelProtocol? = nil,
                  passwordViewModel: InputViewModelProtocol? = nil,
                  derivationPathViewModel: InputViewModelProtocol? = nil) {
-        guard let setupNameView = SetupAccountNameViewFactory.createViewForImport()?.controller else { return }
+        guard let setupNameView = SetupAccountNameViewFactory.createViewForImport(
+            sourceType: sourceType,
+            cryptoType: cryptoType,
+            networkType: networkType,
+            sourceViewModel: sourceViewModel,
+            usernameViewModel: usernameViewModel,
+            passwordViewModel: passwordViewModel,
+            derivationPathViewModel: derivationPathViewModel,
+            isNeedToImport: sourceType != nil
+        )?.controller else { return }
         view?.controller.navigationController?.pushViewController(setupNameView, animated: true)
     }
 }

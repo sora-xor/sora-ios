@@ -62,6 +62,7 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
                                                                                   usernameViewModel: usernameViewModel,
                                                                                   passwordViewModel: passwordViewModel,
                                                                                   derivationPathViewModel: derivationPathViewModel,
+                                                                                  isNeedToImport: sourceType != nil,
                                                                                   endAddingBlock: endAddingBlock)?.controller else {
             MainTransitionHelper.transitToMainTabBarController(closing: navigationController, animated: true)
             return
