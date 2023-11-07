@@ -118,9 +118,10 @@ final class AssetDetailsItemFactory {
                 self?.wireframe.showReceive()
             case .swap:
                 self?.wireframe.showSwap()
-            case .buy:
-                guard let scard = SCard.shared else { return }
-                self?.wireframe.showXOne(service: scard)
+// TODO: Temporary Removal of X1
+//            case .buy:
+//                guard let scard = SCard.shared else { return }
+//                self?.wireframe.showXOne(service: scard)
             }
         }
     

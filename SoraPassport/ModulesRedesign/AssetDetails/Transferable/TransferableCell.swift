@@ -39,7 +39,8 @@ enum TransferableActionType {
     case receive
     case swap
     case frozenDetails
-    case buy
+// TODO: Temporary Removal of X1
+//    case buy
 }
 
 final class TransferableCell: SoramitsuTableViewCell {
@@ -227,17 +228,18 @@ final class TransferableCell: SoramitsuTableViewCell {
         return view
     }()
 
-    private lazy var buyFiatButton: AssetActionView = {
-        let view = AssetActionView()
-        view.titleLabel.sora.text = R.string.localizable.commonBuy(preferredLanguages: .currentLocale)
-        view.button.sora.leftImage = R.image.wallet.buy()
-        view.button.sora.horizontalOffset = 16
-        view.accessibilityIdentifier = "assetDetails.buy"
-        view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.transferableItem?.actionHandler?(.buy)
-        }
-        return view
-    }()
+// TODO: Temporary Removal of X1
+//    private lazy var buyFiatButton: AssetActionView = {
+//        let view = AssetActionView()
+//        view.titleLabel.sora.text = R.string.localizable.commonBuy(preferredLanguages: .currentLocale)
+//        view.button.sora.leftImage = R.image.wallet.buy()
+//        view.button.sora.horizontalOffset = 16
+//        view.accessibilityIdentifier = "assetDetails.buy"
+//        view.sora.addHandler(for: .touchUpInside) { [weak self] in
+//            self?.transferableItem?.actionHandler?(.buy)
+//        }
+//        return view
+//    }()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -250,7 +252,7 @@ final class TransferableCell: SoramitsuTableViewCell {
 
     private func setupView() {
         contentView.addSubview(containerView)
-        actionsStackView.addArrangedSubviews(sendButton, receiveButton, swapButton, buyFiatButton)
+        actionsStackView.addArrangedSubviews(sendButton, receiveButton, swapButton) //, buyFiatButton) TODO: Temporary Removal of X1 
         transferableContainerView.addSubviews(transferableLabel, fiatLabel, balanceLabel)
         frozenContainerView.addSubviews(frozenTitleLabel, frozenAmountLabel, frozenFiatAmountLabel, logoImageView)
         containerView.addArrangedSubviews(transferableContainerView, frozenContainerView, separatorView, actionsStackView)
@@ -333,9 +335,8 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
         sendButton.sora.isHidden = item.balance.decimalValue.isZero
         
         fiatLabel.sora.text = item.fiat
-
-        buyFiatButton.sora.isHidden = item.assetInfo != .xor
-        
+// TODO: Temporary Removal of X1
+//        buyFiatButton.sora.isHidden = item.assetInfo != .xor
         frozenContainerView.sora.isHidden = (item.frozenAmount?.decimalValue ?? Decimal(0)).isZero
         frozenAmountLabel.sora.text = (item.frozenAmount?.stringValue ?? "") + " " + item.assetInfo.symbol
         frozenFiatAmountLabel.sora.text = item.frozenFiatAmount

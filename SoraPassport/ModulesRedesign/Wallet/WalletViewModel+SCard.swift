@@ -27,6 +27,9 @@ extension RedesignWalletViewModel {
             addressProvider: { SelectedWalletSettings.shared.currentAccount?.address ?? "" },
             config: config,
             balanceStream: xorBalanceStream,
+            onReceiveController: { [weak self] vc in
+                self?.showReceiveController(in: vc)
+            },
             onSwapController: { [weak self] vc in
                 self?.showSwapController(in: vc)
             }
