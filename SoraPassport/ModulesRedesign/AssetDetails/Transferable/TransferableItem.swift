@@ -30,21 +30,36 @@
 
 import Foundation
 import SoraUIKit
+import CommonWallet
 
 final class TransferableItem: NSObject {
 
     var assetInfo: AssetInfo
     var fiat: String
     var balance: Amount
-    var isNeedTransferable: Bool = true
     var actionHandler: ((TransferableActionType) -> Void)?
     var frozenAmount: Amount?
     var frozenFiatAmount: String?
-
-    init(assetInfo: AssetInfo, fiat: String, balance: Amount) {
+    var balanceData: BalanceData
+    var service: TransferableItemService
+    
+    init(
+        assetInfo: AssetInfo,
+        fiat: String,
+        balance: Amount,
+        frozenAmount: Amount? = nil,
+        frozenFiatAmount: String? = nil,
+        service: TransferableItemService,
+        balanceData: BalanceData
+    ) {
         self.assetInfo = assetInfo
         self.fiat = fiat
         self.balance = balance
+        self.frozenAmount = frozenAmount
+        self.frozenFiatAmount = frozenFiatAmount
+        self.balanceData = balanceData
+        self.service = service
+        self.service.setup(with: balanceData)
     }
 }
 

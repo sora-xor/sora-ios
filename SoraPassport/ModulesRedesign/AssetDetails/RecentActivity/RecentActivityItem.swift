@@ -34,12 +34,13 @@ import CommonWallet
 
 final class RecentActivityItem: NSObject {
 
-    var historyViewModels: [ActivityContentViewModel]
+    var service: RecentActivityItemService
     var openActivityDetailsHandler: ((String) -> Void)?
     var openFullActivityHandler: (() -> Void)?
 
-    init(historyViewModels: [ActivityContentViewModel]) {
-        self.historyViewModels = historyViewModels
+    init(service: RecentActivityItemService) {
+        self.service = service
+        self.service.setup()
     }
 }
 
