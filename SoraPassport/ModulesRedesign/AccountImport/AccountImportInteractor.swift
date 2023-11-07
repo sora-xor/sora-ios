@@ -85,6 +85,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                     self?.eventCenter.notify(with: SelectedAccountChanged())
                     
                     self?.presenter?.didCompleteAccountImport()
+                    completion?()
                 case .failure(let error):
                     self?.presenter?.didReceiveAccountImport(error: error)
                 case .none:

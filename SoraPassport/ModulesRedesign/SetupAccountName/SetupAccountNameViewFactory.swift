@@ -57,8 +57,13 @@ final class SetupAccountNameViewFactory {
                                     usernameViewModel: InputViewModelProtocol? = nil,
                                     passwordViewModel: InputViewModelProtocol? = nil,
                                     derivationPathViewModel: InputViewModelProtocol? = nil,
+                                    isNeedToImport: Bool = false,
                                     endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
-        guard let accountItem = SelectedWalletSettings.shared.currentAccount else { return nil }
+        guard let keystoreImportService: KeystoreImportServiceProtocol =
+            URLHandlingService.shared.findService() else {
+            Logger.shared.error("Missing required keystore import service")
+            return nil
+        }
         
         guard let keystoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
@@ -76,8 +81,7 @@ final class SetupAccountNameViewFactory {
         
         let view = SetupAccountNameViewController()
         
-        let presenter = SetupNameImportAccountPresenter(currentAccount: accountItem,
-                                                        accountRepository: AnyDataProviderRepository(accountRepository),
+        let presenter = SetupNameImportAccountPresenter(accountRepository: AnyDataProviderRepository(accountRepository),
                                                         eventCenter: EventCenter.shared,
                                                         operationManager: OperationManager(),
                                                         sourceType: sourceType,
@@ -86,7 +90,8 @@ final class SetupAccountNameViewFactory {
                                                         sourceViewModel: sourceViewModel,
                                                         usernameViewModel: usernameViewModel,
                                                         passwordViewModel: passwordViewModel,
-                                                        derivationPathViewModel: derivationPathViewModel)
+                                                        derivationPathViewModel: derivationPathViewModel,
+                                                        isNeedImport: isNeedToImport)
         
         
         let wireframe = UsernameSetupWireframe(localizationManager: localizationManager)

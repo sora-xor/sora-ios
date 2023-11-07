@@ -79,7 +79,7 @@ final class ChainRegistry {
 
     private let mutex = NSLock()
 
-    private let maxAttempts = 2
+    private let maxAttemptCount = 2
 
     init(
         snapshotHotBootBuilder: SnapshotHotBootBuilderProtocol,
@@ -372,36 +372,37 @@ extension ChainRegistry: ChainRegistryProtocol {
 extension ChainRegistry: ConnectionPoolDelegate {
 
     func connectionNeedsReconnect(url: URL, attempt: Int) {
-
-        let failedChain = chains.first { chain in
-            return chain.nodes.first { $0.url == url } != nil ||
-                chain.customNodes?.first { $0.url == url } != nil
+        guard let failedChain = chains.first(where: { chain in
+            return chain.nodes.first { $0.url == url } != nil || chain.customNodes?.first { $0.url == url } != nil
+        }) else {
+            return
         }
+        
+        guard attempt > maxAttemptCount else {
+            
+            let defaultNodes = failedChain.nodes
+            let customNodes = failedChain.customNodes ?? []
 
-        guard let failedChain = failedChain else { return }
-
-        guard attempt > maxAttempts else {
-
-            let allNodes = failedChain.nodes.sorted(by: { $0.url.absoluteString < $1.url.absoluteString }) +
-                (failedChain.customNodes ?? []).sorted(by: { $0.url.absoluteString < $1.url.absoluteString })
+            let sortedDefaultNodes = defaultNodes.sorted(by: { $0.url.absoluteString < $1.url.absoluteString })
+            let sortedCustomNodes = customNodes.sorted(by: { $0.url.absoluteString < $1.url.absoluteString })
+            
+            let allNodes = sortedDefaultNodes + sortedCustomNodes
 
             let currentNodeIndex = Int(allNodes.firstIndex(where: { $0.url == url } ) ?? 0)
-            let nextNodeIndex = currentNodeIndex + 1
+            let nextNodeIndex = currentNodeIndex + 1 >= allNodes.count ? 0 : currentNodeIndex + 1
 
             if currentNodeIndex + 1 >= allNodes.count {
                 DispatchQueue.main.async {
                     self.networkStatusPresenter?.didDecideUnreachableNodesAllertPresentation()
                 }
-            } else {
-                if nextNodeIndex < allNodes.count {
-                    let currentNode = allNodes[currentNodeIndex]
-                    let nextNode = allNodes[nextNodeIndex]
-                    
-                    let event = FailedNodeConnectionEvent(node: currentNode)
-                    eventCenter.notify(with: event)
-                    changeSelectedNode(from: failedChain, to: nextNode)
-                }
             }
+
+            let currentNode = allNodes[currentNodeIndex]
+            let nextNode = allNodes[nextNodeIndex]
+            
+            let event = FailedNodeConnectionEvent(node: currentNode)
+            eventCenter.notify(with: event)
+            changeSelectedNode(from: failedChain, to: nextNode)
             return
         }
 
