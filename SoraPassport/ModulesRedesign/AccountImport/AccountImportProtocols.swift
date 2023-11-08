@@ -50,9 +50,9 @@ protocol AccountImportPresenterProtocol: AnyObject {
 
 protocol AccountImportInteractorInputProtocol: AnyObject {
     func setup()
-    func importAccountWithMnemonic(request: AccountImportMnemonicRequest)
-    func importAccountWithSeed(request: AccountImportSeedRequest)
-    func importAccountWithKeystore(request: AccountImportKeystoreRequest)
+    func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: (() -> Void)?)
+    func importAccountWithSeed(request: AccountImportSeedRequest, completion: (() -> Void)?)
+    func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: (() -> Void)?)
     func importBackedupAccount(request: AccountImportBackedupRequest)
     func deriveMetadataFromKeystore(_ keystore: String)
 }
@@ -65,5 +65,26 @@ protocol AccountImportInteractorOutputProtocol: AnyObject {
 }
 
 protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {
-    func proceed(from view: AccountImportViewProtocol?)
+    func proceed(from view: AccountImportViewProtocol?,
+                 sourceType: AccountImportSource?,
+                 cryptoType: CryptoType?,
+                 networkType: Chain?,
+                 sourceViewModel: InputViewModelProtocol?,
+                 usernameViewModel: InputViewModelProtocol?,
+                 passwordViewModel: InputViewModelProtocol?,
+                 derivationPathViewModel: InputViewModelProtocol?)
+}
+
+extension AccountImportInteractorInputProtocol {
+    func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: (() -> Void)? = nil) {
+        importAccountWithMnemonic(request: request, completion: completion)
+    }
+    
+    func importAccountWithSeed(request: AccountImportSeedRequest, completion: (() -> Void)? = nil) {
+        importAccountWithSeed(request: request, completion: completion)
+    }
+    
+    func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: (() -> Void)? = nil) {
+        importAccountWithKeystore(request: request, completion: completion)
+    }
 }
