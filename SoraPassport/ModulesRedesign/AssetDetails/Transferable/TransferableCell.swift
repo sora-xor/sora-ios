@@ -31,18 +31,58 @@
 import SoraUIKit
 import CommonWallet
 import SoraFoundation
+import CommonWallet
+import Combine
 
 enum TransferableActionType {
     case send
     case receive
     case swap
     case frozenDetails
-    case buy
+// TODO: Temporary Removal of X1
+//    case buy
 }
 
 final class TransferableCell: SoramitsuTableViewCell {
     
-    var item: TransferableItem?
+    private var cancellables: Set<AnyCancellable> = []
+    
+    private var transferableItem: TransferableItem? {
+        didSet {
+            guard let item = transferableItem else { return }
+            item.service.$balanceAmount
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let value = value, let item = self?.transferableItem else { return }
+                    self?.update(balance: value, symbol: item.assetInfo.symbol )
+                    self?.sendButton.sora.isHidden = value.isZero
+                }
+                .store(in: &cancellables)
+            item.service.$fiatBalanceText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let value = value, !value.isEmpty else { return }
+                    self?.fiatLabel.sora.text = value
+                }
+                .store(in: &cancellables)
+            item.service.$publishedFrozenAmount
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let value = value, let item = self?.transferableItem else { return }
+                    self?.frozenContainerView.sora.isHidden = (value.decimalValue ).isZero
+                    self?.frozenAmountLabel.sora.text = (value.stringValue ) + " " + item.assetInfo.symbol
+                }
+                .store(in: &cancellables)
+            item.service.$frozenFiat
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let value = value, !value.isEmpty else { return }
+                    self?.frozenFiatAmountLabel.sora.text = value
+                }
+                .store(in: &cancellables)
+        }
+    }
+    
     private var localizationManager = LocalizationManager.shared
     
     private let containerView: SoramitsuStackView = {
@@ -85,6 +125,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
         label.sora.isUserInteractionEnabled = false
+        label.sora.text = " "
         return label
     }()
 
@@ -96,9 +137,10 @@ final class TransferableCell: SoramitsuTableViewCell {
     
     private lazy var frozenContainerView: SoramitsuControl = {
         var view = SoramitsuControl()
+        view.sora.isHidden = true
         view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.item?.actionHandler?(.frozenDetails)
+            self?.transferableItem?.actionHandler?(.frozenDetails)
         }
         return view
     }()
@@ -126,6 +168,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
+        label.sora.text = " "
         return label
     }()
     
@@ -156,7 +199,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.button.sora.horizontalOffset = 16
         view.accessibilityIdentifier = "assetDetails.send"
         view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.item?.actionHandler?(.send)
+            self?.transferableItem?.actionHandler?(.send)
         }
         return view
     }()
@@ -168,7 +211,7 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.button.sora.horizontalOffset = 16
         view.accessibilityIdentifier = "assetDetails.receive"
         view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.item?.actionHandler?(.receive)
+            self?.transferableItem?.actionHandler?(.receive)
         }
         return view
     }()
@@ -180,22 +223,23 @@ final class TransferableCell: SoramitsuTableViewCell {
         view.button.sora.horizontalOffset = 16
         view.accessibilityIdentifier = "assetDetails.swap"
         view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.item?.actionHandler?(.swap)
+            self?.transferableItem?.actionHandler?(.swap)
         }
         return view
     }()
 
-    private lazy var buyFiatButton: AssetActionView = {
-        let view = AssetActionView()
-        view.titleLabel.sora.text = R.string.localizable.commonBuy(preferredLanguages: .currentLocale)
-        view.button.sora.leftImage = R.image.wallet.buy()
-        view.button.sora.horizontalOffset = 16
-        view.accessibilityIdentifier = "assetDetails.buy"
-        view.sora.addHandler(for: .touchUpInside) { [weak self] in
-            self?.item?.actionHandler?(.buy)
-        }
-        return view
-    }()
+// TODO: Temporary Removal of X1
+//    private lazy var buyFiatButton: AssetActionView = {
+//        let view = AssetActionView()
+//        view.titleLabel.sora.text = R.string.localizable.commonBuy(preferredLanguages: .currentLocale)
+//        view.button.sora.leftImage = R.image.wallet.buy()
+//        view.button.sora.horizontalOffset = 16
+//        view.accessibilityIdentifier = "assetDetails.buy"
+//        view.sora.addHandler(for: .touchUpInside) { [weak self] in
+//            self?.transferableItem?.actionHandler?(.buy)
+//        }
+//        return view
+//    }()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -208,7 +252,7 @@ final class TransferableCell: SoramitsuTableViewCell {
 
     private func setupView() {
         contentView.addSubview(containerView)
-        actionsStackView.addArrangedSubviews(sendButton, receiveButton, swapButton, buyFiatButton)
+        actionsStackView.addArrangedSubviews(sendButton, receiveButton, swapButton) //, buyFiatButton) TODO: Temporary Removal of X1 
         transferableContainerView.addSubviews(transferableLabel, fiatLabel, balanceLabel)
         frozenContainerView.addSubviews(frozenTitleLabel, frozenAmountLabel, frozenFiatAmountLabel, logoImageView)
         containerView.addArrangedSubviews(transferableContainerView, frozenContainerView, separatorView, actionsStackView)
@@ -268,6 +312,15 @@ final class TransferableCell: SoramitsuTableViewCell {
             actionsStackView.heightAnchor.constraint(equalToConstant: 76)
         ])
     }
+    
+    private func update(balance: Decimal?, symbol: String) {
+        let text = NumberFormatter.cryptoAssets.stringFromDecimal(balance ?? Decimal(0)) ?? ""
+        let balanceText = text + " " + symbol
+        let balanceTextReversed = symbol + " " + text
+
+        balanceLabel.sora.text = localizationManager.isRightToLeft ? balanceTextReversed : balanceText
+        balanceLabel.sora.alignment = localizationManager.isRightToLeft ? .right : .left
+    }
 }
 
 extension TransferableCell: SoramitsuTableViewCellProtocol {
@@ -276,17 +329,14 @@ extension TransferableCell: SoramitsuTableViewCellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
-        self.item = item
-        let text = NumberFormatter.cryptoAssets.stringFromDecimal(item.balance.decimalValue) ?? ""
-        let balanceText = text + " " + item.assetInfo.symbol
-        let balanceTextReversed = item.assetInfo.symbol + " " + text
-        balanceLabel.sora.text = localizationManager.isRightToLeft ? balanceTextReversed : balanceText
-        balanceLabel.sora.alignment = localizationManager.isRightToLeft ? .right : .left
-        fiatLabel.sora.text = item.fiat
-        transferableContainerView.sora.isHidden = !item.isNeedTransferable
-        separatorView.sora.isHidden = !item.isNeedTransferable
+        transferableItem = item
+        
+        update(balance: item.balance.decimalValue, symbol: item.assetInfo.symbol)
         sendButton.sora.isHidden = item.balance.decimalValue.isZero
-        buyFiatButton.sora.isHidden = item.assetInfo != .xor
+        
+        fiatLabel.sora.text = item.fiat
+// TODO: Temporary Removal of X1
+//        buyFiatButton.sora.isHidden = item.assetInfo != .xor
         frozenContainerView.sora.isHidden = (item.frozenAmount?.decimalValue ?? Decimal(0)).isZero
         frozenAmountLabel.sora.text = (item.frozenAmount?.stringValue ?? "") + " " + item.assetInfo.symbol
         frozenFiatAmountLabel.sora.text = item.frozenFiatAmount

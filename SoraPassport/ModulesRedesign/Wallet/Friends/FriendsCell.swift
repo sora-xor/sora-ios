@@ -51,6 +51,7 @@ final class FriendsCell: SoramitsuTableViewCell {
         label.sora.textColor = .fgPrimary
         label.sora.font = FontType.headline2
         label.sora.numberOfLines = 0
+        label.setContentHuggingPriority(.required, for: .vertical)
         return label
     }()
     

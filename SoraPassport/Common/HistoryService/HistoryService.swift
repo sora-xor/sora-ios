@@ -116,6 +116,7 @@ extension HistoryService: HistoryServiceProtocol {
                                                                                       count: count,
                                                                                       page: 1,
                                                                                       filter: filter1)
+        operationManager.enqueue(operations: [queryOperation], in: .transient)
         
         return try await withCheckedThrowingContinuation { continuation in
             queryOperation.completionBlock = { [weak self] in
@@ -152,8 +153,6 @@ extension HistoryService: HistoryServiceProtocol {
                     continuation.resume(with: .failure(error))
                 }
             }
-            
-            operationManager.enqueue(operations: [queryOperation], in: .transient)
         }
     }
     
