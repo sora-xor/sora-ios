@@ -93,13 +93,13 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
         view?.set(viewModel: viewModel)
     }
     
-    func importAccount(with completion: (() -> Void)?) {
+    func importAccount() {
         guard
             let sourceType = sourceType,
             let networkType = networkType,
             let cryptoType = cryptoType,
             let sourceViewModel = sourceViewModel,
-            let usernameViewModel = usernameViewModel
+            let usernameViewModel = viewModel
         else {
             return
         }
@@ -114,7 +114,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                                                        networkType: networkType,
                                                        derivationPath: derivationPath,
                                                        cryptoType: cryptoType)
-            interactor.importAccountWithMnemonic(request: request, completion: completion)
+            interactor.importAccountWithMnemonic(request: request)
         case .seed:
             let seed = sourceViewModel.inputHandler.value
             let username = usernameViewModel.inputHandler.value
@@ -124,7 +124,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                                                    networkType: networkType,
                                                    derivationPath: derivationPath,
                                                    cryptoType: cryptoType)
-            interactor.importAccountWithSeed(request: request, completion: completion)
+            interactor.importAccountWithSeed(request: request)
         case .keystore:
             let keystore = sourceViewModel.inputHandler.value
             let password = passwordViewModel?.inputHandler.value ?? ""
@@ -135,27 +135,25 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                                                        networkType: networkType,
                                                        cryptoType: cryptoType)
 
-            interactor.importAccountWithKeystore(request: request, completion: completion)
+            interactor.importAccountWithKeystore(request: request)
         }
     }
 
     func proceed() {
-        let endingBlock: (() -> Void)? = { [weak self] in
-            guard let self = self else { return }
-            if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
-                self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
-                    if case .success = result {
-                        self?.eventCenter.notify(with: SelectedUsernameChanged())
-                    }
-                }
-                
-                self.completion == nil ? self.wireframe.showPinCode(from: view) : self.view?.controller.dismiss(animated: true, completion: completion)
-                return
-            }
+        if isNeedImport {
+            importAccount()
+            return
         }
         
-       
-        isNeedImport ? importAccount(with: endingBlock) : endingBlock?()
+        if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
+            self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
+                if case .success = result {
+                    self?.eventCenter.notify(with: SelectedUsernameChanged())
+                }
+            }
+            
+            self.completion == nil ? self.wireframe.showPinCode(from: view) : self.view?.controller.dismiss(animated: true, completion: completion)
+        }
     }
     
     func endEditing() {}
@@ -167,6 +165,32 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                               style: .modal)
         }
     }
+}
+
+extension SetupNameImportAccountPresenter: AccountImportInteractorOutputProtocol {
+    func didReceiveAccountImport(metadata: AccountImportMetadata) {}
+
+    func didCompleteAccountImport() {
+        completion == nil ? wireframe.showPinCode(from: view) : view?.controller.dismiss(animated: true, completion: completion)
+    }
+
+    func didReceiveAccountImport(error: Error) {
+        let locale = localizationManager?.selectedLocale ?? Locale.current
+
+        guard !wireframe.present(error: error, from: view, locale: locale, completion: { [weak self] in
+            self?.view?.resetFocus()
+        }) else {
+            return
+        }
+
+        _ = wireframe.present(error: CommonError.undefined,
+                              from: view,
+                              locale: locale) { [weak self] in
+            self?.view?.resetFocus()
+        }
+    }
+
+    func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?) {}
 }
     
 extension SetupNameImportAccountPresenter: Localizable {

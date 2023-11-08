@@ -102,7 +102,7 @@ class BaseAccountImportInteractor {
         presenter.didReceiveAccountImport(metadata: metadata)
     }
 
-    func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: (() -> Void)?) {}
+    func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>) {}
     
     private func importAccount(_ account: OpenBackupAccount, password: String) {
         let backupAccountTypes = account.backupAccountType ?? []
@@ -147,7 +147,7 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
         setupKeystoreImportObserver()
     }
 
-    func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: (() -> Void)?) {
+    func importAccountWithMnemonic(request: AccountImportMnemonicRequest) {
         guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
             presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
             return
@@ -161,17 +161,17 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
         let accountOperation = accountOperationFactory.newAccountOperation(request: creationRequest,
                                                                            mnemonic: mnemonic)
 
-        importAccountUsingOperation(accountOperation, completion: completion)
+        importAccountUsingOperation(accountOperation)
     }
 
-    func importAccountWithSeed(request: AccountImportSeedRequest, completion: (() -> Void)?) {
+    func importAccountWithSeed(request: AccountImportSeedRequest) {
         let operation = accountOperationFactory.newAccountOperation(request: request)
-        importAccountUsingOperation(operation, completion: completion)
+        importAccountUsingOperation(operation)
     }
 
-    func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: (() -> Void)?) {
+    func importAccountWithKeystore(request: AccountImportKeystoreRequest) {
         let operation = accountOperationFactory.newAccountOperation(request: request)
-        importAccountUsingOperation(operation, completion: completion)
+        importAccountUsingOperation(operation)
     }
 
     func deriveMetadataFromKeystore(_ keystore: String) {

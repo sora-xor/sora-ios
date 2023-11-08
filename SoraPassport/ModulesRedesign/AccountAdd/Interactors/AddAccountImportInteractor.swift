@@ -58,7 +58,7 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                    cloudStorage: cloudStorage)
     }
 
-    private func importAccountItem(_ item: AccountItem, completion: (() -> Void)?) {
+    private func importAccountItem(_ item: AccountItem) {
         let checkOperation = accountRepository.fetchOperation(by: item.address,
                                                               options: RepositoryFetchOptions())
 
@@ -89,7 +89,7 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                 case .success(let accountItem):
                     self?.settings.save(value: accountItem)
                     self?.eventCenter.notify(with: SelectedAccountChanged())
-                    completion?()
+                    self?.presenter?.didCompleteAccountImport()
                 case .failure(let error):
                     self?.presenter?.didReceiveAccountImport(error: error)
                 case .none:
@@ -103,12 +103,12 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                                  in: .sync)
     }
 
-    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: (() -> Void)?) {
+    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>) {
         importOperation.completionBlock = { [weak self] in
             DispatchQueue.main.async {
                 switch importOperation.result {
                 case .success(let accountItem):
-                    self?.importAccountItem(accountItem, completion: completion)
+                    self?.importAccountItem(accountItem)
                 case .failure(let error):
                     self?.presenter?.didReceiveAccountImport(error: error)
                 case .none:
