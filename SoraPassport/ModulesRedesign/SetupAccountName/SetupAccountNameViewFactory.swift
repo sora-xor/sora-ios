@@ -31,6 +31,7 @@
 import Foundation
 import SoraFoundation
 import RobinHood
+import SoraKeystore
 
 final class SetupAccountNameViewFactory {
     static func createViewForOnboarding(mode: UsernameSetupMode = .onboarding, endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
@@ -49,23 +50,59 @@ final class SetupAccountNameViewFactory {
         return view
     }
     
-    static func createViewForImport(endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
+    static func createViewForImport(sourceType: AccountImportSource? = nil,
+                                    cryptoType: CryptoType? = nil,
+                                    networkType: Chain? = nil,
+                                    sourceViewModel: InputViewModelProtocol? = nil,
+                                    usernameViewModel: InputViewModelProtocol? = nil,
+                                    passwordViewModel: InputViewModelProtocol? = nil,
+                                    derivationPathViewModel: InputViewModelProtocol? = nil,
+                                    endAddingBlock: (() -> Void)? = nil) -> UsernameSetupViewProtocol? {
         guard let accountItem = SelectedWalletSettings.shared.currentAccount else { return nil }
         
+        guard let keystoreImportService: KeystoreImportServiceProtocol =
+            URLHandlingService.shared.findService() else {
+            Logger.shared.error("Missing required keystore import service")
+            return nil
+        }
+        
         let localizationManager = LocalizationManager.shared
-        let view = SetupAccountNameViewController()
+
+        let keystore = Keychain()
+        let accountOperationFactory = AccountOperationFactory(keystore: keystore)
+        
         let accountRepository: CoreDataRepository<AccountItem, CDAccountItem> =
             UserDataStorageFacade.shared.createRepository()
+        
+        let view = SetupAccountNameViewController()
         
         let presenter = SetupNameImportAccountPresenter(currentAccount: accountItem,
                                                         accountRepository: AnyDataProviderRepository(accountRepository),
                                                         eventCenter: EventCenter.shared,
-                                                        operationManager: OperationManager())
+                                                        operationManager: OperationManager(),
+                                                        sourceType: sourceType,
+                                                        cryptoType: cryptoType,
+                                                        networkType: networkType,
+                                                        sourceViewModel: sourceViewModel,
+                                                        usernameViewModel: usernameViewModel,
+                                                        passwordViewModel: passwordViewModel,
+                                                        derivationPathViewModel: derivationPathViewModel)
+        
+        
         let wireframe = UsernameSetupWireframe(localizationManager: localizationManager)
+        
+        
+        let interactor = AddAccountImportInteractor(accountOperationFactory: accountOperationFactory,
+                                                    accountRepository: AnyDataProviderRepository(accountRepository),
+                                                    operationManager: OperationManagerFacade.sharedManager,
+                                                    settings: SelectedWalletSettings.shared,
+                                                    keystoreImportService: keystoreImportService,
+                                                    eventCenter: EventCenter.shared)
 
         view.presenter = presenter
         presenter.view = view
         presenter.wireframe = wireframe
+        presenter.interactor = interactor
 
         presenter.localizationManager = localizationManager
         presenter.completion = endAddingBlock

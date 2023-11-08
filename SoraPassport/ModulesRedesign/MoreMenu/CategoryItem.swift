@@ -38,7 +38,7 @@ class CategoryItem: SoramitsuView {
         view.translatesAutoresizingMaskIntoConstraints = false
         view.sora.backgroundColor = .bgSurface
         view.sora.axis = .horizontal
-        view.layer.cornerRadius = 32
+        view.sora.cornerRadius = .max
         view.sora.distribution = .fillProportionally
         view.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
         view.isLayoutMarginsRelativeArrangement = true
