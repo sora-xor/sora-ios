@@ -29,25 +29,54 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import SoraUIKit
+import Combine
+import BigInt
 import CommonWallet
 
-final class PooledItem: NSObject {
+final class RecentActivityItemService {
+    @Published var historyViewModels: [ActivityContentViewModel] = [ ActivityContentViewModel(),
+                                                                     ActivityContentViewModel(),
+                                                                     ActivityContentViewModel() ]
+    
+    var updateHandler: (() -> Void)?
+    private let assetId: String
+    private let historyService: HistoryServiceProtocol
+    private let viewModelFactory: ActivityViewModelFactoryProtocol
+    private let eventCenter: EventCenterProtocol
+    private var assetsProvider: AssetProviderProtocol
 
-    let assetSymbol: String
-    var poolViewModels: [PoolViewModel]
-    var openPoolDetailsHandler: ((String) -> Void)?
-
-    init(assetSymbol: String, poolViewModels: [PoolViewModel]) {
-        self.assetSymbol = assetSymbol
-        self.poolViewModels = poolViewModels
+    
+    init(assetId: String, 
+         viewModelFactory: ActivityViewModelFactoryProtocol,
+         historyService: HistoryServiceProtocol,
+         eventCenter: EventCenterProtocol,
+         assetsProvider: AssetProviderProtocol) {
+        self.assetId = assetId
+        self.historyService = historyService
+        self.viewModelFactory = viewModelFactory
+        self.eventCenter = eventCenter
+        self.assetsProvider = assetsProvider
+        self.eventCenter.add(observer: self)
+        self.assetsProvider.add(observer: self)
+    }
+    
+    func setup() {
+        Task {
+            let transactions = ((try? await historyService.getHistory(count: 100, assetId: assetId)) ?? []).prefix(3)
+            historyViewModels = transactions.compactMap { viewModelFactory.createActivityViewModel(with: $0) }
+            updateHandler?()
+        }
     }
 }
 
-extension PooledItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { PooledCell.self }
+extension RecentActivityItemService: EventVisitorProtocol {
+    func processNewTransaction(event: WalletNewTransactionInserted) {
+        setup()
+    }
+}
 
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-
-    var clipsToBounds: Bool { false }
+extension RecentActivityItemService: AssetProviderObserverProtocol {
+    func processBalance(data: [BalanceData]) {
+        setup()
+    }
 }

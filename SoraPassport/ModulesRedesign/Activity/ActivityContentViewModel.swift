@@ -46,15 +46,17 @@ struct ActivityContentViewModel {
     let status: TransactionBase.Status
     let isNeedTwoImage: Bool
     
-    init(txHash: String,
-         title: String,
-         subtitle: String,
-         typeTransactionImage: UIImage?,
-         firstAssetImageViewModel: WalletImageViewModelProtocol?,
+    init(txHash: String = "",
+         title: String = "",
+         subtitle: String = "",
+         typeTransactionImage: UIImage? = nil,
+         firstAssetImageViewModel: WalletImageViewModelProtocol? = nil,
          secondAssetImageViewModel: WalletImageViewModelProtocol? = nil,
-         firstBalanceText: SoramitsuAttributedText,
-         fiatText: String,
-         status: TransactionBase.Status,
+         firstBalanceText: SoramitsuAttributedText = SoramitsuTextItem(text: "",
+                                                                       attributes: SoramitsuTextAttributes(fontData: FontType.textM,
+                                                                                                           textColor: .accentPrimary)),
+         fiatText: String = "",
+         status: TransactionBase.Status = .success,
          isNeedTwoImage: Bool = false) {
         self.txHash = txHash
         self.title = title

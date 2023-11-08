@@ -133,12 +133,17 @@ extension PriceCell: SoramitsuTableViewCellProtocol {
             return
         }
 
-        oneCurrencyImageView.image = item.assetViewModel.icon
-        symbolLabel.sora.text = item.assetViewModel.subtitle
-        ecosystemLabel.sora.text = item.assetViewModel.title
-        priceLabel.sora.text = item.assetViewModel.fiatText
-        priceTrendLabel.sora.isHidden = item.assetViewModel.deltaPriceText == nil
-        priceTrendLabel.sora.attributedText = item.assetViewModel.deltaPriceText
+        DispatchQueue.global(qos: .userInitiated).async {
+            let icon = RemoteSerializer.shared.image(with: item.icon ?? "")
+            DispatchQueue.main.async {
+                self.oneCurrencyImageView.image = icon
+            }
+        }
+        symbolLabel.sora.text = item.tokenSymbol
+        ecosystemLabel.sora.text = item.tokenName
+        priceLabel.sora.text = item.priceText
+        priceTrendLabel.sora.isHidden = item.deltaPriceText == nil
+        priceTrendLabel.sora.attributedText = item.deltaPriceText
     }
 }
 

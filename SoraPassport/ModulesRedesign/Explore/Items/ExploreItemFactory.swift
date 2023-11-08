@@ -50,7 +50,7 @@ extension ExploreItemFactory {
         guard let assetInfo = assetManager.assetInfo(for: assetId) else { return nil }
 
         let isRightToLeft = localizationManager.isRightToLeft
-        let fiatText = price.text()
+        let fiatText = price.priceText()
         let marketCapText = "$" + marketCap.formatNumber()
         
         var deltaArributedText: SoramitsuTextItem?

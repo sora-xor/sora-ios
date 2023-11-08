@@ -42,11 +42,11 @@ final class SetupNameImportAccountPresenter {
     let settingsManager = SelectedWalletSettings.shared
     var mode: UsernameSetupMode = .onboarding
     var userName: String?
-    
-    var currentAccount: AccountItem
+
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let eventCenter: EventCenterProtocol
     private let operationManager: OperationManagerProtocol
+    private let isNeedImport: Bool
     
     private(set) var sourceType: AccountImportSource?
     private(set) var cryptoType: CryptoType?
@@ -56,8 +56,7 @@ final class SetupNameImportAccountPresenter {
     private(set) var passwordViewModel: InputViewModelProtocol?
     private(set) var derivationPathViewModel: InputViewModelProtocol?
     
-    init(currentAccount: AccountItem,
-         accountRepository: AnyDataProviderRepository<AccountItem>,
+    init(accountRepository: AnyDataProviderRepository<AccountItem>,
          eventCenter: EventCenterProtocol,
          operationManager: OperationManagerProtocol,
          sourceType: AccountImportSource?,
@@ -66,8 +65,8 @@ final class SetupNameImportAccountPresenter {
          sourceViewModel: InputViewModelProtocol?,
          usernameViewModel: InputViewModelProtocol?,
          passwordViewModel: InputViewModelProtocol?,
-         derivationPathViewModel: InputViewModelProtocol?) {
-        self.currentAccount = currentAccount
+         derivationPathViewModel: InputViewModelProtocol?,
+         isNeedImport: Bool) {
         self.accountRepository = accountRepository
         self.eventCenter = eventCenter
         self.operationManager = operationManager
@@ -78,6 +77,7 @@ final class SetupNameImportAccountPresenter {
         self.usernameViewModel = usernameViewModel
         self.passwordViewModel = passwordViewModel
         self.derivationPathViewModel = derivationPathViewModel
+        self.isNeedImport = isNeedImport
     }
 }
 
@@ -150,10 +150,12 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                 }
                 
                 self.completion == nil ? self.wireframe.showPinCode(from: view) : self.view?.controller.dismiss(animated: true, completion: completion)
+                return
             }
         }
         
-        completion == nil ? endingBlock?() : importAccount(with: endingBlock)
+       
+        isNeedImport ? importAccount(with: endingBlock) : endingBlock?()
     }
     
     func endEditing() {}

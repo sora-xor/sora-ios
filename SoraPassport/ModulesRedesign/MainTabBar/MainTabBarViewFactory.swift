@@ -54,12 +54,13 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         view.localizationManager = LocalizationManager.shared
         
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        assetManager.setup(for: SelectedWalletSettings.shared)
         
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
             return nil
         }
+        
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
+        assetManager.setup(for: SelectedWalletSettings.shared)
 
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {

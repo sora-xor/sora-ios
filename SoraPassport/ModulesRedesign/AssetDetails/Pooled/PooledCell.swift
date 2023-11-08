@@ -94,7 +94,7 @@ extension PooledCell: SoramitsuTableViewCellProtocol {
             return
         }
         
-        titleLabel.sora.text = R.string.localizable.assetDetailsYourPools(item.assetInfo.symbol, preferredLanguages: .currentLocale)
+        titleLabel.sora.text = R.string.localizable.assetDetailsYourPools(item.assetSymbol, preferredLanguages: .currentLocale)
         
         fullStackView.arrangedSubviews.filter { $0 is PoolView }.forEach { subview in
             fullStackView.removeArrangedSubview(subview)
