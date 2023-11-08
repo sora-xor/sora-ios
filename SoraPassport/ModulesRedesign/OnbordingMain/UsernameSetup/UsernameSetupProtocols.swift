@@ -32,6 +32,7 @@ import SoraFoundation
 
 protocol UsernameSetupViewProtocol: ControllerBackedProtocol {
     func set(viewModel: InputViewModelProtocol)
+    func resetFocus()
 }
 
 protocol UsernameSetupPresenterProtocol: AnyObject {
