@@ -36,7 +36,6 @@ final class MoreMenuCell: SoramitsuTableViewCell {
 
     let categoryItem: CategoryItem = {
         let view = CategoryItem(frame: .zero)
-        view.sora.shadow = .default
         view.sora.cornerRadius = .max
         view.sora.clipsToBounds = true
         return view
