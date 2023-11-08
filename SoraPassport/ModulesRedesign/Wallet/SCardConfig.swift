@@ -33,7 +33,6 @@ import SoraUIKit
 
 extension SCard.Config {
     static let prod = SCard.Config(
-        appStoreUrl: "https://apps.apple.com/us/app/sora-wallet-polkaswap/id1457566711",
         backendUrl: SoraCardCIKeys.backendProdUrl,
         pwAuthDomain: SoraCardCIKeys.domainProd,
         pwApiKey: SoraCardCIKeys.apiKeyProd,
@@ -47,7 +46,6 @@ extension SCard.Config {
     )
 
     static let test = SCard.Config(
-        appStoreUrl: "https://apps.apple.com/us/app/sora-wallet-polkaswap/id1457566711",
         backendUrl: SoraCardCIKeys.backendTestUrl,
         pwAuthDomain: SoraCardCIKeys.domainTest,
         pwApiKey: SoraCardCIKeys.apiKeyTest,
@@ -62,7 +60,6 @@ extension SCard.Config {
 
     // Dev
     static let local = SCard.Config(
-        appStoreUrl: "https://apps.apple.com/us/app/sora-wallet-polkaswap/id1457566711",
         backendUrl: "https://backend.dev.sora-card.tachi.soramitsu.co.jp/",
         pwAuthDomain: "soracard.com",
         pwApiKey: "",
