@@ -33,9 +33,9 @@ import SoraUIKit
 
 final class SoraTextItem: NSObject {
     
-    let text: NSAttributedString
+    let text: SoramitsuTextItem
     
-    init(text: NSAttributedString) {
+    init(text: SoramitsuTextItem) {
         self.text = text
     }
 }
