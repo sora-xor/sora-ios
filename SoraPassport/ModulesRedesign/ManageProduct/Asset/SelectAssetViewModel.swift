@@ -75,7 +75,7 @@ final class SelectAssetViewModel {
                 
                 let fiatText = FiatTextBuilder().build(fiatData: fiatData, amount: item.balance, assetId: item.assetInfo.assetId)
                 
-                var deltaArributedText = DeltaPriceBuilder().build(fiatData: fiatData,
+                let deltaArributedText = DeltaPriceBuilder().build(fiatData: fiatData,
                                                                    marketCapInfo: marketCapInfo,
                                                                    assetId: item.assetViewModel.identifier)
                 
@@ -134,14 +134,16 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
     
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        if let balanceData = assetsProvider?.getBalances(with: assetIds) {
-            items(with: balanceData)
+        if let balanceData = assetsProvider?.getBalances(with: assetIds) {            
+            Task { [weak self] in
+                await self?.items(with: balanceData)
+            }
         }
     }
 }
 
 private extension SelectAssetViewModel {
-    func items(with balanceItems: [BalanceData]) {
+    func items(with balanceItems: [BalanceData]) async {
         let fiatData = poolItemInfo?.fiatData ?? []
         let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
         
@@ -173,10 +175,8 @@ private extension SelectAssetViewModel {
             return item
         }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
         
-        Task {
-            let assetIds = balanceItems.map { $0.identifier }
-            poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
-        }
+        let assetIds = balanceItems.map { $0.identifier }
+        poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
     }
 
     func filterAssetList(with query: String) {
