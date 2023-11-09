@@ -81,5 +81,7 @@ struct AppearanceFactory {
         UINavigationBar.appearance().backIndicatorImage = backImage
         UINavigationBar.appearance().backIndicatorTransitionMaskImage = backImage
         UIBarButtonItem.appearance().setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
+
+        UITextView.appearance().textColor = SoramitsuUI.shared.theme.palette.color(.fgPrimary)
     }
 }
