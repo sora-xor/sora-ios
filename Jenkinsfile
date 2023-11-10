@@ -1,4 +1,4 @@
-@Library('jenkins-library') _
+@Library('jenkins-library@feature/DOPS-2841/sonar-apple') _
 
 // Job properties
 def jobParams = [
@@ -12,7 +12,6 @@ def pipeline = new org.ios.AppPipeline(
     sonarProjectName: 'sora-ios',
     sonarProjectKey: 'sora:sora-ios',
     appTests: false,
-    sonarTestsDirs: './SoraPassportTests,./SoraPassportIntegrationTests,./SoraPassportUITests',
     jobParams: jobParams,
     label: "mac-sora",
     appPushNoti: true,
