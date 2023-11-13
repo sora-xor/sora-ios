@@ -68,13 +68,13 @@ final class DetailView: SoramitsuControl {
         return view
     }()
     
-    let assetImageView: UIImageView = {
-        let view = UIImageView()
+    let assetImageView: SoramitsuImageView = {
+        let view = SoramitsuImageView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.heightAnchor.constraint(equalToConstant: 16).isActive = true
         view.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
+        view.sora.isUserInteractionEnabled = false
+        view.sora.backgroundColor = .custom(uiColor: .clear)
         return view
     }()
     

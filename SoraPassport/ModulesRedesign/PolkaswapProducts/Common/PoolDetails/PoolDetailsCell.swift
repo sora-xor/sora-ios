@@ -130,11 +130,13 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
         removeLiquidity.sora.backgroundColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswapContainer : .bgSurfaceVariant
 
         headerView.titleLabel.sora.text = item.title
+        headerView.titleLabel.sora.loadingPlaceholder.type = item.title.isEmpty ? .shimmer : .none
 
         DispatchQueue.global(qos: .userInitiated).async {
             let icon = RemoteSerializer.shared.image(with: item.firstAssetImage ?? "")
             DispatchQueue.main.async {
                 self.headerView.firstCurrencyImageView.image = icon
+                self.headerView.firstCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
             }
         }
         
@@ -142,6 +144,7 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
             let icon = RemoteSerializer.shared.image(with: item.secondAssetImage ?? "")
             DispatchQueue.main.async {
                 self.headerView.secondCurrencyImageView.image = icon
+                self.headerView.secondCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
             }
         }
     
@@ -149,6 +152,7 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
             let icon = RemoteSerializer.shared.image(with: item.rewardAssetImage ?? "")
             DispatchQueue.main.async {
                 self.headerView.rewardImageView.image = icon
+                self.headerView.rewardImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
             }
         }
 
@@ -170,9 +174,14 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
             }
 
             view.titleLabel.sora.text = detailModel.title
+            view.titleLabel.sora.loadingPlaceholder.type = detailModel.title.isEmpty ? .shimmer : .none
+            
             view.valueLabel.sora.attributedText = detailModel.assetAmountText
+            view.valueLabel.sora.loadingPlaceholder.type = detailModel.assetAmountText.text.isEmpty ? .shimmer : .none
+            
             view.fiatValueLabel.sora.attributedText = detailModel.fiatAmountText
             view.fiatValueLabel.sora.isHidden = detailModel.fiatAmountText == nil
+            
             view.infoButton.sora.isHidden = detailModel.infoHandler == nil
             view.infoButton.sora.addHandler(for: .touchUpInside) { [weak detailModel] in
                 detailModel?.infoHandler?()
