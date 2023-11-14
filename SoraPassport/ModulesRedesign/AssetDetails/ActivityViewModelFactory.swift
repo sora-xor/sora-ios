@@ -137,7 +137,7 @@ private extension ActivityViewModelFactory {
         let firstBalanceText = SoramitsuTextItem(text: isRTL ? textReversed : text,
                                                  fontData: FontType.textM,
                                                  textColor: textColor,
-                                                 alignment: .right)
+                                                 alignment: isRTL ? .left : .right)
         
         return ActivityContentViewModel(txHash: transaction.base.txHash,
                                         title: transaction.transferType.title,
@@ -180,17 +180,17 @@ private extension ActivityViewModelFactory {
         let fromBalanceText = SoramitsuTextItem(text: isRTL ? "\(fromAsset?.symbol ?? "") \(fromBalance)" : "\(fromBalance) \(fromAsset?.symbol ?? "")",
                                                 fontData: FontType.textM,
                                                 textColor: .fgPrimary,
-                                                alignment: .right)
+                                                alignment: isRTL ? .left : .right)
         let arrowText = SoramitsuTextItem(text: isRTL ? " ← " : " → ",
                                                 fontData: FontType.textM,
                                                 textColor: .fgPrimary,
-                                                alignment: .right)
+                                                alignment: isRTL ? .left : .right)
         
         let toBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(swap.toAmount.decimalValue) ?? ""
         let toBalanceText = SoramitsuTextItem(text: isRTL ? "\(toAssetInfo?.symbol ?? "") \(toBalance)" : "\(toBalance) \(toAssetInfo?.symbol ?? "")",
                                               fontData: FontType.textM,
                                               textColor: .statusSuccess,
-                                              alignment: .right)
+                                              alignment: isRTL ? .left : .right)
 
         let balanceText: SoramitsuAttributedText = isRTL ? [ toBalanceText, arrowText, fromBalanceText ] : [ fromBalanceText, arrowText, toBalanceText ]
         
@@ -238,24 +238,24 @@ private extension ActivityViewModelFactory {
         let textColor: SoramitsuColor = liquidity.type == .add ? .fgPrimary : .statusSuccess
         let fromBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
         let fromText = liquidity.type == .withdraw ? "+ \(fromBalance) \(fromAsset?.symbol ?? "")" : "\(fromBalance) \(fromAsset?.symbol ?? "")"
-        let fromTextReversed = liquidity.type == .withdraw ? "\(fromAsset?.symbol ?? "") \(fromBalance) +" : " \(fromAsset?.symbol ?? "") \(fromBalance)"
+        let fromTextReversed = liquidity.type == .withdraw ? "\(fromAsset?.symbol ?? "") \(fromBalance) +" : "\(fromAsset?.symbol ?? "") \(fromBalance)"
         let fromBalanceText = SoramitsuTextItem(text: isRTL ? fromTextReversed : fromText,
                                                 fontData: FontType.textM,
                                                 textColor: textColor,
-                                                alignment: .right)
+                                                alignment: isRTL ? .left : .right)
         
         let slashText = SoramitsuTextItem(text: " / ",
                                                 fontData: FontType.textM,
                                                 textColor: textColor,
-                                                alignment: .right)
+                                                alignment: isRTL ? .left : .right)
         
         let toBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(liquidity.firstAmount.decimalValue) ?? ""
         let toText = liquidity.type == .withdraw ? "+ \(toBalance) \(toAssetInfo?.symbol ?? "")" : "\(toBalance) \(toAssetInfo?.symbol ?? "")"
-        let toTextReversed = liquidity.type == .withdraw ? "\(toAssetInfo?.symbol ?? "") \(toBalance) +" : " \(toAssetInfo?.symbol ?? "") \(toBalance)"
+        let toTextReversed = liquidity.type == .withdraw ? "\(toAssetInfo?.symbol ?? "") \(toBalance) +" : "\(toAssetInfo?.symbol ?? "") \(toBalance)"
         let toBalanceText = SoramitsuTextItem(text: isRTL ? toTextReversed : toText,
                                               fontData: FontType.textM,
                                               textColor: textColor,
-                                              alignment: .right)
+                                              alignment: isRTL ? .left : .right)
         
         let balanceText: SoramitsuAttributedText = isRTL ? [ toBalanceText, slashText, fromBalanceText ] : [ fromBalanceText, slashText, toBalanceText ]
         
@@ -290,7 +290,7 @@ private extension ActivityViewModelFactory {
         let balanceText = SoramitsuTextItem(text: isRTL ? textReversed : text,
                                                 fontData: FontType.textM,
                                                 textColor: textColor,
-                                                alignment: .right)
+                                                alignment: isRTL ? .left : .right)
         
         return ActivityContentViewModel(txHash: bond.base.txHash,
                                         title: bond.type.detailsTitle,
@@ -310,12 +310,13 @@ private extension ActivityViewModelFactory {
         if let fromIconString = assetInfo?.icon {
             symbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
         }
-
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
         let invitationText = R.string.localizable.activityInvitationCount("1", preferredLanguages: .currentLocale)
         let balanceText = SoramitsuTextItem(text: setReferrer.isMyReferrer ? "--" : invitationText,
                                             fontData: FontType.textM,
                                             textColor: .fgPrimary,
-                                            alignment: .right)
+                                            alignment: isRTL ? .left : .right)
         let title = setReferrer.isMyReferrer ? R.string.localizable.referrerSet(preferredLanguages: .currentLocale) : "Referral joined"
         let subtitle = setReferrer.isMyReferrer ? SelectedWalletSettings.shared.currentAccount?.address ?? "" : setReferrer.who 
         return ActivityContentViewModel(txHash: setReferrer.base.txHash,
