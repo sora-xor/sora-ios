@@ -165,7 +165,7 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
         let detailsViews = item.detailsViewModel.map { detailModel -> DetailView in
             let view = DetailView()
 
-            view.assetImageView.isHidden = detailModel.rewardAssetImage == nil
+            view.assetImageView.sora.isHidden = detailModel.rewardAssetImage == nil
             DispatchQueue.global(qos: .userInitiated).async {
                 let icon = RemoteSerializer.shared.image(with: detailModel.rewardAssetImage ?? "")
                 DispatchQueue.main.async {

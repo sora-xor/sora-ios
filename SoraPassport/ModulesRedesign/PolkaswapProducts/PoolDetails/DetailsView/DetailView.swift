@@ -47,6 +47,7 @@ final class DetailView: SoramitsuControl {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
+        label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
         label.setContentHuggingPriority(.required, for: .horizontal)
         return label
     }()
@@ -56,6 +57,7 @@ final class DetailView: SoramitsuControl {
         view.sora.isHidden = true
         view.sora.tintColor = .fgSecondary
         view.sora.image = R.image.wallet.info()
+        view.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
         return view
     }()
     
@@ -74,6 +76,7 @@ final class DetailView: SoramitsuControl {
         view.heightAnchor.constraint(equalToConstant: 16).isActive = true
         view.widthAnchor.constraint(equalToConstant: 16).isActive = true
         view.sora.isUserInteractionEnabled = false
+        view.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
         view.sora.backgroundColor = .custom(uiColor: .clear)
         return view
     }()
@@ -84,6 +87,9 @@ final class DetailView: SoramitsuControl {
         label.sora.textColor = .fgPrimary
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         label.sora.backgroundColor = .custom(uiColor: .clear)
+        label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
+        label.heightAnchor.constraint(equalToConstant: 25).isActive = true
+        label.widthAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
         return label
     }()
     
@@ -92,6 +98,7 @@ final class DetailView: SoramitsuControl {
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
         label.sora.backgroundColor = .custom(uiColor: .clear)
+        label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label
     }()

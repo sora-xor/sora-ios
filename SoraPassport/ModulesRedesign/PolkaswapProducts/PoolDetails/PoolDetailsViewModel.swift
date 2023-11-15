@@ -74,6 +74,7 @@ final class PoolDetailsViewModel {
     private var apy: Decimal?
     private var pools: [StakedPool] = []
     private var marketCapService: MarketCapServiceProtocol
+//    var items: [SoramitsuTableViewItemProtocol] = []
     
     init(
         wireframe: PoolDetailsWireframeProtocol?,
@@ -159,44 +160,45 @@ extension PoolDetailsViewModel: PoolsServiceOutput {
 
 extension PoolDetailsViewModel {
     func updateContent() {
-        group.enter()
+        createItems()
+        
         apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] apy in
-            self?.apy = apy
-            self?.group.leave()
+            guard let self = self else { return }
+            self.apy = apy
+            self.createItems()
         }
         
-        group.enter()
         farmingService.getFarmedPools(baseAssetId: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] pools in
-            self?.pools = pools
-            self?.group.leave()
-        }
-
-        group.notify(queue: .main) { [weak self] in
             guard let self = self else { return }
-            var items: [SoramitsuTableViewItemProtocol] = []
-            
-            let poolDetailsItem = self.itemFactory.createAccountItem(with: self.assetManager,
-                                                                     poolInfo: self.poolInfo,
-                                                                     apy: self.apy,
-                                                                     detailsFactory: self.detailsFactory,
-                                                                     viewModel: self,
-                                                                     pools: self.pools)
-            items.append(poolDetailsItem)
-            items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
-            
-            let stakedItems = self.pools.map {
-                self.itemFactory.stakedItem(with: self.assetManager, poolInfo: self.poolInfo, stakedPool: $0)
-            }
-            
-            stakedItems.enumerated().forEach { (index, item) in
-                items.append(item)
-                if index != stakedItems.count - 1 {
-                    items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
-                }
-            }
-            
-            self.view?.hideLoading()
-            self.setupItems?(items)
+            self.pools = pools
+            self.createItems()
         }
+    }
+    
+    func createItems() {
+        var items: [SoramitsuTableViewItemProtocol] = []
+        
+        let poolDetailsItem = itemFactory.createAccountItem(with: self.assetManager,
+                                                            poolInfo: self.poolInfo,
+                                                            apy: self.apy,
+                                                            detailsFactory: self.detailsFactory,
+                                                            viewModel: self,
+                                                            pools: self.pools)
+        items.append(poolDetailsItem)
+        items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
+        
+        let stakedItems = pools.map {
+            itemFactory.stakedItem(with: self.assetManager, poolInfo: self.poolInfo, stakedPool: $0)
+        }
+        
+        stakedItems.enumerated().forEach { (index, item) in
+            items.append(item)
+            if index != stakedItems.count - 1 {
+                items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
+            }
+        }
+        
+        view?.hideLoading()
+        setupItems?(items)
     }
 }
