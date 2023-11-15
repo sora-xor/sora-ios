@@ -43,6 +43,7 @@ final class PoolDetailsViewController: SoramitsuViewController {
         let tableView = SoramitsuTableView()
         tableView.sora.backgroundColor = .custom(uiColor: .clear)
         tableView.sora.estimatedRowHeight = UITableView.automaticDimension
+        tableView.scrollViewDelegate = self
         tableView.sora.context = SoramitsuTableViewContext(scrollView: tableView, viewController: self)
         tableView.sectionHeaderHeight = .zero
         tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
