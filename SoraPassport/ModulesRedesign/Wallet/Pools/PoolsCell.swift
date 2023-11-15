@@ -244,7 +244,9 @@ final class PoolsCell: SoramitsuTableViewCell {
             poolView?.amountUpLabel.sora.text = poolModel.fiatText
         }
         poolView?.amountUpLabel.sora.loadingPlaceholder.type = !poolModel.fiatText.isEmpty ? .none : .shimmer
-
+        
+        poolView?.isUserInteractionEnabled = !poolModel.title.isEmpty
+        
         poolView?.sora.addHandler(for: .touchUpInside) { [weak poolsItem] in
             poolsItem?.poolHandler?(poolModel.identifier)
         }
