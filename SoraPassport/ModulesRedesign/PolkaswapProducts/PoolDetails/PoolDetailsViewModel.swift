@@ -71,10 +71,22 @@ final class PoolDetailsViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private let itemFactory = PoolDetailsItemFactory()
     private let group = DispatchGroup()
-    private var apy: Decimal?
-    private var pools: [StakedPool] = []
     private var marketCapService: MarketCapServiceProtocol
-//    var items: [SoramitsuTableViewItemProtocol] = []
+    
+    private var apy: Decimal? {
+        didSet {
+            if apy != nil {
+                createItems()
+            }
+        }
+    }
+    private var pools: [StakedPool] = [] {
+        didSet {
+            if !pools.isEmpty {
+                createItems()
+            }
+        }
+    }
     
     init(
         wireframe: PoolDetailsWireframeProtocol?,
@@ -165,13 +177,11 @@ extension PoolDetailsViewModel {
         apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] apy in
             guard let self = self else { return }
             self.apy = apy
-            self.createItems()
         }
         
         farmingService.getFarmedPools(baseAssetId: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] pools in
             guard let self = self else { return }
             self.pools = pools
-            self.createItems()
         }
     }
     

@@ -33,6 +33,11 @@ import SoraUIKit
 import UIKit
 
 final class DetailView: SoramitsuControl {
+    public var isShimmerHidden: Bool = true {
+        didSet {
+            setupShimmer()
+        }
+    }
 
     let leftInfoStackView: SoramitsuStackView = {
         var view = SoramitsuStackView()
@@ -89,7 +94,6 @@ final class DetailView: SoramitsuControl {
         label.sora.backgroundColor = .custom(uiColor: .clear)
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
         label.heightAnchor.constraint(equalToConstant: 25).isActive = true
-        label.widthAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
         return label
     }()
     
@@ -141,5 +145,11 @@ final class DetailView: SoramitsuControl {
             rightInfoStackView.topAnchor.constraint(equalTo: topAnchor),
             rightInfoStackView.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
+    }
+    
+    private func setupShimmer() {
+        if isShimmerHidden { return }
+        valueLabel.heightAnchor.constraint(equalToConstant: 25).isActive = true
+        valueLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
     }
 }

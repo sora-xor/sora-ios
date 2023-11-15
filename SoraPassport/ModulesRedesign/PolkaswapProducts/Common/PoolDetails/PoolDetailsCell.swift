@@ -187,6 +187,8 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
                 detailModel?.infoHandler?()
             }
             
+            view.isShimmerHidden = detailModel.infoHandler == nil
+            
             return view
         }
 
