@@ -42,6 +42,7 @@ final class PoolDetailsViewController: SoramitsuViewController {
         tableView.backgroundColor = SoramitsuUI.shared.theme.palette.color(.custom(uiColor: .clear))
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.sectionHeaderHeight = .zero
+        tableView.estimatedRowHeight = UITableView.automaticDimension
         tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
         tableView.register(PoolDetailsCell.self, forCellReuseIdentifier: "PoolDetailsCell")
         tableView.register(StakedCell.self, forCellReuseIdentifier: "StakedCell")
@@ -88,6 +89,7 @@ final class PoolDetailsViewController: SoramitsuViewController {
     init(viewModel: PoolDetailsViewModelProtocol) {
         self.viewModel = viewModel
         super.init()
+        setupSubscription()
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -149,8 +151,10 @@ final class PoolDetailsViewController: SoramitsuViewController {
 extension PoolDetailsViewController: PoolDetailsViewProtocol {
     
     func showLoading() {
-        activityIndicator.isHidden = false
-        activityIndicator.startAnimating()
+        DispatchQueue.main.async { [weak self] in
+            self?.activityIndicator.isHidden = false
+            self?.activityIndicator.startAnimating()
+        }
     }
 
     func hideLoading() {
