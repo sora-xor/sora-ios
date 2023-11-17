@@ -29,10 +29,20 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import SoraUIKit
 import RobinHood
 import CommonWallet
+import UIKit
 
-final class PoolDetailsViewFactory: PoolDetailsViewFactoryProtocol {
+typealias PoolDetailsDataSource = UITableViewDiffableDataSource<PoolDetailsSection, PoolDetailsSectionItem>
+typealias PoolDetailsSnapshot = NSDiffableDataSourceSnapshot<PoolDetailsSection, PoolDetailsSectionItem>
+
+protocol PoolDetailsViewProtocol: ControllerBackedProtocol {
+    func showLoading()
+    func hideLoading()
+}
+
+protocol PoolDetailsViewFactoryProtocol: AnyObject {
     static func createView(poolInfo: PoolInfo,
                            assetManager: AssetManagerProtocol,
                            fiatService: FiatServiceProtocol,
@@ -41,27 +51,15 @@ final class PoolDetailsViewFactory: PoolDetailsViewFactoryProtocol {
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol?,
                            marketCapService: MarketCapServiceProtocol,
-                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController? {
-        guard let engine = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else { return nil }
-        let farmingService = DemeterFarmingService(operationFactory: DemeterFarmingOperationFactory(engine: engine))
-        let viewModel = PoolDetailsViewModel(wireframe: PoolDetailsWireframe(),
-                                             poolInfo: poolInfo,
-                                             fiatService: fiatService,
-                                             poolsService: poolsService,
-                                             assetManager: assetManager,
-                                             detailsFactory: DetailViewModelFactory(assetManager: assetManager),
-                                             providerFactory: providerFactory,
-                                             operationFactory: operationFactory,
-                                             assetsProvider: assetsProvider,
-                                             farmingService: farmingService,
-                                             marketCapService: marketCapService)
-        viewModel.dismissHandler = dismissHandler
-
-        let view = PoolDetailsViewController(viewModel: viewModel)
-        viewModel.view = view
-        return view
-    }
+                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController?
 }
 
-
-
+protocol PoolDetailsViewModelProtocol: AnyObject {
+    var snapshotPublisher: Published<PoolDetailsSnapshot>.Publisher { get }
+    func viewDidLoad()
+    func reload()
+    var dismiss: (() -> Void)? { get set }
+    func apyInfoButtonTapped()
+    func infoButtonTapped(with type: Liquidity.TransactionLiquidityType)
+    func dismissed()
+}
