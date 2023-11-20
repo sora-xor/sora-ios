@@ -66,11 +66,11 @@ protocol AccountImportInteractorOutputProtocol: AnyObject {
 
 protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {
     func proceed(from view: AccountImportViewProtocol?,
-                 sourceType: AccountImportSource?,
-                 cryptoType: CryptoType?,
-                 networkType: Chain?,
-                 sourceViewModel: InputViewModelProtocol?,
-                 usernameViewModel: InputViewModelProtocol?,
+                 sourceType: AccountImportSource,
+                 cryptoType: CryptoType,
+                 networkType: Chain,
+                 sourceViewModel: InputViewModelProtocol,
+                 usernameViewModel: InputViewModelProtocol,
                  passwordViewModel: InputViewModelProtocol?,
                  derivationPathViewModel: InputViewModelProtocol?)
 }

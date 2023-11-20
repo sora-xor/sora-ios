@@ -33,12 +33,11 @@ import SoraFoundation
 import SoraKeystore
 import RobinHood
 
-final class SetupNameImportAccountPresenter {
+final class SetupNameImportRootPresenter {
     weak var view: UsernameSetupViewProtocol?
     var wireframe: UsernameSetupWireframeProtocol!
     var interactor: AccountImportInteractorInputProtocol!
     var viewModel: InputViewModel!
-    var completion: (() -> Void)?
     let settingsManager = SelectedWalletSettings.shared
     var mode: UsernameSetupMode = .onboarding
     var userName: String?
@@ -78,7 +77,7 @@ final class SetupNameImportAccountPresenter {
     }
 }
 
-extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
+extension SetupNameImportRootPresenter: UsernameSetupPresenterProtocol {
     func setup() {
         let value = mode == .creating ? "" : userName ?? ""
         
@@ -136,7 +135,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                     }
                 }
                 
-                self.view?.controller.dismiss(animated: true, completion: completion)
+               self.wireframe.showPinCode(from: view)
                 return
             }
         }
@@ -156,6 +155,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
     }
 }
     
-extension SetupNameImportAccountPresenter: Localizable {
+extension SetupNameImportRootPresenter: Localizable {
     func applyLocalization() {}
 }
+

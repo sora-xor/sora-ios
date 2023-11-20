@@ -31,63 +31,35 @@
 import Foundation
 import SSFCloudStorage
 
-final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
+final class OnboardingRootWireframe: OnboardingMainWireframeProtocol {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
     var activityIndicatorWindow: UIWindow?
-    var endAddingBlock: (() -> Void)?
 
     func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) {
         guard
-            let endBlock = endAddingBlock,
-            let usernameSetupController = SetupAccountNameViewFactory.createViewForAdding(isGoogleBackupSelected: isGoogleBackupSelected,
-                                                                                          isNeedSetupName: false,
-                                                                                          endEditingBlock: endBlock)?.controller,
+            let setupAccountNameController = SetupAccountNameViewFactory.createViewForOnboarding()?.controller,
             let navigationController = view?.controller.navigationController
         else {
             return
         }
         
-        navigationController.pushViewController(usernameSetupController, animated: true)
+        navigationController.pushViewController(setupAccountNameController, animated: true)
     }
     
     func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource) {
         guard
-            let endBlock = endAddingBlock,
-            let restorationController = AccountImportViewFactory.createViewForRedesignAdding(sourceType: sourceType, endAddingBlock: endBlock)?.controller,
+            let restorationController = AccountImportViewFactory.createViewForOnboardingRedesign(sourceType: sourceType)?.controller,
             let navigationController = view?.controller.navigationController
         else {
             return
         }
         
         navigationController.pushViewController(restorationController, animated: true)
-    }
-
-    func showAccountRestore(from view: OnboardingMainViewProtocol?) {
-        guard
-            let endBlock = endAddingBlock,
-            let restorationController = AccountImportViewFactory.createViewForAdding(endAddingBlock: endBlock)?.controller,
-            let navigationController = view?.controller.navigationController
-        else {
-            return
-        }
-        
-        navigationController.pushViewController(restorationController, animated: true)
-    }
-
-    func showKeystoreImport(from view: OnboardingMainViewProtocol?) {
-        guard
-            let navigationController = view?.controller.navigationController,
-            navigationController.viewControllers.count == 1,
-            navigationController.presentedViewController == nil
-        else {
-            return
-        }
-        
-        showAccountRestore(from: view)
     }
     
     func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) {
-        guard let viewController = BackupedAccountsViewFactory.createView(with: accounts, endAddingBlock: endAddingBlock)?.controller else { return }
+        guard let viewController = BackupedAccountsViewFactory.createView(with: accounts)?.controller else { return }
         view?.controller.navigationController?.pushViewController(viewController, animated: true)
     }
 }
+

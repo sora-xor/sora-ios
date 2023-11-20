@@ -43,23 +43,20 @@ final class AccountImportWireframe: AccountImportWireframeProtocol {
     }
     
     func proceed(from view: AccountImportViewProtocol?, 
-                 sourceType: AccountImportSource? = nil,
-                 cryptoType: CryptoType? = nil,
-                 networkType: Chain? = nil,
-                 sourceViewModel: InputViewModelProtocol? = nil,
-                 usernameViewModel: InputViewModelProtocol? = nil,
-                 passwordViewModel: InputViewModelProtocol? = nil,
-                 derivationPathViewModel: InputViewModelProtocol? = nil) {
-        guard let setupNameView = SetupAccountNameViewFactory.createViewForImport(
-            sourceType: sourceType,
-            cryptoType: cryptoType,
-            networkType: networkType,
-            sourceViewModel: sourceViewModel,
-            usernameViewModel: usernameViewModel,
-            passwordViewModel: passwordViewModel,
-            derivationPathViewModel: derivationPathViewModel,
-            isNeedToImport: sourceType != nil
-        )?.controller else { return }
+                 sourceType: AccountImportSource,
+                 cryptoType: CryptoType,
+                 networkType: Chain,
+                 sourceViewModel: InputViewModelProtocol,
+                 usernameViewModel: InputViewModelProtocol,
+                 passwordViewModel: InputViewModelProtocol?,
+                 derivationPathViewModel: InputViewModelProtocol?) {
+        guard let setupNameView = SetupAccountNameViewFactory.createViewForImport(sourceType: sourceType,
+                                                                                  cryptoType: cryptoType,
+                                                                                  networkType: networkType,
+                                                                                  sourceViewModel: sourceViewModel,
+                                                                                  usernameViewModel: usernameViewModel,
+                                                                                  passwordViewModel: passwordViewModel,
+                                                                                  derivationPathViewModel: derivationPathViewModel)?.controller else { return }
         view?.controller.navigationController?.pushViewController(setupNameView, animated: true)
     }
 }

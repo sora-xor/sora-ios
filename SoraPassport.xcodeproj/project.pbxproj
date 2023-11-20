@@ -173,7 +173,7 @@
 		10EB77992541A369000123B9 /* ExtensibleBarNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EB77972541A368000123B9 /* ExtensibleBarNavigationController.swift */; };
 		10F6D03025344EFD00EB64CD /* LinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */; };
 		1C881931464751B44D4BB3D5 /* AccountOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */; };
-		20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */ = {isa = PBXBuildFile; };
+		20D9ACBA22DBBB68D16C8674 /* (null) in Sources */ = {isa = PBXBuildFile; };
 		253663B5C127B5B99C84BDA3 /* MainTabBarInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */; };
 		2E5D137B391C1456F7601073 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12564A5FC576A04D42BADEF6 /* Pods_SoraPassportAll_SoraPassport.framework */; };
 		3213A3092237DAB4001BE041 /* VerificationCodeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3213A3082237DAB4001BE041 /* VerificationCodeData.swift */; };
@@ -663,7 +663,7 @@
 		60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC6270EEEDB00916408 /* Migrating.swift */; };
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
-		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		82933CD8A0C33141410DBBB2 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -1262,6 +1262,9 @@
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		B77B9D8A2AEA765C00D39AE0 /* AccountBackuped.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77B9D892AEA765C00D39AE0 /* AccountBackuped.swift */; };
+		B78D62382B08DF8900450DA9 /* OnboardingRootWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */; };
+		B78D623A2B0A24C900450DA9 /* SetupNameImportRootPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D62392B0A24C900450DA9 /* SetupNameImportRootPresenter.swift */; };
+		B78D623C2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D623B2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
 		D794F1F4CCDD89D21FFA685B /* ProfileInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */; };
 		DA3C8273D7F73172782EAA94 /* VotesHistoryInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F039024F008EE356D1BDFCBF /* VotesHistoryInteractorTests.swift */; };
@@ -2652,6 +2655,9 @@
 		B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CIKeys.generated.swift; sourceTree = "<group>"; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
 		B77B9D892AEA765C00D39AE0 /* AccountBackuped.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountBackuped.swift; sourceTree = "<group>"; };
+		B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRootWireframe.swift; sourceTree = "<group>"; };
+		B78D62392B0A24C900450DA9 /* SetupNameImportRootPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupNameImportRootPresenter.swift; sourceTree = "<group>"; };
+		B78D623B2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupNameCreateAccountPresenter.swift; sourceTree = "<group>"; };
 		BFE8D6F51678DB03D93717E7 /* Pods_SoraPassportTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsInteractor.swift; sourceTree = "<group>"; };
 		C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProjectsInteractorTests.swift; sourceTree = "<group>"; };
@@ -2695,7 +2701,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* (null) in Frameworks */,
 				983223605FA38815FD68A2C7 /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3741,6 +3747,8 @@
 		3611062829784971003A6352 /* SetupAccountName */ = {
 			isa = PBXGroup;
 			children = (
+				B78D623B2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift */,
+				B78D62392B0A24C900450DA9 /* SetupNameImportRootPresenter.swift */,
 				3611E71B2981672B00D2CF6F /* SetupNameImportAccountPresenter.swift */,
 				3611062929784A1F003A6352 /* SetupAccountNameViewController.swift */,
 				3611062A29784A22003A6352 /* SetupAccountNameViewFactory.swift */,
@@ -3778,14 +3786,6 @@
 				36110B9D29540B7A00712BEB /* RecipientAddressView.swift */,
 			);
 			path = InputAssetAmount;
-			sourceTree = "<group>";
-		};
-		3611E70D297FDE9900D2CF6F /* ImportAccount */ = {
-			isa = PBXGroup;
-			children = (
-				3611E70E297FDEFD00D2CF6F /* ImportAccountViewController.swift */,
-			);
-			path = ImportAccount;
 			sourceTree = "<group>";
 		};
 		3613D6A0290EE59700B0D027 /* TransitionManager */ = {
@@ -4546,13 +4546,6 @@
 			path = BalanceProviderFactory;
 			sourceTree = "<group>";
 		};
-		3688A438280EB67E00C1D16F /* View */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = View;
-			sourceTree = "<group>";
-		};
 		3688A43B280F58FE00C1D16F /* SourceSelector */ = {
 			isa = PBXGroup;
 			children = (
@@ -4815,6 +4808,7 @@
 				36DB19B129EDDA9100B3E3BF /* UsernameSetup */,
 				36DB19B529EDDA9100B3E3BF /* OnboardingMainViewFactory.swift */,
 				36DB19B629EDDA9100B3E3BF /* OnboardingMainWireframe.swift */,
+				B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */,
 				36DB19B729EDDA9100B3E3BF /* OnboardingMainProtocol.swift */,
 				36DB19B829EDDA9100B3E3BF /* OnboardingMainInteractor.swift */,
 			);
@@ -5446,15 +5440,15 @@
 				9441FC0E25D152EC00775559 /* AccountAdd */,
 				9441FB0E25CAE30300775559 /* AccountConfirm */,
 				9441FA9925CAC40200775559 /* AccountImport */,
+				36DB197429EDC5CA00B3E3BF /* AccountCreate */,
+				3611062829784971003A6352 /* SetupAccountName */,
+				8B3625FF296F1652007B9525 /* ChangeAccount */,
 				3645268C28C1278500260340 /* Nodes */,
 				84530A43223BEB0800AD7598 /* SecurityLayer */,
-				3611062829784971003A6352 /* SetupAccountName */,
-				3611E70D297FDE9900D2CF6F /* ImportAccount */,
 				36E5CF0E295B45E50098D4D2 /* Welcome */,
 				36AC2EDD2979AD3600AD7732 /* Pincode */,
 				3611062D2978A3AF003A6352 /* ConfirmPassphrase */,
 				8BF4286A293E5A9A00590F92 /* Language */,
-				8B3625FF296F1652007B9525 /* ChangeAccount */,
 				3616550A291D635D00060A8D /* Explore */,
 				364BB48B292A4B7E00DE90A6 /* ActivityDetails */,
 				3692D6972910716800B8B274 /* Activity */,
@@ -5465,7 +5459,6 @@
 				5599B6DB292648D200567396 /* ProfileLogin */,
 				36ADDDA728EC7F790080A41C /* Wallet */,
 				B2CD5DA12A7A5A1800B16F8A /* EditView */,
-				36DB197429EDC5CA00B3E3BF /* AccountCreate */,
 				026AEA3021AAFEB2002EEB67 /* LoadingView */,
 				52E1E17FC55868B10AD106EE /* NetworkAvailabilityLayer */,
 				3666CBC629056E070098F4AC /* AssetDetails */,
@@ -5733,13 +5726,13 @@
 		9441FA9925CAC40200775559 /* AccountImport */ = {
 			isa = PBXGroup;
 			children = (
+				3611E70E297FDEFD00D2CF6F /* ImportAccountViewController.swift */,
 				9441FAB225CAC44E00775559 /* AccountImportInteractor.swift */,
 				9441FAAC25CAC43F00775559 /* AccountImportPresenter.swift */,
 				9441FAAD25CAC44200775559 /* AccountImportProtocols.swift */,
 				9441FAAE25CAC44500775559 /* AccountImportViewFactory.swift */,
 				9441FAB125CAC44C00775559 /* AccountImportWireframe.swift */,
 				9441FAB025CAC44900775559 /* BaseAccountImportInteractor.swift */,
-				3688A438280EB67E00C1D16F /* View */,
 				9441FA9A25CAC41500775559 /* Model */,
 			);
 			path = AccountImport;
@@ -6574,7 +6567,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				"$PROJECT_DIR/R.generated.swift",
+				$PROJECT_DIR/R.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6672,7 +6665,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
+				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -7566,6 +7559,7 @@
 				8B362609296F1FA8007B9525 /* ChangeAccountPresenter.swift in Sources */,
 				361EF5AB2917DCA500D0DCCF /* WalletItemFactory.swift in Sources */,
 				9441FA6525CAB08600775559 /* ContactContext.swift in Sources */,
+				B78D623C2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift in Sources */,
 				848CF31C22B3DF810018EFDC /* SupportedVersionCheckMock.swift in Sources */,
 				8409323423413C1F0013C871 /* EventProtocols.swift in Sources */,
 				9447675628D9FADC00EC8F74 /* SelectedAccountMigrationPolicy.swift in Sources */,
@@ -7820,6 +7814,7 @@
 				9441FA4B25CAAE8600775559 /* SigningWrapperProtocol.swift in Sources */,
 				10EB77992541A369000123B9 /* ExtensibleBarNavigationController.swift in Sources */,
 				9481B46C286EFC2200A472E2 /* ChainRegistryFactory.swift in Sources */,
+				B78D623A2B0A24C900450DA9 /* SetupNameImportRootPresenter.swift in Sources */,
 				8BF4287D2940B1E600590F92 /* LanguageItemView.swift in Sources */,
 				556980DE279C235E0012D207 /* PolkaswapLiquiditySourceSelectorModel.swift in Sources */,
 				366D53C529528D020094CE36 /* ContactHeaderCell.swift in Sources */,
@@ -7924,6 +7919,7 @@
 				84F9912B244A3C480015A1AD /* EthereumRegistrationRequestError.swift in Sources */,
 				9481B46A286EFC2200A472E2 /* RuntimeFilesOperationFactory.swift in Sources */,
 				36AC2EE12979B26D00AD7732 /* SoramitsuNumpadView.swift in Sources */,
+				B78D62382B08DF8900450DA9 /* OnboardingRootWireframe.swift in Sources */,
 				36DB19C229EDDA9100B3E3BF /* OnboardingMainProtocol.swift in Sources */,
 				0253FCC7221160F800D3AD49 /* ProjectsReputationFetchMock.swift in Sources */,
 				94497D8925EE99A300FD4F14 /* StorageUpdateData+Decoding.swift in Sources */,
@@ -8226,7 +8222,7 @@
 				945A578325DE8B06003E4023 /* ExtrinsicEraTests.swift in Sources */,
 				8409323823414FEE0013C871 /* WalletContextMock.swift in Sources */,
 				BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */,
-				20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */,
+				20D9ACBA22DBBB68D16C8674 /* (null) in Sources */,
 				945A574A25DE8495003E4023 /* RuntimeMetadataCreationHelper.swift in Sources */,
 				44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */,
 				36A12693289143D7009117B9 /* WalletNetworkOperationFactoryProtocolMock.swift in Sources */,
@@ -8456,7 +8452,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
@@ -8466,7 +8462,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
@@ -8596,7 +8592,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -8605,7 +8601,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
@@ -8797,7 +8793,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
@@ -8807,7 +8803,7 @@
 					"@executable_path/Frameworks",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited)";
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
@@ -8826,7 +8822,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -8835,7 +8831,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
@@ -9135,7 +9131,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = YLWWUD25VZ;
+				DEVELOPMENT_TEAM = APV84TNMCN;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -9144,7 +9140,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;

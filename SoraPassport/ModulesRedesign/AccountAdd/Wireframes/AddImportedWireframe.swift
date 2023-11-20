@@ -43,11 +43,11 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
     }
 
     func proceed(from view: AccountImportViewProtocol?,
-                 sourceType: AccountImportSource?,
-                 cryptoType: CryptoType?,
-                 networkType: Chain?,
-                 sourceViewModel: InputViewModelProtocol?,
-                 usernameViewModel: InputViewModelProtocol?,
+                 sourceType: AccountImportSource,
+                 cryptoType: CryptoType,
+                 networkType: Chain,
+                 sourceViewModel: InputViewModelProtocol,
+                 usernameViewModel: InputViewModelProtocol,
                  passwordViewModel: InputViewModelProtocol?,
                  derivationPathViewModel: InputViewModelProtocol?) {
         guard let navigationController = view?.controller.navigationController else {
@@ -62,8 +62,8 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
                                                                                   usernameViewModel: usernameViewModel,
                                                                                   passwordViewModel: passwordViewModel,
                                                                                   derivationPathViewModel: derivationPathViewModel,
-                                                                                  isNeedToImport: sourceType != nil,
-                                                                                  endAddingBlock: endAddingBlock)?.controller else {
+                                                                                  endAddingBlock: endAddingBlock)?.controller 
+        else {
             MainTransitionHelper.transitToMainTabBarController(closing: navigationController, animated: true)
             return
         }
