@@ -76,9 +76,6 @@ extension WalletNetworkFacade {
                 type: selectedConnectionType
             )
 
-            let storageKeyFactory = StorageKeyFactory()
-            let accountInfoKey = try storageKeyFactory.accountInfoKeyForId(accountId)
-            
             let accountInfoOperation: CompoundOperationWrapper<AccountInfo?> = createAccountInfoFetchOperation(accountId)
 
             let dependencies = assets.map({ factory.createUsableBalanceOperation(accountId: selectedAccount.address, assetId: $0.identifier) })
@@ -138,8 +135,13 @@ extension WalletNetworkFacade {
                 return result
             }
             let infoDependencies = accountInfoOperation.allOperations
-            dependencies.forEach { mappingOperation.addDependency($0) }
-            infoDependencies.forEach { mappingOperation.addDependency($0) }
+            infoDependencies.forEach { operation in
+                mappingOperation.addDependency(operation)
+            }
+            
+            dependencies.forEach { operation in
+                mappingOperation.addDependency(operation)
+            }
 
             return CompoundOperationWrapper(targetOperation: mappingOperation,
                                             dependencies: dependencies + infoDependencies + eraOperation.allOperations + [stackingInfoOperation])

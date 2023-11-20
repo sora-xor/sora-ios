@@ -96,7 +96,7 @@ final class ProductListViewController: SoramitsuViewController {
                 return
             }
                 
-            self.navigationItem.leftBarButtonItem = mode == .edit ? nil : UIBarButtonItem(image: R.image.wallet.cross(),
+            self.navigationItem.rightBarButtonItem = mode == .edit ? nil : UIBarButtonItem(image: R.image.wallet.cross(),
                                                                                            style: .plain,
                                                                                            target: self,
                                                                                           action: #selector(self.crossButtonTapped))
@@ -109,9 +109,9 @@ final class ProductListViewController: SoramitsuViewController {
                 button.setTitleTextAttributes([ .font: UIFont.systemFont(ofSize: 13, weight: .bold),
                                                 .foregroundColor: UIColor(hex: "#EE2233")],
                                               for: .normal)
-                self.navigationItem.rightBarButtonItem = button
+                self.navigationItem.leftBarButtonItem = button
             } else {
-                self.navigationItem.rightBarButtonItem = nil
+                self.navigationItem.leftBarButtonItem = nil
             }
         }
         
