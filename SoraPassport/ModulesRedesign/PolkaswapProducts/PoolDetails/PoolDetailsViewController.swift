@@ -31,22 +31,22 @@
 import Foundation
 import UIKit
 import SoraUIKit
-
-protocol PoolDetailsViewProtocol: ControllerBackedProtocol {
-    func showLoading()
-    func hideLoading()
-}
+import Combine
 
 final class PoolDetailsViewController: SoramitsuViewController {
 
-    private lazy var tableView: SoramitsuTableView = {
+    private lazy var tableView: UITableView = {
         let tableView = SoramitsuTableView()
-        tableView.sora.backgroundColor = .custom(uiColor: .clear)
-        tableView.sora.estimatedRowHeight = UITableView.automaticDimension
-        tableView.scrollViewDelegate = self
-        tableView.sora.context = SoramitsuTableViewContext(scrollView: tableView, viewController: self)
+        tableView.delegate = self
+        tableView.separatorStyle = .none
+        tableView.backgroundColor = SoramitsuUI.shared.theme.palette.color(.custom(uiColor: .clear))
+        tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.sectionHeaderHeight = .zero
+        tableView.estimatedRowHeight = UITableView.automaticDimension
         tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
+        tableView.register(PoolDetailsCell.self, forCellReuseIdentifier: "PoolDetailsCell")
+        tableView.register(StakedCell.self, forCellReuseIdentifier: "StakedCell")
+        tableView.register(SoramitsuCell<SoramitsuTableViewSpaceView>.self, forCellReuseIdentifier: "SoramitsuSpaceCell")
         return tableView
     }()
     
@@ -56,11 +56,40 @@ final class PoolDetailsViewController: SoramitsuViewController {
         return indicator
     }()
 
-    var viewModel: PoolDetailsViewModelProtocol
+    var viewModel: PoolDetailsViewModelProtocol? {
+        didSet {
+            setupSubscription()
+        }
+    }
+    
+    private var cancellables: Set<AnyCancellable> = []
+    
+    private lazy var dataSource: PoolDetailsDataSource = {
+        PoolDetailsDataSource(tableView: tableView) { tableView, indexPath, item in
+            switch item {
+            case .details(let item):
+                let cell: PoolDetailsCell? = tableView.dequeueReusableCell(withIdentifier: "PoolDetailsCell",
+                                                                           for: indexPath) as? PoolDetailsCell
+                cell?.set(item: item, context: nil)
+                return cell ?? UITableViewCell()
+            case .space(let item):
+                let cell: SoramitsuCell<SoramitsuTableViewSpaceView>? = tableView.dequeueReusableCell(withIdentifier: "SoramitsuSpaceCell",
+                                                                                                      for: indexPath) as? SoramitsuCell<SoramitsuTableViewSpaceView>
+                cell?.set(item: item, context: nil)
+                return cell ?? UITableViewCell()
+            case .staked(let item):
+                let cell: StakedCell? = tableView.dequeueReusableCell(withIdentifier: "StakedCell",
+                                                                      for: indexPath) as? StakedCell
+                cell?.set(item: item, context: nil)
+                return cell ?? UITableViewCell()
+            }
+        }
+    }()
 
     init(viewModel: PoolDetailsViewModelProtocol) {
         self.viewModel = viewModel
         super.init()
+        setupSubscription()
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -78,29 +107,17 @@ final class PoolDetailsViewController: SoramitsuViewController {
         
         addCloseButton()
         
-        viewModel.setupItems = { [weak self] items in
-            DispatchQueue.main.async {
-                self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
-            }
-        }
-        
-        viewModel.reloadItems = { [weak self] items in
-            DispatchQueue.main.async {
-                self?.tableView.reloadItems(items: items)
-            }
-        }
-        
-        viewModel.dismiss = { [weak self] in
+        viewModel?.dismiss = { [weak self] in
             DispatchQueue.main.async {
                 if self?.presentedViewController == nil {
                     self?.dismiss(animated: true, completion: { [weak self] in
-                        self?.viewModel.dismissed()
+                        self?.viewModel?.dismissed()
                     })
                 }
             }
         }
         
-        viewModel.viewDidLoad()
+        viewModel?.viewDidLoad()
     }
 
     private func setupView() {
@@ -120,17 +137,43 @@ final class PoolDetailsViewController: SoramitsuViewController {
             activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
     }
+    
+    private func setupSubscription() {
+        viewModel?.snapshotPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] snapshot in
+                self?.dataSource.apply(snapshot, animatingDifferences: false)
+            }
+            .store(in: &cancellables)
+    }
 }
 
 extension PoolDetailsViewController: PoolDetailsViewProtocol {
     
     func showLoading() {
-        activityIndicator.isHidden = false
-        activityIndicator.startAnimating()
+        DispatchQueue.main.async { [weak self] in
+            self?.activityIndicator.isHidden = false
+            self?.activityIndicator.startAnimating()
+        }
     }
 
     func hideLoading() {
-        activityIndicator.isHidden = true
-        activityIndicator.stopAnimating()
+        DispatchQueue.main.async { [weak self] in
+            self?.activityIndicator.isHidden = true
+            self?.activityIndicator.stopAnimating()
+        }
+    }
+}
+
+extension PoolDetailsViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else {
+            return UITableView.automaticDimension
+        }
+        
+        switch item {
+        case .space: return 8
+        default: return UITableView.automaticDimension
+        }
     }
 }

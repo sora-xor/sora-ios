@@ -114,13 +114,19 @@ extension StakedCell: SoramitsuTableViewCellProtocol {
                 let icon = RemoteSerializer.shared.image(with: detailModel.rewardAssetImage ?? "")
                 DispatchQueue.main.async {
                     view.assetImageView.image = icon
+                    view.assetImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
                 }
             }
 
             view.titleLabel.sora.text = detailModel.title
+            view.titleLabel.sora.loadingPlaceholder.type = detailModel.title.isEmpty ? .shimmer : .none
+            
             view.valueLabel.sora.attributedText = detailModel.assetAmountText
+            view.valueLabel.sora.loadingPlaceholder.type = detailModel.assetAmountText.text.isEmpty ? .shimmer : .none
+            
             view.fiatValueLabel.sora.attributedText = detailModel.fiatAmountText
             view.fiatValueLabel.sora.isHidden = detailModel.fiatAmountText == nil
+            
             view.infoButton.sora.isHidden = detailModel.infoHandler == nil
             if case .progress(let progress) = detailModel.type {
                 view.progressView.sora.isHidden = false

@@ -43,7 +43,7 @@ final class PoolDetailsItemFactory {
         detailsFactory: DetailViewModelFactoryProtocol,
         viewModel: PoolDetailsViewModelProtocol,
         pools: [StakedPool]
-    ) -> SoramitsuTableViewItemProtocol {
+    ) -> PoolDetailsItem {
 
         let baseAsset = assetManager.assetInfo(for: poolInfo.baseAssetId)
         let targetAsset = assetManager.assetInfo(for: poolInfo.targetAssetId)
@@ -81,7 +81,7 @@ final class PoolDetailsItemFactory {
     }
     
     
-    func stakedItem(with assetManager: AssetManagerProtocol, poolInfo: PoolInfo, stakedPool: StakedPool) -> SoramitsuTableViewItemProtocol {
+    func stakedItem(with assetManager: AssetManagerProtocol, poolInfo: PoolInfo, stakedPool: StakedPool) -> StakedItem {
         let rewardAsset = assetManager.assetInfo(for: stakedPool.rewardAsset.value)
         let rewardSymbol = rewardAsset?.symbol.uppercased() ?? ""
         

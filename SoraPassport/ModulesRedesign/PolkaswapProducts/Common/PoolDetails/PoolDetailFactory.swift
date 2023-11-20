@@ -102,19 +102,21 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let baseAssetSymbol = baseAsset?.symbol.uppercased() ?? ""
         let targetAssetSymbol = targetAsset?.symbol.uppercased() ?? ""
         
+        var apyText = ""
         if let apyValue = apy {
-            let apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
-            let assetAmountText = SoramitsuTextItem(text: apyText,
-                                                    fontData: FontType.textBoldS,
-                                                    textColor: .fgPrimary,
-                                                    alignment: .right)
-            let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
-                                                      assetAmountText: assetAmountText)
-            apyDetailsViewModel.infoHandler = { [weak viewModel] in
-                viewModel?.apyInfoButtonTapped()
-            }
-            viewModels.append(apyDetailsViewModel)
+            apyText = "\(NumberFormatter.percent.stringFromDecimal(apyValue * 100) ?? "")% APY"
         }
+        
+        let assetAmountText = SoramitsuTextItem(text: apyText,
+                                                fontData: FontType.textBoldS,
+                                                textColor: .fgPrimary,
+                                                alignment: .right)
+        let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
+                                                  assetAmountText: assetAmountText)
+        apyDetailsViewModel.infoHandler = { [weak viewModel] in
+            viewModel?.apyInfoButtonTapped()
+        }
+        viewModels.append(apyDetailsViewModel)
 
         let rewardText = SoramitsuTextItem(text: rewardAsset?.symbol ?? "",
                                            fontData: FontType.textS,
