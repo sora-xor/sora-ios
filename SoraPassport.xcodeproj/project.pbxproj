@@ -173,7 +173,7 @@
 		10EB77992541A369000123B9 /* ExtensibleBarNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EB77972541A368000123B9 /* ExtensibleBarNavigationController.swift */; };
 		10F6D03025344EFD00EB64CD /* LinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */; };
 		1C881931464751B44D4BB3D5 /* AccountOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */; };
-		20D9ACBA22DBBB68D16C8674 /* (null) in Sources */ = {isa = PBXBuildFile; };
+		20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */ = {isa = PBXBuildFile; };
 		253663B5C127B5B99C84BDA3 /* MainTabBarInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */; };
 		2E5D137B391C1456F7601073 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12564A5FC576A04D42BADEF6 /* Pods_SoraPassportAll_SoraPassport.framework */; };
 		3213A3092237DAB4001BE041 /* VerificationCodeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3213A3082237DAB4001BE041 /* VerificationCodeData.swift */; };
@@ -663,7 +663,7 @@
 		60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC6270EEEDB00916408 /* Migrating.swift */; };
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
-		82933CD8A0C33141410DBBB2 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -2705,7 +2705,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* (null) in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
 				983223605FA38815FD68A2C7 /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -8230,7 +8230,7 @@
 				945A578325DE8B06003E4023 /* ExtrinsicEraTests.swift in Sources */,
 				8409323823414FEE0013C871 /* WalletContextMock.swift in Sources */,
 				BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */,
-				20D9ACBA22DBBB68D16C8674 /* (null) in Sources */,
+				20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */,
 				945A574A25DE8495003E4023 /* RuntimeMetadataCreationHelper.swift in Sources */,
 				44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */,
 				36A12693289143D7009117B9 /* WalletNetworkOperationFactoryProtocolMock.swift in Sources */,
@@ -8470,7 +8470,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
@@ -8600,7 +8600,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = APV84TNMCN;
+				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -8609,7 +8609,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
@@ -8801,7 +8801,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = APV84TNMCN;
+				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
@@ -8811,7 +8811,7 @@
 					"@executable_path/Frameworks",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited)";
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
@@ -8830,7 +8830,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = APV84TNMCN;
+				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -8839,7 +8839,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
@@ -9139,7 +9139,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = APV84TNMCN;
+				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -9148,7 +9148,7 @@
 					"@executable_path/Frameworks",
 				);
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev2;
+				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
