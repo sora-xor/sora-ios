@@ -1265,6 +1265,8 @@
 		B78D62382B08DF8900450DA9 /* OnboardingRootWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */; };
 		B78D623A2B0A24C900450DA9 /* SetupNameImportRootPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D62392B0A24C900450DA9 /* SetupNameImportRootPresenter.swift */; };
 		B78D623C2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D623B2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift */; };
+		B7FC09A62B074ECC009EE437 /* PoolDetailsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FC09A52B074ECC009EE437 /* PoolDetailsSection.swift */; };
+		B7FC09A82B074FCE009EE437 /* PoolDetailsViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FC09A72B074FCE009EE437 /* PoolDetailsViewModelProtocol.swift */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
 		D794F1F4CCDD89D21FFA685B /* ProfileInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */; };
 		DA3C8273D7F73172782EAA94 /* VotesHistoryInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F039024F008EE356D1BDFCBF /* VotesHistoryInteractorTests.swift */; };
@@ -2658,6 +2660,8 @@
 		B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRootWireframe.swift; sourceTree = "<group>"; };
 		B78D62392B0A24C900450DA9 /* SetupNameImportRootPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupNameImportRootPresenter.swift; sourceTree = "<group>"; };
 		B78D623B2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupNameCreateAccountPresenter.swift; sourceTree = "<group>"; };
+		B7FC09A52B074ECC009EE437 /* PoolDetailsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailsSection.swift; sourceTree = "<group>"; };
+		B7FC09A72B074FCE009EE437 /* PoolDetailsViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailsViewModelProtocol.swift; sourceTree = "<group>"; };
 		BFE8D6F51678DB03D93717E7 /* Pods_SoraPassportTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsInteractor.swift; sourceTree = "<group>"; };
 		C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProjectsInteractorTests.swift; sourceTree = "<group>"; };
@@ -3826,6 +3830,8 @@
 				3616551E291D7F4100060A8D /* PoolDetailsViewModel.swift */,
 				3616551F291D7F4100060A8D /* PoolDetailsWireframe.swift */,
 				36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */,
+				B7FC09A52B074ECC009EE437 /* PoolDetailsSection.swift */,
+				B7FC09A72B074FCE009EE437 /* PoolDetailsViewModelProtocol.swift */,
 			);
 			path = PoolDetails;
 			sourceTree = "<group>";
@@ -7408,6 +7414,7 @@
 				0298791B2181AF4D0085E605 /* String+Path.swift in Sources */,
 				02623EEB2179AD440011250E /* RootPresenter.swift in Sources */,
 				B2CD5DB12A7A5A1800B16F8A /* EnabledViewModel.swift in Sources */,
+				B7FC09A62B074ECC009EE437 /* PoolDetailsSection.swift in Sources */,
 				3635B7162933E99500B2B728 /* ChoiceMarketViewController.swift in Sources */,
 				362DAD8D29F53283005562B0 /* PinViewFactory.swift in Sources */,
 				364D61CE2993DAA5004938FA /* BalanceDetailsViewController.swift in Sources */,
@@ -8051,6 +8058,7 @@
 				847A17A32375796E003BA71A /* RoundedCellControlView.swift in Sources */,
 				8481A5E7230541F70056D3D4 /* UIViewController+Modal.swift in Sources */,
 				9481B48D286EFE8E00A472E2 /* ChainAccountModel.swift in Sources */,
+				B7FC09A82B074FCE009EE437 /* PoolDetailsViewModelProtocol.swift in Sources */,
 				36356B592919ABE100CD3E9E /* Produtable.swift in Sources */,
 				3661C9EF2861940D00660434 /* SubqueryReferralRewardsOperation.swift in Sources */,
 				36E5CF10295B46200098D4D2 /* WelcomeBackgroundViewController.swift in Sources */,

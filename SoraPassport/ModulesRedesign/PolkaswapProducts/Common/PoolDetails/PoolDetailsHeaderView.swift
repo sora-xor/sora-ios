@@ -40,17 +40,17 @@ final class PoolDetailsHeaderView: SoramitsuControl {
         return view
     }()
     
-    public let firstCurrencyImageView: UIImageView = {
-        let view = UIImageView()
+    public let firstCurrencyImageView: SoramitsuImageView = {
+        let view = SoramitsuImageView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.isUserInteractionEnabled = false
+        view.sora.isUserInteractionEnabled = false
         return view
     }()
     
-    public let secondCurrencyImageView: UIImageView = {
-        let view = UIImageView()
+    public let secondCurrencyImageView: SoramitsuImageView = {
+        let view = SoramitsuImageView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.isUserInteractionEnabled = false
+        view.sora.isUserInteractionEnabled = false
         return view
     }()
     
