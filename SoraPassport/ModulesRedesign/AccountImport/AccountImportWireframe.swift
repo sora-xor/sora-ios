@@ -50,13 +50,13 @@ final class AccountImportWireframe: AccountImportWireframeProtocol {
                  usernameViewModel: InputViewModelProtocol,
                  passwordViewModel: InputViewModelProtocol?,
                  derivationPathViewModel: InputViewModelProtocol?) {
-        guard let setupNameView = SetupAccountNameViewFactory.createViewForImport(sourceType: sourceType,
-                                                                                  cryptoType: cryptoType,
-                                                                                  networkType: networkType,
-                                                                                  sourceViewModel: sourceViewModel,
-                                                                                  usernameViewModel: usernameViewModel,
-                                                                                  passwordViewModel: passwordViewModel,
-                                                                                  derivationPathViewModel: derivationPathViewModel)?.controller else { return }
+        guard let setupNameView = SetupAccountNameViewFactory.createViewForAccountImport(sourceType: sourceType,
+                                                                                         cryptoType: cryptoType,
+                                                                                         networkType: networkType,
+                                                                                         sourceViewModel: sourceViewModel,
+                                                                                         usernameViewModel: usernameViewModel,
+                                                                                         passwordViewModel: passwordViewModel,
+                                                                                         derivationPathViewModel: derivationPathViewModel)?.controller else { return }
         view?.controller.navigationController?.pushViewController(setupNameView, animated: true)
     }
 }

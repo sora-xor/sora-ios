@@ -50,7 +50,7 @@ final class SetupAccountNameViewFactory {
         return view
     }
     
-    static func createViewForImport(sourceType: AccountImportSource,
+    static func createViewForAddImport(sourceType: AccountImportSource,
                                     cryptoType: CryptoType,
                                     networkType: Chain,
                                     sourceViewModel: InputViewModelProtocol,
@@ -107,15 +107,15 @@ final class SetupAccountNameViewFactory {
         return view
     }
     
-    static func createViewForImport(sourceType: AccountImportSource,
-                                    cryptoType: CryptoType,
-                                    networkType: Chain,
-                                    sourceViewModel: InputViewModelProtocol,
-                                    usernameViewModel: InputViewModelProtocol,
-                                    passwordViewModel: InputViewModelProtocol?,
-                                    derivationPathViewModel: InputViewModelProtocol?) -> UsernameSetupViewProtocol? {
+    static func createViewForAccountImport(sourceType: AccountImportSource,
+                                           cryptoType: CryptoType,
+                                           networkType: Chain,
+                                           sourceViewModel: InputViewModelProtocol,
+                                           usernameViewModel: InputViewModelProtocol,
+                                           passwordViewModel: InputViewModelProtocol?,
+                                           derivationPathViewModel: InputViewModelProtocol?) -> UsernameSetupViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
-            URLHandlingService.shared.findService() else {
+                URLHandlingService.shared.findService() else {
             Logger.shared.error("Missing required keystore import service")
             return nil
         }
@@ -162,7 +162,7 @@ final class SetupAccountNameViewFactory {
         return view
     }
     
-    static func createViewForImport(endAddingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
+    static func createViewForCreationImport(endAddingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
             Logger.shared.error("Missing required keystore import service")

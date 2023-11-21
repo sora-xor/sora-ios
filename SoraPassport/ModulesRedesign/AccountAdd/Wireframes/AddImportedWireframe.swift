@@ -55,14 +55,14 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
         }
         
         guard let endAddingBlock = endAddingBlock,
-              let setupNameView = SetupAccountNameViewFactory.createViewForImport(sourceType: sourceType,
-                                                                                  cryptoType: cryptoType,
-                                                                                  networkType: networkType,
-                                                                                  sourceViewModel: sourceViewModel,
-                                                                                  usernameViewModel: usernameViewModel,
-                                                                                  passwordViewModel: passwordViewModel,
-                                                                                  derivationPathViewModel: derivationPathViewModel,
-                                                                                  endAddingBlock: endAddingBlock)?.controller 
+              let setupNameView = SetupAccountNameViewFactory.createViewForAddImport(sourceType: sourceType,
+                                                                                     cryptoType: cryptoType,
+                                                                                     networkType: networkType,
+                                                                                     sourceViewModel: sourceViewModel,
+                                                                                     usernameViewModel: usernameViewModel,
+                                                                                     passwordViewModel: passwordViewModel,
+                                                                                     derivationPathViewModel: derivationPathViewModel,
+                                                                                     endAddingBlock: endAddingBlock)?.controller
         else {
             MainTransitionHelper.transitToMainTabBarController(closing: navigationController, animated: true)
             return

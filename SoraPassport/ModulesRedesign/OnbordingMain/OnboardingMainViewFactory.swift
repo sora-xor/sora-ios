@@ -35,7 +35,7 @@ import SSFCloudStorage
 
 final class OnboardingMainViewFactory {
     
-    static func createWelcomeView(endAddingBlock: (() -> Void)?) -> OnboardingMainViewProtocol? {
+    static func createWelcomeViewForChanging(endAddingBlock: (() -> Void)?) -> OnboardingMainViewProtocol? {
         guard let kestoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
             Logger.shared.error("Can't find required keystore import service")
@@ -63,7 +63,7 @@ final class OnboardingMainViewFactory {
         return view
     }
     
-    static func createWelcomeView() -> OnboardingMainViewProtocol? {
+    static func createWelcomeViewForRoot() -> OnboardingMainViewProtocol? {
         guard let kestoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
             Logger.shared.error("Can't find required keystore import service")
