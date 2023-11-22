@@ -127,7 +127,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
     }
 
     func proceed() {
-        let endingBlock: (() -> Void)? = { [weak self] in
+       let endingBlock: (() -> Void)? = { [weak self] in
             guard let self = self else { return }
             if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
                 self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
@@ -140,7 +140,6 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                 return
             }
         }
-        
        
         importAccount(with: endingBlock)
     }

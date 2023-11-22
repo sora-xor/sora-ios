@@ -232,17 +232,11 @@ extension ConfirmSwapViewModel {
         let maxSold = R.string.localizable.polkaswapInputEstimated(minMaxAmountText,
                                                                    preferredLanguages: .currentLocale)
         let minimalRewardText = swapVariant == .desiredInput ? minReward : maxSold
-        
-        let paragrathStyle = NSMutableParagraphStyle()
-        paragrathStyle.alignment = .center
-        
-        let minimalRewardAttributedText: NSMutableAttributedString = FontType.paragraphS.attriburedString(with: minimalRewardText)
-        minimalRewardAttributedText.addAttribute(.paragraphStyle,
-                                                 value: paragrathStyle,
-                                                 range: NSRange(location: 0, length: minimalRewardAttributedText.length))
-        minimalRewardAttributedText.addAttribute(.font,
-                                                 value: FontType.paragraphBoldS.font,
-                                                 range: NSString(string: minimalRewardAttributedText.string).range(of: minMaxAmountText))
+
+        let minimalRewardAttributedText = SoramitsuTextItem(text: minimalRewardText,
+                                                            fontData: FontType.paragraphS,
+                                                            textColor: .fgPrimary,
+                                                            alignment: .center)
         
         let minimalRewardTextItem = SoraTextItem(text: minimalRewardAttributedText)
         

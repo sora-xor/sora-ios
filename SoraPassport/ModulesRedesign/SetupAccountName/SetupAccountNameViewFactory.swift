@@ -194,6 +194,7 @@ final class SetupAccountNameViewFactory {
                                                     keystoreImportService: keystoreImportService,
                                                     eventCenter: EventCenter.shared)
 
+        interactor.presenter = presenter
         view.presenter = presenter
         presenter.view = view
         presenter.wireframe = wireframe
