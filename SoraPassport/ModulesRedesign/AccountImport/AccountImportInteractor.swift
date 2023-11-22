@@ -83,7 +83,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                 case .success(let accountItem):
                     self?.settings.save(value: accountItem)
                     self?.eventCenter.notify(with: SelectedAccountChanged())
-
+                    
                     self?.presenter?.didCompleteAccountImport()
                 case .failure(let error):
                     self?.presenter?.didReceiveAccountImport(error: error)

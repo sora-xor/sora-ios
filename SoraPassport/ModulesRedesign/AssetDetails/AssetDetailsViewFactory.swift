@@ -50,36 +50,62 @@ final class AssetDetailsViewFactory {
                            assetsProvider: AssetProviderProtocol?,
                            marketCapService: MarketCapServiceProtocol) -> AssetDetailsViewController? {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
-              let aseetList = assetManager.getAssetList() else { return nil }
+              let aseetList = assetManager.getAssetList(),
+              let assetsProvider = assetsProvider else { return nil }
 
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
                                             address: selectedAccount.address,
                                             assets: aseetList)
 
         let viewModelFactory = ActivityViewModelFactory(walletAssets: aseetList, assetManager: assetManager)
-        let viewModel = AssetDetailsViewModel(wireframe: AssetDetailsWireframe(),
-                                              assetInfo: assetInfo,
-                                              assetViewModelFactory: assetViewModelFactory,
-                                              assetManager: assetManager,
-                                              historyService: historyService,
-                                              fiatService: fiatService,
-                                              viewModelFactory: viewModelFactory,
-                                              eventCenter: EventCenter.shared,
-                                              poolsService: poolsService,
-                                              poolViewModelsFactory: poolViewModelsFactory,
-                                              networkFacade: networkFacade,
-                                              providerFactory: providerFactory,
-                                              accountId: accountId,
+        
+        let eventCenter = EventCenter.shared
+        let priceInfoService = PriceInfoService.shared
+        let priceTrendService = PriceTrendService()
+
+        let wireframe = AssetDetailsWireframe(accountId: accountId,
                                               address: address,
+                                              assetManager: assetManager,
+                                              fiatService: fiatService,
+                                              eventCenter: eventCenter,
+                                              assetInfo: assetInfo,
+                                              providerFactory: providerFactory,
+                                              networkFacade: networkFacade,
                                               polkaswapNetworkFacade: polkaswapNetworkFacade,
-                                              qrEncoder: qrEncoder,
-                                              sharingFactory: sharingFactory,
-                                              referralFactory: referralFactory,
                                               assetsProvider: assetsProvider,
-                                              marketCapService: marketCapService)
+                                              marketCapService: marketCapService,
+                                              qrEncoder: qrEncoder,
+                                              sharingFactory: sharingFactory)
+        
+        let recentActivityService = RecentActivityItemService(assetId: assetInfo.assetId,
+                                                              viewModelFactory: viewModelFactory,
+                                                              historyService: historyService,
+                                                              eventCenter: eventCenter,
+                                                              assetsProvider: assetsProvider)
+        
+        let transferableItemService = TransferableItemService(assetInfo: assetInfo,
+                                                              eventCenter: eventCenter,
+                                                              assetsProvider: assetsProvider,
+                                                              referralFactory: referralFactory)
+        
+        let itemsFactory = AssetDetailsItemFactory(assetsProvider: assetsProvider,
+                                                   priceTrendService: priceTrendService,
+                                                   poolViewModelsFactory: poolViewModelsFactory,
+                                                   historyService: historyService,
+                                                   recentActivityService: recentActivityService,
+                                                   wireframe: wireframe, 
+                                                   poolsService: poolsService,
+                                                   transferableItemService: transferableItemService)
+
+        let viewModel = AssetDetailsViewModel(wireframe: wireframe,
+                                              assetInfo: assetInfo,
+                                              referralFactory: referralFactory,
+                                              priceInfoService: priceInfoService,
+                                              itemsFactory: itemsFactory)
 
         let view = AssetDetailsViewController(viewModel: viewModel)
         viewModel.view = view
+        wireframe.controller = view
         return view
     }
 }

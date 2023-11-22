@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Simbol maksimum %@";
 "wallet.account.share.asset.amount.message" = "Alamat Rangkaian %@ saya untuk Menerima %@ %@ :";
 "wallet.account.share.asset.or.amount.message" = "Alamat rangkaian saya %@ untuk Menerima %@:";
-"wallet.account.share.message" = "Alamat Rangkaian Sora Saya untuk Menerima:";
+"wallet.account.share.message" = "Alamat Rangkaian SORA Saya untuk Menerima:";
 "help.support.title" = "Sokongan SORA";
 "tutorial.sign.up" = "Mendaftar";
 "tutorial.terms.and.conditions.1" = "Dengan mendaftar, anda bersetuju\n Terma & Syarat dan Dasar Privasi";

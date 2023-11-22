@@ -128,7 +128,7 @@ extension ConfirmSupplyLiquidityViewModel {
 
         let text = R.string.localizable.addLiquidityPoolShareDescription("\(slippageTolerance)", preferredLanguages: .currentLocale)
         let textItem = SoramitsuTextItem(text: text, fontData: FontType.paragraphS, textColor: .fgPrimary, alignment: .center)
-        let slippageTextItem = SoraTextItem(text: textItem.attributedString)
+        let slippageTextItem = SoraTextItem(text: textItem)
         items.append(slippageTextItem)
         items.append(SoramitsuTableViewSpacerItem(space: 24, color: .custom(uiColor: .clear)))
         

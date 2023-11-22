@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Max %@ symbolen";
 "wallet.account.share.asset.amount.message" = "Mijn %@ netwerkadres om %@ %@ te ontvangen:";
 "wallet.account.share.asset.or.amount.message" = "%@ Netwerkadres om te ontvangen %@ :";
-"wallet.account.share.message" = "Mijn Sora-netwerkadres om te ontvangen:";
+"wallet.account.share.message" = "Mijn SORA-netwerkadres om te ontvangen:";
 "help.support.title" = "SORA-ondersteuning";
 "tutorial.sign.up" = "Inschrijven";
 "tutorial.terms.and.conditions.1" = "Door je aan te melden ga je akkoord met\n Algemene voorwaarden en privacybeleid";

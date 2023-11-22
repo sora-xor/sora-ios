@@ -47,11 +47,12 @@ public final class ExploreAssetView: SoramitsuView {
         return stackView
     }()
     
-    public let serialNumber: SoramitsuLabel = {
+    public lazy var serialNumber: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
-        label.widthAnchor.constraint(equalToConstant: 30).isActive = true
+        label.sora.alignment = localizationManager.isRightToLeft ? .right : .left
+        label.widthAnchor.constraint(equalToConstant: 35).isActive = true
         return label
     }()
     

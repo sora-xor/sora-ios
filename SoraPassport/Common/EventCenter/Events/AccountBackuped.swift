@@ -29,25 +29,9 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import SoraUIKit
-import CommonWallet
 
-final class PooledItem: NSObject {
-
-    let assetSymbol: String
-    var poolViewModels: [PoolViewModel]
-    var openPoolDetailsHandler: ((String) -> Void)?
-
-    init(assetSymbol: String, poolViewModels: [PoolViewModel]) {
-        self.assetSymbol = assetSymbol
-        self.poolViewModels = poolViewModels
+struct AccountBackuped: EventProtocol {
+    func accept(visitor: EventVisitorProtocol) {
+        visitor.processAccountBackuped(event: self)
     }
-}
-
-extension PooledItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { PooledCell.self }
-
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-
-    var clipsToBounds: Bool { false }
 }

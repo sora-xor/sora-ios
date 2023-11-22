@@ -36,6 +36,11 @@ import SCard
 import SoraFoundation
 import SoraKeystore
 
+enum UpdatedSection {
+    case assets
+    case pools
+}
+
 protocol RedesignWalletViewModelProtocol: AnyObject {
     var reloadItem: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
@@ -43,7 +48,7 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func closeSC()
     func closeReferralProgram()
     func updateItems()
-    func updateAssets()
+    func updateAssets(updatedSection: UpdatedSection)
     func showFullListAssets()
     func showFullListPools()
     func showAssetDetails(with assetInfo: AssetInfo)
@@ -87,6 +92,7 @@ final class RedesignWalletViewModel {
     var walletContext: CommonWalletContextProtocol
     var editViewService: EditViewServiceProtocol
     let feeProvider = FeeProvider()
+    let eventCenter = EventCenter.shared
     let marketCapService: MarketCapServiceProtocol
     let poolsViewModelService: PoolsItemService
     let assetsViewModelService: AssetsItemService
@@ -137,6 +143,7 @@ final class RedesignWalletViewModel {
         self.editViewService = editViewService
         self.marketCapService = marketCapService
         self.poolsViewModelService = poolsViewModelService
+        self.eventCenter.add(observer: self, dispatchIn: .main)
     }
 
     @SCStream internal var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
@@ -199,6 +206,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     func updateItems() {
         var items: [SoramitsuTableViewItemProtocol] = []
         let enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
+        let backupedAccounts = ApplicationConfig.shared.getAvailableBackupedAccounts()
         
         if let accountItem = walletItems.first(where: { $0 is AccountTableViewItem }) {
             items.append(accountItem)
@@ -213,7 +221,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             soraCard.isSCBannerHidden = false
         }
         
-        if let backupItem = walletItems.first(where: { $0 is BackupItem }) {
+        if !backupedAccounts.contains(address), let backupItem = walletItems.first(where: { $0 is BackupItem }) {
             items.append(backupItem)
         }
         
@@ -240,12 +248,12 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         setupItems?(items)
     }
 
-    func updateAssets() {
-        if let assetItem = walletItems.first(where: { $0 is AssetsItem }) as? AssetsItem {
-            assetItem.updateContent()
+    func updateAssets(updatedSection: UpdatedSection) {
+        if updatedSection == .assets {
+            (walletItems.filter({ $0 is AssetsItem }).first as? AssetsItem)?.updateContent()
         }
-
-        if walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem != nil {
+       
+        if updatedSection == .pools, walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem != nil {
             poolsService.loadAccountPools(isNeedForceUpdate: false)
         }
     }
@@ -329,6 +337,35 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         return items
     }
 
+    internal func showReceiveController(in vc: UIViewController) {
+
+        let qrService = WalletQRService(operationFactory: WalletQROperationFactory(), encoder: qrEncoder)
+
+        let viewModel = ReceiveViewModel(
+            qrService: qrService,
+            sharingFactory: sharingFactory,
+            accountId: accountId,
+            address: address,
+            selectedAsset: .xor,
+            fiatService: fiatService,
+            assetProvider: assetsProvider,
+            assetManager: assetManager
+        )
+
+        let receiveController = ReceiveViewController(viewModel: viewModel)
+        viewModel.view = receiveController
+
+        let navigationController = UINavigationController(rootViewController: receiveController)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.addCustomTransitioning()
+
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        containerView.add(navigationController)
+
+        vc.present(containerView, animated: true)
+    }
+
     internal func showSwapController(in vc: UIViewController) {
         guard let swapController = createSwapController(presenter: vc) else { return }
         vc.present(swapController, animated: true)
@@ -338,12 +375,33 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         presenter: UIViewController,
         localizationManager: LocalizationManagerProtocol = LocalizationManager.shared
     ) -> UIViewController? {
+        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+            return nil
+        }
+
+        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
+
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
+            return nil
+        }
+
+        guard let walletContext = try? WalletContextFactory().createContext(
+            connection: connection,
+            assetManager: assetManager,
+            accountSettings: accountSettings
+        ) else {
+            return nil
+        }
+
+        let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
+
         guard let swapController = SwapViewFactory.createView(selectedTokenId: "",
                                                               selectedSecondTokenId: WalletAssetId.xor.rawValue,
                                                               assetManager: assetManager,
-                                                              fiatService: fiatService,
+                                                              fiatService: FiatService.shared,
                                                               networkFacade: walletContext.networkOperationFactory,
-                                                              polkaswapNetworkFacade: polkaswapNetworkFacade,
+                                                              polkaswapNetworkFacade: polkaswapContext,
                                                               assetsProvider: assetsProvider,
                                                               marketCapService: marketCapService) else { return nil }
 
@@ -358,7 +416,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
         return swapController
     }
-    
+
     func showInternerConnectionAlert() {
         wireframe?.present(message: nil,
                            title: R.string.localizable.connectionErrorMessage(preferredLanguages: .currentLocale),
@@ -467,5 +525,11 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     func showBackupAccount() {
         wireframe?.showAccountOptions(from: view,
                                       account: SelectedWalletSettings.shared.currentAccount)
+    }
+}
+
+extension RedesignWalletViewModel: EventVisitorProtocol {
+    func processAccountBackuped(event: AccountBackuped) {
+        updateItems()
     }
 }

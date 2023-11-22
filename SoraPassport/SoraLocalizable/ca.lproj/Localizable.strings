@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "Símbols màxims %@";
 "wallet.account.share.asset.amount.message" = "La meva adreça de xarxa %@ per rebre %@ %@ :";
 "wallet.account.share.asset.or.amount.message" = "La meva adreça de xarxa %@ per rebre %@ :";
-"wallet.account.share.message" = "La meva adreça de la xarxa Sora per rebre:";
+"wallet.account.share.message" = "La meva adreça de la xarxa SORA per rebre:";
 "help.support.title" = "Assistència de SORA";
 "tutorial.sign.up" = "Registra't";
 "tutorial.terms.and.conditions.1" = "Al registrar-te, esteu d'acord amb els\nTermes i Condicions i la Política de Privacitat";

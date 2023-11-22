@@ -54,12 +54,13 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         view.localizationManager = LocalizationManager.shared
         
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
-        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
-        assetManager.setup(for: SelectedWalletSettings.shared)
         
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
             return nil
         }
+        
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
+        assetManager.setup(for: SelectedWalletSettings.shared)
 
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
@@ -127,7 +128,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
                                                        fiatService: FiatService.shared,
                                                        assetViewModelsFactory: assetViewModelsFactory,
-                                                       assetInfos: assetInfos,
+                                                       assetManager: assetManager,
                                                        assetProvider: assetsProvider)
         assetsProvider.add(observer: assetsViewModelService)
         
@@ -237,7 +238,7 @@ extension MainTabBarViewFactory {
         let assetsViewModelService = AssetsItemService(marketCapService: MarketCapService.shared,
                                                        fiatService: FiatService.shared,
                                                        assetViewModelsFactory: assetViewModelsFactory,
-                                                       assetInfos: assetInfos,
+                                                       assetManager: assetManager,
                                                        assetProvider: assetsProvider)
         assetsProvider.add(observer: assetsViewModelService)
         
@@ -386,17 +387,21 @@ extension MainTabBarViewFactory {
             R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)
         }
         
+        let image = R.image.tabBar.wallet()
         let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
         
-        walletController.navigationItem.largeTitleDisplayMode = .never
-        walletController.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.wallet())
-        
-        localizationManager.addObserver(with: walletController) { [weak walletController] (_, _) in
-            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-            walletController?.tabBarItem.title = currentTitle
+        let navigationController = SoraNavigationController().then {
+            $0.navigationBar.isHidden = true
+            $0.tabBarItem = createTabBarItem(title: currentTitle, image: image)
+            $0.viewControllers = [walletController]
         }
         
-        return walletController
+        localizationManager.addObserver(with: navigationController) { [weak navigationController] (_, _) in
+            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
+            navigationController?.tabBarItem.title = currentTitle
+        }
+        
+        return navigationController
     }
     
     static func createMoreMenuController(
@@ -639,8 +644,10 @@ private extension MainTabBarViewFactory {
             return tabBarItem
         }
         
-        let normalAttributes = [NSAttributedString.Key.foregroundColor: R.color.baseContentTertiary()!]
-        let selectedAttributes = [NSAttributedString.Key.foregroundColor: R.color.neumorphism.tint()]
+        let normalAttributes = [NSAttributedString.Key.foregroundColor: SoramitsuUI.shared.theme.palette.color(.fgSecondary),
+                                NSAttributedString.Key.font: FontType.textBoldXS.font]
+        let selectedAttributes = [NSAttributedString.Key.foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary),
+                                  NSAttributedString.Key.font: FontType.textBoldXS.font]
         
         tabBarItem.setTitleTextAttributes(normalAttributes, for: .normal)
         tabBarItem.setTitleTextAttributes(selectedAttributes, for: .selected)

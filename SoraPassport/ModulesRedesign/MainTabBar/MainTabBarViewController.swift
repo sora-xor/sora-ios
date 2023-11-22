@@ -68,27 +68,17 @@ final class MainTabBarViewController: UITabBarController {
 
     private func configureTabBar() {
         let palette = SoramitsuUI.shared.theme.palette
-        tabBar.tintColor = palette.color(.accentPrimary)
         
-        if #available(iOS 13.0, *) {
-            let appearance = UITabBarAppearance()
-            
-            let normalAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.fgSecondary),
-                                    NSAttributedString.Key.font: FontType.textBoldXS.font]
-            let selectedAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.accentPrimary),
-                                      NSAttributedString.Key.font: FontType.textBoldXS.font]
-            
-            appearance.stackedLayoutAppearance.normal.titleTextAttributes = normalAttributes
-            appearance.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttributes
-            
-            tabBar.standardAppearance = appearance
-            
-            // fix transparent background on iOS 15+
-            if #available(iOS 15.0, *) {
-                tabBar.setValue(tabBar.standardAppearance, forKey: "scrollEdgeAppearance")
-                //TODO: change this to more apropriate API
-                //tabBar.scrollEdgeAppearance = tabBar.standardAppearance
-            }
+        let normalAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.fgSecondary),
+                                NSAttributedString.Key.font: FontType.textBoldXS.font]
+        let selectedAttributes = [NSAttributedString.Key.foregroundColor: palette.color(.accentPrimary),
+                                  NSAttributedString.Key.font: FontType.textBoldXS.font]
+        
+        tabBar.tintColor = palette.color(.accentPrimary)
+        tabBar.unselectedItemTintColor = palette.color(.fgSecondary)
+        tabBar.items?.forEach {
+            $0.setTitleTextAttributes(normalAttributes, for: .normal)
+            $0.setTitleTextAttributes(selectedAttributes, for: .selected)
         }
     }
 }

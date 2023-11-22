@@ -119,7 +119,7 @@
 "wallet.transfer.description.hint" = "最多%@符號";
 "wallet.account.share.asset.amount.message" = "我用以接收的%@網絡地址%@ %@：";
 "wallet.account.share.asset.or.amount.message" = "我用以接收的%@網絡地址%@：";
-"wallet.account.share.message" = "我用以接收的Sora網絡地址：";
+"wallet.account.share.message" = "我用以接收的SORA網絡地址：";
 "help.support.title" = "SORA支持";
 "tutorial.sign.up" = "註冊";
 "tutorial.terms.and.conditions.1" = "簽署即表示您同意\n條款和條件以及隱私政策";

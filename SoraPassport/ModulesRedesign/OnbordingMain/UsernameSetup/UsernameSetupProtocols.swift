@@ -32,6 +32,7 @@ import SoraFoundation
 
 protocol UsernameSetupViewProtocol: ControllerBackedProtocol {
     func set(viewModel: InputViewModelProtocol)
+    func resetFocus()
 }
 
 protocol UsernameSetupPresenterProtocol: AnyObject {
@@ -42,7 +43,7 @@ protocol UsernameSetupPresenterProtocol: AnyObject {
     func activateURL(_ url: URL)
 }
 
-protocol UsernameSetupWireframeProtocol: AlertPresentable, WebPresentable {
+protocol UsernameSetupWireframeProtocol: AlertPresentable, WebPresentable, ErrorPresentable {
     func proceed(from view: UsernameSetupViewProtocol?, username: String)
     func showPinCode(from view: UsernameSetupViewProtocol?)
     func showWarning(from view: UsernameSetupViewProtocol?, completion: @escaping () -> Void)

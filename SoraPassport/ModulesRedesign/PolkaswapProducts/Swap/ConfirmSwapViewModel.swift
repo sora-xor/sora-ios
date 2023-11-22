@@ -58,7 +58,6 @@ final class ConfirmSwapViewModel {
     var lpFee: Decimal
     var swapVariant: SwapVariant
     var minMaxValue: Decimal
-    var timer: Timer?
     private var dexId: UInt32
     private let interactor: PolkaswapMainInteractorInputProtocol
     private var quoteParams: PolkaswapMainInteractorQuoteParams
@@ -160,11 +159,7 @@ final class ConfirmSwapViewModel {
         self.assetsProvider = assetsProvider
         self.fiatData = fiatData
         self.eventCenter = eventCenter
-    }
-    
-    deinit {
-        timer?.invalidate()
-        timer = nil
+        self.eventCenter.add(observer: self)
     }
     
     private func updateBalanceData() {
@@ -177,12 +172,17 @@ final class ConfirmSwapViewModel {
         }
     }
 }
+ 
+extension ConfirmSwapViewModel: EventVisitorProtocol {
+    func processNewBlockAppeared(event: NewBlockEvent) {
+        loadQuote()
+    }
+}
 
 extension ConfirmSwapViewModel: ConfirmViewModelProtocol {
     func viewDidLoad() {
         updateBalanceData()
         setupContent()
-        subscribeToPoolUpdates()
         assetsProvider?.add(observer: self)
     }
 }
@@ -232,17 +232,11 @@ extension ConfirmSwapViewModel {
         let maxSold = R.string.localizable.polkaswapInputEstimated(minMaxAmountText,
                                                                    preferredLanguages: .currentLocale)
         let minimalRewardText = swapVariant == .desiredInput ? minReward : maxSold
-        
-        let paragrathStyle = NSMutableParagraphStyle()
-        paragrathStyle.alignment = .center
-        
-        let minimalRewardAttributedText: NSMutableAttributedString = FontType.paragraphS.attriburedString(with: minimalRewardText)
-        minimalRewardAttributedText.addAttribute(.paragraphStyle,
-                                                 value: paragrathStyle,
-                                                 range: NSRange(location: 0, length: minimalRewardAttributedText.length))
-        minimalRewardAttributedText.addAttribute(.font,
-                                                 value: FontType.paragraphBoldS.font,
-                                                 range: NSString(string: minimalRewardAttributedText.string).range(of: minMaxAmountText))
+
+        let minimalRewardAttributedText = SoramitsuTextItem(text: minimalRewardText,
+                                                            fontData: FontType.paragraphS,
+                                                            textColor: .fgPrimary,
+                                                            alignment: .center)
         
         let minimalRewardTextItem = SoraTextItem(text: minimalRewardAttributedText)
         
@@ -271,9 +265,6 @@ extension ConfirmSwapViewModel {
     }
     
     func submit() {
-        timer?.invalidate()
-        timer = nil
-        
         let networkFeeDescription = FeeDescription(identifier: WalletAssetId.xor.rawValue,
                                                    assetId: WalletAssetId.xor.rawValue,
                                                    type: "fee",
@@ -341,18 +332,6 @@ extension ConfirmSwapViewModel {
         eventCenter.notify(with: NewTransactionCreatedEvent(item: swapTransaction))
         wireframe?.showActivityDetails(on: view?.controller, model: swapTransaction, assetManager: assetManager) { [weak self] in
             self?.view?.dissmiss(competion: {})
-        }
-    }
-    
-    func subscribeToPoolUpdates() {
-        guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else { return }
-
-        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
-            self?.loadQuote()
-        }
-        
-        if let timer {
-            RunLoop.current.add(timer, forMode: .common)
         }
     }
     

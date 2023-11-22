@@ -65,5 +65,26 @@ protocol AccountImportInteractorOutputProtocol: AnyObject {
 }
 
 protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, WebPresentable {
-    func proceed(from view: AccountImportViewProtocol?)
+    func proceed(from view: AccountImportViewProtocol?,
+                 sourceType: AccountImportSource?,
+                 cryptoType: CryptoType?,
+                 networkType: Chain?,
+                 sourceViewModel: InputViewModelProtocol?,
+                 usernameViewModel: InputViewModelProtocol?,
+                 passwordViewModel: InputViewModelProtocol?,
+                 derivationPathViewModel: InputViewModelProtocol?)
+}
+
+extension AccountImportInteractorInputProtocol {
+    func importAccountWithMnemonic(request: AccountImportMnemonicRequest) {
+        importAccountWithMnemonic(request: request)
+    }
+    
+    func importAccountWithSeed(request: AccountImportSeedRequest) {
+        importAccountWithSeed(request: request)
+    }
+    
+    func importAccountWithKeystore(request: AccountImportKeystoreRequest) {
+        importAccountWithKeystore(request: request)
+    }
 }

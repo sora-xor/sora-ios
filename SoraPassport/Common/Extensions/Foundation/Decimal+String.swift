@@ -29,6 +29,8 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import SoraFoundation
+import SoraUIKit
 
 extension Decimal {
     var stringWithPointSeparator: String {
@@ -75,5 +77,45 @@ extension Decimal {
         default:
             return "\(sign)\(self)"
         }
+    }
+    
+    func assetDetailPriceText() -> String {        
+        let formatter = self > 0.01 ? NumberFormatter.fiat : NumberFormatter.cryptoAssets
+        
+        return "$" + (formatter.stringFromDecimal(self) ?? "")
+    }
+    
+    func priceText() -> String {
+        guard !self.isZero else { return "$0" }
+        
+        guard let priceValueText = NumberFormatter.fiat.stringFromDecimal(self) else { return "" }
+
+        if priceValueText == "0" {
+            return "<$0.01"
+        }
+        
+        return "$" + priceValueText
+    }
+}
+
+extension Decimal? {
+    func priceText() -> String {
+        guard let self else { return "" }
+        return self.priceText()
+    }
+    
+    func priceDeltaAttributedText() -> SoramitsuAttributedText? {
+        guard let self, let percentText = NumberFormatter.percent.stringFromDecimal(self * 100) else { return nil }
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        
+        let deltaText = "\(percentText)%"
+        let deltaTextReversed = "%\(percentText)"
+        
+        let text = isRTL ? deltaTextReversed : deltaText
+        let alignment: NSTextAlignment = isRTL ? .left : .right
+        let deltaColor: SoramitsuColor = self > 0 ? .statusSuccess : .statusError
+        let attributes = SoramitsuTextAttributes(fontData: FontType.textBoldXS, textColor: deltaColor, alignment: alignment)
+        
+        return SoramitsuTextItem(text: text, attributes: attributes)
     }
 }

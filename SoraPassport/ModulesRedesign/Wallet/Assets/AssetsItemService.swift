@@ -35,12 +35,12 @@ import CommonWallet
 
 final class AssetsItemService {
     let assetProvider: AssetProviderProtocol
-    let assetInfos: [AssetInfo]
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let assetViewModelsFactory: AssetViewModelFactory
     let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
     var poolItemInfo: PriceInfo?
+    var assetManager: AssetManagerProtocol
     var updateHandler: (() -> Void)?
     
     @Published var assetViewModels: [AssetViewModel] = [ AssetViewModel(identifier: "1", title: "", subtitle: "", fiatText: ""),
@@ -55,19 +55,19 @@ final class AssetsItemService {
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
         assetViewModelsFactory: AssetViewModelFactory,
-        assetInfos: [AssetInfo],
+        assetManager: AssetManagerProtocol,
         assetProvider: AssetProviderProtocol
     ) {
         self.assetProvider = assetProvider
         self.marketCapService = marketCapService
         self.fiatService = fiatService
         self.assetViewModelsFactory = assetViewModelsFactory
-        self.assetInfos = assetInfos
+        self.assetManager = assetManager
     }
     
     func setup() {
-        let assetIds = assetInfos.filter { $0.visible }.map { $0.assetId } 
-        if poolItemInfo == nil {
+        let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId }
+        if poolItemInfo == nil || assetIds.count != assetViewModels.count {
             let items = assetProvider.getBalances(with: assetIds)
 
             assetViewModels = items.compactMap { item in
@@ -80,7 +80,7 @@ final class AssetsItemService {
             let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
             self.poolItemInfo = poolItemInfo
             
-            let assetIds = assetInfos.filter { $0.visible }.map { $0.assetId } 
+            let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId } 
             let items = assetProvider.getBalances(with: assetIds)
             
             let fiatDecimal = items.reduce(Decimal(0), { partialResult, balanceData in

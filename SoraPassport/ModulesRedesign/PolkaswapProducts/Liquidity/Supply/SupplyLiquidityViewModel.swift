@@ -198,7 +198,13 @@ final class SupplyLiquidityViewModel {
     
     private var isPairEnabled: Bool = true
     private var isPairPresented: Bool = true
-    private var transactionType: TransactionType = .liquidityAdd
+    private var transactionType: TransactionType = .liquidityAdd {
+        didSet {
+            feeProvider.getFee(for: transactionType) { [weak self] fee in
+                self?.fee = fee
+            }
+        }
+    }
     private let operationFactory: WalletNetworkOperationFactoryProtocol
     private weak var assetsProvider: AssetProviderProtocol?
     private var marketCapService: MarketCapServiceProtocol
@@ -214,7 +220,7 @@ final class SupplyLiquidityViewModel {
     private lazy var firstLiquidityProviderWarningViewModel: WarningViewModel? = warningViewModelFactory.firstLiquidityProviderViewModel() {
         didSet {
             guard let firstLiquidityProviderWarningViewModel else { return }
-            view?.updateWarinignView(model: firstLiquidityProviderWarningViewModel)
+            view?.updateFirstLiquidityWarinignView(model: firstLiquidityProviderWarningViewModel)
         }
     }
     
@@ -278,6 +284,16 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
     }
     
     func viewDidLoad() {
+        feeProvider.getFee(for: transactionType) { [weak self] fee in
+            guard let self else { return }
+
+            self.fee = fee
+            
+            if !self.secondAssetId.isEmpty {
+                self.view?.focus(field: .one)
+            }
+        }
+        
         if let firstAssetId = poolInfo?.baseAssetId {
             self.firstAssetId = firstAssetId
         }
@@ -285,17 +301,16 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
         if let secondAssetId = poolInfo?.targetAssetId {
             self.secondAssetId = secondAssetId
         }
-
-        updateBalanceData()
+        
         slippageTolerance = 0.5
-        assetsProvider?.add(observer: self)
-        if !secondAssetId.isEmpty {
-            view?.focus(field: .one)
-        }
+        
+        updateBalanceData()
         
         fiatService?.getFiat { [weak self] fiatData in
             self?.fiatData = fiatData
         }
+
+        assetsProvider?.add(observer: self)
     }
     
     func infoButtonTapped() {
@@ -423,9 +438,10 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
         }
         
-        updateButtonState()
         debouncer.perform { [weak self] in
-            self?.updateDetails()
+            self?.updateDetails { [weak self] in
+                self?.updateButtonState()
+            }
         }
     }
 }
@@ -478,32 +494,47 @@ extension SupplyLiquidityViewModel {
         guard !firstAssetId.isEmpty, !secondAssetId.isEmpty else {
             return
         }
+        
+        let group = DispatchGroup()
 
+        group.enter()
         poolsService?.isPairPresentedInNetwork(baseAssetId: firstAssetId,
                                                targetAssetId: secondAssetId,
                                                accountId: "",
                                                completion: { [weak self] isPresented in
             self?.isPairPresented = isPresented
+            group.leave()
         })
         
+        group.enter()
         poolsService?.isPairEnabled(baseAssetId: firstAssetId,
                                     targetAssetId: secondAssetId,
                                     accountId: "",
                                     completion: { [weak self] isEnabled in
             self?.isPairEnabled = isEnabled
+            group.leave()
         })
+        
+        group.notify(queue: .main) { [weak self] in
+            guard let self else { return }
+            var isNeedWarning = false
+
+            if !self.isPairPresented && !self.isPairEnabled {
+                isNeedWarning = true
+                self.transactionType = .liquidityAddNewPool
+            }
+
+            if self.isPairPresented && !self.isPairEnabled {
+                isNeedWarning = true
+                self.transactionType = .liquidityAddToExistingPoolFirstTime
+            }
+
+            self.firstLiquidityProviderWarningViewModel?.isHidden = !isNeedWarning
+        }
     }
     
-    func updateDetails() {
-        guard self.inputedFirstAmount > 0, self.inputedSecondAmount > 0 else { return }
-
-        if !isPairPresented && !isPairEnabled {
-            transactionType = .liquidityAddNewPool
-        }
-        
-        if isPairPresented && !isPairEnabled {
-            transactionType = .liquidityAddToExistingPoolFirstTime
-        }
+    func updateDetails(completion: (() -> Void)? = nil) {
+        guard inputedFirstAmount > 0, inputedSecondAmount > 0 else { return }
         
         let group = DispatchGroup()
         
@@ -531,9 +562,6 @@ extension SupplyLiquidityViewModel {
                 self.warningViewModel?.isHidden = self.firstAssetBalance.balance.decimalValue - self.inputedFirstAmount - self.fee > self.fee
             }
             
-            let isNeedFirstLiquidityProviderWarning = transactionType == .liquidityAddNewPool || transactionType == .liquidityAddToExistingPoolFirstTime
-            self.firstLiquidityProviderWarningViewModel?.isHidden = !isNeedFirstLiquidityProviderWarning
-            
             let basedAmount = self.focusedField == .one ? self.inputedFirstAmount : self.inputedSecondAmount
             let targetAmount = self.focusedField == .one ? self.inputedSecondAmount : self.inputedFirstAmount
                                     
@@ -548,6 +576,7 @@ extension SupplyLiquidityViewModel {
                                                                                isEnabled: self.isPairEnabled,
                                                                                fee: self.fee,
                                                                                viewModel: self)
+            completion?()
         }
     }
     

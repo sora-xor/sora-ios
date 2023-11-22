@@ -33,12 +33,18 @@ import SoraUIKit
 
 final class PriceItem: NSObject {
 
-    var assetInfo: AssetInfo
-    var assetViewModel: AssetViewModel
+    var icon: String?
+    var tokenName: String
+    var tokenSymbol: String
+    var priceText: String?
+    var deltaPriceText: SoramitsuAttributedText?
 
-    init(assetInfo: AssetInfo, assetViewModel: AssetViewModel) {
-        self.assetInfo = assetInfo
-        self.assetViewModel = assetViewModel
+    init(icon: String?, tokenName: String, tokenSymbol: String, priceText: String? = nil, deltaPriceText: SoramitsuAttributedText? = nil) {
+        self.icon = icon
+        self.tokenName = tokenName
+        self.tokenSymbol = tokenSymbol
+        self.priceText = priceText
+        self.deltaPriceText = deltaPriceText
     }
 }
 
