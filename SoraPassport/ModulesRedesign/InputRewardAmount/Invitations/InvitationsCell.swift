@@ -75,8 +75,6 @@ final class InvitationsCell: SoramitsuTableViewCell {
         }
     }
     
-    private let localizationManager = LocalizationManager.shared
-    
     private lazy var titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline2
