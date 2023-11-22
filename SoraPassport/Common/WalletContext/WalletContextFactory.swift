@@ -167,7 +167,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
         let builder = CommonWalletBuilder.builder(with: accountSettings,
                                                   networkOperationFactory: networkFacade)
 
-        let context = try builder.build()
+        let context = try builder.with(localizationManager: LocalizationManager.shared).build()
 
         subscribeContextToLanguageSwitch(context,
                                          localizationManager: LocalizationManager.shared,
