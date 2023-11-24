@@ -265,7 +265,7 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var faqURL: URL {
-        URL(string: "https://wiki.sora.org/guides/sora-faq")!
+        URL(string: "https://wiki.sora.org/sora-faq.html")!
     }
 
     var shareURL: URL {
