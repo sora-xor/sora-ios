@@ -130,6 +130,12 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
         removeLiquidity.sora.backgroundColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswapContainer : .bgSurfaceVariant
 
         headerView.titleLabel.sora.text = item.title
+        headerView.subtitleLabel.sora.text = item.subtitle
+
+        if let typeImage = item.typeImage.image {
+            headerView.typeImageView.sora.picture = .logo(image: typeImage)
+        }
+
         headerView.titleLabel.sora.loadingPlaceholder.type = item.title.isEmpty ? .shimmer : .none
 
         DispatchQueue.global(qos: .userInitiated).async {
@@ -166,12 +172,7 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
             let view = DetailView()
 
             view.assetImageView.sora.isHidden = detailModel.rewardAssetImage == nil
-            DispatchQueue.global(qos: .userInitiated).async {
-                let icon = RemoteSerializer.shared.image(with: detailModel.rewardAssetImage ?? "")
-                DispatchQueue.main.async {
-                    view.assetImageView.image = icon
-                }
-            }
+            view.assetImageView.image = detailModel.rewardAssetImage
 
             view.titleLabel.sora.text = detailModel.title
             view.titleLabel.sora.loadingPlaceholder.type = detailModel.title.isEmpty ? .shimmer : .none
@@ -185,6 +186,14 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
             view.infoButton.sora.isHidden = detailModel.infoHandler == nil
             view.infoButton.sora.addHandler(for: .touchUpInside) { [weak detailModel] in
                 detailModel?.infoHandler?()
+            }
+            
+            switch detailModel.type {
+            case .casual:
+                view.progressView.isHidden = true
+            case .progress(let float):
+                view.progressView.isHidden = false
+                view.progressView.set(progressPercentage: float)
             }
             
             view.isShimmerHidden = detailModel.infoHandler == nil

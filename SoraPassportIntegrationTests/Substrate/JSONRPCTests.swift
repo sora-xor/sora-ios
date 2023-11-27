@@ -1,6 +1,6 @@
 import XCTest
 @testable import SoraPassport
-import FearlessUtils
+import SSFUtils
 import RobinHood
 import IrohaCrypto
 import BigInt
@@ -457,7 +457,7 @@ class JSONRPCTests: NetworkBaseTests {
 //    }
 //
 //    func testPolkadotExistentialDeposit() throws {
-//        let balanceData = try Data(hexString: "0x00e40b54020000000000000000000000")
+//        let balanceData = try Data(hexStringSSF: "0x00e40b54020000000000000000000000")
 //
 //        let scaleDecoder = try ScaleDecoder(data: balanceData)
 //        let balance = try Balance(scaleDecoder: scaleDecoder)

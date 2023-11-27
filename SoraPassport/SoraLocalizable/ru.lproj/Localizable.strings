@@ -42,7 +42,6 @@
 "project.favourites.small" = "Избранные";
 "project.completed.small" = "Завершено";
 "empty.voted.project.description" = "Проекты, за которые вы проголосовали,\nпоявятся здесь";
-"empty.completed.project.description" = "Здесь будут отображаться проекты\nс завершенным голосованием";
 "project.contacts" = "Контакты и информация";
 "project.details.favorite.voted.count" = "%@ %@";
 "project.remove.from.favourite" = "Избранное";
@@ -695,7 +694,7 @@
 "settings.information.subtitle" = "Отказ от ответственности, FAQ, О приложении";
 "common.expand" = "Развернуть";
 "common.collapse" = "Свернуть";
-"liquid.assets" = "Ликвидные активы";
+"liquid.assets" = "Активы";
 "pooled.assets" = "Активы в пулах";
 "common.edit" = "Редактировать";
 "show.zero.balances" = "Показать нулевые балансы";
@@ -801,7 +800,7 @@
 "import.account.message" = "Select source for import";
 "common.wrong.pin" = "Wrong PIN";
 "asset.details.your.pools" = "Your %s pools";
-"asset.details.liquid.balance" = "Liquid balance";
+"asset.details.liquid.balance" = "Ликвидный баланс";
 "sora.card.get.more.xor" = "Get more XOR";
 "sora.card.already.have.card" = "I already have a card";
 "sora.card.you.have.enough.xor" = "У вас достаточно XOR для БЕСПЛАТНОЙ карты";
@@ -911,3 +910,18 @@
 "wallet.backup" = "Сделайте резервную копию";
 "biometry.auth.access" = "Biometric Authentication Access";
 "ask.biometry.access.setting" = "Unfortunately, you denied access to biometric authentication previously. Would you like to access now?";
+"common.google.backup.decryption.failed.2" = "Possibly the password you entered is invalid.";
+"explore.demeter.title" = "Demeter Farming";
+"explore.demeter.subtitle" = "Stake your pool share and earn additional rewards";
+"common.pools" = "Pools";
+"common.farming" = "Farming";
+"polkaswap.farm.title.template" = " %@ Farm";
+"polkaswap.pool.farms.title" = "Stake your pool share for extra rewards";
+"common.fee" = "Fee";
+"pool.details.reward" = "Reward";
+"pool.details.active.farms" = "Active farms";
+"farming.details.title" = "Farming details";
+"pool.details.extra.reward" = "Stake your pool share for extra rewards";
+"common.nothing.available" = "Nothing available";
+"apr.description" = "APR в фарминге обозначает годовую доходность инвестиций за участие в предоставлении ликвидности DeFi или стейкинге.";
+"farm.details.your.rewards" = "Ваши награды";

@@ -34,6 +34,7 @@ import SoraKeystore
 
 enum Constants {
     static let apyTitle = "SB APY"
+    static let aprTitle = "APR"
 }
 
 protocol ApplicationConfigProtocol {

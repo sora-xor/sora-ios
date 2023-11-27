@@ -33,25 +33,47 @@ import SoraUIKit
 import CommonWallet
 import RobinHood
 
+enum PoollProductType {
+    case activePoolWithFarming
+    case inactivePoolWithFarming
+    case activeFarming
+    case incativeFarming
+    
+    var image: UIImage? {
+        switch self {
+        case .activeFarming: R.image.greenLeaf()
+        case .incativeFarming: R.image.grayLeaf()
+        case .activePoolWithFarming: R.image.greenDrop()
+        case .inactivePoolWithFarming: R.image.grayDrop()
+        }
+    }
+}
+
 final class PoolDetailsItem: NSObject {
 
     var title: String
+    let subtitle: String
     let firstAssetImage: String?
     let secondAssetImage: String?
     let rewardAssetImage: String?
     var detailsViewModel: [DetailViewModel] = []
     var isRemoveLiquidityEnabled: Bool
     var isThereLiquidity: Bool
+    let typeImage: PoollProductType
     var handler: ((Liquidity.TransactionLiquidityType) -> Void)?
 
     init(title: String,
+         subtitle: String,
          firstAssetImage: String?,
          secondAssetImage: String?,
          rewardAssetImage: String?,
          detailsViewModel: [DetailViewModel],
          isRemoveLiquidityEnabled: Bool,
+         typeImage: PoollProductType,
          isThereLiquidity: Bool) {
         self.title = title
+        self.subtitle = subtitle
+        self.typeImage = typeImage
         self.firstAssetImage = firstAssetImage
         self.secondAssetImage = secondAssetImage
         self.rewardAssetImage = rewardAssetImage

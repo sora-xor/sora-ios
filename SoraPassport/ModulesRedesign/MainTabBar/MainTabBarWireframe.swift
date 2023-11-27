@@ -120,10 +120,20 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         guard
             let selectedAccount = SelectedWalletSettings.shared.currentAccount,
             let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager),
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-            let walletContext = try? WalletContextFactory().createContext(connection: connection,
-                                                                          assetManager: assetManager,
-                                                                          accountSettings: accountSettings) else {
+            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+                return
+            }
+        
+        let farmingService = DemeterFarmingService(
+            operationFactory: DemeterFarmingOperationFactory(engine: connection),
+            fiatService: FiatService.shared,
+            assetManager: assetManager
+        )
+        
+        guard let walletContext = try? WalletContextFactory().createContext(connection: connection,
+                                                                            assetManager: assetManager,
+                                                                            accountSettings: accountSettings,
+                                                                            demeterFarmingService: farmingService) else {
             return
         }
 
@@ -152,6 +162,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                        networkFacade: walletContext.networkOperationFactory,
                                        polkaswapNetworkFacade: polkaswapContext,
                                        config: ApplicationConfig.shared)
+        farmingService.poolsService = poolsService
         
         let factory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
@@ -174,6 +185,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                                                                           assetsViewModelService: assetsViewModelService,
                                                                                           editViewService: editViewService, 
                                                                                           accountSettings: accountSettings,
+                                                                                          farmingService: farmingService,
                                                                                           localizationManager: LocalizationManager.shared)
 
         let investController = MainTabBarViewFactory.createInvestController(walletContext: walletContext,
@@ -183,6 +195,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                                                             poolsService: poolsService,
                                                                             accountSettings: accountSettings,
                                                                             assetsProvider: assetsProvider,
+                                                                            farmingService: farmingService,
                                                                             walletAssets: assetInfos)
 
         guard let tabBarController = view as? UITabBarController else {

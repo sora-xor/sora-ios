@@ -153,7 +153,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
             let account = OpenBackupAccount(name: self.currentAccount.username,
                                             address: self.currentAccount.address,
                                             passphrase: metadata?.mnemonic.joined(separator: " ") ?? "",
-                                            cryptoType: metadata?.defaultCryptoType.googleIdentifier ?? "SR25519",
+                                            cryptoType: metadata?.defaultCryptoType.typeString ?? "SR25519",
                                             substrateDerivationPath: "")
             completion?(account)
         }

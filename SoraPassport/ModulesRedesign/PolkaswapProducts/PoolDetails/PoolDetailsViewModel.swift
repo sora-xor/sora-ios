@@ -53,7 +53,10 @@ final class PoolDetailsViewModel {
     var poolsService: PoolsServiceInputProtocol?
     var poolInfo: PoolInfo {
         didSet {
-            updateContent()
+            Task {
+                await updateContent()
+                
+            }
         }
     }
     let assetManager: AssetManagerProtocol
@@ -66,22 +69,16 @@ final class PoolDetailsViewModel {
     private let itemFactory = PoolDetailsItemFactory()
     private let group = DispatchGroup()
     private var marketCapService: MarketCapServiceProtocol
+    private var task: Task<Void, Swift.Error>?
     
-    private var apy: Decimal? {
+    private var detailsContent: (apy: Decimal?, fiatData: [FiatData], farms: [Farm])? {
         didSet {
-            if apy != nil {
+            if detailsContent != nil {
                 reload()
             }
         }
     }
-    private var pools: [StakedPool] = [] {
-        didSet {
-            if !pools.isEmpty {
-                reload()
-            }
-        }
-    }
-    
+
     init(
         wireframe: PoolDetailsWireframeProtocol?,
         poolInfo: PoolInfo,
@@ -111,31 +108,40 @@ final class PoolDetailsViewModel {
         self.poolsService?.subscribePoolsReserves([poolInfo])
     }
     
+    deinit {
+        print("deinited")
+    }
+    
     func dissmissIfNeeded() {
         if isDeletedPool {
             dismiss?()
         }
     }
     
-    func updateContent() {
+    func updateContent() async {
         reload()
-        view?.hideLoading()
-        
-        apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] apy in
-            guard let self = self else { return }
-            self.apy = apy
-        }
-        
-        farmingService.getFarmedPools(baseAssetId: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] pools in
-            guard let self = self else { return }
-            self.pools = pools
+
+        task?.cancel()
+        task = Task {
+            async let apy = apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
+            
+            async let fiatData = fiatService.getFiat()
+            
+            async let farms = (try? farmingService.getAllFarms().filter {
+                $0.baseAsset?.assetId == poolInfo.baseAssetId &&
+                $0.poolAsset?.assetId == poolInfo.targetAssetId
+            }) ?? []
+            
+            detailsContent = await (apy, fiatData, farms)
         }
     }
 }
 
 extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func viewDidLoad() {
-        updateContent()
+        Task {
+            await updateContent()
+        }
     }
     
     func reload() {
@@ -155,25 +161,61 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     private func contentSection() -> PoolDetailsSection {
         var items: [PoolDetailsSectionItem] = []
         
-        let poolDetailsItem = itemFactory.createAccountItem(with: assetManager,
-                                                            poolInfo: poolInfo,
-                                                            apy: apy,
-                                                            detailsFactory: detailsFactory,
-                                                            viewModel: self,
-                                                                                   pools: pools)
+        let poolDetailsItem = itemFactory.createPoolDetailsItem(with: assetManager,
+                                                                poolInfo: poolInfo,
+                                                                apy: detailsContent?.apy ?? .zero,
+                                                                detailsFactory: detailsFactory,
+                                                                viewModel: self,
+                                                                fiatData: detailsContent?.fiatData ?? [], 
+                                                                farms: poolInfo.farms)
         
         items.append(contentsOf: [
             .details(poolDetailsItem),
             .space(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
         ])
         
-        let stakedItems = pools.map { stakedPool in
-            itemFactory.stakedItem(with: assetManager, poolInfo: poolInfo, stakedPool: stakedPool)
-        }
-        
-        stakedItems.enumerated().forEach { (index, item) in
-            let spaceItem: [PoolDetailsSectionItem] = index != stakedItems.count - 1 ? [.space(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))] : []
-            items.append(contentsOf: [.staked(item)] + spaceItem)
+        if !poolInfo.farms.isEmpty {
+            let farmViewModels = itemFactory.farmsItem(
+                with: assetManager,
+                poolInfo: poolInfo,
+                farms: detailsContent?.farms ?? []
+            )
+            let item = FarmListItem(
+                title: R.string.localizable.poolDetailsActiveFarms(preferredLanguages: .currentLocale),
+                farmViewModels: farmViewModels
+            ) { [weak self] id in
+                print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
+                guard let self, let farm = self.detailsContent?.farms.first(where: { $0.id == id }) else { return }
+                print("OLOLO tap 2")
+                self.wireframe?.showFarmDetails(
+                    on: self.view?.controller,
+                    poolsService: self.poolsService,
+                    assetManager: self.assetManager,
+                    poolInfo: self.poolInfo,
+                    farm: farm
+                )
+            }
+            items.append(.staked(item))
+            
+        } else if !(detailsContent?.farms.isEmpty ?? true) {
+            let farmViewModels = itemFactory.farmsItem(with: detailsContent?.farms ?? [])
+            
+            let item = FarmListItem(
+                title: R.string.localizable.poolDetailsExtraReward(preferredLanguages: .currentLocale),
+                farmViewModels: farmViewModels
+            ) { [weak self] id in
+                print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
+                guard let self, let farm = self.detailsContent?.farms.first(where: { $0.id == id }) else { return }
+                print("OLOLO tap 2")
+                self.wireframe?.showFarmDetails(
+                    on: self.view?.controller,
+                    poolsService: self.poolsService,
+                    assetManager: self.assetManager,
+                    poolInfo: self.poolInfo,
+                    farm: farm
+                )
+            }
+            items.append(.staked(item))
         }
         
         return PoolDetailsSection(items: items)
@@ -195,7 +237,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func infoButtonTapped(with type: Liquidity.TransactionLiquidityType) {
         wireframe?.showLiquidity(on: view?.controller,
                                  poolInfo: poolInfo,
-                                 stakedPools: pools,
+                                 farms: poolInfo.farms,
                                  type: type,
                                  assetManager: assetManager,
                                  poolsService: poolsService,
@@ -204,6 +246,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                                  operationFactory: operationFactory,
                                  assetsProvider: assetsProvider,
                                  marketCapService: marketCapService,
+                                 farmingService: farmingService,
                                  completionHandler: dissmissIfNeeded)
     }
 }
@@ -217,5 +260,15 @@ extension PoolDetailsViewModel: PoolsServiceOutput {
         }
         
         poolInfo = pool
+    }
+}
+
+extension String {
+    func components(withMaxLength length: Int) -> [String] {
+        return stride(from: 0, to: self.count, by: length).map {
+            let start = self.index(self.startIndex, offsetBy: $0)
+            let end = self.index(start, offsetBy: length, limitedBy: self.endIndex) ?? self.endIndex
+            return String(self[start..<end])
+        }
     }
 }

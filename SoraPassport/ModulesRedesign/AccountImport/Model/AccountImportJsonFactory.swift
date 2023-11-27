@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 
 protocol AccountImportJsonFactoryProtocol {
     func createInfo(from definition: KeystoreDefinition) throws -> AccountImportPreferredInfo
@@ -43,9 +43,9 @@ final class AccountImportJsonFactory {
         let networkTypeConfirmed: Bool
 
         if let definitionGenesisHashString = definition.meta?.genesisHash,
-           let definitionGenesisHash = try? Data(hexString: definitionGenesisHashString),
+           let definitionGenesisHash = try? Data(hexStringSSF: definitionGenesisHashString),
            let genesisBasedChain = Chain.allCases
-            .first(where: { definitionGenesisHash == (try? Data(hexString: $0.genesisHash())) }) {
+            .first(where: { definitionGenesisHash == (try? Data(hexStringSSF: $0.genesisHash())) }) {
             chain = genesisBasedChain
             networkTypeConfirmed = true
         } else {
@@ -55,7 +55,7 @@ final class AccountImportJsonFactory {
 
         return AccountImportPreferredInfo(username: info.meta?.name,
                                           networkType: chain,
-                                          cryptoType: CryptoType(info.cryptoType),
+                                          cryptoType: CryptoType(type: info.cryptoType.rawValue),
                                           networkTypeConfirmed: networkTypeConfirmed)
     }
 }

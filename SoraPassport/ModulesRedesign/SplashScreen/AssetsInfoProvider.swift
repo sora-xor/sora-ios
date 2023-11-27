@@ -28,7 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import FearlessUtils
+import SSFUtils
 
 struct AssetInfoDto: ScaleCodable {
     let symbol: String
@@ -114,7 +114,7 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
             method: SoraPassport.RPCMethod.getStorageKeysPaged,
             parameters: paramsArray)
     }
-
+//    0x270c102199328d18305885706f3f591a4c72016d74b63ae83d79b02efdb5528e0083a6b3fbc6edae06f115c8953ddd7cbfba0b74579d6ea190f96853073b76f40200090000000000000000000000000000000000000000000000000000000000
     func didLoadAllKeys() -> Bool {
         let didStartLoading = currentGetKeysOperation != nil
         let didNotReceiveKeysInLastResponse = keysOnCurrentPageCount == 0
