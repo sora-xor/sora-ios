@@ -59,7 +59,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                    cloudStorage: cloudStorage)
     }
 
-    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>) {
+    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: (() -> Void)?) {
         let persistentOperation = accountRepository.saveOperation({
             let accountItem = try importOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
@@ -85,6 +85,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                     self?.eventCenter.notify(with: SelectedAccountChanged())
                     
                     self?.presenter?.didCompleteAccountImport()
+                    completion?()
                 case .failure(let error):
                     self?.presenter?.didReceiveAccountImport(error: error)
                 case .none:

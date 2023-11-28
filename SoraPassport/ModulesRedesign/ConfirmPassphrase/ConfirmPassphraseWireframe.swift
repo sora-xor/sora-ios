@@ -34,11 +34,11 @@ import SoraUIKit
 import CommonWallet
 import RobinHood
 
-protocol ConfirmPassphraseyWireframeProtocol: AlertPresentable {
+protocol ConfirmPassphraseWireframeProtocol: AlertPresentable {
     func proceed(on controller: UIViewController?)
 }
 
-final class ConfirmPassphraseyWireframe: ConfirmPassphraseyWireframeProtocol {
+final class ConfirmPassphraseWireframe: ConfirmPassphraseWireframeProtocol {
     var endAddingBlock: (() -> Void)?
     var isNeedSetupName: Bool = true
     
