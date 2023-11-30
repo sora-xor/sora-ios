@@ -88,6 +88,9 @@ final class PolkaswapViewController: SoramitsuViewController {
         scrollView.sora.keyboardDismissMode = .onDrag
         scrollView.sora.showsVerticalScrollIndicator = false
         scrollView.delegate = self
+        if #available(iOS 13.0, *) {
+            scrollView.isScrollEnabled = false
+        }
         return scrollView
     }()
     
