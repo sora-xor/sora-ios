@@ -58,7 +58,7 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                    cloudStorage: cloudStorage)
     }
 
-    private func importAccountItem(_ item: AccountItem, completion: (() -> Void)?) {
+    private func importAccountItem(_ item: AccountItem, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
         let checkOperation = accountRepository.fetchOperation(by: item.address,
                                                               options: RepositoryFetchOptions())
 
@@ -90,21 +90,34 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                     self?.settings.save(value: accountItem)
                     self?.eventCenter.notify(with: SelectedAccountChanged())
                     self?.presenter?.didCompleteAccountImport()
-                    completion?()
                 case .failure(let error):
                     self?.presenter?.didReceiveAccountImport(error: error)
                 case .none:
                     let error = BaseOperationError.parentOperationCancelled
                     self?.presenter?.didReceiveAccountImport(error: error)
                 }
+                
+                completion?(connectionOperation.result)
             }
         }
 
         operationManager.enqueue(operations: [checkOperation, persistentOperation, connectionOperation],
                                  in: .sync)
     }
+    
+    private func validateAccountItem(_ item: AccountItem, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
+        let checkOperation = accountRepository.fetchOperation(by: item.address,
+                                                              options: RepositoryFetchOptions())
+        checkOperation.completionBlock = {
+            DispatchQueue.main.async {
+                completion?(checkOperation.result)
+            }
+        }
+        
+        operationManager.enqueue(operations: [checkOperation], in: .sync)
+    }
 
-    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: (() -> Void)?) {
+    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
         importOperation.completionBlock = { [weak self] in
             DispatchQueue.main.async {
                 switch importOperation.result {
@@ -121,4 +134,21 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
 
         operationManager.enqueue(operations: [importOperation], in: .sync)
     }
+    
+    override func validateAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem?, Error>?) -> Void)?) {
+        importOperation.completionBlock = { [weak self] in
+            switch importOperation.result {
+            case .success(let accountItem):
+                self?.validateAccountItem(accountItem, completion: completion)
+            case .failure(let error):
+                self?.presenter?.didReceiveAccountImport(error: error)
+            case .none:
+                let error = BaseOperationError.parentOperationCancelled
+                self?.presenter?.didReceiveAccountImport(error: error)
+            }
+        }
+        
+        operationManager.enqueue(operations: [importOperation], in: .sync)
+    }
 }
+

@@ -30,6 +30,7 @@
 
 import Foundation
 import SoraFoundation
+import RobinHood
 
 enum AccountImportContext: String {
     case sourceType
@@ -328,6 +329,51 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
     func setup() {
         interactor.setup()
     }
+    
+    func validateAccount(completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
+        guard 
+            let sourceType = selectedSourceType,
+            let cryptoType = selectedCryptoType,
+            let networkType = selectedNetworkType,
+            let sourceViewModel = sourceViewModel,
+            let usernameViewModel = usernameViewModel else {
+            return
+        }
+              
+        switch sourceType {
+        case .mnemonic:
+            let mnemonic = sourceViewModel.inputHandler.value
+            let username = usernameViewModel.inputHandler.value
+            let derivationPath = derivationPathViewModel?.inputHandler.value ?? ""
+            let request = AccountImportMnemonicRequest(mnemonic: mnemonic,
+                                                       username: username,
+                                                       networkType: networkType,
+                                                       derivationPath: derivationPath,
+                                                       cryptoType: cryptoType)
+            interactor.validateAccountWithMnemonic(request: request, completion: completion)
+        case .seed:
+            let seed = sourceViewModel.inputHandler.value
+            let username = usernameViewModel.inputHandler.value
+            let derivationPath = derivationPathViewModel?.inputHandler.value ?? ""
+            let request = AccountImportSeedRequest(seed: seed,
+                                                   username: username,
+                                                   networkType: networkType,
+                                                   derivationPath: derivationPath,
+                                                   cryptoType: cryptoType)
+            interactor.validateAccountWithSeed(request: request, completion: completion)
+        case .keystore:
+            let keystore = sourceViewModel.inputHandler.value
+            let password = passwordViewModel?.inputHandler.value ?? ""
+            let username = usernameViewModel.inputHandler.value
+            let request = AccountImportKeystoreRequest(keystore: keystore,
+                                                       password: password,
+                                                       username: username,
+                                                       networkType: networkType,
+                                                       cryptoType: cryptoType)
+
+            interactor.validateAccountWithKeystore(request: request, completion: completion)
+        }
+    }
 
     func proceed() {
         guard
@@ -350,7 +396,7 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
         guard let selectedNetworkType = selectedNetworkType else {
             return
         }
-
+        
         if
             let derivationPathViewModel = derivationPathViewModel,
             !derivationPathViewModel.inputHandler.completed {
@@ -358,14 +404,24 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
             return
         }
         
-        wireframe.proceed(from: view,
-                          sourceType: selectedSourceType,
-                          cryptoType: selectedCryptoType,
-                          networkType: selectedNetworkType,
-                          sourceViewModel: sourceViewModel,
-                          usernameViewModel: usernameViewModel,
-                          passwordViewModel: passwordViewModel,
-                          derivationPathViewModel: derivationPathViewModel)
+        validateAccount { [weak self] result in
+            switch result {
+            case .success:
+                self?.wireframe.proceed(from: self?.view,
+                                        sourceType: selectedSourceType,
+                                        cryptoType: selectedCryptoType,
+                                        networkType: selectedNetworkType,
+                                        sourceViewModel: sourceViewModel,
+                                        usernameViewModel: usernameViewModel,
+                                        passwordViewModel: self?.passwordViewModel,
+                                        derivationPathViewModel: self?.derivationPathViewModel)
+            case .failure(let error):
+                self?.didReceiveAccountImport(error: error)
+            case .none:
+                let error = BaseOperationError.parentOperationCancelled
+                self?.didReceiveAccountImport(error: error)
+            }
+        }
     }
 
     func activateURL(_ url: URL) {

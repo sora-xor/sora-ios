@@ -102,7 +102,9 @@ class BaseAccountImportInteractor {
         presenter.didReceiveAccountImport(metadata: metadata)
     }
 
-    func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: (() -> Void)?) {}
+    func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {}
+    
+    func validateAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {}
     
     private func importAccount(_ account: OpenBackupAccount, password: String) {
         let backupAccountTypes = account.backupAccountType ?? []
@@ -113,7 +115,7 @@ class BaseAccountImportInteractor {
                                                        networkType: .sora,
                                                        derivationPath: account.substrateDerivationPath ?? "",
                                                        cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
-            importAccountWithMnemonic(request: request)
+            importAccountWithMnemonic(request: request, completion: nil)
             return
         }
         
@@ -124,7 +126,7 @@ class BaseAccountImportInteractor {
                                                    networkType: .sora,
                                                    derivationPath: account.substrateDerivationPath ?? "",
                                                    cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
-            importAccountWithSeed(request: request)
+            importAccountWithSeed(request: request, completion: nil)
             return
         }
         
@@ -134,20 +136,20 @@ class BaseAccountImportInteractor {
                                                        username: account.name ?? "",
                                                        networkType: .sora,
                                                        cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
-            importAccountWithKeystore(request: request)
+            importAccountWithKeystore(request: request, completion: nil)
         }
         
         presenter.didReceiveAccountImport(error: ImportAccountError.unexpectedError)
     }
 }
 
-extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
+extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {    
     func setup() {
         provideMetadata()
         setupKeystoreImportObserver()
     }
 
-    func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: (() -> Void)?) {
+    func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
         guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
             presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
             return
@@ -164,14 +166,41 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
         importAccountUsingOperation(accountOperation, completion: completion)
     }
 
-    func importAccountWithSeed(request: AccountImportSeedRequest, completion: (() -> Void)?) {
+    func importAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
         let operation = accountOperationFactory.newAccountOperation(request: request)
         importAccountUsingOperation(operation, completion: completion)
     }
 
-    func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: (() -> Void)?) {
+    func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?){
         let operation = accountOperationFactory.newAccountOperation(request: request)
         importAccountUsingOperation(operation, completion: completion)
+    }
+    
+    func validateAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
+        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
+            presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
+            return
+        }
+        
+        let creationRequest = AccountCreationRequest(username: request.username,
+                                                     type: request.networkType,
+                                                     derivationPath: request.derivationPath,
+                                                     cryptoType: request.cryptoType)
+        
+        let operation = accountOperationFactory.newAccountOperation(request: creationRequest,
+                                                                    mnemonic: mnemonic)
+        
+        validateAccountUsingOperation(operation, completion: completion)
+    }
+    
+    func validateAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
+        let operation = accountOperationFactory.newAccountOperation(request: request)
+        validateAccountUsingOperation(operation, completion: completion)
+    }
+    
+    func validateAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
+        let operation = accountOperationFactory.newAccountOperation(request: request)
+        validateAccountUsingOperation(operation, completion: completion)
     }
 
     func deriveMetadataFromKeystore(_ keystore: String) {

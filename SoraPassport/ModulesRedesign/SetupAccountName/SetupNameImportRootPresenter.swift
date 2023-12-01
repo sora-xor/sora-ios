@@ -89,7 +89,7 @@ extension SetupNameImportRootPresenter: UsernameSetupPresenterProtocol {
         view?.set(viewModel: viewModel)
     }
     
-    func importAccount(with completion: (() -> Void)?) {
+    func importAccount(completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
         switch sourceType {
         case .mnemonic:
             let mnemonic = sourceViewModel.inputHandler.value
@@ -141,7 +141,11 @@ extension SetupNameImportRootPresenter: UsernameSetupPresenterProtocol {
         }
         
        
-        importAccount(with: endingBlock)
+        importAccount { result in
+            if case .success = result {
+                endingBlock?()
+            }
+        }
     }
     
     func endEditing() {}

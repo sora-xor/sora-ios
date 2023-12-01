@@ -59,7 +59,7 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                    cloudStorage: cloudStorage)
     }
 
-    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: (() -> Void)?) {
+    override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
         let persistentOperation = accountRepository.saveOperation({
             let accountItem = try importOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
@@ -83,19 +83,44 @@ final class AccountImportInteractor: BaseAccountImportInteractor {
                 case .success(let accountItem):
                     self?.settings.save(value: accountItem)
                     self?.eventCenter.notify(with: SelectedAccountChanged())
-                    
                     self?.presenter?.didCompleteAccountImport()
-                    completion?()
                 case .failure(let error):
                     self?.presenter?.didReceiveAccountImport(error: error)
                 case .none:
                     let error = BaseOperationError.parentOperationCancelled
                     self?.presenter?.didReceiveAccountImport(error: error)
                 }
+                
+                completion?(connectionOperation.result)
             }
         }
 
         operationManager.enqueue(operations: [importOperation, persistentOperation, connectionOperation],
                                  in: .sync)
+    }
+    
+    override func validateAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem?, Error>?) -> Void)?) {
+        importOperation.completionBlock = { [weak self] in
+            guard let self else { return }
+            switch importOperation.result {
+            case .success(let accountItem):
+                let checkOperation = self.accountRepository.fetchOperation(by: accountItem.address,
+                                                                           options: RepositoryFetchOptions())
+                checkOperation.completionBlock = {
+                    DispatchQueue.main.async {
+                        completion?(checkOperation.result)
+                    }
+                }
+                
+                operationManager.enqueue(operations: [checkOperation], in: .sync)
+            case .failure(let error):
+                presenter.didReceiveAccountImport(error: error)
+            case .none:
+                let error = BaseOperationError.parentOperationCancelled
+                presenter.didReceiveAccountImport(error: error)
+            }
+        }
+        
+        operationManager.enqueue(operations: [importOperation], in: .sync)
     }
 }

@@ -30,6 +30,7 @@
 
 import IrohaCrypto
 import SoraFoundation
+import RobinHood
 
 protocol AccountImportViewProtocol: ControllerBackedProtocol {
     func setSource(type: AccountImportSource)
@@ -50,11 +51,17 @@ protocol AccountImportPresenterProtocol: AnyObject {
 
 protocol AccountImportInteractorInputProtocol: AnyObject {
     func setup()
-    func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: (() -> Void)?)
-    func importAccountWithSeed(request: AccountImportSeedRequest, completion: (() -> Void)?)
-    func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: (() -> Void)?)
-    func importBackedupAccount(request: AccountImportBackedupRequest)
+    
+    func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?)
+    func importAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?)
+    func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?)
+    
+    func validateAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?)
+    func validateAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?)
+    func validateAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?)
+    
     func deriveMetadataFromKeystore(_ keystore: String)
+    func importBackedupAccount(request: AccountImportBackedupRequest)
 }
 
 protocol AccountImportInteractorOutputProtocol: AnyObject {
@@ -76,15 +83,15 @@ protocol AccountImportWireframeProtocol: AlertPresentable, ErrorPresentable, Web
 }
 
 extension AccountImportInteractorInputProtocol {
-    func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: (() -> Void)? = nil) {
+    func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)? = nil) {
         importAccountWithMnemonic(request: request, completion: completion)
     }
     
-    func importAccountWithSeed(request: AccountImportSeedRequest, completion: (() -> Void)? = nil) {
+    func importAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)? = nil) {
         importAccountWithSeed(request: request, completion: completion)
     }
     
-    func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: (() -> Void)? = nil) {
+    func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)? = nil) {
         importAccountWithKeystore(request: request, completion: completion)
     }
 }
