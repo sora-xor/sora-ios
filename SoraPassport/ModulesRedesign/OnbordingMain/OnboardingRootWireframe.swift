@@ -29,34 +29,37 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import IrohaCrypto
-import SoraFoundation
-import SoraUI
+import SSFCloudStorage
 
-final class AccountImportWireframe: AccountImportWireframeProtocol {
+final class OnboardingRootWireframe: OnboardingMainWireframeProtocol {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()
-    
-    let localizationManager: LocalizationManagerProtocol
+    var activityIndicatorWindow: UIWindow?
 
-    init(localizationManager: LocalizationManagerProtocol) {
-        self.localizationManager = localizationManager
+    func showSignup(from view: OnboardingMainViewProtocol?, isGoogleBackupSelected: Bool) {
+        guard
+            let setupAccountNameController = SetupAccountNameViewFactory.createViewForOnboarding()?.controller,
+            let navigationController = view?.controller.navigationController
+        else {
+            return
+        }
+        
+        navigationController.pushViewController(setupAccountNameController, animated: true)
     }
     
-    func proceed(from view: AccountImportViewProtocol?, 
-                 sourceType: AccountImportSource,
-                 cryptoType: CryptoType,
-                 networkType: Chain,
-                 sourceViewModel: InputViewModelProtocol,
-                 usernameViewModel: InputViewModelProtocol,
-                 passwordViewModel: InputViewModelProtocol?,
-                 derivationPathViewModel: InputViewModelProtocol?) {
-        guard let setupNameView = SetupAccountNameViewFactory.createViewForAccountImport(sourceType: sourceType,
-                                                                                         cryptoType: cryptoType,
-                                                                                         networkType: networkType,
-                                                                                         sourceViewModel: sourceViewModel,
-                                                                                         usernameViewModel: usernameViewModel,
-                                                                                         passwordViewModel: passwordViewModel,
-                                                                                         derivationPathViewModel: derivationPathViewModel)?.controller else { return }
-        view?.controller.navigationController?.pushViewController(setupNameView, animated: true)
+    func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource) {
+        guard
+            let restorationController = AccountImportViewFactory.createViewForOnboardingRedesign(sourceType: sourceType)?.controller,
+            let navigationController = view?.controller.navigationController
+        else {
+            return
+        }
+        
+        navigationController.pushViewController(restorationController, animated: true)
+    }
+    
+    func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) {
+        guard let viewController = BackupedAccountsViewFactory.createView(with: accounts)?.controller else { return }
+        view?.controller.navigationController?.pushViewController(viewController, animated: true)
     }
 }
+

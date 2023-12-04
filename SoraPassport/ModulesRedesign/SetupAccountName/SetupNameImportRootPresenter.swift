@@ -33,12 +33,11 @@ import SoraFoundation
 import SoraKeystore
 import RobinHood
 
-final class SetupNameImportAccountPresenter {
+final class SetupNameImportRootPresenter {
     weak var view: UsernameSetupViewProtocol?
     var wireframe: UsernameSetupWireframeProtocol!
     var interactor: AccountImportInteractorInputProtocol!
     var viewModel: InputViewModel!
-    var completion: (() -> Void)?
     let settingsManager = SelectedWalletSettings.shared
     var mode: UsernameSetupMode = .onboarding
     var userName: String?
@@ -78,7 +77,7 @@ final class SetupNameImportAccountPresenter {
     }
 }
 
-extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
+extension SetupNameImportRootPresenter: UsernameSetupPresenterProtocol {
     func setup() {
         let value = mode == .creating ? "" : userName ?? ""
         
@@ -90,7 +89,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
         view?.set(viewModel: viewModel)
     }
     
-    func importAccount(completion: ((Result<AccountItem, Swift.Error>?) -> Void)?){
+    func importAccount(completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
         switch sourceType {
         case .mnemonic:
             let mnemonic = sourceViewModel.inputHandler.value
@@ -127,7 +126,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
     }
 
     func proceed() {
-       let endingBlock: (() -> Void)? = { [weak self] in
+        let endingBlock: (() -> Void)? = { [weak self] in
             guard let self = self else { return }
             if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
                 self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
@@ -136,14 +135,15 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                     }
                 }
                 
-                self.view?.controller.dismiss(animated: true, completion: completion)
+               self.wireframe.showPinCode(from: view)
                 return
             }
         }
+        
        
         importAccount { result in
             if case .success = result {
-               endingBlock?()
+                endingBlock?()
             }
         }
     }
@@ -159,6 +159,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
     }
 }
     
-extension SetupNameImportAccountPresenter: Localizable {
+extension SetupNameImportRootPresenter: Localizable {
     func applyLocalization() {}
 }
+
