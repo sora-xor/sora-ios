@@ -110,7 +110,6 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     }
     
     func setupSlideScrollView(slides : [ExplorePageView]) {
-        scrollView.contentSize = CGSize(width: view.frame.width * CGFloat(slides.count), height: scrollView.frame.size.height)
         scrollView.isPagingEnabled = true
         
         let stackView = UIStackView()
@@ -128,8 +127,8 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
             slides[i].viewModel = viewModels[i]
             
             stackView.addArrangedSubview(slides[i])
-            slides[i].heightAnchor.constraint(equalTo: self.view.heightAnchor).isActive = true
-            slides[i].widthAnchor.constraint(equalTo: self.view.widthAnchor).isActive = true
+            slides[i].heightAnchor.constraint(equalTo: scrollView.heightAnchor).isActive = true
+            slides[i].widthAnchor.constraint(equalTo: scrollView.widthAnchor).isActive = true
         }
     }
 }
