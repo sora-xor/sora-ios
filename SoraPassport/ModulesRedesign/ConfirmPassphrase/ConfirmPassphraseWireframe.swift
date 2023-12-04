@@ -34,11 +34,11 @@ import SoraUIKit
 import CommonWallet
 import RobinHood
 
-protocol ConfirmPassphraseyWireframeProtocol: AlertPresentable {
+protocol ConfirmPassphraseWireframeProtocol: AlertPresentable {
     func proceed(on controller: UIViewController?)
 }
 
-final class ConfirmPassphraseyWireframe: ConfirmPassphraseyWireframeProtocol {
+final class ConfirmPassphraseWireframe: ConfirmPassphraseWireframeProtocol {
     var endAddingBlock: (() -> Void)?
     var isNeedSetupName: Bool = true
     
@@ -46,7 +46,7 @@ final class ConfirmPassphraseyWireframe: ConfirmPassphraseyWireframeProtocol {
         if endAddingBlock != nil {
             guard
                 !isNeedSetupName,
-                let setupNameView = SetupAccountNameViewFactory.createViewForImport(endAddingBlock: endAddingBlock)?.controller,
+                let setupNameView = SetupAccountNameViewFactory.createViewForCreationImport(endAddingBlock: endAddingBlock)?.controller,
                 let navigationController = controller?.navigationController?.topModalViewController.children.first as? UINavigationController
             else {
                 controller?.navigationController?.dismiss(animated: true, completion: endAddingBlock)
