@@ -45,15 +45,10 @@ final class PoolDetailsViewController: SoramitsuViewController {
         tableView.estimatedRowHeight = UITableView.automaticDimension
         tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 30, right: 0)
         tableView.register(PoolDetailsCell.self, forCellReuseIdentifier: "PoolDetailsCell")
-        tableView.register(StakedCell.self, forCellReuseIdentifier: "StakedCell")
+        tableView.register(FarmListCell.self, forCellReuseIdentifier: "FarmListCell")
         tableView.register(SoramitsuCell<SoramitsuTableViewSpaceView>.self, forCellReuseIdentifier: "SoramitsuSpaceCell")
+        tableView.sora.cancelsTouchesOnDragging = true
         return tableView
-    }()
-    
-    private lazy var activityIndicator: UIActivityIndicatorView = {
-        let indicator = UIActivityIndicatorView(style: .large)
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-        return indicator
     }()
 
     var viewModel: PoolDetailsViewModelProtocol? {
@@ -78,9 +73,9 @@ final class PoolDetailsViewController: SoramitsuViewController {
                 cell?.set(item: item, context: nil)
                 return cell ?? UITableViewCell()
             case .staked(let item):
-                let cell: StakedCell? = tableView.dequeueReusableCell(withIdentifier: "StakedCell",
-                                                                      for: indexPath) as? StakedCell
-                cell?.set(item: item, context: nil)
+                let cell: FarmListCell? = tableView.dequeueReusableCell(withIdentifier: "FarmListCell",
+                                                                      for: indexPath) as? FarmListCell
+                cell?.set(item: item)
                 return cell ?? UITableViewCell()
             }
         }
@@ -101,7 +96,6 @@ final class PoolDetailsViewController: SoramitsuViewController {
 
         setupView()
         setupConstraints()
-        showLoading()
         
         navigationItem.title = R.string.localizable.poolDetails(preferredLanguages: .currentLocale)
         
@@ -123,7 +117,6 @@ final class PoolDetailsViewController: SoramitsuViewController {
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
-        view.addSubview(activityIndicator)
     }
 
     private func setupConstraints() {
@@ -132,9 +125,6 @@ final class PoolDetailsViewController: SoramitsuViewController {
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
-            activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
     }
     
@@ -148,22 +138,7 @@ final class PoolDetailsViewController: SoramitsuViewController {
     }
 }
 
-extension PoolDetailsViewController: PoolDetailsViewProtocol {
-    
-    func showLoading() {
-        DispatchQueue.main.async { [weak self] in
-            self?.activityIndicator.isHidden = false
-            self?.activityIndicator.startAnimating()
-        }
-    }
-
-    func hideLoading() {
-        DispatchQueue.main.async { [weak self] in
-            self?.activityIndicator.isHidden = true
-            self?.activityIndicator.stopAnimating()
-        }
-    }
-}
+extension PoolDetailsViewController: PoolDetailsViewProtocol {}
 
 extension PoolDetailsViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {

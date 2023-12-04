@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraKeystore
-import FearlessUtils
+import SSFUtils
 import IrohaCrypto
 import TweetNacl
 
@@ -75,7 +75,7 @@ final class KeystoreExportWrapper: KeystoreExportWrapperProtocol {
             .with(name: account.username)
 
         let genesisHash = SNAddressType(addressType.uint8Value).chain.genesisHash()
-        if let genesisHashData = try? Data(hexString: genesisHash) {
+        if let genesisHashData = try? Data(hexStringSSF: genesisHash) {
             builder = builder.with(genesisHash: genesisHashData.toHex(includePrefix: true))
         }
 

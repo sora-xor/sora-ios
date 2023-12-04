@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 
 protocol ConnectionPoolProtocol {
     func setupConnection(for chain: ChainModel) throws -> ChainConnection
@@ -126,7 +126,7 @@ extension ConnectionPool: WebSocketEngineDelegate {
         case .connected:
             delegate?.connectionUpdated(url: previousUrl)
 
-        case .notConnected:
+        case .notConnected, .notReachable:
             break
         case .waitingReconnection(attempt: let attempt):
             break

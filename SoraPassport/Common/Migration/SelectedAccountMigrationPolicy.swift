@@ -30,7 +30,7 @@
 
 import Foundation
 import CoreData
-import FearlessUtils
+import SSFUtils
 import SoraKeystore
 import IrohaCrypto
 

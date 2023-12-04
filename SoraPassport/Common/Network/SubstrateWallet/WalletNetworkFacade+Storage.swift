@@ -31,7 +31,7 @@
 import Foundation
 import CommonWallet
 import RobinHood
-import FearlessUtils
+import SSFUtils
 import IrohaCrypto
 import BigInt
 import SoraKeystore

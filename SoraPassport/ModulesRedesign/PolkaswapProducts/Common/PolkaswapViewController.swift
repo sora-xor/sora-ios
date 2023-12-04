@@ -87,7 +87,7 @@ final class PolkaswapViewController: SoramitsuViewController {
         let scrollView = SoramitsuScrollView()
         scrollView.sora.keyboardDismissMode = .onDrag
         scrollView.sora.showsVerticalScrollIndicator = false
-        scrollView.delegate = self
+//        scrollView.delegate = self
         return scrollView
     }()
     
@@ -302,7 +302,10 @@ extension PolkaswapViewController: LiquidityViewProtocol {
             let view = DetailView()
 
             view.assetImageView.isHidden = detailModel.rewardAssetImage == nil
-            view.assetImageView.image = RemoteSerializer.shared.image(with: detailModel.rewardAssetImage ?? "")
+            
+            if let image = detailModel.rewardAssetImage {
+                view.assetImageView.sora.picture = .logo(image: image)
+            }
 
             view.titleLabel.sora.text = detailModel.title
             view.valueLabel.sora.attributedText = detailModel.assetAmountText

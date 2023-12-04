@@ -32,7 +32,7 @@ import Foundation
 import SoraFoundation
 import SoraKeystore
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
 
 final class WebSocketService: WebSocketServiceProtocol {
     //Should be used only once, at startup
@@ -179,7 +179,7 @@ extension WebSocketService: WebSocketEngineDelegate {
         case .connected:
             scheduleNetworkReachable()
 
-        case .notConnected, .waitingReconnection:
+        case .notConnected, .waitingReconnection, .notReachable:
             break
         }
     }

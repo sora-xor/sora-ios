@@ -45,6 +45,7 @@ struct PoolViewModel {
     var mode: WalletViewMode
     var isFavorite: Bool
     var deltaArributedText: SoramitsuTextItem?
+    var farmedRewardAssetsImages: [UIImage]
 
     init(identifier: String,
          title: String,
@@ -55,7 +56,8 @@ struct PoolViewModel {
          rewardAssetImage: UIImage? = nil,
          mode: WalletViewMode = .view,
          isFavorite: Bool = false,
-         deltaArributedText: SoramitsuTextItem? = nil) {
+         deltaArributedText: SoramitsuTextItem? = nil,
+         farmedRewardAssetsImages: [UIImage] = []) {
         self.identifier = identifier
         self.title = title
         self.subtitle = subtitle
@@ -66,5 +68,6 @@ struct PoolViewModel {
         self.mode = mode
         self.isFavorite = isFavorite
         self.deltaArributedText = deltaArributedText
+        self.farmedRewardAssetsImages = farmedRewardAssetsImages
     }
 }
