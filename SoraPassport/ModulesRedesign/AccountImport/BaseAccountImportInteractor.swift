@@ -30,7 +30,7 @@
 
 import UIKit
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
 import RobinHood
 import SoraKeystore
 import SSFCloudStorage
@@ -114,8 +114,8 @@ class BaseAccountImportInteractor {
                                                        username: account.name ?? "",
                                                        networkType: .sora,
                                                        derivationPath: account.substrateDerivationPath ?? "",
-                                                       cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
-            importAccountWithMnemonic(request: request, completion: nil)
+                                                       cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
+            importAccountWithMnemonic(request: request)
             return
         }
         
@@ -125,8 +125,8 @@ class BaseAccountImportInteractor {
                                                    username: account.name ?? "",
                                                    networkType: .sora,
                                                    derivationPath: account.substrateDerivationPath ?? "",
-                                                   cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
-            importAccountWithSeed(request: request, completion: nil)
+                                                   cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
+            importAccountWithSeed(request: request)
             return
         }
         
@@ -135,8 +135,9 @@ class BaseAccountImportInteractor {
                                                        password: password,
                                                        username: account.name ?? "",
                                                        networkType: .sora,
-                                                       cryptoType: CryptoType(googleIdentifier: account.cryptoType ?? "SR25519"))
-            importAccountWithKeystore(request: request, completion: nil)
+                                                       cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
+            importAccountWithKeystore(request: request)
+
         }
         
         presenter.didReceiveAccountImport(error: ImportAccountError.unexpectedError)

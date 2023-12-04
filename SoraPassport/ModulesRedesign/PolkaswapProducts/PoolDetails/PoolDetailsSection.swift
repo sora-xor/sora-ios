@@ -43,7 +43,7 @@ final class PoolDetailsSection {
 enum PoolDetailsSectionItem: Hashable {
     case details(PoolDetailsItem)
     case space(SoramitsuTableViewSpacerItem)
-    case staked(StakedItem)
+    case staked(FarmListItem)
 }
 
 extension PoolDetailsSection: Hashable {

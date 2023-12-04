@@ -32,7 +32,7 @@ import Foundation
 import SoraKeystore
 import RobinHood
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
 
 typealias MigrationResultClosure = (Result<String, Error>) -> Void
 
@@ -207,7 +207,7 @@ class MigrationService: MigrationServiceProtocol {
         let path = StorageCodingPath.events
         let remoteKey = try? storageFactory.createStorageKey(moduleName: path.moduleName, storageName: path.itemName)
         let operationManager = OperationManagerFacade.sharedManager
-        let requestFactory = StorageRequestFactory(remoteFactory: storageFactory, operationManager: operationManager)
+        let requestFactory = StorageRequestFactory(remoteFactory: storageFactory as! StorageKeyFactoryProtocol, operationManager: operationManager)
 
         let block = try? Data(hex: hash)
         let wrapper: CompoundOperationWrapper<[StorageResponse<[EventRecord]>]> =

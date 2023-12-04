@@ -116,6 +116,17 @@ public final class MainScreenPoolView: SoramitsuControl {
         label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
         return label
     }()
+    
+    public let farmedRewardAssetStackView: SoramitsuStackView = {
+        let stackView = SoramitsuStackView()
+        stackView.sora.alignment = .trailing
+        stackView.sora.axis = .horizontal
+        stackView.sora.distribution = .fill
+        stackView.spacing = 8
+        stackView.sora.loadingPlaceholder.type = .shimmer
+        stackView.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
+        return stackView
+    }()
 
     private let localizationManager = LocalizationManager.shared
     
@@ -127,6 +138,20 @@ public final class MainScreenPoolView: SoramitsuControl {
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    public func setupFarmedAssetImages(pictures: [Picture]) {
+        farmedRewardAssetStackView.removeArrangedSubviews()
+        
+        let images = pictures.map { picture in
+            let image = SoramitsuImageView()
+            image.heightAnchor.constraint(equalToConstant: 14).isActive = true
+            image.widthAnchor.constraint(equalToConstant: 14).isActive = true
+            image.sora.picture = picture
+            return image
+        }
+
+        farmedRewardAssetStackView.addArrangedSubviews(images)
     }
 }
 
@@ -144,6 +169,7 @@ private extension MainScreenPoolView {
         addSubview(titleLabel)
         addSubview(subtitleLabel)
         addSubview(amountUpLabel)
+        addSubview(farmedRewardAssetStackView)
 
         NSLayoutConstraint.activate([
             firstCurrencyImageView.leadingAnchor.constraint(equalTo: currenciesView.leadingAnchor),
@@ -186,10 +212,16 @@ private extension MainScreenPoolView {
             amountUpLabel.heightAnchor.constraint(equalToConstant: 20),
             
             subtitleLabel.leadingAnchor.constraint(equalTo: currenciesView.trailingAnchor, constant: 8),
-            subtitleLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            subtitleLabel.trailingAnchor.constraint(equalTo: farmedRewardAssetStackView.leadingAnchor, constant: -8),
             subtitleLabel.bottomAnchor.constraint(equalTo: currenciesView.bottomAnchor),
             subtitleLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            subtitleLabel.heightAnchor.constraint(equalToConstant: 14)
+            subtitleLabel.heightAnchor.constraint(equalToConstant: 14),
+            
+            farmedRewardAssetStackView.topAnchor.constraint(greaterThanOrEqualTo: amountUpLabel.bottomAnchor, constant: 1),
+            farmedRewardAssetStackView.leadingAnchor.constraint(equalTo: subtitleLabel.trailingAnchor, constant: 8),
+            farmedRewardAssetStackView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            farmedRewardAssetStackView.bottomAnchor.constraint(equalTo: currenciesView.bottomAnchor),
+            farmedRewardAssetStackView.heightAnchor.constraint(equalToConstant: 14),
         ])
     }
     

@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 import RobinHood
 import IrohaCrypto
 import BigInt
@@ -156,11 +156,11 @@ final class ExtrinsicService {
                     .with(era: hashAndEra.0, blockHash: hashAndEra.1)
 
             builder = try customClosure(builder).signing(by: signingClosure,
-                                                         of: currentCryptoType.utilsType,
+                                                         of: currentCryptoType,
                                                          using: codingFactory.createEncoder(),
                                                          metadata: codingFactory.metadata)
             let extrinsic = try builder.buildExtrinsic(metadata: codingFactory.metadata)
-            let extrinsicData = try builder.build(encodingBy: codingFactory.createEncoder(), extrinsic: extrinsic)
+            let extrinsicData = try builder.build(encodingBy: codingFactory.createEncoder(), metadata: codingFactory.metadata)
             return ExtrinsicInfo(data: extrinsicData, object: extrinsic)
         }
     }

@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 import RobinHood
 
 protocol NMapKeyParamProtocol {
@@ -150,20 +150,21 @@ class MapKeyEncodingOperation<T: Encodable>: BaseOperation<[Data]> {
             case .plain:
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }
+            
+            let encoder = factory.createEncoder()
+            keyParams.forEach { keyParam in
+                try? encoder.append(keyParam, ofType: keyType)
+            }
+            let encodedParam = try encoder.encode()
 
-            let keys: [Data] = try keyParams.map { keyParam in
-                let encoder = factory.createEncoder()
-                try encoder.append(keyParam, ofType: keyType)
-
-                let encodedParam = try encoder.encode()
-
-                return try storageKeyFactory.createStorageKey(
+            let keys: [Data] = [
+                try storageKeyFactory.createStorageKey(
                     moduleName: path.moduleName,
                     storageName: path.itemName,
                     key: encodedParam,
                     hasher: hasher
                 )
-            }
+            ]
 
             result = .success(keys)
         } catch {
