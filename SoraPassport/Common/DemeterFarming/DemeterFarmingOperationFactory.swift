@@ -145,7 +145,7 @@ final class DemeterFarmingOperationFactory {
         storageOperation.allOperations.forEach { $0.addDependency(runtimeOperation) }
 
         let mapOperation = ClosureOperation<FarmedTokenInfo?> {
-            try storageOperation.targetOperation.extractNoCancellableResultData().first?.value!
+            try storageOperation.targetOperation.extractNoCancellableResultData().first?.value ?? nil
         }
 
         mapOperation.addDependency(storageOperation.targetOperation)
