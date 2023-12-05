@@ -78,7 +78,7 @@ final class PoolDetailsItemFactory {
                                           rewardAssetImage: rewardAsset?.icon,
                                           detailsViewModel: detailsViewModels,
                                           isRemoveLiquidityEnabled: isRemoveLiquidityEnabled, 
-                                          typeImage: farms.isEmpty ? .inactivePoolWithFarming : .activePoolWithFarming,
+                                          typeImage: isThereLiquidity ? .activePoolWithFarming : .inactivePoolWithFarming,
                                           isThereLiquidity: isThereLiquidity)
         detailsItem.handler = { type in
             viewModel.infoButtonTapped(with: type)

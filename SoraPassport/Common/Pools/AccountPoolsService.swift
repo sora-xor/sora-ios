@@ -245,8 +245,7 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
     }
     
     func loadAccountPools(isNeedForceUpdate: Bool) {
-        task?.cancel()
-        task = Task {
+        Task {
             if !currentPools.isEmpty && !isNeedForceUpdate {
                 let sortedPools = currentPools.sorted(by: orderSort)
                 outputs.forEach {

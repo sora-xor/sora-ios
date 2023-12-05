@@ -184,9 +184,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                 title: R.string.localizable.poolDetailsActiveFarms(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
-                print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
                 guard let self, let farm = self.detailsContent?.farms.first(where: { $0.id == id }) else { return }
-                print("OLOLO tap 2")
                 self.wireframe?.showFarmDetails(
                     on: self.view?.controller,
                     poolsService: self.poolsService,
@@ -204,9 +202,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                 title: R.string.localizable.poolDetailsExtraReward(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
-                print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
                 guard let self, let farm = self.detailsContent?.farms.first(where: { $0.id == id }) else { return }
-                print("OLOLO tap 2")
                 self.wireframe?.showFarmDetails(
                     on: self.view?.controller,
                     poolsService: self.poolsService,

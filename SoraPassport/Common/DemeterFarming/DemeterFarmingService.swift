@@ -67,8 +67,7 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     
     func getAllFarms() async throws -> [Farm] {
         return await withCheckedContinuation { continuation in
-            farmsTask?.cancel()
-            farmsTask = Task {
+            Task {
                 if !farms.isEmpty {
                     continuation.resume(returning: farms)
                     return
@@ -317,7 +316,7 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                         rewardAssetId: $0.rewardAsset.value,
                         isFarm: $0.isFarm,
                         pooledTokens: Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero,
-                        rewards: Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero
+                        rewards: Decimal.fromSubstrateAmount($0.rewards, precision: 18) ?? .zero
                     )
                 }
                 continuation.resume(returning: farms)

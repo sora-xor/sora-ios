@@ -244,7 +244,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
 
             let fakeSwapViewController = UIViewController()
             fakeSwapViewController.tabBarItem.isEnabled = false
-            fakeSwapViewController.title = R.string.localizable.polkaswapSwapTitle(preferredLanguages: .currentLocale)
+            fakeSwapViewController.title = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: .currentLocale)
             viewcontrollers.remove(at: 2)
             viewcontrollers.insert(fakeSwapViewController, at: 2)
             tabBarController.viewControllers = viewcontrollers
