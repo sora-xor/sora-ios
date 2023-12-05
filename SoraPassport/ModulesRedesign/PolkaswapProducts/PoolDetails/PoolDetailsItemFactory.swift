@@ -111,7 +111,7 @@ final class PoolDetailsItemFactory {
             
             var aprText = ""
             if let apr = farms.first(where: { $0.rewardAsset?.assetId == userFarm.rewardAssetId })?.apr {
-                aprText = "\(NumberFormatter.percent.stringFromDecimal(apr * 100) ?? "")%"
+                aprText = "\(NumberFormatter.percent.stringFromDecimal(apr * 100) ?? "")% APR"
             }
             
             return FarmViewModel(identifier: id,
@@ -142,7 +142,7 @@ final class PoolDetailsItemFactory {
             
             let subtitle = "$" + farm.tvl.formatNumber()
             
-            let aprText = "\(NumberFormatter.percent.stringFromDecimal(farm.apr * 100) ?? "")%"
+            let aprText = "\(NumberFormatter.percent.stringFromDecimal(farm.apr * 100) ?? "")% APR"
 
             return FarmViewModel(identifier: id,
                                  title: title,
