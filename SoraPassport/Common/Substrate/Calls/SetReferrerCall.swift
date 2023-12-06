@@ -31,7 +31,7 @@
 import SSFUtils
 
 struct SetReferrerCall: Codable {
-    let referrer: MultiAddress
+    let referrer: Data
 
     enum CodingKeys: String, CodingKey {
         case referrer = "referrer"

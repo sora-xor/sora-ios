@@ -209,8 +209,7 @@ extension WalletNetworkFacade {
                     targetAssetReserves: Decimal.fromSubstrateAmount(reserves.fees.value, precision: 18) ?? 0.0,
                     accountPoolBalance: accountPoolBalanceDecimal,
                     farms: farms)
-                
-                print("OLOLO getPoolDetails finished \(Date())")
+
                 continuetion.resume(returning: poolDetails)
             }
             processingOperation.addDependency(poolPropertiesOperation)

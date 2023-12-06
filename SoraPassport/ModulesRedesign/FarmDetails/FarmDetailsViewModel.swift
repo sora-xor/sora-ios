@@ -67,10 +67,7 @@ final class FarmDetailsViewModel {
 
 extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     func viewDidLoad() {
-        if let poolInfo {
-            snapshot = createSnapshot(poolInfo: poolInfo)
-            return
-        }
+        snapshot = createSnapshot(poolInfo: poolInfo)
         
         Task {
             guard let baseAssetId = farm.baseAsset?.assetId, let targetAssetId = farm.poolAsset?.assetId else { return }
