@@ -122,7 +122,7 @@ extension TransactionHistoryItem {
             let receiverAccountId = try Data(hexStringSSF: info.destination)
 
             callPath = CallCodingPath.transfer
-            let callArgs = SoraTransferCall(receiver: MultiAddress.accoundId(receiverAccountId),
+            let callArgs = SoraTransferCall(receiver: receiverAccountId,
                                             amount: info.amount.decimalValue.toSubstrateAmount(precision: 18) ?? 0,
                                             assetId: AssetId(wrappedValue: info.asset))
             let call = RuntimeCall<SoraTransferCall>(
