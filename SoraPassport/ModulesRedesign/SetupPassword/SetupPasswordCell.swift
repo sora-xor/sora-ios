@@ -30,7 +30,7 @@
 
 import SoraUIKit
 import Anchorage
-import FearlessUtils
+import SSFUtils
 import Combine
 
 final class SetupPasswordCell: SoramitsuTableViewCell {

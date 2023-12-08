@@ -61,3 +61,8 @@ protocol OnboardingMainWireframeProtocol: WebPresentable, ErrorPresentable, Aler
     func showKeystoreImport(from view: OnboardingMainViewProtocol?)
     func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount])
 }
+
+extension OnboardingMainWireframeProtocol {
+    func showAccountRestore(from view: OnboardingMainViewProtocol?) {}
+    func showKeystoreImport(from view: OnboardingMainViewProtocol?) {}
+}

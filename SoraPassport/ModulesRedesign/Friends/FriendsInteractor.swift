@@ -31,7 +31,7 @@
 import Foundation
 import RobinHood
 import SoraKeystore
-import FearlessUtils
+import SSFUtils
 import BigInt
 import sorawallet
 import IrohaCrypto
@@ -168,7 +168,7 @@ private extension FriendsInteractor {
         operation.completionBlock = { [weak self] in
             do {
                 if let data = try operation.extractResultData() {
-                    guard let accountId = try? Data(hexString: data) else { return }
+                    guard let accountId = try? Data(hexStringSSF: data) else { return }
                     let networkType = ApplicationConfig.shared.addressType
                     guard let address = try? self?.addressFactory.addressFromAccountId(data: accountId, type: networkType) else {  return }
 
@@ -213,7 +213,7 @@ private extension FriendsInteractor {
 
             let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] update in
                 guard let data = update.params.result.changes?.first?.last ?? "",
-                let decoder = try? ScaleDecoder(data: Data(hexString: data)),
+                let decoder = try? ScaleDecoder(data: Data(hexStringSSF: data)),
                 let balance = try? Balance(scaleDecoder: decoder) else {
                     self?.presenter?.updateReferral(balance: Decimal(0))
                     return
@@ -250,7 +250,7 @@ private extension FriendsInteractor {
             let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] update in
 
                 guard let data = update.params.result.changes?.first?.last ?? "",
-                      let accountId = try? Data(hexString: data) else { return }
+                      let accountId = try? Data(hexStringSSF: data) else { return }
                 
                 let networkType = ApplicationConfig.shared.addressType
                 guard let address = try? self?.addressFactory.addressFromAccountId(data: accountId, type: networkType),

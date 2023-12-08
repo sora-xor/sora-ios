@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraKeystore
-import FearlessUtils
+import SSFUtils
 
 typealias RuntimeServiceProtocol = RuntimeRegistryServiceProtocol & RuntimeCodingServiceProtocol
 

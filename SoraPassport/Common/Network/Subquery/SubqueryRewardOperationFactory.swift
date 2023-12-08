@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 protocol SubqueryRewardOperationFactoryProtocol {
     func createOperation(address: String) -> BaseOperation<SubqueryRewardOrSlashData>

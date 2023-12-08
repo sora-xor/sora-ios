@@ -37,22 +37,7 @@ import UIKit
 typealias PoolDetailsDataSource = UITableViewDiffableDataSource<PoolDetailsSection, PoolDetailsSectionItem>
 typealias PoolDetailsSnapshot = NSDiffableDataSourceSnapshot<PoolDetailsSection, PoolDetailsSectionItem>
 
-protocol PoolDetailsViewProtocol: ControllerBackedProtocol {
-    func showLoading()
-    func hideLoading()
-}
-
-protocol PoolDetailsViewFactoryProtocol: AnyObject {
-    static func createView(poolInfo: PoolInfo,
-                           assetManager: AssetManagerProtocol,
-                           fiatService: FiatServiceProtocol,
-                           poolsService: PoolsServiceInputProtocol,
-                           providerFactory: BalanceProviderFactory,
-                           operationFactory: WalletNetworkOperationFactoryProtocol,
-                           assetsProvider: AssetProviderProtocol?,
-                           marketCapService: MarketCapServiceProtocol,
-                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController?
-}
+protocol PoolDetailsViewProtocol: ControllerBackedProtocol {}
 
 protocol PoolDetailsViewModelProtocol: AnyObject {
     var snapshotPublisher: Published<PoolDetailsSnapshot>.Publisher { get }

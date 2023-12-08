@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 import IrohaCrypto
 import RobinHood
 import SoraKeystore
@@ -117,7 +117,7 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
 
     func newAccountOperation(request: AccountImportSeedRequest) -> BaseOperation<AccountItem> {
         ClosureOperation {
-            let seed = try Data(hexString: request.seed)
+            let seed = try Data(hexStringSSF: request.seed)
 
             let junctionResult: JunctionResult?
 
