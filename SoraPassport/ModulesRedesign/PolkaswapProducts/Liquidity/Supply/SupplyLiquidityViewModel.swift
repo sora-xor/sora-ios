@@ -36,6 +36,9 @@ import SoraFoundation
 import sorawallet
 
 final class SupplyLiquidityViewModel {
+    @Published var snapshot: PolkaswapSnapshot = PolkaswapSnapshot()
+    var snapshotPublisher: Published<PolkaswapSnapshot>.Publisher { $snapshot }
+    
     var detailsItem: PoolDetailsItem?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
@@ -47,6 +50,35 @@ final class SupplyLiquidityViewModel {
     var poolsService: PoolsServiceInputProtocol?
     let assetManager: AssetManagerProtocol?
     let detailsFactory: DetailViewModelFactoryProtocol
+    let itemFactory: PolkaswapItemFactory
+    
+    @Published var firstAsset: AssetProfile = AssetProfile()
+    @Published var secondAsset: AssetProfile = AssetProfile()
+    @Published var slippageToleranceText: String = ""
+    @Published var selectedMarketText: String = ""
+    @Published var reviewButtonTitle: String = ""
+    @Published var isMiddleButtonEnabled: Bool = false
+    @Published var isButtonEnabled: Bool = false
+    @Published var isAccessoryViewHidden: Bool = false
+    @Published var isNeedLoadingState: Bool = false
+    @Published var isMarketLoadingState: Bool = false
+    @Published var warningViewModel: WarningViewModel?
+    @Published var firstLiquidityViewModel: WarningViewModel?
+    @Published var details: [DetailViewModel]?
+
+    var firstAssetPublisher: Published<AssetProfile>.Publisher { $firstAsset }
+    var secondAssetPublisher: Published<AssetProfile>.Publisher { $secondAsset }
+    var slippagePublisher: Published<String>.Publisher { $slippageToleranceText }
+    var marketPublisher: Published<String>.Publisher { $selectedMarketText }
+    var reviewButtonPublisher: Published<String>.Publisher { $reviewButtonTitle }
+    var isMiddleButtonEnabledPublisher: Published<Bool>.Publisher { $isMiddleButtonEnabled }
+    var isButtonEnabledPublisher: Published<Bool>.Publisher { $isButtonEnabled }
+    var isAccessoryViewHiddenPublisher: Published<Bool>.Publisher { $isAccessoryViewHidden }
+    var isNeedLoadingStatePublisher: Published<Bool>.Publisher { $isNeedLoadingState }
+    var isMarketLoadingStatePublisher: Published<Bool>.Publisher { $isMarketLoadingState }
+    var warningViewModelPublisher: Published<WarningViewModel?>.Publisher { $warningViewModel }
+    var firstLiquidityViewModelPublisher: Published<WarningViewModel?>.Publisher { $firstLiquidityViewModel }
+    var detailsPublisher: Published<[DetailViewModel]?>.Publisher { $details }
     
     let debouncer = Debouncer(interval: 0.8)
     
@@ -76,19 +108,12 @@ final class SupplyLiquidityViewModel {
         }
     }
     
-    var details: [DetailViewModel] = [] {
-        didSet {
-            DispatchQueue.main.async {
-                self.view?.update(details: self.details)
-            }
-        }
-    }
-    
     var firstAssetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0)) {
         didSet {
             setupFullBalanceText(from: firstAssetBalance) { [weak self] text in
+                guard let self else { return }
                 DispatchQueue.main.async {
-                    self?.view?.updateFirstAsset(balance: text)
+                    self.update(self.firstAsset, balance: text)
                 }
             }
         }
@@ -97,8 +122,10 @@ final class SupplyLiquidityViewModel {
     var secondAssetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0)) {
         didSet {
             setupFullBalanceText(from: secondAssetBalance) { [weak self] text in
+                guard let self else { return }
                 DispatchQueue.main.async {
-                    self?.view?.updateSecondAsset(balance: text)
+                    self.update(self.secondAsset, balance: text)
+                    
                 }
             }
         }
@@ -109,12 +136,12 @@ final class SupplyLiquidityViewModel {
             Task {
                 guard let asset = assetManager?.assetInfo(for: firstAssetId) else { return }
                 let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
-                view?.updateFirstAsset(symbol: asset.symbol, image: image)
+                update(firstAsset, symbol: asset.symbol, image: image)
                 updateBalanceData()
                 if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
                     poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
                 }
-                view?.setAccessoryView(isHidden: false)
+                setAccessoryView(isHidden: false)
                 recalculate(field: .one)
             }
         }
@@ -125,12 +152,12 @@ final class SupplyLiquidityViewModel {
             Task {
                 guard let asset = assetManager?.assetInfo(for: secondAssetId) else { return }
                 let image = RemoteSerializer.shared.image(with: asset.icon ?? "")
-                view?.updateSecondAsset(symbol: asset.symbol, image: image)
+                update(secondAsset, symbol: asset.symbol, image: image)
                 updateBalanceData()
                 if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
                     poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
                 }
-                view?.setAccessoryView(isHidden: false)
+                setAccessoryView(isHidden: false)
                 recalculate(field: .two)
             }
         }
@@ -145,8 +172,8 @@ final class SupplyLiquidityViewModel {
             var state: InputFieldState = focusedField == .one ? .focused : .default
             state = isEnoughtFirstAssetLiquidity ? state : .fail
             
-            view?.updateFirstAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
-            view?.updateFirstAsset(fiatText: text)
+            update(firstAsset, state: state, amountColor: amountColor, fiatColor: fiatColor)
+            update(firstAsset, fiat: text)
         }
     }
     
@@ -159,25 +186,25 @@ final class SupplyLiquidityViewModel {
             var state: InputFieldState = focusedField == .two ? .focused : .default
             state = isEnoughtSecondAssetLiquidity ? state : .fail
             
-            view?.updateSecondAsset(state: state, amountColor: amountColor, fiatColor: fiatColor)
-            view?.updateSecondAsset(fiatText: text)
+            update(secondAsset, state: state, amountColor: amountColor, fiatColor: fiatColor)
+            update(secondAsset, fiat: text)
         }
     }
     
     var slippageTolerance: Float = 0.5 {
         didSet {
             let slippageToleranceText = "\(slippageTolerance)%"
-            view?.update(slippageTolerance: slippageToleranceText)
+            update(slippageTolerance: slippageToleranceText)
         }
     }
     
     var focusedField: FocusedField = .one {
         didSet {
             if focusedField == .one {
-                view?.setAccessoryView(isHidden: firstAssetId.isEmpty)
+                setAccessoryView(isHidden: firstAssetId.isEmpty)
             }
             if focusedField == .two {
-                view?.setAccessoryView(isHidden: secondAssetId.isEmpty)
+                setAccessoryView(isHidden: secondAssetId.isEmpty)
             }
         }
     }
@@ -210,19 +237,6 @@ final class SupplyLiquidityViewModel {
     private var marketCapService: MarketCapServiceProtocol
     
     private var warningViewModelFactory: WarningViewModelFactory
-    private var warningViewModel: WarningViewModel? {
-        didSet {
-            guard let warningViewModel else { return }
-            view?.updateWarinignView(model: warningViewModel)
-        }
-    }
-    
-    private lazy var firstLiquidityProviderWarningViewModel: WarningViewModel? = warningViewModelFactory.firstLiquidityProviderViewModel() {
-        didSet {
-            guard let firstLiquidityProviderWarningViewModel else { return }
-            view?.updateFirstLiquidityWarinignView(model: firstLiquidityProviderWarningViewModel)
-        }
-    }
     
     private var isEnoughtFirstAssetLiquidity: Bool {
         return inputedFirstAmount + fee <= firstAssetBalance.balance.decimalValue
@@ -243,7 +257,8 @@ final class SupplyLiquidityViewModel {
         operationFactory: WalletNetworkOperationFactoryProtocol,
         assetsProvider: AssetProviderProtocol?,
         warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
-        marketCapService: MarketCapServiceProtocol
+        marketCapService: MarketCapServiceProtocol,
+        itemFactory: PolkaswapItemFactory
     ) {
         self.poolInfo = poolInfo
         self.fiatService = fiatService
@@ -257,10 +272,42 @@ final class SupplyLiquidityViewModel {
         self.assetsProvider = assetsProvider
         self.warningViewModelFactory = warningViewModelFactory
         self.marketCapService = marketCapService
+        self.itemFactory = itemFactory
+        self.firstLiquidityViewModel = warningViewModelFactory.firstLiquidityProviderViewModel()
     }
 }
 
 extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
+    func reload() {
+        snapshot = createSnapshot()
+    }
+    
+    private func createSnapshot() -> PolkaswapSnapshot {
+        var snapshot = PolkaswapSnapshot()
+        
+        let sections = [ contentSection() ]
+        snapshot.appendSections(sections)
+        sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
+        
+        return snapshot
+        
+    }
+    
+    private func contentSection() -> PolkaswapSection {
+        var items: [PolkaswapSectionItem] = []
+        
+        let polkaswapItem = itemFactory.createPolkaswapItem(with: self)
+        let detailsItem = itemFactory.createSwapDetailsItem(with: self)
+        
+        items.append(contentsOf: [
+            .polkaswap(polkaswapItem),
+            .space(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear))),
+            .details(detailsItem)
+        ])
+        
+        return PolkaswapSection(items: items)
+    }
+    
     func didSelect(variant: Float) {
         if focusedField == .one {
             guard firstAssetBalance.balance.decimalValue > 0 else { return }
@@ -268,7 +315,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             let value = firstAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
             inputedFirstAmount = isFeeAsset ? value - fee : value
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
-            view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
+            set(firstAsset, amount: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
         }
         
         if focusedField == .two {
@@ -277,7 +324,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             let value = secondAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
             inputedSecondAmount = isFeeAsset ? value - fee : value
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
-            view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
+            set(secondAsset, amount: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
         }
 
         recalculate(field: focusedField)
@@ -290,7 +337,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             self.fee = fee
             
             if !self.secondAssetId.isEmpty {
-                self.view?.focus(field: .one)
+                self.focus(field: .one)
             }
         }
         
@@ -400,7 +447,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
         guard !firstAssetId.isEmpty,
               !secondAssetId.isEmpty,
               let fiatService = fiatService,
-              let assetManager = assetManager else { return }
+              let assetManager = assetManager,
+              let details = details else { return }
         wireframe?.showSupplyLiquidityConfirmation(on: view?.controller.navigationController,
                                                    baseAssetId: firstAssetId,
                                                    targetAssetId: secondAssetId,
@@ -425,7 +473,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             }
 
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
-            view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
+            set(secondAsset, amount: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
             
         } else {
             if let poolInfo = poolInfo, let targetAssetPooled = poolInfo.targetAssetPooledTotal, targetAssetPooled > 0 {
@@ -435,7 +483,7 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
             }
 
             let formatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: secondAssetId)?.precision ?? 0)
-            view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
+            set(firstAsset, amount: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
         }
         
         debouncer.perform { [weak self] in
@@ -529,7 +577,7 @@ extension SupplyLiquidityViewModel {
                 self.transactionType = .liquidityAddToExistingPoolFirstTime
             }
 
-            self.firstLiquidityProviderWarningViewModel?.isHidden = !isNeedWarning
+            self.firstLiquidityViewModel?.isHidden = !isNeedWarning
         }
     }
     
@@ -582,26 +630,92 @@ extension SupplyLiquidityViewModel {
     
     private func updateButtonState() {
         if firstAssetId.isEmpty || secondAssetId.isEmpty  {
-            view?.setupButton(isEnabled: false)
+            setupButton(isEnabled: false)
             return
         }
         
         if (!firstAssetId.isEmpty && inputedFirstAmount == .zero) || (!secondAssetId.isEmpty && inputedSecondAmount == .zero) {
-            view?.setupButton(isEnabled: false)
+            setupButton(isEnabled: false)
             return
         }
         
         if !isEnoughtFirstAssetLiquidity {
-            view?.setupButton(isEnabled: false)
+            setupButton(isEnabled: false)
             return
         }
         
         if !isEnoughtSecondAssetLiquidity {
-            view?.setupButton(isEnabled: false)
+            setupButton(isEnabled: false)
             return
         }
 
-        view?.setupButton(isEnabled: true)
+        setupButton(isEnabled: true)
+    }
+}
+
+extension SupplyLiquidityViewModel {
+    func update(_ asset: AssetProfile, state: InputFieldState, amountColor: SoramitsuColor, fiatColor: SoramitsuColor) {
+        asset.state = state
+        asset.amountColor = amountColor
+        asset.fiatColor = fiatColor
+    }
+    
+    func update(_ asset: AssetProfile, fiat: String) {
+        asset.fiat = fiat
+    }
+    
+    func update(_ asset: AssetProfile, balance: String) {
+        asset.balance = balance
+    }
+    
+    func update(_ asset: AssetProfile, symbol: String, image: UIImage?) {
+        asset.symbol = symbol
+        asset.image = image
+    }
+    
+    func updateMiddleButton(isEnabled: Bool) {
+        isMiddleButtonEnabled = isEnabled
+    }
+    
+    func update(slippageTolerance: String) {
+        slippageToleranceText = slippageTolerance
+    }
+    
+    func update(selectedMarket: String) {
+        selectedMarketText = selectedMarket
+    }
+    
+    func set(_ asset: AssetProfile, amount: String) {
+        asset.amount = amount
+    }
+    
+    func setAccessoryView(isHidden: Bool) {
+        isAccessoryViewHidden = isHidden
+    }
+    
+    func update(isNeedLoadingState: Bool) {
+        self.isNeedLoadingState = isNeedLoadingState
+    }
+    
+    func focus(field: FocusedField) {
+        switch field {
+        case .one:
+            firstAsset.isFirstResponder = true
+        case .two:
+            secondAsset.isFirstResponder = true
+        }
+    }
+    
+    func setupButton(isEnabled: Bool) {
+        isButtonEnabled = isEnabled
+    }
+    
+    func setupMarketButton(isLoadingState: Bool) {
+        isMarketLoadingState = isLoadingState
+    }
+    
+    func updateReviewButton(title: String) {
+        reviewButtonTitle = title
     }
 }
 

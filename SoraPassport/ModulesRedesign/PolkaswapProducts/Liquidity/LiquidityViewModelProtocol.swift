@@ -30,6 +30,22 @@
 
 import SoraUIKit
 import UIKit
+import Combine
+
+final class AssetProfile {
+    @Published var balance: String = ""
+    @Published var symbol: String = ""
+    @Published var image: UIImage?
+    @Published var fiat: String = ""
+    @Published var amount: String = ""
+    @Published var state: InputFieldState = .default
+    @Published var amountColor: SoramitsuColor = .custom(uiColor: .clear)
+    @Published var fiatColor: SoramitsuColor = .custom(uiColor: .clear)
+    @Published var isFirstResponder: Bool = false
+}
+
+typealias PolkaswapDataSource = UITableViewDiffableDataSource<PolkaswapSection, PolkaswapSectionItem>
+typealias PolkaswapSnapshot = NSDiffableDataSourceSnapshot<PolkaswapSection, PolkaswapSectionItem>
 
 protocol LiquidityViewModelProtocol: InputAccessoryViewDelegate {
     var title: String? { get }
@@ -44,6 +60,24 @@ protocol LiquidityViewModelProtocol: InputAccessoryViewDelegate {
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
     var focusedField: FocusedField { get set }
+    
+    var firstAssetPublisher: Published<AssetProfile>.Publisher { get }
+    var secondAssetPublisher: Published<AssetProfile>.Publisher { get }
+    var slippagePublisher: Published<String>.Publisher { get }
+    var marketPublisher: Published<String>.Publisher { get }
+    var reviewButtonPublisher: Published<String>.Publisher { get }
+    var isMiddleButtonEnabledPublisher: Published<Bool>.Publisher { get }
+    var isButtonEnabledPublisher: Published<Bool>.Publisher { get }
+    var isAccessoryViewHiddenPublisher: Published<Bool>.Publisher { get }
+    var isNeedLoadingStatePublisher: Published<Bool>.Publisher { get }
+    var isMarketLoadingStatePublisher: Published<Bool>.Publisher { get }
+    var warningViewModelPublisher: Published<WarningViewModel?>.Publisher { get }
+    var firstLiquidityViewModelPublisher: Published<WarningViewModel?>.Publisher { get }
+    var detailsPublisher: Published<[DetailViewModel]?>.Publisher { get }
+    
+    var snapshotPublisher: Published<PolkaswapSnapshot>.Publisher { get }
+    
+    func reload()
     func viewDidLoad()
     func infoButtonTapped()
     func apyInfoButtonTapped()

@@ -63,6 +63,7 @@ final class LiquidityViewFactory: LiquidityViewFactoryProtocol {
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol?,
                            marketCapService: MarketCapServiceProtocol) -> PolkaswapViewController? {
+        
         let viewModel = SupplyLiquidityViewModel(
             wireframe: LiquidityWireframe(),
             poolInfo: poolInfo,
@@ -73,7 +74,8 @@ final class LiquidityViewFactory: LiquidityViewFactoryProtocol {
             detailsFactory: DetailViewModelFactory(assetManager: assetManager),
             operationFactory: operationFactory,
             assetsProvider: assetsProvider,
-            marketCapService: marketCapService)
+            marketCapService: marketCapService,
+            itemFactory: PolkaswapItemFactory())
         
         let view = PolkaswapViewController(viewModel: viewModel)
         viewModel.view = view
@@ -105,7 +107,8 @@ final class LiquidityViewFactory: LiquidityViewFactoryProtocol {
             operationFactory: operationFactory,
             assetsProvider: assetsProvider,
             farmingService: farmingService,
-            marketCapService: marketCapService)
+            marketCapService: marketCapService,
+            itemFactory: PolkaswapItemFactory())
         viewModel.completionHandler = completionHandler
         
         let view = PolkaswapViewController(viewModel: viewModel)

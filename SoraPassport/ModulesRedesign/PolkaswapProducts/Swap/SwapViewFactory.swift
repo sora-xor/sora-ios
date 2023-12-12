@@ -60,7 +60,8 @@ final class SwapViewFactory {
             assetsProvider: assetsProvider,
             lpServiceFee: LPFeeService(),
             polkaswapNetworkFacade: polkaswapNetworkFacade,
-            marketCapService: marketCapService)
+            marketCapService: marketCapService,
+            itemFactory: PolkaswapItemFactory())
         
         interactor.presenter = viewModel
         
