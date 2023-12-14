@@ -31,27 +31,21 @@
 import Foundation
 import SoraUIKit
 
-final class FarmDetailsSection {
-    var id = UUID()
-    var items: [FarmDetailsSectionItem]
-    
-    init(items: [FarmDetailsSectionItem]) {
-        self.items = items
+final class SupplyPoolItem: NSObject {
+
+    var poolViewModel: ExplorePoolViewModel
+    var onTap: (() -> Void)?
+
+    init(poolViewModel: ExplorePoolViewModel) {
+        self.poolViewModel = poolViewModel
     }
 }
 
-enum FarmDetailsSectionItem: Hashable {
-    case details(FarmDetailsItem)
-    case space(SoramitsuTableViewSpacerItem)
-    case liquidity(SupplyPoolItem)
+extension SupplyPoolItem: SoramitsuTableViewItemProtocol {
+    var cellType: AnyClass { SupplyPoolCell.self }
+
+    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
+
+    var clipsToBounds: Bool { false }
 }
 
-extension FarmDetailsSection: Hashable {
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-    
-    static func == (lhs: FarmDetailsSection, rhs: FarmDetailsSection) -> Bool {
-        lhs.id == rhs.id
-    }
-}

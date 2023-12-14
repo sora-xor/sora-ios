@@ -1280,7 +1280,10 @@
 		B2E133822A863DA1008A46E0 /* EditViewProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */; };
 		B2FEEA9A2A8A3E030014EC32 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
+		B723EBB02B2AF96400FB055C /* FarmDetailsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBAF2B2AF96400FB055C /* FarmDetailsWireframe.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
+		B77906242B282876003A2566 /* SupplyPoolCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77906232B282876003A2566 /* SupplyPoolCell.swift */; };
+		B77906262B282888003A2566 /* SupplyPoolItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77906252B282888003A2566 /* SupplyPoolItem.swift */; };
 		B77B9D8A2AEA765C00D39AE0 /* AccountBackuped.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77B9D892AEA765C00D39AE0 /* AccountBackuped.swift */; };
 		B78D62382B08DF8900450DA9 /* OnboardingRootWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */; };
 		B78D623A2B0A24C900450DA9 /* SetupNameImportRootPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D62392B0A24C900450DA9 /* SetupNameImportRootPresenter.swift */; };
@@ -2696,6 +2699,9 @@
 		B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditViewProtocol.swift; sourceTree = "<group>"; };
 		B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CIKeys.generated.swift; sourceTree = "<group>"; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
+		B723EBAF2B2AF96400FB055C /* FarmDetailsWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FarmDetailsWireframe.swift; sourceTree = "<group>"; };
+		B77906232B282876003A2566 /* SupplyPoolCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupplyPoolCell.swift; sourceTree = "<group>"; };
+		B77906252B282888003A2566 /* SupplyPoolItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupplyPoolItem.swift; sourceTree = "<group>"; };
 		B77B9D892AEA765C00D39AE0 /* AccountBackuped.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountBackuped.swift; sourceTree = "<group>"; };
 		B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRootWireframe.swift; sourceTree = "<group>"; };
 		B78D62392B0A24C900450DA9 /* SetupNameImportRootPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupNameImportRootPresenter.swift; sourceTree = "<group>"; };
@@ -4411,8 +4417,11 @@
 				364E6EA42B1CD6B000002EE3 /* FarmDetailsViewModelProtocol.swift */,
 				364E6EA12B1CD42A00002EE3 /* FarmDetailsCell.swift */,
 				364E6EA02B1CD42900002EE3 /* FarmDetailsItem.swift */,
+				B77906232B282876003A2566 /* SupplyPoolCell.swift */,
+				B77906252B282888003A2566 /* SupplyPoolItem.swift */,
 				364E6E9C2B1CD2C700002EE3 /* FarmDetailsViewController.swift */,
 				364E6E9D2B1CD2C700002EE3 /* FarmDetailsViewModel.swift */,
+				B723EBAF2B2AF96400FB055C /* FarmDetailsWireframe.swift */,
 			);
 			path = FarmDetails;
 			sourceTree = "<group>";
@@ -5503,14 +5512,12 @@
 				9441FA9925CAC40200775559 /* AccountImport */,
 				36DB197429EDC5CA00B3E3BF /* AccountCreate */,
 				3611062829784971003A6352 /* SetupAccountName */,
-				8B3625FF296F1652007B9525 /* ChangeAccount */,
 				3645268C28C1278500260340 /* Nodes */,
 				84530A43223BEB0800AD7598 /* SecurityLayer */,
 				36E5CF0E295B45E50098D4D2 /* Welcome */,
 				36AC2EDD2979AD3600AD7732 /* Pincode */,
 				3611062D2978A3AF003A6352 /* ConfirmPassphrase */,
 				8BF4286A293E5A9A00590F92 /* Language */,
-				3616550A291D635D00060A8D /* Explore */,
 				8B3625FF296F1652007B9525 /* ChangeAccount */,
 				364E6E9B2B1CD22600002EE3 /* FarmDetails */,
 				364BF2182B1C5BB000758323 /* Explore */,
@@ -7759,6 +7766,7 @@
 				02CFE829218B2D9B0032259A /* UIImage+Drawing.swift in Sources */,
 				3653BD0E2A029A66003C71A4 /* ScanQRWireframe.swift in Sources */,
 				9441F93D25C96D0600775559 /* AssetTransactionData+HistoryItemData.swift in Sources */,
+				B723EBB02B2AF96400FB055C /* FarmDetailsWireframe.swift in Sources */,
 				364D61C329929AE0004938FA /* SilentWindow.swift in Sources */,
 				02A6B9B52184418000391762 /* AdaptiveDesignableTraits.swift in Sources */,
 				5E9774F82A31AE040047BCA2 /* AccountExportRawSeedViewController.swift in Sources */,
@@ -7776,6 +7784,7 @@
 				3694D451296ED1D30045A295 /* SelectAssetViewModel.swift in Sources */,
 				36356B4B29191B5200CD3E9E /* KmmCallCodingPath.swift in Sources */,
 				364AD3AD286A243D000DBDFB /* InputRewardAmountInteractor.swift in Sources */,
+				B77906242B282876003A2566 /* SupplyPoolCell.swift in Sources */,
 				8430296F22FA9FCE00497C81 /* WalletWithdrawMetadataFetchMock.swift in Sources */,
 				9441F8F325C9699400775559 /* TransactionType.swift in Sources */,
 				9441FC0925CC151000775559 /* SelectedUsernameChanged.swift in Sources */,
@@ -8140,6 +8149,7 @@
 				9441FAB525CAC44E00775559 /* AccountImportProtocols.swift in Sources */,
 				9481B478286EFC4600A472E2 /* RuntimeSyncService.swift in Sources */,
 				94497DD525EF89A700FD4F14 /* StakingLedger.swift in Sources */,
+				B77906262B282888003A2566 /* SupplyPoolItem.swift in Sources */,
 				94D4B66228C0AC6A007F98EB /* UserStorageVersion.swift in Sources */,
 				8409324B234645A10013C871 /* ApplicationStatusView.swift in Sources */,
 				366A77F82A30DC6800A6DDF9 /* AccountView.swift in Sources */,

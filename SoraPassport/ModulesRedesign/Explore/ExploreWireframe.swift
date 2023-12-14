@@ -60,6 +60,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     let referralFactory: ReferralsOperationFactoryProtocol
     let assetsProvider: AssetProviderProtocol
     let farmingService: DemeterFarmingServiceProtocol
+    let poolViewModelsService: ExplorePoolsViewModelService
 
     init(
         fiatService: FiatServiceProtocol?,
@@ -80,7 +81,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         sharingFactory: AccountShareFactoryProtocol,
         referralFactory: ReferralsOperationFactoryProtocol,
         assetsProvider: AssetProviderProtocol,
-        farmingService: DemeterFarmingServiceProtocol
+        farmingService: DemeterFarmingServiceProtocol,
+        poolViewModelsService: ExplorePoolsViewModelService
     ) {
         
         self.fiatService = fiatService
@@ -102,6 +104,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         self.referralFactory = referralFactory
         self.assetsProvider = assetsProvider
         self.farmingService = farmingService
+        self.poolViewModelsService = poolViewModelsService
     }
     
     func showAssetDetails(on viewController: UIViewController?, assetId: String) {
@@ -190,7 +193,16 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     func showFarmDetails(on viewController: UIViewController?, farm: Farm) {
         let viewModel = FarmDetailsViewModel(farm: farm,
                                              poolsService: poolsService,
-                                             detailsFactory: DetailViewModelFactory(assetManager: assetManager))
+                                             poolViewModelsService: poolViewModelsService,
+                                             fiatService: fiatService,
+                                             assetManager: assetManager,
+                                             providerFactory: providerFactory,
+                                             operationFactory: networkFacade,
+                                             assetsProvider: assetsProvider,
+                                             marketCapService: marketCapService,
+                                             farmingService: farmingService,
+                                             detailsFactory: DetailViewModelFactory(assetManager: assetManager),
+                                             wireframe: FarmDetailsWireframe())
         
         let view = FarmDetailsViewController(viewModel: viewModel)
         viewModel.view = view

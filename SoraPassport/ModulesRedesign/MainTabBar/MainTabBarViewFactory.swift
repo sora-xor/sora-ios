@@ -591,7 +591,8 @@ extension MainTabBarViewFactory {
                                          sharingFactory: shareFactory,
                                          referralFactory: referralFactory,
                                          assetsProvider: assetsProvider,
-                                         farmingService: farmingService)
+                                         farmingService: farmingService, 
+                                         poolViewModelsService: poolViewModelsService)
         
         let assetViewModelsService = ExploreAssetViewModelService(marketCapService: marketCapService,
                                                                   fiatService: fiatService,

@@ -40,6 +40,10 @@ final class FarmDetailsItem: NSObject {
     let rewardAssetImage: UIImage?
     var detailsViewModel: [DetailViewModel] = []
     let typeImage: PoollProductType
+    let isEnabled: Bool
+    let isStaked: Bool
+    var onTapTopButton: (() -> Void)?
+    var onTapBottomButton: (() -> Void)?
 
     init(title: String,
          subtitle: String,
@@ -47,7 +51,9 @@ final class FarmDetailsItem: NSObject {
          secondAssetImage: UIImage?,
          rewardAssetImage: UIImage?,
          detailsViewModel: [DetailViewModel],
-         typeImage: PoollProductType) {
+         typeImage: PoollProductType,
+         isEnabled: Bool,
+         isStaked: Bool) {
         self.title = title
         self.subtitle = subtitle
         self.typeImage = typeImage
@@ -55,6 +61,8 @@ final class FarmDetailsItem: NSObject {
         self.secondAssetImage = secondAssetImage
         self.rewardAssetImage = rewardAssetImage
         self.detailsViewModel = detailsViewModel
+        self.isEnabled = isEnabled
+        self.isStaked = isStaked
     }
 }
 

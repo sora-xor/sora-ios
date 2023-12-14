@@ -181,7 +181,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                 farms: detailsContent?.farms ?? []
             )
             let item = FarmListItem(
-                title: R.string.localizable.poolDetailsActiveFarms(preferredLanguages: .currentLocale),
+                title: R.string.localizable.polkaswapPoolFarmsTitle(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
                 print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
@@ -190,7 +190,13 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                 self.wireframe?.showFarmDetails(
                     on: self.view?.controller,
                     poolsService: self.poolsService,
+                    fiatService: self.fiatService,
                     assetManager: self.assetManager,
+                    providerFactory: self.providerFactory,
+                    operationFactory: self.operationFactory,
+                    assetsProvider: self.assetsProvider,
+                    marketCapService: self.marketCapService,
+                    farmingService: self.farmingService,
                     poolInfo: self.poolInfo,
                     farm: farm
                 )
@@ -201,7 +207,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
             let farmViewModels = itemFactory.farmsItem(with: detailsContent?.farms ?? [])
             
             let item = FarmListItem(
-                title: R.string.localizable.poolDetailsExtraReward(preferredLanguages: .currentLocale),
+                title: R.string.localizable.polkaswapPoolFarmsTitle(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
                 print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
@@ -210,7 +216,13 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                 self.wireframe?.showFarmDetails(
                     on: self.view?.controller,
                     poolsService: self.poolsService,
+                    fiatService: self.fiatService,
                     assetManager: self.assetManager,
+                    providerFactory: self.providerFactory,
+                    operationFactory: self.operationFactory,
+                    assetsProvider: self.assetsProvider,
+                    marketCapService: self.marketCapService,
+                    farmingService: self.farmingService,
                     poolInfo: self.poolInfo,
                     farm: farm
                 )
