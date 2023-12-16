@@ -40,17 +40,17 @@ final class PoolDetailsHeaderView: SoramitsuControl {
         return view
     }()
     
-    public let firstCurrencyImageView: UIImageView = {
-        let view = UIImageView()
+    public let firstCurrencyImageView: SoramitsuImageView = {
+        let view = SoramitsuImageView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.isUserInteractionEnabled = false
+        view.sora.isUserInteractionEnabled = false
         return view
     }()
     
-    public let secondCurrencyImageView: UIImageView = {
-        let view = UIImageView()
+    public let secondCurrencyImageView: SoramitsuImageView = {
+        let view = SoramitsuImageView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.isUserInteractionEnabled = false
+        view.sora.isUserInteractionEnabled = false
         return view
     }()
     
@@ -81,6 +81,20 @@ final class PoolDetailsHeaderView: SoramitsuControl {
         return label
     }()
     
+    public let subtitleLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.textBoldXS
+        label.sora.textColor = .fgSecondary
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return label
+    }()
+    
+    public let typeImageView: SoramitsuImageView = {
+        let view = SoramitsuImageView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
     init() {
         super.init(frame: .zero)
         setup()
@@ -94,7 +108,7 @@ final class PoolDetailsHeaderView: SoramitsuControl {
     private func setup() {
         sora.backgroundColor = .custom(uiColor: .clear)
         
-        addSubviews(currenciesView, titleLabel)
+        addSubviews(currenciesView, titleLabel, subtitleLabel, typeImageView)
         
         currenciesView.addSubview(firstCurrencyImageView)
         rewardViewContainter.addSubviews(rewardImageView)
@@ -112,8 +126,17 @@ final class PoolDetailsHeaderView: SoramitsuControl {
             currenciesView.widthAnchor.constraint(equalToConstant: 64),
             
             titleLabel.leadingAnchor.constraint(equalTo: currenciesView.trailingAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            titleLabel.trailingAnchor.constraint(equalTo: typeImageView.leadingAnchor, constant: -8),
+            titleLabel.topAnchor.constraint(equalTo: currenciesView.topAnchor),
+            
+            subtitleLabel.leadingAnchor.constraint(equalTo: currenciesView.trailingAnchor, constant: 16),
+            subtitleLabel.trailingAnchor.constraint(equalTo: typeImageView.leadingAnchor, constant: -8),
+            subtitleLabel.bottomAnchor.constraint(equalTo: currenciesView.bottomAnchor),
+            
+            typeImageView.heightAnchor.constraint(equalToConstant: 24),
+            typeImageView.widthAnchor.constraint(equalToConstant: 24),
+            typeImageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            typeImageView.topAnchor.constraint(equalTo: topAnchor),
             
             firstCurrencyImageView.leadingAnchor.constraint(equalTo: currenciesView.leadingAnchor),
             firstCurrencyImageView.centerYAnchor.constraint(equalTo: currenciesView.centerYAnchor),

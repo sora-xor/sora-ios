@@ -82,6 +82,10 @@ extension PoolViewModelFactory {
                                                                                        alignment: .right))
         }
         
+        let farmedRewardAssetsImages = pool.farms.compactMap { farm in
+            RemoteSerializer.shared.image(with: assetManager.assetInfo(for: farm.rewardAssetId)?.icon ?? "")
+        }
+        
         return PoolViewModel(identifier: pool.poolId,
                              title: title,
                              subtitle: subtitle,
@@ -91,6 +95,7 @@ extension PoolViewModelFactory {
                              rewardAssetImage: RemoteSerializer.shared.image(with: rewardAssetInfo.icon ?? ""),
                              mode: mode,
                              isFavorite: true,
-                             deltaArributedText: deltaArributedText)
+                             deltaArributedText: deltaArributedText,
+                             farmedRewardAssetsImages: farmedRewardAssetsImages)
     }
 }

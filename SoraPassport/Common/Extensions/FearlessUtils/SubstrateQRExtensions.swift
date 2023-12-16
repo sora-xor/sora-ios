@@ -28,7 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import FearlessUtils
+import SSFUtils
 import Foundation
 import IrohaCrypto
 
@@ -95,7 +95,7 @@ extension AddressQRDecoder {
 
         let address = fields[1]
         let accountId = try addressFactory.accountId(fromAddress: address, type: chainType)
-        let publicKey = try Data(hexString: fields[2])
+        let publicKey = try Data(hexStringSSF: fields[2])
 
         guard publicKey.matchPublicKeyToAccountId(accountId) else {
             throw QRDecoderError.accountIdMismatch

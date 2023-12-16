@@ -34,18 +34,12 @@ import CommonWallet
 import RobinHood
 import SoraFoundation
 import sorawallet
-
-protocol PoolDetailsViewModelProtocol: AnyObject {
-    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
-    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
-    var dismiss: (() -> Void)? { get set }
-    func viewDidLoad()
-    func apyInfoButtonTapped()
-    func infoButtonTapped(with type: Liquidity.TransactionLiquidityType)
-    func dismissed()
-}
+import Combine
 
 final class PoolDetailsViewModel {
+    @Published var snapshot: PoolDetailsSnapshot = PoolDetailsSnapshot()
+    var snapshotPublisher: Published<PoolDetailsSnapshot>.Publisher { $snapshot }
+    
     var detailsItem: PoolDetailsItem?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
@@ -59,7 +53,10 @@ final class PoolDetailsViewModel {
     var poolsService: PoolsServiceInputProtocol?
     var poolInfo: PoolInfo {
         didSet {
-            updateContent()
+            Task {
+                await updateContent()
+                
+            }
         }
     }
     let assetManager: AssetManagerProtocol
@@ -71,10 +68,17 @@ final class PoolDetailsViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private let itemFactory = PoolDetailsItemFactory()
     private let group = DispatchGroup()
-    private var apy: Decimal?
-    private var pools: [StakedPool] = []
     private var marketCapService: MarketCapServiceProtocol
+    private var task: Task<Void, Swift.Error>?
     
+    private var detailsContent: (apy: Decimal?, fiatData: [FiatData], farms: [Farm])? {
+        didSet {
+            if detailsContent != nil {
+                reload()
+            }
+        }
+    }
+
     init(
         wireframe: PoolDetailsWireframeProtocol?,
         poolInfo: PoolInfo,
@@ -104,16 +108,117 @@ final class PoolDetailsViewModel {
         self.poolsService?.subscribePoolsReserves([poolInfo])
     }
     
+    deinit {
+        print("deinited")
+    }
+    
     func dissmissIfNeeded() {
         if isDeletedPool {
             dismiss?()
+        }
+    }
+    
+    func updateContent() async {
+        reload()
+
+        task?.cancel()
+        task = Task {
+            async let apy = apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
+            
+            async let fiatData = fiatService.getFiat()
+            
+            async let farms = (try? farmingService.getAllFarms().filter {
+                $0.baseAsset?.assetId == poolInfo.baseAssetId &&
+                $0.poolAsset?.assetId == poolInfo.targetAssetId
+            }) ?? []
+            
+            detailsContent = await (apy, fiatData, farms)
         }
     }
 }
 
 extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func viewDidLoad() {
-        updateContent()
+        Task {
+            await updateContent()
+        }
+    }
+    
+    func reload() {
+        snapshot = createSnapshot()
+    }
+    
+    private func createSnapshot() -> PoolDetailsSnapshot {
+        var snapshot = PoolDetailsSnapshot()
+        
+        let sections = [ contentSection() ]
+        snapshot.appendSections(sections)
+        sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
+        
+        return snapshot
+    }
+    
+    private func contentSection() -> PoolDetailsSection {
+        var items: [PoolDetailsSectionItem] = []
+        
+        let poolDetailsItem = itemFactory.createPoolDetailsItem(with: assetManager,
+                                                                poolInfo: poolInfo,
+                                                                apy: detailsContent?.apy ?? .zero,
+                                                                detailsFactory: detailsFactory,
+                                                                viewModel: self,
+                                                                fiatData: detailsContent?.fiatData ?? [], 
+                                                                farms: poolInfo.farms)
+        
+        items.append(contentsOf: [
+            .details(poolDetailsItem),
+            .space(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
+        ])
+        
+        if !poolInfo.farms.isEmpty {
+            let farmViewModels = itemFactory.farmsItem(
+                with: assetManager,
+                poolInfo: poolInfo,
+                farms: detailsContent?.farms ?? []
+            )
+            let item = FarmListItem(
+                title: R.string.localizable.poolDetailsActiveFarms(preferredLanguages: .currentLocale),
+                farmViewModels: farmViewModels
+            ) { [weak self] id in
+                print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
+                guard let self, let farm = self.detailsContent?.farms.first(where: { $0.id == id }) else { return }
+                print("OLOLO tap 2")
+                self.wireframe?.showFarmDetails(
+                    on: self.view?.controller,
+                    poolsService: self.poolsService,
+                    assetManager: self.assetManager,
+                    poolInfo: self.poolInfo,
+                    farm: farm
+                )
+            }
+            items.append(.staked(item))
+            
+        } else if !(detailsContent?.farms.isEmpty ?? true) {
+            let farmViewModels = itemFactory.farmsItem(with: detailsContent?.farms ?? [])
+            
+            let item = FarmListItem(
+                title: R.string.localizable.poolDetailsExtraReward(preferredLanguages: .currentLocale),
+                farmViewModels: farmViewModels
+            ) { [weak self] id in
+                print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
+                guard let self, let farm = self.detailsContent?.farms.first(where: { $0.id == id }) else { return }
+                print("OLOLO tap 2")
+                self.wireframe?.showFarmDetails(
+                    on: self.view?.controller,
+                    poolsService: self.poolsService,
+                    assetManager: self.assetManager,
+                    poolInfo: self.poolInfo,
+                    farm: farm
+                )
+            }
+            items.append(.staked(item))
+        }
+        
+        return PoolDetailsSection(items: items)
     }
     
     func apyInfoButtonTapped() {
@@ -132,7 +237,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func infoButtonTapped(with type: Liquidity.TransactionLiquidityType) {
         wireframe?.showLiquidity(on: view?.controller,
                                  poolInfo: poolInfo,
-                                 stakedPools: pools,
+                                 farms: poolInfo.farms,
                                  type: type,
                                  assetManager: assetManager,
                                  poolsService: poolsService,
@@ -141,6 +246,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                                  operationFactory: operationFactory,
                                  assetsProvider: assetsProvider,
                                  marketCapService: marketCapService,
+                                 farmingService: farmingService,
                                  completionHandler: dissmissIfNeeded)
     }
 }
@@ -157,46 +263,12 @@ extension PoolDetailsViewModel: PoolsServiceOutput {
     }
 }
 
-extension PoolDetailsViewModel {
-    func updateContent() {
-        group.enter()
-        apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] apy in
-            self?.apy = apy
-            self?.group.leave()
-        }
-        
-        group.enter()
-        farmingService.getFarmedPools(baseAssetId: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId) { [weak self] pools in
-            self?.pools = pools
-            self?.group.leave()
-        }
-
-        group.notify(queue: .main) { [weak self] in
-            guard let self = self else { return }
-            var items: [SoramitsuTableViewItemProtocol] = []
-            
-            let poolDetailsItem = self.itemFactory.createAccountItem(with: self.assetManager,
-                                                                     poolInfo: self.poolInfo,
-                                                                     apy: self.apy,
-                                                                     detailsFactory: self.detailsFactory,
-                                                                     viewModel: self,
-                                                                     pools: self.pools)
-            items.append(poolDetailsItem)
-            items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
-            
-            let stakedItems = self.pools.map {
-                self.itemFactory.stakedItem(with: self.assetManager, poolInfo: self.poolInfo, stakedPool: $0)
-            }
-            
-            stakedItems.enumerated().forEach { (index, item) in
-                items.append(item)
-                if index != stakedItems.count - 1 {
-                    items.append(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
-                }
-            }
-            
-            self.view?.hideLoading()
-            self.setupItems?(items)
+extension String {
+    func components(withMaxLength length: Int) -> [String] {
+        return stride(from: 0, to: self.count, by: length).map {
+            let start = self.index(self.startIndex, offsetBy: $0)
+            let end = self.index(start, offsetBy: length, limitedBy: self.endIndex) ?? self.endIndex
+            return String(self[start..<end])
         }
     }
 }

@@ -133,6 +133,7 @@ final class ManageAssetListViewModel {
     weak var view: UIViewController?
     let referralFactory: ReferralsOperationFactoryProtocol
     private weak var assetsProvider: AssetProviderProtocol?
+    private let farmingService: DemeterFarmingServiceProtocol
     private var marketCapService: MarketCapServiceProtocol
     private var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
 
@@ -150,6 +151,7 @@ final class ManageAssetListViewModel {
          referralFactory: ReferralsOperationFactoryProtocol,
          assetsProvider: AssetProviderProtocol?,
          marketCapService: MarketCapServiceProtocol,
+         farmingService: DemeterFarmingServiceProtocol,
          updateHandler: ((UpdatedSection) -> Void)?
     ) {
         self.assetViewModelFactory = assetViewModelFactory
@@ -167,6 +169,7 @@ final class ManageAssetListViewModel {
         self.updateHandler = updateHandler
         self.assetsProvider = assetsProvider
         self.marketCapService = marketCapService
+        self.farmingService = farmingService
         self.poolItemInfo = PriceInfoService.shared.priceInfo
     }
 }
@@ -311,6 +314,7 @@ private extension ManageAssetListViewModel {
                                    sharingFactory: sharingFactory,
                                    referralFactory: referralFactory,
                                    assetsProvider: assetsProvider,
-                                   marketCapService: marketCapService)
+                                   marketCapService: marketCapService,
+                                   farmingService: farmingService)
     }
 }

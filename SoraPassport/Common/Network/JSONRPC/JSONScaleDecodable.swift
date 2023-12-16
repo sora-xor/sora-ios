@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //import Foundation
-//import FearlessUtils
+//import SSFUtils
 //
 //struct JSONScaleDecodable<T: ScaleDecodable>: Decodable {
 //    let underlyingValue: T?
@@ -45,7 +45,7 @@
 //            underlyingValue = nil
 //        } else {
 //            let value = try container.decode(String.self)
-//            let data = try Data(hexString: value)
+//            let data = try Data(hexStringSSF: value)
 //            let scaleDecoder = try ScaleDecoder(data: data)
 //            underlyingValue = try T.init(scaleDecoder: scaleDecoder)
 //        }

@@ -30,7 +30,7 @@
 
 import CoreData
 import Foundation
-import FearlessUtils
+import SSFUtils
 import RobinHood
 
 typealias PoolModel = PoolInfo
@@ -59,6 +59,7 @@ struct PoolInfo: Codable {
     var baseAssetReserves: Decimal?
     var targetAssetReserves: Decimal?
     var accountPoolBalance: Decimal?
+    var farms: [UserFarm] = []
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -84,7 +85,8 @@ struct PoolInfo: Codable {
         totalIssuances: Decimal? = nil,
         baseAssetReserves: Decimal? = nil,
         targetAssetReserves: Decimal? = nil,
-        accountPoolBalance: Decimal? = nil
+        accountPoolBalance: Decimal? = nil,
+        farms: [UserFarm] = []
     ) {
         self.baseAssetId = baseAssetId
         self.targetAssetId = targetAssetId
@@ -100,6 +102,7 @@ struct PoolInfo: Codable {
         self.baseAssetReserves = baseAssetReserves
         self.targetAssetReserves = targetAssetReserves
         self.accountPoolBalance = accountPoolBalance
+        self.farms = farms
     }
     
     public func replacingVisible(_ newPoolInfo: PoolInfo) -> PoolInfo {
@@ -115,7 +118,8 @@ struct PoolInfo: Codable {
                  targetAssetPooledTotal: targetAssetPooledTotal,
                  totalIssuances: totalIssuances,
                  baseAssetReserves: baseAssetReserves,
-                 targetAssetReserves: targetAssetReserves)
+                 targetAssetReserves: targetAssetReserves,
+                 farms: farms)
     }
 }
 

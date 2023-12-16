@@ -34,6 +34,7 @@ import SoraKeystore
 
 enum Constants {
     static let apyTitle = "SB APY"
+    static let aprTitle = "APR"
 }
 
 protocol ApplicationConfigProtocol {
@@ -265,7 +266,7 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     }
 
     var faqURL: URL {
-        URL(string: "https://wiki.sora.org/guides/sora-faq")!
+        URL(string: "https://wiki.sora.org/sora-faq.html")!
     }
 
     var shareURL: URL {

@@ -62,7 +62,7 @@ final class ChangeAccountWireframe: ChangeAccountWireframeProtocol, Authorizatio
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
         
-        let onboardingView = OnboardingMainViewFactory.createWelcomeView(endAddingBlock: completion)
+        let onboardingView = OnboardingMainViewFactory.createWelcomeViewForChanging(endAddingBlock: completion)
         
         let nc = UINavigationController(rootViewController: onboardingView?.controller ?? UIViewController())
         nc.navigationBar.backgroundColor = .clear

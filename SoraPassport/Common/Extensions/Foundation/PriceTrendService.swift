@@ -41,11 +41,14 @@ final class PriceTrendService {}
 extension PriceTrendService: PriceTrendServiceProtocol {
 
     func getPriceTrend(for assetId: String, fiatData: [FiatData], marketCapInfo: Set<MarketCapInfo>) -> Decimal? {
-        guard let oldPrice = marketCapInfo.first(where: { $0.assetId == assetId })?.hourDelta, oldPrice != 0 else {
+        guard
+            let oldPrice = marketCapInfo.first(where: { $0.assetId == assetId })?.hourDelta,
+            let actualPrice = fiatData.first(where: { $0.id == assetId })?.priceUsd?.decimalValue,
+            oldPrice != 0 
+        else {
             return nil
         }
         
-        let actualPrice = fiatData.first(where: { $0.id == assetId })?.priceUsd?.decimalValue ?? 0
         return actualPrice / oldPrice - 1
     }
     

@@ -34,12 +34,13 @@ import CommonWallet
 import SoraKeystore
 import SoraFoundation
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 protocol WalletContextFactoryProtocol: AnyObject {
     func createContext(connection: JSONRPCEngine,
                        assetManager: AssetManagerProtocol,
-                       accountSettings: WalletAccountSettingsProtocol) throws -> CommonWalletContextProtocol
+                       accountSettings: WalletAccountSettingsProtocol,
+                       demeterFarmingService: DemeterFarmingServiceProtocol) throws -> CommonWalletContextProtocol
 }
 
 enum WalletContextFactoryError: Error {
@@ -88,7 +89,8 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
 
     func createContext(connection: JSONRPCEngine,
                        assetManager: AssetManagerProtocol,
-                       accountSettings: WalletAccountSettingsProtocol) throws -> CommonWalletContextProtocol {
+                       accountSettings: WalletAccountSettingsProtocol,
+                       demeterFarmingService: DemeterFarmingServiceProtocol) throws -> CommonWalletContextProtocol {
 
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
             throw WalletContextFactoryError.missingAccount
@@ -115,7 +117,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
 
         let nodeOperationFactory = WalletNetworkOperationFactory(engine: connection,
                                                                  requestFactory: StorageRequestFactory(
-                                                                    remoteFactory: StorageKeyFactory(),
+                                                                    remoteFactory: StorageKeyFactory() as StorageKeyFactoryProtocol,
                                                                     operationManager: OperationManagerFacade.sharedManager
                                                                 ),
                                                                  runtimeService: runtime,
@@ -161,13 +163,14 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
                                                     remoteFactory: StorageKeyFactory(),
                                                     operationManager: OperationManagerFacade.sharedManager
                                                 ),
-                                                engine: connection)
+                                                engine: connection, 
+                                                demeterFarmingService: demeterFarmingService)
                                                 
 
         let builder = CommonWalletBuilder.builder(with: accountSettings,
                                                   networkOperationFactory: networkFacade)
 
-        let context = try builder.build()
+        let context = try builder.with(localizationManager: LocalizationManager.shared).build()
 
         subscribeContextToLanguageSwitch(context,
                                          localizationManager: LocalizationManager.shared,
