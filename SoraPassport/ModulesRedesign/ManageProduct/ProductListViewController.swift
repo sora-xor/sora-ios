@@ -49,6 +49,16 @@ final class ProductListViewController: SoramitsuViewController {
         tableView.scrollViewDelegate = self
         return tableView
     }()
+    
+    private lazy var emptyStateLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.searchEmptyState(preferredLanguages: .currentLocale),
+                                                      fontData: FontType.textM,
+                                                      textColor: .fgPrimary,
+                                                      alignment: .center)
+        label.sora.isHidden = true
+        return label
+    }()
 
     var viewModel: Produtable
 
@@ -84,9 +94,11 @@ final class ProductListViewController: SoramitsuViewController {
         }
 
         viewModel.setupItems = { [weak self] items in
+            guard let self else { return }
             DispatchQueue.main.async {
                 UIView.performWithoutAnimation {
-                    self?.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+                    self.tableView.sora.sections = [ SoramitsuTableViewSection(rows: items) ]
+                    self.emptyStateLabel.sora.isHidden = !(items.isEmpty && self.viewModel.isActiveSearch)
                 }
             }
         }
@@ -148,6 +160,7 @@ final class ProductListViewController: SoramitsuViewController {
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
+        view.addSubview(emptyStateLabel)
     }
 
     private func setupConstraints() {
@@ -156,6 +169,9 @@ final class ProductListViewController: SoramitsuViewController {
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            
+            emptyStateLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            emptyStateLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
     }
 }

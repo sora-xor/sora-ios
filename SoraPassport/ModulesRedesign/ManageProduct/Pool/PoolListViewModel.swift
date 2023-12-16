@@ -100,6 +100,7 @@ final class PoolListViewModel {
     var assetsProvider: AssetProviderProtocol
     var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
     let marketCapService: MarketCapServiceProtocol
+    let farmingService: DemeterFarmingServiceProtocol
     let updateHandler: ((UpdatedSection) -> Void)?
 
     init(poolsService: PoolsServiceInputProtocol,
@@ -110,6 +111,7 @@ final class PoolListViewModel {
          operationFactory: WalletNetworkOperationFactoryProtocol,
          assetsProvider: AssetProviderProtocol,
          marketCapService: MarketCapServiceProtocol,
+         farmingService: DemeterFarmingServiceProtocol,
          updateHandler: ((UpdatedSection) -> Void)?
     ) {
         self.poolViewModelFactory = poolViewModelFactory
@@ -120,6 +122,7 @@ final class PoolListViewModel {
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
         self.marketCapService = marketCapService
+        self.farmingService = farmingService
         self.updateHandler = updateHandler
     }
     func dissmissIfNeeded() {
@@ -182,7 +185,8 @@ extension PoolListViewModel: PoolsServiceOutput {
                                   providerFactory: providerFactory,
                                   operationFactory: operationFactory,
                                   assetsProvider: assetsProvider,
-                                  marketCapService: marketCapService,
+                                  marketCapService: marketCapService, 
+                                  farmingService: farmingService,
                                   dismissHandler: dissmissIfNeeded)
     }
 }

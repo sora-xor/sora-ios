@@ -1,6 +1,6 @@
 import XCTest
 @testable import SoraPassport
-import FearlessUtils
+import SSFUtils
 
 final class AssetsInfoProviderTests: XCTestCase {
 

@@ -1,5 +1,5 @@
 import BigInt
-import FearlessUtils
+import SSFUtils
 import IrohaCrypto
 import RobinHood
 import SoraFoundation
@@ -96,7 +96,7 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
 
         let storageFactory = StorageKeyFactory()
 
-        let xorIdData = try! Data(hexString: WalletAssetId.xor.rawValue)
+        let xorIdData = try! Data(hexStringSSF: WalletAssetId.xor.rawValue)
         let keyXorPools = try! storageFactory.accountPoolsKeyForId(address.accountId!, baseAssetId: xorIdData).toHex(includePrefix: true)
 
         let operation = JSONRPCListOperation<JSONScaleDecodable<AccountPools>>(
@@ -130,7 +130,7 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
         let engine = WebSocketEngine(url: url, logger: logger)
 
         let storageFactory = StorageKeyFactory()
-        let xstusdIdData = try! Data(hexString: WalletAssetId.xstusd.rawValue)
+        let xstusdIdData = try! Data(hexStringSSF: WalletAssetId.xstusd.rawValue)
         let keyXstusdPools = try! storageFactory.accountPoolsKeyForId(address.accountId!, baseAssetId: xstusdIdData).toHex(includePrefix: true)
 
         let operation = JSONRPCListOperation<JSONScaleDecodable<AccountPools>>(
@@ -166,8 +166,8 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
 //
 //        let storageFactory = StorageKeyFactory()
 //
-//        let xorIdData = try! Data(hexString: WalletAssetId.xor.rawValue)
-//        let xstIdData = try! Data(hexString: WalletAssetId.xstusd.rawValue)
+//        let xorIdData = try! Data(hexStringSSF: WalletAssetId.xor.rawValue)
+//        let xstIdData = try! Data(hexStringSSF: WalletAssetId.xstusd.rawValue)
 //
 //        let keyXor = try! storageFactory.createStorageKey(moduleName: "PoolXYK", storageName: "AccountPools", key1: address.accountId!, hasher1: .identity, key2: xorIdData, hasher2: .blake128Concat).toHex(includePrefix: true)
 //        let keyXst = try! storageFactory.createStorageKey(moduleName: "PoolXYK", storageName: "AccountPools", key1: address.accountId!, hasher1: .identity, key2: xstIdData, hasher2: .blake128Concat).toHex(includePrefix: true)

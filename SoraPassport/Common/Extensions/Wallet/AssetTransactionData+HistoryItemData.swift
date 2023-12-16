@@ -32,7 +32,7 @@ import Foundation
 import CommonWallet
 import BigInt
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
 
 extension AssetTransactionData {
     static func createTransaction(

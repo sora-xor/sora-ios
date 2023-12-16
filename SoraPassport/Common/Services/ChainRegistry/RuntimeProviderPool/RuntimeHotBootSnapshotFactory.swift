@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 import RobinHood
 
 protocol RuntimeHotBootSnapshotFactoryProtocol {
@@ -63,13 +63,13 @@ final class RuntimeHotBootSnapshotFactory {
         let chainTypesFetchOperation = filesOperationFactory.fetchChainTypesOperation(for: chainId)
 
         let snapshotOperation = ClosureOperation<RuntimeSnapshot?> { [weak self] in
-            guard let strongSelf = self else { return nil }
+            guard let self else { return nil }
             let chainTypes = try chainTypesFetchOperation.targetOperation.extractNoCancellableResultData()
 
-            let decoder = try ScaleDecoder(data: strongSelf.runtimeItem.metadata)
+            let decoder = try ScaleDecoder(data: self.runtimeItem.metadata)
             var runtimeMetadata: RuntimeMetadata
-            if let resolver = strongSelf.runtimeItem.resolver {
-                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder, resolver: resolver)
+            if let resolver = self.runtimeItem.resolver {
+                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
             } else {
                 runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
             }
@@ -79,17 +79,18 @@ final class RuntimeHotBootSnapshotFactory {
             }
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
-                strongSelf.commonTypes,
+                self.commonTypes,
                 versioningData: chainTypes,
-                runtimeMetadata: runtimeMetadata
+                runtimeMetadata: runtimeMetadata, 
+                usedRuntimePaths: [:]
             )
 
             return RuntimeSnapshot(
-                localCommonHash: try dataHasher.hash(data: strongSelf.commonTypes).toHex(),
+                localCommonHash: try dataHasher.hash(data: self.commonTypes).toHex(),
                 localChainHash: try dataHasher.hash(data: chainTypes).toHex(),
                 typeRegistryCatalog: catalog,
-                specVersion: strongSelf.runtimeItem.version,
-                txVersion: strongSelf.runtimeItem.txVersion,
+                specVersion: self.runtimeItem.version,
+                txVersion: self.runtimeItem.txVersion,
                 metadata: runtimeMetadata
             )
         }
@@ -110,14 +111,15 @@ final class RuntimeHotBootSnapshotFactory {
             let decoder = try ScaleDecoder(data: strongSelf.runtimeItem.metadata)
             var runtimeMetadata: RuntimeMetadata
             if let resolver = strongSelf.runtimeItem.resolver {
-                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder, resolver: resolver)
+                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
             } else {
                 runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
             }
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
                 strongSelf.commonTypes,
-                runtimeMetadata: runtimeMetadata
+                runtimeMetadata: runtimeMetadata,
+                usedRuntimePaths: [:]
             )
 
             return RuntimeSnapshot(
@@ -145,7 +147,7 @@ final class RuntimeHotBootSnapshotFactory {
             let decoder = try ScaleDecoder(data: strongSelf.runtimeItem.metadata)
             var runtimeMetadata: RuntimeMetadata
             if let resolver = strongSelf.runtimeItem.resolver {
-                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder, resolver: resolver)
+                runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
             } else {
                 runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
             }
@@ -159,7 +161,8 @@ final class RuntimeHotBootSnapshotFactory {
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
                 try JSONEncoder().encode(json),
                 versioningData: ownTypes,
-                runtimeMetadata: runtimeMetadata
+                runtimeMetadata: runtimeMetadata,
+                usedRuntimePaths: [:]
             )
 
             return RuntimeSnapshot(

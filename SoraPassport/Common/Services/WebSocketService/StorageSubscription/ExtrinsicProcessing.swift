@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 import BigInt
 import IrohaCrypto
 
@@ -61,7 +61,7 @@ final class ExtrinsicProcessor {
     let accountId: AccountAddress
     var account: MultiAddress {
         // swiftlint:disable:next force_try
-        MultiAddress.accoundId(try! Data(hexString: accountId))
+        MultiAddress.accoundId(try! Data(hexStringSSF: accountId))
         //probably should be address32
     }
 

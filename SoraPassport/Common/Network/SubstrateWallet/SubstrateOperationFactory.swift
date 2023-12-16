@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 protocol SubstrateOperationFactoryProtocol: AnyObject {
     func fetchChainOperation(_ url: URL) -> BaseOperation<String>
@@ -44,7 +44,7 @@ final class SubstrateOperationFactory: SubstrateOperationFactoryProtocol {
     }
 
     func fetchChainOperation(_ url: URL) -> BaseOperation<String> {
-        let engine = WebSocketEngine(url: url,
+        let engine = WebSocketEngine(connectionName: nil, url: url,
                                      reachabilityManager: nil,
                                      reconnectionStrategy: nil,
                                      logger: logger)

@@ -42,7 +42,7 @@ final class InvoiceScanLocalSearchEngine: InvoiceLocalSearchEngineProtocol {
     }
 
     func searchByAccountId(_ accountIdHex: String) -> SearchData? {
-        guard let accountId = try? Data(hexString: accountIdHex) else {
+        guard let accountId = try? Data(hexStringSSF: accountIdHex) else {
             return nil
         }
 

@@ -69,14 +69,14 @@ final class AssetsCell: SoramitsuTableViewCell {
         return button
     }()
 
-    private let moneyLabel: SoramitsuLabel = {
+    private lazy var moneyLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline2
         label.sora.textColor = .fgPrimary
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         label.sora.loadingPlaceholder.type = .shimmer
         label.sora.cornerRadius = .small
-        label.sora.alignment = .right
+        label.sora.alignment = localizationManager.isRightToLeft ? .left : .right
         return label
     }()
 

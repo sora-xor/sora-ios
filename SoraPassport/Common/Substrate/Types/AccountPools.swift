@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import BigInt
-import FearlessUtils
+import SSFUtils
 
 struct AccountPools: ScaleDecodable {
     let assetIds: [String]
@@ -104,6 +104,7 @@ struct PoolDetails: Equatable {
     let baseAssetReserves: Decimal
     let targetAssetReserves: Decimal
     let accountPoolBalance: Decimal
+    let farms: [UserFarm]
 }
 
 struct OrmlAccountData: ScaleDecodable {

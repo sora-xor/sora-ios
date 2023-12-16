@@ -30,7 +30,7 @@
 
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 import RobinHood
 
 protocol CustomNodeOperationFactoryProtocol {
@@ -48,7 +48,7 @@ final class CustomNodeOperationFactory {
 
 extension CustomNodeOperationFactory: CustomNodeOperationFactoryProtocol {
     func createGetGenesisBlockOperation() -> BaseOperation<String> {
-        let engine = WebSocketEngine(url: url)
+        let engine = WebSocketEngine(connectionName: nil, url: url)
 
         var currentBlock = 0
         let param = Data(Data(bytes: &currentBlock, count: MemoryLayout<UInt32>.size).reversed())

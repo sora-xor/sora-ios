@@ -91,10 +91,7 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
             updateBackupedAccount(with: account, password: password)
             
             view?.showLoading()
-            cloudStorageService.saveBackupAccount(account: backupAccount, password: password) { [weak self] result in
-                self?.view?.hideLoading()
-                self?.handler(result)
-            }
+            updateCloudStorage(with: password)
             return
         }
         
@@ -104,11 +101,7 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                 guard let self = self, let result = result, case .success(let account) = result else { return }
     
                 self.updateBackupedAccount(with: account, password: password)
-                
-                self.cloudStorageService.saveBackupAccount(account: self.backupAccount, password: password) { [weak self] result in
-                    self?.view?.hideLoading()
-                    self?.handler(result)
-                }
+                self.updateCloudStorage(with: password)
             }
         }
     }
@@ -158,14 +151,14 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
             backupAccountType.append(.passphrase)
         }
 
-        var rawSeed = getRawSeed(from: account)
+        let rawSeed = getRawSeed(from: account)
         if rawSeed != nil {
             backupAccountType.append(.seed)
         }
 
         _ = try? keystore.fetchSecretKeyForAddress(account.address)
         
-        var substrateJson = getJson(from: account, password: password)
+        let substrateJson = getJson(from: account, password: password)
         if substrateJson != nil {
             backupAccountType.append(.json)
         }
@@ -174,6 +167,30 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         backupAccount.backupAccountType = backupAccountType
         backupAccount.encryptedSeed = OpenBackupAccount.Seed(substrateSeed: rawSeed)
         backupAccount.json = OpenBackupAccount.Json(substrateJson: substrateJson)
+    }
+    
+    private func updateCloudStorage(with password: String) {
+        cloudStorageService.getBackupAccounts { [weak self] result in
+            guard let self = self else { return }
+            
+            if case let .success(accounts) = result, let foudedAccount = accounts.first(where: { self.backupAccount.address == $0.address }) {
+                self.cloudStorageService.deleteBackupAccount(account: foudedAccount) { [weak self] _ in
+                    guard let self = self else { return }
+                    
+                    self.cloudStorageService.saveBackupAccount(account: self.backupAccount, password: password) { [weak self] result in
+                        self?.view?.hideLoading()
+                        self?.handler(result)
+                    }
+                }
+            } else {
+                
+                self.cloudStorageService.saveBackupAccount(account: self.backupAccount, password: password) { [weak self] result in
+                    self?.view?.hideLoading()
+                    self?.handler(result)
+                }
+                
+            }
+        }
     }
     
     private func getRawSeed(from account: AccountItem) -> String? {

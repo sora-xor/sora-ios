@@ -29,10 +29,10 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 
 extension CryptoType {
-    init(_ utilsType: FearlessUtils.CryptoType) {
+    init(_ utilsType: CryptoType) {
         switch utilsType {
         case .sr25519:
             self = .sr25519
@@ -43,7 +43,7 @@ extension CryptoType {
         }
     }
 
-    var utilsType: FearlessUtils.CryptoType {
+    var utilsType: SSFUtils.CryptoType {
         switch self {
         case .sr25519:
             return .sr25519

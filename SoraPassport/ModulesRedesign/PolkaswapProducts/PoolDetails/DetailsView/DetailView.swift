@@ -33,6 +33,11 @@ import SoraUIKit
 import UIKit
 
 final class DetailView: SoramitsuControl {
+    public var isShimmerHidden: Bool = true {
+        didSet {
+            setupShimmer()
+        }
+    }
 
     let leftInfoStackView: SoramitsuStackView = {
         var view = SoramitsuStackView()
@@ -47,6 +52,7 @@ final class DetailView: SoramitsuControl {
         let label = SoramitsuLabel()
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
+        label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
         label.setContentHuggingPriority(.required, for: .horizontal)
         return label
     }()
@@ -56,6 +62,7 @@ final class DetailView: SoramitsuControl {
         view.sora.isHidden = true
         view.sora.tintColor = .fgSecondary
         view.sora.image = R.image.wallet.info()
+        view.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
         return view
     }()
     
@@ -68,13 +75,14 @@ final class DetailView: SoramitsuControl {
         return view
     }()
     
-    let assetImageView: UIImageView = {
-        let view = UIImageView()
+    let assetImageView: SoramitsuImageView = {
+        let view = SoramitsuImageView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.heightAnchor.constraint(equalToConstant: 16).isActive = true
         view.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
+        view.sora.isUserInteractionEnabled = false
+        view.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
+        view.sora.backgroundColor = .custom(uiColor: .clear)
         return view
     }()
     
@@ -84,6 +92,8 @@ final class DetailView: SoramitsuControl {
         label.sora.textColor = .fgPrimary
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         label.sora.backgroundColor = .custom(uiColor: .clear)
+        label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
+        label.heightAnchor.constraint(equalToConstant: 25).isActive = true
         return label
     }()
     
@@ -92,6 +102,7 @@ final class DetailView: SoramitsuControl {
         label.sora.font = FontType.textBoldXS
         label.sora.textColor = .fgSecondary
         label.sora.backgroundColor = .custom(uiColor: .clear)
+        label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .circle
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label
     }()
@@ -134,5 +145,11 @@ final class DetailView: SoramitsuControl {
             rightInfoStackView.topAnchor.constraint(equalTo: topAnchor),
             rightInfoStackView.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
+    }
+    
+    private func setupShimmer() {
+        if isShimmerHidden { return }
+        valueLabel.heightAnchor.constraint(equalToConstant: 25).isActive = true
+        valueLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
     }
 }

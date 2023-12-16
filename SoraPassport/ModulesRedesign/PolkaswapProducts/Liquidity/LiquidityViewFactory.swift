@@ -31,6 +31,7 @@
 import Foundation
 import RobinHood
 import CommonWallet
+import SSFUtils
 
 protocol LiquidityViewFactoryProtocol: AnyObject {
     static func createView(poolInfo: PoolInfo?,
@@ -42,7 +43,7 @@ protocol LiquidityViewFactoryProtocol: AnyObject {
                            marketCapService: MarketCapServiceProtocol) -> PolkaswapViewController?
     
     static func createRemoveLiquidityView(poolInfo: PoolInfo,
-                                          stakedPools: [StakedPool],
+                                          farms: [UserFarm],
                                           assetManager: AssetManagerProtocol,
                                           fiatService: FiatServiceProtocol,
                                           poolsService: PoolsServiceInputProtocol,
@@ -50,6 +51,7 @@ protocol LiquidityViewFactoryProtocol: AnyObject {
                                           operationFactory: WalletNetworkOperationFactoryProtocol,
                                           assetsProvider: AssetProviderProtocol?,
                                           marketCapService: MarketCapServiceProtocol,
+                                          farmingService: DemeterFarmingServiceProtocol,
                                           completionHandler: (() -> Void)?) -> PolkaswapViewController?
 }
 
@@ -79,7 +81,7 @@ final class LiquidityViewFactory: LiquidityViewFactoryProtocol {
     }
     
     static func createRemoveLiquidityView(poolInfo: PoolInfo,
-                                          stakedPools: [StakedPool],
+                                          farms: [UserFarm],
                                           assetManager: AssetManagerProtocol,
                                           fiatService: FiatServiceProtocol,
                                           poolsService: PoolsServiceInputProtocol,
@@ -87,13 +89,13 @@ final class LiquidityViewFactory: LiquidityViewFactoryProtocol {
                                           operationFactory: WalletNetworkOperationFactoryProtocol,
                                           assetsProvider: AssetProviderProtocol?,
                                           marketCapService: MarketCapServiceProtocol,
+                                          farmingService: DemeterFarmingServiceProtocol,
                                           completionHandler: (() -> Void)?) -> PolkaswapViewController? {
         guard let engine = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else { return nil }
-        let farmingService = DemeterFarmingService(operationFactory: DemeterFarmingOperationFactory(engine: engine))
         let viewModel = RemoveLiquidityViewModel(
             wireframe: LiquidityWireframe(),
             poolInfo: poolInfo,
-            stakedPools: stakedPools,
+            farms: farms,
             apyService: APYService.shared,
             fiatService: fiatService,
             poolsService: poolsService,

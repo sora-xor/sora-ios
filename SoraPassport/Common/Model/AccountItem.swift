@@ -30,12 +30,12 @@
 
 import Foundation
 
-enum CryptoType: UInt8, Codable, CaseIterable {
+public enum CryptoType: UInt8, Codable, CaseIterable {
     case sr25519
     case ed25519
     case ecdsa
     
-    var googleIdentifier: String {
+    var typeString: String {
         switch self {
         case .sr25519: return "SR25519"
         case .ed25519: return "ED25519"
@@ -43,8 +43,8 @@ enum CryptoType: UInt8, Codable, CaseIterable {
         }
     }
     
-    init(googleIdentifier: String) {
-        switch googleIdentifier {
+    init(type: String) {
+        switch type {
         case "SR25519":
             self = .sr25519
         case "ED25519":

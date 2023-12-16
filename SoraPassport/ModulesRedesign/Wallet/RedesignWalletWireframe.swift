@@ -51,6 +51,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                             referralFactory: ReferralsOperationFactoryProtocol,
                             assetsProvider: AssetProviderProtocol,
                             marketCapService: MarketCapServiceProtocol,
+                            farmingService: DemeterFarmingServiceProtocol,
                             updateHandler: ((UpdatedSection) -> Void)?)
     
     func showFullListPools(on controller: UIViewController?,
@@ -64,6 +65,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol,
                            marketCapService: MarketCapServiceProtocol,
+                           farmingService: DemeterFarmingServiceProtocol,
                            updateHandler: ((UpdatedSection) -> Void)?)
     
     func showAssetDetails(on viewController: UIViewController?,
@@ -82,7 +84,8 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                           sharingFactory: AccountShareFactoryProtocol,
                           referralFactory: ReferralsOperationFactoryProtocol,
                           assetsProvider: AssetProviderProtocol,
-                          marketCapService: MarketCapServiceProtocol)
+                          marketCapService: MarketCapServiceProtocol,
+                          farmingService: DemeterFarmingServiceProtocol)
     
     func showPoolDetails(on viewController: UIViewController?,
                          poolInfo: PoolInfo,
@@ -92,7 +95,8 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                          providerFactory: BalanceProviderFactory,
                          operationFactory: WalletNetworkOperationFactoryProtocol,
                          assetsProvider: AssetProviderProtocol,
-                         marketCapService: MarketCapServiceProtocol)
+                         marketCapService: MarketCapServiceProtocol,
+                         farmingService: DemeterFarmingServiceProtocol)
 
     func showSoraCard(on viewController: UIViewController?,
                       address: AccountAddress,
@@ -166,6 +170,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                             referralFactory: ReferralsOperationFactoryProtocol,
                             assetsProvider: AssetProviderProtocol,
                             marketCapService: MarketCapServiceProtocol,
+                            farmingService: DemeterFarmingServiceProtocol,
                             updateHandler: ((UpdatedSection) -> Void)?) {
         let viewModel = ManageAssetListViewModel(assetViewModelFactory: assetViewModelFactory,
                                                  fiatService: fiatService,
@@ -181,6 +186,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                  referralFactory: referralFactory,
                                                  assetsProvider: assetsProvider,
                                                  marketCapService: marketCapService,
+                                                 farmingService: farmingService,
                                                  updateHandler: updateHandler)
         
         let assetListController = ProductListViewController(viewModel: viewModel)
@@ -207,6 +213,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol,
                            marketCapService: MarketCapServiceProtocol,
+                           farmingService: DemeterFarmingServiceProtocol,
                            updateHandler: ((UpdatedSection) -> Void)?) {
         let viewModel = PoolListViewModel(poolsService: poolsService,
                                           assetManager: assetManager,
@@ -216,6 +223,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                           operationFactory: operationFactory,
                                           assetsProvider: assetsProvider,
                                           marketCapService: marketCapService,
+                                          farmingService: farmingService,
                                           updateHandler: updateHandler)
         
         poolsService.appendDelegate(delegate: viewModel)
@@ -248,7 +256,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                           sharingFactory: AccountShareFactoryProtocol,
                           referralFactory: ReferralsOperationFactoryProtocol,
                           assetsProvider: AssetProviderProtocol,
-                          marketCapService: MarketCapServiceProtocol) {
+                          marketCapService: MarketCapServiceProtocol,
+                          farmingService: DemeterFarmingServiceProtocol) {
         guard let assetDetailsController = AssetDetailsViewFactory.createView(assetInfo: assetInfo,
                                                                               assetManager: assetManager,
                                                                               fiatService: fiatService,
@@ -264,7 +273,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                                               sharingFactory: sharingFactory,
                                                                               referralFactory: referralFactory,
                                                                               assetsProvider: assetsProvider,
-                                                                              marketCapService: marketCapService) else {
+                                                                              marketCapService: marketCapService,
+                                                                              farmingService: farmingService) else {
             return
         }
         
@@ -283,7 +293,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                          providerFactory: BalanceProviderFactory,
                          operationFactory: WalletNetworkOperationFactoryProtocol,
                          assetsProvider: AssetProviderProtocol,
-                         marketCapService: MarketCapServiceProtocol) {
+                         marketCapService: MarketCapServiceProtocol,
+                         farmingService: DemeterFarmingServiceProtocol) {
         guard let assetDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
                                                                              assetManager: assetManager,
                                                                              fiatService: fiatService,
@@ -292,6 +303,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                                              operationFactory: operationFactory,
                                                                              assetsProvider: assetsProvider,
                                                                              marketCapService: marketCapService,
+                                                                             farmingService: farmingService,
                                                                              dismissHandler: nil) else {
             return
         }

@@ -40,7 +40,7 @@ protocol ConfirmPassphraseViewModelProtocol {
 final class ConfirmPassphraseViewModel {
     var setupItem: (([SoramitsuTableViewItemProtocol]) -> Void)?
 
-    var wireframe: ConfirmPassphraseyWireframeProtocol?
+    var wireframe: ConfirmPassphraseWireframeProtocol?
     var items: [SoramitsuTableViewItemProtocol] = []
     var view: ConfirmPassphraseViewProtocol?
     var currentStage: Int = 0

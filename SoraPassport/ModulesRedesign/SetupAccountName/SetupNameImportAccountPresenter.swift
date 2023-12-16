@@ -46,27 +46,25 @@ final class SetupNameImportAccountPresenter {
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let eventCenter: EventCenterProtocol
     private let operationManager: OperationManagerProtocol
-    private let isNeedImport: Bool
     
-    private(set) var sourceType: AccountImportSource?
-    private(set) var cryptoType: CryptoType?
-    private(set) var networkType: Chain?
-    private(set) var sourceViewModel: InputViewModelProtocol?
-    private(set) var usernameViewModel: InputViewModelProtocol?
+    private(set) var sourceType: AccountImportSource
+    private(set) var cryptoType: CryptoType
+    private(set) var networkType: Chain
+    private(set) var sourceViewModel: InputViewModelProtocol
+    private(set) var usernameViewModel: InputViewModelProtocol
     private(set) var passwordViewModel: InputViewModelProtocol?
     private(set) var derivationPathViewModel: InputViewModelProtocol?
     
     init(accountRepository: AnyDataProviderRepository<AccountItem>,
          eventCenter: EventCenterProtocol,
          operationManager: OperationManagerProtocol,
-         sourceType: AccountImportSource?,
-         cryptoType: CryptoType?,
-         networkType: Chain?,
-         sourceViewModel: InputViewModelProtocol?,
-         usernameViewModel: InputViewModelProtocol?,
+         sourceType: AccountImportSource,
+         cryptoType: CryptoType,
+         networkType: Chain,
+         sourceViewModel: InputViewModelProtocol,
+         usernameViewModel: InputViewModelProtocol,
          passwordViewModel: InputViewModelProtocol?,
-         derivationPathViewModel: InputViewModelProtocol?,
-         isNeedImport: Bool) {
+         derivationPathViewModel: InputViewModelProtocol?) {
         self.accountRepository = accountRepository
         self.eventCenter = eventCenter
         self.operationManager = operationManager
@@ -77,7 +75,6 @@ final class SetupNameImportAccountPresenter {
         self.usernameViewModel = usernameViewModel
         self.passwordViewModel = passwordViewModel
         self.derivationPathViewModel = derivationPathViewModel
-        self.isNeedImport = isNeedImport
     }
 }
 
@@ -93,17 +90,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
         view?.set(viewModel: viewModel)
     }
     
-    func importAccount(with completion: (() -> Void)?) {
-        guard
-            let sourceType = sourceType,
-            let networkType = networkType,
-            let cryptoType = cryptoType,
-            let sourceViewModel = sourceViewModel,
-            let usernameViewModel = usernameViewModel
-        else {
-            return
-        }
-        
+    func importAccount(completion: ((Result<AccountItem, Swift.Error>?) -> Void)?){
         switch sourceType {
         case .mnemonic:
             let mnemonic = sourceViewModel.inputHandler.value
@@ -140,7 +127,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
     }
 
     func proceed() {
-        let endingBlock: (() -> Void)? = { [weak self] in
+       let endingBlock: (() -> Void)? = { [weak self] in
             guard let self = self else { return }
             if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
                 self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
@@ -149,13 +136,16 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                     }
                 }
                 
-                self.completion == nil ? self.wireframe.showPinCode(from: view) : self.view?.controller.dismiss(animated: true, completion: completion)
+                self.view?.controller.dismiss(animated: true, completion: completion)
                 return
             }
         }
-        
        
-        isNeedImport ? importAccount(with: endingBlock) : endingBlock?()
+        importAccount { result in
+            if case .success = result {
+               endingBlock?()
+            }
+        }
     }
     
     func endEditing() {}

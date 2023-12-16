@@ -375,12 +375,34 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         presenter: UIViewController,
         localizationManager: LocalizationManagerProtocol = LocalizationManager.shared
     ) -> UIViewController? {
+        guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+            return nil
+        }
+
+        let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
+
+        guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
+              let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
+            return nil
+        }
+
+        guard let walletContext = try? WalletContextFactory().createContext(
+            connection: connection,
+            assetManager: assetManager,
+            accountSettings: accountSettings, 
+            demeterFarmingService: farmingService
+        ) else {
+            return nil
+        }
+
+        let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
+
         guard let swapController = SwapViewFactory.createView(selectedTokenId: "",
                                                               selectedSecondTokenId: WalletAssetId.xor.rawValue,
                                                               assetManager: assetManager,
-                                                              fiatService: fiatService,
+                                                              fiatService: FiatService.shared,
                                                               networkFacade: walletContext.networkOperationFactory,
-                                                              polkaswapNetworkFacade: polkaswapNetworkFacade,
+                                                              polkaswapNetworkFacade: polkaswapContext,
                                                               assetsProvider: assetsProvider,
                                                               marketCapService: marketCapService) else { return nil }
 
@@ -395,7 +417,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 
         return swapController
     }
-    
+
     func showInternerConnectionAlert() {
         wireframe?.present(message: nil,
                            title: R.string.localizable.connectionErrorMessage(preferredLanguages: .currentLocale),
@@ -423,7 +445,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                       sharingFactory: sharingFactory,
                                       referralFactory: referralFactory,
                                       assetsProvider: assetsProvider,
-                                      marketCapService: marketCapService,
+                                      marketCapService: marketCapService, 
+                                      farmingService: farmingService,
                                       updateHandler: updateAssets)
     }
     
@@ -443,6 +466,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                      operationFactory: networkFacade,
                                      assetsProvider: assetsProvider,
                                      marketCapService: marketCapService,
+                                     farmingService: farmingService,
                                      updateHandler: updateAssets)
     }
     
@@ -471,7 +495,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                     sharingFactory: sharingFactory,
                                     referralFactory: referralFactory,
                                     assetsProvider: assetsProvider,
-                                    marketCapService: marketCapService)
+                                    marketCapService: marketCapService,
+                                    farmingService: farmingService)
     }
     
     func showPoolDetails(with pool: PoolInfo) {
@@ -483,7 +508,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                    providerFactory: providerFactory,
                                    operationFactory: networkFacade,
                                    assetsProvider: assetsProvider,
-                                   marketCapService: marketCapService)
+                                   marketCapService: marketCapService,
+                                   farmingService: farmingService)
     }
     
     func showReferralProgram(assetManager: AssetManagerProtocol) {

@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 
 struct EmptyAccountIcon: DrawableIcon {
     func drawInContext(_ context: CGContext, fillColor: UIColor, size: CGSize) {}

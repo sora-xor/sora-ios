@@ -212,13 +212,13 @@ final class RemoveLiquidityViewModel {
     
     private weak var assetsProvider: AssetProviderProtocol?
     private let farmingService: DemeterFarmingServiceProtocol
-    private var stakedPools: [StakedPool] = []
+    private var farms: [UserFarm] = []
     private var warningViewModelFactory: WarningViewModelFactory
     private var marketCapService: MarketCapServiceProtocol
     private var stackedPercentage: Decimal {
-        return stakedPools.map {
+        return farms.map {
             let accountPoolBalance = poolInfo?.accountPoolBalance ?? .zero
-            let pooledTokens = Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero
+            let pooledTokens = $0.pooledTokens ?? .zero
             return accountPoolBalance > 0 ? (pooledTokens / accountPoolBalance) : 0
         }.max() ?? Decimal.zero
     }
@@ -236,7 +236,7 @@ final class RemoveLiquidityViewModel {
     init(
         wireframe: LiquidityWireframeProtocol?,
         poolInfo: PoolInfo,
-        stakedPools: [StakedPool],
+        farms: [UserFarm],
         apyService: APYServiceProtocol?,
         fiatService: FiatServiceProtocol?,
         poolsService: PoolsServiceInputProtocol?,
@@ -261,7 +261,7 @@ final class RemoveLiquidityViewModel {
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
         self.farmingService = farmingService
-        self.stakedPools = stakedPools
+        self.farms = farms
         self.warningViewModelFactory = warningViewModelFactory
         self.marketCapService = marketCapService
     }
@@ -501,15 +501,15 @@ extension RemoveLiquidityViewModel {
         }
         
         group.enter()
-        farmingService.getFarmedPools(baseAssetId: poolInfo?.baseAssetId, targetAssetId: poolInfo?.targetAssetId) { [weak self] pools in
-            self?.stakedPools = pools
+        farmingService.getUserFarmInfos(baseAssetId: poolInfo?.baseAssetId, targetAssetId: poolInfo?.targetAssetId) { [weak self] pools in
+            self?.farms = pools
             group.leave()
         }
         
         group.notify(queue: .main) { [weak self] in
             guard let self = self, let poolInfo = self.poolInfo else { return }
             
-            self.warningViewModel = self.warningViewModelFactory.poolShareStackedViewModel(isHidden: self.stakedPools.isEmpty)
+            self.warningViewModel = self.warningViewModelFactory.poolShareStackedViewModel(isHidden: self.farms.isEmpty)
 
             self.details = self.detailsFactory.createRemoveLiquidityViewModels(with: self.inputedFirstAmount,
                                                                                targetAssetAmount: self.inputedSecondAmount,

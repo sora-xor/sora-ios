@@ -74,7 +74,7 @@ final class ChangeAccountPresenter {
                 self?.handle(accounts: accounts)
             }
         }
-        OperationManagerFacade.runtimeBuildingQueue.addOperation(persistentOperation)
+        OperationQueue().addOperation(persistentOperation)
     }
     
     private func handle(accounts: [AccountItem]) {

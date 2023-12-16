@@ -32,7 +32,7 @@ import UIKit
 import SoraFoundation
 import SoraKeystore
 import SSFCloudStorage
-import FearlessUtils
+import SSFUtils
 import RobinHood
 
 final class EnterPasswordViewFactory {

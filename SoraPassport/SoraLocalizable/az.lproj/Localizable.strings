@@ -42,7 +42,6 @@
 "project.favourites.small" = "Seçilmişlər";
 "project.completed.small" = "Tamamlandı";
 "empty.voted.project.description" = "Layihələrə səs verin və onlar\n burada görünəcəklər";
-"empty.completed.project.description" = "Səsvermə başa çatdıqda, siz\n layihələri burada tapa bilərsiniz";
 "project.contacts" = "Əlaqə və məlumat";
 "project.details.favorite.voted.count" = "%@-dən %@";
 "project.remove.from.favourite" = "Seçilmiş";
@@ -695,7 +694,7 @@
 "settings.information.subtitle" = "İmtina, FAQ, Proqram haqqında";
 "common.expand" = "Expand";
 "common.collapse" = "Collapse";
-"liquid.assets" = "Liquid assets";
+"liquid.assets" = "Aktivlər";
 "pooled.assets" = "Pooled assets";
 "common.edit" = "Edit";
 "show.zero.balances" = "Show zero balances";
@@ -911,3 +910,18 @@
 "wallet.backup" = "Pulqabı ehtiyat nüsxəsi";
 "biometry.auth.access" = "Biometrik Doğrulama Girişi";
 "ask.biometry.access.setting" = "Təəssüf ki, əvvəllər biometrik autentifikasiyaya girişi rədd etdiniz. İndi daxil olmaq istərdinizmi?";
+"common.google.backup.decryption.failed.2" = "Ola bilsin ki, daxil etdiyiniz parol yanlışdır.";
+"explore.demeter.title" = "Demeter Fermerçilik";
+"explore.demeter.subtitle" = "Hovuz payınızı paylayın və əlavə mükafatlar qazanın";
+"common.pools" = "Hovuzlar";
+"common.farming" = "Əkinçilik";
+"polkaswap.farm.title.template" = " %@ Ferma";
+"polkaswap.pool.farms.title" = "Əlavə mükafatlar üçün hovuz payınızı paylayın";
+"common.fee" = "Haqq";
+"pool.details.reward" = "Mükafat";
+"pool.details.active.farms" = "Aktiv təsərrüfatlar";
+"farming.details.title" = "Əkinçilik təfərrüatları";
+"pool.details.extra.reward" = "Əlavə mükafatlar üçün hovuz payınızı paylayın";
+"common.nothing.available" = "Əlçatan heç nə yoxdur";
+"apr.description" = "Fermerçilikdə APR, DeFi likvidliyinin təmin edilməsində və ya stakeinq fəaliyyətlərində iştirak üçün investisiyanın illik gəlirini ifadə edir.";
+"farm.details.your.rewards" = "Mükafatlarınız";

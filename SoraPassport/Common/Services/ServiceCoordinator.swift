@@ -32,7 +32,7 @@ import Foundation
 import SoraKeystore
 import SoraFoundation
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 protocol ServiceCoordinatorProtocol: ApplicationServiceProtocol {
     func updateOnAccountChange()

@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 
 protocol WebSocketEngineFactoryProtocol {
     func createEngine(for url: URL, autoconnect: Bool) -> WebSocketEngine
@@ -37,7 +37,7 @@ protocol WebSocketEngineFactoryProtocol {
 
 final class WebSocketEngineFactory: WebSocketEngineFactoryProtocol {
     func createEngine(for url: URL, autoconnect: Bool) -> WebSocketEngine {
-        WebSocketEngine(url: url)
+        WebSocketEngine(connectionName: nil, url: url)
 //        WebSocketEngine(url: url,
 //                        reachabilityManager: ReachabilityManager.shared,
 //                        autoconnect: autoconnect, logger: Logger.shared)

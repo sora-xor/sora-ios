@@ -140,7 +140,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
             let backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
-                                              cryptoType: cryptoType.googleIdentifier,
+                                              cryptoType: cryptoType.typeString,
                                               substrateDerivationPath: viewModel.inputHandler.value)
             wireframe?.setupBackupAccountPassword(on: view,
                                                   account: backupAccount,
@@ -173,7 +173,7 @@ extension AccountCreatePresenter: AccountCreatePresenterProtocol {
             let backupAccount = OpenBackupAccount(name: username,
                                               address: "",
                                               passphrase: metadata.mnemonic.joined(separator: " "),
-                                              cryptoType: cryptoType.googleIdentifier,
+                                              cryptoType: cryptoType.typeString,
                                               substrateDerivationPath: viewModel.inputHandler.value)
             wireframe?.setupBackupAccountPassword(on: view,
                                                   account: backupAccount,

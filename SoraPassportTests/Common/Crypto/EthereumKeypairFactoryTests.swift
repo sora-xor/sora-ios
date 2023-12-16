@@ -41,7 +41,7 @@ class EthereumKeypairFactoryTests: XCTestCase {
             let keypairFactory = EthereumKeypairFactory()
 
             for test in Self.testVectors {
-                let entropy = Data(hexString:test.entropy)!
+                let entropy = Data(hexStringSSF:test.entropy)!
                 let privateKey = try keypairFactory.derivePrivateKey(from: entropy).soraHex
                 XCTAssertEqual(privateKey, test.privateKey)
             }

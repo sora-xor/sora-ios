@@ -30,45 +30,19 @@
 
 import Foundation
 
-struct CallCodingPath: Equatable, Codable {
-    let moduleName: String
-    let callName: String
-}
-
-extension CallCodingPath {
-    static var transfer: CallCodingPath {
-        CallCodingPath(moduleName: "Assets", callName: "transfer")
-    }
-
-    static var transferKeepAlive: CallCodingPath {
-        CallCodingPath(moduleName: "Assets", callName: "transfer_keep_alive")
-    }
-
-    static var swap: CallCodingPath {
-        CallCodingPath(moduleName: "LiquidityProxy", callName: "swap")
-    }
-
-    static var migration: CallCodingPath {
-        CallCodingPath(moduleName: "IrohaMigration", callName: "migrate")
-    }
-    static var depositLiquidity: CallCodingPath {
-        CallCodingPath(moduleName: "PoolXYK", callName: "deposit_liquidity")
-    }
-
-    static var withdrawLiquidity: CallCodingPath {
-        CallCodingPath(moduleName: "PoolXYK", callName: "withdraw_liquidity")
-    }
-
-    static var setReferral: CallCodingPath {
-        CallCodingPath(moduleName: "Referrals", callName: "set_referrer")
-    }
-
-    static var bondReferralBalance: CallCodingPath {
-        CallCodingPath(moduleName: "Referrals", callName: "reserve")
-    }
-
-    static var unbondReferralBalance: CallCodingPath {
-        CallCodingPath(moduleName: "Referrals", callName: "unreserve")
+enum CallCodingPath: Equatable, Codable, CaseIterable {
+    static var allCases: [CallCodingPath] {
+        [
+            .transfer,
+            .transferKeepAlive,
+            .swap,
+            .migration,
+            .depositLiquidity,
+            .withdrawLiquidity,
+            .setReferral,
+            .bondReferralBalance,
+            .unbondReferralBalance
+        ]
     }
 
     var isTransfer: Bool {
@@ -94,4 +68,52 @@ extension CallCodingPath {
     var isReferral: Bool {
         [.setReferral, .bondReferralBalance, .unbondReferralBalance].contains(self)
     }
+
+    var moduleName: String {
+        path.moduleName
+    }
+
+    var callName: String {
+        path.callName
+    }
+
+    var path: (moduleName: String, callName: String) {
+        switch self {
+        case .transfer:
+            return (moduleName: "Assets", callName: "transfer")
+        case .transferKeepAlive:
+            return (moduleName: "Assets", callName: "transfer_keep_alive")
+        case .swap:
+            return (moduleName: "LiquidityProxy", callName: "swap")
+        case .migration:
+            return (moduleName: "IrohaMigration", callName: "migrate")
+        case .depositLiquidity:
+            return (moduleName: "PoolXYK", callName: "deposit_liquidity")
+        case .withdrawLiquidity:
+            return (moduleName: "PoolXYK", callName: "withdraw_liquidity")
+        case .setReferral:
+            return (moduleName: "Referrals", callName: "set_referrer")
+        case .bondReferralBalance:
+            return (moduleName: "Referrals", callName: "reserve")
+        case .unbondReferralBalance:
+            return (moduleName: "Referrals", callName: "unreserve")
+        case let .fromInit(moduleName, callName):
+            return (moduleName: moduleName, callName: callName)
+        }
+    }
+    
+    init(moduleName: String, callName: String) {
+        self = .fromInit(moduleName: moduleName, callName: callName)
+    }
+    
+    case fromInit(moduleName: String, callName: String)
+    case transfer
+    case transferKeepAlive
+    case swap
+    case migration
+    case depositLiquidity
+    case withdrawLiquidity
+    case setReferral
+    case bondReferralBalance
+    case unbondReferralBalance
 }

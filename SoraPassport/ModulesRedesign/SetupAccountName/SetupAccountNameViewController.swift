@@ -166,4 +166,8 @@ extension SetupAccountNameViewController: UsernameSetupViewProtocol {
     func set(viewModel: InputViewModelProtocol) {
         self.viewModel = viewModel
     }
+    
+    func resetFocus() {
+        usernameField.becomeFirstResponder()
+    }
 }

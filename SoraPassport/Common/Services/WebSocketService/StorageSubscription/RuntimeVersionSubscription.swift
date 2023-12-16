@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import FearlessUtils
+import SSFUtils
 import SoraKeystore
 import Rswift
 
@@ -220,7 +220,7 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
         storage.saveOperation({
             let metadataHex = try meta
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-            var rawMetadata = try Data(hexString: metadataHex)
+            var rawMetadata = try Data(hexStringSSF: metadataHex)
             let decoder = try ScaleDecoder(data: rawMetadata)
             let metadata = try RuntimeMetadata(scaleDecoder: decoder)
 
@@ -269,7 +269,7 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
                             constants.append(ModuleConstantMetadata(
                                 name: constant.name,
                                 type: constant.type,
-                                value: (try? Data(hexString: override.value)) ?? constant.value,
+                                value: (try? Data(hexStringSSF: override.value)) ?? constant.value,
                                 documentation: constant.documentation
                             ))
                         }
@@ -309,7 +309,7 @@ final class RuntimeVersionSubscription: WebSocketSubscribing {
                     return nil
                 }
 
-                return RuntimeMetadata.v1(modules: modules, extrinsic: moduleExtrinsic)
+                return try? RuntimeMetadata.v1(modules: modules, extrinsic: moduleExtrinsic)
             }
 
             if let overriden = overridenRuntime() {

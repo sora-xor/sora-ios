@@ -56,9 +56,15 @@ class CategoryItem: SoramitsuView {
         return view
     }()
 
-    let subtitleView: SoramitsuView = {
-        var view = SoramitsuView(frame: .zero)
+    let subtitleView: SoramitsuStackView = {
+        var view = SoramitsuStackView()
+        view.translatesAutoresizingMaskIntoConstraints = false
         view.sora.backgroundColor = .bgSurface
+        view.sora.axis = .horizontal
+        view.sora.distribution = .fill
+        view.sora.alignment = .center
+        view.spacing = 4
+        view.heightAnchor == 14
         return view
     }()
 
@@ -87,12 +93,16 @@ class CategoryItem: SoramitsuView {
         let view = SoramitsuView(frame: .zero)
         view.sora.cornerRadius = .circle
         view.sora.clipsToBounds = true
+        view.sora.isHidden = true
+        view.heightAnchor == 8
+        view.widthAnchor == 8
         return view
     }()
 
     let rightImageView: SoramitsuImageView = {
         let imageView = SoramitsuImageView()
         imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.widthAnchor == 24
         return imageView
     }()
 
@@ -103,12 +113,9 @@ class CategoryItem: SoramitsuView {
     }
 
     private func setupSubviews() {
-
-        translatesAutoresizingMaskIntoConstraints = false
-
         addSubview(horizontalStack)
 
-        subtitleView.addSubview(subtitleLabel)
+        subtitleView.addArrangedSubviews([circle, subtitleLabel])
 
         verticalStack.addArrangedSubviews(titleLabel)
         verticalStack.addArrangedSubviews(subtitleView)
@@ -118,19 +125,14 @@ class CategoryItem: SoramitsuView {
     }
 
     private func setupConstraints() {
-        rightImageView.widthAnchor == 24
-        subtitleView.heightAnchor == 14
         horizontalStack.edgeAnchors == edgeAnchors
-        subtitleLabel.leadingAnchor == subtitleView.leadingAnchor
-        subtitleLabel.trailingAnchor == subtitleView.trailingAnchor
     }
 
     func addCircle() {
-        subtitleView.addSubview(circle)
-        circle.heightAnchor == 8
-        circle.widthAnchor == 8
-        circle.topAnchor == subtitleView.topAnchor + 3
-        circle.leadingAnchor == subtitleView.leadingAnchor
-        subtitleLabel.leadingAnchor == circle.trailingAnchor + 4
+        circle.sora.isHidden = false
+    }
+    
+    func hideCircle() {
+        circle.sora.isHidden = true
     }
 }

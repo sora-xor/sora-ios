@@ -42,7 +42,6 @@
 "project.favourites.small" = "Yêu thích";
 "project.completed.small" = "Hoàn tất";
 "empty.voted.project.description" = "Bỏ phiếu cho các dự án và chúng\n sẽ xuất hiện ở đây";
-"empty.completed.project.description" = "Khi bỏ phiếu xong, bạn\n sẽ tìm thấy các dự án ở đây";
 "project.contacts" = "Danh bạ và thông tin";
 "project.details.favorite.voted.count" = "%@ %@";
 "project.remove.from.favourite" = "Yêu thích";
@@ -911,3 +910,18 @@
 "wallet.backup" = "Sao lưu ví";
 "biometry.auth.access" = "Truy cập xác thực sinh trắc học";
 "ask.biometry.access.setting" = "Rất tiếc, bạn đã từ chối quyền truy cập vào xác thực sinh trắc học trước đó. Bạn có muốn truy cập ngay bây giờ không?";
+"common.google.backup.decryption.failed.2" = "Possibly the password you entered is invalid.";
+"explore.demeter.title" = "Demeter Farming";
+"explore.demeter.subtitle" = "Stake your pool share and earn additional rewards";
+"common.pools" = "Pools";
+"common.farming" = "Farming";
+"polkaswap.farm.title.template" = " %@ Farm";
+"polkaswap.pool.farms.title" = "Stake your pool share for extra rewards";
+"common.fee" = "Fee";
+"pool.details.reward" = "Reward";
+"pool.details.active.farms" = "Active farms";
+"farming.details.title" = "Farming details";
+"pool.details.extra.reward" = "Stake your pool share for extra rewards";
+"common.nothing.available" = "Nothing available";
+"apr.description" = "APR in farming denotes the annualized return on investment for participating in DeFi liquidity provision or staking activities.";
+"farm.details.your.rewards" = "Your rewards";

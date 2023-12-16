@@ -30,65 +30,66 @@
 
 import Foundation
 
-struct StorageCodingPath {
-    let moduleName: String
-    let itemName: String
-}
-
-extension StorageCodingPath {
-    static var account: StorageCodingPath {
-        StorageCodingPath(moduleName: "System", itemName: "Account")
+public enum StorageCodingPath: Equatable, CaseIterable {
+    public var moduleName: String {
+        path.moduleName
     }
 
-    static var tokens: StorageCodingPath {
-        StorageCodingPath(moduleName: "Tokens", itemName: "Accounts")
+    public var itemName: String {
+        path.itemName
     }
 
-    static var events: StorageCodingPath {
-        StorageCodingPath(moduleName: "System", itemName: "Events")
-    }
-
-    static var activeEra: StorageCodingPath {
-        StorageCodingPath(moduleName: "Staking", itemName: "ActiveEra")
-    }
-
-    static var erasStakers: StorageCodingPath {
-        StorageCodingPath(moduleName: "Staking", itemName: "ErasStakers")
-    }
-
-    static var erasPrefs: StorageCodingPath {
-        StorageCodingPath(moduleName: "Staking", itemName: "ErasValidatorPrefs")
-    }
-
-    static var validatorPrefs: StorageCodingPath {
-        StorageCodingPath(moduleName: "Staking", itemName: "Validators")
-    }
-
-    static var totalIssuance: StorageCodingPath {
-        StorageCodingPath(moduleName: "Balances", itemName: "TotalIssuance")
-    }
-
-    static var identity: StorageCodingPath {
-        StorageCodingPath(moduleName: "Identity", itemName: "IdentityOf")
-    }
-
-    static var superIdentity: StorageCodingPath {
-        StorageCodingPath(moduleName: "Identity", itemName: "SuperOf")
-    }
-
-    static var slashingSpans: StorageCodingPath {
-        StorageCodingPath(moduleName: "Staking", itemName: "SlashingSpans")
-    }
-
-    static var unappliedSlashes: StorageCodingPath {
-        StorageCodingPath(moduleName: "Staking", itemName: "UnappliedSlashes")
+    public var path: (moduleName: String, itemName: String) {
+        switch self {
+        case .account:
+            return (moduleName: "System", itemName: "Account")
+        case .tokens:
+            return (moduleName: "Tokens", itemName: "Accounts")
+        case .events:
+            return (moduleName: "System", itemName: "Events")
+        case .activeEra:
+            return (moduleName: "Staking", itemName: "ActiveEra")
+        case .erasStakers:
+            return (moduleName: "Staking", itemName: "ErasStakers")
+        case .erasPrefs:
+            return (moduleName: "Staking", itemName: "ErasValidatorPrefs")
+        case .validatorPrefs:
+            return (moduleName: "Staking", itemName: "Validators")
+        case .totalIssuance:
+            return (moduleName: "Balances", itemName: "TotalIssuance")
+        case .identity:
+            return (moduleName: "Identity", itemName: "IdentityOf")
+        case .superIdentity:
+            return (moduleName: "Identity", itemName: "SuperOf")
+        case .slashingSpans:
+            return (moduleName: "Staking", itemName: "SlashingSpans")
+        case .unappliedSlashes:
+            return (moduleName: "Staking", itemName: "UnappliedSlashes")
+        case .xstPoolFee:
+            return (moduleName: "xstPool", itemName: "baseFee")
+        case .demeterFarmingUserInfo:
+            return (moduleName: "DemeterFarmingPlatform", itemName: "UserInfos")
+        case .demeterFarmingPools:
+            return (moduleName: "DemeterFarmingPlatform", itemName: "Pools")
+        case .demeterFarmingTokenInfo:
+            return (moduleName: "DemeterFarmingPlatform", itemName: "TokenInfos")
+        }
     }
     
-    static var xstPoolFee: StorageCodingPath {
-        StorageCodingPath(moduleName: "xstPool", itemName: "baseFee")
-    }
-    
-    static var demeterFarming: StorageCodingPath {
-        StorageCodingPath(moduleName: "DemeterFarmingPlatform", itemName: "UserInfos")
-    }
+    case account
+    case tokens
+    case events
+    case activeEra
+    case erasStakers
+    case erasPrefs
+    case validatorPrefs
+    case totalIssuance
+    case identity
+    case superIdentity
+    case slashingSpans
+    case unappliedSlashes
+    case xstPoolFee
+    case demeterFarmingUserInfo
+    case demeterFarmingPools
+    case demeterFarmingTokenInfo
 }

@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 import RobinHood
 
 protocol RuntimeSnapshotFactoryProtocol {
@@ -84,7 +84,8 @@ final class RuntimeSnapshotFactory {
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
                 commonTypes,
                 versioningData: chainTypes,
-                runtimeMetadata: runtimeMetadata
+                runtimeMetadata: runtimeMetadata,
+                usedRuntimePaths: [:]
             )
 
             return RuntimeSnapshot(
@@ -132,7 +133,8 @@ final class RuntimeSnapshotFactory {
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
                 commonTypes,
-                runtimeMetadata: runtimeMetadata
+                runtimeMetadata: runtimeMetadata,
+                usedRuntimePaths: [:]
             )
 
             return RuntimeSnapshot(
@@ -182,7 +184,8 @@ final class RuntimeSnapshotFactory {
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
                 try JSONEncoder().encode(json),
                 versioningData: ownTypes,
-                runtimeMetadata: runtimeMetadata
+                runtimeMetadata: runtimeMetadata,
+                usedRuntimePaths: [:]
             )
 
             return RuntimeSnapshot(

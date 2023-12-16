@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 struct StorageResponse<T: Decodable> {
     let key: Data
@@ -140,7 +140,6 @@ final class StorageRequestFactory: StorageRequestFactoryProtocol {
                     Array(keys.suffix(from: pageStart))
 
                 let params = StorageQuery(keys: subkeys, blockHash: blockHash)
-
                 let queryOperation = JSONRPCQueryOperation(
                     engine: engine,
                     method: RPCMethod.queryStorageAt,
@@ -173,6 +172,7 @@ final class StorageRequestFactory: StorageRequestFactoryProtocol {
         let decodingOperation = StorageFallbackDecodingListOperation<T>(path: storagePath)
         decodingOperation.configurationBlock = {
             do {
+                
                 let result = try queryOperation.extractNoCancellableResultData().flatMap { $0 }
 
                 decodingOperation.codingFactory = try factory()
@@ -249,7 +249,8 @@ final class StorageRequestFactory: StorageRequestFactoryProtocol {
         storagePath: StorageCodingPath,
         at blockHash: Data?
     ) -> CompoundOperationWrapper<[StorageResponse<T>]> where K1: Encodable, K2: Encodable, T: Decodable {
-        let keysOperation = DoubleMapKeyEncodingOperation<K1, K2>(path: storagePath, storageKeyFactory: remoteFactory)
+        let keysOperation = DoubleMapKeyEncodingOperation<K1, K2>(path: storagePath, 
+                                                                  storageKeyFactory: remoteFactory as! StorageKeyFactoryProtocol)
 
         keysOperation.configurationBlock = {
             do {

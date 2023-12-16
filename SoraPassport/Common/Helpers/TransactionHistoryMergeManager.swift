@@ -153,14 +153,14 @@ final class TransactionHistoryMergeManager {
                 return nil
             }
 
-            return try? Data(hexString: extrinsicHash)
+            return try? Data(hexStringSSF: extrinsicHash)
         }
 
         let existingHashes = Set(remoteHashes)
         let minRemoteItem = remoteItems.last
 
         let hashesToRemove: [String] = localItems.compactMap { item in
-            if let localHash = try? Data(hexString: item.txHash), existingHashes.contains(localHash) {
+            if let localHash = try? Data(hexStringSSF: item.txHash), existingHashes.contains(localHash) {
                 return item.txHash
             }
 

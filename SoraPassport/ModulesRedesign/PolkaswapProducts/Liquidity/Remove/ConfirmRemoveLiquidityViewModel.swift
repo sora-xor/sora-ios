@@ -111,7 +111,7 @@ extension ConfirmRemoveLiquidityViewModel {
         
         let text = R.string.localizable.polkaswapOutputEstimated("\(slippageTolerance)%", preferredLanguages: .currentLocale)
         let textItem = SoramitsuTextItem(text: text, fontData: FontType.paragraphS, textColor: .fgPrimary, alignment: .center)
-        let slippageTextItem = SoraTextItem(text: textItem.attributedString)
+        let slippageTextItem = SoraTextItem(text: textItem)
         
         let detailItem = ConfirmDetailsItem(detailViewModels: self.details)
         

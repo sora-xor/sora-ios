@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 
 protocol ChainStorageIdFactoryProtocol {
     func createIdentifier(for key: Data) -> String
@@ -40,7 +40,7 @@ final class ChainStorageIdFactory: ChainStorageIdFactoryProtocol {
     let genesisData: Data
 
     init(chain: Chain) throws {
-        genesisData = try Data(hexString: chain.genesisHash())
+        genesisData = try Data(hexStringSSF: chain.genesisHash())
     }
 
     func createIdentifier(for key: Data) -> String {

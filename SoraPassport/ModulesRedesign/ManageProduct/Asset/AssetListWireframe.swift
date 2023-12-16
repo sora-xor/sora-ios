@@ -51,7 +51,8 @@ protocol AssetListWireframeProtocol {
                           sharingFactory: AccountShareFactoryProtocol,
                           referralFactory: ReferralsOperationFactoryProtocol,
                           assetsProvider: AssetProviderProtocol?,
-                          marketCapService: MarketCapServiceProtocol)
+                          marketCapService: MarketCapServiceProtocol,
+                          farmingService: DemeterFarmingServiceProtocol)
 }
 
 final class AssetListWireframe: AssetListWireframeProtocol {
@@ -71,7 +72,8 @@ final class AssetListWireframe: AssetListWireframeProtocol {
                           sharingFactory: AccountShareFactoryProtocol,
                           referralFactory: ReferralsOperationFactoryProtocol,
                           assetsProvider: AssetProviderProtocol?,
-                          marketCapService: MarketCapServiceProtocol) {
+                          marketCapService: MarketCapServiceProtocol,
+                          farmingService: DemeterFarmingServiceProtocol) {
         guard let assetDetailsController = AssetDetailsViewFactory.createView(assetInfo: assetInfo,
                                                                               assetManager: assetManager,
                                                                               fiatService: fiatService,
@@ -87,7 +89,8 @@ final class AssetListWireframe: AssetListWireframeProtocol {
                                                                               sharingFactory: sharingFactory,
                                                                               referralFactory: referralFactory,
                                                                               assetsProvider: assetsProvider,
-                                                                              marketCapService: marketCapService) else {
+                                                                              marketCapService: marketCapService, 
+                                                                              farmingService: farmingService) else {
             return
         }
         

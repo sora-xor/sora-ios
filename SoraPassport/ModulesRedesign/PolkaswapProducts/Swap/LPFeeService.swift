@@ -31,7 +31,7 @@
 import Foundation
 import BigInt
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 protocol LPFeeServiceProtocol {
     func getLpfee(with dexId: UInt32) -> String

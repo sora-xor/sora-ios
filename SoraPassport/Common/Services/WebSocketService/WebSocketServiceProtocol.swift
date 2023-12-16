@@ -30,7 +30,7 @@
 
 import Foundation
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
 
 protocol WebSocketServiceStateListener: AnyObject {
     func websocketNetworkDown(url: URL)

@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 struct LocalStorageResponse<T: Decodable> {
     let key: String

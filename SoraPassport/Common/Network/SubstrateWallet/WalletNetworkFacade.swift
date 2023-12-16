@@ -32,7 +32,7 @@ import Foundation
 import CommonWallet
 import IrohaCrypto
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 final class WalletNetworkFacade {
     let accountSettings: WalletAccountSettingsProtocol
@@ -51,6 +51,7 @@ final class WalletNetworkFacade {
     let runtimeService: RuntimeCodingServiceProtocol
     let requestFactory: StorageRequestFactoryProtocol
     let engine: JSONRPCEngine
+    let demeterFarmingService: DemeterFarmingServiceProtocol
     var task: Task<Void, Error>?
 
     lazy var localStorageKeyFactory = LocalStorageKeyFactory()
@@ -71,7 +72,8 @@ final class WalletNetworkFacade {
          totalPriceAssetId: WalletAssetId?,
          runtimeService: RuntimeCodingServiceProtocol,
          requestFactory: StorageRequestFactoryProtocol,
-         engine: JSONRPCEngine) {
+         engine: JSONRPCEngine,
+         demeterFarmingService: DemeterFarmingServiceProtocol) {
         self.accountSettings = accountSettings
         self.nodeOperationFactory = nodeOperationFactory
         self.coingeckoOperationFactory = coingeckoOperationFactory
@@ -88,5 +90,6 @@ final class WalletNetworkFacade {
         self.runtimeService = runtimeService
         self.requestFactory = requestFactory
         self.engine = engine
+        self.demeterFarmingService = demeterFarmingService
     }
 }

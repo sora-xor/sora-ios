@@ -64,7 +64,7 @@ extension WalletNetworkFacade {
         var pools: [String: [String]] = [:]
         let baseAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
         for baseAssetId in baseAssetIds {
-            if let baseAssetIdData = try? Data(hexString: baseAssetId),
+            if let baseAssetIdData = try? Data(hexStringSSF: baseAssetId),
                let assetPoolList = self.poolList(baseAssetId: baseAssetIdData) {
                 pools[baseAssetId] = assetPoolList
             }
@@ -159,6 +159,11 @@ extension WalletNetworkFacade {
                 return
             }
             
+            // farms
+            let farmsOperation: BaseOperation<[UserFarm]> = AwaitOperation { [weak self] in
+                return await self?.demeterFarmingService.getUserFarmInfos(baseAssetId: baseAsset, targetAssetId: targetAsset) ?? []
+            }
+            
             let processingOperation: BaseOperation<Void> = ClosureOperation {
                 
                 guard let reserves = try? reservesOperation.extractResultData()?.underlyingValue else {
@@ -167,6 +172,7 @@ extension WalletNetworkFacade {
                 }
                 
                 let accountPoolBalance = (try? poolProvidersBalanceOperation.extractResultData()?.underlyingValue) ?? Balance(value: 0)
+                let farms = (try? farmsOperation.extractResultData()) ?? []
                 
                 guard let totalIssuances = try? accountPoolTotalIssuancesOperation.extractResultData()?.underlyingValue else {
                     continuetion.resume(throwing: PoolError.noProperties)
@@ -194,7 +200,8 @@ extension WalletNetworkFacade {
                     totalIssuances: Decimal.fromSubstrateAmount(totalIssuances.value, precision: 18) ?? 0.0,
                     baseAssetReserves: Decimal.fromSubstrateAmount(reserves.reserves.value, precision: 18) ?? 0.0,
                     targetAssetReserves: Decimal.fromSubstrateAmount(reserves.fees.value, precision: 18) ?? 0.0,
-                    accountPoolBalance: accountPoolBalanceDecimal)
+                    accountPoolBalance: accountPoolBalanceDecimal,
+                    farms: farms)
                 
                 continuetion.resume(returning: poolDetails)
             }
@@ -202,24 +209,16 @@ extension WalletNetworkFacade {
             processingOperation.addDependency(poolProvidersBalanceOperation)
             processingOperation.addDependency(accountPoolTotalIssuancesOperation)
             processingOperation.addDependency(reservesOperation)
+            processingOperation.addDependency(farmsOperation)
             
             operationQueue.addOperations([
                 poolPropertiesOperation,
                 reservesOperation,
                 poolProvidersBalanceOperation,
                 accountPoolTotalIssuancesOperation,
+                farmsOperation,
                 processingOperation
             ], waitUntilFinished: false)
         })
-    }
-}
-
-extension SSFUtils.StorageKeyFactoryProtocol {
-    func poolProvidersKey(reservesAccountId: Data, accountId: Data) throws -> Data {
-        try createStorageKey(moduleName: "PoolXYK", storageName: "PoolProviders") + reservesAccountId + accountId
-    }
-    
-    func accountPoolTotalIssuancesKeyForId(_ identifier: Data) throws -> Data {
-        try createStorageKey(moduleName: "PoolXYK", storageName: "TotalIssuances") + identifier
     }
 }

@@ -30,7 +30,7 @@
 
 import SoraUIKit
 import Anchorage
-import FearlessUtils
+import SSFUtils
 
 final class ContactFooterCell: SoramitsuTableViewCell {
     

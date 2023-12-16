@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraKeystore
-import FearlessUtils
+import SSFUtils
 import RobinHood
 import IrohaCrypto
 import BigInt

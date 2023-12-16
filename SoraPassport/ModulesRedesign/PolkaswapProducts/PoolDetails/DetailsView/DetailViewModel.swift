@@ -41,14 +41,14 @@ final class DetailViewModel {
 
     let title: String
     var infoHandler: (() -> Void)?
-    let rewardAssetImage: String?
+    let rewardAssetImage: UIImage?
     let statusAssetImage: UIImage?
     let assetAmountText: SoramitsuTextItem
     let fiatAmountText: SoramitsuTextItem?
     let type: DetailsType
 
     init(title: String,
-         rewardAssetImage: String? = nil,
+         rewardAssetImage: UIImage? = nil,
          statusAssetImage: UIImage? = nil,
          assetAmountText: SoramitsuTextItem,
          fiatAmountText: SoramitsuTextItem? = nil,

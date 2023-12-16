@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import SSFUtils
 
 struct EthereumSignature: Codable {
     enum CodingKeys: String, CodingKey {

@@ -30,7 +30,7 @@
 
 import BigInt
 import CommonWallet
-import FearlessUtils
+import SSFUtils
 import Foundation
 import IrohaCrypto
 import RobinHood
@@ -156,7 +156,7 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
             let contactSaveWrapper: CompoundOperationWrapper<Void>
             let type = info.type
             if type == .outgoing {
-                let destinationId = try Data(hexString: info.destination)
+                let destinationId = try Data(hexStringSSF: info.destination)
                 let destinationAddress = try addressFactory
                     .address(fromAccountId: destinationId,
                              type: currentNetworkType)

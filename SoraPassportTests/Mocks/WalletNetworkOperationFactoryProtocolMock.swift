@@ -2,7 +2,7 @@ import Foundation
 @testable import SoraPassport
 import CommonWallet
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFactoryProtocol/*, WalletRemoteHistoryOperationFactoryProtocol*/ {
     func getPoolsDetails() throws -> CompoundOperationWrapper<[PoolDetails]> {

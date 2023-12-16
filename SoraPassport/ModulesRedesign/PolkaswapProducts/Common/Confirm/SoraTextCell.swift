@@ -69,6 +69,6 @@ extension SoraTextCell: SoramitsuTableViewCellProtocol {
             return
         }
 
-        label.attributedText = item.text
+        label.sora.attributedText = item.text
     }
 }
