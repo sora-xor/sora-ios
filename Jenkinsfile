@@ -11,7 +11,7 @@ def pipeline = new org.ios.AppPipeline(
     sonar: true,
     sonarProjectName: 'sora-ios',
     sonarProjectKey: 'sora:sora-ios',
-    // appTests: false,
+    appTests: false,
     jobParams: jobParams,
     label: "mac-sora",
     appPushNoti: true,
