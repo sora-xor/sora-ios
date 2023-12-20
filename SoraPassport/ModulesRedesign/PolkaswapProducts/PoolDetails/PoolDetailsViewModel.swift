@@ -180,8 +180,8 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                 poolInfo: poolInfo,
                 farms: detailsContent?.farms ?? []
             )
-            let item = FarmListItem(
-                title: R.string.localizable.polkaswapPoolFarmsTitle(preferredLanguages: .currentLocale),
+            let activeFarmsItem = FarmListItem(
+                title: R.string.localizable.poolDetailsActiveFarms(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
                 print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
@@ -201,12 +201,17 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                     farm: farm
                 )
             }
-            items.append(.staked(item))
             
-        } else if !(detailsContent?.farms.isEmpty ?? true) {
+            items.append(contentsOf: [
+                .staked(activeFarmsItem),
+                .space(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
+            ])
+        }
+        
+        if !(detailsContent?.farms.isEmpty ?? true) {
             let farmViewModels = itemFactory.farmsItem(with: detailsContent?.farms ?? [])
             
-            let item = FarmListItem(
+            let stakeItem = FarmListItem(
                 title: R.string.localizable.polkaswapPoolFarmsTitle(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
@@ -227,7 +232,8 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                     farm: farm
                 )
             }
-            items.append(.staked(item))
+            
+            items.append(.staked(stakeItem))
         }
         
         return PoolDetailsSection(items: items)
