@@ -36,30 +36,49 @@ import RobinHood
 
 protocol FarmDetailsWireframeProtocol: AlertPresentable {
     func showPoolDetails(on controller: UIViewController?,
-                         poolInfo: PoolInfo,
+                         poolInfo: PoolInfo?,
                          assetManager: AssetManagerProtocol,
-                         fiatService: FiatServiceProtocol,
-                         poolsService: PoolsServiceInputProtocol,
+                         fiatService: FiatServiceProtocol?,
+                         poolsService: PoolsServiceInputProtocol?,
                          providerFactory: BalanceProviderFactory,
-                         operationFactory: WalletNetworkOperationFactoryProtocol,
-                         assetsProvider: AssetProviderProtocol,
+                         operationFactory: WalletNetworkOperationFactoryProtocol?,
+                         assetsProvider: AssetProviderProtocol?,
                          marketCapService: MarketCapServiceProtocol,
                          farmingService: DemeterFarmingServiceProtocol)
+    
+    func showStakeDetails(on controller: UIViewController?,
+                          farm: Farm,
+                          poolInfo: PoolInfo?,
+                          poolsService: PoolsServiceInputProtocol?,
+                          fiatService: FiatServiceProtocol?,
+                          assetManager: AssetManagerProtocol,
+                          providerFactory: BalanceProviderFactory,
+                          operationFactory: WalletNetworkOperationFactoryProtocol?,
+                          assetsProvider: AssetProviderProtocol?,
+                          marketCapService: MarketCapServiceProtocol,
+                          farmingService: DemeterFarmingServiceProtocol,
+                          detailsFactory: DetailViewModelFactoryProtocol)
 }
 
 final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
     
     func showPoolDetails(on controller: UIViewController?,
-                         poolInfo: PoolInfo,
+                         poolInfo: PoolInfo?,
                          assetManager: AssetManagerProtocol,
-                         fiatService: FiatServiceProtocol,
-                         poolsService: PoolsServiceInputProtocol,
+                         fiatService: FiatServiceProtocol?,
+                         poolsService: PoolsServiceInputProtocol?,
                          providerFactory: BalanceProviderFactory,
-                         operationFactory: WalletNetworkOperationFactoryProtocol,
-                         assetsProvider: AssetProviderProtocol,
+                         operationFactory: WalletNetworkOperationFactoryProtocol?,
+                         assetsProvider: AssetProviderProtocol?,
                          marketCapService: MarketCapServiceProtocol,
                          farmingService: DemeterFarmingServiceProtocol) {
-        guard let poolDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
+        guard 
+            let poolInfo,
+            let poolsService,
+            let assetsProvider,
+            let fiatService,
+            let operationFactory,
+            let poolDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
                                                                             assetManager: assetManager,
                                                                             fiatService: fiatService,
                                                                             poolsService: poolsService,
@@ -76,6 +95,47 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
         containerView.modalPresentationStyle = .overFullScreen
         
         let navigationController = UINavigationController(rootViewController: poolDetailsController)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.navigationBar.setBackgroundImage(UIImage(), for: .default)
+        navigationController.addCustomTransitioning()
+        
+        containerView.add(navigationController)
+        
+        controller?.present(containerView, animated: true)
+    }
+    
+    func showStakeDetails(on controller: UIViewController?,
+                          farm: Farm,
+                          poolInfo: PoolInfo?,
+                          poolsService: PoolsServiceInputProtocol?,
+                          fiatService: FiatServiceProtocol?,
+                          assetManager: AssetManagerProtocol,
+                          providerFactory: BalanceProviderFactory,
+                          operationFactory: WalletNetworkOperationFactoryProtocol?,
+                          assetsProvider: AssetProviderProtocol?,
+                          marketCapService: MarketCapServiceProtocol,
+                          farmingService: DemeterFarmingServiceProtocol,
+                          detailsFactory: DetailViewModelFactoryProtocol) {
+        guard
+            let poolInfo,
+            let stakeDetailsController = EditFarmViewFactory.createView(farm: farm,
+                                                                          poolInfo: poolInfo,
+                                                                          poolsService: poolsService,
+                                                                          fiatService: fiatService,
+                                                                          assetManager: assetManager,
+                                                                          providerFactory: providerFactory,
+                                                                          operationFactory: operationFactory,
+                                                                          assetsProvider: assetsProvider,
+                                                                          marketCapService: marketCapService,
+                                                                          farmingService: farmingService,
+                                                                          detailsFactory: detailsFactory) else {
+            return
+        }
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        
+        let navigationController = UINavigationController(rootViewController: stakeDetailsController)
         navigationController.navigationBar.backgroundColor = .clear
         navigationController.navigationBar.setBackgroundImage(UIImage(), for: .default)
         navigationController.addCustomTransitioning()

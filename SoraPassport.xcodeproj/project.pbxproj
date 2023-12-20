@@ -1281,6 +1281,15 @@
 		B2FEEA9A2A8A3E030014EC32 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B723EBB02B2AF96400FB055C /* FarmDetailsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBAF2B2AF96400FB055C /* FarmDetailsWireframe.swift */; };
+		B723EBB32B2B146E00FB055C /* EditFarmViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBB22B2B146E00FB055C /* EditFarmViewController.swift */; };
+		B723EBB52B2B148400FB055C /* EditFarmViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBB42B2B148400FB055C /* EditFarmViewModel.swift */; };
+		B723EBB72B2B149000FB055C /* EditFarmCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBB62B2B149000FB055C /* EditFarmCell.swift */; };
+		B723EBB92B2B149D00FB055C /* EditFarmItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBB82B2B149D00FB055C /* EditFarmItem.swift */; };
+		B723EBBB2B2B14A900FB055C /* EditFarmSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBBA2B2B14A900FB055C /* EditFarmSection.swift */; };
+		B723EBBD2B2B14D500FB055C /* EditFarmViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBBC2B2B14D500FB055C /* EditFarmViewModelProtocol.swift */; };
+		B723EBBF2B2C29C500FB055C /* EditFarmItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBBE2B2C29C500FB055C /* EditFarmItemFactory.swift */; };
+		B723EBC12B2C407300FB055C /* EditFarmViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBC02B2C407300FB055C /* EditFarmViewFactory.swift */; };
+		B723EBC32B2C56A500FB055C /* FarmSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBC22B2C56A500FB055C /* FarmSliderView.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		B77906242B282876003A2566 /* SupplyPoolCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77906232B282876003A2566 /* SupplyPoolCell.swift */; };
 		B77906262B282888003A2566 /* SupplyPoolItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77906252B282888003A2566 /* SupplyPoolItem.swift */; };
@@ -2700,6 +2709,15 @@
 		B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CIKeys.generated.swift; sourceTree = "<group>"; };
 		B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsTests.swift; sourceTree = "<group>"; };
 		B723EBAF2B2AF96400FB055C /* FarmDetailsWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FarmDetailsWireframe.swift; sourceTree = "<group>"; };
+		B723EBB22B2B146E00FB055C /* EditFarmViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmViewController.swift; sourceTree = "<group>"; };
+		B723EBB42B2B148400FB055C /* EditFarmViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmViewModel.swift; sourceTree = "<group>"; };
+		B723EBB62B2B149000FB055C /* EditFarmCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmCell.swift; sourceTree = "<group>"; };
+		B723EBB82B2B149D00FB055C /* EditFarmItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmItem.swift; sourceTree = "<group>"; };
+		B723EBBA2B2B14A900FB055C /* EditFarmSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmSection.swift; sourceTree = "<group>"; };
+		B723EBBC2B2B14D500FB055C /* EditFarmViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmViewModelProtocol.swift; sourceTree = "<group>"; };
+		B723EBBE2B2C29C500FB055C /* EditFarmItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmItemFactory.swift; sourceTree = "<group>"; };
+		B723EBC02B2C407300FB055C /* EditFarmViewFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmViewFactory.swift; sourceTree = "<group>"; };
+		B723EBC22B2C56A500FB055C /* FarmSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FarmSliderView.swift; sourceTree = "<group>"; };
 		B77906232B282876003A2566 /* SupplyPoolCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupplyPoolCell.swift; sourceTree = "<group>"; };
 		B77906252B282888003A2566 /* SupplyPoolItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupplyPoolItem.swift; sourceTree = "<group>"; };
 		B77B9D892AEA765C00D39AE0 /* AccountBackuped.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountBackuped.swift; sourceTree = "<group>"; };
@@ -5520,6 +5538,7 @@
 				8BF4286A293E5A9A00590F92 /* Language */,
 				8B3625FF296F1652007B9525 /* ChangeAccount */,
 				364E6E9B2B1CD22600002EE3 /* FarmDetails */,
+				B723EBB12B2B145300FB055C /* EditFarm */,
 				364BF2182B1C5BB000758323 /* Explore */,
 				364BB48B292A4B7E00DE90A6 /* ActivityDetails */,
 				3692D6972910716800B8B274 /* Activity */,
@@ -6284,6 +6303,22 @@
 				B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */,
 			);
 			path = Enabled;
+			sourceTree = "<group>";
+		};
+		B723EBB12B2B145300FB055C /* EditFarm */ = {
+			isa = PBXGroup;
+			children = (
+				B723EBBC2B2B14D500FB055C /* EditFarmViewModelProtocol.swift */,
+				B723EBB22B2B146E00FB055C /* EditFarmViewController.swift */,
+				B723EBB42B2B148400FB055C /* EditFarmViewModel.swift */,
+				B723EBB62B2B149000FB055C /* EditFarmCell.swift */,
+				B723EBB82B2B149D00FB055C /* EditFarmItem.swift */,
+				B723EBBA2B2B14A900FB055C /* EditFarmSection.swift */,
+				B723EBBE2B2C29C500FB055C /* EditFarmItemFactory.swift */,
+				B723EBC02B2C407300FB055C /* EditFarmViewFactory.swift */,
+				B723EBC22B2C56A500FB055C /* FarmSliderView.swift */,
+			);
+			path = EditFarm;
 			sourceTree = "<group>";
 		};
 		B8A4AE2318F935BBA3F481A0 /* ChangeAccount */ = {
@@ -7161,6 +7196,7 @@
 				9441FA4C25CAAE8600775559 /* KeystoreExportWrapper.swift in Sources */,
 				9441FBEE25CC035700775559 /* BaseStorageChildSubscription.swift in Sources */,
 				9441FAB925CAC44E00775559 /* AccountImportWireframe.swift in Sources */,
+				B723EBBD2B2B14D500FB055C /* EditFarmViewModelProtocol.swift in Sources */,
 				84EC6D032601476E00A828E6 /* EventRecord.swift in Sources */,
 				362F49C42A3772D500163091 /* SetupPasswordSection.swift in Sources */,
 				8409324F2347327B0013C871 /* SoraWindow.swift in Sources */,
@@ -7355,6 +7391,7 @@
 				3661C9E22851FC4000660434 /* RewardFooterViewModel.swift in Sources */,
 				363DA8092A08E15700806A5B /* SendAssetView.swift in Sources */,
 				B293C3522A57E6BB00FC7601 /* InputRewardAmountViewController.swift in Sources */,
+				B723EBB92B2B149D00FB055C /* EditFarmItem.swift in Sources */,
 				361106322978A4A7003A6352 /* ConfirmPassphraseWireframe.swift in Sources */,
 				3666CBCB29056E420098F4AC /* AssetDetailsViewModel.swift in Sources */,
 				94D4B66428C0B7DB007F98EB /* StorageMigrator+Sync.swift in Sources */,
@@ -7479,6 +7516,7 @@
 				360FF41C2A557F6400D94BA9 /* ProgressView.swift in Sources */,
 				3653BD1A2A02B60A003C71A4 /* ReceiveQRView.swift in Sources */,
 				364D61B829928D33004938FA /* AssetIdCell.swift in Sources */,
+				B723EBB52B2B148400FB055C /* EditFarmViewModel.swift in Sources */,
 				364E6EA22B1CD42A00002EE3 /* FarmDetailsItem.swift in Sources */,
 				8BF42861293B98EA00590F92 /* MoreMenuProtocol.swift in Sources */,
 				94B3002026FB782300F239D7 /* TransactionHistoryContext.swift in Sources */,
@@ -7787,6 +7825,7 @@
 				B77906242B282876003A2566 /* SupplyPoolCell.swift in Sources */,
 				8430296F22FA9FCE00497C81 /* WalletWithdrawMetadataFetchMock.swift in Sources */,
 				9441F8F325C9699400775559 /* TransactionType.swift in Sources */,
+				B723EBC12B2C407300FB055C /* EditFarmViewFactory.swift in Sources */,
 				9441FC0925CC151000775559 /* SelectedUsernameChanged.swift in Sources */,
 				3661C8A82848D8BA00660434 /* SoraHistoryItem+Wallet.swift in Sources */,
 				02623EF32179B0080011250E /* RootPresenterFactory.swift in Sources */,
@@ -7851,6 +7890,7 @@
 				36F31BC428F89A9300A3B550 /* AssetListCell.swift in Sources */,
 				3608328A28F8820800E57418 /* ProductListViewController.swift in Sources */,
 				94D4B65D28BFA64E007F98EB /* PersistentStoreCoordinator+Extensions.swift in Sources */,
+				B723EBB32B2B146E00FB055C /* EditFarmViewController.swift in Sources */,
 				02E3199E21D2AFE700B33B66 /* ResultDataError+TextConvertible.swift in Sources */,
 				9441FAB825CAC44E00775559 /* BaseAccountImportInteractor.swift in Sources */,
 				9481B48C286EFE8E00A472E2 /* ChainNodeModel.swift in Sources */,
@@ -8060,6 +8100,7 @@
 				84093251234752900013C871 /* NetworkAvailabilityLayerService.swift in Sources */,
 				844811E4242B8E530081662C /* TextProcessor+Charset.swift in Sources */,
 				36C370EE2823E0370027BA77 /* ReferrerCell.swift in Sources */,
+				B723EBB72B2B149000FB055C /* EditFarmCell.swift in Sources */,
 				3611062C29784A23003A6352 /* SetupAccountNameViewFactory.swift in Sources */,
 				36C370E42823B0890027BA77 /* AvailableInvitationsCell.swift in Sources */,
 				36FB41E52ABCA7E100E7696F /* PriceTrendService.swift in Sources */,
@@ -8081,6 +8122,7 @@
 				9441FBDD25CC034800775559 /* WebSocketSubscriptionFactory.swift in Sources */,
 				94497DCF25EF89A700FD4F14 /* AccountInfo.swift in Sources */,
 				9441FC4D25D2D3A200775559 /* AmountFormatterFactory.swift in Sources */,
+				B723EBBF2B2C29C500FB055C /* EditFarmItemFactory.swift in Sources */,
 				9441FBED25CC035700775559 /* StorageSubscriptionContainer.swift in Sources */,
 				94497D1525EE7A1800FD4F14 /* ExtrinsicService.swift in Sources */,
 				94497DA725EF891C00FD4F14 /* BondCall.swift in Sources */,
@@ -8154,6 +8196,7 @@
 				8409324B234645A10013C871 /* ApplicationStatusView.swift in Sources */,
 				366A77F82A30DC6800A6DDF9 /* AccountView.swift in Sources */,
 				55714919278D9D5800282886 /* JSONAny.swift in Sources */,
+				B723EBBB2B2B14A900FB055C /* EditFarmSection.swift in Sources */,
 				36ADDDB428ECC1740080A41C /* WalletHeaderView.swift in Sources */,
 				9441F9AB25C9801200775559 /* UserDataStorageFacade.swift in Sources */,
 				36E5CF14295B49F90098D4D2 /* WelcomeViewController.swift in Sources */,
@@ -8163,6 +8206,7 @@
 				9486FF1426176DC500D80A83 /* SendToContactCommand.swift in Sources */,
 				36FE0FDD29557F7E00117E82 /* ContactsWireframe.swift in Sources */,
 				9441F9B025C9801300775559 /* UserDataModel.xcdatamodeld in Sources */,
+				B723EBC32B2C56A500FB055C /* FarmSliderView.swift in Sources */,
 				940683AB26790C55005F520D /* LongrunOperation.swift in Sources */,
 				9441F95525C9707200775559 /* BaseOperation+Result.swift in Sources */,
 				36165509291B12CE00060A8D /* PooledCell.swift in Sources */,

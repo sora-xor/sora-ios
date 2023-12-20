@@ -179,17 +179,7 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         )
     }
     
-    func supplyLiquidityTapped() {
-        guard 
-            let poolInfo,
-            let poolsService,
-            let assetsProvider,
-            let fiatService,
-            let operationFactory 
-        else {
-            return
-        }
-        
+    func supplyLiquidityTapped() {        
         wireframe?.showPoolDetails(on: view?.controller,
                                    poolInfo: poolInfo,
                                    assetManager: assetManager,
@@ -203,7 +193,18 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     }
     
     func stakeButtonTapped() {
-        print("Stake button tapped.")
+        wireframe?.showStakeDetails(on: view?.controller,
+                                    farm: farm,
+                                    poolInfo: poolInfo,
+                                    poolsService: poolsService,
+                                    fiatService: fiatService,
+                                    assetManager: assetManager,
+                                    providerFactory: providerFactory,
+                                    operationFactory: operationFactory,
+                                    assetsProvider: assetsProvider,
+                                    marketCapService: marketCapService,
+                                    farmingService: farmingService,
+                                    detailsFactory: detailsFactory)
     }
     
     func claimRewardButtonTapped() {
@@ -211,6 +212,17 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     }
     
     func editFarmButtonTapped() {
-        print("Edit farm button tapped.")
+        wireframe?.showStakeDetails(on: view?.controller,
+                                    farm: farm,
+                                    poolInfo: poolInfo,
+                                    poolsService: poolsService,
+                                    fiatService: fiatService,
+                                    assetManager: assetManager,
+                                    providerFactory: providerFactory,
+                                    operationFactory: operationFactory,
+                                    assetsProvider: assetsProvider,
+                                    marketCapService: marketCapService,
+                                    farmingService: farmingService,
+                                    detailsFactory: detailsFactory)
     }
 }
