@@ -115,4 +115,5 @@ struct Farm {
     let tvl: Decimal
     let apr: Decimal
     let depositFee: Decimal
+    let usdPrice: Decimal
 }

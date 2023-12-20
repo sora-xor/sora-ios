@@ -208,7 +208,18 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     }
     
     func claimRewardButtonTapped() {
-        print("Claim rewards button tapped.")
+        wireframe?.showClaimRewards(on: view?.controller,
+                                    farm: farm,
+                                    poolInfo: poolInfo,
+                                    poolsService: poolsService,
+                                    fiatService: fiatService,
+                                    assetManager: assetManager,
+                                    providerFactory: providerFactory,
+                                    operationFactory: operationFactory,
+                                    assetsProvider: assetsProvider,
+                                    marketCapService: marketCapService,
+                                    farmingService: farmingService,
+                                    detailsFactory: detailsFactory)
     }
     
     func editFarmButtonTapped() {

@@ -92,6 +92,11 @@ protocol DetailViewModelFactoryProtocol {
                                sharePercentage: Decimal,
                                fee: Decimal,
                                viewModel: EditFarmViewModelProtocol) -> [DetailViewModel]
+    
+    func createClaimViewModels(with farm: Farm,
+                               poolInfo: PoolInfo,
+                               fee: Decimal,
+                               viewModel: ClaimRewardsViewModelProtocol) -> [DetailViewModel]
 }
 
 final class DetailViewModelFactory {
@@ -300,6 +305,28 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         
         viewModels.append(feeDetailsViewModel)
         
+        
+        let networkFeeText = SoramitsuTextItem(text: "\(NumberFormatter.cryptoAssets.stringFromDecimal(fee) ?? "") XOR",
+                                               fontData: FontType.textS,
+                                               textColor: .fgPrimary,
+                                               alignment: .right)
+        let networkFeeDetailsViewModel = DetailViewModel(title: R.string.localizable.networkFee(preferredLanguages: .currentLocale),
+                                                  assetAmountText: networkFeeText)
+        
+        networkFeeDetailsViewModel.infoHandler = {
+            viewModel.networkFeeInfoButtonTapped()
+        }
+        
+        viewModels.append(networkFeeDetailsViewModel)
+        
+        return viewModels
+    }
+    
+    func createClaimViewModels(with farm: Farm,
+                               poolInfo: PoolInfo,
+                               fee: Decimal,
+                               viewModel: ClaimRewardsViewModelProtocol) -> [DetailViewModel] {
+        var viewModels: [DetailViewModel] = []
         
         let networkFeeText = SoramitsuTextItem(text: "\(NumberFormatter.cryptoAssets.stringFromDecimal(fee) ?? "") XOR",
                                                fontData: FontType.textS,

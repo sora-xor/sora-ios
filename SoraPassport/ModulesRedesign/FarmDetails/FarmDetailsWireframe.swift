@@ -58,6 +58,19 @@ protocol FarmDetailsWireframeProtocol: AlertPresentable {
                           marketCapService: MarketCapServiceProtocol,
                           farmingService: DemeterFarmingServiceProtocol,
                           detailsFactory: DetailViewModelFactoryProtocol)
+    
+    func showClaimRewards(on controller: UIViewController?,
+                          farm: Farm,
+                          poolInfo: PoolInfo?,
+                          poolsService: PoolsServiceInputProtocol?,
+                          fiatService: FiatServiceProtocol?,
+                          assetManager: AssetManagerProtocol,
+                          providerFactory: BalanceProviderFactory,
+                          operationFactory: WalletNetworkOperationFactoryProtocol?,
+                          assetsProvider: AssetProviderProtocol?,
+                          marketCapService: MarketCapServiceProtocol,
+                          farmingService: DemeterFarmingServiceProtocol,
+                          detailsFactory: DetailViewModelFactoryProtocol)
 }
 
 final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
@@ -129,6 +142,47 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
                                                                           marketCapService: marketCapService,
                                                                           farmingService: farmingService,
                                                                           detailsFactory: detailsFactory) else {
+            return
+        }
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+        
+        let navigationController = UINavigationController(rootViewController: stakeDetailsController)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.navigationBar.setBackgroundImage(UIImage(), for: .default)
+        navigationController.addCustomTransitioning()
+        
+        containerView.add(navigationController)
+        
+        controller?.present(containerView, animated: true)
+    }
+    
+    func showClaimRewards(on controller: UIViewController?,
+                          farm: Farm,
+                          poolInfo: PoolInfo?,
+                          poolsService: PoolsServiceInputProtocol?,
+                          fiatService: FiatServiceProtocol?,
+                          assetManager: AssetManagerProtocol,
+                          providerFactory: BalanceProviderFactory,
+                          operationFactory: WalletNetworkOperationFactoryProtocol?,
+                          assetsProvider: AssetProviderProtocol?,
+                          marketCapService: MarketCapServiceProtocol,
+                          farmingService: DemeterFarmingServiceProtocol,
+                          detailsFactory: DetailViewModelFactoryProtocol) {
+        guard
+            let poolInfo,
+            let stakeDetailsController = ClaimRewardsViewFactory.createView(farm: farm,
+                                                                            poolInfo: poolInfo,
+                                                                            poolsService: poolsService,
+                                                                            fiatService: fiatService,
+                                                                            assetManager: assetManager,
+                                                                            providerFactory: providerFactory,
+                                                                            operationFactory: operationFactory,
+                                                                            assetsProvider: assetsProvider,
+                                                                            marketCapService: marketCapService,
+                                                                            farmingService: farmingService,
+                                                                            detailsFactory: detailsFactory) else {
             return
         }
         

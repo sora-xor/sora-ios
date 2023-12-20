@@ -1290,6 +1290,14 @@
 		B723EBBF2B2C29C500FB055C /* EditFarmItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBBE2B2C29C500FB055C /* EditFarmItemFactory.swift */; };
 		B723EBC12B2C407300FB055C /* EditFarmViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBC02B2C407300FB055C /* EditFarmViewFactory.swift */; };
 		B723EBC32B2C56A500FB055C /* FarmSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBC22B2C56A500FB055C /* FarmSliderView.swift */; };
+		B73A21322B32C5130091DDE8 /* ClaimRewardsViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A21312B32C5130091DDE8 /* ClaimRewardsViewModelProtocol.swift */; };
+		B73A21342B32C5240091DDE8 /* ClaimRewardsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A21332B32C5240091DDE8 /* ClaimRewardsViewController.swift */; };
+		B73A21362B32C5300091DDE8 /* ClaimRewardsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A21352B32C5300091DDE8 /* ClaimRewardsViewModel.swift */; };
+		B73A21382B32C53C0091DDE8 /* ClaimRewardsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A21372B32C53C0091DDE8 /* ClaimRewardsCell.swift */; };
+		B73A213A2B32C5470091DDE8 /* ClaimRewardsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A21392B32C5470091DDE8 /* ClaimRewardsItem.swift */; };
+		B73A213C2B32C5510091DDE8 /* ClaimRewardsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A213B2B32C5510091DDE8 /* ClaimRewardsSection.swift */; };
+		B73A213E2B32C55D0091DDE8 /* ClaimRewardsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A213D2B32C55D0091DDE8 /* ClaimRewardsViewFactory.swift */; };
+		B73A21402B32C5750091DDE8 /* ClaimRewardsItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A213F2B32C5750091DDE8 /* ClaimRewardsItemFactory.swift */; };
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		B77906242B282876003A2566 /* SupplyPoolCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77906232B282876003A2566 /* SupplyPoolCell.swift */; };
 		B77906262B282888003A2566 /* SupplyPoolItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77906252B282888003A2566 /* SupplyPoolItem.swift */; };
@@ -2718,6 +2726,14 @@
 		B723EBBE2B2C29C500FB055C /* EditFarmItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmItemFactory.swift; sourceTree = "<group>"; };
 		B723EBC02B2C407300FB055C /* EditFarmViewFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFarmViewFactory.swift; sourceTree = "<group>"; };
 		B723EBC22B2C56A500FB055C /* FarmSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FarmSliderView.swift; sourceTree = "<group>"; };
+		B73A21312B32C5130091DDE8 /* ClaimRewardsViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsViewModelProtocol.swift; sourceTree = "<group>"; };
+		B73A21332B32C5240091DDE8 /* ClaimRewardsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsViewController.swift; sourceTree = "<group>"; };
+		B73A21352B32C5300091DDE8 /* ClaimRewardsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsViewModel.swift; sourceTree = "<group>"; };
+		B73A21372B32C53C0091DDE8 /* ClaimRewardsCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsCell.swift; sourceTree = "<group>"; };
+		B73A21392B32C5470091DDE8 /* ClaimRewardsItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsItem.swift; sourceTree = "<group>"; };
+		B73A213B2B32C5510091DDE8 /* ClaimRewardsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsSection.swift; sourceTree = "<group>"; };
+		B73A213D2B32C55D0091DDE8 /* ClaimRewardsViewFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsViewFactory.swift; sourceTree = "<group>"; };
+		B73A213F2B32C5750091DDE8 /* ClaimRewardsItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsItemFactory.swift; sourceTree = "<group>"; };
 		B77906232B282876003A2566 /* SupplyPoolCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupplyPoolCell.swift; sourceTree = "<group>"; };
 		B77906252B282888003A2566 /* SupplyPoolItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupplyPoolItem.swift; sourceTree = "<group>"; };
 		B77B9D892AEA765C00D39AE0 /* AccountBackuped.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountBackuped.swift; sourceTree = "<group>"; };
@@ -5539,6 +5555,7 @@
 				8B3625FF296F1652007B9525 /* ChangeAccount */,
 				364E6E9B2B1CD22600002EE3 /* FarmDetails */,
 				B723EBB12B2B145300FB055C /* EditFarm */,
+				B73A21302B32C4D50091DDE8 /* ClaimRewards */,
 				364BF2182B1C5BB000758323 /* Explore */,
 				364BB48B292A4B7E00DE90A6 /* ActivityDetails */,
 				3692D6972910716800B8B274 /* Activity */,
@@ -6319,6 +6336,21 @@
 				B723EBC22B2C56A500FB055C /* FarmSliderView.swift */,
 			);
 			path = EditFarm;
+			sourceTree = "<group>";
+		};
+		B73A21302B32C4D50091DDE8 /* ClaimRewards */ = {
+			isa = PBXGroup;
+			children = (
+				B73A21312B32C5130091DDE8 /* ClaimRewardsViewModelProtocol.swift */,
+				B73A21332B32C5240091DDE8 /* ClaimRewardsViewController.swift */,
+				B73A21352B32C5300091DDE8 /* ClaimRewardsViewModel.swift */,
+				B73A21372B32C53C0091DDE8 /* ClaimRewardsCell.swift */,
+				B73A21392B32C5470091DDE8 /* ClaimRewardsItem.swift */,
+				B73A213B2B32C5510091DDE8 /* ClaimRewardsSection.swift */,
+				B73A213F2B32C5750091DDE8 /* ClaimRewardsItemFactory.swift */,
+				B73A213D2B32C55D0091DDE8 /* ClaimRewardsViewFactory.swift */,
+			);
+			path = ClaimRewards;
 			sourceTree = "<group>";
 		};
 		B8A4AE2318F935BBA3F481A0 /* ChangeAccount */ = {
@@ -7192,6 +7224,7 @@
 				9441FAF725CADE0800775559 /* NSPredicate+Validation.swift in Sources */,
 				9446754F25769AB2006DFCA1 /* EthNodeData.swift in Sources */,
 				3661C9E12851FC4000660434 /* RewardFooterCell.swift in Sources */,
+				B73A21342B32C5240091DDE8 /* ClaimRewardsViewController.swift in Sources */,
 				B27FFC432A52A569006D4C19 /* FriendsCell.swift in Sources */,
 				9441FA4C25CAAE8600775559 /* KeystoreExportWrapper.swift in Sources */,
 				9441FBEE25CC035700775559 /* BaseStorageChildSubscription.swift in Sources */,
@@ -7326,6 +7359,7 @@
 				366D53C82952937A0094CE36 /* ContactFooterCell.swift in Sources */,
 				94B3008626FC97A500F239D7 /* SubqueryHistoryOperationFactory+Wallet.swift in Sources */,
 				945A571B25DE7F63003E4023 /* RuntimeRegistryFacade.swift in Sources */,
+				B73A213E2B32C55D0091DDE8 /* ClaimRewardsViewFactory.swift in Sources */,
 				9481B47C286EFC4600A472E2 /* RuntimeCodingService.swift in Sources */,
 				B2CD5DB02A7A5A1800B16F8A /* EnabledItem.swift in Sources */,
 				3666CBD2290593FF0098F4AC /* TransferableItem.swift in Sources */,
@@ -7410,6 +7444,7 @@
 				8481A5DC2302F3290056D3D4 /* DateFormatterFactory.swift in Sources */,
 				949C789625D3EB1D00E260B9 /* WalletQRCoderFactory.swift in Sources */,
 				9441F95325C9707200775559 /* CompoundOperationWrapper+Result.swift in Sources */,
+				B73A21322B32C5130091DDE8 /* ClaimRewardsViewModelProtocol.swift in Sources */,
 				94497DD125EF89A700FD4F14 /* ExtrinsicPayload.swift in Sources */,
 				846EC80123681FF90048ED4E /* LinkData.swift in Sources */,
 				940683A226790B44005F520D /* OperationCombiningService.swift in Sources */,
@@ -7456,6 +7491,7 @@
 				9441FAA025CAC42F00775559 /* AccountImportPreferredInfo.swift in Sources */,
 				0253FCDE2214051E00D3AD49 /* VotesHistoryFetchMock.swift in Sources */,
 				36C370E92823B53F0027BA77 /* InvitationLinkView.swift in Sources */,
+				B73A213A2B32C5470091DDE8 /* ClaimRewardsItem.swift in Sources */,
 				945A570025DE7E33003E4023 /* RuntimeMetadataItem.swift in Sources */,
 				9441F89225C957C400775559 /* WalletNetworkFacade+Price.swift in Sources */,
 				108A26C32533315900B25D87 /* UIColor+Hex.swift in Sources */,
@@ -7525,6 +7561,7 @@
 				0298791B2181AF4D0085E605 /* String+Path.swift in Sources */,
 				02623EEB2179AD440011250E /* RootPresenter.swift in Sources */,
 				B2CD5DB12A7A5A1800B16F8A /* EnabledViewModel.swift in Sources */,
+				B73A21382B32C53C0091DDE8 /* ClaimRewardsCell.swift in Sources */,
 				B7FC09A62B074ECC009EE437 /* PoolDetailsSection.swift in Sources */,
 				3635B7162933E99500B2B728 /* ChoiceMarketViewController.swift in Sources */,
 				364E6E9E2B1CD2C700002EE3 /* FarmDetailsViewController.swift in Sources */,
@@ -7616,6 +7653,8 @@
 				94497D5125EE8A0A00FD4F14 /* WebSocketServiceFactory.swift in Sources */,
 				36DB19BE29EDDA9100B3E3BF /* UsernameSetupProtocols.swift in Sources */,
 				36982465290EA54100F5E3D4 /* ActivityViewModelFactory.swift in Sources */,
+				B73A21362B32C5300091DDE8 /* ClaimRewardsViewModel.swift in Sources */,
+				B73A213C2B32C5510091DDE8 /* ClaimRewardsSection.swift in Sources */,
 				94497D0A25E94E4E00FD4F14 /* MigrationInteractor.swift in Sources */,
 				10EB777D25418CB1000123B9 /* UINavigationBar+Shadow.swift in Sources */,
 				9441FA6425CAB08600775559 /* ContactsViewModelFactory.swift in Sources */,
@@ -8136,6 +8175,7 @@
 				94497E1125EF935300FD4F14 /* CurrentEraSubscription.swift in Sources */,
 				945A571E25DE7F63003E4023 /* RuntimeFilesOperationFacade.swift in Sources */,
 				9447675428D9F9E400EC8F74 /* SelectedAccountMigration.xcmappingmodel in Sources */,
+				B73A21402B32C5750091DDE8 /* ClaimRewardsItemFactory.swift in Sources */,
 				02A0532E222410A200CA290F /* CurrencyFetchMock.swift in Sources */,
 				848A8805247BAA8900B22C44 /* TokenBalancesData.swift in Sources */,
 				32245181223165C2001E487A /* String+Size.swift in Sources */,
