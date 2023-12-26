@@ -35,7 +35,7 @@ final class RootWireframe: RootWireframeProtocol {
     func showOnboarding(on view: UIWindow) {
         let containerView = WelcomeBackgroundViewController()
         
-        let onboardingView = OnboardingMainViewFactory.createWelcomeView()
+        let onboardingView = OnboardingMainViewFactory.createWelcomeViewForRoot()
         
         let nc = UINavigationController(rootViewController: onboardingView?.controller ?? UIViewController())
         nc.navigationBar.backgroundColor = .clear
