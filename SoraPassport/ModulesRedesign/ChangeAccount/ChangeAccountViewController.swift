@@ -117,6 +117,8 @@ final class ChangeAccountViewController: SoramitsuViewController {
         
         setupView()
         setupConstraints()
+
+        presenter?.reload()
     }
 
     override func viewWillAppear(_ animated: Bool) {
