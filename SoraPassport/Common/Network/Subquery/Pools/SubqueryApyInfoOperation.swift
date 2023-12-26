@@ -69,7 +69,6 @@ public final class SubqueryApyInfoOperation<ResultType>: BaseOperation<ResultTyp
         var optionalCallResult: Result<ResultType, Swift.Error>?
 
         DispatchQueue.main.async {
-
             self.subQueryClient.getSpApy(completionHandler: { [self] requestResult, error in
 
                 if let data = requestResult as? ResultType {
