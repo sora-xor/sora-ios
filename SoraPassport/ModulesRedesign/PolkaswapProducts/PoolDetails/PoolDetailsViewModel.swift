@@ -180,7 +180,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                 poolInfo: poolInfo,
                 farms: detailsContent?.farms ?? []
             )
-            let item = FarmListItem(
+            let activeFarmsItem = FarmListItem(
                 title: R.string.localizable.poolDetailsActiveFarms(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
@@ -190,18 +190,29 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                 self.wireframe?.showFarmDetails(
                     on: self.view?.controller,
                     poolsService: self.poolsService,
+                    fiatService: self.fiatService,
                     assetManager: self.assetManager,
+                    providerFactory: self.providerFactory,
+                    operationFactory: self.operationFactory,
+                    assetsProvider: self.assetsProvider,
+                    marketCapService: self.marketCapService,
+                    farmingService: self.farmingService,
                     poolInfo: self.poolInfo,
                     farm: farm
                 )
             }
-            items.append(.staked(item))
             
-        } else if !(detailsContent?.farms.isEmpty ?? true) {
+            items.append(contentsOf: [
+                .staked(activeFarmsItem),
+                .space(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
+            ])
+        }
+        
+        if !(detailsContent?.farms.isEmpty ?? true) {
             let farmViewModels = itemFactory.farmsItem(with: detailsContent?.farms ?? [])
             
-            let item = FarmListItem(
-                title: R.string.localizable.poolDetailsExtraReward(preferredLanguages: .currentLocale),
+            let stakeItem = FarmListItem(
+                title: R.string.localizable.polkaswapPoolFarmsTitle(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
                 print("OLOLO self.detailsContent?.farms \(id) \(self?.detailsContent?.farms.map { $0.id })")
@@ -210,12 +221,19 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                 self.wireframe?.showFarmDetails(
                     on: self.view?.controller,
                     poolsService: self.poolsService,
+                    fiatService: self.fiatService,
                     assetManager: self.assetManager,
+                    providerFactory: self.providerFactory,
+                    operationFactory: self.operationFactory,
+                    assetsProvider: self.assetsProvider,
+                    marketCapService: self.marketCapService,
+                    farmingService: self.farmingService,
                     poolInfo: self.poolInfo,
                     farm: farm
                 )
             }
-            items.append(.staked(item))
+            
+            items.append(.staked(stakeItem))
         }
         
         return PoolDetailsSection(items: items)

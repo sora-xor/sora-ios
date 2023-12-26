@@ -39,34 +39,83 @@ import Combine
 final class FarmDetailsViewModel {
     @Published var snapshot: FarmDetailsSnapshot = FarmDetailsSnapshot()
     var snapshotPublisher: Published<FarmDetailsSnapshot>.Publisher { $snapshot }
+    private var cancellables: Set<AnyCancellable> = []
     
     weak var view: FarmDetailsViewProtocol?
+    var wireframe: FarmDetailsWireframeProtocol?
     
     var farm: Farm
     var poolInfo: PoolInfo?
+    var poolViewModelsService: ExplorePoolsViewModelService?
     weak var poolsService: PoolsServiceInputProtocol?
     
-    private let detailsFactory: DetailViewModelFactoryProtocol
+    private var viewModels: [ExplorePoolViewModel] = [] {
+        didSet {
+            reload()
+        }
+    }
     
+    var fiatService: FiatServiceProtocol?
+    let assetManager: AssetManagerProtocol
+    let providerFactory: BalanceProviderFactory
+    let operationFactory: WalletNetworkOperationFactoryProtocol?
+    private weak var assetsProvider: AssetProviderProtocol?
+    private var marketCapService: MarketCapServiceProtocol
+    private let farmingService: DemeterFarmingServiceProtocol
+    private let detailsFactory: DetailViewModelFactoryProtocol
     private let itemFactory = PoolDetailsItemFactory()
 
     init(farm: Farm,
          poolInfo: PoolInfo? = nil,
          poolsService: PoolsServiceInputProtocol?,
-         detailsFactory: DetailViewModelFactoryProtocol) {
+         poolViewModelsService: ExplorePoolsViewModelService? = nil,
+         fiatService: FiatServiceProtocol?,
+         assetManager: AssetManagerProtocol,
+         providerFactory: BalanceProviderFactory,
+         operationFactory: WalletNetworkOperationFactoryProtocol?,
+         assetsProvider: AssetProviderProtocol?,
+         marketCapService: MarketCapServiceProtocol,
+         farmingService: DemeterFarmingServiceProtocol,
+         detailsFactory: DetailViewModelFactoryProtocol,
+         wireframe: FarmDetailsWireframeProtocol?) {
         self.farm = farm
         self.poolInfo = poolInfo
         self.poolsService = poolsService
+        self.poolViewModelsService = poolViewModelsService
+        self.fiatService = fiatService
+        self.assetManager = assetManager
+        self.providerFactory = providerFactory
+        self.operationFactory = operationFactory
+        self.assetsProvider = assetsProvider
+        self.marketCapService = marketCapService
+        self.farmingService = farmingService
         self.detailsFactory = detailsFactory
+        self.wireframe = wireframe
     }
     
     deinit {
         print("deinited")
     }
+    
+    private func setupSubscription() {
+        poolViewModelsService?.$viewModels
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] viewModels in
+                guard let self else { return }
+                self.viewModels = viewModels
+            }
+            .store(in: &cancellables)
+    }
 }
 
 extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     func viewDidLoad() {
+        setupSubscription()
+        reload()
+        poolViewModelsService?.setup()
+    }
+    
+    private func reload() {
         if let poolInfo {
             snapshot = createSnapshot(poolInfo: poolInfo)
             return
@@ -75,13 +124,13 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         Task {
             guard let baseAssetId = farm.baseAsset?.assetId, let targetAssetId = farm.poolAsset?.assetId else { return }
             let poolInfo = await poolsService?.getPool(by: baseAssetId, targetAssetId: targetAssetId)
+            self.poolInfo = poolInfo
             snapshot = createSnapshot(poolInfo: poolInfo)
         }
     }
     
     private func createSnapshot(poolInfo: PoolInfo? = nil) -> FarmDetailsSnapshot {
         var snapshot = FarmDetailsSnapshot()
-        
         let sections = [ contentSection(poolInfo: poolInfo) ]
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
@@ -97,16 +146,26 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
             $0.poolAssetId == farm.poolAsset?.assetId &&
             $0.rewardAssetId == farm.rewardAsset?.assetId
         }
-
+        
         let poolDetailsItem = itemFactory.farmDetail(with: farm,
                                                      poolInfo: poolInfo,
                                                      userFarmInfo: userFarmInfo,
-                                                     detailsFactory: detailsFactory, viewModel: self)
+                                                     detailsFactory: detailsFactory,
+                                                     viewModel: self)
+        
         
         items.append(contentsOf: [
             .details(poolDetailsItem),
             .space(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
         ])
+        
+        if let poolInfo,
+           let poolViewModel = viewModels.first(where: { $0.baseAssetId == poolInfo.baseAssetId && $0.targetAssetId == poolInfo.targetAssetId }),
+           poolInfo.accountPoolBalance?.isZero ?? true {
+            let supplyLiquidityItem = itemFactory.createSupplyLiquidityItem(poolViewModel: poolViewModel,
+                                                                            viewModel: self)
+            items.append(.liquidity(supplyLiquidityItem))
+        }
         
         return FarmDetailsSection(items: items)
     }
@@ -118,5 +177,63 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
             closeAction: R.string.localizable.commonOk(),
             from: view
         )
+    }
+    
+    func supplyLiquidityTapped() {        
+        wireframe?.showPoolDetails(on: view?.controller,
+                                   poolInfo: poolInfo,
+                                   assetManager: assetManager,
+                                   fiatService: fiatService,
+                                   poolsService: poolsService,
+                                   providerFactory: providerFactory,
+                                   operationFactory: operationFactory,
+                                   assetsProvider: assetsProvider,
+                                   marketCapService: marketCapService,
+                                   farmingService: farmingService)
+    }
+    
+    func stakeButtonTapped() {
+        wireframe?.showStakeDetails(on: view?.controller,
+                                    farm: farm,
+                                    poolInfo: poolInfo,
+                                    poolsService: poolsService,
+                                    fiatService: fiatService,
+                                    assetManager: assetManager,
+                                    providerFactory: providerFactory,
+                                    operationFactory: operationFactory,
+                                    assetsProvider: assetsProvider,
+                                    marketCapService: marketCapService,
+                                    farmingService: farmingService,
+                                    detailsFactory: detailsFactory)
+    }
+    
+    func claimRewardButtonTapped() {
+        wireframe?.showClaimRewards(on: view?.controller,
+                                    farm: farm,
+                                    poolInfo: poolInfo,
+                                    poolsService: poolsService,
+                                    fiatService: fiatService,
+                                    assetManager: assetManager,
+                                    providerFactory: providerFactory,
+                                    operationFactory: operationFactory,
+                                    assetsProvider: assetsProvider,
+                                    marketCapService: marketCapService,
+                                    farmingService: farmingService,
+                                    detailsFactory: detailsFactory)
+    }
+    
+    func editFarmButtonTapped() {
+        wireframe?.showStakeDetails(on: view?.controller,
+                                    farm: farm,
+                                    poolInfo: poolInfo,
+                                    poolsService: poolsService,
+                                    fiatService: fiatService,
+                                    assetManager: assetManager,
+                                    providerFactory: providerFactory,
+                                    operationFactory: operationFactory,
+                                    assetsProvider: assetsProvider,
+                                    marketCapService: marketCapService,
+                                    farmingService: farmingService,
+                                    detailsFactory: detailsFactory)
     }
 }
