@@ -408,7 +408,7 @@ extension MainTabBarViewFactory {
                                                                     editViewService: editViewService)
         
         let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)
+            R.string.localizable.walletTitle(preferredLanguages: locale.rLanguages)
         }
         
         let image = R.image.tabBar.wallet()

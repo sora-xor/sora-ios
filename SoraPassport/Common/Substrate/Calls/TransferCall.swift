@@ -33,7 +33,7 @@ import SSFUtils
 import BigInt
 
 struct SoraTransferCall: Codable {
-    var receiver: MultiAddress
+    var receiver: Data
     @StringCodable var amount: BigUInt
     var assetId: AssetId
 

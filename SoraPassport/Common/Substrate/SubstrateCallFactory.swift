@@ -51,7 +51,7 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
 
         let data = try Data(hexStringSSF: receiverAccountId)
 
-        let call = SoraTransferCall(receiver: MultiAddress.accoundId(data),
+        let call = SoraTransferCall(receiver: data,
                                     amount: amount,
                                     assetId: AssetId(wrappedValue:asset))
         return RuntimeCall<SoraTransferCall>.transfer(call)
@@ -124,7 +124,7 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
 
     func setReferrer(referrer: String) throws -> RuntimeCall<SetReferrerCall> {
         let referrerData = try Data(hexStringSSF: referrer)
-        let call = SetReferrerCall(referrer: MultiAddress.accoundId(referrerData))
+        let call = SetReferrerCall(referrer: referrerData)
         return RuntimeCall<SetReferrerCall>.setReferrer(call)
     }
 

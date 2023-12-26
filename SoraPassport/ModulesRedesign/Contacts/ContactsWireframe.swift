@@ -62,7 +62,7 @@ final class ContactsWireframe: ContactsWireframeProtocol {
         
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
-        
+
         let scanView = ScanQRViewFactory.createView(assetManager: assetManager,
                                                     currentUser: currentUser,
                                                     networkFacade: networkFacade,
