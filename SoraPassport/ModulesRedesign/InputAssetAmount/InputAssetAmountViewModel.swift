@@ -109,7 +109,7 @@ final class InputAssetAmountViewModel {
     }
     
     private let feeProvider: FeeProviderProtocol
-    private var apy: [SbApyInfo] = []
+    private var fiatData: [FiatData] = []
     private var fee: Decimal = 0 {
         didSet {
             let feeAssetSymbol = assetManager?.getAssetList()?.first { $0.isFeeAsset }?.symbol ?? ""
@@ -190,6 +190,10 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
             self?.fee = fee
         }
         
+        fiatService?.getFiat(completion: { [weak self] fiatData in
+            self?.fiatData = fiatData
+        })
+        
         firstAssetId = selectedTokenId ?? WalletAssetId.xor.rawValue
         view?.setupButton(isEnabled: false)
         assetsProvider?.add(observer: self)
@@ -258,7 +262,7 @@ extension InputAssetAmountViewModel {
         let balance = NumberFormatter.polkaswapBalance.stringFromDecimal(balanceData.balance.decimalValue) ?? ""
         var fiatBalanceText = ""
         
-        if let usdPrice = apy.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
+        if let usdPrice = fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
             let fiatDecimal = balanceData.balance.decimalValue * usdPrice
             fiatBalanceText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
         }
@@ -272,7 +276,7 @@ extension InputAssetAmountViewModel {
         
         var fiatText = ""
         
-        if let usdPrice = apy.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue {
+        if let usdPrice = fiatData.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue {
             let fiatDecimal = inputedAmount * usdPrice
             fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
         }
