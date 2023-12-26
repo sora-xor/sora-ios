@@ -389,7 +389,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         guard let walletContext = try? WalletContextFactory().createContext(
             connection: connection,
             assetManager: assetManager,
-            accountSettings: accountSettings
+            accountSettings: accountSettings, 
+            demeterFarmingService: farmingService
         ) else {
             return nil
         }
@@ -444,7 +445,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                       sharingFactory: sharingFactory,
                                       referralFactory: referralFactory,
                                       assetsProvider: assetsProvider,
-                                      marketCapService: marketCapService,
+                                      marketCapService: marketCapService, 
+                                      farmingService: farmingService,
                                       updateHandler: updateAssets)
     }
     
@@ -464,6 +466,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                      operationFactory: networkFacade,
                                      assetsProvider: assetsProvider,
                                      marketCapService: marketCapService,
+                                     farmingService: farmingService,
                                      updateHandler: updateAssets)
     }
     
@@ -492,7 +495,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                     sharingFactory: sharingFactory,
                                     referralFactory: referralFactory,
                                     assetsProvider: assetsProvider,
-                                    marketCapService: marketCapService)
+                                    marketCapService: marketCapService,
+                                    farmingService: farmingService)
     }
     
     func showPoolDetails(with pool: PoolInfo) {
@@ -504,7 +508,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
                                    providerFactory: providerFactory,
                                    operationFactory: networkFacade,
                                    assetsProvider: assetsProvider,
-                                   marketCapService: marketCapService)
+                                   marketCapService: marketCapService,
+                                   farmingService: farmingService)
     }
     
     func showReferralProgram(assetManager: AssetManagerProtocol) {

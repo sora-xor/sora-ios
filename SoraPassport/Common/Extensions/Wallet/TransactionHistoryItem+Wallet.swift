@@ -32,7 +32,7 @@ import Foundation
 import CommonWallet
 import SoraKeystore
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
 import BigInt
 
 extension TransactionHistoryItem {
@@ -119,10 +119,10 @@ extension TransactionHistoryItem {
 
         // TODO: impl
         case .incoming, .outgoing, .migration, .reward, .slash, .extrinsic, .referral:
-            let receiverAccountId = try Data(hexString: info.destination)
+            let receiverAccountId = try Data(hexStringSSF: info.destination)
 
             callPath = CallCodingPath.transfer
-            let callArgs = SoraTransferCall(receiver: MultiAddress.accoundId(receiverAccountId),
+            let callArgs = SoraTransferCall(receiver: receiverAccountId,
                                             amount: info.amount.decimalValue.toSubstrateAmount(precision: 18) ?? 0,
                                             assetId: AssetId(wrappedValue: info.asset))
             let call = RuntimeCall<SoraTransferCall>(

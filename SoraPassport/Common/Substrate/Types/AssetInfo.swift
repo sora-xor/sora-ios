@@ -30,7 +30,7 @@
 
 import CoreData
 import Foundation
-import FearlessUtils
+import SSFUtils
 import RobinHood
 
 typealias AssetModel = AssetInfo

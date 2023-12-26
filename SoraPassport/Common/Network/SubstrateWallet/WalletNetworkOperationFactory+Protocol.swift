@@ -30,7 +30,7 @@
 
 import BigInt
 import CommonWallet
-import FearlessUtils
+import SSFUtils
 import Foundation
 import IrohaCrypto
 import RobinHood
@@ -77,7 +77,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             return createCompoundOperation(result: .failure(error))
         }
 
-        guard let receiver = try? Data(hexString: info.receiver) else {
+        guard let receiver = try? Data(hexStringSSF: info.receiver) else {
             let error = WalletNetworkOperationFactoryError.invalidReceiver
             return createCompoundOperation(result: .failure(error))
         }
@@ -192,7 +192,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
         let mapOperation: ClosureOperation<Data> = ClosureOperation {
             let hashString = try depositLiquidityOperation.extractResultData() ?? ""
 
-            return try Data(hexString: hashString)
+            return try Data(hexStringSSF: hashString)
         }
 
         mapOperation.addDependency(depositLiquidityOperation)
@@ -260,7 +260,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
         let mapOperation: ClosureOperation<Data> = ClosureOperation {
             let hashString = try depositLiquidityOperation.extractResultData() ?? ""
 
-            return try Data(hexString: hashString)
+            return try Data(hexStringSSF: hashString)
         }
 
         mapOperation.addDependency(depositLiquidityOperation)
@@ -328,7 +328,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
         let mapOperation: ClosureOperation<Data> = ClosureOperation {
             let hashString = try removeLiquidityOperation.extractResultData() ?? ""
 
-            return try Data(hexString: hashString)
+            return try Data(hexStringSSF: hashString)
         }
 
         mapOperation.addDependency(removeLiquidityOperation)
@@ -363,7 +363,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             let hashString = try transferOperation
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 
-            return try Data(hexString: hashString)
+            return try Data(hexStringSSF: hashString)
         }
 
         mapOperation.addDependency(transferOperation)
@@ -415,7 +415,7 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             let hashString = try wrapper
                 .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
 
-            return try Data(hexString: hashString)
+            return try Data(hexStringSSF: hashString)
         }
 
         mapOperation.addDependency(wrapper)

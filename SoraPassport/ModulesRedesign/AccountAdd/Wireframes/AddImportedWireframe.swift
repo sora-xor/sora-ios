@@ -43,11 +43,11 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
     }
 
     func proceed(from view: AccountImportViewProtocol?,
-                 sourceType: AccountImportSource?,
-                 cryptoType: CryptoType?,
-                 networkType: Chain?,
-                 sourceViewModel: InputViewModelProtocol?,
-                 usernameViewModel: InputViewModelProtocol?,
+                 sourceType: AccountImportSource,
+                 cryptoType: CryptoType,
+                 networkType: Chain,
+                 sourceViewModel: InputViewModelProtocol,
+                 usernameViewModel: InputViewModelProtocol,
                  passwordViewModel: InputViewModelProtocol?,
                  derivationPathViewModel: InputViewModelProtocol?) {
         guard let navigationController = view?.controller.navigationController else {
@@ -55,15 +55,15 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
         }
         
         guard let endAddingBlock = endAddingBlock,
-              let setupNameView = SetupAccountNameViewFactory.createViewForImport(sourceType: sourceType,
-                                                                                  cryptoType: cryptoType,
-                                                                                  networkType: networkType,
-                                                                                  sourceViewModel: sourceViewModel,
-                                                                                  usernameViewModel: usernameViewModel,
-                                                                                  passwordViewModel: passwordViewModel,
-                                                                                  derivationPathViewModel: derivationPathViewModel,
-                                                                                  isNeedToImport: sourceType != nil,
-                                                                                  endAddingBlock: endAddingBlock)?.controller else {
+              let setupNameView = SetupAccountNameViewFactory.createViewForAddImport(sourceType: sourceType,
+                                                                                     cryptoType: cryptoType,
+                                                                                     networkType: networkType,
+                                                                                     sourceViewModel: sourceViewModel,
+                                                                                     usernameViewModel: usernameViewModel,
+                                                                                     passwordViewModel: passwordViewModel,
+                                                                                     derivationPathViewModel: derivationPathViewModel,
+                                                                                     endAddingBlock: endAddingBlock)?.controller
+        else {
             MainTransitionHelper.transitToMainTabBarController(closing: navigationController, animated: true)
             return
         }

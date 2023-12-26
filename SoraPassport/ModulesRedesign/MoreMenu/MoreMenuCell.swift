@@ -67,6 +67,7 @@ final class MoreMenuCell: SoramitsuTableViewCell {
         let semanticContentAttribute: UISemanticContentAttribute = isRTL ? .forceRightToLeft : .forceLeftToRight
         categoryItem.horizontalStack.semanticContentAttribute = semanticContentAttribute
         categoryItem.verticalStack.semanticContentAttribute = semanticContentAttribute
+        categoryItem.subtitleView.semanticContentAttribute = semanticContentAttribute
         categoryItem.titleLabel.sora.alignment = isRTL ? .right : .left
         categoryItem.subtitleLabel.sora.alignment = isRTL ? .right : .left
     }
@@ -85,6 +86,8 @@ extension MoreMenuCell: SoramitsuTableViewCellProtocol {
         if let circleColor = item.circleColor {
             categoryItem.addCircle()
             categoryItem.circle.sora.backgroundColor = circleColor
+        } else {
+            categoryItem.hideCircle()
         }
         
         updateLayout()

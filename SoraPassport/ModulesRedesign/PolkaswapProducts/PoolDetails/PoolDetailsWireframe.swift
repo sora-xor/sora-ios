@@ -38,7 +38,7 @@ protocol PoolDetailsWireframeProtocol: AlertPresentable {
     func showLiquidity(
         on controller: UIViewController?,
         poolInfo: PoolInfo,
-        stakedPools: [StakedPool],
+        farms: [UserFarm],
         type: Liquidity.TransactionLiquidityType,
         assetManager: AssetManagerProtocol,
         poolsService: PoolsServiceInputProtocol?,
@@ -47,7 +47,22 @@ protocol PoolDetailsWireframeProtocol: AlertPresentable {
         operationFactory: WalletNetworkOperationFactoryProtocol,
         assetsProvider: AssetProviderProtocol?,
         marketCapService: MarketCapServiceProtocol,
+        farmingService: DemeterFarmingServiceProtocol,
         completionHandler: (() -> Void)?)
+    
+    func showFarmDetails(
+        on viewController: UIViewController?,
+        poolsService: PoolsServiceInputProtocol?,
+        fiatService: FiatServiceProtocol?,
+        assetManager: AssetManagerProtocol,
+        providerFactory: BalanceProviderFactory,
+        operationFactory: WalletNetworkOperationFactoryProtocol?,
+        assetsProvider: AssetProviderProtocol?,
+        marketCapService: MarketCapServiceProtocol,
+        farmingService: DemeterFarmingServiceProtocol,
+        poolInfo: PoolInfo?,
+        farm: Farm
+    )
 }
 
 final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
@@ -55,7 +70,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
     func showLiquidity(
         on controller: UIViewController?,
         poolInfo: PoolInfo,
-        stakedPools: [StakedPool],
+        farms: [UserFarm],
         type: Liquidity.TransactionLiquidityType,
         assetManager: AssetManagerProtocol,
         poolsService: PoolsServiceInputProtocol?,
@@ -64,6 +79,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
         operationFactory: WalletNetworkOperationFactoryProtocol,
         assetsProvider: AssetProviderProtocol?,
         marketCapService: MarketCapServiceProtocol,
+        farmingService: DemeterFarmingServiceProtocol,
         completionHandler: (() -> Void)?) {
             guard let fiatService = fiatService,
                   let poolsService = poolsService else { return }
@@ -77,7 +93,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
                                                                                               marketCapService: marketCapService)
                     :
                         LiquidityViewFactory.createRemoveLiquidityView(poolInfo: poolInfo,
-                                                                       stakedPools: stakedPools,
+                                                                       farms: farms,
                                                                        assetManager: assetManager,
                                                                        fiatService: fiatService,
                                                                        poolsService: poolsService,
@@ -85,6 +101,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
                                                                        operationFactory: operationFactory,
                                                                        assetsProvider: assetsProvider,
                                                                        marketCapService: marketCapService,
+                                                                       farmingService: farmingService,
                                                                        completionHandler: completionHandler) else { return }
             
             
@@ -100,4 +117,45 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
             
             controller?.present(containerView, animated: true)
         }
+    
+    func showFarmDetails(
+        on viewController: UIViewController?,
+        poolsService: PoolsServiceInputProtocol?,
+        fiatService: FiatServiceProtocol?,
+        assetManager: AssetManagerProtocol,
+        providerFactory: BalanceProviderFactory,
+        operationFactory: WalletNetworkOperationFactoryProtocol?,
+        assetsProvider: AssetProviderProtocol?,
+        marketCapService: MarketCapServiceProtocol,
+        farmingService: DemeterFarmingServiceProtocol,
+        poolInfo: PoolInfo?,
+        farm: Farm
+    ) {
+        let viewModel = FarmDetailsViewModel(farm: farm,
+                                             poolInfo: poolInfo,
+                                             poolsService: poolsService,
+                                             fiatService: fiatService,
+                                             assetManager: assetManager,
+                                             providerFactory: providerFactory,
+                                             operationFactory: operationFactory,
+                                             assetsProvider: assetsProvider,
+                                             marketCapService: marketCapService,
+                                             farmingService: farmingService,
+                                             detailsFactory: DetailViewModelFactory(assetManager: assetManager),
+                                             wireframe: FarmDetailsWireframe())
+        
+        let view = FarmDetailsViewController(viewModel: viewModel)
+        viewModel.view = view
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+
+        let navigationController = UINavigationController(rootViewController: view)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.navigationBar.setBackgroundImage(UIImage(), for: .default)
+        
+        containerView.add(navigationController)
+        
+        viewController?.present(containerView, animated: true)
+    }
 }

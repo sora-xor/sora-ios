@@ -46,27 +46,25 @@ final class SetupNameImportAccountPresenter {
     private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let eventCenter: EventCenterProtocol
     private let operationManager: OperationManagerProtocol
-    private let isNeedImport: Bool
     
-    private(set) var sourceType: AccountImportSource?
-    private(set) var cryptoType: CryptoType?
-    private(set) var networkType: Chain?
-    private(set) var sourceViewModel: InputViewModelProtocol?
-    private(set) var usernameViewModel: InputViewModelProtocol?
+    private(set) var sourceType: AccountImportSource
+    private(set) var cryptoType: CryptoType
+    private(set) var networkType: Chain
+    private(set) var sourceViewModel: InputViewModelProtocol
+    private(set) var usernameViewModel: InputViewModelProtocol
     private(set) var passwordViewModel: InputViewModelProtocol?
     private(set) var derivationPathViewModel: InputViewModelProtocol?
     
     init(accountRepository: AnyDataProviderRepository<AccountItem>,
          eventCenter: EventCenterProtocol,
          operationManager: OperationManagerProtocol,
-         sourceType: AccountImportSource?,
-         cryptoType: CryptoType?,
-         networkType: Chain?,
-         sourceViewModel: InputViewModelProtocol?,
-         usernameViewModel: InputViewModelProtocol?,
+         sourceType: AccountImportSource,
+         cryptoType: CryptoType,
+         networkType: Chain,
+         sourceViewModel: InputViewModelProtocol,
+         usernameViewModel: InputViewModelProtocol,
          passwordViewModel: InputViewModelProtocol?,
-         derivationPathViewModel: InputViewModelProtocol?,
-         isNeedImport: Bool) {
+         derivationPathViewModel: InputViewModelProtocol?) {
         self.accountRepository = accountRepository
         self.eventCenter = eventCenter
         self.operationManager = operationManager
@@ -77,7 +75,6 @@ final class SetupNameImportAccountPresenter {
         self.usernameViewModel = usernameViewModel
         self.passwordViewModel = passwordViewModel
         self.derivationPathViewModel = derivationPathViewModel
-        self.isNeedImport = isNeedImport
     }
 }
 
@@ -93,17 +90,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
         view?.set(viewModel: viewModel)
     }
     
-    func importAccount() {
-        guard
-            let sourceType = sourceType,
-            let networkType = networkType,
-            let cryptoType = cryptoType,
-            let sourceViewModel = sourceViewModel,
-            let usernameViewModel = viewModel
-        else {
-            return
-        }
-        
+    func importAccount(completion: ((Result<AccountItem, Swift.Error>?) -> Void)?){
         switch sourceType {
         case .mnemonic:
             let mnemonic = sourceViewModel.inputHandler.value
@@ -114,7 +101,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                                                        networkType: networkType,
                                                        derivationPath: derivationPath,
                                                        cryptoType: cryptoType)
-            interactor.importAccountWithMnemonic(request: request)
+            interactor.importAccountWithMnemonic(request: request, completion: completion)
         case .seed:
             let seed = sourceViewModel.inputHandler.value
             let username = usernameViewModel.inputHandler.value
@@ -124,7 +111,7 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                                                    networkType: networkType,
                                                    derivationPath: derivationPath,
                                                    cryptoType: cryptoType)
-            interactor.importAccountWithSeed(request: request)
+            interactor.importAccountWithSeed(request: request, completion: completion)
         case .keystore:
             let keystore = sourceViewModel.inputHandler.value
             let password = passwordViewModel?.inputHandler.value ?? ""
@@ -135,24 +122,29 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                                                        networkType: networkType,
                                                        cryptoType: cryptoType)
 
-            interactor.importAccountWithKeystore(request: request)
+            interactor.importAccountWithKeystore(request: request, completion: completion)
         }
     }
 
     func proceed() {
-        if isNeedImport {
-            importAccount()
-            return
-        }
-        
-        if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
-            self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
-                if case .success = result {
-                    self?.eventCenter.notify(with: SelectedUsernameChanged())
+       let endingBlock: (() -> Void)? = { [weak self] in
+            guard let self = self else { return }
+            if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
+                self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
+                    if case .success = result {
+                        self?.eventCenter.notify(with: SelectedUsernameChanged())
+                    }
                 }
+                
+                self.view?.controller.dismiss(animated: true, completion: completion)
+                return
             }
-            
-            self.completion == nil ? self.wireframe.showPinCode(from: view) : self.view?.controller.dismiss(animated: true, completion: completion)
+        }
+       
+        importAccount { result in
+            if case .success = result {
+               endingBlock?()
+            }
         }
     }
     
@@ -165,32 +157,6 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
                               style: .modal)
         }
     }
-}
-
-extension SetupNameImportAccountPresenter: AccountImportInteractorOutputProtocol {
-    func didReceiveAccountImport(metadata: AccountImportMetadata) {}
-
-    func didCompleteAccountImport() {
-        completion == nil ? wireframe.showPinCode(from: view) : view?.controller.dismiss(animated: true, completion: completion)
-    }
-
-    func didReceiveAccountImport(error: Error) {
-        let locale = localizationManager?.selectedLocale ?? Locale.current
-
-        guard !wireframe.present(error: error, from: view, locale: locale, completion: { [weak self] in
-            self?.view?.resetFocus()
-        }) else {
-            return
-        }
-
-        _ = wireframe.present(error: CommonError.undefined,
-                              from: view,
-                              locale: locale) { [weak self] in
-            self?.view?.resetFocus()
-        }
-    }
-
-    func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?) {}
 }
     
 extension SetupNameImportAccountPresenter: Localizable {

@@ -30,7 +30,7 @@
 
 import Foundation
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
 
 extension TransactionHistoryItem {
     static func createFromSubscriptionResult(
@@ -58,7 +58,7 @@ extension TransactionHistoryItem {
                 receiver = try addressFactory
                     .address(
                         fromAccountId: call.args
-                            .receiver.data,
+                            .receiver,
                         type: addressType
                     )
             }

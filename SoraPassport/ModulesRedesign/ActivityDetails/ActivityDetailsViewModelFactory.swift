@@ -34,6 +34,7 @@ import SoraUIKit
 import UIKit
 import sorawallet
 import SoraFoundation
+import BigInt
 
 protocol ActivityDetailsViewModelFactoryProtocol {
     func createHeaderActivityDetailsViewModels(transactionBase: TransactionBase,
@@ -82,8 +83,9 @@ extension ActivityDetailsViewModelFactory: ActivityDetailsViewModelFactoryProtoc
         let dateViewModel = DetailViewModel(title: R.string.localizable.transactionDate(preferredLanguages: .currentLocale),
                                               assetAmountText: dateText)
         
-        let fee = "\(NumberFormatter.cryptoAssets.stringFromDecimal(transactionBase.fee.decimalValue) ?? "") XOR"
-        let feeReversed = "XOR \(NumberFormatter.cryptoAssets.stringFromDecimal(transactionBase.fee.decimalValue) ?? "")"
+        let feeDecimal = Decimal.fromSubstrateAmount(BigUInt(transactionBase.fee.stringValue) ?? BigUInt(0), precision: 18) ?? Decimal(0)
+        let fee = "\(NumberFormatter.cryptoAssets.stringFromDecimal(feeDecimal) ?? "") XOR"
+        let feeReversed = "XOR \(NumberFormatter.cryptoAssets.stringFromDecimal(feeDecimal) ?? "")"
         
         let feeText = SoramitsuTextItem(text: localizationManager.isRightToLeft ? feeReversed : fee,
                                         fontData: FontType.textS,

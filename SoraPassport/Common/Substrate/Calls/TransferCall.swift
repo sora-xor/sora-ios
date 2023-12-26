@@ -29,11 +29,11 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 import BigInt
 
 struct SoraTransferCall: Codable {
-    var receiver: MultiAddress
+    var receiver: Data
     @StringCodable var amount: BigUInt
     var assetId: AssetId
 
@@ -79,8 +79,26 @@ extension MultiAddress {
             return value
         case .address20(let value):
             return value
+        case .indexedString(let value):
+            return value
+        case .rawString(let value):
+            return value
+        @unknown default:
+            assertionFailure("Unexpected type")
+            return Data()
         }
     }
+}
+
+struct getPools {
+    
+    var two: AssetId
+    var one: AssetId
+}
+
+struct GetPools: Codable {
+    var targetAsset: AssetId
+    var rewardAsset: AssetId
 }
 
 struct AssetId: Codable {
@@ -99,7 +117,7 @@ struct AssetId: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        guard let bytes = try? Data(hexString: value).map({ StringScaleMapper(value: $0) }) else {
+        guard let bytes = try? Data(hexStringSSF: value).map({ StringScaleMapper(value: $0) }) else {
             let context = EncodingError.Context(codingPath: container.codingPath,
                                                 debugDescription: "Invalid encoding")
             throw EncodingError.invalidValue(value, context)
@@ -128,7 +146,7 @@ public struct ArrayCodable: Codable, Equatable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
 
-        guard let bytes = try? Data(hexString: wrappedValue).map({ StringScaleMapper(value: $0) }) else {
+        guard let bytes = try? Data(hexStringSSF: wrappedValue).map({ StringScaleMapper(value: $0) }) else {
             let context = EncodingError.Context(codingPath: container.codingPath,
                                                 debugDescription: "Invalid encoding")
             throw EncodingError.invalidValue(wrappedValue, context)

@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 import BigInt
 import IrohaCrypto
 
@@ -61,7 +61,7 @@ final class ExtrinsicProcessor {
     let accountId: AccountAddress
     var account: MultiAddress {
         // swiftlint:disable:next force_try
-        MultiAddress.accoundId(try! Data(hexString: accountId))
+        MultiAddress.accoundId(try! Data(hexStringSSF: accountId))
         //probably should be address32
     }
 
@@ -118,7 +118,7 @@ final class ExtrinsicProcessor {
 
         let calls = batch?.args.calls ?? []
         for call in calls {
-            let innerExtrinsic = Extrinsic(signature: extrinsic.signature, call: call)
+            let innerExtrinsic = Extrinsic(call: call, signature: extrinsic.signature)
             process(extrinsicIndex: extrinsicIndex, extrinsic: innerExtrinsic, eventRecords: eventRecords, metadata: metadata)
         }
         return nil
@@ -136,7 +136,7 @@ final class ExtrinsicProcessor {
 
             let call = try extrinsic.call.map(to: RuntimeCall<SoraTransferCall>.self)
             let callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
-            let isAccountMatched = account == sender || account == call.args.receiver
+            let isAccountMatched = account == sender || account.accountId == call.args.receiver
 
             guard
                 callPath.isTransfer,
@@ -155,13 +155,13 @@ final class ExtrinsicProcessor {
                 metadata: metadata
             )
 
-            let peerId = account == sender ? call.args.receiver : sender
+            let peerId = (account.accountId == sender?.accountId ? call.args.receiver : sender?.accountId) ?? Data()
 
             return ExtrinsicProcessingResult(
                 extrinsic: extrinsic,
                 callPath: callPath,
                 fee: fee,
-                peerId: try? SS58AddressFactory().addressFromAccountId(data: peerId!.data, type: 69),
+                peerId: try? SS58AddressFactory().addressFromAccountId(data: peerId, type: 69),
                 isSuccess: isSuccess
             )
 

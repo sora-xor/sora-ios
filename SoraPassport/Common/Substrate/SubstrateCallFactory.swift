@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import BigInt
-import FearlessUtils
+import SSFUtils
 import Foundation
 import IrohaCrypto
 
@@ -49,9 +49,9 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
                   asset: String,
                   amount: BigUInt) throws -> RuntimeCall<SoraTransferCall> {
 
-        let data = try Data(hexString: receiverAccountId)
+        let data = try Data(hexStringSSF: receiverAccountId)
 
-        let call = SoraTransferCall(receiver: MultiAddress.accoundId(data),
+        let call = SoraTransferCall(receiver: data,
                                     amount: amount,
                                     assetId: AssetId(wrappedValue:asset))
         return RuntimeCall<SoraTransferCall>.transfer(call)
@@ -123,8 +123,8 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
     }
 
     func setReferrer(referrer: String) throws -> RuntimeCall<SetReferrerCall> {
-        let referrerData = try Data(hexString: referrer)
-        let call = SetReferrerCall(referrer: MultiAddress.accoundId(referrerData))
+        let referrerData = try Data(hexStringSSF: referrer)
+        let call = SetReferrerCall(referrer: referrerData)
         return RuntimeCall<SetReferrerCall>.setReferrer(call)
     }
 

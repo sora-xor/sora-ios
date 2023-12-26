@@ -32,7 +32,7 @@ import Foundation
 import CommonWallet
 import BigInt
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
 
 extension AssetTransactionData {
     static func createTransaction(
@@ -254,7 +254,7 @@ extension AssetTransactionData {
             context: nil
         )
 
-        let referrer: String = (try? addressFactory.address(fromAccountId: setReferrerCall?.referrer.data ?? Data(), type: 69)) ?? ""
+        let referrer: String = (try? addressFactory.address(fromAccountId: setReferrerCall?.referrer ?? Data(), type: 69)) ?? ""
 
         let context: [String: String]? = [TransactionContextKeys.blockHash: item.txHash,
                                           TransactionContextKeys.sender: address,

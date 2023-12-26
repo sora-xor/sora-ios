@@ -33,11 +33,10 @@ import SoraUIKit
 import CommonWallet
 
 protocol ExploreWireframeProtocol {
-    func showAssetList(on viewController: UIViewController?, viewModelService: ExploreAssetViewModelService)
-    func showPoolList(on viewController: UIViewController?, viewModelService: ExplorePoolViewModelService)
     func showAssetDetails(on viewController: UIViewController?, assetId: String)
     func showAccountPoolDetails(on viewController: UIViewController?, poolInfo: PoolInfo)
     func showLiquidity(on controller: UIViewController?)
+    func showFarmDetails(on viewController: UIViewController?, farm: Farm)
 }
 
 final class ExploreWireframe: ExploreWireframeProtocol {
@@ -60,6 +59,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     let sharingFactory: AccountShareFactoryProtocol
     let referralFactory: ReferralsOperationFactoryProtocol
     let assetsProvider: AssetProviderProtocol
+    let farmingService: DemeterFarmingServiceProtocol
+    let poolViewModelsService: ExplorePoolsViewModelService
 
     init(
         fiatService: FiatServiceProtocol?,
@@ -79,7 +80,9 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         qrEncoder: WalletQREncoderProtocol,
         sharingFactory: AccountShareFactoryProtocol,
         referralFactory: ReferralsOperationFactoryProtocol,
-        assetsProvider: AssetProviderProtocol
+        assetsProvider: AssetProviderProtocol,
+        farmingService: DemeterFarmingServiceProtocol,
+        poolViewModelsService: ExplorePoolsViewModelService
     ) {
         
         self.fiatService = fiatService
@@ -100,38 +103,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         self.sharingFactory = sharingFactory
         self.referralFactory = referralFactory
         self.assetsProvider = assetsProvider
-    }
-    
-    func showAssetList(on viewController: UIViewController?, viewModelService: ExploreAssetViewModelService) {
-        let viewModel = ViewAssetListViewModel(viewModelService: viewModelService, wireframe: self)
-        
-        let assetListController = ExploreListViewController(viewModel: viewModel)
-        viewModel.view = assetListController
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        let newNav = SoraNavigationController(rootViewController: assetListController)
-        newNav.navigationBar.backgroundColor = .clear
-        newNav.addCustomTransitioning()
-        
-        containerView.add(newNav)
-        viewController?.present(containerView, animated: true)
-    }
-    
-    func showPoolList(on viewController: UIViewController?, viewModelService: ExplorePoolViewModelService) {
-        let viewModel = ViewPoolListViewModel(viewModelService: viewModelService, wireframe: self, accountPoolsService: poolsService)
-        
-        let assetListController = ExploreListViewController(viewModel: viewModel)
-        viewModel.view = assetListController
-        
-        let containerView = BlurViewController()
-        containerView.modalPresentationStyle = .overFullScreen
-        let newNav = SoraNavigationController(rootViewController: assetListController)
-        newNav.navigationBar.backgroundColor = .clear
-        newNav.addCustomTransitioning()
-        
-        containerView.add(newNav)
-        viewController?.present(containerView, animated: true)
+        self.farmingService = farmingService
+        self.poolViewModelsService = poolViewModelsService
     }
     
     func showAssetDetails(on viewController: UIViewController?, assetId: String) {
@@ -153,7 +126,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
                                                                               sharingFactory: sharingFactory,
                                                                               referralFactory: referralFactory,
                                                                               assetsProvider: assetsProvider,
-                                                                              marketCapService: marketCapService) else {
+                                                                              marketCapService: marketCapService,
+                                                                              farmingService: farmingService) else {
             return
         }
         
@@ -174,7 +148,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
                                                                              providerFactory: providerFactory,
                                                                              operationFactory: networkFacade,
                                                                              assetsProvider: assetsProvider,
-                                                                             marketCapService: marketCapService,
+                                                                             marketCapService: marketCapService, 
+                                                                             farmingService: farmingService,
                                                                              dismissHandler: nil) else {
             return
         }
@@ -213,5 +188,34 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         containerView.add(navigationController)
         
         controller?.present(containerView, animated: true)
+    }
+    
+    func showFarmDetails(on viewController: UIViewController?, farm: Farm) {
+        let viewModel = FarmDetailsViewModel(farm: farm,
+                                             poolsService: poolsService,
+                                             poolViewModelsService: poolViewModelsService,
+                                             fiatService: fiatService,
+                                             assetManager: assetManager,
+                                             providerFactory: providerFactory,
+                                             operationFactory: networkFacade,
+                                             assetsProvider: assetsProvider,
+                                             marketCapService: marketCapService,
+                                             farmingService: farmingService,
+                                             detailsFactory: DetailViewModelFactory(assetManager: assetManager),
+                                             wireframe: FarmDetailsWireframe())
+        
+        let view = FarmDetailsViewController(viewModel: viewModel)
+        viewModel.view = view
+        
+        let containerView = BlurViewController()
+        containerView.modalPresentationStyle = .overFullScreen
+
+        let navigationController = UINavigationController(rootViewController: view)
+        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.navigationBar.setBackgroundImage(UIImage(), for: .default)
+        
+        containerView.add(navigationController)
+        
+        viewController?.present(containerView, animated: true)
     }
 }

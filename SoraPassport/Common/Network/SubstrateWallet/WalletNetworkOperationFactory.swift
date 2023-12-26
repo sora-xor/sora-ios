@@ -30,7 +30,7 @@
 
 import BigInt
 import CommonWallet
-import FearlessUtils
+import SSFUtils
 import Foundation
 import IrohaCrypto
 import RobinHood
@@ -169,7 +169,7 @@ final class WalletNetworkOperationFactory {
 
     func createExtrinsicNonceFetchOperation(_ chain: Chain, accountId: Data? = nil) -> BaseOperation<UInt32> {
         do {
-            let identifier = try (accountId ?? Data(hexString: accountSettings.accountId))
+            let identifier = try (accountId ?? Data(hexStringSSF: accountSettings.accountId))
 
             let address = try SS58AddressFactory()
                 .address(fromAccountId: identifier,

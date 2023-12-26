@@ -58,7 +58,7 @@ final class AccountConfirmViewFactory {
                                                   settings: settings,
                                                   operationManager: OperationManagerFacade.sharedManager)
         viewModel.interactor = interactor
-        viewModel.wireframe = ConfirmPassphraseyWireframe()
+        viewModel.wireframe = ConfirmPassphraseWireframe()
         interactor.presenter = viewModel
 
         let view = ConfirmPassphraseViewController(viewModel: viewModel)
@@ -91,7 +91,7 @@ final class AccountConfirmViewFactory {
                                                      operationManager: OperationManagerFacade.sharedManager,
                                                      settings: SelectedWalletSettings.shared,
                                                      eventCenter: EventCenter.shared)
-        let wireframe = ConfirmPassphraseyWireframe()
+        let wireframe = ConfirmPassphraseWireframe()
 
         viewModel.interactor = interactor
         viewModel.wireframe = wireframe

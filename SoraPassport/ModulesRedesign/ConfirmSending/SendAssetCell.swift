@@ -30,7 +30,7 @@
 
 import SoraUIKit
 import UIKit
-import FearlessUtils
+import SSFUtils
 
 final class SendAssetCell: SoramitsuTableViewCell {
     

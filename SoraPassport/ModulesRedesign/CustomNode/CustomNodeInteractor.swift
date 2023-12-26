@@ -31,7 +31,7 @@
 import Foundation
 import SoraKeystore
 import RobinHood
-import FearlessUtils
+import SSFUtils
 
 final class CustomNodeInteractor {
     weak var presenter: CustomNodeInteractorOutputProtocol?
