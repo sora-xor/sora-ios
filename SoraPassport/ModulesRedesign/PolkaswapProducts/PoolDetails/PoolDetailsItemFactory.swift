@@ -32,18 +32,19 @@ import Foundation
 import SoraUIKit
 import CommonWallet
 import sorawallet
-import FearlessUtils
+import SSFUtils
 import SoraFoundation
 
 final class PoolDetailsItemFactory {
-    func createAccountItem(
+    func createPoolDetailsItem(
         with assetManager: AssetManagerProtocol,
         poolInfo: PoolInfo,
         apy: Decimal?,
         detailsFactory: DetailViewModelFactoryProtocol,
         viewModel: PoolDetailsViewModelProtocol,
-        pools: [StakedPool]
-    ) -> SoramitsuTableViewItemProtocol {
+        fiatData: [FiatData],
+        farms: [UserFarm]
+    ) -> PoolDetailsItem {
 
         let baseAsset = assetManager.assetInfo(for: poolInfo.baseAssetId)
         let targetAsset = assetManager.assetInfo(for: poolInfo.targetAssetId)
@@ -58,20 +59,26 @@ final class PoolDetailsItemFactory {
         
         let detailsViewModels = detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: viewModel)
 
-        let isRemoveLiquidityEnabled = pools.map {
-            let pooledTokens = Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero
+        let isRemoveLiquidityEnabled = farms.map {
+            let pooledTokens = $0.pooledTokens ?? .zero
             let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
             return (pooledTokens / accountPoolBalance) == 1
         }.filter { $0 }.isEmpty
         
         let isThereLiquidity = poolInfo.baseAssetPooledByAccount != nil && poolInfo.targetAssetPooledByAccount != nil
         
+        let priceUsd = fiatData.first(where: { $0.id == poolInfo.baseAssetId })?.priceUsd?.decimalValue ?? .zero
+        let reserves = poolInfo.baseAssetReserves ?? .zero
+        let tvlText = "$" + (priceUsd * reserves * 2).formatNumber() + " TVL"
+        
         let detailsItem = PoolDetailsItem(title: title,
+                                          subtitle: tvlText,
                                           firstAssetImage: baseAsset?.icon,
                                           secondAssetImage: targetAsset?.icon,
                                           rewardAssetImage: rewardAsset?.icon,
                                           detailsViewModel: detailsViewModels,
-                                          isRemoveLiquidityEnabled: isRemoveLiquidityEnabled,
+                                          isRemoveLiquidityEnabled: isRemoveLiquidityEnabled, 
+                                          typeImage: isThereLiquidity ? .activePoolWithFarming : .inactivePoolWithFarming,
                                           isThereLiquidity: isThereLiquidity)
         detailsItem.handler = { type in
             viewModel.infoButtonTapped(with: type)
@@ -80,37 +87,97 @@ final class PoolDetailsItemFactory {
         return detailsItem
     }
     
+    func farmsItem(with assetManager: AssetManagerProtocol, poolInfo: PoolInfo, farms: [Farm] = []) -> [FarmViewModel] {
+        return poolInfo.farms.compactMap { userFarm in
+
+            let baseAsset = assetManager.assetInfo(for: userFarm.baseAssetId)
+            let poolAsset = assetManager.assetInfo(for: userFarm.poolAssetId)
+            let rewardAsset = assetManager.assetInfo(for: userFarm.rewardAssetId)
+            
+            let baseAssetSymbol = baseAsset?.symbol ?? ""
+            let poolAssetSymbol = poolAsset?.symbol ?? ""
+            let rewardAssetSymbol = rewardAsset?.symbol ?? ""
+            let title = "\(baseAssetSymbol)-\(poolAssetSymbol)"
+            let id = "\(baseAssetSymbol)-\(poolAssetSymbol)-\(rewardAssetSymbol)"
+            
+            let rewards = userFarm.rewards ?? .zero
+            let subtitle = R.string.localizable.poolDetailsReward(preferredLanguages: .currentLocale) + ": \(rewards) \(rewardAssetSymbol)"
+            
+            let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
+            let pooledTokens = userFarm.pooledTokens ?? .zero
+            let percentage = accountPoolBalance > 0 ? (pooledTokens / accountPoolBalance) * 100 : 0
+
+            let percentageText = "\(NumberFormatter.percent.stringFromDecimal(percentage) ?? "")%"
+            
+            var aprText = ""
+            if let apr = farms.first(where: { $0.rewardAsset?.assetId == userFarm.rewardAssetId })?.apr {
+                aprText = "\(NumberFormatter.percent.stringFromDecimal(apr * 100) ?? "")% APR"
+            }
+            
+            return FarmViewModel(identifier: id,
+                                 title: title,
+                                 subtitle: subtitle,
+                                 baseAssetImage: RemoteSerializer.shared.image(with: baseAsset?.icon ?? ""),
+                                 targetAssetImage: RemoteSerializer.shared.image(with: poolAsset?.icon ?? ""),
+                                 rewardAssetImage: RemoteSerializer.shared.image(with: rewardAsset?.icon ?? ""),
+                                 aprText: aprText,
+                                 percentageText: percentageText,
+                                 isFarmed: true)
+        }
+    }
     
-    func stakedItem(with assetManager: AssetManagerProtocol, poolInfo: PoolInfo, stakedPool: StakedPool) -> SoramitsuTableViewItemProtocol {
-        let rewardAsset = assetManager.assetInfo(for: stakedPool.rewardAsset.value)
-        let rewardSymbol = rewardAsset?.symbol.uppercased() ?? ""
+    func farmsItem(with farms: [Farm] = []) -> [FarmViewModel] {
+        return farms.compactMap { farm in
+
+            let baseAsset = farm.baseAsset
+            let poolAsset = farm.poolAsset
+            let rewardAsset = farm.rewardAsset
+            
+            let baseAssetSymbol = baseAsset?.symbol ?? ""
+            let poolAssetSymbol = poolAsset?.symbol ?? ""
+            let rewardAssetSymbol = rewardAsset?.symbol ?? ""
+            
+            let id = "\(baseAssetSymbol)-\(poolAssetSymbol)-\(rewardAssetSymbol)"
+            let title = "\(baseAssetSymbol)-\(poolAssetSymbol)"
+            
+            let subtitle = "$" + farm.tvl.formatNumber()
+            
+            let aprText = "\(NumberFormatter.percent.stringFromDecimal(farm.apr * 100) ?? "")% APR"
+
+            return FarmViewModel(identifier: id,
+                                 title: title,
+                                 subtitle: subtitle,
+                                 baseAssetImage: RemoteSerializer.shared.image(with: baseAsset?.icon ?? ""),
+                                 targetAssetImage: RemoteSerializer.shared.image(with: poolAsset?.icon ?? ""),
+                                 rewardAssetImage: RemoteSerializer.shared.image(with: rewardAsset?.icon ?? ""),
+                                 aprText: aprText,
+                                 isFarmed: false)
+        }
+    }
+    
+    func farmDetail(with farm: Farm, 
+                    poolInfo: PoolInfo?,
+                    userFarmInfo: UserFarm?,
+                    detailsFactory: DetailViewModelFactoryProtocol,
+                    viewModel: FarmDetailsViewModelProtocol
+    ) -> FarmDetailsItem {
+
+        let baseAssetSymbol = farm.baseAsset?.symbol ?? ""
+        let poolAssetSymbol = farm.poolAsset?.symbol ?? ""
+        let title = R.string.localizable.polkaswapFarmTitleTemplate("\(baseAssetSymbol)-\(poolAssetSymbol)", preferredLanguages: .currentLocale)  
         
-        let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
-        let pooledTokens = Decimal.fromSubstrateAmount(stakedPool.pooledTokens, precision: 18) ?? .zero
-        let percentage = accountPoolBalance > 0 ? (pooledTokens / accountPoolBalance) * 100 : 0
-
-        let progressTitle = R.string.localizable.polkaswapFarmingPoolShare(preferredLanguages: .currentLocale)
-
-        let text = SoramitsuTextItem(text: "\(NumberFormatter.percent.stringFromDecimal(percentage) ?? "")%",
-                                     fontData: FontType.textS,
-                                     textColor: .fgPrimary,
-                                     alignment: .right)
-
-        let progressDetails = DetailViewModel(title: progressTitle,
-                                              assetAmountText: text,
-                                              type: .progress(percentage.floatValue))
+        let detailsViewModels = detailsFactory.createFarmDetailViewModels(with: farm, 
+                                                                          userFarmInfo: userFarmInfo,
+                                                                          poolInfo: poolInfo,
+                                                                          viewModel: viewModel)
         
-        let rewardText = SoramitsuTextItem(text: rewardSymbol,
-                                           fontData: FontType.textS,
-                                           textColor: .fgPrimary,
-                                           alignment: .right)
-
-        let rewardDetailsViewModel = DetailViewModel(title: R.string.localizable.polkaswapRewardPayout(preferredLanguages: .currentLocale),
-                                                     rewardAssetImage: rewardAsset?.icon,
-                                                     assetAmountText: rewardText)
-
-        let title = R.string.localizable.polkaswapFarmingStakedFor(rewardSymbol, preferredLanguages: .currentLocale)
-        return StakedItem(title: title, detailsViewModel: [rewardDetailsViewModel, progressDetails])
+        return FarmDetailsItem(title: title,
+                               subtitle: "$" + (farm.tvl).formatNumber() + " TVL",
+                               firstAssetImage: RemoteSerializer.shared.image(with: farm.baseAsset?.icon ?? ""),
+                               secondAssetImage: RemoteSerializer.shared.image(with: farm.poolAsset?.icon ?? ""),
+                               rewardAssetImage: RemoteSerializer.shared.image(with: farm.rewardAsset?.icon ?? ""),
+                               detailsViewModel: detailsViewModels,
+                               typeImage: (userFarmInfo?.pooledTokens ?? 0) > 0 ? .activeFarming : .incativeFarming)
     }
 }
 

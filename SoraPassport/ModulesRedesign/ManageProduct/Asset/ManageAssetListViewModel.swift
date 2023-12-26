@@ -133,6 +133,7 @@ final class ManageAssetListViewModel {
     weak var view: UIViewController?
     let referralFactory: ReferralsOperationFactoryProtocol
     private weak var assetsProvider: AssetProviderProtocol?
+    private let farmingService: DemeterFarmingServiceProtocol
     private var marketCapService: MarketCapServiceProtocol
     private var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
 
@@ -150,6 +151,7 @@ final class ManageAssetListViewModel {
          referralFactory: ReferralsOperationFactoryProtocol,
          assetsProvider: AssetProviderProtocol?,
          marketCapService: MarketCapServiceProtocol,
+         farmingService: DemeterFarmingServiceProtocol,
          updateHandler: ((UpdatedSection) -> Void)?
     ) {
         self.assetViewModelFactory = assetViewModelFactory
@@ -167,6 +169,7 @@ final class ManageAssetListViewModel {
         self.updateHandler = updateHandler
         self.assetsProvider = assetsProvider
         self.marketCapService = marketCapService
+        self.farmingService = farmingService
         self.poolItemInfo = PriceInfoService.shared.priceInfo
     }
 }
@@ -181,8 +184,11 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
         
         let ids = (assetManager?.getAssetList() ?? []).map { $0.identifier }
         let balanceData = assetsProvider?.getBalances(with: ids) ?? []
-        self.items(with: balanceData)
-        
+
+        Task { [weak self] in
+            await self?.items(with: balanceData)
+        }
+
         assetsProvider?.add(observer: self)
     }
     
@@ -195,12 +201,15 @@ extension ManageAssetListViewModel: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
         let ids = (assetManager?.getAssetList() ?? []).map { $0.identifier }
         let balanceData = data.filter { ids.contains($0.identifier) }
-        self.items(with: balanceData)
+        
+        Task { [weak self] in
+            await self?.items(with: balanceData)
+        }
     }
 }
 
 private extension ManageAssetListViewModel {
-    func items(with balanceItems: [BalanceData]) {
+    func items(with balanceItems: [BalanceData]) async {
         let fiatData = poolItemInfo?.fiatData ?? []
         let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
         
@@ -232,10 +241,8 @@ private extension ManageAssetListViewModel {
             return item
         }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
 
-        Task {
-            let assetIds = balanceItems.map { $0.identifier }
-            poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
-        }
+        let assetIds = balanceItems.map { $0.identifier }
+        poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
     }
 
     func filterAssetList(with query: String) {
@@ -307,6 +314,7 @@ private extension ManageAssetListViewModel {
                                    sharingFactory: sharingFactory,
                                    referralFactory: referralFactory,
                                    assetsProvider: assetsProvider,
-                                   marketCapService: marketCapService)
+                                   marketCapService: marketCapService,
+                                   farmingService: farmingService)
     }
 }

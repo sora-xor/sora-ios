@@ -50,7 +50,7 @@ final class MainTabBarViewController: UITabBarController {
         tabBar.coverButton.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.middleButtonHadler?()
         }
-        tabBar.middleButtonTitleLabel.sora.text = R.string.localizable.polkaswapSwapTitle(preferredLanguages: .currentLocale)
+        tabBar.middleButtonTitleLabel.sora.text = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: .currentLocale)
         setValue(tabBar, forKey: "tabBar")
         
         SoramitsuUI.updates.addObserver(self)
@@ -120,6 +120,6 @@ extension MainTabBarViewController: Localizable {
     
     func applyLocalization() {
         let languages = localizationManager?.preferredLocalizations
-        (tabBar as? TabBar)?.middleButtonTitleLabel.sora.text = R.string.localizable.polkaswapSwapTitle(preferredLanguages: languages)
+        (tabBar as? TabBar)?.middleButtonTitleLabel.sora.text = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: languages)
     }
 }

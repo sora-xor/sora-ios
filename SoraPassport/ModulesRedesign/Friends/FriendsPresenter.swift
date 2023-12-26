@@ -34,7 +34,7 @@ import SoraFoundation
 import SoraUI
 import BigInt
 import sorawallet
-import FearlessUtils
+import SSFUtils
 import CommonWallet
 
 extension FriendsPresenter {

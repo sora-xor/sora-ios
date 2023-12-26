@@ -244,7 +244,13 @@ final class PoolsCell: SoramitsuTableViewCell {
             poolView?.amountUpLabel.sora.text = poolModel.fiatText
         }
         poolView?.amountUpLabel.sora.loadingPlaceholder.type = !poolModel.fiatText.isEmpty ? .none : .shimmer
+        
+        let rewardPictures: [Picture] = poolModel.farmedRewardAssetsImages.map { .logo(image: $0) }
+        poolView?.setupFarmedAssetImages(pictures: rewardPictures)
+        poolView?.farmedRewardAssetStackView.sora.loadingPlaceholder.type = poolModel.targetAssetImage != nil ? .none : .shimmer
 
+        poolView?.isUserInteractionEnabled = !poolModel.title.isEmpty
+        
         poolView?.sora.addHandler(for: .touchUpInside) { [weak poolsItem] in
             poolsItem?.poolHandler?(poolModel.identifier)
         }

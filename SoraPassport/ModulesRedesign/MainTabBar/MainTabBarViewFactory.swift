@@ -35,6 +35,7 @@ import SoraFoundation
 import Then
 import SoraUIKit
 import IrohaCrypto
+import SSFUtils
 
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
@@ -67,16 +68,24 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return nil
         }
         
+        let farmingService = DemeterFarmingService(
+            operationFactory: DemeterFarmingOperationFactory(engine: connection),
+            fiatService: FiatService.shared,
+            assetManager: assetManager
+        )
+        
         guard let walletContext = try? WalletContextFactory().createContext(connection: connection, 
                                                                             assetManager: assetManager,
-                                                                            accountSettings: accountSettings) else {
+                                                                            accountSettings: accountSettings, 
+                                                                            demeterFarmingService: farmingService) else {
             return nil
         }
         
         guard let viewControllers = redesignedViewControllers(for: view,
                                                               walletContext: walletContext,
                                                               assetManager: assetManager,
-                                                              accountSettings: accountSettings) else {
+                                                              accountSettings: accountSettings,
+                                                              farmingService: farmingService) else {
             return nil
         }
         
@@ -106,10 +115,20 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         guard
             let selectedAccount = SelectedWalletSettings.shared.currentAccount,
             let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager),
-            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-            let walletContext = try? WalletContextFactory().createContext(connection: connection,
-                                                                          assetManager: assetManager,
-                                                                          accountSettings: accountSettings) else {
+            let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
+            return
+        }
+        
+        let farmingService = DemeterFarmingService(
+            operationFactory: DemeterFarmingOperationFactory(engine: connection),
+            fiatService: FiatService.shared,
+            assetManager: assetManager
+        )
+        
+        guard let walletContext = try? WalletContextFactory().createContext(connection: connection,
+                                                                            assetManager: assetManager,
+                                                                            accountSettings: accountSettings,
+                                                                            demeterFarmingService: farmingService) else {
             return
         }
         
@@ -138,6 +157,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                               networkFacade: walletContext.networkOperationFactory,
                                               polkaswapNetworkFacade: polkaswapContext,
                                               config: ApplicationConfig.shared)
+        farmingService.poolsService = poolsService
         
         let poolViewModelsfactory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
@@ -159,7 +179,8 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                     poolsViewModelService: poolsViewModelService,
                                                                     assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
-                                                                    accountSettings: accountSettings,
+                                                                    accountSettings: accountSettings, 
+                                                                    farmingService: farmingService,
                                                                     localizationManager: localizationManager) else {
             return
         }
@@ -220,7 +241,8 @@ extension MainTabBarViewFactory {
     private static func redesignedViewControllers(for view: MainTabBarViewController,
                                                   walletContext: CommonWalletContextProtocol,
                                                   assetManager: AssetManagerProtocol,
-                                                  accountSettings: WalletAccountSettingsProtocol) -> [UIViewController]? {
+                                                  accountSettings: WalletAccountSettingsProtocol,
+                                                  farmingService: DemeterFarmingService) -> [UIViewController]? {
         
         let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
                                                      cacheFacade: CoreDataCacheFacade.shared,
@@ -251,7 +273,7 @@ extension MainTabBarViewFactory {
                                               networkFacade: walletContext.networkOperationFactory,
                                               polkaswapNetworkFacade: polkaswapContext,
                                               config: ApplicationConfig.shared)
-        
+        farmingService.poolsService = poolsService
         let factory = PoolViewModelFactory(walletAssets: assetInfos,
                                             assetManager: assetManager,
                                            fiatService: FiatService.shared)
@@ -272,7 +294,8 @@ extension MainTabBarViewFactory {
                                                                     poolsViewModelService: poolsViewModelService,
                                                                     assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
-                                                                    accountSettings: accountSettings) else {
+                                                                    accountSettings: accountSettings, 
+                                                                    farmingService: farmingService) else {
             return nil
         }
         
@@ -293,6 +316,7 @@ extension MainTabBarViewFactory {
                                                             poolsService: poolsService,
                                                             accountSettings: accountSettings,
                                                             assetsProvider: assetsProvider, 
+                                                            farmingService: farmingService,
                                                             walletAssets: assetInfos) else {
             return nil
         }
@@ -328,6 +352,7 @@ extension MainTabBarViewFactory {
                                                assetsViewModelService: AssetsItemService,
                                                editViewService: EditViewServiceProtocol,
                                                accountSettings: WalletAccountSettingsProtocol,
+                                               farmingService: DemeterFarmingServiceProtocol,
                                                localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) -> UIViewController? {
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
               let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
@@ -362,8 +387,7 @@ extension MainTabBarViewFactory {
                                                         selectedAccount: selectedAccount)
         
         let marketCapService = MarketCapService.shared
-        
-        let farmingService = DemeterFarmingService(operationFactory: DemeterFarmingOperationFactory(engine: connection))
+
         let walletController = RedesignWalletViewFactory.createView(providerFactory: providerFactory,
                                                                     assetManager: assetManager,
                                                                     fiatService: FiatService.shared,
@@ -384,7 +408,7 @@ extension MainTabBarViewFactory {
                                                                     editViewService: editViewService)
         
         let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)
+            R.string.localizable.walletTitle(preferredLanguages: locale.rLanguages)
         }
         
         let image = R.image.tabBar.wallet()
@@ -497,6 +521,7 @@ extension MainTabBarViewFactory {
                                        poolsService: PoolsServiceInputProtocol,
                                        accountSettings: WalletAccountSettingsProtocol,
                                        assetsProvider: AssetProviderProtocol,
+                                       farmingService: DemeterFarmingServiceProtocol,
                                        walletAssets: [AssetInfo]) -> UINavigationController? {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
@@ -511,10 +536,6 @@ extension MainTabBarViewFactory {
         let marketCapService = MarketCapService.shared
         let fiatService = FiatService.shared
         let itemFactory = ExploreItemFactory(assetManager: assetManager)
-        let assetViewModelsService = ExploreAssetViewModelService(marketCapService: marketCapService,
-                                                                  fiatService: fiatService,
-                                                                  itemFactory: itemFactory,
-                                                                  assetInfos: walletAssets)
         
         let factory = AssetViewModelFactory(walletAssets: walletAssets,
                                             assetManager: assetManager,
@@ -525,7 +546,7 @@ extension MainTabBarViewFactory {
                                                       polkaswapOperationFactory: polkaswapNetworkFacade,
                                                       networkFacade: networkFacade)
         
-        let poolViewModelsService = ExplorePoolViewModelService(itemFactory: itemFactory,
+        let poolViewModelsService = ExplorePoolsViewModelService(itemFactory: itemFactory,
                                                                 poolsService: explorePoolsService,
                                                                 apyService: APYService.shared)
         
@@ -569,20 +590,35 @@ extension MainTabBarViewFactory {
                                          qrEncoder: qrEncoder,
                                          sharingFactory: shareFactory,
                                          referralFactory: referralFactory,
-                                         assetsProvider: assetsProvider)
+                                         assetsProvider: assetsProvider,
+                                         farmingService: farmingService)
         
+        let assetViewModelsService = ExploreAssetViewModelService(marketCapService: marketCapService,
+                                                                  fiatService: fiatService,
+                                                                  itemFactory: itemFactory,
+                                                                  assetInfos: walletAssets)
         
-        let viewModel = ExploreViewModel(wireframe: wireframe,
-                                         accountPoolsService: poolsService,
-                                         assetViewModelsService: assetViewModelsService,
-                                         poolViewModelsService: poolViewModelsService)
+        let assetsPageViewModel = ExploreAssetsPageViewModel(wireframe: wireframe,
+                                                             assetViewModelsService: assetViewModelsService)
+        
+        let poolsPageViewModel = ExplorePoolsPageViewModel(wireframe: wireframe,
+                                                           poolViewModelsService: poolViewModelsService,
+                                                           accountPoolsService: poolsService)
+        
+        let farmsViewModelsService = ExploreFarmsViewModelService(demeterFarmingService: farmingService)
+        
+        let farmsPageViewModel = ExploreFarmsPageViewModel(wireframe: wireframe,
+                                                           farmsViewModelsService: farmsViewModelsService,
+                                                           accountPoolsService: poolsService)
         
         let title = R.string.localizable.commonExplore(preferredLanguages: .currentLocale)
         
-        let view = ExploreViewController()
-        view.viewModel = viewModel
+        let view = ExploreViewController(viewModels: [assetsPageViewModel, poolsPageViewModel, farmsPageViewModel])
         view.localizationManager = LocalizationManager.shared
-        viewModel.view = view
+        
+        assetsPageViewModel.view = view
+        poolsPageViewModel.view = view
+        farmsPageViewModel.view = view
         
         let navigationController = SoraNavigationController().then {
             $0.navigationBar.topItem?.title = title

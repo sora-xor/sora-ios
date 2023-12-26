@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
 
 typealias ChainConnection = JSONRPCEngine & ConnectionAutobalancing & ConnectionStateReporting
 
@@ -47,7 +47,7 @@ final class ConnectionFactory {
 
 extension ConnectionFactory: ConnectionFactoryProtocol {
     func createConnection(for url: URL, delegate: WebSocketEngineDelegate) -> ChainConnection {
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
         engine.delegate = delegate
         return engine
     }

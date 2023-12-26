@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import CommonWallet
-import FearlessUtils
+import SSFUtils
 import RobinHood
 import sorawallet
 
@@ -120,7 +120,7 @@ final class AccountPoolsService {
     func subscribeAccountPool(baseAssetId: String) {
         do {
             guard let accountId = (networkFacade as? WalletNetworkFacade)?.address.accountId,
-                  let baseAssetIdData = try? Data(hexString: baseAssetId) else { return }
+                  let baseAssetIdData = try? Data(hexStringSSF: baseAssetId) else { return }
             let storageKey = try StorageKeyFactory()
                 .accountPoolsKeyForId(accountId, baseAssetId: baseAssetIdData)
                 .toHex(includePrefix: true)
@@ -245,8 +245,7 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
     }
     
     func loadAccountPools(isNeedForceUpdate: Bool) {
-        task?.cancel()
-        task = Task {
+        Task {
             if !currentPools.isEmpty && !isNeedForceUpdate {
                 let sortedPools = currentPools.sorted(by: orderSort)
                 outputs.forEach {
@@ -284,7 +283,8 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
                                     totalIssuances: poolDetail.totalIssuances,
                                     baseAssetReserves: poolDetail.baseAssetReserves,
                                     targetAssetReserves: poolDetail.targetAssetReserves,
-                                    accountPoolBalance: poolDetail.accountPoolBalance)
+                                    accountPoolBalance: poolDetail.accountPoolBalance,
+                                    farms: poolDetail.farms)
                 }.sorted { $0.isFavorite && !$1.isFavorite }
                 
                 if self.currentOrder.isEmpty {

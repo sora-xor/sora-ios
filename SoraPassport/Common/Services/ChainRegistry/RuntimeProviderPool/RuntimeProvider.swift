@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import FearlessUtils
+import SSFUtils
 import SSFUtils
 
 protocol RuntimeProviderProtocol: AnyObject, RuntimeCodingServiceProtocol {
@@ -64,7 +64,7 @@ final class RuntimeProvider {
     private let snapshotHotOperationFactory: RuntimeHotBootSnapshotFactoryProtocol?
     private let eventCenter: EventCenterProtocol
     private let operationQueue: OperationQueue
-    private let dataHasher: FearlessUtils.StorageHasher
+    private let dataHasher: StorageHasher
     private let logger: LoggerProtocol?
     private let repository: AnyDataProviderRepository<RuntimeMetadataItem>
 
@@ -83,7 +83,7 @@ final class RuntimeProvider {
         snapshotHotOperationFactory: RuntimeHotBootSnapshotFactoryProtocol?,
         eventCenter: EventCenterProtocol,
         operationQueue: OperationQueue,
-        dataHasher: FearlessUtils.StorageHasher = .twox256,
+        dataHasher: StorageHasher = .twox256,
         logger: LoggerProtocol? = nil,
         repository: AnyDataProviderRepository<RuntimeMetadataItem>
     ) {
@@ -101,7 +101,7 @@ final class RuntimeProvider {
         eventCenter.add(observer: self, dispatchIn: DispatchQueue.global())
     }
 
-    private func buildSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: FearlessUtils.StorageHasher) {
+    private func buildSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: StorageHasher) {
         guard commonTypesFetched, chainTypesFetched, chainMetadataFetched else {
             return
         }
@@ -122,7 +122,7 @@ final class RuntimeProvider {
         operationQueue.addOperations(wrapper.allOperations, waitUntilFinished: false)
     }
 
-    private func buildHotSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: FearlessUtils.StorageHasher) {
+    private func buildHotSnapshot(with typesUsage: ChainModel.TypesUsage, dataHasher: StorageHasher) {
         let wrapper = snapshotHotOperationFactory?.createRuntimeSnapshotWrapper(
             for: typesUsage,
             dataHasher: dataHasher
@@ -183,7 +183,7 @@ final class RuntimeProvider {
         let updateOperation = repository.saveOperation {
             guard
                 let currentRuntimeItem = try localMetadataOperation.extractNoCancellableResultData(),
-                currentRuntimeItem.resolver != snapshot.metadata.resolver
+                currentRuntimeItem.resolver != snapshot.metadata.schemaResolver
             else {
                 return []
             }
@@ -194,7 +194,7 @@ final class RuntimeProvider {
                 version: currentRuntimeItem.version,
                 txVersion: currentRuntimeItem.txVersion,
                 metadata: currentRuntimeItem.metadata,
-                resolver: snapshot.metadata.resolver
+                resolver: snapshot.metadata.schemaResolver
             )
 
             updateItem = [metadataItem]

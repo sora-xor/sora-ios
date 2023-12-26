@@ -31,7 +31,7 @@
 import Foundation
 import CommonWallet
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
 
 final class WalletQREncoder: WalletQREncoderProtocol {
     let username: String?
@@ -48,7 +48,7 @@ final class WalletQREncoder: WalletQREncoderProtocol {
     }
 
     func encode(receiverInfo: ReceiveInfo) throws -> Data {
-        let accountId = try Data(hexString: receiverInfo.accountId)
+        let accountId = try Data(hexStringSSF: receiverInfo.accountId)
 
         let address = try addressFactory.address(fromAccountId: accountId, type: networkType)
 

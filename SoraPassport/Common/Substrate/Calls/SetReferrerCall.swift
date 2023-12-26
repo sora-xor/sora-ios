@@ -28,10 +28,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import FearlessUtils
+import SSFUtils
 
 struct SetReferrerCall: Codable {
-    let referrer: MultiAddress
+    let referrer: Data
 
     enum CodingKeys: String, CodingKey {
         case referrer = "referrer"

@@ -31,6 +31,7 @@
 import Foundation
 import RobinHood
 import CommonWallet
+import SSFUtils
 
 final class PoolDetailsViewFactory {
     static func createView(poolInfo: PoolInfo,
@@ -41,9 +42,8 @@ final class PoolDetailsViewFactory {
                            operationFactory: WalletNetworkOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol?,
                            marketCapService: MarketCapServiceProtocol,
-                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController? {
-        guard let engine = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else { return nil }
-        let farmingService = DemeterFarmingService(operationFactory: DemeterFarmingOperationFactory(engine: engine))
+                           farmingService: DemeterFarmingServiceProtocol,
+                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController? {        
         let viewModel = PoolDetailsViewModel(wireframe: PoolDetailsWireframe(),
                                              poolInfo: poolInfo,
                                              fiatService: fiatService,
