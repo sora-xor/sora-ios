@@ -62,7 +62,7 @@ final class ExplorePageView: SoramitsuView {
         tableView.register(ExploreFarmCell.self, forCellReuseIdentifier: "ExploreFarmCell")
         tableView.sectionHeaderHeight = .zero
         tableView.contentInset = UIEdgeInsets(top: 16, left: 0, bottom: 16, right: 0)
-        tableView.sora.cornerMask = .all
+        tableView.sora.cornerMask = .top
         tableView.sora.cornerRadius = .extraLarge
         tableView.sora.backgroundColor = .bgSurface
         return tableView

@@ -265,29 +265,6 @@ extension AccountOptionsViewController: AccountOptionsViewProtocol {
                 $0.addTapGesture { [weak self] recognizer in
                     self?.rawSeedTapped()
                 }
-            }),
-            AccountOptionSeparator(),
-            AccountOptionItem().then({
-                $0.titleLabel.sora.text = R.string.localizable.exportProtectionJsonTitle(preferredLanguages: languages)
-                $0.leftImageView.image = R.image.profile.export()
-                $0.addArrow()
-                $0.addTapGesture { [weak self] recognizer in
-                    self?.jsoneTapped()
-                }
-            }),
-            AccountOptionSeparator(),
-            AccountOptionItem().then({
-                $0.titleLabel.sora.textColor = backUpState.optionTitleColor
-                $0.titleLabel.sora.text = backUpState.optionTitle
-                $0.leftImageView.image = R.image.googleOptionIcon()
-                $0.addArrow()
-                $0.addTapGesture { [weak self] recognizer in
-                    if backUpState == .backedUp {
-                        self?.deleteBackup()
-                    } else {
-                        self?.presenter.createBackup()
-                    }
-                }
             })
         ])
 
