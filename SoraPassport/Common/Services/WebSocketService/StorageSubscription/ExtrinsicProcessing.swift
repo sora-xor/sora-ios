@@ -118,7 +118,7 @@ final class ExtrinsicProcessor {
 
         let calls = batch?.args.calls ?? []
         for call in calls {
-            let innerExtrinsic = Extrinsic(signature: extrinsic.signature, call: call)
+            let innerExtrinsic = Extrinsic(call: call, signature: extrinsic.signature)
             process(extrinsicIndex: extrinsicIndex, extrinsic: innerExtrinsic, eventRecords: eventRecords, metadata: metadata)
         }
         return nil

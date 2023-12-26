@@ -123,7 +123,8 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                                 rewardAsset: rewardAsset,
                                 tvl: tvl,
                                 apr: apr / 100,
-                                depositFee: depositFee)
+                                depositFee: depositFee,
+                                usdPrice: price)
                 }
                 
                 let finalfarms = await farms ?? []
@@ -178,7 +179,8 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                                 rewardAsset: rewardAsset,
                                 tvl: tvl,
                                 apr: apr / 100,
-                                depositFee: depositFee)
+                                depositFee: depositFee,
+                                usdPrice: price)
                 }
                 
                 let finalfarms = await farms ?? []
