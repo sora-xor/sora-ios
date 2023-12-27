@@ -78,6 +78,10 @@ extension KmmCallCodingPath {
     static var batchAllUtility: KmmCallCodingPath {
         KmmCallCodingPath(moduleName: "utility", callName: "batchAll")
     }
+    
+    static var getRewards: KmmCallCodingPath {
+        KmmCallCodingPath(moduleName: "demeterFarmingPlatform", callName: "getRewards")
+    }
 
 
     var isTransfer: Bool {
@@ -102,5 +106,9 @@ extension KmmCallCodingPath {
 
     var isReferral: Bool {
         [.setReferral, .bondReferralBalance, .unbondReferralBalance].contains(self)
+    }
+    
+    var isClaimReward: Bool {
+        [.getRewards].contains(self)
     }
 }

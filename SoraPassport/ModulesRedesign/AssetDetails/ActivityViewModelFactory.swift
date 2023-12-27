@@ -114,6 +114,10 @@ extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
             return setReferrerTransactionViewModel(from: setReferrerTransaction)
         }
         
+        if let claimRewardTransaction = transaction as? ClaimReward {
+            return claimRewardTransactionViewModel(from: claimRewardTransaction)
+        }
+        
         return nil
     }
 }
@@ -328,5 +332,34 @@ private extension ActivityViewModelFactory {
                                         fiatText: "",
                                         status: setReferrer.base.status,
                                         isNeedTwoImage: false)
+    }
+    
+    func claimRewardTransactionViewModel(from transaction: ClaimReward) -> ActivityContentViewModel {
+        let asset = walletAssets.first(where: { $0.identifier == transaction.rewardTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let assetInfo = assetManager.assetInfo(for: asset?.identifier ?? "")
+        
+        var symbolViewModel: WalletImageViewModelProtocol?
+        
+        if let iconString = assetInfo?.icon {
+            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        }
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        let firstBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(transaction.amount.decimalValue) ?? ""
+        let text = "+ \(firstBalance) \(assetInfo?.symbol ?? "")"
+        let textReversed = "\(assetInfo?.symbol ?? "") \(firstBalance) +"
+        let firstBalanceText = SoramitsuTextItem(text: isRTL ? textReversed : text,
+                                                 fontData: FontType.textM,
+                                                 textColor: .statusSuccess,
+                                                 alignment: isRTL ? .left : .right)
+        
+        return ActivityContentViewModel(txHash: transaction.base.txHash,
+                                        title: R.string.localizable.demeterClaimedReward(preferredLanguages: .currentLocale),
+                                        subtitle: R.string.localizable.exploreDemeterTitle(preferredLanguages: .currentLocale),
+                                        typeTransactionImage: R.image.wallet.claimStar(),
+                                        firstAssetImageViewModel: symbolViewModel,
+                                        firstBalanceText: firstBalanceText,
+                                        fiatText: "",
+                                        status: transaction.base.status)
     }
 }

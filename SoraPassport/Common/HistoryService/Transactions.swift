@@ -110,6 +110,13 @@ struct TransferTransaction: Transaction {
     let tokenId: String
 }
 
+struct ClaimReward: Transaction {
+    var base: TransactionBase
+    let amount: Amount
+    let peer: String
+    let rewardTokenId: String
+}
+
 struct ReferralBondTransaction: Transaction {
 
     enum ReferralTransactionType {
@@ -220,6 +227,12 @@ struct LiquidityData {
     let targetTokenAmount: String
 }
 
+struct ClaimRewardsData {
+    let amount: String
+    let rewardAssetId: String
+}
+
+
 extension Array where Element == TxHistoryItemParam {
     func toTransferData() -> TransferData {
         return TransferData(to: self.first { $0.paramName == "to" }?.paramValue ?? "",
@@ -261,5 +274,10 @@ extension Array where Element == TxHistoryItemParam {
                              targetTokenId: self.first { $0.paramName == "input_asset_b" }?.paramValue ?? "" ,
                              baseTokenAmount: self.first { $0.paramName == "input_a_desired" }?.paramValue ?? "" ,
                              targetTokenAmount: self.first { $0.paramName == "input_b_desired" }?.paramValue ?? "" )
+    }
+    
+    func toClaimRewardData() -> ClaimRewardsData {
+        return ClaimRewardsData(amount: self.first { $0.paramName == "amount" }?.paramValue ?? "" ,
+                                rewardAssetId: self.first { $0.paramName == "assetId" }?.paramValue ?? "")
     }
 }

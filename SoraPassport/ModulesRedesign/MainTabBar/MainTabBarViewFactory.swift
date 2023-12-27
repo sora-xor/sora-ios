@@ -81,10 +81,13 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return nil
         }
         
+        let feeProvider = FeeProvider()
+        
         guard let viewControllers = redesignedViewControllers(for: view,
                                                               walletContext: walletContext,
                                                               assetManager: assetManager,
-                                                              accountSettings: accountSettings,
+                                                              accountSettings: accountSettings, 
+                                                              feeProvider: feeProvider,
                                                               farmingService: farmingService) else {
             return nil
         }
@@ -171,6 +174,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let editViewService = EditViewService(poolsService: poolsService)
         poolsService.appendDelegate(delegate: editViewService)
         
+        let feeProvider = FeeProvider()
         
         guard let walletController = createWalletRedesignController(walletContext: walletContext,
                                                                     assetManager: assetManager,
@@ -181,6 +185,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                                                                     editViewService: editViewService,
                                                                     accountSettings: accountSettings, 
                                                                     farmingService: farmingService,
+                                                                    feeProvider: feeProvider,
                                                                     localizationManager: localizationManager) else {
             return
         }
@@ -242,6 +247,7 @@ extension MainTabBarViewFactory {
                                                   walletContext: CommonWalletContextProtocol,
                                                   assetManager: AssetManagerProtocol,
                                                   accountSettings: WalletAccountSettingsProtocol,
+                                                  feeProvider: FeeProviderProtocol,
                                                   farmingService: DemeterFarmingService) -> [UIViewController]? {
         
         let providerFactory = BalanceProviderFactory(accountId: accountSettings.accountId,
@@ -295,7 +301,8 @@ extension MainTabBarViewFactory {
                                                                     assetsViewModelService: assetsViewModelService,
                                                                     editViewService: editViewService,
                                                                     accountSettings: accountSettings, 
-                                                                    farmingService: farmingService) else {
+                                                                    farmingService: farmingService, 
+                                                                    feeProvider: feeProvider) else {
             return nil
         }
         
@@ -317,6 +324,7 @@ extension MainTabBarViewFactory {
                                                             accountSettings: accountSettings,
                                                             assetsProvider: assetsProvider, 
                                                             farmingService: farmingService,
+                                                            feeProvider: feeProvider,
                                                             walletAssets: assetInfos) else {
             return nil
         }
@@ -353,6 +361,7 @@ extension MainTabBarViewFactory {
                                                editViewService: EditViewServiceProtocol,
                                                accountSettings: WalletAccountSettingsProtocol,
                                                farmingService: DemeterFarmingServiceProtocol,
+                                               feeProvider: FeeProviderProtocol,
                                                localizationManager: LocalizationManagerProtocol = LocalizationManager.shared) -> UIViewController? {
         guard let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
               let runtimeRegistry = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
@@ -405,7 +414,8 @@ extension MainTabBarViewFactory {
                                                                     poolsViewModelService: poolsViewModelService,
                                                                     assetsViewModelService: assetsViewModelService,
                                                                     marketCapService: marketCapService,
-                                                                    editViewService: editViewService)
+                                                                    editViewService: editViewService, 
+                                                                    feeProvider: feeProvider)
         
         let localizableTitle = LocalizableResource { locale in
             R.string.localizable.walletTitle(preferredLanguages: locale.rLanguages)
@@ -522,6 +532,7 @@ extension MainTabBarViewFactory {
                                        accountSettings: WalletAccountSettingsProtocol,
                                        assetsProvider: AssetProviderProtocol,
                                        farmingService: DemeterFarmingServiceProtocol,
+                                       feeProvider: FeeProviderProtocol,
                                        walletAssets: [AssetInfo]) -> UINavigationController? {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
@@ -592,7 +603,9 @@ extension MainTabBarViewFactory {
                                          referralFactory: referralFactory,
                                          assetsProvider: assetsProvider,
                                          farmingService: farmingService, 
-                                         poolViewModelsService: poolViewModelsService)
+                                         poolViewModelsService: poolViewModelsService, 
+                                         feeProvider: feeProvider, 
+                                         walletService: WalletService(operationFactory: walletContext.networkOperationFactory))
         
         let assetViewModelsService = ExploreAssetViewModelService(marketCapService: marketCapService,
                                                                   fiatService: fiatService,

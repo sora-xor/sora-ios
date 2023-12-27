@@ -68,7 +68,7 @@ extension AccountImportedWireframe: AccountImportedWireframeProtocol {
         currentController?.controller.navigationController?.pushViewController(viewController, animated: true)
     }
     
-    func dissmiss(completion: (() -> Void)?) {
+    func dismiss(completion: (() -> Void)?) {
         currentController?.controller.dismiss(animated: true, completion: completion)
     }
 }
