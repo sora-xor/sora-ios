@@ -245,7 +245,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
 
         
         if (userFarmInfo?.rewards ?? 0) > 0 {
-            let rewardsAmountText = NumberFormatter.polkaswapBalance.stringFromDecimal(userFarmInfo?.rewards ?? .zero) ?? ""
+            let rewardsAmountText = NumberFormatter.cryptoAssets.stringFromDecimal(userFarmInfo?.rewards ?? .zero) ?? ""
             let amountRewardText = SoramitsuTextItem(text: rewardsAmountText + " " + (farm.rewardAsset?.symbol ?? ""),
                                                fontData: FontType.textS,
                                                textColor: .fgPrimary,
@@ -328,12 +328,13 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                viewModel: ClaimRewardsViewModelProtocol) -> [DetailViewModel] {
         var viewModels: [DetailViewModel] = []
         
-        let networkFeeText = SoramitsuTextItem(text: "\(NumberFormatter.cryptoAssets.stringFromDecimal(fee) ?? "") XOR",
+        let text = fee.isZero ? "" : "\(NumberFormatter.cryptoAssets.stringFromDecimal(fee) ?? "") XOR"
+        let networkFeeText = SoramitsuTextItem(text: text,
                                                fontData: FontType.textS,
                                                textColor: .fgPrimary,
                                                alignment: .right)
         let networkFeeDetailsViewModel = DetailViewModel(title: R.string.localizable.networkFee(preferredLanguages: .currentLocale),
-                                                  assetAmountText: networkFeeText)
+                                                         assetAmountText: networkFeeText)
         
         networkFeeDetailsViewModel.infoHandler = {
             viewModel.networkFeeInfoButtonTapped()

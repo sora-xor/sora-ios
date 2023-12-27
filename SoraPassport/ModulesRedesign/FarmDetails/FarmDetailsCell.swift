@@ -60,10 +60,10 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
     
     private lazy var topButton: SoramitsuButton = {
         let button = SoramitsuButton()
+        button.sora.title = R.string.localizable.claimRewards(preferredLanguages: .currentLocale)
         button.sora.backgroundColor = .additionalPolkaswap
         button.sora.cornerRadius = .circle
         button.sora.horizontalOffset = 0
-        button.sora.isEnabled = true
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.farmDetailsItem?.onTapTopButton?()
         }
@@ -72,11 +72,8 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
     
     private lazy var bottomButton: SoramitsuButton = {
         let button = SoramitsuButton()
-        button.sora.title = R.string.localizable.editFarm(preferredLanguages: .currentLocale)
-        button.sora.backgroundColor = .additionalPolkaswap
         button.sora.cornerRadius = .circle
         button.sora.horizontalOffset = 0
-        button.sora.isHidden = true
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.farmDetailsItem?.onTapBottomButton?()
         }
@@ -134,10 +131,14 @@ extension FarmDetailsCell: SoramitsuTableViewCellProtocol {
         }
         farmDetailsItem = item
         
-        topButton.sora.title = item.isStaked ? R.string.localizable.claimRewards(preferredLanguages: .currentLocale) : R.string.localizable.startStaking(preferredLanguages: .currentLocale)
-        topButton.sora.isEnabled = item.isEnabled
+        topButton.sora.isHidden = !item.areThereRewards
         
-        bottomButton.sora.isHidden = !item.isStaked
+        bottomButton.sora.isUserInteractionEnabled = item.stackingState.isUserInteractionEnabled
+        bottomButton.sora.attributedText = SoramitsuTextItem(text: item.stackingState.title,
+                                                             fontData: FontType.buttonM ,
+                                                             textColor: item.stackingState.buttonTitleColor,
+                                                             alignment: .center)
+        bottomButton.sora.backgroundColor = item.stackingState.backgroundColor
         
         headerView.titleLabel.sora.text = item.title
         headerView.subtitleLabel.sora.text = item.subtitle

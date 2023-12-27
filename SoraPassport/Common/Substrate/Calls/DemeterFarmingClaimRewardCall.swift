@@ -28,26 +28,19 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import Foundation
-import RobinHood
-import CommonWallet
-import SSFCloudStorage
+import SSFUtils
+import BigInt
 
-typealias AccountImportedDataSource = UITableViewDiffableDataSource<AccountImportedSection, AccountImportedSectionItem>
-typealias AccountImportedSnapshot = NSDiffableDataSourceSnapshot<AccountImportedSection, AccountImportedSectionItem>
+struct DemeterFarmingClaimRewardCall: Codable {
+    let baseAssetId: AssetId
+    let targetAssetId: AssetId
+    let rewardAssetId: AssetId
+    let isFarm: Bool
 
-protocol AccountImportedViewProtocol: ControllerBackedProtocol {
-    var viewModel: AccountImportedViewModelProtocol? { get set }
-}
-
-protocol AccountImportedViewModelProtocol: AnyObject {
-    var titlePublisher: Published<String>.Publisher { get }
-    var snapshotPublisher: Published<AccountImportedSnapshot>.Publisher { get }
-    func reload()
-}
-
-protocol AccountImportedWireframeProtocol {
-    func showSetupPinCode()
-    func showBackepedAccounts(accounts: [OpenBackupAccount])
-    func dismiss(completion: (() -> Void)?)
+    enum CodingKeys: String, CodingKey {
+        case baseAssetId = "base_asset"
+        case targetAssetId = "pool_asset"
+        case rewardAssetId = "reward_asset"
+        case isFarm = "is_farm"
+    }
 }

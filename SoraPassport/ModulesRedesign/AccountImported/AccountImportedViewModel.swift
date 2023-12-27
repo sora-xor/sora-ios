@@ -86,7 +86,7 @@ final class AccountImportedViewModel: AccountImportedViewModelProtocol {
         }
         item.continueTapHandler = { [weak self] in
             if self?.endAddingBlock != nil {
-                self?.wireframe.dissmiss(completion: self?.endAddingBlock)
+                self?.wireframe.dismiss(completion: self?.endAddingBlock)
                 return
             }
             self?.wireframe.showSetupPinCode()

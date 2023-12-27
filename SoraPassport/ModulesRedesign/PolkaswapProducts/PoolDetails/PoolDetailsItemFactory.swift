@@ -161,17 +161,24 @@ final class PoolDetailsItemFactory {
                     detailsFactory: DetailViewModelFactoryProtocol,
                     viewModel: FarmDetailsViewModelProtocol
     ) -> FarmDetailsItem {
-
         let baseAssetSymbol = farm.baseAsset?.symbol ?? ""
         let poolAssetSymbol = farm.poolAsset?.symbol ?? ""
-        let title = R.string.localizable.polkaswapFarmTitleTemplate("\(baseAssetSymbol)-\(poolAssetSymbol)", preferredLanguages: .currentLocale)  
-        let isStaked = !(poolInfo?.yourPoolShare?.isZero ?? true)
-        let isEnabled = !(poolInfo?.accountPoolBalance?.isZero ?? true)
+        let title = R.string.localizable.polkaswapFarmTitleTemplate("\(baseAssetSymbol)-\(poolAssetSymbol)", preferredLanguages: .currentLocale)
+        
         
         let detailsViewModels = detailsFactory.createFarmDetailViewModels(with: farm, 
                                                                           userFarmInfo: userFarmInfo,
                                                                           poolInfo: poolInfo,
                                                                           viewModel: viewModel)
+        
+        let rewardsAmount = userFarmInfo?.rewards ?? .zero
+        let pooledTokens = userFarmInfo?.pooledTokens ?? .zero
+        
+        var stackingState: FarmDetailsBottomButtonState = .stackingUnavailable
+
+        if let pooledByAccount = poolInfo?.baseAssetPooledByAccount, !(pooledByAccount.isZero) {
+            stackingState = pooledTokens.isZero ? .startStacking : .editFarm
+        }
         
         let farmDetailsItem = FarmDetailsItem(title: title,
                                               subtitle: "$" + (farm.tvl).formatNumber() + " TVL",
@@ -180,11 +187,11 @@ final class PoolDetailsItemFactory {
                                               rewardAssetImage: RemoteSerializer.shared.image(with: farm.rewardAsset?.icon ?? ""),
                                               detailsViewModel: detailsViewModels,
                                               typeImage: (userFarmInfo?.pooledTokens ?? 0) > 0 ? .activeFarming : .incativeFarming,
-                                              isEnabled: isEnabled,
-                                              isStaked: isStaked)
+                                              stackingState: stackingState,
+                                              areThereRewards: !rewardsAmount.isZero)
         
         farmDetailsItem.onTapTopButton = { [weak viewModel] in
-            isStaked ? viewModel?.claimRewardButtonTapped() : viewModel?.stakeButtonTapped()
+            viewModel?.claimRewardButtonTapped()
         }
         
         farmDetailsItem.onTapBottomButton = { [weak viewModel] in

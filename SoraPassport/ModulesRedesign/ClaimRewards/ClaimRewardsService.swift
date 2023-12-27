@@ -28,26 +28,40 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import Foundation
-import RobinHood
+import UIKit
+import SoraUIKit
 import CommonWallet
-import SSFCloudStorage
+import RobinHood
+import SoraFoundation
+import sorawallet
+import Combine
 
-typealias AccountImportedDataSource = UITableViewDiffableDataSource<AccountImportedSection, AccountImportedSectionItem>
-typealias AccountImportedSnapshot = NSDiffableDataSourceSnapshot<AccountImportedSection, AccountImportedSectionItem>
-
-protocol AccountImportedViewProtocol: ControllerBackedProtocol {
-    var viewModel: AccountImportedViewModelProtocol? { get set }
+protocol ClaimRewardsServiceProtocol {
+    func getFee(for baseAssetId: String, targetAssetId: String, rewardAssetId: String, isFarm: Bool) async throws -> Decimal
 }
 
-protocol AccountImportedViewModelProtocol: AnyObject {
-    var titlePublisher: Published<String>.Publisher { get }
-    var snapshotPublisher: Published<AccountImportedSnapshot>.Publisher { get }
-    func reload()
+final class ClaimRewardsService {
+    private let feeProvider: FeeProviderProtocol
+
+    init(feeProvider: FeeProviderProtocol) {
+        self.feeProvider = feeProvider
+    }
+    
+    deinit {
+        print("deinited")
+    }
 }
 
-protocol AccountImportedWireframeProtocol {
-    func showSetupPinCode()
-    func showBackepedAccounts(accounts: [OpenBackupAccount])
-    func dismiss(completion: (() -> Void)?)
+extension ClaimRewardsService: ClaimRewardsServiceProtocol {
+    func getFee(for baseAssetId: String, targetAssetId: String, rewardAssetId: String, isFarm: Bool) async throws -> Decimal {
+        let factory = SubstrateCallFactory()
+        let call = try factory.claimRewardFromDemeterFarmCall(baseAssetId: baseAssetId,
+                                                          targetAssetId: targetAssetId,
+                                                          rewardAssetId: rewardAssetId,
+                                                          isFarm: isFarm)
+        
+        return await feeProvider.getFee(for: call)
+    }
 }
+
+

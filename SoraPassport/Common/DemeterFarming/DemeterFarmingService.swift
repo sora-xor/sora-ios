@@ -123,8 +123,7 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                                 rewardAsset: rewardAsset,
                                 tvl: tvl,
                                 apr: apr / 100,
-                                depositFee: depositFee,
-                                usdPrice: price)
+                                depositFee: depositFee)
                 }
                 
                 let finalfarms = await farms ?? []
@@ -179,8 +178,7 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                                 rewardAsset: rewardAsset,
                                 tvl: tvl,
                                 apr: apr / 100,
-                                depositFee: depositFee,
-                                usdPrice: price)
+                                depositFee: depositFee)
                 }
                 
                 let finalfarms = await farms ?? []
@@ -313,6 +311,7 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                 let filtredUserFarms = userFarms.filter { baseAssetId == $0.baseAsset.value && targetAssetId == $0.poolAsset.value && $0.isFarm }
                 let farms = filtredUserFarms.map {
                     UserFarm(
+                        id: "\($0.baseAsset.value ?? "")-\($0.poolAsset.value ?? "")-\($0.rewardAsset.value ?? "")",
                         baseAssetId: $0.baseAsset.value,
                         poolAssetId: $0.poolAsset.value,
                         rewardAssetId: $0.rewardAsset.value,

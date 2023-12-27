@@ -43,6 +43,9 @@ enum TransactionType: String, CaseIterable {
     case liquidityAddNewPool = "DepositCreatePair"
     case liquidityRemoval = "Removal"
     case referral = "Referral Program"
+    case demeterClaimReward = "claim_reward"
+    case demeterDeposit = "demeter_deposit"
+    case demeterWithdraw = "demeter_withdraw"
 }
 
 extension TransactionLiquidityType {
@@ -73,7 +76,7 @@ extension TransactionType {
            return R.string.localizable.commonRemove(preferredLanguages: locale.rLanguages).uppercased()
        case .referral:
            return R.string.localizable.referralToolbarTitle(preferredLanguages: locale.rLanguages).uppercased()
-       case .reward, .slash, .extrinsic:
+       case .reward, .slash, .extrinsic, .demeterDeposit, .demeterWithdraw, .demeterClaimReward:
            return self.rawValue
        case .migration:
            return self.rawValue

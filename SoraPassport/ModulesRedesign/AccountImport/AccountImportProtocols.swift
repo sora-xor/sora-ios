@@ -39,7 +39,7 @@ protocol AccountImportViewProtocol: ControllerBackedProtocol {
     func setPassword(viewModel: InputViewModelProtocol)
     func setDerivationPath(viewModel: InputViewModelProtocol)
     func setUploadWarning(message: String)
-    func dissmissPresentedController()
+    func dismissPresentedController()
     func resetFocus()
 }
 

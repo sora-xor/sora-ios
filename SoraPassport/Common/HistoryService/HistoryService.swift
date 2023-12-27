@@ -109,6 +109,10 @@ extension HistoryService: HistoryServiceProtocol {
                                      item.data?.first { $0.paramName == "input_asset_b" }?.paramValue == assetId)
             }
             
+            if callPath.isClaimReward {
+                return KotlinBoolean(value: item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId)
+            }
+            
             return KotlinBoolean(value: false)
         } : nil
         
@@ -183,6 +187,10 @@ extension HistoryService: HistoryServiceProtocol {
             if callPath == KmmCallCodingPath.batchUtility || callPath == KmmCallCodingPath.batchAllUtility {
                 return KotlinBoolean(value: item.data?.first { $0.paramName == "input_asset_a" }?.paramValue == assetId ||
                                      item.data?.first { $0.paramName == "input_asset_b" }?.paramValue == assetId)
+            }
+            
+            if callPath.isClaimReward {
+                return KotlinBoolean(value: item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId)
             }
             
             return KotlinBoolean(value: false)

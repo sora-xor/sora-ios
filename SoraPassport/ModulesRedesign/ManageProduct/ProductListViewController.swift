@@ -127,7 +127,7 @@ final class ProductListViewController: SoramitsuViewController {
             }
         }
         
-        viewModel.dissmiss = { [weak self] isNeedForce in
+        viewModel.dismiss = { [weak self] isNeedForce in
             DispatchQueue.main.async {
                 if self?.presentedViewController == nil || isNeedForce {
                     self?.navigationItem.searchController?.isActive = false
@@ -153,7 +153,7 @@ final class ProductListViewController: SoramitsuViewController {
     
     @objc
     func crossButtonTapped() {
-        viewModel.viewDissmissed()
+        viewModel.viewdismissed()
         self.dismiss(animated: true)
     }
 

@@ -39,7 +39,9 @@ final class ClaimRewardsItemFactory {
     func createClaimRewardsItem(farm: Farm,
                                 userFarmInfo: UserFarm?,
                                 poolInfo: PoolInfo,
+                                userBalance: Decimal,
                                 fee: Decimal,
+                                fiatData: [FiatData]?,
                                 detailsFactory: DetailViewModelFactoryProtocol,
                                 viewModel: ClaimRewardsViewModelProtocol) -> ClaimRewardsItem {
         let detailsViewModel = detailsFactory.createClaimViewModels(with: farm,
@@ -50,27 +52,23 @@ final class ClaimRewardsItemFactory {
         
         let tokenReward = userFarmInfo?.rewards ?? .zero
         let reward = NumberFormatter.cryptoAssets.stringFromDecimal(tokenReward) ?? ""
-        let rewardText = SoramitsuTextItem(text: "\(reward) \(farm.rewardAsset?.symbol ?? "")",
-                                           fontData: FontType.textS,
-                                           textColor: .fgPrimary,
-                                           alignment: .center)
+        let rewardText = "\(reward) \(farm.rewardAsset?.symbol ?? "")"
         
-        
-        let tokenUSD = tokenReward * farm.usdPrice
-        let amount = NumberFormatter.cryptoAssets.stringFromDecimal(tokenUSD) ?? ""
-        let amountText = SoramitsuTextItem(text: "$\(amount)" ,
-                                           fontData: FontType.textS,
-                                           textColor: .fgPrimary,
-                                           alignment: .center)
+        var fiatRewardText = ""
+        if let usdPrice = fiatData?.first(where: { $0.id == farm.rewardAsset?.assetId })?.priceUsd?.decimalValue {
+            let tokenUSD = tokenReward * usdPrice
+            fiatRewardText = "$" + (NumberFormatter.fiat.stringFromDecimal(tokenUSD) ?? "")
+        }
         
         
         let rewardAssetIcon = farm.rewardAsset?.icon ?? ""
         let rewardAssetImage = RemoteSerializer.shared.image(with: rewardAssetIcon)
         
-        
-        let claimRewardsItem = ClaimRewardsItem(reward: rewardText,
-                                                amount: amountText,
+        let claimPossible = fee < userBalance && !fee.isZero
+        let claimRewardsItem = ClaimRewardsItem(rewardText: rewardText,
+                                                amountText: fiatRewardText,
                                                 image: rewardAssetImage,
+                                                claimPossible: claimPossible,
                                                 detailsViewModel: detailsViewModel)
         
         claimRewardsItem.onClaim = { [weak viewModel] in
