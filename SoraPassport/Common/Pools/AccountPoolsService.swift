@@ -39,6 +39,7 @@ protocol PoolsServiceInputProtocol: AnyObject {
     func updatePools(_ pools: [PoolInfo])
     func getPool(by id: String) -> PoolInfo?
     func getPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo?
+    func loadPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo?
     func loadPools(currentAsset: AssetInfo) -> [PoolInfo]
     func loadTargetPools(for baseAssetId: String) -> [PoolInfo]
     func appendDelegate(delegate: PoolsServiceOutput)
@@ -194,6 +195,10 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
             return localPool
         }
         
+        return await loadPool(by: baseAssetId, targetAssetId: targetAssetId)
+    }
+    
+    func loadPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo? {
         guard let poolDetails = try? await (networkFacade as? WalletNetworkFacade)?.getPoolDetails(baseAsset: baseAssetId,
                                                                                              targetAsset: targetAssetId) else { return nil }
         
@@ -210,7 +215,8 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
                         totalIssuances: poolDetails.totalIssuances,
                         baseAssetReserves: poolDetails.baseAssetReserves,
                         targetAssetReserves: poolDetails.targetAssetReserves,
-                        accountPoolBalance: poolDetails.accountPoolBalance)
+                        accountPoolBalance: poolDetails.accountPoolBalance,
+                        farms: poolDetails.farms)
     }
 
     func subscribePoolsReserves(_ poolsDetails: [PoolInfo]) {

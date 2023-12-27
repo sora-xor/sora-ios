@@ -116,7 +116,57 @@ extension TransactionHistoryItem {
             )
             callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
             encodedCall = try JSONEncoder.scaleCompatible().encode(call)
+            
+        case .demeterClaimReward:
+            let baseAsset: String = info.source
+            let poolAsset: String = info.destination
+            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
+            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
 
+            let call = try? SubstrateCallFactory().claimRewardFromDemeterFarmCall(
+                baseAssetId: baseAsset,
+                targetAssetId: poolAsset,
+                rewardAssetId: rewardAsset,
+                isFarm: isFarm
+            )
+            callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
+            encodedCall = try JSONEncoder.scaleCompatible().encode(call)
+            
+        case .demeterDeposit:
+            let baseAsset: String = info.source
+            let poolAsset: String = info.destination
+            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
+            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
+            let amount = info.amount.decimalValue
+
+            let call = try? SubstrateCallFactory().depositLiquidityToDemeterFarmCall(
+                baseAssetId: baseAsset,
+                targetAssetId: poolAsset,
+                rewardAssetId: rewardAsset,
+                isFarm: isFarm,
+                amount: amount.toSubstrateAmount(precision: 18) ?? 0
+            )
+            callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
+            encodedCall = try JSONEncoder.scaleCompatible().encode(call)
+            
+        case .demeterWithdraw:
+            let baseAsset: String = info.source
+            let poolAsset: String = info.destination
+            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
+            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
+            let amount = info.amount.decimalValue
+
+            let call = try? SubstrateCallFactory().withdrawLiquidityFromDemeterFarmCall(
+                baseAssetId: baseAsset,
+                targetAssetId: poolAsset,
+                rewardAssetId: rewardAsset,
+                isFarm: isFarm,
+                amount: amount.toSubstrateAmount(precision: 18) ?? 0
+            )
+            callPath = CallCodingPath(moduleName: call!.moduleName, callName: call!.callName)
+            encodedCall = try JSONEncoder.scaleCompatible().encode(call)
+
+            
         // TODO: impl
         case .incoming, .outgoing, .migration, .reward, .slash, .extrinsic, .referral:
             let receiverAccountId = try Data(hexStringSSF: info.destination)

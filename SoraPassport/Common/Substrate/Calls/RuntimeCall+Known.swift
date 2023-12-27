@@ -79,4 +79,16 @@ extension RuntimeCall {
     static func unreserveReferralBalance(_ args: ReferralBalanceCall) -> RuntimeCall<ReferralBalanceCall> {
         RuntimeCall<ReferralBalanceCall>(moduleName: "Referrals", callName: "unreserve", args: args)
     }
+    
+    static func claimRewardDemeter(_ args: DemeterFarmingClaimRewardCall) -> RuntimeCall<DemeterFarmingClaimRewardCall> {
+        RuntimeCall<DemeterFarmingClaimRewardCall>(moduleName: "DemeterFarmingPlatform", callName: "get_rewards", args: args)
+    }
+    
+    static func depositLiquidityDemeter(_ args: DemeterFarmingDepositLiquidityCall) -> RuntimeCall<DemeterFarmingDepositLiquidityCall> {
+        RuntimeCall<DemeterFarmingDepositLiquidityCall>(moduleName: "DemeterFarmingPlatform", callName: "deposit", args: args)
+    }
+    
+    static func withdrawLiquidityDemeter(_ args: DemeterFarmingWithdrawLiquidityCall) -> RuntimeCall<DemeterFarmingWithdrawLiquidityCall> {
+        RuntimeCall<DemeterFarmingWithdrawLiquidityCall>(moduleName: "DemeterFarmingPlatform", callName: "withdraw", args: args)
+    }
 }

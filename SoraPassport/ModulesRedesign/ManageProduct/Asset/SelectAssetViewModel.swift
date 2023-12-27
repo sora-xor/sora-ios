@@ -43,7 +43,7 @@ final class SelectAssetViewModel {
     var setupNavigationBar: ((WalletViewMode) -> Void)?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var dissmiss: ((Bool) -> Void)?
+    var dismiss: ((Bool) -> Void)?
     var selectionCompletion: ((String) -> Void)?
 
     var assetItems: [AssetListItem] = [] {
@@ -165,7 +165,7 @@ private extension SelectAssetViewModel {
             let item = AssetListItem(assetInfo: assetInfo, assetViewModel: viewModel, balance: balance.balance.decimalValue)
             
             item.assetHandler = { [weak self] identifier in
-                self?.dissmiss?(true)
+                self?.dismiss?(true)
                 self?.selectionCompletion?(identifier)
             }
             

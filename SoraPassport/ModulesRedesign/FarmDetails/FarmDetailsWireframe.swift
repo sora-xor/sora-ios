@@ -70,10 +70,20 @@ protocol FarmDetailsWireframeProtocol: AlertPresentable {
                           assetsProvider: AssetProviderProtocol?,
                           marketCapService: MarketCapServiceProtocol,
                           farmingService: DemeterFarmingServiceProtocol,
-                          detailsFactory: DetailViewModelFactoryProtocol)
+                          detailsFactory: DetailViewModelFactoryProtocol,
+                          completion: (() -> Void)?)
 }
 
 final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
+    
+    let feeProvider: FeeProviderProtocol
+    let walletService: WalletServiceProtocol
+    
+    init(feeProvider: FeeProviderProtocol,
+         walletService: WalletServiceProtocol) {
+        self.feeProvider = feeProvider
+        self.walletService = walletService
+    }
     
     func showPoolDetails(on controller: UIViewController?,
                          poolInfo: PoolInfo?,
@@ -92,15 +102,16 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
             let fiatService,
             let operationFactory,
             let poolDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
-                                                                            assetManager: assetManager,
-                                                                            fiatService: fiatService,
-                                                                            poolsService: poolsService,
-                                                                            providerFactory: providerFactory,
-                                                                            operationFactory: operationFactory,
-                                                                            assetsProvider: assetsProvider,
-                                                                            marketCapService: marketCapService,
-                                                                            farmingService: farmingService,
-                                                                            dismissHandler: nil) else {
+                                                                          assetManager: assetManager,
+                                                                          fiatService: fiatService,
+                                                                          poolsService: poolsService,
+                                                                          providerFactory: providerFactory,
+                                                                          operationFactory: operationFactory,
+                                                                          assetsProvider: assetsProvider,
+                                                                          marketCapService: marketCapService,
+                                                                          farmingService: farmingService,
+                                                                          feeProvider: feeProvider,
+                                                                          dismissHandler: nil) else {
             return
         }
         
@@ -169,20 +180,19 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
                           assetsProvider: AssetProviderProtocol?,
                           marketCapService: MarketCapServiceProtocol,
                           farmingService: DemeterFarmingServiceProtocol,
-                          detailsFactory: DetailViewModelFactoryProtocol) {
+                          detailsFactory: DetailViewModelFactoryProtocol,
+                          completion: (() -> Void)?) {
         guard
             let poolInfo,
             let stakeDetailsController = ClaimRewardsViewFactory.createView(farm: farm,
                                                                             poolInfo: poolInfo,
-                                                                            poolsService: poolsService,
                                                                             fiatService: fiatService,
-                                                                            assetManager: assetManager,
-                                                                            providerFactory: providerFactory,
-                                                                            operationFactory: operationFactory,
                                                                             assetsProvider: assetsProvider,
-                                                                            marketCapService: marketCapService,
-                                                                            farmingService: farmingService,
-                                                                            detailsFactory: detailsFactory) else {
+                                                                            detailsFactory: detailsFactory,
+                                                                            feeProvider: feeProvider,
+                                                                            walletService: walletService,
+                                                                            assetManager: assetManager,
+                                                                            completion: completion) else {
             return
         }
         

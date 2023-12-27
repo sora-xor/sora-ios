@@ -114,7 +114,6 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
                         assetsProvider: AssetProviderProtocol?,
                         networkFacade: WalletNetworkOperationFactoryProtocol,
                         providerFactory: BalanceProviderFactory,
-                        feeProvider: FeeProviderProtocol,
                         isScanQRShown: Bool,
                         marketCapService: MarketCapServiceProtocol,
                         closeHandler: (() -> Void)?)
@@ -145,6 +144,12 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
 }
 
 final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
+    
+    let feeProvider: FeeProviderProtocol
+    
+    init(feeProvider: FeeProviderProtocol) {
+        self.feeProvider = feeProvider
+    }
 
     func showSoraCard(
         on viewController: UIViewController?,
@@ -172,6 +177,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                             marketCapService: MarketCapServiceProtocol,
                             farmingService: DemeterFarmingServiceProtocol,
                             updateHandler: ((UpdatedSection) -> Void)?) {
+        let wireframe = AssetListWireframe(feeProvider: feeProvider)
         let viewModel = ManageAssetListViewModel(assetViewModelFactory: assetViewModelFactory,
                                                  fiatService: fiatService,
                                                  assetManager: assetManager,
@@ -186,7 +192,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                  referralFactory: referralFactory,
                                                  assetsProvider: assetsProvider,
                                                  marketCapService: marketCapService,
-                                                 farmingService: farmingService,
+                                                 farmingService: farmingService, 
+                                                 wireframe: wireframe,
                                                  updateHandler: updateHandler)
         
         let assetListController = ProductListViewController(viewModel: viewModel)
@@ -223,7 +230,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                           operationFactory: operationFactory,
                                           assetsProvider: assetsProvider,
                                           marketCapService: marketCapService,
-                                          farmingService: farmingService,
+                                          farmingService: farmingService, 
+                                          feeProvider: feeProvider,
                                           updateHandler: updateHandler)
         
         poolsService.appendDelegate(delegate: viewModel)
@@ -274,7 +282,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                                               referralFactory: referralFactory,
                                                                               assetsProvider: assetsProvider,
                                                                               marketCapService: marketCapService,
-                                                                              farmingService: farmingService) else {
+                                                                              farmingService: farmingService, 
+                                                                              feeProvider: feeProvider) else {
             return
         }
         
@@ -303,7 +312,8 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                                                                              operationFactory: operationFactory,
                                                                              assetsProvider: assetsProvider,
                                                                              marketCapService: marketCapService,
-                                                                             farmingService: farmingService,
+                                                                             farmingService: farmingService, 
+                                                                             feeProvider: feeProvider,
                                                                              dismissHandler: nil) else {
             return
         }
@@ -346,7 +356,6 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
                         assetsProvider: AssetProviderProtocol?,
                         networkFacade: WalletNetworkOperationFactoryProtocol,
                         providerFactory: BalanceProviderFactory,
-                        feeProvider: FeeProviderProtocol,
                         isScanQRShown: Bool,
                         marketCapService: MarketCapServiceProtocol,
                         closeHandler: (() -> Void)?) {

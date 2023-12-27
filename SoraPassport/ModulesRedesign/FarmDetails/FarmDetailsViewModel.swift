@@ -219,7 +219,14 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
                                     assetsProvider: assetsProvider,
                                     marketCapService: marketCapService,
                                     farmingService: farmingService,
-                                    detailsFactory: detailsFactory)
+                                    detailsFactory: detailsFactory) { [weak self] in
+            Task { [weak self] in
+                guard let baseAssetId = self?.farm.baseAsset?.assetId, let targetAssetId = farm.poolAsset?.assetId else { return }
+                let poolInfo = await self?.poolsService?.loadPool(by: baseAssetId, targetAssetId: targetAssetId)
+                self?.poolInfo = poolInfo
+                self?.snapshot = createSnapshot(poolInfo: poolInfo)
+            }
+        }
     }
     
     func editFarmButtonTapped() {

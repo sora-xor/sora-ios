@@ -87,6 +87,8 @@ final class ClaimRewardsCell: SoramitsuTableViewCell {
         label.sora.textColor = .fgSecondary
         label.sora.alignment = .center
         label.sora.font = FontType.textBoldXS
+        label.sora.loadingPlaceholder.type = .shimmer
+        label.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
         return label
     }()
     
@@ -105,6 +107,7 @@ final class ClaimRewardsCell: SoramitsuTableViewCell {
         button.sora.backgroundColor = .additionalPolkaswap
         button.sora.cornerRadius = .circle
         button.sora.horizontalOffset = 0
+        button.sora.isEnabled = false
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.onClaim?()
         }
@@ -149,8 +152,9 @@ final class ClaimRewardsCell: SoramitsuTableViewCell {
     }
 }
 
-extension ClaimRewardsCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+extension ClaimRewardsCell: CellProtocol {
+    
+    func set(item: ItemProtocol) {
         guard let item = item as? ClaimRewardsItem else {
             assertionFailure("Incorect type of item")
             return
@@ -159,8 +163,14 @@ extension ClaimRewardsCell: SoramitsuTableViewCellProtocol {
         self.item = item
         
         tokenImageView.image = item.image
-        rewardLabel.sora.attributedText = item.reward
-        amountLabel.sora.attributedText = item.amount
+        rewardLabel.sora.text = item.rewardText
+        amountLabel.sora.text = item.amountText
+        amountLabel.sora.loadingPlaceholder.type = item.amountText.isEmpty ? .shimmer : .none
+        claimButton.sora.isEnabled = item.claimPossible
+        if item.claimPossible {
+            claimButton.sora.backgroundColor = .additionalPolkaswap
+        }
+        
         
         stackView.arrangedSubviews.forEach { subview in
             stackView.removeArrangedSubview(subview)

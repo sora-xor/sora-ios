@@ -137,4 +137,53 @@ final class SubstrateCallFactory: SubstrateCallFactoryProtocol {
         let call = ReferralBalanceCall(balance: balance)
         return RuntimeCall<ReferralBalanceCall>.unreserveReferralBalance(call)
     }
+    
+    func claimRewardFromDemeterFarmCall(
+        baseAssetId: String,
+        targetAssetId: String,
+        rewardAssetId: String,
+        isFarm: Bool
+    ) throws -> RuntimeCall<DemeterFarmingClaimRewardCall> {
+        let call = DemeterFarmingClaimRewardCall(
+            baseAssetId: AssetId.init(wrappedValue: baseAssetId),
+            targetAssetId: AssetId.init(wrappedValue: targetAssetId),
+            rewardAssetId: AssetId.init(wrappedValue: rewardAssetId),
+            isFarm: isFarm
+        )
+        return RuntimeCall<DemeterFarmingClaimRewardCall>.claimRewardDemeter(call)
+    }
+
+    func depositLiquidityToDemeterFarmCall(
+        baseAssetId: String,
+        targetAssetId: String,
+        rewardAssetId: String,
+        isFarm: Bool,
+        amount: BigUInt
+    ) throws -> RuntimeCall<DemeterFarmingDepositLiquidityCall> {
+        let call = DemeterFarmingDepositLiquidityCall(
+            baseAssetId: AssetId.init(wrappedValue: baseAssetId),
+            targetAssetId: AssetId.init(wrappedValue: targetAssetId),
+            rewardAssetId: AssetId.init(wrappedValue: rewardAssetId),
+            isFarm: isFarm,
+            amount: amount
+        )
+        return RuntimeCall<DemeterFarmingDepositLiquidityCall>.depositLiquidityDemeter(call)
+    }
+    
+    func withdrawLiquidityFromDemeterFarmCall(
+        baseAssetId: String,
+        targetAssetId: String,
+        rewardAssetId: String,
+        isFarm: Bool,
+        amount: BigUInt
+    ) throws -> RuntimeCall<DemeterFarmingWithdrawLiquidityCall> {
+        let call = DemeterFarmingWithdrawLiquidityCall(
+            baseAssetId: AssetId.init(wrappedValue: baseAssetId),
+            targetAssetId: AssetId.init(wrappedValue: targetAssetId),
+            rewardAssetId: AssetId.init(wrappedValue: rewardAssetId),
+            isFarm: isFarm,
+            amount: amount
+        )
+        return RuntimeCall<DemeterFarmingWithdrawLiquidityCall>.withdrawLiquidityDemeter(call)
+    }
 }

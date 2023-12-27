@@ -253,6 +253,7 @@
 		3621B45429E5523D007C5156 /* LPFeeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3621B45329E5523C007C5156 /* LPFeeService.swift */; };
 		36286019291F935C0000A561 /* InputAssetsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36286018291F935C0000A561 /* InputAssetsView.swift */; };
 		3628601E291F97510000A561 /* OptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3628601D291F97510000A561 /* OptionsView.swift */; };
+		3629FDDE2B3BF8EB009971D6 /* ClaimRewardsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3629FDDD2B3BF8EB009971D6 /* ClaimRewardsWireframe.swift */; };
 		362D97C12AF934B8004C3B60 /* TransferableItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362D97C02AF934B8004C3B60 /* TransferableItemService.swift */; };
 		362DAD8829F53283005562B0 /* LocalAuthProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362DAD8129F53282005562B0 /* LocalAuthProtocol.swift */; };
 		362DAD8929F53283005562B0 /* LocalAuthInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362DAD8229F53282005562B0 /* LocalAuthInteractor.swift */; };
@@ -408,6 +409,10 @@
 		3653BD1C2A02BCCD003C71A4 /* SwitcherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD1B2A02BCCD003C71A4 /* SwitcherView.swift */; };
 		3653BD1E2A02CF63003C71A4 /* InputSendInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD1D2A02CF63003C71A4 /* InputSendInfoView.swift */; };
 		3657043E284643EA00B783D2 /* SubqueryHistoryOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3657043D284643EA00B783D2 /* SubqueryHistoryOperation.swift */; };
+		365BFF8D2B3BCE3C0035DD78 /* DemeterFarmingWithdrawLiquidityCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365BFF8A2B3BCE3C0035DD78 /* DemeterFarmingWithdrawLiquidityCall.swift */; };
+		365BFF8E2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365BFF8B2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift */; };
+		365BFF8F2B3BCE3C0035DD78 /* DemeterFarmingDepositLiquidityCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365BFF8C2B3BCE3C0035DD78 /* DemeterFarmingDepositLiquidityCall.swift */; };
+		365BFF912B3BE3C00035DD78 /* ClaimRewardsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365BFF902B3BE3C00035DD78 /* ClaimRewardsService.swift */; };
 		3661C8A82848D8BA00660434 /* SoraHistoryItem+Wallet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3661C8A72848D8BA00660434 /* SoraHistoryItem+Wallet.swift */; };
 		3661C8AA28490E9500660434 /* UIScreen+Size.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3661C8A928490E9500660434 /* UIScreen+Size.swift */; };
 		3661C9D62850BF2500660434 /* TotalRewardsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3661C9D42850BF2500660434 /* TotalRewardsCell.swift */; };
@@ -1525,7 +1530,6 @@
 		10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkViewModel.swift; sourceTree = "<group>"; };
 		12564A5FC576A04D42BADEF6 /* Pods_SoraPassportAll_SoraPassport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1850BD8AB0EC103EB91B5BB0 /* ActivityFeedInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityFeedInteractorTests.swift; sourceTree = "<group>"; };
-		18B27EAFFC5101020B0B2066 /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
 		1C39A0F563B3CAC78C4D9887 /* ChangeAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChangeAccountTests.swift; sourceTree = "<group>"; };
 		1C3CA8F4624D2A9DAB79F1DA /* Pods-SoraPassportTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.dev.xcconfig"; sourceTree = "<group>"; };
 		1F3DD443C480D0A1108E2F0F /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; sourceTree = "<group>"; };
@@ -1545,7 +1549,6 @@
 		32C6161F222EA77C0092BB86 /* finishedProjectsResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = finishedProjectsResponse.json; sourceTree = "<group>"; };
 		32C61621222EA7DD0092BB86 /* ProjectsFinishedFetchMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsFinishedFetchMock.swift; sourceTree = "<group>"; };
 		32F7929E22286BA9009EFC8B /* ActivityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityData.swift; sourceTree = "<group>"; };
-		33CF8CF7BFC5D9D3E72A9EBF /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassportIntegrationTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3603A3902917E1FD00DF6EFE /* PoolViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolViewModel.swift; sourceTree = "<group>"; };
 		3603A3912917E1FD00DF6EFE /* PoolsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolsCell.swift; sourceTree = "<group>"; };
 		3603A3922917E1FD00DF6EFE /* PoolsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PoolsItem.swift; sourceTree = "<group>"; };
@@ -1628,6 +1631,7 @@
 		3621B45329E5523C007C5156 /* LPFeeService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LPFeeService.swift; sourceTree = "<group>"; };
 		36286018291F935C0000A561 /* InputAssetsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputAssetsView.swift; sourceTree = "<group>"; };
 		3628601D291F97510000A561 /* OptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptionsView.swift; sourceTree = "<group>"; };
+		3629FDDD2B3BF8EB009971D6 /* ClaimRewardsWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ClaimRewardsWireframe.swift; sourceTree = "<group>"; };
 		362D97C02AF934B8004C3B60 /* TransferableItemService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TransferableItemService.swift; sourceTree = "<group>"; };
 		362DAD8129F53282005562B0 /* LocalAuthProtocol.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalAuthProtocol.swift; sourceTree = "<group>"; };
 		362DAD8229F53282005562B0 /* LocalAuthInteractor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalAuthInteractor.swift; sourceTree = "<group>"; };
@@ -1786,6 +1790,10 @@
 		3653BD1B2A02BCCD003C71A4 /* SwitcherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitcherView.swift; sourceTree = "<group>"; };
 		3653BD1D2A02CF63003C71A4 /* InputSendInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputSendInfoView.swift; sourceTree = "<group>"; };
 		3657043D284643EA00B783D2 /* SubqueryHistoryOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubqueryHistoryOperation.swift; sourceTree = "<group>"; };
+		365BFF8A2B3BCE3C0035DD78 /* DemeterFarmingWithdrawLiquidityCall.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DemeterFarmingWithdrawLiquidityCall.swift; sourceTree = "<group>"; };
+		365BFF8B2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DemeterFarmingClaimRewardCall.swift; sourceTree = "<group>"; };
+		365BFF8C2B3BCE3C0035DD78 /* DemeterFarmingDepositLiquidityCall.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DemeterFarmingDepositLiquidityCall.swift; sourceTree = "<group>"; };
+		365BFF902B3BE3C00035DD78 /* ClaimRewardsService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ClaimRewardsService.swift; sourceTree = "<group>"; };
 		3661C8A72848D8BA00660434 /* SoraHistoryItem+Wallet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoraHistoryItem+Wallet.swift"; sourceTree = "<group>"; };
 		3661C8A928490E9500660434 /* UIScreen+Size.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIScreen+Size.swift"; sourceTree = "<group>"; };
 		3661C9D42850BF2500660434 /* TotalRewardsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TotalRewardsCell.swift; sourceTree = "<group>"; };
@@ -2593,7 +2601,6 @@
 		945A577625DE8855003E4023 /* JSONRPCAliases.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JSONRPCAliases.swift; sourceTree = "<group>"; };
 		945A578125DE8B02003E4023 /* ExtrinsicEraTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExtrinsicEraTests.swift; sourceTree = "<group>"; };
 		94653DE828870FBA00311EC7 /* MultiAddress+Query.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "MultiAddress+Query.swift"; sourceTree = "<group>"; };
-		9466CB08AF43BD8762C94ED4 /* Pods-SoraPassportUITests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.dev.xcconfig"; sourceTree = "<group>"; };
 		946E57B4287E5EC300B954C0 /* FeeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeProvider.swift; sourceTree = "<group>"; };
 		94729E6C195BF790B5ED8612 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; sourceTree = "<group>"; };
 		94795D432507C0AB004BC0C8 /* ModalInputPresentationExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModalInputPresentationExtensions.swift; sourceTree = "<group>"; };
@@ -5978,6 +5985,9 @@
 		94497D9925EF888700FD4F14 /* Calls */ = {
 			isa = PBXGroup;
 			children = (
+				365BFF8B2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift */,
+				365BFF8C2B3BCE3C0035DD78 /* DemeterFarmingDepositLiquidityCall.swift */,
+				365BFF8A2B3BCE3C0035DD78 /* DemeterFarmingWithdrawLiquidityCall.swift */,
 				94497DA425EF891B00FD4F14 /* BondCall.swift */,
 				94497DA225EF891500FD4F14 /* NominateCall.swift */,
 				94497DAD25EF896700FD4F14 /* TransferCall.swift */,
@@ -6344,6 +6354,8 @@
 		B73A21302B32C4D50091DDE8 /* ClaimRewards */ = {
 			isa = PBXGroup;
 			children = (
+				3629FDDD2B3BF8EB009971D6 /* ClaimRewardsWireframe.swift */,
+				365BFF902B3BE3C00035DD78 /* ClaimRewardsService.swift */,
 				B73A21312B32C5130091DDE8 /* ClaimRewardsViewModelProtocol.swift */,
 				B73A21332B32C5240091DDE8 /* ClaimRewardsViewController.swift */,
 				B73A21352B32C5300091DDE8 /* ClaimRewardsViewModel.swift */,
@@ -7284,6 +7296,7 @@
 				B2A56EFD2A5E955E00844A35 /* FeeView.swift in Sources */,
 				02E319A221D2B16A00B33B66 /* DecentralizedDocumentRequestError+TextConvertible.swift in Sources */,
 				94497DDE25EF89A700FD4F14 /* ActiveEraInfo.swift in Sources */,
+				365BFF8E2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift in Sources */,
 				84E8DEAD225B6B1700640754 /* CacheFacade.swift in Sources */,
 				847A17A723759E2D003BA71A /* RoundedCellControlView+Inspectable.swift in Sources */,
 				8476CA9725F0C8E3003EEAE1 /* ChainStorageIdFactory.swift in Sources */,
@@ -7755,6 +7768,7 @@
 				B2A56EF92A5E815200844A35 /* InvitationsCell.swift in Sources */,
 				363EAB632A73938D00603361 /* ExploreItemFactory.swift in Sources */,
 				3611E7092979CDA400D2CF6F /* SetupPincodePresenter.swift in Sources */,
+				365BFF8F2B3BCE3C0035DD78 /* DemeterFarmingDepositLiquidityCall.swift in Sources */,
 				9441FC4125D1790B00775559 /* KeyboardAdoptable.swift in Sources */,
 				94497E1D25EF9E5E00FD4F14 /* MigrateCall.swift in Sources */,
 				36AAB6E72AB7470200202DC8 /* ExtricsicSubmittedEvent.swift in Sources */,
@@ -7843,9 +7857,11 @@
 				84CD3AEE232A6A1E0076E056 /* InvitationFactory.swift in Sources */,
 				9481B476286EFC4600A472E2 /* RuntimeProvider.swift in Sources */,
 				364BF1C82B10B4F600758323 /* ScryptParameters.swift in Sources */,
+				365BFF8D2B3BCE3C0035DD78 /* DemeterFarmingWithdrawLiquidityCall.swift in Sources */,
 				02CFE829218B2D9B0032259A /* UIImage+Drawing.swift in Sources */,
 				3653BD0E2A029A66003C71A4 /* ScanQRWireframe.swift in Sources */,
 				9441F93D25C96D0600775559 /* AssetTransactionData+HistoryItemData.swift in Sources */,
+				365BFF912B3BE3C00035DD78 /* ClaimRewardsService.swift in Sources */,
 				B723EBB02B2AF96400FB055C /* FarmDetailsWireframe.swift in Sources */,
 				364D61C329929AE0004938FA /* SilentWindow.swift in Sources */,
 				02A6B9B52184418000391762 /* AdaptiveDesignableTraits.swift in Sources */,
@@ -8263,6 +8279,7 @@
 				364E6E8B2B1C88F600002EE3 /* ExploreFarmPageViewModel.swift in Sources */,
 				364E6EA52B1CD6B000002EE3 /* FarmDetailsViewModelProtocol.swift in Sources */,
 				9441FBF025CC035700775559 /* AccountInfoSubscription.swift in Sources */,
+				3629FDDE2B3BF8EB009971D6 /* ClaimRewardsWireframe.swift in Sources */,
 				553069D9290A7A7B00F265A3 /* AppSettingsView.swift in Sources */,
 				5599B6D62925725900567396 /* SettingsInformationPresenter.swift in Sources */,
 				940683BD267912E4005F520D /* PagedKeysRequest.swift in Sources */,

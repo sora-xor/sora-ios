@@ -67,6 +67,12 @@ protocol PoolDetailsWireframeProtocol: AlertPresentable {
 
 final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
     
+    let feeProvider: FeeProviderProtocol
+    
+    init(feeProvider: FeeProviderProtocol) {
+        self.feeProvider = feeProvider
+    }
+    
     func showLiquidity(
         on controller: UIViewController?,
         poolInfo: PoolInfo,
@@ -131,6 +137,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
         poolInfo: PoolInfo?,
         farm: Farm
     ) {
+        let wireframe = FarmDetailsWireframe(feeProvider: feeProvider, walletService: WalletService(operationFactory: operationFactory!))
         let viewModel = FarmDetailsViewModel(farm: farm,
                                              poolInfo: poolInfo,
                                              poolsService: poolsService,
@@ -142,7 +149,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
                                              marketCapService: marketCapService,
                                              farmingService: farmingService,
                                              detailsFactory: DetailViewModelFactory(assetManager: assetManager),
-                                             wireframe: FarmDetailsWireframe())
+                                             wireframe: wireframe)
         
         let view = FarmDetailsViewController(viewModel: viewModel)
         viewModel.view = view
