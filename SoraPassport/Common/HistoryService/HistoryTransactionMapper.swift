@@ -129,6 +129,18 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                                  type: item.method == "depositLiquidity" ? .add : .withdraw)
             }
             
+            if callPath.isClaimReward {
+                guard let claimData = item.data?.toClaimRewardData() else {
+                    return nil
+                }
+
+                let amount = Amount(string: claimData.amount) ?? Amount(value: 0)
+                return ClaimReward(base: transactionBase,
+                                   amount: amount,
+                                   peer: SelectedWalletSettings.shared.currentAccount?.address ?? "",
+                                   rewardTokenId: claimData.rewardAssetId)
+            }
+            
             if callPath == KmmCallCodingPath.batchUtility || callPath == KmmCallCodingPath.batchAllUtility {
                 let depositLiquidityData = item.nestedData?.first { $0.method == "depositLiquidity" }
                 

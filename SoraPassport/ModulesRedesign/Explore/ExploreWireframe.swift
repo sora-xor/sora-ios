@@ -61,6 +61,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     let assetsProvider: AssetProviderProtocol
     let farmingService: DemeterFarmingServiceProtocol
     let poolViewModelsService: ExplorePoolsViewModelService
+    let feeProvider: FeeProviderProtocol
+    let walletService: WalletServiceProtocol
 
     init(
         fiatService: FiatServiceProtocol?,
@@ -82,7 +84,9 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         referralFactory: ReferralsOperationFactoryProtocol,
         assetsProvider: AssetProviderProtocol,
         farmingService: DemeterFarmingServiceProtocol,
-        poolViewModelsService: ExplorePoolsViewModelService
+        poolViewModelsService: ExplorePoolsViewModelService,
+        feeProvider: FeeProviderProtocol,
+        walletService: WalletServiceProtocol
     ) {
         
         self.fiatService = fiatService
@@ -105,6 +109,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         self.assetsProvider = assetsProvider
         self.farmingService = farmingService
         self.poolViewModelsService = poolViewModelsService
+        self.feeProvider = feeProvider
+        self.walletService = walletService
     }
     
     func showAssetDetails(on viewController: UIViewController?, assetId: String) {
@@ -127,7 +133,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
                                                                               referralFactory: referralFactory,
                                                                               assetsProvider: assetsProvider,
                                                                               marketCapService: marketCapService,
-                                                                              farmingService: farmingService) else {
+                                                                              farmingService: farmingService,
+                                                                              feeProvider: feeProvider) else {
             return
         }
         
@@ -150,6 +157,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
                                                                              assetsProvider: assetsProvider,
                                                                              marketCapService: marketCapService, 
                                                                              farmingService: farmingService,
+                                                                             feeProvider: feeProvider,
                                                                              dismissHandler: nil) else {
             return
         }
@@ -191,6 +199,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     }
     
     func showFarmDetails(on viewController: UIViewController?, farm: Farm) {
+        let wireframe = FarmDetailsWireframe(feeProvider: feeProvider, walletService: walletService)
         let viewModel = FarmDetailsViewModel(farm: farm,
                                              poolsService: poolsService,
                                              poolViewModelsService: poolViewModelsService,
@@ -202,7 +211,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
                                              marketCapService: marketCapService,
                                              farmingService: farmingService,
                                              detailsFactory: DetailViewModelFactory(assetManager: assetManager),
-                                             wireframe: FarmDetailsWireframe())
+                                             wireframe: wireframe)
         
         let view = FarmDetailsViewController(viewModel: viewModel)
         viewModel.view = view

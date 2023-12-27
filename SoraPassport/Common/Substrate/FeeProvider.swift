@@ -37,6 +37,7 @@ import IrohaCrypto
 protocol FeeProviderProtocol {
     func getFee(for type: TransactionType, completion: @escaping (Decimal) -> Void)
     func getFee(for type: InputRewardAmountType, completion: @escaping (Decimal) -> Void)
+    func getFee(for call: any RuntimeCallable) async -> Decimal
 }
 
 final class FeeProvider: FeeProviderProtocol {
@@ -196,7 +197,7 @@ final class FeeProvider: FeeProviderProtocol {
                 let call = try callFactory.setReferrer(referrer: referrer)
                 return try builder.adding(call: call)
             }
-        case .reward, .incoming, .migration, .extrinsic, .slash:
+        case .reward, .incoming, .migration, .extrinsic, .slash, .demeterDeposit, .demeterWithdraw, .demeterClaimReward:
             ()
         }
 
@@ -218,6 +219,24 @@ final class FeeProvider: FeeProviderProtocol {
         }
         
         estimateFee(for: type.rawValue, builderClosure: builderClosure, runningIn: .main, completion: completion)
+    }
+    
+    func getFee(for call: any RuntimeCallable) async -> Decimal {
+        let builderClosure: ExtrinsicBuilderClosure = { builder in
+            return try builder.adding(call: call)
+        }
+        
+        return await withCheckedContinuation { continuation in
+            extrinsicService.estimateFee(builderClosure, runningIn: .main, completion: { result in
+                switch result {
+                case let .success(info):
+                    guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else { return }
+                    continuation.resume(returning: decimalFee)
+                case let .failure(error):
+                    print("fee error: \(error)")
+                }
+            })
+        }
     }
     
     private func estimateFee(

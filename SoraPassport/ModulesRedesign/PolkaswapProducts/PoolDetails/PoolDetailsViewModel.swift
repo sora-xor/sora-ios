@@ -112,7 +112,7 @@ final class PoolDetailsViewModel {
         print("deinited")
     }
     
-    func dissmissIfNeeded() {
+    func dismissIfNeeded() {
         if isDeletedPool {
             dismiss?()
         }
@@ -261,7 +261,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                                  assetsProvider: assetsProvider,
                                  marketCapService: marketCapService,
                                  farmingService: farmingService,
-                                 completionHandler: dissmissIfNeeded)
+                                 completionHandler: dismissIfNeeded)
     }
 }
 

@@ -61,3 +61,13 @@ final class DetailViewModel {
         self.type = type
     }
 }
+
+extension DetailViewModel: Hashable {
+    static func == (lhs: DetailViewModel, rhs: DetailViewModel) -> Bool {
+        lhs.assetAmountText.text == rhs.assetAmountText.text
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(assetAmountText.text)
+    }
+}

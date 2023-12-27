@@ -50,9 +50,11 @@ final class RedesignWalletViewFactory {
                            poolsViewModelService: PoolsItemService,
                            assetsViewModelService: AssetsItemService,
                            marketCapService: MarketCapServiceProtocol,
-                           editViewService: EditViewServiceProtocol) -> RedesignWalletViewController {
+                           editViewService: EditViewServiceProtocol,
+                           feeProvider: FeeProviderProtocol) -> RedesignWalletViewController {
         
-        let viewModel = RedesignWalletViewModel(wireframe: RedesignWalletWireframe(),
+        let wireframe = RedesignWalletWireframe(feeProvider: feeProvider)
+        let viewModel = RedesignWalletViewModel(wireframe: wireframe,
                                                 providerFactory: providerFactory,
                                                 assetManager: assetManager,
                                                 fiatService: fiatService,

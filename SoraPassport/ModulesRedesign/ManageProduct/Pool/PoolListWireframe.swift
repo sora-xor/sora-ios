@@ -45,6 +45,7 @@ protocol PoolListWireframeProtocol {
                          assetsProvider: AssetProviderProtocol,
                          marketCapService: MarketCapServiceProtocol,
                          farmingService: DemeterFarmingServiceProtocol,
+                         feeProvider: FeeProviderProtocol,
                          dismissHandler: (() -> Void)?)
 }
 
@@ -59,6 +60,7 @@ final class PoolListWireframe: PoolListWireframeProtocol {
                          assetsProvider: AssetProviderProtocol,
                          marketCapService: MarketCapServiceProtocol,
                          farmingService: DemeterFarmingServiceProtocol,
+                         feeProvider: FeeProviderProtocol,
                          dismissHandler: (() -> Void)?) {
         guard let assetDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,
                                                                              assetManager: assetManager,
@@ -68,7 +70,8 @@ final class PoolListWireframe: PoolListWireframeProtocol {
                                                                              operationFactory: operationFactory,
                                                                              assetsProvider: assetsProvider,
                                                                              marketCapService: marketCapService, 
-                                                                             farmingService: farmingService,
+                                                                             farmingService: farmingService, 
+                                                                             feeProvider: feeProvider,
                                                                              dismissHandler: dismissHandler) else {
             return
         }

@@ -285,7 +285,7 @@ extension ConfirmSendingViewModel {
                                                   tokenId: assetId)
         EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: transaction))
         wireframe?.showActivityDetails(on: view?.controller, model: transaction, assetManager: assetManager) { [weak self] in
-            self?.view?.dissmiss(competion: {})
+            self?.view?.dismiss(competion: {})
         }
     }
     

@@ -48,6 +48,7 @@ struct UserFarmInfo: Codable, Equatable {
 }
 
 struct UserFarm: Codable, Equatable {
+    var id: String
     var baseAssetId: String
     var poolAssetId: String
     var rewardAssetId: String
@@ -115,5 +116,4 @@ struct Farm {
     let tvl: Decimal
     let apr: Decimal
     let depositFee: Decimal
-    let usdPrice: Decimal
 }
