@@ -168,6 +168,11 @@ extension ActivityDetailsViewModel {
             return headerSetReferrerTransactionViewModel(from: setReferrerTransaction)
         }
         
+        if let transferTransaction = transaction as? ClaimReward {
+            assetId = transferTransaction.rewardTokenId
+            return claimRewardTransactionViewModel(from: transferTransaction)
+        }
+        
         return nil
     }
     
@@ -193,6 +198,32 @@ extension ActivityDetailsViewModel {
         
         return HeaderActivityDetailsItem(typeText: transaction.transferType.detailsTitle,
                                          typeTransactionImage: transaction.transferType.image,
+                                         firstAssetImageViewModel: symbolViewModel,
+                                         firstBalanceText: firstBalanceText.attributedString,
+                                         details: details)
+    }
+    
+    func claimRewardTransactionViewModel(from transaction: ClaimReward) -> HeaderActivityDetailsItem {
+        let assetInfo = assetManager.assetInfo(for: transaction.rewardTokenId)
+        
+        var symbolViewModel: WalletImageViewModelProtocol?
+        
+        if let iconString = assetInfo?.icon {
+            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        }
+        
+        let firstBalance = NumberFormatter.historyAmount.stringFromDecimal(transaction.amount.decimalValue) ?? ""
+        let text = "+ \(firstBalance) \(assetInfo?.symbol ?? "")"
+        let firstBalanceText = SoramitsuTextItem(text: text,
+                                                 fontData: FontType.headline3,
+                                                 textColor: .statusSuccess,
+                                                 alignment: .center)
+        let details = detailsFactory.createHeaderActivityDetailsViewModels(transactionBase: transaction.base, isHideFeeDetails: false) { [weak self] in
+            self?.networkFeeInfoButtonTapped()
+        }
+        
+        return HeaderActivityDetailsItem(typeText: R.string.localizable.demeterClaimedReward(preferredLanguages: .currentLocale),
+                                         typeTransactionImage: R.image.wallet.claimStar(),
                                          firstAssetImageViewModel: symbolViewModel,
                                          firstBalanceText: firstBalanceText.attributedString,
                                          details: details)
@@ -366,6 +397,10 @@ extension ActivityDetailsViewModel {
             return detailsSetReffererTransactionViewModel(from: setReferrerTransaction)
         }
         
+        if let transferTransaction = transaction as? ClaimReward {
+            return detailsClaimRewardTransactionViewModel(from: transferTransaction)
+        }
+        
         return nil
     }
     
@@ -396,6 +431,29 @@ extension ActivityDetailsViewModel {
         
         return ActivityDetailsItem(detailViewModels: details)
     }
+    
+    func detailsClaimRewardTransactionViewModel(from transfer: ClaimReward) -> ActivityDetailsItem {
+        var details: [ActivityDetailViewModel] = []
+        
+        if !transfer.base.txHash.isEmpty {
+            let txHash = ActivityDetailViewModel(title: R.string.localizable.transactionHash(preferredLanguages: .currentLocale),
+                                                 value: transfer.base.txHash)
+            details.append(txHash)
+        }
+
+        if !transfer.base.blockHash.isEmpty {
+            let blockHash = ActivityDetailViewModel(title: R.string.localizable.blockId(preferredLanguages: .currentLocale),
+                                                    value: transfer.base.blockHash)
+            details.append(blockHash)
+        }
+        
+        let receipt = ActivityDetailViewModel(title: R.string.localizable.commonRecipient(preferredLanguages: .currentLocale),
+                                              value: transfer.peer)
+        details.append(receipt)
+        
+        return ActivityDetailsItem(detailViewModels: details)
+    }
+    
     
     func detailsSetReffererTransactionViewModel(from setReferrer: SetReferrerTransaction) -> ActivityDetailsItem {
         var details: [ActivityDetailViewModel] = []

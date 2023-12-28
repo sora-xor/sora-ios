@@ -207,7 +207,7 @@ extension ConfirmRemoveLiquidityViewModel {
                                         type: .withdraw)
         EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: swapTransaction))
         wireframe?.showActivityDetails(on: view?.controller, model: swapTransaction, assetManager: assetManager) { [weak self] in
-            self?.view?.dissmiss(competion: self?.completionHandler)
+            self?.view?.dismiss(competion: self?.completionHandler)
         }
     }
 }

@@ -53,13 +53,25 @@ protocol PoolDetailsWireframeProtocol: AlertPresentable {
     func showFarmDetails(
         on viewController: UIViewController?,
         poolsService: PoolsServiceInputProtocol?,
+        fiatService: FiatServiceProtocol?,
         assetManager: AssetManagerProtocol,
+        providerFactory: BalanceProviderFactory,
+        operationFactory: WalletNetworkOperationFactoryProtocol?,
+        assetsProvider: AssetProviderProtocol?,
+        marketCapService: MarketCapServiceProtocol,
+        farmingService: DemeterFarmingServiceProtocol,
         poolInfo: PoolInfo?,
         farm: Farm
     )
 }
 
 final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
+    
+    let feeProvider: FeeProviderProtocol
+    
+    init(feeProvider: FeeProviderProtocol) {
+        self.feeProvider = feeProvider
+    }
     
     func showLiquidity(
         on controller: UIViewController?,
@@ -115,14 +127,29 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
     func showFarmDetails(
         on viewController: UIViewController?,
         poolsService: PoolsServiceInputProtocol?,
+        fiatService: FiatServiceProtocol?,
         assetManager: AssetManagerProtocol,
+        providerFactory: BalanceProviderFactory,
+        operationFactory: WalletNetworkOperationFactoryProtocol?,
+        assetsProvider: AssetProviderProtocol?,
+        marketCapService: MarketCapServiceProtocol,
+        farmingService: DemeterFarmingServiceProtocol,
         poolInfo: PoolInfo?,
         farm: Farm
     ) {
+        let wireframe = FarmDetailsWireframe(feeProvider: feeProvider, walletService: WalletService(operationFactory: operationFactory!))
         let viewModel = FarmDetailsViewModel(farm: farm,
                                              poolInfo: poolInfo,
                                              poolsService: poolsService,
-                                             detailsFactory: DetailViewModelFactory(assetManager: assetManager))
+                                             fiatService: fiatService,
+                                             assetManager: assetManager,
+                                             providerFactory: providerFactory,
+                                             operationFactory: operationFactory,
+                                             assetsProvider: assetsProvider,
+                                             marketCapService: marketCapService,
+                                             farmingService: farmingService,
+                                             detailsFactory: DetailViewModelFactory(assetManager: assetManager),
+                                             wireframe: wireframe)
         
         let view = FarmDetailsViewController(viewModel: viewModel)
         viewModel.view = view

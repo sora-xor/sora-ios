@@ -78,7 +78,7 @@ final class PoolDetailsItemFactory {
                                           rewardAssetImage: rewardAsset?.icon,
                                           detailsViewModel: detailsViewModels,
                                           isRemoveLiquidityEnabled: isRemoveLiquidityEnabled, 
-                                          typeImage: farms.isEmpty ? .inactivePoolWithFarming : .activePoolWithFarming,
+                                          typeImage: isThereLiquidity ? .activePoolWithFarming : .inactivePoolWithFarming,
                                           isThereLiquidity: isThereLiquidity)
         detailsItem.handler = { type in
             viewModel.infoButtonTapped(with: type)
@@ -111,7 +111,7 @@ final class PoolDetailsItemFactory {
             
             var aprText = ""
             if let apr = farms.first(where: { $0.rewardAsset?.assetId == userFarm.rewardAssetId })?.apr {
-                aprText = "\(NumberFormatter.percent.stringFromDecimal(apr * 100) ?? "")%"
+                aprText = "\(NumberFormatter.percent.stringFromDecimal(apr * 100) ?? "")% APR"
             }
             
             return FarmViewModel(identifier: id,
@@ -142,7 +142,7 @@ final class PoolDetailsItemFactory {
             
             let subtitle = "$" + farm.tvl.formatNumber()
             
-            let aprText = "\(NumberFormatter.percent.stringFromDecimal(farm.apr * 100) ?? "")%"
+            let aprText = "\(NumberFormatter.percent.stringFromDecimal(farm.apr * 100) ?? "")% APR"
 
             return FarmViewModel(identifier: id,
                                  title: title,
@@ -161,23 +161,55 @@ final class PoolDetailsItemFactory {
                     detailsFactory: DetailViewModelFactoryProtocol,
                     viewModel: FarmDetailsViewModelProtocol
     ) -> FarmDetailsItem {
-
         let baseAssetSymbol = farm.baseAsset?.symbol ?? ""
         let poolAssetSymbol = farm.poolAsset?.symbol ?? ""
-        let title = R.string.localizable.polkaswapFarmTitleTemplate("\(baseAssetSymbol)-\(poolAssetSymbol)", preferredLanguages: .currentLocale)  
+        let title = R.string.localizable.polkaswapFarmTitleTemplate("\(baseAssetSymbol)-\(poolAssetSymbol)", preferredLanguages: .currentLocale)
+        
         
         let detailsViewModels = detailsFactory.createFarmDetailViewModels(with: farm, 
                                                                           userFarmInfo: userFarmInfo,
                                                                           poolInfo: poolInfo,
                                                                           viewModel: viewModel)
         
-        return FarmDetailsItem(title: title,
-                               subtitle: "$" + (farm.tvl).formatNumber() + " TVL",
-                               firstAssetImage: RemoteSerializer.shared.image(with: farm.baseAsset?.icon ?? ""),
-                               secondAssetImage: RemoteSerializer.shared.image(with: farm.poolAsset?.icon ?? ""),
-                               rewardAssetImage: RemoteSerializer.shared.image(with: farm.rewardAsset?.icon ?? ""),
-                               detailsViewModel: detailsViewModels,
-                               typeImage: (userFarmInfo?.pooledTokens ?? 0) > 0 ? .activeFarming : .incativeFarming)
+        let rewardsAmount = userFarmInfo?.rewards ?? .zero
+        let pooledTokens = userFarmInfo?.pooledTokens ?? .zero
+        
+        var stackingState: FarmDetailsBottomButtonState = .stackingUnavailable
+
+        if let pooledByAccount = poolInfo?.baseAssetPooledByAccount, !(pooledByAccount.isZero) {
+            stackingState = pooledTokens.isZero ? .startStacking : .editFarm
+        }
+        
+        let farmDetailsItem = FarmDetailsItem(title: title,
+                                              subtitle: "$" + (farm.tvl).formatNumber() + " TVL",
+                                              firstAssetImage: RemoteSerializer.shared.image(with: farm.baseAsset?.icon ?? ""),
+                                              secondAssetImage: RemoteSerializer.shared.image(with: farm.poolAsset?.icon ?? ""),
+                                              rewardAssetImage: RemoteSerializer.shared.image(with: farm.rewardAsset?.icon ?? ""),
+                                              detailsViewModel: detailsViewModels,
+                                              typeImage: (userFarmInfo?.pooledTokens ?? 0) > 0 ? .activeFarming : .incativeFarming,
+                                              stackingState: stackingState,
+                                              areThereRewards: !rewardsAmount.isZero)
+        
+        farmDetailsItem.onTapTopButton = { [weak viewModel] in
+            viewModel?.claimRewardButtonTapped()
+        }
+        
+        farmDetailsItem.onTapBottomButton = { [weak viewModel] in
+            viewModel?.editFarmButtonTapped()
+        }
+        
+        return farmDetailsItem
+    }
+    
+    func createSupplyLiquidityItem(poolViewModel: ExplorePoolViewModel,
+                                   viewModel: FarmDetailsViewModelProtocol) -> SupplyPoolItem {
+        let supplyItem = SupplyPoolItem(poolViewModel: poolViewModel)
+        
+        supplyItem.onTap = { [weak viewModel] in
+            viewModel?.supplyLiquidityTapped()
+        }
+        
+        return supplyItem
     }
 }
 

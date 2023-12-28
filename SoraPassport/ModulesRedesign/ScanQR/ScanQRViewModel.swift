@@ -59,7 +59,6 @@ protocol ScanQRViewModelProtocol {
     func prepareDismiss()
     func handleDismiss()
     func activateImport()
-    func showMyQrCode()
 }
 
 struct ScanQRResult {

@@ -203,7 +203,7 @@ extension ImportAccountViewController: AccountImportViewProtocol {
 
     func setUploadWarning(message: String) {}
     
-    func dissmissPresentedController() {
+    func dismissPresentedController() {
         dismiss(animated: true)
     }
 }

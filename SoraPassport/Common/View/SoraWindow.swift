@@ -39,7 +39,7 @@ final class SoraWindow: UIWindow {
         static let statusHeight: CGFloat = 10.0
         static let appearanceAnimationDuration: TimeInterval = 0.2
         static let changeAnimationDuration: TimeInterval = 0.2
-        static let dissmissAnimationDuration: TimeInterval = 0.2
+        static let dismissAnimationDuration: TimeInterval = 0.2
     }
 
     private var statusView: ApplicationStatusView?
@@ -175,7 +175,7 @@ extension SoraWindow: ApplicationStatusPresentable {
             var newFrame = statusView.frame
             newFrame.origin.y = -newFrame.height
 
-            BlockViewAnimator(duration: Constants.dissmissAnimationDuration,
+            BlockViewAnimator(duration: Constants.dismissAnimationDuration,
                               delay: 2 * animationDelay).animate(block: {
                 statusView.frame = newFrame
             }, completionBlock: { _ in

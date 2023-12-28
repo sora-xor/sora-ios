@@ -331,7 +331,7 @@ extension ConfirmSwapViewModel {
         
         eventCenter.notify(with: NewTransactionCreatedEvent(item: swapTransaction))
         wireframe?.showActivityDetails(on: view?.controller, model: swapTransaction, assetManager: assetManager) { [weak self] in
-            self?.view?.dissmiss(competion: {})
+            self?.view?.dismiss(competion: {})
         }
     }
     

@@ -33,7 +33,7 @@ import SSFUtils
 import BigInt
 
 struct SoraTransferCall: Codable {
-    var receiver: MultiAddress
+    var receiver: Data
     @StringCodable var amount: BigUInt
     var assetId: AssetId
 
@@ -79,6 +79,13 @@ extension MultiAddress {
             return value
         case .address20(let value):
             return value
+        case .indexedString(let value):
+            return value
+        case .rawString(let value):
+            return value
+        @unknown default:
+            assertionFailure("Unexpected type")
+            return Data()
         }
     }
 }

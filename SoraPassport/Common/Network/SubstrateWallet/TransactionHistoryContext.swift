@@ -56,6 +56,10 @@ enum TransactionContextKeys {
     static let directExchangeRateValue: String = "directExchangeRateValue"
     static let inversedExchangeRateValue: String = "inversedExchangeRateValue"
     static let sbApy: String = "sbApy"
+    //demeter
+    static let rewardAsset: String = "rewardAsset"
+    static let isFarm: String = "isFarm"
+    static let amount: String = "amount"
 }
 
 struct TransactionHistoryContext {

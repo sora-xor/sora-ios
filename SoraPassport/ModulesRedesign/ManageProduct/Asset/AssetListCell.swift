@@ -46,6 +46,11 @@ final class AssetListCell: SoramitsuTableViewCell {
         view.sora.favoriteButtonImage = R.image.wallet.star()
         view.sora.unfavoriteButtonImage = R.image.wallet.unstar()
         view.sora.dragDropImage = R.image.wallet.burger()
+        view.assetImageView.sora.loadingPlaceholder.type = .none
+        view.titleLabel.sora.loadingPlaceholder.type = .none
+        view.subtitleLabel.sora.loadingPlaceholder.type = .none
+        view.amountUpLabel.sora.loadingPlaceholder.type = .none
+        view.amountDownLabel.sora.loadingPlaceholder.type = .none
         view.favoriteButton.sora.associate(states: .pressed) { [weak self] g in
             guard let item = self?.assetItem else {
                 return

@@ -58,7 +58,7 @@ extension TransactionHistoryItem {
                 receiver = try addressFactory
                     .address(
                         fromAccountId: call.args
-                            .receiver.data,
+                            .receiver,
                         type: addressType
                     )
             }
