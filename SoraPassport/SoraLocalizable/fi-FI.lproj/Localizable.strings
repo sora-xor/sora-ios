@@ -551,7 +551,7 @@
 "remove.pool.confirmation.title" = "Confirm Remove";
 "polkaswap.not.enough.tokens.in.pool" = "Not enough tokens in pool";
 "add.liquidity.confirmation.title" = "Confirm supply";
-"add.liquidity.pool.share.title" = "Your pool share will be";
+"add.liquidity.pool.share.title" = "Your pool share staked will be";
 "add.liquidity.pool.title" = "%s - %s Pool";
 "add.liquidity.pool.share.description" = "Output is estimated. If the price changes more than %s%% your transaction will revert.";
 "common.deposit.symbol" = "%s talletus";
@@ -921,7 +921,17 @@
 "pool.details.reward" = "Reward";
 "pool.details.active.farms" = "Active farms";
 "farming.details.title" = "Farming details";
-"pool.details.extra.reward" = "Stake your pool share for extra rewards";
 "common.nothing.available" = "Nothing available";
 "apr.description" = "APR in farming denotes the annualized return on investment for participating in DeFi liquidity provision or staking activities.";
 "farm.details.your.rewards" = "Your rewards";
+"search.token.placeholder" = "Search by Asset ID, Name or Ticker Symbol";
+"request.supply.liquidity" = "You need to supply liquidity to a corresponding pool pair to start staking it for extra rewards:";
+"start.staking" = "Start staking";
+"demeter.claimed.reward" = "Claimed reward";
+"demeter.staked.liquidity" = "Staked liquidity";
+"demeter.unstaked.liquidity" = "Unstaked liquidity";
+"select.pool.share" = "Select your pool share to stake";
+"edit.farm" = "Edit farm";
+"claim.rewards" = "Claim rewards";
+"common.claim" = "Claim";
+"common.max" = "max";

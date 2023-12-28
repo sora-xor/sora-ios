@@ -86,6 +86,17 @@ protocol DetailViewModelFactoryProtocol {
                                     userFarmInfo: UserFarm?,
                                     poolInfo: PoolInfo?,
                                     viewModel: FarmDetailsViewModelProtocol) -> [DetailViewModel]
+    func createStakeViewModels(with farm: Farm,
+                               userFarmInfo: UserFarm?,
+                               poolInfo: PoolInfo,
+                               sharePercentage: Decimal,
+                               fee: Decimal,
+                               viewModel: EditFarmViewModelProtocol) -> [DetailViewModel]
+    
+    func createClaimViewModels(with farm: Farm,
+                               poolInfo: PoolInfo,
+                               fee: Decimal,
+                               viewModel: ClaimRewardsViewModelProtocol) -> [DetailViewModel]
 }
 
 final class DetailViewModelFactory {
@@ -135,7 +146,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         viewModels.append(rewardDetailsViewModel)
         
         if let yourPoolShare = poolInfo.yourPoolShare {
-            let poolShareText = NumberFormatter.cryptoAssets.stringFromDecimal(yourPoolShare) ?? ""
+            let poolShareText = NumberFormatter.percent.stringFromDecimal(yourPoolShare) ?? ""
             let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                           fontData: FontType.textS,
                                                           textColor: .fgPrimary,
@@ -249,6 +260,91 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         return viewModels
     }
     
+    func createStakeViewModels(with farm: Farm,
+                               userFarmInfo: UserFarm?,
+                               poolInfo: PoolInfo,
+                               sharePercentage: Decimal,
+                               fee: Decimal,
+                               viewModel: EditFarmViewModelProtocol) -> [DetailViewModel] {
+        var viewModels: [DetailViewModel] = []
+        
+        let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
+        if accountPoolBalance > 0 {
+            let pooledTokens = userFarmInfo?.pooledTokens  ?? .zero
+            let percentage = accountPoolBalance > 0 ? (pooledTokens / accountPoolBalance) * 100 : 0
+
+            let text = SoramitsuTextItem(text: "\(NumberFormatter.percent.stringFromDecimal(percentage) ?? "")%",
+                                         fontData: FontType.textS,
+                                         textColor: .fgPrimary,
+                                         alignment: .right)
+
+            let yourPoolShareViewModel = DetailViewModel(title: R.string.localizable.polkaswapFarmingPoolShare(preferredLanguages: .currentLocale),
+                                                                     assetAmountText: text)
+            viewModels.append(yourPoolShareViewModel)
+        }
+        
+        
+        let updatedShareText = NumberFormatter.percent.stringFromDecimal(sharePercentage) ?? ""
+        let updatedPoolShareText = SoramitsuTextItem(text: "\(updatedShareText)%",
+                                                      fontData: FontType.textS,
+                                                      textColor: .fgPrimary,
+                                                      alignment: .right)
+        let updatedPoolShareViewModel = DetailViewModel(title: R.string.localizable.addLiquidityPoolShareTitle(preferredLanguages: .currentLocale),
+                                                                 assetAmountText: updatedPoolShareText)
+        viewModels.append(updatedPoolShareViewModel)
+        
+        
+        let feeText = SoramitsuTextItem(text: "\(farm.depositFee)%",
+                                           fontData: FontType.textS,
+                                           textColor: .fgPrimary,
+                                           alignment: .right)
+        let feeDetailsViewModel = DetailViewModel(
+            title: R.string.localizable.commonFee(preferredLanguages: .currentLocale),
+            assetAmountText: feeText
+        )
+        
+        viewModels.append(feeDetailsViewModel)
+        
+        
+        let networkFeeText = SoramitsuTextItem(text: "\(NumberFormatter.cryptoAssets.stringFromDecimal(fee) ?? "") XOR",
+                                               fontData: FontType.textS,
+                                               textColor: .fgPrimary,
+                                               alignment: .right)
+        let networkFeeDetailsViewModel = DetailViewModel(title: R.string.localizable.networkFee(preferredLanguages: .currentLocale),
+                                                  assetAmountText: networkFeeText)
+        
+        networkFeeDetailsViewModel.infoHandler = {
+            viewModel.networkFeeInfoButtonTapped()
+        }
+        
+        viewModels.append(networkFeeDetailsViewModel)
+        
+        return viewModels
+    }
+    
+    func createClaimViewModels(with farm: Farm,
+                               poolInfo: PoolInfo,
+                               fee: Decimal,
+                               viewModel: ClaimRewardsViewModelProtocol) -> [DetailViewModel] {
+        var viewModels: [DetailViewModel] = []
+        
+        let text = fee.isZero ? "" : "\(NumberFormatter.cryptoAssets.stringFromDecimal(fee) ?? "") XOR"
+        let networkFeeText = SoramitsuTextItem(text: text,
+                                               fontData: FontType.textS,
+                                               textColor: .fgPrimary,
+                                               alignment: .right)
+        let networkFeeDetailsViewModel = DetailViewModel(title: R.string.localizable.networkFee(preferredLanguages: .currentLocale),
+                                                         assetAmountText: networkFeeText)
+        
+        networkFeeDetailsViewModel.infoHandler = {
+            viewModel.networkFeeInfoButtonTapped()
+        }
+        
+        viewModels.append(networkFeeDetailsViewModel)
+        
+        return viewModels
+    }
+    
     func createSupplyLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo?,
@@ -272,7 +368,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                       pooled: pool?.targetAssetPooledByAccount ?? 0,
                                                       reserves: pool?.targetAssetReserves ?? 0)
 
-        let poolShareText = NumberFormatter.cryptoAssets.stringFromDecimal(poolShareDecimal) ?? ""
+        let poolShareText = NumberFormatter.percent.stringFromDecimal(poolShareDecimal) ?? ""
         let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,
@@ -340,7 +436,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                          pooled: pool.targetAssetPooledByAccount ?? 0,
                                                          reserves: pool.targetAssetReserves ?? 0)
 
-        let poolShareText = NumberFormatter.cryptoAssets.stringFromDecimal(poolShareDecimal) ?? ""
+        let poolShareText = NumberFormatter.percent.stringFromDecimal(poolShareDecimal) ?? ""
         let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,

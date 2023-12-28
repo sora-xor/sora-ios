@@ -176,6 +176,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         let editViewService = EditViewService(poolsService: poolsService)
         poolsService.appendDelegate(delegate: editViewService)
 
+        let feeProvider = FeeProvider()
 
         let redesignViewController = MainTabBarViewFactory.createWalletRedesignController(walletContext: walletContext,
                                                                                           assetManager: assetManager,
@@ -185,7 +186,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                                                                           assetsViewModelService: assetsViewModelService,
                                                                                           editViewService: editViewService, 
                                                                                           accountSettings: accountSettings,
-                                                                                          farmingService: farmingService,
+                                                                                          farmingService: farmingService, 
+                                                                                          feeProvider: feeProvider,
                                                                                           localizationManager: LocalizationManager.shared)
 
         let investController = MainTabBarViewFactory.createInvestController(walletContext: walletContext,
@@ -195,7 +197,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                                                                             poolsService: poolsService,
                                                                             accountSettings: accountSettings,
                                                                             assetsProvider: assetsProvider,
-                                                                            farmingService: farmingService,
+                                                                            farmingService: farmingService, 
+                                                                            feeProvider: feeProvider,
                                                                             walletAssets: assetInfos)
 
         guard let tabBarController = view as? UITabBarController else {
@@ -244,7 +247,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
 
             let fakeSwapViewController = UIViewController()
             fakeSwapViewController.tabBarItem.isEnabled = false
-            fakeSwapViewController.title = R.string.localizable.polkaswapSwapTitle(preferredLanguages: .currentLocale)
+            fakeSwapViewController.title = R.string.localizable.tabbarPolkaswapTitle(preferredLanguages: .currentLocale)
             viewcontrollers.remove(at: 2)
             viewcontrollers.insert(fakeSwapViewController, at: 2)
             tabBarController.viewControllers = viewcontrollers

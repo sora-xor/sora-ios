@@ -59,6 +59,7 @@ final class InvitationsCell: SoramitsuTableViewCell {
             delegate?.userChanged(currentInvitationCount)
         }
     }
+    private let localizationManager = LocalizationManager.shared
     
     private var cancellables: Set<AnyCancellable> = []
     private weak var viewModel: InvitationsViewModel? {
@@ -73,8 +74,6 @@ final class InvitationsCell: SoramitsuTableViewCell {
                 .store(in: &cancellables)
         }
     }
-    
-    private let localizationManager = LocalizationManager.shared
     
     private lazy var titleLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()

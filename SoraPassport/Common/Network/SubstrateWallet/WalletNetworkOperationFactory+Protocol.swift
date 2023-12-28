@@ -133,10 +133,15 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
         case .liquidityAddNewPool:
             return newLiquidityAddOperationWrapper(info)
         case .liquidityAddToExistingPoolFirstTime:
-            //TODO: return REAL wrapper
             return liquidityAddOperationWrapper(info)
         case .liquidityRemoval:
             return liquidityRemovalOperationWrapper(info)
+        case .demeterClaimReward:
+            return claimRewardDemeterOperationWrapper(info)
+        case .demeterDeposit:
+            return depositDemeterOperationWrapper(info)
+        case .demeterWithdraw:
+            return withdrawDemeterOperationWrapper(info)
         case .outgoing, .incoming, .slash, .reward, .extrinsic, .referral, .migration:
             return transferOperationWrapper(info)
         }
@@ -439,5 +444,110 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
 
     func withdrawOperation(_ info: WithdrawInfo) -> CompoundOperationWrapper<Data> {
         return CompoundOperationWrapper<Data>.createWithResult(Data())
+    }
+    
+    private func claimRewardDemeterOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        let closure: ExtrinsicBuilderClosure = { builder in
+            let callFactory = SubstrateCallFactory()
+            
+            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
+            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
+
+            let demeterCall = try callFactory.claimRewardFromDemeterFarmCall(
+                baseAssetId: info.source,
+                targetAssetId: info.destination,
+                rewardAssetId: rewardAsset,
+                isFarm: isFarm
+            )
+
+            return try builder.adding(call: demeterCall)
+        }
+
+        let transferOperation = createExtrinsicServiceOperation(closure: closure)
+
+        let mapOperation: ClosureOperation<Data> = ClosureOperation {
+            let hashString = try transferOperation
+                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+
+            return try Data(hexStringSSF: hashString)
+        }
+
+        mapOperation.addDependency(transferOperation)
+
+        return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [transferOperation])
+    }
+    
+    private func depositDemeterOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        guard let amount = info.amount.decimalValue.toSubstrateAmount(precision: 18) else {
+            let error = WalletNetworkOperationFactoryError.invalidAmount
+            return createCompoundOperation(result: .failure(error))
+        }
+
+        let closure: ExtrinsicBuilderClosure = { builder in
+            let callFactory = SubstrateCallFactory()
+            
+            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
+            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
+
+            let demeterCall = try callFactory.depositLiquidityToDemeterFarmCall(
+                baseAssetId: info.source,
+                targetAssetId: info.destination,
+                rewardAssetId: rewardAsset,
+                isFarm: isFarm,
+                amount: amount
+            )
+
+            return try builder.adding(call: demeterCall)
+        }
+
+        let transferOperation = createExtrinsicServiceOperation(closure: closure)
+
+        let mapOperation: ClosureOperation<Data> = ClosureOperation {
+            let hashString = try transferOperation
+                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+
+            return try Data(hexStringSSF: hashString)
+        }
+
+        mapOperation.addDependency(transferOperation)
+
+        return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [transferOperation])
+    }
+    
+    private func withdrawDemeterOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        guard let amount = info.amount.decimalValue.toSubstrateAmount(precision: 18) else {
+            let error = WalletNetworkOperationFactoryError.invalidAmount
+            return createCompoundOperation(result: .failure(error))
+        }
+
+        let closure: ExtrinsicBuilderClosure = { builder in
+            let callFactory = SubstrateCallFactory()
+            
+            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
+            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
+
+            let demeterCall = try callFactory.withdrawLiquidityFromDemeterFarmCall(
+                baseAssetId: info.source,
+                targetAssetId: info.destination,
+                rewardAssetId: rewardAsset,
+                isFarm: isFarm,
+                amount: amount
+            )
+
+            return try builder.adding(call: demeterCall)
+        }
+
+        let transferOperation = createExtrinsicServiceOperation(closure: closure)
+
+        let mapOperation: ClosureOperation<Data> = ClosureOperation {
+            let hashString = try transferOperation
+                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+
+            return try Data(hexStringSSF: hashString)
+        }
+
+        mapOperation.addDependency(transferOperation)
+
+        return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [transferOperation])
     }
 }

@@ -34,11 +34,16 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
     
     private var farmDetailsItem: FarmDetailsItem?
     
-    let containerView: SoramitsuView = {
-        let view = SoramitsuView()
+    let containerView: SoramitsuStackView = {
+        let view = SoramitsuStackView()
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.sora.axis = .vertical
+        view.sora.distribution = .fill
         view.sora.backgroundColor = .bgSurface
         view.sora.cornerRadius = .max
+        view.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
+        view.spacing = 24
+        view.isLayoutMarginsRelativeArrangement = true
         return view
     }()
 
@@ -51,6 +56,28 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
         view.sora.distribution = .fill
         view.spacing = 14
         return view
+    }()
+    
+    private lazy var topButton: SoramitsuButton = {
+        let button = SoramitsuButton()
+        button.sora.title = R.string.localizable.claimRewards(preferredLanguages: .currentLocale)
+        button.sora.backgroundColor = .additionalPolkaswap
+        button.sora.cornerRadius = .circle
+        button.sora.horizontalOffset = 0
+        button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.farmDetailsItem?.onTapTopButton?()
+        }
+        return button
+    }()
+    
+    private lazy var bottomButton: SoramitsuButton = {
+        let button = SoramitsuButton()
+        button.sora.cornerRadius = .circle
+        button.sora.horizontalOffset = 0
+        button.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.farmDetailsItem?.onTapBottomButton?()
+        }
+        return button
     }()
     
     public let footerLabel: SoramitsuLabel = {
@@ -74,9 +101,16 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
     private func setupView() {
         contentView.addSubview(containerView)
         
-        containerView.addSubview(headerView)
-        containerView.addSubview(stackView)
-        containerView.addSubview(footerLabel)
+        containerView.addArrangedSubviews([
+            headerView,
+            stackView,
+            topButton,
+            bottomButton,
+            footerLabel
+        ])
+        
+        containerView.setCustomSpacing(18, after: stackView)
+        containerView.setCustomSpacing(16, after: topButton)
     }
 
     private func setupConstraints() {
@@ -85,19 +119,6 @@ final class FarmDetailsCell: SoramitsuTableViewCell {
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
             containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            
-            headerView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            headerView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
-            headerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            headerView.bottomAnchor.constraint(equalTo: stackView.topAnchor, constant: -24),
-            
-            stackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            stackView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-            stackView.bottomAnchor.constraint(equalTo: footerLabel.topAnchor, constant: -24),
-            
-            footerLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
-            footerLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -24),
-            footerLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
         ])
     }
 }
@@ -109,7 +130,16 @@ extension FarmDetailsCell: SoramitsuTableViewCellProtocol {
             return
         }
         farmDetailsItem = item
-
+        
+        topButton.sora.isHidden = !item.areThereRewards
+        
+        bottomButton.sora.isUserInteractionEnabled = item.stackingState.isUserInteractionEnabled
+        bottomButton.sora.attributedText = SoramitsuTextItem(text: item.stackingState.title,
+                                                             fontData: FontType.buttonM ,
+                                                             textColor: item.stackingState.buttonTitleColor,
+                                                             alignment: .center)
+        bottomButton.sora.backgroundColor = item.stackingState.backgroundColor
+        
         headerView.titleLabel.sora.text = item.title
         headerView.subtitleLabel.sora.text = item.subtitle
 

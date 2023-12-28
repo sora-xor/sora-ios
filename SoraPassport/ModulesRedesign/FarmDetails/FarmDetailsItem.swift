@@ -31,6 +31,47 @@
 import Foundation
 import SoraUIKit
 
+enum FarmDetailsBottomButtonState {
+    case startStacking
+    case editFarm
+    case stackingUnavailable
+    
+    var title: String {
+        switch self {
+        case .editFarm:
+            return R.string.localizable.editFarm(preferredLanguages: .currentLocale)
+        case .startStacking, .stackingUnavailable:
+            return R.string.localizable.startStaking(preferredLanguages: .currentLocale)
+        }
+    }
+    
+    var buttonTitleColor: SoramitsuColor {
+        switch self {
+        case .editFarm:
+            return .additionalPolkaswap
+        case .startStacking:
+            return .accentPrimary
+        case .stackingUnavailable:
+            return .fgTertiary
+        }
+    }
+    
+    var backgroundColor: SoramitsuColor {
+        switch self {
+        case .editFarm:
+            return .additionalPolkaswapContainer
+        case .startStacking:
+            return .additionalPolkaswap
+        case .stackingUnavailable:
+            return .bgSurfaceVariant
+        }
+    }
+    
+    var isUserInteractionEnabled: Bool {
+        return self != .stackingUnavailable
+    }
+}
+
 final class FarmDetailsItem: NSObject {
 
     var title: String
@@ -40,6 +81,10 @@ final class FarmDetailsItem: NSObject {
     let rewardAssetImage: UIImage?
     var detailsViewModel: [DetailViewModel] = []
     let typeImage: PoollProductType
+    let areThereRewards: Bool
+    let stackingState: FarmDetailsBottomButtonState
+    var onTapTopButton: (() -> Void)?
+    var onTapBottomButton: (() -> Void)?
 
     init(title: String,
          subtitle: String,
@@ -47,7 +92,9 @@ final class FarmDetailsItem: NSObject {
          secondAssetImage: UIImage?,
          rewardAssetImage: UIImage?,
          detailsViewModel: [DetailViewModel],
-         typeImage: PoollProductType) {
+         typeImage: PoollProductType,
+         stackingState: FarmDetailsBottomButtonState,
+         areThereRewards: Bool) {
         self.title = title
         self.subtitle = subtitle
         self.typeImage = typeImage
@@ -55,6 +102,8 @@ final class FarmDetailsItem: NSObject {
         self.secondAssetImage = secondAssetImage
         self.rewardAssetImage = rewardAssetImage
         self.detailsViewModel = detailsViewModel
+        self.areThereRewards = areThereRewards
+        self.stackingState = stackingState
     }
 }
 

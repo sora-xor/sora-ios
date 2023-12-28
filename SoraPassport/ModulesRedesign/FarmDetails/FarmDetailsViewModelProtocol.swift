@@ -43,4 +43,8 @@ protocol FarmDetailsViewModelProtocol: AnyObject {
     var snapshotPublisher: Published<FarmDetailsSnapshot>.Publisher { get }
     func viewDidLoad()
     func aprInfoButtonTapped()
+    func supplyLiquidityTapped()
+    func stakeButtonTapped()
+    func claimRewardButtonTapped()
+    func editFarmButtonTapped()
 }

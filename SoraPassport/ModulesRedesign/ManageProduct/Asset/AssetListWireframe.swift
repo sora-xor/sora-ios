@@ -56,6 +56,12 @@ protocol AssetListWireframeProtocol {
 }
 
 final class AssetListWireframe: AssetListWireframeProtocol {
+    let feeProvider: FeeProviderProtocol
+    
+    init(feeProvider: FeeProviderProtocol) {
+        self.feeProvider = feeProvider
+    }
+    
     func showAssetDetails(on viewController: UIViewController?,
                           assetInfo: AssetInfo,
                           assetManager: AssetManagerProtocol,
@@ -90,7 +96,8 @@ final class AssetListWireframe: AssetListWireframeProtocol {
                                                                               referralFactory: referralFactory,
                                                                               assetsProvider: assetsProvider,
                                                                               marketCapService: marketCapService, 
-                                                                              farmingService: farmingService) else {
+                                                                              farmingService: farmingService, 
+                                                                              feeProvider: feeProvider) else {
             return
         }
         

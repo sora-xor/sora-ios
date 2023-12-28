@@ -60,6 +60,7 @@ extension SCard.Config {
         themeMode: SoramitsuUI.shared.themeMode
     )
 
+    // Dev
     static let local = SCard.Config(
         appStoreUrl: "https://apps.apple.com/us/app/sora-wallet-polkaswap/id1457566711",
         backendUrl: "https://backend.dev.sora-card.tachi.soramitsu.co.jp/",
