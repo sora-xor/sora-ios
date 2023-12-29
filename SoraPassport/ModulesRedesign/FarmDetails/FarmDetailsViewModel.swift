@@ -162,8 +162,7 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         if let poolInfo,
            let poolViewModel = viewModels.first(where: { $0.baseAssetId == poolInfo.baseAssetId && $0.targetAssetId == poolInfo.targetAssetId }),
            poolInfo.accountPoolBalance?.isZero ?? true {
-            let supplyLiquidityItem = itemFactory.createSupplyLiquidityItem(poolViewModel: poolViewModel,
-                                                                            viewModel: self)
+            let supplyLiquidityItem = itemFactory.createSupplyLiquidityItem(poolViewModel: poolViewModel, viewModel: self)
             items.append(.liquidity(supplyLiquidityItem))
         }
         
@@ -196,14 +195,7 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         wireframe?.showStakeDetails(on: view?.controller,
                                     farm: farm,
                                     poolInfo: poolInfo,
-                                    poolsService: poolsService,
-                                    fiatService: fiatService,
-                                    assetManager: assetManager,
-                                    providerFactory: providerFactory,
-                                    operationFactory: operationFactory,
                                     assetsProvider: assetsProvider,
-                                    marketCapService: marketCapService,
-                                    farmingService: farmingService,
                                     detailsFactory: detailsFactory)
     }
     
@@ -211,20 +203,15 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         wireframe?.showClaimRewards(on: view?.controller,
                                     farm: farm,
                                     poolInfo: poolInfo,
-                                    poolsService: poolsService,
                                     fiatService: fiatService,
                                     assetManager: assetManager,
-                                    providerFactory: providerFactory,
-                                    operationFactory: operationFactory,
                                     assetsProvider: assetsProvider,
-                                    marketCapService: marketCapService,
-                                    farmingService: farmingService,
                                     detailsFactory: detailsFactory) { [weak self] in
             Task { [weak self] in
-                guard let baseAssetId = self?.farm.baseAsset?.assetId, let targetAssetId = farm.poolAsset?.assetId else { return }
-                let poolInfo = await self?.poolsService?.loadPool(by: baseAssetId, targetAssetId: targetAssetId)
-                self?.poolInfo = poolInfo
-                self?.snapshot = createSnapshot(poolInfo: poolInfo)
+                guard let self, let baseAssetId = self.farm.baseAsset?.assetId, let targetAssetId = self.farm.poolAsset?.assetId else { return }
+                let poolInfo = await self.poolsService?.loadPool(by: baseAssetId, targetAssetId: targetAssetId)
+                self.poolInfo = poolInfo
+                self.snapshot = self.createSnapshot(poolInfo: poolInfo)
             }
         }
     }
@@ -233,14 +220,7 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         wireframe?.showStakeDetails(on: view?.controller,
                                     farm: farm,
                                     poolInfo: poolInfo,
-                                    poolsService: poolsService,
-                                    fiatService: fiatService,
-                                    assetManager: assetManager,
-                                    providerFactory: providerFactory,
-                                    operationFactory: operationFactory,
                                     assetsProvider: assetsProvider,
-                                    marketCapService: marketCapService,
-                                    farmingService: farmingService,
                                     detailsFactory: detailsFactory)
     }
 }

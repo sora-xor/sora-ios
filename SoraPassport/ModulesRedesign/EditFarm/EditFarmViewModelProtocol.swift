@@ -41,8 +41,8 @@ protocol EditFarmViewProtocol: ControllerBackedProtocol {}
 
 protocol EditFarmViewModelProtocol: AnyObject {
     var snapshotPublisher: Published<EditFarmSnapshot>.Publisher { get }
-    var sharePercentage: Decimal { get set}
     func viewDidLoad()
+    func feeInfoButtonTapped()
     func networkFeeInfoButtonTapped()
     func confirmButtonTapped()
 }

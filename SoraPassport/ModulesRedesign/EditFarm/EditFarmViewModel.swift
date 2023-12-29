@@ -39,63 +39,29 @@ import Combine
 final class EditFarmViewModel {
     @Published var snapshot: EditFarmSnapshot = EditFarmSnapshot()
     var snapshotPublisher: Published<EditFarmSnapshot>.Publisher { $snapshot }
-    private var cancellables: Set<AnyCancellable> = []
     
     weak var view: EditFarmViewProtocol?
     
     var farm: Farm
     var poolInfo: PoolInfo
-    weak var poolsService: PoolsServiceInputProtocol?
-    var fiatService: FiatServiceProtocol?
-    let assetManager: AssetManagerProtocol
-    let providerFactory: BalanceProviderFactory
-    let operationFactory: WalletNetworkOperationFactoryProtocol?
-    private weak var assetsProvider: AssetProviderProtocol?
-    private var marketCapService: MarketCapServiceProtocol
-    private let farmingService: DemeterFarmingServiceProtocol
-    private let detailsFactory: DetailViewModelFactoryProtocol
-    private let itemFactory = EditFarmItemFactory()
     var userFarmInfo: UserFarm?
+    private weak var assetsProvider: AssetProviderProtocol?
+    private let itemFactory = EditFarmItemFactory()
+    private let feeProvider: FeeProviderProtocol
     
-    public var sharePercentage: Decimal = 0 {
-        didSet {
-            if sharePercentage != oldValue {
-                reload()
-            }
-        }
-    }
-    
-    private var fee: Decimal = 0 {
-        didSet {
-            
-        }
-    }
+    internal var sharePercentage: Decimal = 0
+    private var fee: Decimal = 0
     
     private var stakedValue: Float = 0
 
     init(farm: Farm,
          poolInfo: PoolInfo,
-         poolsService: PoolsServiceInputProtocol?,
-         fiatService: FiatServiceProtocol?,
-         assetManager: AssetManagerProtocol,
-         providerFactory: BalanceProviderFactory,
-         operationFactory: WalletNetworkOperationFactoryProtocol?,
          assetsProvider: AssetProviderProtocol?,
-         marketCapService: MarketCapServiceProtocol,
-         farmingService: DemeterFarmingServiceProtocol,
-         detailsFactory: DetailViewModelFactoryProtocol) {
+         feeProvider: FeeProviderProtocol) {
         self.farm = farm
         self.poolInfo = poolInfo
-        self.poolsService = poolsService
-        self.fiatService = fiatService
-        self.assetManager = assetManager
-        self.providerFactory = providerFactory
-        self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
-        self.marketCapService = marketCapService
-        self.farmingService = farmingService
-        self.detailsFactory = detailsFactory
-        loadFarmInfo()
+        self.feeProvider = feeProvider
     }
     
     deinit {
@@ -106,6 +72,7 @@ final class EditFarmViewModel {
 
 extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
     func viewDidLoad() {
+        loadFarmInfo()
         reload()
     }
     
@@ -125,16 +92,20 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
     private func contentSection() -> EditFarmSection {
         var items: [EditFarmSectionItem] = []
         
-        let editFarmItem = itemFactory.createEditFarmItem(farm: farm,
-                                                          userFarmInfo: userFarmInfo,
-                                                          poolInfo: poolInfo,
-                                                          sharePercentage: sharePercentage,
-                                                          fee: fee,
-                                                          stakedValue: stakedValue,
-                                                          detailsFactory: detailsFactory,
-                                                          viewModel: self)
-        
-        items.append(.stake(editFarmItem))
+        if let userFarmInfo {
+            let service = EditFarmItemService(userFarm: userFarmInfo,
+                                              feeProvider: feeProvider,
+                                              currentPercentage: stakedValue,
+                                              feePercentage: farm.depositFee)
+            service.setup()
+            
+            let editFarmItem = itemFactory.createEditFarmItem(stakeFeeAmount: farm.depositFee,
+                                                              sharePercentage: sharePercentage,
+                                                              stakedValue: stakedValue,
+                                                              viewModel: self,
+                                                              service: service)
+            items.append(.stake(editFarmItem))
+        }
         
         return EditFarmSection(items: items)
     }
@@ -151,6 +122,15 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
         let sharePercentage = accountPoolBalance > 0 ? pooledTokens / accountPoolBalance * 100 : 0
         self.sharePercentage = sharePercentage
         self.stakedValue = sharePercentage.floatValue / 100
+    }
+    
+    func feeInfoButtonTapped() {
+        present(
+            message: R.string.localizable.demeterFarmingDepositFeeHint(preferredLanguages: .currentLocale),
+            title: R.string.localizable.commonFee(preferredLanguages: .currentLocale) ,
+            closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+            from: view
+        )
     }
     
     func networkFeeInfoButtonTapped() {

@@ -47,10 +47,8 @@ enum FarmDetailsBottomButtonState {
     
     var buttonTitleColor: SoramitsuColor {
         switch self {
-        case .editFarm:
-            return .additionalPolkaswap
-        case .startStacking:
-            return .accentPrimary
+        case .startStacking, .editFarm:
+            return .custom(uiColor: .white)
         case .stackingUnavailable:
             return .fgTertiary
         }

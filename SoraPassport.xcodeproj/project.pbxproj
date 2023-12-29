@@ -293,6 +293,7 @@
 		363BDAFF2938CCF6000F5608 /* HeaderActivityDetailsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363BDAFD2938CCF6000F5608 /* HeaderActivityDetailsCell.swift */; };
 		363BDB002938CCF7000F5608 /* HeaderActivityDetailsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363BDAFE2938CCF6000F5608 /* HeaderActivityDetailsItem.swift */; };
 		363BDB022938DE07000F5608 /* ActivityDetailsViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363BDB012938DE07000F5608 /* ActivityDetailsViewModelFactory.swift */; };
+		363D99072B3D74A70038E46F /* EditFarmItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363D99062B3D74A70038E46F /* EditFarmItemService.swift */; };
 		363DA4D72A040C7E00806A5B /* InputSendInfoViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363DA4D62A040C7E00806A5B /* InputSendInfoViewModel.swift */; };
 		363DA66C2A04354600806A5B /* GenerateQRWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363DA66B2A04354600806A5B /* GenerateQRWireframe.swift */; };
 		363DA8092A08E15700806A5B /* SendAssetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363DA8082A08E15700806A5B /* SendAssetView.swift */; };
@@ -1674,6 +1675,7 @@
 		363BDAFD2938CCF6000F5608 /* HeaderActivityDetailsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HeaderActivityDetailsCell.swift; sourceTree = "<group>"; };
 		363BDAFE2938CCF6000F5608 /* HeaderActivityDetailsItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HeaderActivityDetailsItem.swift; sourceTree = "<group>"; };
 		363BDB012938DE07000F5608 /* ActivityDetailsViewModelFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityDetailsViewModelFactory.swift; sourceTree = "<group>"; };
+		363D99062B3D74A70038E46F /* EditFarmItemService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EditFarmItemService.swift; sourceTree = "<group>"; };
 		363DA4D62A040C7E00806A5B /* InputSendInfoViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputSendInfoViewModel.swift; sourceTree = "<group>"; };
 		363DA66B2A04354600806A5B /* GenerateQRWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateQRWireframe.swift; sourceTree = "<group>"; };
 		363DA8082A08E15700806A5B /* SendAssetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendAssetView.swift; sourceTree = "<group>"; };
@@ -6342,6 +6344,7 @@
 				B723EBB22B2B146E00FB055C /* EditFarmViewController.swift */,
 				B723EBB42B2B148400FB055C /* EditFarmViewModel.swift */,
 				B723EBB62B2B149000FB055C /* EditFarmCell.swift */,
+				363D99062B3D74A70038E46F /* EditFarmItemService.swift */,
 				B723EBB82B2B149D00FB055C /* EditFarmItem.swift */,
 				B723EBBA2B2B14A900FB055C /* EditFarmSection.swift */,
 				B723EBBE2B2C29C500FB055C /* EditFarmItemFactory.swift */,
@@ -7844,6 +7847,7 @@
 				02A0532722240B9E00CA290F /* CurrencyData.swift in Sources */,
 				9441F8E325C9699400775559 /* Chain.swift in Sources */,
 				364D64DB2A97464400072106 /* ExplorePoolsViewModelService.swift in Sources */,
+				363D99072B3D74A70038E46F /* EditFarmItemService.swift in Sources */,
 				9441F89125C957C400775559 /* SubstrateOperationFactory.swift in Sources */,
 				02A053112223300300CA290F /* HelpData.swift in Sources */,
 				9481B49C286F019700A472E2 /* RuntimeSyncEvents.swift in Sources */,

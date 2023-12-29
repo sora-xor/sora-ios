@@ -63,7 +63,7 @@ final class EditFarmViewController: SoramitsuViewController {
             case .stake(let item):
                 let cell: EditFarmCell? = tableView.dequeueReusableCell(withIdentifier: "EditFarmCell",
                                                                         for: indexPath) as? EditFarmCell
-                cell?.set(item: item, context: nil)
+                cell?.set(item: item)
                 return cell ?? UITableViewCell()
             }
         }

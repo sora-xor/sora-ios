@@ -121,8 +121,9 @@ final class PoolDetailsViewModel {
     func updateContent() async {
         reload()
 
-        task?.cancel()
-        task = Task {
+//        task?.cancel()
+//        task = 
+        Task {
             async let apy = apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
             
             async let fiatData = fiatService.getFiat()
