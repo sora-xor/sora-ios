@@ -67,9 +67,12 @@ struct ExploreAssetViewModel: Hashable {
 
 final class ExploreAssetItem: ItemProtocol {
 
+    let serialNumber: String
     let assetViewModel: ExploreAssetViewModel
 
-    init(assetViewModel: ExploreAssetViewModel) {
+    init(serialNumber: String,
+         assetViewModel: ExploreAssetViewModel) {
+        self.serialNumber = serialNumber
         self.assetViewModel = assetViewModel
     }
 }

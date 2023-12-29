@@ -44,7 +44,6 @@ protocol FarmDetailsViewModelProtocol: AnyObject {
     func viewDidLoad()
     func aprInfoButtonTapped()
     func supplyLiquidityTapped()
-    func stakeButtonTapped()
     func claimRewardButtonTapped()
     func editFarmButtonTapped()
 }

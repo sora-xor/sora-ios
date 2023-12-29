@@ -156,7 +156,9 @@ final class RedesignWalletViewModel {
 extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     
     func setupModels() {
-        poolsService.loadAccountPools(isNeedForceUpdate: false)
+        let pools = poolsService.getAccountPools()
+        loaded(pools: pools)
+        
         editViewService.loadModels { [weak editViewService, weak self] isPoolAvailable in
             guard
                 let editViewService = editViewService,
@@ -254,7 +256,8 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         }
        
         if updatedSection == .pools, walletItems.first(where: { $0 is PoolsItem }) as? PoolsItem != nil {
-            poolsService.loadAccountPools(isNeedForceUpdate: false)
+            let pools = poolsService.getAccountPools() 
+            loaded(pools: pools)
         }
     }
     

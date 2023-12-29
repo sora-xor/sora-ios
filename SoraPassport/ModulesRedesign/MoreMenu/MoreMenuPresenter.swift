@@ -111,7 +111,7 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                                  onTap: { self.showNodes()}
         )
         let appSettings = MoreMenuItem(title: R.string.localizable.settingsHeaderApp(preferredLanguages: languages),
-                                       subtitle: R.string.localizable.profileLanguageTitle(preferredLanguages: languages),
+                                       subtitle: R.string.localizable.settingsAppSubtitle(preferredLanguages: languages),
                                        picture: .icon(image: R.image.iconSettingsAltFill()!,
                                                       color: .accentTertiary),
                                        onTap: { self.showAppSettings() }

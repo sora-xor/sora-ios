@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "確認移除";
 "polkaswap.not.enough.tokens.in.pool" = "流動池中沒有足夠的代幣";
 "add.liquidity.confirmation.title" = "確認供應";
-"add.liquidity.pool.share.title" = "您的池份額將是";
 "add.liquidity.pool.title" = "%s - %s池";
 "add.liquidity.pool.share.description" = "估計輸出。如果價格變化超過%s %% ，您的交易將恢復。";
 "common.deposit.symbol" = "%s存款";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

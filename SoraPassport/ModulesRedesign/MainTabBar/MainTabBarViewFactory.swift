@@ -386,8 +386,9 @@ extension MainTabBarViewFactory {
                                                      identifierFactory: SingleProviderIdentifierFactory())
         
         let polkaswapContext = PolkaswapNetworkOperationFactory(engine: connection)
-        
-        APYService.shared.polkaswapNetworkOperationFactory = polkaswapContext
+        Task {
+            await APYService.shared.setup(factory: polkaswapContext)
+        }
         
         let referralFactory = ReferralsOperationFactory(settings: SettingsManager.shared,
                                                         keychain: Keychain(),
@@ -625,9 +626,17 @@ extension MainTabBarViewFactory {
                                                            farmsViewModelsService: farmsViewModelsService,
                                                            accountPoolsService: poolsService)
         
+        let searchViewModel = ExploreSearchPageViewModel(wireframe: wireframe,
+                                                         assetViewModelsService: assetViewModelsService,
+                                                         poolViewModelsService: poolViewModelsService,
+                                                         farmsViewModelsService: farmsViewModelsService)
+        
         let title = R.string.localizable.commonExplore(preferredLanguages: .currentLocale)
         
-        let view = ExploreViewController(viewModels: [assetsPageViewModel, poolsPageViewModel, farmsPageViewModel])
+        let view = ExploreViewController(
+            viewModels: [assetsPageViewModel, poolsPageViewModel, farmsPageViewModel],
+            searchViewModel: searchViewModel
+        )
         view.localizationManager = LocalizationManager.shared
         
         assetsPageViewModel.view = view
@@ -636,7 +645,6 @@ extension MainTabBarViewFactory {
         
         let navigationController = SoraNavigationController().then {
             $0.navigationBar.topItem?.title = title
-            $0.navigationBar.prefersLargeTitles = true
             $0.navigationBar.layoutMargins.left = 16
             $0.navigationBar.layoutMargins.right = 16
             $0.tabBarItem = createTabBarItem(title: title, image: R.image.wallet.globe())

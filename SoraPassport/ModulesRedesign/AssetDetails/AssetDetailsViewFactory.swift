@@ -64,7 +64,6 @@ final class AssetDetailsViewFactory {
         
         let eventCenter = EventCenter.shared
         let priceInfoService = PriceInfoService.shared
-        let priceTrendService = PriceTrendService()
 
         let wireframe = AssetDetailsWireframe(accountId: accountId,
                                               address: address,
@@ -94,7 +93,6 @@ final class AssetDetailsViewFactory {
                                                               referralFactory: referralFactory)
         
         let itemsFactory = AssetDetailsItemFactory(assetsProvider: assetsProvider,
-                                                   priceTrendService: priceTrendService,
                                                    poolViewModelsFactory: poolViewModelsFactory,
                                                    historyService: historyService,
                                                    recentActivityService: recentActivityService,

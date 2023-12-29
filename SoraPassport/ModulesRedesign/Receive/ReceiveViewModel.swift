@@ -99,11 +99,11 @@ final class ReceiveViewModel {
 
 extension ReceiveViewModel: ReceiveViewModelProtocol {
     func viewDidLoad() {
-        fiatService?.getFiat(completion: { [weak self] fiatData in
-            self?.fiatData = fiatData
-            let size = UIScreen.main.bounds.width - 112
+        Task { [weak self] in
+            self?.fiatData = await self?.fiatService?.getFiat() ?? []
+            let size = await UIScreen.main.bounds.width - 112
             self?.generateQR(with: CGSize(width: size, height: size) )
-        })
+        }
     }
 }
 

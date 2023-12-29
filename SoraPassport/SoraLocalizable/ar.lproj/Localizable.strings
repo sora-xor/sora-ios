@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "تأكيد الإزالة";
 "polkaswap.not.enough.tokens.in.pool" = "لا توجد عملات كافية في الحوض";
 "add.liquidity.confirmation.title" = "تأكيد العرض";
-"add.liquidity.pool.share.title" = "اسهمك من الحوض ستكون";
 "add.liquidity.pool.title" = "حوض %s - %s";
 "add.liquidity.pool.share.description" = "الناتج يقدر. إذا تغير السعر أكثر من %s %% ، فستعود معاملتك.";
 "common.deposit.symbol" = "إيداع %s";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";
