@@ -98,7 +98,6 @@ final class PoolListViewModel {
     weak var view: UIViewController?
     var operationFactory: WalletNetworkOperationFactoryProtocol
     var assetsProvider: AssetProviderProtocol
-    var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
     let marketCapService: MarketCapServiceProtocol
     let farmingService: DemeterFarmingServiceProtocol
     let feeProvider: FeeProviderProtocol
@@ -143,7 +142,9 @@ extension PoolListViewModel: PoolListViewModelProtocol {
     
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        poolsService?.loadAccountPools(isNeedForceUpdate: false)
+
+        let pools = poolsService?.getAccountPools() ?? []
+        loaded(pools: pools)
     }
     
     func viewdismissed() {

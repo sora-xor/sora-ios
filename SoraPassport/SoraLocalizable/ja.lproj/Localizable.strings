@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "解除の確認";
 "polkaswap.not.enough.tokens.in.pool" = "プール内のトークンが不足しています";
 "add.liquidity.confirmation.title" = "供給の確認";
-"add.liquidity.pool.share.title" = "あなたのプールシェアは";
 "add.liquidity.pool.title" = "%s - %s プール";
 "add.liquidity.pool.share.description" = "表示は推定です。価格が%s%%以上変化した場合、取引は元に戻ります";
 "common.deposit.symbol" = "%s デポジット";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

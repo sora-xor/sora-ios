@@ -39,6 +39,7 @@ struct AppearanceFactory {
         configureGlobalNavigationBar()
         configureButtons()
         configureSearchBar()
+        configureTabBarItem()
     }
 
     private static func configureButtons() {
@@ -81,5 +82,9 @@ struct AppearanceFactory {
         UINavigationBar.appearance().backIndicatorImage = backImage
         UINavigationBar.appearance().backIndicatorTransitionMaskImage = backImage
         UIBarButtonItem.appearance().setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
+    }
+    
+    private static func configureTabBarItem() {
+        UITabBarItem.appearance().setTitleTextAttributes(FontType.textBoldXS.attributes, for: .normal)
     }
 }

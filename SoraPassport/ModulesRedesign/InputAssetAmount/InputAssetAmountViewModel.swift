@@ -185,18 +185,16 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
         } else {
             changeAddress()
         }
-
-        feeProvider.getFee(for: .outgoing) { [weak self] fee in
-            self?.fee = fee
-        }
-        
-        fiatService?.getFiat(completion: { [weak self] fiatData in
-            self?.fiatData = fiatData
-        })
         
         firstAssetId = selectedTokenId ?? WalletAssetId.xor.rawValue
         view?.setupButton(isEnabled: false)
         assetsProvider?.add(observer: self)
+        
+        Task { [weak self] in
+            guard let self else { return }
+            self.fee = await self.feeProvider.getFee(for: .outgoing)
+            self.fiatData = await self.fiatService?.getFiat() ?? []
+        }
     }
     
     func choiceBaseAssetButtonTapped() {

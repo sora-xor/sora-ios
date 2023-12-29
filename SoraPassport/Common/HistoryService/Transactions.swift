@@ -195,6 +195,34 @@ struct Liquidity: Transaction {
     let type: TransactionLiquidityType
 }
 
+struct FarmLiquidity: Transaction {
+    enum TransactionLiquidityType {
+        case add
+        case withdraw
+        
+        var subtitle: String {
+            switch self {
+            case .add: return R.string.localizable.demeterStakedLiquidity(preferredLanguages: .currentLocale)
+            case .withdraw: return R.string.localizable.demeterUnstakedLiquidity(preferredLanguages: .currentLocale)
+            }
+        }
+        
+        var image: UIImage? {
+            switch self {
+            case .add: return R.image.wallet.send()
+            case .withdraw: return R.image.wallet.receive()
+            }
+        }
+    }
+    var base: TransactionBase
+    let firstTokenId: String
+    let secondTokenId: String
+    let rewardTokenId: String
+    let amount: Amount
+    let sender: String
+    let type: TransactionLiquidityType
+}
+
 struct TransferData {
     let to: String
     let from: String
@@ -230,6 +258,13 @@ struct LiquidityData {
 struct ClaimRewardsData {
     let amount: String
     let rewardAssetId: String
+}
+
+struct FarmLiquidityData {
+    let baseTokenAmount: String
+    let poolTokenAmount: String
+    let rewardAssetId: String
+    let amount: String
 }
 
 
@@ -279,5 +314,12 @@ extension Array where Element == TxHistoryItemParam {
     func toClaimRewardData() -> ClaimRewardsData {
         return ClaimRewardsData(amount: self.first { $0.paramName == "amount" }?.paramValue ?? "" ,
                                 rewardAssetId: self.first { $0.paramName == "assetId" }?.paramValue ?? "")
+    }
+    
+    func toFarmLiquidity() -> FarmLiquidityData {
+        return FarmLiquidityData(baseTokenAmount: self.first { $0.paramName == "baseAssetId" }?.paramValue ?? "",
+                                 poolTokenAmount: self.first { $0.paramName == "assetId" }?.paramValue ?? "",
+                                 rewardAssetId: self.first { $0.paramName == "rewardAssetId" }?.paramValue ?? "",
+                                 amount: self.first { $0.paramName == "amount" }?.paramValue ?? "")
     }
 }

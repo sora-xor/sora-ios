@@ -42,6 +42,7 @@ final class FarmSliderView: SoramitsuView {
         stackView.sora.distribution = .fill
         stackView.sora.backgroundColor = .custom(uiColor: .clear)
         stackView.spacing = 8
+        stackView.clipsToBounds = false
         return stackView
     }()
     
@@ -81,6 +82,7 @@ final class FarmSliderView: SoramitsuView {
         slider.maximumTrackTintColor = SoramitsuUI.shared.theme.palette.color(.bgSurfaceVariant)
         slider.thumbTintColor = SoramitsuUI.shared.theme.palette.color(.additionalPolkaswap)
         slider.translatesAutoresizingMaskIntoConstraints = false
+        slider.clipsToBounds = false
         return slider
     }()
     

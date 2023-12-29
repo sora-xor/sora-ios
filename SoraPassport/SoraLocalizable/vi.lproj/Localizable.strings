@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "Xác nhận Rút";
 "polkaswap.not.enough.tokens.in.pool" = "Không đủ token trong pool";
 "add.liquidity.confirmation.title" = "Xác nhận cung cấp";
-"add.liquidity.pool.share.title" = "Pool share nhóm của bạn sẽ là";
 "add.liquidity.pool.title" = "%s - %s Pool";
 "add.liquidity.pool.share.description" = "Kết quả là ước lượng. Nếu giá biến động hơn %s%% thì giao dịch của bạn sẽ hoàn tác.";
 "common.deposit.symbol" = "%s nạp tiền";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

@@ -96,6 +96,39 @@ extension Decimal {
         
         return "$" + priceValueText
     }
+    
+    func priceDeltaAttributedText() -> SoramitsuAttributedText? {
+        guard let percentText = NumberFormatter.percent.stringFromDecimal(self) else { return nil }
+
+        let deltaColor: SoramitsuColor
+        let sign: String
+        
+        switch self {
+        case let x where x < 0:
+            sign = "-"
+            deltaColor = .statusError
+        case let x where x == 0:
+            sign = ""
+            deltaColor = .fgPrimary
+        case let x where x > 0:
+            sign = "+"
+            deltaColor = .statusSuccess
+        default:
+            sign = ""
+            deltaColor = .fgPrimary
+        }
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        
+        let deltaText = "\(sign)\(percentText)%"
+        let deltaTextReversed = "%\(percentText)\(sign)"
+        
+        let text = isRTL ? deltaTextReversed : deltaText
+        let alignment: NSTextAlignment = isRTL ? .left : .right
+
+        let attributes = SoramitsuTextAttributes(fontData: FontType.textBoldXS, textColor: deltaColor, alignment: alignment)
+        return SoramitsuTextItem(text: text, attributes: attributes)
+    }
 }
 
 extension Decimal? {
@@ -105,17 +138,7 @@ extension Decimal? {
     }
     
     func priceDeltaAttributedText() -> SoramitsuAttributedText? {
-        guard let self, let percentText = NumberFormatter.percent.stringFromDecimal(self * 100) else { return nil }
-        let isRTL = LocalizationManager.shared.isRightToLeft
-        
-        let deltaText = "\(percentText)%"
-        let deltaTextReversed = "%\(percentText)"
-        
-        let text = isRTL ? deltaTextReversed : deltaText
-        let alignment: NSTextAlignment = isRTL ? .left : .right
-        let deltaColor: SoramitsuColor = self > 0 ? .statusSuccess : .statusError
-        let attributes = SoramitsuTextAttributes(fontData: FontType.textBoldXS, textColor: deltaColor, alignment: alignment)
-        
-        return SoramitsuTextItem(text: text, attributes: attributes)
+        guard let self else { return nil }
+        return self.priceDeltaAttributedText()
     }
 }

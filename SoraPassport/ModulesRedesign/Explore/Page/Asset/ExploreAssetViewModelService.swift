@@ -38,6 +38,23 @@ final class ExploreAssetViewModelService {
     let itemFactory: ExploreItemFactory
     private let assetInfos: [AssetInfo]
     
+    @Published var viewModels: [ExploreAssetViewModel] = {
+        let serialNumbers = Array(1...20)
+        let shimmersAssetItems = serialNumbers.map {
+            ExploreAssetViewModel(
+                assetId: nil,
+                symbol: nil,
+                title: nil,
+                price: nil,
+                serialNumber: String($0),
+                marketCap: nil,
+                icon: nil,
+                deltaPrice: nil
+            )
+        }
+        return shimmersAssetItems
+    }()
+    
     init(
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
@@ -54,18 +71,18 @@ final class ExploreAssetViewModelService {
         
         let assetIds = assetInfos.map { $0.assetId }
         let result = await PriceInfoService.shared.getPriceInfo(for: assetIds)
-        
+
         let assetMarketCap = result.marketCapInfo.compactMap { asset in
-            let price = result.fiatData.first { asset.assetId == $0.id }?.priceUsd?.decimalValue ?? 0
-            return ExploreAssetLiquidity(tokenId: asset.assetId, marketCap: asset.liquidity * price, oldPrice: asset.hourDelta)
+            return ExploreAssetLiquidity(tokenId: asset.assetId, marketCap: asset.liquidity, oldPrice: asset.hourDelta)
         }.sorted { $0.marketCap > $1.marketCap }
         
         var fullListAssets = assetMarketCap.compactMap { marketCap in
             let price = result.fiatData.first(where: { $0.id == marketCap.tokenId })?.priceUsd?.decimalValue ?? 0
             let deltaPrice: Decimal? = marketCap.oldPrice > 0 ? (price / marketCap.oldPrice - 1) * 100 : nil
+            
             return self.itemFactory.createExploreAssetViewModel(with: marketCap.tokenId,
                                                                 price: price,
-                                                                deltaPrice: deltaPrice,
+                                                                deltaPrice: marketCap.oldPrice,
                                                                 marketCap: marketCap.marketCap)
         }
         
@@ -74,6 +91,7 @@ final class ExploreAssetViewModelService {
         if fullListAssets.isEmpty {
             return await setup()
         } else {
+            viewModels = fullListAssets
             return fullListAssets
         }
     }

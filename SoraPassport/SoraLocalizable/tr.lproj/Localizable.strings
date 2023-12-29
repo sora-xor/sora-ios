@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "Kaldırmayı Onayla";
 "polkaswap.not.enough.tokens.in.pool" = "Havuzda yeterli token yok";
 "add.liquidity.confirmation.title" = "Tedarik onaylayın";
-"add.liquidity.pool.share.title" = "Havuz payınız";
 "add.liquidity.pool.title" = "%s - %s Havuz";
 "add.liquidity.pool.share.description" = "Çıktı tahmin edilir. Fiyat %s %% değerinden fazla değişirse işleminiz geri alınır.";
 "common.deposit.symbol" = "%s yatırım";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

@@ -60,8 +60,6 @@ final class ExploreAssetCell: SoramitsuTableViewCell {
     }
     
     private func updateContent(with viewModel: ExploreAssetViewModel) {
-        assetView.serialNumber.sora.text = viewModel.serialNumber
-        
         if let icon = viewModel.icon {
             assetView.assetImageView.sora.picture = .logo(image: icon)
             assetView.assetImageView.sora.loadingPlaceholder.type = .none
@@ -95,7 +93,7 @@ extension ExploreAssetCell: CellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
-        
+        assetView.serialNumber.sora.text = item.serialNumber
         updateContent(with: item.assetViewModel)
     }
 }

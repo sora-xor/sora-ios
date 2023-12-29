@@ -28,14 +28,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//
-//  Warningable.swift
-//  SoraPassport
-//
-//  Created by Ivan Shlyapkin on 6/23/23.
-//  Copyright © 2023 Soramitsu. All rights reserved.
-//
-
 import Foundation
 
 protocol Warningable {

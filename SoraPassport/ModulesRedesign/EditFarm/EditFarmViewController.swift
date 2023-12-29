@@ -63,7 +63,7 @@ final class EditFarmViewController: SoramitsuViewController {
             case .stake(let item):
                 let cell: EditFarmCell? = tableView.dequeueReusableCell(withIdentifier: "EditFarmCell",
                                                                         for: indexPath) as? EditFarmCell
-                cell?.set(item: item, context: nil)
+                cell?.set(item: item)
                 return cell ?? UITableViewCell()
             }
         }
@@ -116,7 +116,11 @@ final class EditFarmViewController: SoramitsuViewController {
     }
 }
 
-extension EditFarmViewController: EditFarmViewProtocol {}
+extension EditFarmViewController: EditFarmViewProtocol {
+    func dismiss(competion: (() -> Void)?) {
+        dismiss(animated: true, completion: competion)
+    }
+}
 
 extension EditFarmViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {

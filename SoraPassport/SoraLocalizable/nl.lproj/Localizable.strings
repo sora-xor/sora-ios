@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "Bevestig Verwijderen";
 "polkaswap.not.enough.tokens.in.pool" = "Niet genoeg tokens in de pool";
 "add.liquidity.confirmation.title" = "Bevestig voorraad";
-"add.liquidity.pool.share.title" = "Jouw aandeel in de pool bedraagt";
 "add.liquidity.pool.title" = "%s - %s Pool";
 "add.liquidity.pool.share.description" = "De output wordt geschat. Als de prijs meer dan {slippageTolerance}% verandert, wordt uw transactie teniet gedaan.";
 "common.deposit.symbol" = "%s storting";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";
