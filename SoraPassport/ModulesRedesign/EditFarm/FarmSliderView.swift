@@ -42,6 +42,7 @@ final class FarmSliderView: SoramitsuView {
         stackView.sora.distribution = .fill
         stackView.sora.backgroundColor = .custom(uiColor: .clear)
         stackView.spacing = 8
+        stackView.clipsToBounds = false
         return stackView
     }()
     
@@ -76,13 +77,10 @@ final class FarmSliderView: SoramitsuView {
     }()
     
     public lazy var slider: UISlider = {
-        let size: CGFloat = 24
-        let thumbImage = UIImage.createThumbImage(size: size, color: SoramitsuUI.shared.theme.palette.color(.additionalPolkaswap))
-        
         let slider = UISlider()
         slider.minimumTrackTintColor = SoramitsuUI.shared.theme.palette.color(.additionalPolkaswap)
         slider.maximumTrackTintColor = SoramitsuUI.shared.theme.palette.color(.bgSurfaceVariant)
-        slider.setThumbImage(thumbImage, for: .normal)
+        slider.thumbTintColor = SoramitsuUI.shared.theme.palette.color(.additionalPolkaswap)
         slider.translatesAutoresizingMaskIntoConstraints = false
         slider.clipsToBounds = false
         return slider
@@ -113,29 +111,5 @@ final class FarmSliderView: SoramitsuView {
             make.trailing.centerY.equalTo(controlView)
             make.height.equalTo(32)
         }
-    }
-}
-
-extension UIImage {
-    class func createThumbImage(size: CGFloat, color: UIColor) -> UIImage {
-        let layerFrame = CGRectMake(0, 0, size, size)
-
-        let shapeLayer = CAShapeLayer()
-        shapeLayer.path = CGPath(ellipseIn: layerFrame.insetBy(dx: 1, dy: 1), transform: nil)
-        shapeLayer.fillColor = color.cgColor
-        shapeLayer.strokeColor = color.withAlphaComponent(0.65).cgColor
-
-        let layer = CALayer.init()
-        layer.frame = layerFrame
-        layer.addSublayer(shapeLayer)
-        return self.imageFromLayer(layer: layer)
-    }
-    
-    class func imageFromLayer(layer: CALayer) -> UIImage {
-        UIGraphicsBeginImageContextWithOptions(layer.frame.size, false, UIScreen.main.scale)
-        layer.render(in: UIGraphicsGetCurrentContext()!)
-        let outputImage = UIGraphicsGetImageFromCurrentImageContext()!
-        UIGraphicsEndImageContext()
-        return outputImage
     }
 }

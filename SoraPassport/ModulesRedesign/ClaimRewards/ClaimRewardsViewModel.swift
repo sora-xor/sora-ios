@@ -51,7 +51,7 @@ final class ClaimRewardsViewModel {
     private let itemFactory = ClaimRewardsItemFactory()
     private let service: ClaimRewardsServiceProtocol
     private let walletService: WalletServiceProtocol
-    private let wireframe: ClaimRewardsWireframeProtocol
+    private let wireframe: ConfirmTransactionWireframeProtocol
     private let assetManager: AssetManagerProtocol
     private let completion: (() -> Void)?
     
@@ -86,7 +86,7 @@ final class ClaimRewardsViewModel {
          detailsFactory: DetailViewModelFactoryProtocol,
          service: ClaimRewardsServiceProtocol,
          walletService: WalletServiceProtocol,
-         wireframe: ClaimRewardsWireframeProtocol,
+         wireframe: ConfirmTransactionWireframeProtocol,
          assetManager: AssetManagerProtocol,
          completion: (() -> Void)?
     ) {

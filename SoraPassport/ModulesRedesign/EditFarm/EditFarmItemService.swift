@@ -37,27 +37,58 @@ protocol EditFarmItemServiceProtocol {
     func setup()
 }
 
+enum FarmTransaction {
+    case deposit
+    case withdraw
+    
+    var transactionType: TransactionType {
+        switch self {
+        case .deposit:
+            return TransactionType.demeterDeposit
+        case .withdraw:
+            return TransactionType.demeterWithdraw
+        }
+    }
+}
+
 final class EditFarmItemService: EditFarmItemServiceProtocol {
+    @Published var isMaxButtonHidden: Bool = false
+    @Published var confirmButtonEnabled: Bool = false
     @Published var feeText: String?
-    @Published var networkFeeAmount: String = ""
-    @Published var buttonEnabled: Bool = false
+    @Published var networkFeeText: String = ""
+    @Published var percentageText: String = ""
+    @Published var willBePercentageText: String = ""
     
-    private var feeInfo: (depositFee: Decimal, withdrawFee: Decimal)?
+    var amount: Decimal = Decimal(0)
+    var farmTransaction: FarmTransaction = .deposit
+    var networkFeeAmount: Decimal = Decimal(0)
     
+    private var feeInfo: (depositFee: Decimal, withdrawFee: Decimal)? {
+        didSet {
+            guard let feeInfo else { return }
+            let feeText = NumberFormatter.cryptoAssets.stringFromDecimal(feeInfo.depositFee) ?? ""
+            networkFeeText = feeText + " XOR"
+        }
+    }
+    
+    private let poolInfo: PoolInfo
     private let userFarm: UserFarm
     private let currentPercentage: Float
     private let feePercentage: Decimal
     
     private let feeProvider: FeeProviderProtocol
+    private let userBalance: Decimal
     private let callFactory = SubstrateCallFactory()
     private var cancellables = Set<AnyCancellable>()
     private let output: PassthroughSubject<Void, Never> = .init()
     
-    init(userFarm: UserFarm, feeProvider: FeeProviderProtocol, currentPercentage: Float, feePercentage: Decimal) {
+    init(poolInfo: PoolInfo, userFarm: UserFarm, feeProvider: FeeProviderProtocol, currentPercentage: Float, feePercentage: Decimal, userBalance: Decimal) {
         self.userFarm = userFarm
         self.feeProvider = feeProvider
-        self.currentPercentage = currentPercentage
+        self.currentPercentage = currentPercentage * 100
         self.feePercentage = feePercentage
+        self.poolInfo = poolInfo
+        self.userBalance = userBalance
     }
     
     func setup() {
@@ -67,17 +98,43 @@ final class EditFarmItemService: EditFarmItemServiceProtocol {
     }
     
     func transform(input: AnyPublisher<Float, Never>) -> AnyPublisher<Void, Never> {
-        input.sink { [weak self] percentage in
+        input.sink { [weak self] value in
             guard let self else { return }
             
-            let feePercentage = percentage * 100 > currentPercentage ? feePercentage : 0
+            farmTransaction = value > currentPercentage ? .deposit : .withdraw
+            
+            isMaxButtonHidden = value == 100
+
+            let percent = NumberFormatter.percent.string(from: value as NSNumber) ?? ""
+            percentageText = percent + "%"
+            
+            let feePercentage = value > currentPercentage ? feePercentage : 0
             feeText = "\(feePercentage)%"
             
             if let feeInfo = self.feeInfo {
-                let feeAmount = percentage > currentPercentage ? feeInfo.depositFee : feeInfo.withdrawFee
-                let feeText = NumberFormatter.cryptoAssets.stringFromDecimal(feeAmount) ?? ""
-                networkFeeAmount = feeText + " XOR"
+                networkFeeAmount = value > currentPercentage ? feeInfo.depositFee : feeInfo.withdrawFee
+                
+                let feeText = NumberFormatter.cryptoAssets.stringFromDecimal(networkFeeAmount) ?? ""
+                networkFeeText = feeText + " XOR"
+
+                confirmButtonEnabled = userBalance > networkFeeAmount && value != currentPercentage
             }
+            
+            let accountPoolBalance = poolInfo.accountPoolBalance ?? Decimal(0)
+            let pooledTokens = userFarm.pooledTokens ?? Decimal(0)
+
+            amount = abs((accountPoolBalance * (value / Float(100)).toDecimal()) - pooledTokens)
+            let feeAmount = value > currentPercentage ? amount * feePercentage / 100 : 0
+            let stakingAmountWithoutFee = amount - feeAmount
+            
+            var shareWillBe = ((stakingAmountWithoutFee + pooledTokens) / (accountPoolBalance - feeAmount)) * 100
+
+            if value.toDecimal() < shareWillBe {
+                shareWillBe = Decimal(Double(value))
+            }
+
+            let shareWillBePercent = NumberFormatter.percent.stringFromDecimal(shareWillBe) ?? ""
+            willBePercentageText = shareWillBePercent + "%"
 
         }.store(in: &cancellables)
         return output.eraseToAnyPublisher()
@@ -109,5 +166,11 @@ private extension EditFarmItemService {
                                                                         amount: BigUInt(1))
         
         return await feeProvider.getFee(for: call)
+    }
+}
+
+extension Float {
+    func toDecimal() -> Decimal {
+        return Decimal(Double(self))
     }
 }

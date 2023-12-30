@@ -42,7 +42,7 @@ final class EditFarmItemFactory {
         sharePercentage: Decimal,
         stakedValue: Float,
         viewModel: EditFarmViewModelProtocol,
-        service: EditFarmItemService
+        service: EditFarmItemService?
     ) -> EditFarmItem {
         
         let editFarmItem = EditFarmItem(

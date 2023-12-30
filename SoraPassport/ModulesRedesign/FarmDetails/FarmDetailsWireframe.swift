@@ -37,7 +37,6 @@ import RobinHood
 protocol FarmDetailsWireframeProtocol: AlertPresentable {
     func showPoolDetails(on controller: UIViewController?,
                          poolInfo: PoolInfo?,
-                         assetManager: AssetManagerProtocol,
                          fiatService: FiatServiceProtocol?,
                          poolsService: PoolsServiceInputProtocol?,
                          providerFactory: BalanceProviderFactory,
@@ -50,13 +49,13 @@ protocol FarmDetailsWireframeProtocol: AlertPresentable {
                           farm: Farm,
                           poolInfo: PoolInfo?,
                           assetsProvider: AssetProviderProtocol?,
-                          detailsFactory: DetailViewModelFactoryProtocol)
+                          detailsFactory: DetailViewModelFactoryProtocol,
+                          completion: (() -> Void)?)
     
     func showClaimRewards(on controller: UIViewController?,
                           farm: Farm,
                           poolInfo: PoolInfo?,
                           fiatService: FiatServiceProtocol?,
-                          assetManager: AssetManagerProtocol,
                           assetsProvider: AssetProviderProtocol?,
                           detailsFactory: DetailViewModelFactoryProtocol,
                           completion: (() -> Void)?)
@@ -64,18 +63,20 @@ protocol FarmDetailsWireframeProtocol: AlertPresentable {
 
 final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
     
-    let feeProvider: FeeProviderProtocol
-    let walletService: WalletServiceProtocol
+    private let feeProvider: FeeProviderProtocol
+    private let walletService: WalletServiceProtocol
+    private let assetManager: AssetManagerProtocol
     
     init(feeProvider: FeeProviderProtocol,
-         walletService: WalletServiceProtocol) {
+         walletService: WalletServiceProtocol,
+         assetManager: AssetManagerProtocol) {
         self.feeProvider = feeProvider
         self.walletService = walletService
+        self.assetManager = assetManager
     }
     
     func showPoolDetails(on controller: UIViewController?,
                          poolInfo: PoolInfo?,
-                         assetManager: AssetManagerProtocol,
                          fiatService: FiatServiceProtocol?,
                          poolsService: PoolsServiceInputProtocol?,
                          providerFactory: BalanceProviderFactory,
@@ -120,13 +121,17 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
                           farm: Farm,
                           poolInfo: PoolInfo?,
                           assetsProvider: AssetProviderProtocol?,
-                          detailsFactory: DetailViewModelFactoryProtocol) {
+                          detailsFactory: DetailViewModelFactoryProtocol,
+                          completion: (() -> Void)?) {
         guard
             let poolInfo,
             let stakeDetailsController = EditFarmViewFactory.createView(farm: farm,
                                                                         poolInfo: poolInfo,
                                                                         assetsProvider: assetsProvider,
-                                                                        feeProvider: feeProvider) else {
+                                                                        feeProvider: feeProvider,
+                                                                        walletService: walletService,
+                                                                        assetManager: assetManager,
+                                                                        completion: completion) else {
             return
         }
         
@@ -147,7 +152,6 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
                           farm: Farm,
                           poolInfo: PoolInfo?,
                           fiatService: FiatServiceProtocol?,
-                          assetManager: AssetManagerProtocol,
                           assetsProvider: AssetProviderProtocol?,
                           detailsFactory: DetailViewModelFactoryProtocol,
                           completion: (() -> Void)?) {

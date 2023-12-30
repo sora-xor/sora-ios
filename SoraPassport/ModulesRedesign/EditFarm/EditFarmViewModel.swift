@@ -48,6 +48,11 @@ final class EditFarmViewModel {
     private weak var assetsProvider: AssetProviderProtocol?
     private let itemFactory = EditFarmItemFactory()
     private let feeProvider: FeeProviderProtocol
+    private var service: EditFarmItemService?
+    private let walletService: WalletServiceProtocol
+    private let wireframe: ConfirmTransactionWireframeProtocol
+    private let assetManager: AssetManagerProtocol
+    private let completion: (() -> Void)?
     
     internal var sharePercentage: Decimal = 0
     private var fee: Decimal = 0
@@ -57,11 +62,19 @@ final class EditFarmViewModel {
     init(farm: Farm,
          poolInfo: PoolInfo,
          assetsProvider: AssetProviderProtocol?,
-         feeProvider: FeeProviderProtocol) {
+         feeProvider: FeeProviderProtocol,
+         walletService: WalletServiceProtocol,
+         wireframe: ConfirmTransactionWireframeProtocol,
+         assetManager: AssetManagerProtocol,
+         completion: (() -> Void)?) {
         self.farm = farm
         self.poolInfo = poolInfo
         self.assetsProvider = assetsProvider
         self.feeProvider = feeProvider
+        self.walletService = walletService
+        self.wireframe = wireframe
+        self.assetManager = assetManager
+        self.completion = completion
     }
     
     deinit {
@@ -92,12 +105,15 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
     private func contentSection() -> EditFarmSection {
         var items: [EditFarmSectionItem] = []
         
-        if let userFarmInfo {
-            let service = EditFarmItemService(userFarm: userFarmInfo,
+        if let userFarmInfo, let balance = assetsProvider?.getBalances(with: [WalletAssetId.xor.rawValue]).first {
+            
+            service = EditFarmItemService(poolInfo: poolInfo,
+                                              userFarm: userFarmInfo,
                                               feeProvider: feeProvider,
                                               currentPercentage: stakedValue,
-                                              feePercentage: farm.depositFee)
-            service.setup()
+                                              feePercentage: farm.depositFee,
+                                              userBalance: balance.balance.decimalValue)
+            service?.setup()
             
             let editFarmItem = itemFactory.createEditFarmItem(stakeFeeAmount: farm.depositFee,
                                                               sharePercentage: sharePercentage,
@@ -141,9 +157,65 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
             from: view
         )
     }
-    
+
     func confirmButtonTapped() {
-        print("Confirm button tapped.")
+        guard let service, let userFarmInfo else { return }
+        
+        let context: [String: String] = [
+            TransactionContextKeys.transactionType: service.farmTransaction.transactionType.rawValue,
+            TransactionContextKeys.rewardAsset: userFarmInfo.rewardAssetId,
+            TransactionContextKeys.isFarm: userFarmInfo.isFarm ? "1" : "0",
+        ]
+        
+        let transferInfo = TransferInfo(
+            source: userFarmInfo.baseAssetId,
+            destination: userFarmInfo.poolAssetId,
+            amount: AmountDecimal(value: service.amount),
+            asset: "",
+            details: "",
+            fees: [],
+            context: context
+        )
+        
+        wireframe.showActivityIndicator()
+        walletService.transfer(info: transferInfo, runCompletionIn: .main) { [weak self] (optionalResult) in
+            self?.wireframe.hideActivityIndicator()
+
+            if let result = optionalResult {
+                self?.handleTransfer(result: result)
+            }
+        }
+    }
+    
+    private func handleTransfer(result: Result<Data, Swift.Error>) {
+        guard let userFarmInfo, let service else { return }
+        
+        var status: TransactionBase.Status = .pending
+        var txHash = ""
+        if case .failure = result {
+            status = .failed
+        }
+        if case let .success(hex) = result {
+            txHash = hex.toHex(includePrefix: true)
+        }
+        let base = TransactionBase(txHash: txHash,
+                                   blockHash: "",
+                                   fee: Amount(value: service.networkFeeAmount * pow(10, 18)),
+                                   status: status,
+                                   timestamp: "\(Date().timeIntervalSince1970)")
+        
+        let transaction = FarmLiquidity(base: base,
+                                        firstTokenId: userFarmInfo.baseAssetId,
+                                        secondTokenId: userFarmInfo.poolAssetId,
+                                        rewardTokenId: userFarmInfo.rewardAssetId,
+                                        amount: Amount(value: userFarmInfo.rewards ?? Decimal(0)),
+                                        sender: SelectedWalletSettings.shared.currentAccount?.address ?? "",
+                                        type: service.farmTransaction.transactionType == .demeterDeposit ? .add : .withdraw)
+        
+        EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: transaction))
+        wireframe.showActivityDetails(on: view?.controller, model: transaction, assetManager: assetManager) { [weak self] in
+            self?.view?.dismiss(competion: self?.completion)
+        }
     }
 }
 

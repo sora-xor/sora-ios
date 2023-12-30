@@ -37,11 +37,19 @@ final class EditFarmViewFactory {
     static func createView(farm: Farm,
                            poolInfo: PoolInfo,
                            assetsProvider: AssetProviderProtocol?,
-                           feeProvider: FeeProviderProtocol) -> EditFarmViewController? {
+                           feeProvider: FeeProviderProtocol,
+                           walletService: WalletServiceProtocol,
+                           assetManager: AssetManagerProtocol,
+                           completion: (() -> Void)?) -> EditFarmViewController? {
+        let wireframe = ConfirmTransactionWireframe()
         let viewModel = EditFarmViewModel(farm: farm,
                                           poolInfo: poolInfo,
                                           assetsProvider: assetsProvider,
-                                          feeProvider: feeProvider)
+                                          feeProvider: feeProvider,
+                                          walletService: walletService,
+                                          wireframe: wireframe,
+                                          assetManager: assetManager,
+                                          completion: completion)
         
         let view = EditFarmViewController(viewModel: viewModel)
         viewModel.view = view

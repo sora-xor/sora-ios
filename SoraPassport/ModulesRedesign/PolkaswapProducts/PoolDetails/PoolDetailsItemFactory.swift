@@ -159,7 +159,8 @@ final class PoolDetailsItemFactory {
                     poolInfo: PoolInfo?,
                     userFarmInfo: UserFarm?,
                     detailsFactory: DetailViewModelFactoryProtocol,
-                    viewModel: FarmDetailsViewModelProtocol
+                    viewModel: FarmDetailsViewModelProtocol,
+                    supplyItem: SupplyPoolItem?
     ) -> FarmDetailsItem {
         let baseAssetSymbol = farm.baseAsset?.symbol ?? ""
         let poolAssetSymbol = farm.poolAsset?.symbol ?? ""
@@ -177,7 +178,11 @@ final class PoolDetailsItemFactory {
         var stackingState: FarmDetailsBottomButtonState = .stackingUnavailable
 
         if let pooledByAccount = poolInfo?.baseAssetPooledByAccount, !(pooledByAccount.isZero) {
-            stackingState = pooledTokens.isZero ? .startStacking : .editFarm
+            if pooledTokens.isZero {
+                stackingState = rewardsAmount.isZero ? .startStacking : .startStackingWithRewards
+            } else {
+                stackingState = .editFarm
+            }
         }
         
         let farmDetailsItem = FarmDetailsItem(title: title,
@@ -188,7 +193,8 @@ final class PoolDetailsItemFactory {
                                               detailsViewModel: detailsViewModels,
                                               typeImage: (userFarmInfo?.pooledTokens ?? 0) > 0 ? .activeFarming : .incativeFarming,
                                               stackingState: stackingState,
-                                              areThereRewards: !rewardsAmount.isZero)
+                                              areThereRewards: !rewardsAmount.isZero,
+                                              supplyItem: supplyItem)
         
         farmDetailsItem.onTapTopButton = { [weak viewModel] in
             viewModel?.claimRewardButtonTapped()

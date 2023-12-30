@@ -55,7 +55,6 @@ final class PoolDetailsViewModel {
         didSet {
             Task {
                 await updateContent()
-                
             }
         }
     }
@@ -76,6 +75,7 @@ final class PoolDetailsViewModel {
             if detailsContent != nil {
                 reload()
             }
+            print("OLOLO detailsContent reload")
         }
     }
 
@@ -121,8 +121,6 @@ final class PoolDetailsViewModel {
     func updateContent() async {
         reload()
 
-//        task?.cancel()
-//        task = 
         Task {
             async let apy = apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
             

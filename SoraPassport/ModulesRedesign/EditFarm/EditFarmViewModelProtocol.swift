@@ -37,7 +37,9 @@ import UIKit
 typealias EditFarmDataSource = UITableViewDiffableDataSource<EditFarmSection, EditFarmSectionItem>
 typealias EditFarmSnapshot = NSDiffableDataSourceSnapshot<EditFarmSection, EditFarmSectionItem>
 
-protocol EditFarmViewProtocol: ControllerBackedProtocol {}
+protocol EditFarmViewProtocol: ControllerBackedProtocol {
+    func dismiss(competion: (() -> Void)?)
+}
 
 protocol EditFarmViewModelProtocol: AnyObject {
     var snapshotPublisher: Published<EditFarmSnapshot>.Publisher { get }

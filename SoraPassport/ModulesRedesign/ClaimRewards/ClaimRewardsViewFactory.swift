@@ -53,7 +53,7 @@ final class ClaimRewardsViewFactory {
             detailsFactory: detailsFactory,
             service: service,
             walletService: walletService,
-            wireframe: ClaimRewardsWireframe(),
+            wireframe: ConfirmTransactionWireframe(),
             assetManager: assetManager,
             completion: completion
         )

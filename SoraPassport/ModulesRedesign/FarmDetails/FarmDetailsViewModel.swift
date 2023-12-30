@@ -56,7 +56,6 @@ final class FarmDetailsViewModel {
     }
     
     var fiatService: FiatServiceProtocol?
-    let assetManager: AssetManagerProtocol
     let providerFactory: BalanceProviderFactory
     let operationFactory: WalletNetworkOperationFactoryProtocol?
     private weak var assetsProvider: AssetProviderProtocol?
@@ -70,7 +69,6 @@ final class FarmDetailsViewModel {
          poolsService: PoolsServiceInputProtocol?,
          poolViewModelsService: ExplorePoolsViewModelService? = nil,
          fiatService: FiatServiceProtocol?,
-         assetManager: AssetManagerProtocol,
          providerFactory: BalanceProviderFactory,
          operationFactory: WalletNetworkOperationFactoryProtocol?,
          assetsProvider: AssetProviderProtocol?,
@@ -83,7 +81,6 @@ final class FarmDetailsViewModel {
         self.poolsService = poolsService
         self.poolViewModelsService = poolViewModelsService
         self.fiatService = fiatService
-        self.assetManager = assetManager
         self.providerFactory = providerFactory
         self.operationFactory = operationFactory
         self.assetsProvider = assetsProvider
@@ -105,6 +102,15 @@ final class FarmDetailsViewModel {
                 self.viewModels = viewModels
             }
             .store(in: &cancellables)
+    }
+    
+    private func updateContent() {
+        Task { [weak self] in
+            guard let self, let baseAssetId = self.farm.baseAsset?.assetId, let targetAssetId = self.farm.poolAsset?.assetId else { return }
+            let poolInfo = await self.poolsService?.loadPool(by: baseAssetId, targetAssetId: targetAssetId)
+            self.poolInfo = poolInfo
+            self.snapshot = self.createSnapshot(poolInfo: poolInfo)
+        }
     }
 }
 
@@ -147,24 +153,25 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
             $0.rewardAssetId == farm.rewardAsset?.assetId
         }
         
-        let poolDetailsItem = itemFactory.farmDetail(with: farm,
-                                                     poolInfo: poolInfo,
-                                                     userFarmInfo: userFarmInfo,
-                                                     detailsFactory: detailsFactory,
-                                                     viewModel: self)
-        
-        
-        items.append(contentsOf: [
-            .details(poolDetailsItem),
-            .space(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear)))
-        ])
+        var supplyLiquidityItem: SupplyPoolItem?
         
         if let poolInfo,
            let poolViewModel = viewModels.first(where: { $0.baseAssetId == poolInfo.baseAssetId && $0.targetAssetId == poolInfo.targetAssetId }),
            poolInfo.accountPoolBalance?.isZero ?? true {
-            let supplyLiquidityItem = itemFactory.createSupplyLiquidityItem(poolViewModel: poolViewModel, viewModel: self)
-            items.append(.liquidity(supplyLiquidityItem))
+            supplyLiquidityItem = itemFactory.createSupplyLiquidityItem(poolViewModel: poolViewModel, viewModel: self)
         }
+        
+        let poolDetailsItem = itemFactory.farmDetail(with: farm,
+                                                     poolInfo: poolInfo,
+                                                     userFarmInfo: userFarmInfo,
+                                                     detailsFactory: detailsFactory,
+                                                     viewModel: self,
+                                                     supplyItem: supplyLiquidityItem)
+        
+        
+        items.append(contentsOf: [
+            .details(poolDetailsItem),
+        ])
         
         return FarmDetailsSection(items: items)
     }
@@ -181,7 +188,6 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     func supplyLiquidityTapped() {        
         wireframe?.showPoolDetails(on: view?.controller,
                                    poolInfo: poolInfo,
-                                   assetManager: assetManager,
                                    fiatService: fiatService,
                                    poolsService: poolsService,
                                    providerFactory: providerFactory,
@@ -191,29 +197,21 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
                                    farmingService: farmingService)
     }
     
-    func stakeButtonTapped() {
-        wireframe?.showStakeDetails(on: view?.controller,
-                                    farm: farm,
-                                    poolInfo: poolInfo,
-                                    assetsProvider: assetsProvider,
-                                    detailsFactory: detailsFactory)
-    }
-    
     func claimRewardButtonTapped() {
         wireframe?.showClaimRewards(on: view?.controller,
                                     farm: farm,
                                     poolInfo: poolInfo,
                                     fiatService: fiatService,
-                                    assetManager: assetManager,
                                     assetsProvider: assetsProvider,
-                                    detailsFactory: detailsFactory) { [weak self] in
+                                    detailsFactory: detailsFactory,
+                                    completion: {
             Task { [weak self] in
                 guard let self, let baseAssetId = self.farm.baseAsset?.assetId, let targetAssetId = self.farm.poolAsset?.assetId else { return }
                 let poolInfo = await self.poolsService?.loadPool(by: baseAssetId, targetAssetId: targetAssetId)
                 self.poolInfo = poolInfo
                 self.snapshot = self.createSnapshot(poolInfo: poolInfo)
             }
-        }
+        })
     }
     
     func editFarmButtonTapped() {
@@ -221,6 +219,14 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
                                     farm: farm,
                                     poolInfo: poolInfo,
                                     assetsProvider: assetsProvider,
-                                    detailsFactory: detailsFactory)
+                                    detailsFactory: detailsFactory,
+                                    completion: {
+            Task { [weak self] in
+                guard let self, let baseAssetId = self.farm.baseAsset?.assetId, let targetAssetId = self.farm.poolAsset?.assetId else { return }
+                let poolInfo = await self.poolsService?.loadPool(by: baseAssetId, targetAssetId: targetAssetId)
+                self.poolInfo = poolInfo
+                self.snapshot = self.createSnapshot(poolInfo: poolInfo)
+            }
+        })
     }
 }

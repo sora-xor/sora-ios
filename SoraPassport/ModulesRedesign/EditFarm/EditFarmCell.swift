@@ -40,14 +40,14 @@ final class EditFarmCell: SoramitsuTableViewCell {
     
     private var item: EditFarmItem? {
         didSet {
-            guard let item else { return }
-            let output = item.service.transform(input: input.eraseToAnyPublisher())
+            guard let item, let service = item.service else { return }
+            let output = service.transform(input: input.eraseToAnyPublisher())
             output
                 .receive(on: DispatchQueue.main)
                 .sink { event in }
                 .store(in: &cancellables)
             
-            item.service.$feeText
+            service.$feeText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let self = self, let value else { return }
@@ -55,16 +55,41 @@ final class EditFarmCell: SoramitsuTableViewCell {
                 }
                 .store(in: &cancellables)
             
-            item.service.$networkFeeAmount
+            service.$networkFeeText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let self = self else { return }
                     self.networkFeeDetailView.valueLabel.sora.text = value
                     self.networkFeeDetailView.valueLabel.sora.loadingPlaceholder.type = value.isEmpty ? .shimmer : .none
+                    self.networkFeeDetailView.isShimmerHidden = !value.isEmpty
                 }
                 .store(in: &cancellables)
             
-            item.service.$buttonEnabled
+            service.$percentageText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.sliderView.percentageLabel.sora.text = value
+                }
+                .store(in: &cancellables)
+            
+            service.$isMaxButtonHidden
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.sliderView.maxButton.sora.isHidden = value
+                }
+                .store(in: &cancellables)
+            
+            service.$willBePercentageText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.yourPoolShareWillBeDetailView.valueLabel.sora.text = value
+                }
+                .store(in: &cancellables)
+            
+            service.$confirmButtonEnabled
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let self = self else { return }
@@ -72,10 +97,12 @@ final class EditFarmCell: SoramitsuTableViewCell {
                     self.confirmButton.sora.backgroundColor = value ? .additionalPolkaswap : .bgSurfaceVariant
                     
                     let titleColor: SoramitsuColor = value ? .custom(uiColor: .white) : .fgTertiary
-                    self.confirmButton.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonConfirm(preferredLanguages: .currentLocale),
-                                                                         fontData: FontType.buttonM,
-                                                                         textColor: titleColor,
-                                                                         alignment: .center)
+                    self.confirmButton.sora.attributedText = SoramitsuTextItem(
+                        text: R.string.localizable.commonConfirm(preferredLanguages: .currentLocale),
+                        fontData: FontType.buttonM,
+                        textColor: titleColor,
+                        alignment: .center
+                    )
                 }
                 .store(in: &cancellables)
         }
@@ -158,8 +185,8 @@ final class EditFarmCell: SoramitsuTableViewCell {
         view.titleLabel.sora.text = R.string.localizable.networkFee(preferredLanguages: .currentLocale)
         view.infoButton.sora.isHidden = false
         view.valueLabel.sora.loadingPlaceholder.type = .shimmer
-        view.valueLabel.sora.text = ""
         view.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
+        view.isShimmerHidden = false
         view.infoButton.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.networkFeeHandler?()
         }
@@ -171,7 +198,6 @@ final class EditFarmCell: SoramitsuTableViewCell {
         button.sora.backgroundColor = .additionalPolkaswap
         button.sora.cornerRadius = .circle
         button.sora.horizontalOffset = 0
-        button.sora.isEnabled = false
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.onConfirm?()
         }
@@ -247,18 +273,7 @@ final class EditFarmCell: SoramitsuTableViewCell {
     }
     
     private func set(sliderValue: Float) {
-        updateSliderView(with: sliderValue * 100)
-    }
-    
-    private func updateSliderView(with sharePercentage: Float) {
-//        let formattedText = NumberFormatter.percent.stringFromDecimal(sharePercentage) ?? ""
-        let percentageText = localizationManager.isRightToLeft ? "%\(sharePercentage)" : "\(sharePercentage)%"
-        
-        sliderView.maxButton.sora.isHidden = sharePercentage.isZero ? false : true
-        sliderView.percentageLabel.sora.text = percentageText
-
-        yourPoolShareWillBeDetailView.valueLabel.sora.text = percentageText
-        
+        let sharePercentage = sliderValue * 100
         input.send(sharePercentage)
     }
 }
@@ -273,7 +288,7 @@ extension EditFarmCell: CellProtocol {
         self.item = item
         
         sliderView.slider.value = item.stakedValue
-        updateSliderView(with: item.stakedValue * 100)
+        set(sliderValue: item.stakedValue)
         
         let formattedText = NumberFormatter.percent.stringFromDecimal(item.sharePercentage) ?? ""
         let percentageText = localizationManager.isRightToLeft ? "%\(formattedText)" : "\(formattedText)%"

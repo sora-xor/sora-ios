@@ -43,7 +43,6 @@ final class FarmDetailsSection {
 enum FarmDetailsSectionItem: Hashable {
     case details(FarmDetailsItem)
     case space(SoramitsuTableViewSpacerItem)
-    case liquidity(SupplyPoolItem)
 }
 
 extension FarmDetailsSection: Hashable {

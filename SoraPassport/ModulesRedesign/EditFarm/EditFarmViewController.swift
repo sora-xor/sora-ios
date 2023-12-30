@@ -116,7 +116,11 @@ final class EditFarmViewController: SoramitsuViewController {
     }
 }
 
-extension EditFarmViewController: EditFarmViewProtocol {}
+extension EditFarmViewController: EditFarmViewProtocol {
+    func dismiss(competion: (() -> Void)?) {
+        dismiss(competion: competion)
+    }
+}
 
 extension EditFarmViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {

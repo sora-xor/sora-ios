@@ -137,12 +137,13 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
         poolInfo: PoolInfo?,
         farm: Farm
     ) {
-        let wireframe = FarmDetailsWireframe(feeProvider: feeProvider, walletService: WalletService(operationFactory: operationFactory!))
+        let wireframe = FarmDetailsWireframe(feeProvider: feeProvider, 
+                                             walletService: WalletService(operationFactory: operationFactory!), 
+                                             assetManager: assetManager)
         let viewModel = FarmDetailsViewModel(farm: farm,
                                              poolInfo: poolInfo,
                                              poolsService: poolsService,
                                              fiatService: fiatService,
-                                             assetManager: assetManager,
                                              providerFactory: providerFactory,
                                              operationFactory: operationFactory,
                                              assetsProvider: assetsProvider,

@@ -33,6 +33,7 @@ import SoraUIKit
 
 enum FarmDetailsBottomButtonState {
     case startStacking
+    case startStackingWithRewards
     case editFarm
     case stackingUnavailable
     
@@ -40,14 +41,16 @@ enum FarmDetailsBottomButtonState {
         switch self {
         case .editFarm:
             return R.string.localizable.editFarm(preferredLanguages: .currentLocale)
-        case .startStacking, .stackingUnavailable:
+        case .startStacking, .stackingUnavailable, .startStackingWithRewards:
             return R.string.localizable.startStaking(preferredLanguages: .currentLocale)
         }
     }
     
     var buttonTitleColor: SoramitsuColor {
         switch self {
-        case .startStacking, .editFarm:
+        case .editFarm, .startStackingWithRewards:
+            return .additionalPolkaswap
+        case .startStacking:
             return .custom(uiColor: .white)
         case .stackingUnavailable:
             return .fgTertiary
@@ -56,8 +59,10 @@ enum FarmDetailsBottomButtonState {
     
     var backgroundColor: SoramitsuColor {
         switch self {
-        case .editFarm:
+        case .editFarm, .startStackingWithRewards:
             return .additionalPolkaswapContainer
+        case .startStacking:
+            return .additionalPolkaswap
         case .startStacking:
             return .additionalPolkaswap
         case .stackingUnavailable:
@@ -81,6 +86,7 @@ final class FarmDetailsItem: NSObject {
     let typeImage: PoollProductType
     let areThereRewards: Bool
     let stackingState: FarmDetailsBottomButtonState
+    let supplyItem: SupplyPoolItem?
     var onTapTopButton: (() -> Void)?
     var onTapBottomButton: (() -> Void)?
 
@@ -92,7 +98,8 @@ final class FarmDetailsItem: NSObject {
          detailsViewModel: [DetailViewModel],
          typeImage: PoollProductType,
          stackingState: FarmDetailsBottomButtonState,
-         areThereRewards: Bool) {
+         areThereRewards: Bool,
+         supplyItem: SupplyPoolItem?) {
         self.title = title
         self.subtitle = subtitle
         self.typeImage = typeImage
@@ -102,6 +109,7 @@ final class FarmDetailsItem: NSObject {
         self.detailsViewModel = detailsViewModel
         self.areThereRewards = areThereRewards
         self.stackingState = stackingState
+        self.supplyItem = supplyItem
     }
 }
 

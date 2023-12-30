@@ -37,13 +37,13 @@ final class EditFarmItem: ItemProtocol {
     
     let stakeFeeAmount: Decimal
     
-    let service: EditFarmItemService
+    weak var service: EditFarmItemService?
     
     var onConfirm: (() -> Void)?
     var feeInfoHandler: (() -> Void)?
     var networkFeeHandler: (() -> Void)?
 
-    init(sharePercentage: Decimal, stakedValue: Float, stakeFeeAmount: Decimal, service: EditFarmItemService) {
+    init(sharePercentage: Decimal, stakedValue: Float, stakeFeeAmount: Decimal, service: EditFarmItemService?) {
         self.sharePercentage = sharePercentage
         self.stakedValue = stakedValue
         self.stakeFeeAmount = stakeFeeAmount
