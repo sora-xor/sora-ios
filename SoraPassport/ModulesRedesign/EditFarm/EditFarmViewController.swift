@@ -118,7 +118,7 @@ final class EditFarmViewController: SoramitsuViewController {
 
 extension EditFarmViewController: EditFarmViewProtocol {
     func dismiss(competion: (() -> Void)?) {
-        dismiss(competion: competion)
+        dismiss(animated: true, completion: competion)
     }
 }
 
