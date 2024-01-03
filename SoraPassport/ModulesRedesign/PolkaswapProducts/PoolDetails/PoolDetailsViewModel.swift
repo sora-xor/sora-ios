@@ -75,7 +75,6 @@ final class PoolDetailsViewModel {
             if detailsContent != nil {
                 reload()
             }
-            print("OLOLO detailsContent reload")
         }
     }
 

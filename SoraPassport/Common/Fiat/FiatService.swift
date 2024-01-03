@@ -80,14 +80,12 @@ extension FiatService: FiatServiceProtocol {
     
     func getFiat() async -> [FiatData] {
         guard expiredDate < Date() || fiatData.isEmpty else {
-            print("OLOLO fiat data 1 \(fiatData)")
             return fiatData
         }
 
         let response = await updateFiatData() 
         await updateFiatData(with: response)
         await notify()
-        print("OLOLO fiat data 2 \(response)")
         return response
     }
     

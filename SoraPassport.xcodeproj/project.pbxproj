@@ -488,6 +488,8 @@
 		366D53CC2952B1C00094CE36 /* WalletQRCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366D53CB2952B1C00094CE36 /* WalletQRCaptureService.swift */; };
 		366D53D02952B4A20094CE36 /* ScanQRViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366D53CE2952B4A20094CE36 /* ScanQRViewModel.swift */; };
 		366D53D12952B4A20094CE36 /* ScanQRViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366D53CF2952B4A20094CE36 /* ScanQRViewController.swift */; };
+		367A32262B4551D9001AFA90 /* ExploreSearchPageViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367A32252B4551D9001AFA90 /* ExploreSearchPageViewModel.swift */; };
+		367A32282B455CBA001AFA90 /* ExploreSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367A32272B455CBA001AFA90 /* ExploreSectionHeader.swift */; };
 		367C55A328FCA631008FC55F /* AssetViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367C55A228FCA631008FC55F /* AssetViewModelFactory.swift */; };
 		3688A43D280F591900C1D16F /* SourceType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3688A43C280F591900C1D16F /* SourceType.swift */; };
 		368E2CA528F2FCA00071A324 /* BalanceProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E2CA428F2FCA00071A324 /* BalanceProviderFactory.swift */; };
@@ -1871,6 +1873,8 @@
 		366D53CE2952B4A20094CE36 /* ScanQRViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScanQRViewModel.swift; sourceTree = "<group>"; };
 		366D53CF2952B4A20094CE36 /* ScanQRViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScanQRViewController.swift; sourceTree = "<group>"; };
 		3679403185DA590B9A437087 /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
+		367A32252B4551D9001AFA90 /* ExploreSearchPageViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExploreSearchPageViewModel.swift; sourceTree = "<group>"; };
+		367A32272B455CBA001AFA90 /* ExploreSectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreSectionHeader.swift; sourceTree = "<group>"; };
 		367C55A228FCA631008FC55F /* AssetViewModelFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetViewModelFactory.swift; sourceTree = "<group>"; };
 		3684639C2A40715700B1F203 /* az */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = az; path = az.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		3684639D2A40715700B1F203 /* az */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = az; path = az.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -4346,6 +4350,7 @@
 			children = (
 				364BF2122B1C433300758323 /* ExplorePageView.swift */,
 				364BF21A2B1C5EA400758323 /* Common */,
+				366DEA912B4539F00009647F /* Search */,
 				364BF21F2B1C634D00758323 /* Asset */,
 				364BF2262B1C715D00758323 /* Pool */,
 				364E6E832B1C87E800002EE3 /* Farm */,
@@ -4359,6 +4364,7 @@
 				363EAB622A73938D00603361 /* ExploreItemFactory.swift */,
 				364BF21B2B1C5EDE00758323 /* HeaderCell.swift */,
 				364BF21C2B1C5EDE00758323 /* HeaderItem.swift */,
+				367A32272B455CBA001AFA90 /* ExploreSectionHeader.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -4366,11 +4372,11 @@
 		364BF21F2B1C634D00758323 /* Asset */ = {
 			isa = PBXGroup;
 			children = (
-				36B239A42A94F86200F0357A /* ExploreAssetView.swift */,
 				364BF2202B1C639600758323 /* ExploreAssetViewModelService.swift */,
 				364BF2162B1C596900758323 /* ExploreAssetsPageViewModel.swift */,
 				364BF2212B1C639600758323 /* ExploreAssetCell.swift */,
 				364BF2222B1C639600758323 /* ExploreAssetItem.swift */,
+				36B239A42A94F86200F0357A /* ExploreAssetView.swift */,
 			);
 			path = Asset;
 			sourceTree = "<group>";
@@ -4435,11 +4441,11 @@
 		364E6E832B1C87E800002EE3 /* Farm */ = {
 			isa = PBXGroup;
 			children = (
+				364E6E852B1C88F600002EE3 /* ExploreFarmViewModelService.swift */,
+				364E6E862B1C88F600002EE3 /* ExploreFarmPageViewModel.swift */,
 				364E6E872B1C88F600002EE3 /* ExploreFarmCell.swift */,
 				364E6E882B1C88F600002EE3 /* ExploreFarmItem.swift */,
-				364E6E862B1C88F600002EE3 /* ExploreFarmPageViewModel.swift */,
 				364E6E842B1C88F600002EE3 /* ExploreFarmView.swift */,
-				364E6E852B1C88F600002EE3 /* ExploreFarmViewModelService.swift */,
 			);
 			path = Farm;
 			sourceTree = "<group>";
@@ -4674,6 +4680,14 @@
 				366D53CE2952B4A20094CE36 /* ScanQRViewModel.swift */,
 			);
 			path = ScanQR;
+			sourceTree = "<group>";
+		};
+		366DEA912B4539F00009647F /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				367A32252B4551D9001AFA90 /* ExploreSearchPageViewModel.swift */,
+			);
+			path = Search;
 			sourceTree = "<group>";
 		};
 		367C55A128FC9EB9008FC55F /* BalanceProviderFactory */ = {
@@ -7458,6 +7472,7 @@
 				364E6E8A2B1C88F600002EE3 /* ExploreFarmViewModelService.swift in Sources */,
 				84AA44B3249FF49A00C09E0F /* DateFormatter+Wallet.swift in Sources */,
 				364BF2132B1C433300758323 /* ExplorePageView.swift in Sources */,
+				367A32262B4551D9001AFA90 /* ExploreSearchPageViewModel.swift in Sources */,
 				94653DE928870FBB00311EC7 /* MultiAddress+Query.swift in Sources */,
 				5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */,
 				8481A5DC2302F3290056D3D4 /* DateFormatterFactory.swift in Sources */,
@@ -7911,6 +7926,7 @@
 				84EF3A87232A22840012421F /* DeepLinks.swift in Sources */,
 				9441FB1925CAE33500775559 /* AccountConfirmViewFactory.swift in Sources */,
 				B2A56F0A2A6FD69E00844A35 /* YourReferrerCell.swift in Sources */,
+				367A32282B455CBA001AFA90 /* ExploreSectionHeader.swift in Sources */,
 				02CFA4B321883E46000E9483 /* ImageViewModel.swift in Sources */,
 				55D06B5A28C7897F00256B98 /* SwapQuoteAmountsFactory.swift in Sources */,
 				02D656D92204D73400AAA66A /* ProjectsFavoritesFetchMock.swift in Sources */,

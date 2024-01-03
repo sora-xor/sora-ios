@@ -38,6 +38,23 @@ final class ExploreAssetViewModelService {
     let itemFactory: ExploreItemFactory
     private let assetInfos: [AssetInfo]
     
+    @Published var viewModels: [ExploreAssetViewModel] = {
+        let serialNumbers = Array(1...20)
+        let shimmersAssetItems = serialNumbers.map {
+            ExploreAssetViewModel(
+                assetId: nil,
+                symbol: nil,
+                title: nil,
+                price: nil,
+                serialNumber: String($0),
+                marketCap: nil,
+                icon: nil,
+                deltaPrice: nil
+            )
+        }
+        return shimmersAssetItems
+    }()
+    
     init(
         marketCapService: MarketCapServiceProtocol,
         fiatService: FiatServiceProtocol?,
@@ -74,6 +91,7 @@ final class ExploreAssetViewModelService {
         if fullListAssets.isEmpty {
             return await setup()
         } else {
+            viewModels = fullListAssets
             return fullListAssets
         }
     }

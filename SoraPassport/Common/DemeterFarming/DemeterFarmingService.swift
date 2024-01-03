@@ -66,71 +66,66 @@ final class DemeterFarmingService {
 extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     
     func getAllFarms() async throws -> [Farm] {
-        return await withCheckedContinuation { continuation in
-            Task {
-                if !farms.isEmpty {
-                    continuation.resume(returning: farms)
-                    return
-                }
-
-                let poolsKeys = (try? await getPoolKeys()) ?? []
-                
-                async let farmList = poolsKeys.concurrentMap { [weak self] key in
-                    let data = String(key.dropFirst(2))
-                    let assetId = data.components(withMaxLength: 64)
-                    let pools = try? await self?.getPools(poolAssetId: "0x\(assetId[1])", rewardAssetId: "0x\(assetId[2])")
-                    return pools
-                }
-
-                let reducedFarms = (try? await farmList.reduce([], +)) ?? []
-                
-                let rewardTokenInfosKeys = (try? await getTokenInfosKeys()) ?? []
-                
-                async let rewardTokenInfos = rewardTokenInfosKeys.concurrentMap { [weak self] key in
-                    let data = String(key.dropFirst(2))
-                    let assetId = "0x\(data.components(withMaxLength: 64).last ?? "")"
-                    let pools = try? await self?.getRewardTokenInfos(with: assetId)
-                    return pools
-                }
-                
-                let finalRewardTokenInfos = try? await rewardTokenInfos
-                
-                let fiatData = await fiatService.getFiat()
-                
-                async let farms = try? reducedFarms.concurrentMap { [weak self] pool in
-                    let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
-                    let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
-                    let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
-                    
-                    let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
-                    let id = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")-\(rewardAsset?.symbol ?? "")"
-                    let rewardTokenInfo = finalRewardTokenInfos?.first { $0.assetId == pool.rewardAssetId }
-                    let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
-                    let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
-
-                    let price = fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
-                    let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
-                    
-                    let blockPerYear = Decimal(5256000)
-                    let rewardAssetPrice = fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
-                    let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
-                    let depositFee = pool.depositFee * 100
-
-                    return Farm(id: id,
-                                name: name,
-                                baseAsset: baseAsset,
-                                poolAsset: poolAsset,
-                                rewardAsset: rewardAsset,
-                                tvl: tvl,
-                                apr: apr / 100,
-                                depositFee: depositFee)
-                }
-                
-                let finalfarms = await farms ?? []
-                self.farms = finalfarms
-                continuation.resume(returning: finalfarms)
-            }
+        if !farms.isEmpty {
+            return farms
         }
+        
+        let poolsKeys = (try? await getPoolKeys()) ?? []
+        
+        async let farmList = poolsKeys.concurrentMap { [weak self] key in
+            let data = String(key.dropFirst(2))
+            let assetId = data.components(withMaxLength: 64)
+            let pools = try? await self?.getPools(poolAssetId: "0x\(assetId[1])", rewardAssetId: "0x\(assetId[2])")
+            return pools
+        }
+        
+        let reducedFarms = (try? await farmList.reduce([], +)) ?? []
+        
+        let rewardTokenInfosKeys = (try? await getTokenInfosKeys()) ?? []
+        
+        async let rewardTokenInfos = rewardTokenInfosKeys.concurrentMap { [weak self] key in
+            let data = String(key.dropFirst(2))
+            let assetId = "0x\(data.components(withMaxLength: 64).last ?? "")"
+            let pools = try? await self?.getRewardTokenInfos(with: assetId)
+            return pools
+        }
+        
+        let finalRewardTokenInfos = try? await rewardTokenInfos
+        
+        let fiatData = await fiatService.getFiat()
+        
+        async let farms = try? reducedFarms.concurrentMap { [weak self] pool in
+            let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
+            let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
+            let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
+            
+            let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
+            let id = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")-\(rewardAsset?.symbol ?? "")"
+            let rewardTokenInfo = finalRewardTokenInfos?.first { $0.assetId == pool.rewardAssetId }
+            let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
+            let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
+            
+            let price = fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
+            
+            let blockPerYear = Decimal(5256000)
+            let rewardAssetPrice = fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
+            let depositFee = pool.depositFee * 100
+            
+            return Farm(id: id,
+                        name: name,
+                        baseAsset: baseAsset,
+                        poolAsset: poolAsset,
+                        rewardAsset: rewardAsset,
+                        tvl: tvl,
+                        apr: apr / 100,
+                        depositFee: depositFee)
+        }
+        
+        let finalfarms = await farms ?? []
+        self.farms = finalfarms
+        return finalfarms
     }
     
     func getFarm(with id: String) -> Farm? {

@@ -10,12 +10,39 @@ import SoraUIKit
 import SnapKit
 import Combine
 
+enum ExploreItemType: Int, CaseIterable {
+    case assets = 0
+    case pools
+    case farms
+    
+    var title: String {
+        switch self {
+        case .assets:
+            return R.string.localizable.commonAssets(preferredLanguages: .currentLocale)
+        case .pools:
+            return R.string.localizable.commonPools(preferredLanguages: .currentLocale)
+        case .farms:
+            return R.string.localizable.commonFarms(preferredLanguages: .currentLocale)
+        }
+    }
+}
+
 final class ExplorePageView: SoramitsuView {
 
     public var viewModel: ExplorePageViewModelProtocol? {
         didSet {
             setupSubscriptions()
             viewModel?.setup()
+            
+            var topInset: CGFloat = 16
+            
+            if let viewModel, viewModel.isNeedHeaders {
+                topInset = !viewModel.isNeedHeaders ? 16 : 0
+            } else {
+                tableView.sectionHeaderHeight = 0
+            }
+            
+            tableView.contentInset = UIEdgeInsets(top: topInset, left: 0, bottom: 16, right: 0)
         }
     }
     
@@ -60,11 +87,15 @@ final class ExplorePageView: SoramitsuView {
         tableView.register(ExploreAssetCell.self, forCellReuseIdentifier: "ExploreAssetCell")
         tableView.register(ExplorePoolCell.self, forCellReuseIdentifier: "ExplorePoolCell")
         tableView.register(ExploreFarmCell.self, forCellReuseIdentifier: "ExploreFarmCell")
-        tableView.sectionHeaderHeight = .zero
-        tableView.contentInset = UIEdgeInsets(top: 16, left: 0, bottom: 16, right: 0)
+        tableView.register(ExploreSectionHeader.self, forHeaderFooterViewReuseIdentifier: "ExploreSectionHeader")
+        tableView.contentInsetAdjustmentBehavior = .never
+        tableView.tableFooterView = nil
         tableView.sora.cornerMask = .top
         tableView.sora.cornerRadius = .extraLarge
         tableView.sora.backgroundColor = .bgSurface
+        if #available(iOS 15.0, *) {
+            tableView.sectionHeaderTopPadding = 0
+        }
         return tableView
     }()
 
@@ -89,7 +120,9 @@ final class ExplorePageView: SoramitsuView {
         viewModel?.snapshotPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snapshot in
-                self?.dataSource.apply(snapshot, animatingDifferences: false)
+                UIView.performWithoutAnimation {
+                    self?.dataSource.apply(snapshot, animatingDifferences: false)
+                }
             }
             .store(in: &cancellables)
     }
@@ -97,18 +130,14 @@ final class ExplorePageView: SoramitsuView {
 
 extension ExplorePageView: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        guard let item = dataSource.itemIdentifier(for: indexPath) else {
-            return
-        }
-        
-        switch item {
-        case .asset(let item):
-            viewModel?.didSelect(with: item.assetViewModel.assetId)
-        case .pool(let item):
-            viewModel?.didSelect(with: item.poolViewModel)
-        case .farm(let item):
-            viewModel?.didSelect(with: item.farmViewModel.farmId)
-        default: break
-        }
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+        viewModel?.didSelect(with: item)
+    }
+
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let title = ExploreItemType.allCases[section].title
+        let cell = tableView.dequeueReusableHeaderFooterView(withIdentifier: ExploreSectionHeader.reuseIdentifier) as? ExploreSectionHeader
+        cell?.configure(with: title)
+        return cell
     }
 }
