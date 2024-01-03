@@ -98,6 +98,16 @@ final class ExplorePageView: SoramitsuView {
         }
         return tableView
     }()
+    
+    let emptyListLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.numberOfLines = 0
+        label.sora.alignment = .center
+        label.sora.font = FontType.paragraphM
+        label.sora.textColor = .fgSecondary
+        label.sora.text = R.string.localizable.commonNothingFound(preferredLanguages: .currentLocale)
+        return label
+    }()
 
     override init(frame: CGRect = .zero) {
         super.init(frame: frame)
@@ -107,12 +117,18 @@ final class ExplorePageView: SoramitsuView {
 
     private func setupSubviews() {
         addSubview(tableView)
+        addSubview(emptyListLabel)
+        
         NSLayoutConstraint.activate([
             tableView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             tableView.topAnchor.constraint(equalTo: topAnchor),
             tableView.bottomAnchor.constraint(equalTo: bottomAnchor),
             tableView.centerXAnchor.constraint(equalTo: centerXAnchor),
             tableView.heightAnchor.constraint(equalTo: heightAnchor),
+            
+            emptyListLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            emptyListLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            emptyListLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
     
@@ -121,6 +137,7 @@ final class ExplorePageView: SoramitsuView {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snapshot in
                 UIView.performWithoutAnimation {
+                    self?.emptyListLabel.isHidden = snapshot.numberOfSections != 0
                     self?.dataSource.apply(snapshot, animatingDifferences: false)
                 }
             }
