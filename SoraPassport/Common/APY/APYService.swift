@@ -60,7 +60,9 @@ extension APYService: APYServiceProtocol {
     
     
     func getApy(for baseAssetId: String, targetAssetId: String) async -> Decimal? {
-        guard let factory = self.polkaswapNetworkOperationFactory,
+        guard !baseAssetId.isEmpty,
+              !targetAssetId.isEmpty,
+              let factory = self.polkaswapNetworkOperationFactory,
               let poolPropertiesOperation = try? factory.poolProperties(baseAsset: baseAssetId, targetAsset: targetAssetId) else {
             return nil
         }

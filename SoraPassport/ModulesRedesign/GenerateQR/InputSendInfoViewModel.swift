@@ -155,13 +155,14 @@ final class InputSendInfoViewModel {
     }
     
     func viewDidLoad() {
-        fiatService?.getFiat(completion: { [weak self] fiatData in
-            self?.fiatData = fiatData
-        })
-        
         asset = assetManager?.assetInfo(for: WalletAssetId.xor.rawValue)
         
-        fiatService?.add(observer: self)
+        Task { [weak self] in
+            guard let self else { return }
+            self.fiatData = await self.fiatService?.getFiat() ?? []
+            await self.fiatService?.add(observer: self)
+        }
+
         assetsProvider?.add(observer: self)
     }
     

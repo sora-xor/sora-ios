@@ -106,6 +106,7 @@ final class SelectAssetViewModel {
     private var marketCapService: MarketCapServiceProtocol
     var assetIds: [String] = []
     private let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
+    private let priceInfoService: PriceInfoServiceProtocol
 
     init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
@@ -119,7 +120,7 @@ final class SelectAssetViewModel {
         self.assetsProvider = assetsProvider
         self.assetIds = assetIds
         self.marketCapService = marketCapService
-        self.poolItemInfo = PriceInfoService.shared.priceInfo
+        self.priceInfoService = PriceInfoService.shared
     }
 }
 
@@ -144,6 +145,7 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 
 private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) async {
+        poolItemInfo = await priceInfoService.getPriceInfo(for: assetIds)
         let fiatData = poolItemInfo?.fiatData ?? []
         let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
         

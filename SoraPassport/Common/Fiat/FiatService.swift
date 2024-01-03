@@ -37,17 +37,16 @@ protocol FiatServiceObserverProtocol: AnyObject {
 }
 
 protocol FiatServiceProtocol: AnyObject {
-    func getFiat(completion: @escaping ([FiatData]) -> Void)
     func getFiat() async -> [FiatData]
-    func add(observer: FiatServiceObserverProtocol)
-    func remove(observer: FiatServiceObserverProtocol)
+    func add(observer: FiatServiceObserverProtocol) async
+    func remove(observer: FiatServiceObserverProtocol) async
 }
 
 struct FiatServiceObserver {
     weak var observer: FiatServiceObserverProtocol?
 }
 
-final class FiatService {
+actor FiatService {
     static let shared = FiatService()
     private let operationManager: OperationManager = OperationManager()
     private var expiredDate: Date = Date()
@@ -57,56 +56,42 @@ final class FiatService {
     private var task: Task<Void, Swift.Error>?
 
     private func updateFiatData() async -> [FiatData] {
+        let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
+        operationManager.enqueue(operations: [queryOperation], in: .transient)
+
         return await withCheckedContinuation { continuation in
-            let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
-            
-            queryOperation.completionBlock = { [weak self] in
-                guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
+            queryOperation.completionBlock = {
+                guard let response = try? queryOperation.extractNoCancellableResultData() else {
                     continuation.resume(returning: [])
                     return
                 }
-                self.fiatData = response
-                self.expiredDate = Date().addingTimeInterval(600)
-                self.notify()
                 continuation.resume(returning: response)
             }
-            
-            operationManager.enqueue(operations: [queryOperation], in: .transient)
         }
+    }
+    
+    private func updateFiatData(with data: [FiatData]) async {
+        fiatData = data
+        expiredDate = Date().addingTimeInterval(600)
     }
 }
 
 extension FiatService: FiatServiceProtocol {
     
-    func getFiat(completion: @escaping ([FiatData]) -> Void) {
-        task?.cancel()
-        task = Task {
-            guard expiredDate < Date() || fiatData.isEmpty else {
-                completion(fiatData)
-                return
-            }
-
-            let fiatData = await updateFiatData()
-            completion(fiatData)
-        }
-    }
-    
     func getFiat() async -> [FiatData] {
-        return await withCheckedContinuation { continuation in
-            task?.cancel()
-            task = Task {
-                guard expiredDate < Date() || fiatData.isEmpty else {
-                    continuation.resume(with: .success(fiatData))
-                    return
-                }
-                
-                let fiatData = await self.updateFiatData()
-                continuation.resume(with: .success(fiatData))
-            }
+        guard expiredDate < Date() || fiatData.isEmpty else {
+            print("OLOLO fiat data 1 \(fiatData)")
+            return fiatData
         }
+
+        let response = await updateFiatData() 
+        await updateFiatData(with: response)
+        await notify()
+        print("OLOLO fiat data 2 \(response)")
+        return response
     }
     
-    func add(observer: FiatServiceObserverProtocol) {
+    func add(observer: FiatServiceObserverProtocol) async {
         syncQueue.async {
             self.observers = self.observers.filter { $0.observer != nil }
 
@@ -116,13 +101,13 @@ extension FiatService: FiatServiceProtocol {
         }
     }
 
-    func remove(observer: FiatServiceObserverProtocol) {
+    func remove(observer: FiatServiceObserverProtocol) async {
         syncQueue.async {
             self.observers = self.observers.filter { $0.observer != nil && $0.observer !== observer }
         }
     }
     
-    func notify() {
+    func notify() async {
         syncQueue.async {
             self.observers = self.observers.filter { $0.observer != nil }
 

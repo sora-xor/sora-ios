@@ -306,8 +306,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
         
         updateBalanceData()
         
-        fiatService?.getFiat { [weak self] fiatData in
-            self?.fiatData = fiatData
+        Task { [weak self] in
+            self?.fiatData = await self?.fiatService?.getFiat() ?? []
         }
 
         assetsProvider?.add(observer: self)
@@ -366,9 +366,9 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
               let assets = assetManager.getAssetList()?.filter({ asset in
                   let assetId = asset.identifier
                   
-                  var assetFilter = assetId != firstAssetId
+                  let assetFilter = assetId != firstAssetId
                   
-                  var unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
+                  let unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
                   
                   return assetFilter && !unAcceptableAssetIds.contains(assetId)
               }) else { return }

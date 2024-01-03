@@ -136,6 +136,7 @@ final class ManageAssetListViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private var marketCapService: MarketCapServiceProtocol
     private var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
+    private let priceInfoService: PriceInfoServiceProtocol
 
     init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
@@ -172,7 +173,7 @@ final class ManageAssetListViewModel {
         self.marketCapService = marketCapService
         self.farmingService = farmingService
         self.wireframe = wireframe
-        self.poolItemInfo = PriceInfoService.shared.priceInfo
+        self.priceInfoService = PriceInfoService.shared
     }
 }
 
@@ -188,6 +189,7 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
         let balanceData = assetsProvider?.getBalances(with: ids) ?? []
 
         Task { [weak self] in
+            self?.poolItemInfo = await self?.priceInfoService.getPriceInfo(for: ids)
             await self?.items(with: balanceData)
         }
 
