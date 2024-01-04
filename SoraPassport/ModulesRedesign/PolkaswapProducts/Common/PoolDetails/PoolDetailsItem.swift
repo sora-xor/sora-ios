@@ -70,6 +70,7 @@ final class PoolDetailsItem: ItemProtocol {
          typeImage: PoollProductType,
          isThereLiquidity: Bool,
          detailsViewModels: [DetailViewModel],
+         poolInfo: PoolInfo,
          service: PoolDetailsItemServiceProtocol?) {
         self.title = title
         self.typeImage = typeImage
@@ -80,7 +81,7 @@ final class PoolDetailsItem: ItemProtocol {
         self.isThereLiquidity = isThereLiquidity
         self.detailsViewModels = detailsViewModels
         self.service = service
-        self.service?.setup()
+        self.service?.setup(with: poolInfo)
     }
 }
 

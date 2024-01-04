@@ -36,15 +36,20 @@ import CommonWallet
 protocol PoolDetailsItemServiceProtocol: AnyObject {
     var tvlText: AnyPublisher<String, Never> { get }
     var details: AnyPublisher<[DetailViewModel], Never> { get }
-    func setup()
+    func setup(with poolInfo: PoolInfo)
 }
 
 final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
     var tvlText: AnyPublisher<String, Never> = Just("").eraseToAnyPublisher()
-    lazy var details: AnyPublisher<[DetailViewModel], Never> = Just(detailsFactory.createPoolDetailViewModels(with: poolInfo,
-                                                                                                              apy: nil,
-                                                                                                              viewModel: viewModel)).eraseToAnyPublisher()
     
+    lazy var details: AnyPublisher<[DetailViewModel], Never> = Just(
+        detailsFactory.createPoolDetailViewModels(
+            with: poolInfo,
+            apy: nil,
+            viewModel: viewModel
+        )
+    ).eraseToAnyPublisher()
+
     weak var viewModel: PoolDetailsViewModelProtocol?
     private let poolInfo: PoolInfo
     private let apyService: APYServiceProtocol
@@ -64,19 +69,17 @@ final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
         
     }
     
-    func setup() {
-//        self.details = Just(detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: nil, viewModel: viewModel)).eraseToAnyPublisher()
-        
+    func setup(with poolInfo: PoolInfo) {
         Task { [weak self] in
             guard let self else { return }
-            let apy = await self.apyService.getApy(for: self.poolInfo.baseAssetId, targetAssetId: self.poolInfo.targetAssetId)
+            let apy = await self.apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
             self.details = Just(self.detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: self.viewModel)).eraseToAnyPublisher()
         }
         
         Task { [weak self] in
             guard let self else { return }
             let fiatData = await self.fiatService.getFiat()
-            let priceUsd = fiatData.first(where: { $0.id == self.poolInfo.baseAssetId })?.priceUsd?.decimalValue ?? .zero
+            let priceUsd = fiatData.first(where: { $0.id == poolInfo.baseAssetId })?.priceUsd?.decimalValue ?? .zero
             let reserves = poolInfo.baseAssetReserves ?? .zero
             self.tvlText = Just("$" + (priceUsd * reserves * 2).formatNumber() + " TVL").eraseToAnyPublisher()
         }

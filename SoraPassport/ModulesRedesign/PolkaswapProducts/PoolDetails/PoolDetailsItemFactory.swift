@@ -39,10 +39,8 @@ final class PoolDetailsItemFactory {
     func createPoolDetailsItem(
         with assetManager: AssetManagerProtocol,
         poolInfo: PoolInfo,
-        apy: Decimal?,
         detailsFactory: DetailViewModelFactoryProtocol,
         viewModel: PoolDetailsViewModelProtocol,
-        fiatData: [FiatData],
         farms: [UserFarm],
         service: PoolDetailsItemServiceProtocol
     ) -> PoolDetailsItem {
@@ -76,6 +74,7 @@ final class PoolDetailsItemFactory {
                                           typeImage: isThereLiquidity ? .activePoolWithFarming : .inactivePoolWithFarming,
                                           isThereLiquidity: isThereLiquidity,
                                           detailsViewModels: detailsViewModels,
+                                          poolInfo: poolInfo,
                                           service: service)
         detailsItem.handler = { type in
             viewModel.infoButtonTapped(with: type)

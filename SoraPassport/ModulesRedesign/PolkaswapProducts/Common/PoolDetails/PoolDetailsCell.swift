@@ -40,6 +40,7 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
             guard let item = poolDetailsItem else { return }
             item.service?.tvlText
                 .receive(on: DispatchQueue.main)
+                .removeDuplicates()
                 .sink { [weak self] value in
                     self?.headerView.subtitleLabel.sora.text = value
                 }
@@ -47,8 +48,8 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
 
             item.service?.details
                 .receive(on: DispatchQueue.main)
+                .removeDuplicates()
                 .sink { [weak self] value in
-                    print("OLOLO value \(value)")
                     self?.updateDetails(with: value)
                 }
                 .store(in: &cancellables)
@@ -81,60 +82,6 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
     }()
     
     private lazy var headerView = PoolDetailsHeaderView()
-    
-//    private lazy var apyDetailView: DetailView = {        
-//        var view = DetailView()
-//        view.assetImageView.sora.isHidden = true
-//        view.fiatValueLabel.sora.isHidden = true
-//        view.progressView.sora.isHidden = true
-//        view.titleLabel.sora.text = Constants.apyTitle
-//        view.infoButton.sora.isHidden = false
-//        view.valueLabel.sora.loadingPlaceholder.type = .shimmer
-//        view.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
-//        view.isShimmerHidden = false
-//        view.infoButton.sora.addHandler(for: .touchUpInside) { [weak self] in
-//            
-//        }
-//        return view
-//    }()
-//    
-//    private let rewardAssetDetailView: DetailView = {
-//        var view = DetailView()
-//        view.assetImageView.sora.isHidden = true
-//        view.fiatValueLabel.sora.isHidden = true
-//        view.infoButton.sora.isHidden = true
-//        view.progressView.sora.isHidden = true
-//        view.titleLabel.sora.text = R.string.localizable.polkaswapRewardPayout(preferredLanguages: .currentLocale)
-//        return view
-//    }()
-//    
-//    private lazy var yourPoolShareDetailView: DetailView = {
-//        var view = DetailView()
-//        view.assetImageView.sora.isHidden = true
-//        view.fiatValueLabel.sora.isHidden = true
-//        view.infoButton.sora.isHidden = true
-//        view.progressView.sora.isHidden = true
-//        view.titleLabel.sora.text = R.string.localizable.poolShareTitle1(preferredLanguages: .currentLocale)
-//        return view
-//    }()
-//    
-//    private lazy var baseTokenDetailView: DetailView = {
-//        var view = DetailView()
-//        view.assetImageView.sora.isHidden = true
-//        view.fiatValueLabel.sora.isHidden = true
-//        view.progressView.sora.isHidden = true
-//        view.infoButton.sora.isHidden = true
-//        return view
-//    }()
-//    
-//    private lazy var targetTokenDetailView: DetailView = {
-//        var view = DetailView()
-//        view.assetImageView.sora.isHidden = true
-//        view.fiatValueLabel.sora.isHidden = true
-//        view.progressView.sora.isHidden = true
-//        view.infoButton.sora.isHidden = true
-//        return view
-//    }()
 
     private lazy var supplyLiquidity: SoramitsuButton = {
         let button = SoramitsuButton()
@@ -184,26 +131,7 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
 
     private func setupView() {
         contentView.addSubview(containerView)
-        
         containerView.addSubviews(headerView, detailsStackView, footerStackView)
-    
-        
-//        let detailViews = [
-//            apyDetailView,
-//            rewardAssetDetailView
-//        ]
-//        
-//        detailViews.enumerated().forEach { (index, detailView) in
-//            detailsStackView.addArrangedSubviews(detailView)
-//            
-//            if index != detailViews.count - 1 {
-//                let separatorView = SoramitsuView()
-//                separatorView.heightAnchor.constraint(equalToConstant: 1).isActive = true
-//                separatorView.sora.backgroundColor = .bgPage
-//                detailsStackView.addArrangedSubviews(separatorView)
-//            }
-//        }
-
         footerStackView.addArrangedSubviews(supplyLiquidity, removeLiquidity, limitationLabel)
     }
 
@@ -291,6 +219,9 @@ extension PoolDetailsCell: CellProtocol {
             assertionFailure("Incorect type of item")
             return
         }
+
+        updateDetails(with: item.detailsViewModels)
+
         poolDetailsItem = item
         
         removeLiquidity.sora.isEnabled = item.isRemoveLiquidityEnabled && item.isThereLiquidity
@@ -312,7 +243,6 @@ extension PoolDetailsCell: CellProtocol {
             let icon = RemoteSerializer.shared.image(with: item.firstAssetImage ?? "")
             DispatchQueue.main.async {
                 self.headerView.firstCurrencyImageView.image = icon
-                self.headerView.firstCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
             }
         }
         
@@ -320,7 +250,6 @@ extension PoolDetailsCell: CellProtocol {
             let icon = RemoteSerializer.shared.image(with: item.secondAssetImage ?? "")
             DispatchQueue.main.async {
                 self.headerView.secondCurrencyImageView.image = icon
-                self.headerView.secondCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
             }
         }
     
@@ -328,11 +257,9 @@ extension PoolDetailsCell: CellProtocol {
             let icon = RemoteSerializer.shared.image(with: item.rewardAssetImage ?? "")
             DispatchQueue.main.async {
                 self.headerView.rewardImageView.image = icon
-                self.headerView.rewardImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
             }
         }
-        
-        updateDetails(with: item.detailsViewModels)
+
         limitationLabel.sora.isHidden = item.isRemoveLiquidityEnabled || !item.isThereLiquidity
     }
 }

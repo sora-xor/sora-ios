@@ -53,13 +53,7 @@ final class PoolDetailsViewModel {
     private let poolDetailsService: PoolDetailsItemServiceProtocol
     
     private var poolsService: PoolsServiceInputProtocol?
-    private var poolInfo: PoolInfo {
-        didSet {
-            Task {
-                await updateContent()
-            }
-        }
-    }
+    private var poolInfo: PoolInfo
     
     // ???
     private let assetManager: AssetManagerProtocol
@@ -68,7 +62,7 @@ final class PoolDetailsViewModel {
     
     private var detailsContent: [Farm] = [] {
         didSet {
-            reload()
+            snapshot = createSnapshot(with: poolInfo)
         }
     }
 
@@ -105,8 +99,8 @@ final class PoolDetailsViewModel {
         }
     }
     
-    func updateContent() async {
-        reload()
+    func updateContent(with poolInfo: PoolInfo) async {
+        snapshot = createSnapshot(with: poolInfo)
 
         Task {
             detailsContent = await (try? farmingService.getAllFarms().filter {
@@ -119,34 +113,29 @@ final class PoolDetailsViewModel {
 
 extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func viewDidLoad() {
-        Task {
-            await updateContent()
+        Task { [weak self] in
+            guard let self else { return }
+            await updateContent(with: poolInfo)
         }
     }
     
-    func reload() {
-        snapshot = createSnapshot()
-    }
-    
-    private func createSnapshot() -> PoolDetailsSnapshot {
+    private func createSnapshot(with poolInfo: PoolInfo) -> PoolDetailsSnapshot {
         var snapshot = PoolDetailsSnapshot()
         
-        let sections = [ contentSection() ]
+        let sections = [ contentSection(with: poolInfo) ]
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
         
         return snapshot
     }
     
-    private func contentSection() -> PoolDetailsSection {
+    private func contentSection(with poolInfo: PoolInfo) -> PoolDetailsSection {
         var items: [PoolDetailsSectionItem] = []
         
         let poolDetailsItem = itemFactory.createPoolDetailsItem(with: assetManager,
                                                                 poolInfo: poolInfo,
-                                                                apy: .zero,
                                                                 detailsFactory: detailsFactory,
                                                                 viewModel: self,
-                                                                fiatData: [],
                                                                 farms: poolInfo.farms,
                                                                 service: poolDetailsService)
         
@@ -245,6 +234,10 @@ extension PoolDetailsViewModel: PoolsServiceOutput {
         }
         
         poolInfo = pool
+        print("OLOLO pool \(pool)")
+        Task {
+            await updateContent(with: pool)
+        }
     }
 }
 
