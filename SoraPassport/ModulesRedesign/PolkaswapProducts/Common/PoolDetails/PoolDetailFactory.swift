@@ -42,7 +42,7 @@ protocol DetailViewModelDelegate: AnyObject {
 }
 
 protocol DetailViewModelFactoryProtocol {
-    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: Decimal?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel]
+    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: Decimal?, viewModel: PoolDetailsViewModelProtocol?) -> [DetailViewModel]
     func createSupplyLiquidityViewModels(with baseAssetAmount: Decimal,
                                          targetAssetAmount: Decimal,
                                          pool: PoolInfo?,
@@ -102,7 +102,7 @@ final class DetailViewModelFactory {
 }
 
 extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
-    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: Decimal?, viewModel: PoolDetailsViewModelProtocol) -> [DetailViewModel] {
+    func createPoolDetailViewModels(with poolInfo: PoolInfo, apy: Decimal?, viewModel: PoolDetailsViewModelProtocol?) -> [DetailViewModel] {
         var viewModels: [DetailViewModel] = []
         
         let baseAsset = assetManager.assetInfo(for: poolInfo.baseAssetId)

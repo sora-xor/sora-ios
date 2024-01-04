@@ -43,7 +43,8 @@ final class PoolDetailsItemFactory {
         detailsFactory: DetailViewModelFactoryProtocol,
         viewModel: PoolDetailsViewModelProtocol,
         fiatData: [FiatData],
-        farms: [UserFarm]
+        farms: [UserFarm],
+        service: PoolDetailsItemServiceProtocol
     ) -> PoolDetailsItem {
 
         let baseAsset = assetManager.assetInfo(for: poolInfo.baseAssetId)
@@ -57,8 +58,6 @@ final class PoolDetailsItemFactory {
         
         let title = "\(baseAssetSymbol)-\(targetAssetSymbol) \(poolText)"
         
-        let detailsViewModels = detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: viewModel)
-
         let isRemoveLiquidityEnabled = farms.map {
             let pooledTokens = $0.pooledTokens ?? .zero
             let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
@@ -67,19 +66,17 @@ final class PoolDetailsItemFactory {
         
         let isThereLiquidity = poolInfo.baseAssetPooledByAccount != nil && poolInfo.targetAssetPooledByAccount != nil
         
-        let priceUsd = fiatData.first(where: { $0.id == poolInfo.baseAssetId })?.priceUsd?.decimalValue ?? .zero
-        let reserves = poolInfo.baseAssetReserves ?? .zero
-        let tvlText = "$" + (priceUsd * reserves * 2).formatNumber() + " TVL"
+        let detailsViewModels = detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: nil, viewModel: viewModel)
         
         let detailsItem = PoolDetailsItem(title: title,
-                                          subtitle: tvlText,
                                           firstAssetImage: baseAsset?.icon,
                                           secondAssetImage: targetAsset?.icon,
                                           rewardAssetImage: rewardAsset?.icon,
-                                          detailsViewModel: detailsViewModels,
                                           isRemoveLiquidityEnabled: isRemoveLiquidityEnabled, 
                                           typeImage: isThereLiquidity ? .activePoolWithFarming : .inactivePoolWithFarming,
-                                          isThereLiquidity: isThereLiquidity)
+                                          isThereLiquidity: isThereLiquidity,
+                                          detailsViewModels: detailsViewModels,
+                                          service: service)
         detailsItem.handler = { type in
             viewModel.infoButtonTapped(with: type)
         }
@@ -97,8 +94,13 @@ final class PoolDetailsItemFactory {
             let baseAssetSymbol = baseAsset?.symbol ?? ""
             let poolAssetSymbol = poolAsset?.symbol ?? ""
             let rewardAssetSymbol = rewardAsset?.symbol ?? ""
+            
+            let baseAssetId = baseAsset?.assetId ?? ""
+            let poolAssetId = poolAsset?.assetId ?? ""
+            let rewardAssetId = rewardAsset?.assetId ?? ""
+
             let title = "\(baseAssetSymbol)-\(poolAssetSymbol)"
-            let id = "\(baseAssetSymbol)-\(poolAssetSymbol)-\(rewardAssetSymbol)"
+            let id = "\(baseAssetId)-\(poolAssetId)-\(rewardAssetId)"
             
             let rewards = userFarm.rewards ?? .zero
             let subtitle = R.string.localizable.poolDetailsReward(preferredLanguages: .currentLocale) + ": \(rewards) \(rewardAssetSymbol)"
@@ -135,9 +137,12 @@ final class PoolDetailsItemFactory {
             
             let baseAssetSymbol = baseAsset?.symbol ?? ""
             let poolAssetSymbol = poolAsset?.symbol ?? ""
-            let rewardAssetSymbol = rewardAsset?.symbol ?? ""
             
-            let id = "\(baseAssetSymbol)-\(poolAssetSymbol)-\(rewardAssetSymbol)"
+            let baseAssetId = baseAsset?.assetId ?? ""
+            let poolAssetId = poolAsset?.assetId ?? ""
+            let rewardAssetId = rewardAsset?.assetId ?? ""
+            
+            let id = "\(baseAssetId)-\(poolAssetId)-\(rewardAssetId)"
             let title = "\(baseAssetSymbol)-\(poolAssetSymbol)"
             
             let subtitle = "$" + farm.tvl.formatNumber()

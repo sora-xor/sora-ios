@@ -65,7 +65,7 @@ final class PoolDetailsViewController: SoramitsuViewController {
             case .details(let item):
                 let cell: PoolDetailsCell? = tableView.dequeueReusableCell(withIdentifier: "PoolDetailsCell",
                                                                            for: indexPath) as? PoolDetailsCell
-                cell?.set(item: item, context: nil)
+                cell?.set(item: item)
                 return cell ?? UITableViewCell()
             case .space(let item):
                 let cell: SoramitsuCell<SoramitsuTableViewSpaceView>? = tableView.dequeueReusableCell(withIdentifier: "SoramitsuSpaceCell",
@@ -83,8 +83,6 @@ final class PoolDetailsViewController: SoramitsuViewController {
 
     init(viewModel: PoolDetailsViewModelProtocol) {
         self.viewModel = viewModel
-        super.init()
-        setupSubscription()
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -94,6 +92,7 @@ final class PoolDetailsViewController: SoramitsuViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        setupSubscription()
         setupView()
         setupConstraints()
         

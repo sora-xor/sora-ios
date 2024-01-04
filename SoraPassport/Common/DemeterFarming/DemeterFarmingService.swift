@@ -100,7 +100,7 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
             
             let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
-            let id = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")-\(rewardAsset?.symbol ?? "")"
+            let id = "\(baseAsset?.assetId ?? "")-\(poolAsset?.assetId ?? "")-\(rewardAsset?.assetId ?? "")"
             let rewardTokenInfo = finalRewardTokenInfos?.first { $0.assetId == pool.rewardAssetId }
             let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
             let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)

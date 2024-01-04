@@ -68,7 +68,7 @@ final class AccountPoolsService {
         let removedItems: [PoolInfo]
     }
 
-    var outputs: [PoolsServiceOutput] = []
+    var outputs: [WeakWrapper] = []
     var networkFacade: WalletNetworkOperationFactoryProtocol?
     var polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?
     let operationManager: OperationManagerProtocol = OperationManager()
@@ -183,7 +183,8 @@ final class AccountPoolsService {
 
 extension AccountPoolsService: PoolsServiceInputProtocol {
     func appendDelegate(delegate: PoolsServiceOutput) {
-        outputs.append(delegate)
+        let weakDelegate = WeakWrapper(target: delegate)
+        outputs.append(weakDelegate)
     }
     
     func getPool(by id: String) -> PoolInfo? {
@@ -255,12 +256,12 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
             if !currentPools.isEmpty && !isNeedForceUpdate {
                 let sortedPools = currentPools.sorted(by: orderSort)
                 outputs.forEach {
-                    $0.loaded(pools: sortedPools)
+                    ($0.target as? PoolsServiceOutput)?.loaded(pools: sortedPools)
                 }
                 return
             }
 
-            guard let fetchRemotePoolsOperation = try? await (networkFacade as? WalletNetworkFacade)?.getAccountPoolsDetails() else { return }
+            guard let fetchRemotePoolsOperation = try? (networkFacade as? WalletNetworkFacade)?.getAccountPoolsDetails() else { return }
             let fetchOperation = poolRepository.fetchAllOperation(with: RepositoryFetchOptions())
             
             let processingOperation: BaseOperation<PoolsChanges> = ClosureOperation { [weak self] in
@@ -300,7 +301,7 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
                 let sortedPools = remotePoolInfo.sorted(by: self.orderSort)
                 self.currentPools = sortedPools
                 self.outputs.forEach {
-                    $0.loaded(pools: sortedPools)
+                    ($0.target as? PoolsServiceOutput)?.loaded(pools: sortedPools)
                 }
                 
                 let newOrUpdatedItems = remotePoolInfo.filter { !localPools.contains($0) }
@@ -405,4 +406,3 @@ extension AccountPoolsService {
         }
     }
 }
-

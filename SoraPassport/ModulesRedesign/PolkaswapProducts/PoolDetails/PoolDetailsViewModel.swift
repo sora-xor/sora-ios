@@ -40,41 +40,35 @@ final class PoolDetailsViewModel {
     @Published var snapshot: PoolDetailsSnapshot = PoolDetailsSnapshot()
     var snapshotPublisher: Published<PoolDetailsSnapshot>.Publisher { $snapshot }
     
-    var detailsItem: PoolDetailsItem?
-    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var dismiss: (() -> Void)?
     var dismissHandler: (() -> Void)?
-    
-    var apyService: APYServiceProtocol
-    var fiatService: FiatServiceProtocol
     weak var view: PoolDetailsViewProtocol?
-    var wireframe: PoolDetailsWireframeProtocol?
-    var poolsService: PoolsServiceInputProtocol?
-    var poolInfo: PoolInfo {
+    
+    // Save
+    private var apyService: APYServiceProtocol
+    private var fiatService: FiatServiceProtocol
+    private var wireframe: PoolDetailsWireframeProtocol?
+    private let farmingService: DemeterFarmingServiceProtocol
+    private let itemFactory = PoolDetailsItemFactory()
+    private let poolDetailsService: PoolDetailsItemServiceProtocol
+    
+    private var poolsService: PoolsServiceInputProtocol?
+    private var poolInfo: PoolInfo {
         didSet {
             Task {
                 await updateContent()
             }
         }
     }
-    let assetManager: AssetManagerProtocol
-    let detailsFactory: DetailViewModelFactoryProtocol
-    let providerFactory: BalanceProviderFactory
-    let operationFactory: WalletNetworkOperationFactoryProtocol
-    private var isDeletedPool = false
-    private weak var assetsProvider: AssetProviderProtocol?
-    private let farmingService: DemeterFarmingServiceProtocol
-    private let itemFactory = PoolDetailsItemFactory()
-    private let group = DispatchGroup()
-    private var marketCapService: MarketCapServiceProtocol
-    private var task: Task<Void, Swift.Error>?
     
-    private var detailsContent: (apy: Decimal?, fiatData: [FiatData], farms: [Farm])? {
+    // ???
+    private let assetManager: AssetManagerProtocol
+    private let detailsFactory: DetailViewModelFactoryProtocol
+    private var isDeletedPool = false
+    
+    private var detailsContent: [Farm] = [] {
         didSet {
-            if detailsContent != nil {
-                reload()
-            }
+            reload()
         }
     }
 
@@ -85,11 +79,8 @@ final class PoolDetailsViewModel {
         poolsService: PoolsServiceInputProtocol?,
         assetManager: AssetManagerProtocol,
         detailsFactory: DetailViewModelFactoryProtocol,
-        providerFactory: BalanceProviderFactory,
-        operationFactory: WalletNetworkOperationFactoryProtocol,
-        assetsProvider: AssetProviderProtocol?,
         farmingService: DemeterFarmingServiceProtocol,
-        marketCapService: MarketCapServiceProtocol
+        poolDetailsService: PoolDetailsItemServiceProtocol
     ) {
         self.poolInfo = poolInfo
         self.apyService = APYService.shared
@@ -98,11 +89,8 @@ final class PoolDetailsViewModel {
         self.poolsService = poolsService
         self.assetManager = assetManager
         self.detailsFactory = detailsFactory
-        self.providerFactory = providerFactory
-        self.operationFactory = operationFactory
-        self.assetsProvider = assetsProvider
         self.farmingService = farmingService
-        self.marketCapService = marketCapService
+        self.poolDetailsService = poolDetailsService
         self.poolsService?.appendDelegate(delegate: self)
         self.poolsService?.subscribePoolsReserves([poolInfo])
     }
@@ -121,16 +109,10 @@ final class PoolDetailsViewModel {
         reload()
 
         Task {
-            async let apy = apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
-            
-            async let fiatData = fiatService.getFiat()
-            
-            async let farms = (try? farmingService.getAllFarms().filter {
+            detailsContent = await (try? farmingService.getAllFarms().filter {
                 $0.baseAsset?.assetId == poolInfo.baseAssetId &&
                 $0.poolAsset?.assetId == poolInfo.targetAssetId
             }) ?? []
-            
-            detailsContent = await (apy, fiatData, farms)
         }
     }
 }
@@ -161,11 +143,12 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
         
         let poolDetailsItem = itemFactory.createPoolDetailsItem(with: assetManager,
                                                                 poolInfo: poolInfo,
-                                                                apy: detailsContent?.apy ?? .zero,
+                                                                apy: .zero,
                                                                 detailsFactory: detailsFactory,
                                                                 viewModel: self,
-                                                                fiatData: detailsContent?.fiatData ?? [], 
-                                                                farms: poolInfo.farms)
+                                                                fiatData: [],
+                                                                farms: poolInfo.farms,
+                                                                service: poolDetailsService)
         
         items.append(contentsOf: [
             .details(poolDetailsItem),
@@ -176,22 +159,18 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
             let farmViewModels = itemFactory.farmsItem(
                 with: assetManager,
                 poolInfo: poolInfo,
-                farms: detailsContent?.farms ?? []
+                farms: detailsContent
             )
             let activeFarmsItem = FarmListItem(
                 title: R.string.localizable.poolDetailsActiveFarms(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
-                guard let self, let farm = self.detailsContent?.farms.first(where: { $0.id == id }) else { return }
+                guard let self, let farm = self.detailsContent.first(where: { $0.id == id }) else { return }
                 self.wireframe?.showFarmDetails(
                     on: self.view?.controller,
                     poolsService: self.poolsService,
                     fiatService: self.fiatService,
                     assetManager: self.assetManager,
-                    providerFactory: self.providerFactory,
-                    operationFactory: self.operationFactory,
-                    assetsProvider: self.assetsProvider,
-                    marketCapService: self.marketCapService,
                     farmingService: self.farmingService,
                     poolInfo: self.poolInfo,
                     farm: farm
@@ -204,23 +183,21 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
             ])
         }
         
-        if !(detailsContent?.farms.isEmpty ?? true) {
-            let farmViewModels = itemFactory.farmsItem(with: detailsContent?.farms ?? [])
+        let userFarmIds = poolInfo.farms.map { $0.id }
+        let offerToStakeFarms = detailsContent.filter { !userFarmIds.contains($0.id) }
+        if !offerToStakeFarms.isEmpty {
+            let farmViewModels = itemFactory.farmsItem(with: offerToStakeFarms)
             
             let stakeItem = FarmListItem(
                 title: R.string.localizable.polkaswapPoolFarmsTitle(preferredLanguages: .currentLocale),
                 farmViewModels: farmViewModels
             ) { [weak self] id in
-                guard let self, let farm = self.detailsContent?.farms.first(where: { $0.id == id }) else { return }
+                guard let self, let farm = offerToStakeFarms.first(where: { $0.id == id }) else { return }
                 self.wireframe?.showFarmDetails(
                     on: self.view?.controller,
                     poolsService: self.poolsService,
                     fiatService: self.fiatService,
                     assetManager: self.assetManager,
-                    providerFactory: self.providerFactory,
-                    operationFactory: self.operationFactory,
-                    assetsProvider: self.assetsProvider,
-                    marketCapService: self.marketCapService,
                     farmingService: self.farmingService,
                     poolInfo: self.poolInfo,
                     farm: farm
@@ -254,10 +231,6 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                                  assetManager: assetManager,
                                  poolsService: poolsService,
                                  fiatService: fiatService,
-                                 providerFactory: providerFactory,
-                                 operationFactory: operationFactory,
-                                 assetsProvider: assetsProvider,
-                                 marketCapService: marketCapService,
                                  farmingService: farmingService,
                                  completionHandler: dismissIfNeeded)
     }
