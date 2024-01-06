@@ -81,16 +81,16 @@ final class PoolDetailsItem: ItemProtocol {
         self.isThereLiquidity = isThereLiquidity
         self.detailsViewModels = detailsViewModels
         self.service = service
-        self.service?.setup(with: poolInfo)
     }
 }
 
 extension PoolDetailsItem: Hashable {
     static func == (lhs: PoolDetailsItem, rhs: PoolDetailsItem) -> Bool {
-        lhs.isThereLiquidity == rhs.isThereLiquidity
+        lhs.isThereLiquidity == rhs.isThereLiquidity && lhs.detailsViewModels == rhs.detailsViewModels
     }
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(isThereLiquidity)
+        hasher.combine(detailsViewModels)
     }
 }

@@ -412,6 +412,13 @@
 		3653BD1C2A02BCCD003C71A4 /* SwitcherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD1B2A02BCCD003C71A4 /* SwitcherView.swift */; };
 		3653BD1E2A02CF63003C71A4 /* InputSendInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3653BD1D2A02CF63003C71A4 /* InputSendInfoView.swift */; };
 		3657043E284643EA00B783D2 /* SubqueryHistoryOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3657043D284643EA00B783D2 /* SubqueryHistoryOperation.swift */; };
+		36583CFA2B47A66D007725ED /* UserFarmsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36583CF92B47A66D007725ED /* UserFarmsService.swift */; };
+		36583CFE2B47C0BD007725ED /* SoraAsyncChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36583CFC2B47C0BD007725ED /* SoraAsyncChannel.swift */; };
+		36583CFF2B47C0BD007725ED /* SoraAsyncThrowingPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36583CFD2B47C0BD007725ED /* SoraAsyncThrowingPublisher.swift */; };
+		36583D012B47C310007725ED /* WithCheckedThrowingCancellableContinuation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36583D002B47C30F007725ED /* WithCheckedThrowingCancellableContinuation.swift */; };
+		36583D052B47C350007725ED /* SoraCancellable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36583D022B47C34F007725ED /* SoraCancellable.swift */; };
+		36583D062B47C350007725ED /* SoraCancellableClosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36583D032B47C350007725ED /* SoraCancellableClosure.swift */; };
+		36583D072B47C350007725ED /* SoraCancellablesStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36583D042B47C350007725ED /* SoraCancellablesStorage.swift */; };
 		365BFF8D2B3BCE3C0035DD78 /* DemeterFarmingWithdrawLiquidityCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365BFF8A2B3BCE3C0035DD78 /* DemeterFarmingWithdrawLiquidityCall.swift */; };
 		365BFF8E2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365BFF8B2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift */; };
 		365BFF8F2B3BCE3C0035DD78 /* DemeterFarmingDepositLiquidityCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365BFF8C2B3BCE3C0035DD78 /* DemeterFarmingDepositLiquidityCall.swift */; };
@@ -1797,6 +1804,13 @@
 		3653BD1B2A02BCCD003C71A4 /* SwitcherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitcherView.swift; sourceTree = "<group>"; };
 		3653BD1D2A02CF63003C71A4 /* InputSendInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputSendInfoView.swift; sourceTree = "<group>"; };
 		3657043D284643EA00B783D2 /* SubqueryHistoryOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubqueryHistoryOperation.swift; sourceTree = "<group>"; };
+		36583CF92B47A66D007725ED /* UserFarmsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFarmsService.swift; sourceTree = "<group>"; };
+		36583CFC2B47C0BD007725ED /* SoraAsyncChannel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SoraAsyncChannel.swift; sourceTree = "<group>"; };
+		36583CFD2B47C0BD007725ED /* SoraAsyncThrowingPublisher.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SoraAsyncThrowingPublisher.swift; sourceTree = "<group>"; };
+		36583D002B47C30F007725ED /* WithCheckedThrowingCancellableContinuation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WithCheckedThrowingCancellableContinuation.swift; sourceTree = "<group>"; };
+		36583D022B47C34F007725ED /* SoraCancellable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SoraCancellable.swift; sourceTree = "<group>"; };
+		36583D032B47C350007725ED /* SoraCancellableClosure.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SoraCancellableClosure.swift; sourceTree = "<group>"; };
+		36583D042B47C350007725ED /* SoraCancellablesStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SoraCancellablesStorage.swift; sourceTree = "<group>"; };
 		365BFF8A2B3BCE3C0035DD78 /* DemeterFarmingWithdrawLiquidityCall.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DemeterFarmingWithdrawLiquidityCall.swift; sourceTree = "<group>"; };
 		365BFF8B2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DemeterFarmingClaimRewardCall.swift; sourceTree = "<group>"; };
 		365BFF8C2B3BCE3C0035DD78 /* DemeterFarmingDepositLiquidityCall.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DemeterFarmingDepositLiquidityCall.swift; sourceTree = "<group>"; };
@@ -3204,6 +3218,7 @@
 		02623EF92179D0B50011250E /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				36583CFB2B47C09D007725ED /* Combine+AsyncAwait */,
 				3618AE532AC43C5D00F582BD /* PriceInfo */,
 				363EAB662A7BCAC400603361 /* MarketCap */,
 				360FF41D2A568E2400D94BA9 /* DemeterFarming */,
@@ -3834,6 +3849,7 @@
 				360FF41E2A568E4800D94BA9 /* DemeterFarmingService.swift */,
 				360FF4202A568EC100D94BA9 /* DemeterFarmingOperationFactory.swift */,
 				36C66EAB2A5D6E7700ADAD5E /* UserFarmInfo.swift */,
+				36583CF92B47A66D007725ED /* UserFarmsService.swift */,
 			);
 			path = DemeterFarming;
 			sourceTree = "<group>";
@@ -4495,6 +4511,19 @@
 				363DA66B2A04354600806A5B /* GenerateQRWireframe.swift */,
 			);
 			path = GenerateQR;
+			sourceTree = "<group>";
+		};
+		36583CFB2B47C09D007725ED /* Combine+AsyncAwait */ = {
+			isa = PBXGroup;
+			children = (
+				36583D022B47C34F007725ED /* SoraCancellable.swift */,
+				36583D032B47C350007725ED /* SoraCancellableClosure.swift */,
+				36583D042B47C350007725ED /* SoraCancellablesStorage.swift */,
+				36583D002B47C30F007725ED /* WithCheckedThrowingCancellableContinuation.swift */,
+				36583CFC2B47C0BD007725ED /* SoraAsyncChannel.swift */,
+				36583CFD2B47C0BD007725ED /* SoraAsyncThrowingPublisher.swift */,
+			);
+			path = "Combine+AsyncAwait";
 			sourceTree = "<group>";
 		};
 		3661C9D32850BEEF00660434 /* Rewards */ = {
@@ -7250,6 +7279,7 @@
 				9457538C25B0996800AC12B9 /* SplashView.swift in Sources */,
 				02A052F1221F33FD00CA290F /* SmsCodeSendMock.swift in Sources */,
 				364D64C32A96191400072106 /* Sequence+Async.swift in Sources */,
+				36583D052B47C350007725ED /* SoraCancellable.swift in Sources */,
 				9481B467286EFC2200A472E2 /* ChainSyncService.swift in Sources */,
 				9441FBF125CC035700775559 /* StorageSubscriptionProtocols.swift in Sources */,
 				5599B6D1292570ED00567396 /* SettingsInformationFactory.swift in Sources */,
@@ -7287,6 +7317,7 @@
 				5E9774F42A31AE040047BCA2 /* AccountExportRawSeedInteractor.swift in Sources */,
 				361106312978A4A7003A6352 /* ConfirmPassphraseViewModel.swift in Sources */,
 				B261D91E2ACD80A000B434EE /* BackupItem.swift in Sources */,
+				36583D062B47C350007725ED /* SoraCancellableClosure.swift in Sources */,
 				02A053152223337800CA290F /* HelpFetchMock.swift in Sources */,
 				364BB47E292A469B00DE90A6 /* ConfirmDetailsItem.swift in Sources */,
 				8B362601296F1813007B9525 /* ChangeAccountViewFactory.swift in Sources */,
@@ -7315,6 +7346,7 @@
 				94B3010426FDF41D00F239D7 /* PriceData.swift in Sources */,
 				B2A56EFD2A5E955E00844A35 /* FeeView.swift in Sources */,
 				02E319A221D2B16A00B33B66 /* DecentralizedDocumentRequestError+TextConvertible.swift in Sources */,
+				36583CFA2B47A66D007725ED /* UserFarmsService.swift in Sources */,
 				94497DDE25EF89A700FD4F14 /* ActiveEraInfo.swift in Sources */,
 				365BFF8E2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift in Sources */,
 				84E8DEAD225B6B1700640754 /* CacheFacade.swift in Sources */,
@@ -7391,6 +7423,7 @@
 				36ACC95D28649A3400DA98EC /* KeyboardService.swift in Sources */,
 				945A570E25DE7E9D003E4023 /* GitHubOperationFactory.swift in Sources */,
 				849C56A0237CBD3D00350CB0 /* ApplyInvitationDataError+TextConvertible.swift in Sources */,
+				36583CFF2B47C0BD007725ED /* SoraAsyncThrowingPublisher.swift in Sources */,
 				84530A4F223C332400AD7598 /* SecuredPresentable.swift in Sources */,
 				366D53C82952937A0094CE36 /* ContactFooterCell.swift in Sources */,
 				94B3008626FC97A500F239D7 /* SubqueryHistoryOperationFactory+Wallet.swift in Sources */,
@@ -7674,6 +7707,7 @@
 				36ED6FC029F921F400D096C9 /* MneminicProcessor.swift in Sources */,
 				9441FBEB25CC035700775559 /* StorageUpdate.swift in Sources */,
 				8BF42865293BB2A500590F92 /* MoreMenuWireframe.swift in Sources */,
+				36583D072B47C350007725ED /* SoraCancellablesStorage.swift in Sources */,
 				84639D0F22CA029F009D847C /* UserCreationMock.swift in Sources */,
 				94497DD325EF89A700FD4F14 /* BaseExtrinsic.swift in Sources */,
 				9441FA4E25CAAE8600775559 /* WalletPrimitiveFactory.swift in Sources */,
@@ -7889,8 +7923,10 @@
 				02A6B9B52184418000391762 /* AdaptiveDesignableTraits.swift in Sources */,
 				5E9774F82A31AE040047BCA2 /* AccountExportRawSeedViewController.swift in Sources */,
 				02623EE92179AD390011250E /* RootInteractor.swift in Sources */,
+				36583CFE2B47C0BD007725ED /* SoraAsyncChannel.swift in Sources */,
 				361106372978A4C5003A6352 /* WordNumberItem.swift in Sources */,
 				84FA00882268AC19005DA950 /* ActivatedInvitationsData.swift in Sources */,
+				36583D012B47C310007725ED /* WithCheckedThrowingCancellableContinuation.swift in Sources */,
 				36165521291D7F4200060A8D /* PoolDetailsViewModel.swift in Sources */,
 				362853D22B466CE1007BEA37 /* PoolDetailsItemService.swift in Sources */,
 				02165AC921A2FEC600EC1FCC /* NumberFormatter+Values.swift in Sources */,

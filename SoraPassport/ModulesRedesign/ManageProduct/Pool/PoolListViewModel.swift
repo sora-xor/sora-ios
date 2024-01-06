@@ -143,7 +143,9 @@ extension PoolListViewModel: PoolListViewModelProtocol {
     
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        poolsService?.loadAccountPools(isNeedForceUpdate: false)
+
+        let pools = poolsService?.getAccountPools() ?? []
+        loaded(pools: pools)
     }
     
     func viewdismissed() {

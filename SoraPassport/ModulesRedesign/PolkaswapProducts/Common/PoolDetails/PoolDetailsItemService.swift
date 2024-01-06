@@ -42,13 +42,11 @@ protocol PoolDetailsItemServiceProtocol: AnyObject {
 final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
     var tvlText: AnyPublisher<String, Never> = Just("").eraseToAnyPublisher()
     
-    lazy var details: AnyPublisher<[DetailViewModel], Never> = Just(
-        detailsFactory.createPoolDetailViewModels(
-            with: poolInfo,
-            apy: nil,
-            viewModel: viewModel
-        )
-    ).eraseToAnyPublisher()
+    var details: AnyPublisher<[DetailViewModel], Never> {
+        detailsSubject.eraseToAnyPublisher()
+    }
+    
+    private let detailsSubject = PassthroughSubject<[DetailViewModel], Never>()
 
     weak var viewModel: PoolDetailsViewModelProtocol?
     private let poolInfo: PoolInfo
@@ -66,14 +64,19 @@ final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
         self.apyService = apyService
         self.fiatService = fiatService
         self.detailsFactory = detailsFactory
-        
     }
     
     func setup(with poolInfo: PoolInfo) {
+        print("OLOLO details inited 0")
+        
         Task { [weak self] in
             guard let self else { return }
             let apy = await self.apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
-            self.details = Just(self.detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: self.viewModel)).eraseToAnyPublisher()
+            let details = self.detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: self.viewModel)
+            
+            print("OLOLO details inited 1")
+            detailsSubject.send(details)
+            print("OLOLO details inited 2")
         }
         
         Task { [weak self] in

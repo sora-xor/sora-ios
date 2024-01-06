@@ -200,6 +200,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
     
     func showFarmDetails(on viewController: UIViewController?, farm: Farm) {
         let wireframe = FarmDetailsWireframe(feeProvider: feeProvider, walletService: walletService, assetManager: assetManager)
+        let userFarmService = UserFarmsService()
         let viewModel = FarmDetailsViewModel(farm: farm,
                                              poolsService: poolsService,
                                              poolViewModelsService: poolViewModelsService,
@@ -210,7 +211,8 @@ final class ExploreWireframe: ExploreWireframeProtocol {
                                              marketCapService: marketCapService,
                                              farmingService: farmingService,
                                              detailsFactory: DetailViewModelFactory(assetManager: assetManager),
-                                             wireframe: wireframe)
+                                             wireframe: wireframe, 
+                                             userFarmService: userFarmService)
         
         let view = FarmDetailsViewController(viewModel: viewModel)
         viewModel.view = view

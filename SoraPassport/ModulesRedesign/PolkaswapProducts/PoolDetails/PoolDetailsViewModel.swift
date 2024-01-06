@@ -44,7 +44,6 @@ final class PoolDetailsViewModel {
     var dismissHandler: (() -> Void)?
     weak var view: PoolDetailsViewProtocol?
     
-    // Save
     private var apyService: APYServiceProtocol
     private var fiatService: FiatServiceProtocol
     private var wireframe: PoolDetailsWireframeProtocol?
@@ -55,16 +54,11 @@ final class PoolDetailsViewModel {
     private var poolsService: PoolsServiceInputProtocol?
     private var poolInfo: PoolInfo
     
-    // ???
     private let assetManager: AssetManagerProtocol
     private let detailsFactory: DetailViewModelFactoryProtocol
     private var isDeletedPool = false
     
-    private var detailsContent: [Farm] = [] {
-        didSet {
-            snapshot = createSnapshot(with: poolInfo)
-        }
-    }
+    private var detailsContent: [Farm] = []
 
     init(
         wireframe: PoolDetailsWireframeProtocol?,
@@ -85,12 +79,12 @@ final class PoolDetailsViewModel {
         self.detailsFactory = detailsFactory
         self.farmingService = farmingService
         self.poolDetailsService = poolDetailsService
+        print("OLOLO viewModel inited")
         self.poolsService?.appendDelegate(delegate: self)
-        self.poolsService?.subscribePoolsReserves([poolInfo])
     }
     
     deinit {
-        print("deinited")
+        print("OLOLO deinited viewModel")
     }
     
     func dismissIfNeeded() {
@@ -98,24 +92,21 @@ final class PoolDetailsViewModel {
             dismiss?()
         }
     }
-    
-    func updateContent(with poolInfo: PoolInfo) async {
-        snapshot = createSnapshot(with: poolInfo)
-
-        Task {
-            detailsContent = await (try? farmingService.getAllFarms().filter {
-                $0.baseAsset?.assetId == poolInfo.baseAssetId &&
-                $0.poolAsset?.assetId == poolInfo.targetAssetId
-            }) ?? []
-        }
-    }
 }
 
 extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func viewDidLoad() {
+        snapshot = createSnapshot(with: poolInfo)
+        
         Task { [weak self] in
             guard let self else { return }
-            await updateContent(with: poolInfo)
+            self.detailsContent = await (try? self.farmingService.getAllFarms().filter {
+                $0.baseAsset?.assetId == self.poolInfo.baseAssetId &&
+                $0.poolAsset?.assetId == self.poolInfo.targetAssetId
+            }) ?? []
+
+            self.snapshot = self.createSnapshot(with: poolInfo)
+            self.poolDetailsService.setup(with: poolInfo)
         }
     }
     
@@ -232,12 +223,11 @@ extension PoolDetailsViewModel: PoolsServiceOutput {
             dismiss?()
             return
         }
-        
+
         poolInfo = pool
-        print("OLOLO pool \(pool)")
-        Task {
-            await updateContent(with: pool)
-        }
+        snapshot = createSnapshot(with: pool)
+        poolDetailsService.setup(with: pool)
+
     }
 }
 

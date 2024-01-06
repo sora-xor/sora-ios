@@ -34,7 +34,6 @@ import RobinHood
 import SSFUtils
 
 protocol DemeterFarmingServiceProtocol: AnyObject {
-    func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?, completion: @escaping ([UserFarm]) -> Void)
     func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?) async -> [UserFarm]
     
     func getAllFarms() async throws -> [Farm]
@@ -129,57 +128,50 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     }
     
     func getFarm(with id: String) -> Farm? {
-        guard let farm = farms.first(where: { $0.id == id })  else { return nil }
-        return farm
+        return farms.first(where: { $0.id == id })
     }
     
     func getFarmDetails(baseAssetId: String, poolAssetId: String, rewardAssetId: String) async throws -> [Farm] {
-        return await withCheckedContinuation { continuation in
-            farmsTask?.cancel()
-            farmsTask = Task {
-                async let farmedPools = (try? getPools(poolAssetId: poolAssetId, rewardAssetId: rewardAssetId)) ?? []
+        async let farmedPools = (try? getPools(poolAssetId: poolAssetId, rewardAssetId: rewardAssetId)) ?? []
+        
+        async let rewardTokenInfos = try? getRewardTokenInfos(with: rewardAssetId)
+        
+        async let fiatData = self.fiatService.getFiat()
+        
+        let results = await (farmedPools: farmedPools.filter { $0.baseAssetId == baseAssetId },
+                             rewardTokenInfos: rewardTokenInfos,
+                             fiatData: fiatData)
+        
+        async let farms = try? results.farmedPools.concurrentMap { [weak self] pool in
+            let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
+            let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
+            let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
             
-                async let rewardTokenInfos = try? getRewardTokenInfos(with: rewardAssetId)
-                
-                async let fiatData = self.fiatService.getFiat()
-                
-                let results = await (farmedPools: farmedPools.filter { $0.baseAssetId == baseAssetId },
-                                     rewardTokenInfos: rewardTokenInfos,
-                                     fiatData: fiatData)
-                
-                async let farms = try? results.farmedPools.concurrentMap { [weak self] pool in
-                    let baseAsset = self?.assetManager.assetInfo(for: pool.baseAssetId)
-                    let poolAsset = self?.assetManager.assetInfo(for: pool.poolAssetId)
-                    let rewardAsset = self?.assetManager.assetInfo(for: pool.rewardAssetId)
-                    
-                    let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
-                    let id = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")-\(rewardAsset?.symbol ?? "")"
-                    let rewardTokenInfo = results.rewardTokenInfos
-                    let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
-                    let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
-
-                    let price = results.fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
-                    let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
-                    
-                    let blockPerYear = Decimal(5256000)
-                    let rewardAssetPrice = results.fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
-                    let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
-                    let depositFee = pool.depositFee * 100
-
-                    return Farm(id: id,
-                                name: name,
-                                baseAsset: baseAsset,
-                                poolAsset: poolAsset,
-                                rewardAsset: rewardAsset,
-                                tvl: tvl,
-                                apr: apr / 100,
-                                depositFee: depositFee)
-                }
-                
-                let finalfarms = await farms ?? []
-                continuation.resume(returning: finalfarms)
-            }
+            let name = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
+            let id = "\(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")-\(rewardAsset?.symbol ?? "")"
+            let rewardTokenInfo = results.rewardTokenInfos
+            let emission = self?.calculateEmmision(farmedPool: pool, rewardTokenInfo: rewardTokenInfo) ?? Decimal(0)
+            let poolInfo = await self?.poolsService?.getPool(by: pool.baseAssetId, targetAssetId: pool.poolAssetId)
+            
+            let price = results.fiatData.first { $0.id == pool.poolAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            let tvl = self?.calculateTVL(farmedPool: pool, poolInfo: poolInfo, price: price) ?? Decimal(0)
+            
+            let blockPerYear = Decimal(5256000)
+            let rewardAssetPrice = results.fiatData.first { $0.id == pool.rewardAssetId }?.priceUsd?.decimalValue ?? Decimal(0)
+            let apr = tvl.isZero ? 0 : emission * blockPerYear * rewardAssetPrice / tvl * 100
+            let depositFee = pool.depositFee * 100
+            
+            return Farm(id: id,
+                        name: name,
+                        baseAsset: baseAsset,
+                        poolAsset: poolAsset,
+                        rewardAsset: rewardAsset,
+                        tvl: tvl,
+                        apr: apr / 100,
+                        depositFee: depositFee)
         }
+
+        return await farms ?? []
     }
     
     func getPoolKeys() async throws -> [String] {
@@ -276,17 +268,7 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             }
         }
     }
-    
 
-    @available(*, renamed: "getFarmedPools(baseAssetId:targetAssetId:)")
-    func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?, completion: @escaping ([UserFarm]) -> Void) {
-        Task {
-            let result = await getUserFarmInfos(baseAssetId: baseAssetId, targetAssetId: targetAssetId)
-            completion(result)
-        }
-    }
-    
-    
     func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?) async -> [UserFarm] {
         guard let baseAssetId, let targetAssetId,
               let account = SelectedWalletSettings.shared.currentAccount,
@@ -306,7 +288,7 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                 let filtredUserFarms = userFarms.filter { baseAssetId == $0.baseAsset.value && targetAssetId == $0.poolAsset.value && $0.isFarm }
                 let farms = filtredUserFarms.map {
                     UserFarm(
-                        id: "\($0.baseAsset.value ?? "")-\($0.poolAsset.value ?? "")-\($0.rewardAsset.value ?? "")",
+                        id: "\($0.baseAsset.value)-\($0.poolAsset.value)-\($0.rewardAsset.value)",
                         baseAssetId: $0.baseAsset.value,
                         poolAssetId: $0.poolAsset.value,
                         rewardAssetId: $0.rewardAsset.value,

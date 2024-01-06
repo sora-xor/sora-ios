@@ -63,6 +63,7 @@ final class FarmDetailsViewModel {
     private let farmingService: DemeterFarmingServiceProtocol
     private let detailsFactory: DetailViewModelFactoryProtocol
     private let itemFactory = PoolDetailsItemFactory()
+    private let userFarmService: UserFarmsServiceProtocol
 
     init(farm: Farm,
          poolInfo: PoolInfo? = nil,
@@ -75,7 +76,8 @@ final class FarmDetailsViewModel {
          marketCapService: MarketCapServiceProtocol,
          farmingService: DemeterFarmingServiceProtocol,
          detailsFactory: DetailViewModelFactoryProtocol,
-         wireframe: FarmDetailsWireframeProtocol?) {
+         wireframe: FarmDetailsWireframeProtocol?,
+         userFarmService: UserFarmsServiceProtocol) {
         self.farm = farm
         self.poolInfo = poolInfo
         self.poolsService = poolsService
@@ -88,6 +90,7 @@ final class FarmDetailsViewModel {
         self.farmingService = farmingService
         self.detailsFactory = detailsFactory
         self.wireframe = wireframe
+        self.userFarmService = userFarmService
     }
     
     deinit {
@@ -95,6 +98,21 @@ final class FarmDetailsViewModel {
     }
     
     private func setupSubscription() {
+        Task { [userFarmService] in
+            guard let poolInfo else { return }
+            
+            do {
+                try await userFarmService.subscribeUserFarms(to: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
+            } catch {
+                print("Failed")
+            }
+            
+            let values = await userFarmService.userFarms.asyncValues
+            for await value in values {
+                print("OLOLO value \(value) value.count \(value.count)")
+            }
+        }
+
         poolViewModelsService?.$viewModels
             .receive(on: DispatchQueue.main)
             .sink { [weak self] viewModels in

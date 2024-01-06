@@ -57,7 +57,7 @@ final class PoolDetailsViewFactory {
                                                         apyService: APYService.shared,
                                                         fiatService: fiatService,
                                                         detailsFactory: detailsFactory)
-
+        
         let viewModel = PoolDetailsViewModel(wireframe: wireframe,
                                              poolInfo: poolInfo,
                                              fiatService: fiatService,

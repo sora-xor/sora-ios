@@ -40,7 +40,7 @@ final class PoolDetailsItemFactory {
         with assetManager: AssetManagerProtocol,
         poolInfo: PoolInfo,
         detailsFactory: DetailViewModelFactoryProtocol,
-        viewModel: PoolDetailsViewModelProtocol,
+        viewModel: PoolDetailsViewModelProtocol?,
         farms: [UserFarm],
         service: PoolDetailsItemServiceProtocol
     ) -> PoolDetailsItem {
@@ -76,8 +76,8 @@ final class PoolDetailsItemFactory {
                                           detailsViewModels: detailsViewModels,
                                           poolInfo: poolInfo,
                                           service: service)
-        detailsItem.handler = { type in
-            viewModel.infoButtonTapped(with: type)
+        detailsItem.handler = { [weak viewModel] type in
+            viewModel?.infoButtonTapped(with: type)
         }
 
         return detailsItem

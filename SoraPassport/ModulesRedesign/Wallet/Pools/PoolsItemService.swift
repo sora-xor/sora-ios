@@ -41,12 +41,13 @@ final class PoolsItemService {
     var fiatData: [FiatData] = []
     var updateHandler: (() -> Void)?
     
-    @Published var poolViewModels: [PoolViewModel] = [ PoolViewModel(identifier: "1", title: "", subtitle: "", fiatText: ""),
-                                                       PoolViewModel(identifier: "2", title: "", subtitle: "", fiatText: ""),
-                                                       PoolViewModel(identifier: "3", title: "", subtitle: "", fiatText: ""),
-                                                       PoolViewModel(identifier: "4", title: "", subtitle: "", fiatText: ""),
-                                                       PoolViewModel(identifier: "5", title: "", subtitle: "", fiatText: "")
-                                                      ]
+    @Published var poolViewModels: [PoolViewModel] = [
+        PoolViewModel(identifier: "1", title: "", subtitle: "", fiatText: ""),
+        PoolViewModel(identifier: "2", title: "", subtitle: "", fiatText: ""),
+        PoolViewModel(identifier: "3", title: "", subtitle: "", fiatText: ""),
+        PoolViewModel(identifier: "4", title: "", subtitle: "", fiatText: ""),
+        PoolViewModel(identifier: "5", title: "", subtitle: "", fiatText: "")
+    ]
     
     @Published var moneyText: String = ""
     

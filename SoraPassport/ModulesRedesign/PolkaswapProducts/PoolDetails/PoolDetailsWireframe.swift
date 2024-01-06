@@ -139,6 +139,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
         let wireframe = FarmDetailsWireframe(feeProvider: feeProvider,
                                              walletService: walletService,
                                              assetManager: assetManager)
+        let userFarmService = UserFarmsService()
         
         let viewModel = FarmDetailsViewModel(farm: farm,
                                              poolInfo: poolInfo,
@@ -150,7 +151,8 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
                                              marketCapService: marketCapService,
                                              farmingService: farmingService,
                                              detailsFactory: DetailViewModelFactory(assetManager: assetManager),
-                                             wireframe: wireframe)
+                                             wireframe: wireframe, 
+                                             userFarmService: userFarmService)
         
         let view = FarmDetailsViewController(viewModel: viewModel)
         viewModel.view = view
