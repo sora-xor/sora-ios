@@ -52,7 +52,6 @@ final class EditFarmViewModel {
     private let walletService: WalletServiceProtocol
     private let wireframe: ConfirmTransactionWireframeProtocol
     private let assetManager: AssetManagerProtocol
-    private let completion: (() -> Void)?
     
     internal var sharePercentage: Decimal = 0
     private var fee: Decimal = 0
@@ -65,8 +64,7 @@ final class EditFarmViewModel {
          feeProvider: FeeProviderProtocol,
          walletService: WalletServiceProtocol,
          wireframe: ConfirmTransactionWireframeProtocol,
-         assetManager: AssetManagerProtocol,
-         completion: (() -> Void)?) {
+         assetManager: AssetManagerProtocol) {
         self.farm = farm
         self.poolInfo = poolInfo
         self.assetsProvider = assetsProvider
@@ -74,7 +72,6 @@ final class EditFarmViewModel {
         self.walletService = walletService
         self.wireframe = wireframe
         self.assetManager = assetManager
-        self.completion = completion
     }
     
     deinit {
@@ -214,7 +211,7 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
         
         EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: transaction))
         wireframe.showActivityDetails(on: view?.controller, model: transaction, assetManager: assetManager) { [weak self] in
-            self?.view?.dismiss(competion: self?.completion)
+            self?.view?.dismiss(competion: {})
         }
     }
 }

@@ -167,18 +167,16 @@ final class AccountPoolsService {
                         return
                     }
                     
-                    print("OLOLO decoding result \(result)")
                     let assetIds = result.map { $0.value }
                     continuetion.resume(returning: assetIds)
                 } catch {
-                    print("OLOLO decoding error \(error)")
+                    print("Decoding error \(error)")
                 }
             }
         }
     }
     
     func subscribePoolReserves(baseAsset: String, targetAsset: String) {
-        print("OLOLO subscribePoolReserves baseAsset \(baseAsset) targetAsset \(targetAsset)")
         do {
             let storageKey = try StorageKeyFactory()
                 .poolReservesKey(baseAssetId: Data(hex: baseAsset), targetAssetId: Data(hex: targetAsset))
@@ -191,10 +189,7 @@ final class AccountPoolsService {
                     // first call during subscription; ignore
                     weakSelf.subscriptionUpdates[key] = update.params.result.blockHash
                 } else {
-                    DispatchQueue.main.asyncDebounce(target: weakSelf, after: 0.25) {
-                        print("OLOLO loadAccountPools called")
-                        weakSelf.loadAccountPools()
-                    }
+                    weakSelf.loadAccountPools()
                 }
             }
             
@@ -289,7 +284,6 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
     }
     
     func loadAccountPools() {
-        print("OLOLO !!!!!!!!!")
         Task {
             guard let fetchRemotePoolsOperation = try? (networkFacade as? WalletNetworkFacade)?.getAccountPoolsDetails() else { return }
             let fetchOperation = poolRepository.fetchAllOperation(with: RepositoryFetchOptions())
@@ -330,15 +324,9 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
 
                 let sortedPools = remotePoolInfo.sorted(by: self.orderSort)
                 self.currentPools = sortedPools
-                print("OLOLO !!!!!!!!! 2")
                 self.outputs.forEach {
                     ($0.target as? PoolsServiceOutput)?.loaded(pools: sortedPools)
                 }
-                
-//                unsubscribePoolsReserves()
-//                sortedPools.forEach { poolInfo in
-//                    self.subscribePoolReserves(baseAsset: poolInfo.baseAssetId, targetAsset: poolInfo.targetAssetId)
-//                }
                 
                 let newOrUpdatedItems = remotePoolInfo.filter { !localPools.contains($0) }
                 let removedItems = localPools.filter { !remotePoolInfo.contains($0) }

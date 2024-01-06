@@ -129,6 +129,7 @@ final class PoolDetailsHeaderView: SoramitsuControl {
             titleLabel.trailingAnchor.constraint(equalTo: typeImageView.leadingAnchor, constant: -8),
             titleLabel.topAnchor.constraint(equalTo: currenciesView.topAnchor),
             
+            subtitleLabel.topAnchor.constraint(greaterThanOrEqualTo: titleLabel.bottomAnchor, constant: 4),
             subtitleLabel.leadingAnchor.constraint(equalTo: currenciesView.trailingAnchor, constant: 16),
             subtitleLabel.trailingAnchor.constraint(equalTo: typeImageView.leadingAnchor, constant: -8),
             subtitleLabel.bottomAnchor.constraint(equalTo: currenciesView.bottomAnchor),

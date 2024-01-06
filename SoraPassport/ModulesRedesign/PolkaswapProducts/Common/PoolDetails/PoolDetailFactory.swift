@@ -159,7 +159,6 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let basePooledAmountDetailsViewModel = DetailViewModel(title: "Your \(baseAssetSymbol) pooled",
                                                                assetAmountText: baseAssetPooledText)
         if baseAssetPooledByAccount > 0 {
-            print("OLOLO baseAssetPooledByAccount \(baseAssetPooledByAccount)")
             viewModels.append(basePooledAmountDetailsViewModel)
         }
         

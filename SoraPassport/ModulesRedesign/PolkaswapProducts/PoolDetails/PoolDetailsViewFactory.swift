@@ -57,7 +57,7 @@ final class PoolDetailsViewFactory {
                                                         apyService: APYService.shared,
                                                         fiatService: fiatService,
                                                         detailsFactory: detailsFactory)
-        
+        let userFarmService = UserFarmsService()
         let viewModel = PoolDetailsViewModel(wireframe: wireframe,
                                              poolInfo: poolInfo,
                                              fiatService: fiatService,
@@ -65,7 +65,8 @@ final class PoolDetailsViewFactory {
                                              assetManager: assetManager,
                                              detailsFactory: detailsFactory,
                                              farmingService: farmingService,
-                                             poolDetailsService: poolDetailsService)
+                                             poolDetailsService: poolDetailsService, 
+                                             userFarmService: userFarmService)
         viewModel.dismissHandler = dismissHandler
         
         poolDetailsService.viewModel = viewModel

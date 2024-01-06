@@ -40,13 +40,15 @@ protocol PoolDetailsItemServiceProtocol: AnyObject {
 }
 
 final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
-    var tvlText: AnyPublisher<String, Never> = Just("").eraseToAnyPublisher()
-    
-    var details: AnyPublisher<[DetailViewModel], Never> {
-        detailsSubject.eraseToAnyPublisher()
+    private let tvlTextSubject = PassthroughSubject<String, Never>()
+    var tvlText: AnyPublisher<String, Never> {
+        tvlTextSubject.eraseToAnyPublisher()
     }
     
     private let detailsSubject = PassthroughSubject<[DetailViewModel], Never>()
+    var details: AnyPublisher<[DetailViewModel], Never> {
+        detailsSubject.eraseToAnyPublisher()
+    }
 
     weak var viewModel: PoolDetailsViewModelProtocol?
     private let poolInfo: PoolInfo
@@ -67,24 +69,18 @@ final class PoolDetailsItemService: PoolDetailsItemServiceProtocol {
     }
     
     func setup(with poolInfo: PoolInfo) {
-        print("OLOLO details inited 0")
         
         Task { [weak self] in
             guard let self else { return }
-            let apy = await self.apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
-            let details = self.detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: self.viewModel)
-            
-            print("OLOLO details inited 1")
-            detailsSubject.send(details)
-            print("OLOLO details inited 2")
-        }
-        
-        Task { [weak self] in
-            guard let self else { return }
+
             let fiatData = await self.fiatService.getFiat()
             let priceUsd = fiatData.first(where: { $0.id == poolInfo.baseAssetId })?.priceUsd?.decimalValue ?? .zero
             let reserves = poolInfo.baseAssetReserves ?? .zero
-            self.tvlText = Just("$" + (priceUsd * reserves * 2).formatNumber() + " TVL").eraseToAnyPublisher()
+            self.tvlTextSubject.send("$" + (priceUsd * reserves * 2).formatNumber() + " TVL")
+            
+            let apy = await self.apyService.getApy(for: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
+            let details = self.detailsFactory.createPoolDetailViewModels(with: poolInfo, apy: apy, viewModel: self.viewModel)
+            self.detailsSubject.send(details)
         }
     }
 }

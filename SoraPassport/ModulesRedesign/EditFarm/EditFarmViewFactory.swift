@@ -39,8 +39,7 @@ final class EditFarmViewFactory {
                            assetsProvider: AssetProviderProtocol?,
                            feeProvider: FeeProviderProtocol,
                            walletService: WalletServiceProtocol,
-                           assetManager: AssetManagerProtocol,
-                           completion: (() -> Void)?) -> EditFarmViewController? {
+                           assetManager: AssetManagerProtocol) -> EditFarmViewController? {
         let wireframe = ConfirmTransactionWireframe()
         let viewModel = EditFarmViewModel(farm: farm,
                                           poolInfo: poolInfo,
@@ -48,8 +47,7 @@ final class EditFarmViewFactory {
                                           feeProvider: feeProvider,
                                           walletService: walletService,
                                           wireframe: wireframe,
-                                          assetManager: assetManager,
-                                          completion: completion)
+                                          assetManager: assetManager)
         
         let view = EditFarmViewController(viewModel: viewModel)
         viewModel.view = view

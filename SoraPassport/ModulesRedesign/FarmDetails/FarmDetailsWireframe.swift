@@ -49,16 +49,14 @@ protocol FarmDetailsWireframeProtocol: AlertPresentable {
                           farm: Farm,
                           poolInfo: PoolInfo?,
                           assetsProvider: AssetProviderProtocol?,
-                          detailsFactory: DetailViewModelFactoryProtocol,
-                          completion: (() -> Void)?)
+                          detailsFactory: DetailViewModelFactoryProtocol)
     
     func showClaimRewards(on controller: UIViewController?,
                           farm: Farm,
                           poolInfo: PoolInfo?,
                           fiatService: FiatServiceProtocol?,
                           assetsProvider: AssetProviderProtocol?,
-                          detailsFactory: DetailViewModelFactoryProtocol,
-                          completion: (() -> Void)?)
+                          detailsFactory: DetailViewModelFactoryProtocol)
 }
 
 final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
@@ -121,8 +119,7 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
                           farm: Farm,
                           poolInfo: PoolInfo?,
                           assetsProvider: AssetProviderProtocol?,
-                          detailsFactory: DetailViewModelFactoryProtocol,
-                          completion: (() -> Void)?) {
+                          detailsFactory: DetailViewModelFactoryProtocol) {
         guard
             let poolInfo,
             let stakeDetailsController = EditFarmViewFactory.createView(farm: farm,
@@ -130,8 +127,7 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
                                                                         assetsProvider: assetsProvider,
                                                                         feeProvider: feeProvider,
                                                                         walletService: walletService,
-                                                                        assetManager: assetManager,
-                                                                        completion: completion) else {
+                                                                        assetManager: assetManager) else {
             return
         }
         
@@ -153,8 +149,7 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
                           poolInfo: PoolInfo?,
                           fiatService: FiatServiceProtocol?,
                           assetsProvider: AssetProviderProtocol?,
-                          detailsFactory: DetailViewModelFactoryProtocol,
-                          completion: (() -> Void)?) {
+                          detailsFactory: DetailViewModelFactoryProtocol) {
         guard
             let poolInfo,
             let stakeDetailsController = ClaimRewardsViewFactory.createView(farm: farm,
@@ -164,8 +159,7 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
                                                                             detailsFactory: detailsFactory,
                                                                             feeProvider: feeProvider,
                                                                             walletService: walletService,
-                                                                            assetManager: assetManager,
-                                                                            completion: completion) else {
+                                                                            assetManager: assetManager) else {
             return
         }
         

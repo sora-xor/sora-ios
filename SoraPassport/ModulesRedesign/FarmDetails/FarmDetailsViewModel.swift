@@ -94,23 +94,23 @@ final class FarmDetailsViewModel {
     }
     
     deinit {
-        print("deinited")
+        print("OLOLO deinited " + String(describing: type(of: self)))
     }
     
     private func setupSubscription() {
-        Task { [userFarmService] in
-            guard let poolInfo else { return }
-            
-            do {
-                try await userFarmService.subscribeUserFarms(to: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
-            } catch {
-                print("Failed")
-            }
-            
-            let values = await userFarmService.userFarms.asyncValues
-            for await value in values {
-                print("OLOLO value \(value) value.count \(value.count)")
-            }
+        Task { [weak self] in
+            guard let self, let baseAssetId = poolInfo?.baseAssetId, let targetAssetId = poolInfo?.targetAssetId  else { return }
+
+            try? await self.userFarmService.subscribeUserFarms(to: baseAssetId, targetAssetId: targetAssetId)
+            await self.userFarmService.userFarms
+                .dropFirst()
+                .sink(
+                    receiveValue: { [weak self] values in
+                        guard let self else { return }
+                        let userFarm = values.first { $0.rewardAssetId == self.farm.rewardAsset?.assetId }
+                        self.updateContent(with: userFarm)
+                    }
+                ).store(in: &self.cancellables)
         }
 
         poolViewModelsService?.$viewModels
@@ -122,12 +122,12 @@ final class FarmDetailsViewModel {
             .store(in: &cancellables)
     }
     
-    private func updateContent() {
+    private func updateContent(with userFarm: UserFarm?) {
         Task { [weak self] in
             guard let self, let baseAssetId = self.farm.baseAsset?.assetId, let targetAssetId = self.farm.poolAsset?.assetId else { return }
             let poolInfo = await self.poolsService?.loadPool(by: baseAssetId, targetAssetId: targetAssetId)
             self.poolInfo = poolInfo
-            self.snapshot = self.createSnapshot(poolInfo: poolInfo)
+            self.snapshot = self.createSnapshot(poolInfo: poolInfo, userFarmInfo: userFarm)
         }
     }
 }
@@ -140,8 +140,14 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     }
     
     private func reload() {
+        let userFarmInfo = poolInfo?.farms.first {
+            $0.baseAssetId == farm.baseAsset?.assetId &&
+            $0.poolAssetId == farm.poolAsset?.assetId &&
+            $0.rewardAssetId == farm.rewardAsset?.assetId
+        }
+        
         if let poolInfo {
-            snapshot = createSnapshot(poolInfo: poolInfo)
+            snapshot = createSnapshot(poolInfo: poolInfo, userFarmInfo: userFarmInfo)
             return
         }
         
@@ -149,27 +155,21 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
             guard let baseAssetId = farm.baseAsset?.assetId, let targetAssetId = farm.poolAsset?.assetId else { return }
             let poolInfo = await poolsService?.getPool(by: baseAssetId, targetAssetId: targetAssetId)
             self.poolInfo = poolInfo
-            snapshot = createSnapshot(poolInfo: poolInfo)
+            snapshot = createSnapshot(poolInfo: poolInfo, userFarmInfo: userFarmInfo)
         }
     }
     
-    private func createSnapshot(poolInfo: PoolInfo? = nil) -> FarmDetailsSnapshot {
+    private func createSnapshot(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil) -> FarmDetailsSnapshot {
         var snapshot = FarmDetailsSnapshot()
-        let sections = [ contentSection(poolInfo: poolInfo) ]
+        let sections = [ contentSection(poolInfo: poolInfo, userFarmInfo: userFarmInfo) ]
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
         
         return snapshot
     }
     
-    private func contentSection(poolInfo: PoolInfo? = nil) -> FarmDetailsSection {
+    private func contentSection(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil) -> FarmDetailsSection {
         var items: [FarmDetailsSectionItem] = []
-        
-        let userFarmInfo = poolInfo?.farms.first {
-            $0.baseAssetId == farm.baseAsset?.assetId &&
-            $0.poolAssetId == farm.poolAsset?.assetId &&
-            $0.rewardAssetId == farm.rewardAsset?.assetId
-        }
         
         var supplyLiquidityItem: SupplyPoolItem?
         
@@ -216,35 +216,23 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     }
     
     func claimRewardButtonTapped() {
-        wireframe?.showClaimRewards(on: view?.controller,
-                                    farm: farm,
-                                    poolInfo: poolInfo,
-                                    fiatService: fiatService,
-                                    assetsProvider: assetsProvider,
-                                    detailsFactory: detailsFactory,
-                                    completion: {
-            Task { [weak self] in
-                guard let self, let baseAssetId = self.farm.baseAsset?.assetId, let targetAssetId = self.farm.poolAsset?.assetId else { return }
-                let poolInfo = await self.poolsService?.loadPool(by: baseAssetId, targetAssetId: targetAssetId)
-                self.poolInfo = poolInfo
-                self.snapshot = self.createSnapshot(poolInfo: poolInfo)
-            }
-        })
+        wireframe?.showClaimRewards(
+            on: view?.controller,
+            farm: farm,
+            poolInfo: poolInfo,
+            fiatService: fiatService,
+            assetsProvider: assetsProvider,
+            detailsFactory: detailsFactory
+        )
     }
     
     func editFarmButtonTapped() {
-        wireframe?.showStakeDetails(on: view?.controller,
-                                    farm: farm,
-                                    poolInfo: poolInfo,
-                                    assetsProvider: assetsProvider,
-                                    detailsFactory: detailsFactory,
-                                    completion: {
-            Task { [weak self] in
-                guard let self, let baseAssetId = self.farm.baseAsset?.assetId, let targetAssetId = self.farm.poolAsset?.assetId else { return }
-                let poolInfo = await self.poolsService?.loadPool(by: baseAssetId, targetAssetId: targetAssetId)
-                self.poolInfo = poolInfo
-                self.snapshot = self.createSnapshot(poolInfo: poolInfo)
-            }
-        })
+        wireframe?.showStakeDetails(
+            on: view?.controller,
+            farm: farm,
+            poolInfo: poolInfo,
+            assetsProvider: assetsProvider,
+            detailsFactory: detailsFactory
+        )
     }
 }

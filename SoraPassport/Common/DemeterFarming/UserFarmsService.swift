@@ -35,12 +35,16 @@ import SSFUtils
 import Combine
 
 protocol UserFarmsServiceProtocol: Actor {
-    var userFarms: SoraAsyncChannel<[UserFarm], Never> { get async }
+    var userFarms: AnyPublisher<[UserFarm], Never> { get }
     func subscribeUserFarms(to baseAssetId: String, targetAssetId: String) async throws
 }
 
 actor UserFarmsService {
-    var userFarms: SoraAsyncChannel<[UserFarm], Never> = SoraAsyncChannel()
+    var userFarms: AnyPublisher<[UserFarm], Never> {
+        userFarmsSubject.eraseToAnyPublisher()
+    }
+    
+    let userFarmsSubject = PassthroughSubject<[UserFarm], Never>()
     
     weak var poolsService: PoolsServiceInputProtocol?
     private let operationManager = OperationManager()
@@ -48,10 +52,11 @@ actor UserFarmsService {
     private var subscriptionIds: [UInt16] = []
     
     deinit {
-        print("OLOLO deinited service")
-//        subscriptionIds.forEach({
-//            polkaswapNetworkFacade?.engine.cancelForIdentifier($0)
-//        })
+        print("OLOLO deinited " + String(describing: type(of: self)))
+        subscriptionIds.forEach({
+            let chainId = Chain.sora.genesisHash()
+            try? ChainRegistryFacade.sharedRegistry.getConnection(for: chainId)?.cancelForIdentifier($0)
+        })
         subscriptionIds = []
     }
 }
@@ -66,11 +71,12 @@ extension UserFarmsService: UserFarmsServiceProtocol {
         
         let storageKey = try StorageKeyFactory().demeterFarmingUserInfo(identifier: accountId).toHex(includePrefix: true)
         
-        let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { update in
+        let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] update in
             Task { [weak self] in
                 guard let self else { return }
                 let userFarms = try await self.decodeUserFarms(with: update)
-                try await self.setFarms(wuth: userFarms)
+                let filteredUserFarms = userFarms.filter { baseAssetId == $0.baseAssetId && targetAssetId == $0.poolAssetId && $0.isFarm }
+                self.userFarmsSubject.send(filteredUserFarms)
             }
         }
         
@@ -83,10 +89,6 @@ extension UserFarmsService: UserFarmsServiceProtocol {
                                                                                                            updateClosure: updateClosure,
                                                                                                            failureClosure: failureClosure)
         subscriptionIds.append(subscriptionId ?? 0)
-    }
-    
-    private func setFarms(wuth farms: [UserFarm]) async throws {
-        try await userFarms.send(farms) //= Just(farms).eraseToAnyPublisher()
     }
     
     private func decodeUserFarms(with update: JSONRPCSubscriptionUpdate<StorageUpdate>) async throws -> [UserFarm] {
@@ -109,8 +111,6 @@ extension UserFarmsService: UserFarmsServiceProtocol {
             decodingOperation.completionBlock = {
                 do {
                     let result = try decodingOperation.extractNoCancellableResultData()
-    //                    let filtredUserFarms = result.first??.filter { baseAssetId == $0.baseAsset.value && targetAssetId == $0.poolAsset.value && $0.isFarm }
-                    
                     let farms = result.first??.map {
                         UserFarm(
                             id: "\($0.baseAsset.value)-\($0.poolAsset.value)-\($0.rewardAsset.value)",

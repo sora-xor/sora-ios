@@ -50,7 +50,6 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
                 .receive(on: DispatchQueue.main)
                 .removeDuplicates()
                 .sink { [weak self] value in
-                    dump("OLOLO item.detailsViewModels 1 \(value)")
                     self?.updateDetails(with: value)
                 }
                 .store(in: &cancellables)
@@ -169,8 +168,6 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
         }
         
         let detailsViews = details.map { detailModel -> DetailView in
-            print("OLOLO detailModel \(detailModel.title)")
-            print("OLOLO detailModel \(detailModel.assetAmountText.text)")
             let view = DetailView()
 
             view.assetImageView.sora.isHidden = detailModel.rewardAssetImage == nil
@@ -225,7 +222,6 @@ extension PoolDetailsCell: CellProtocol {
 
         poolDetailsItem = item
 
-        dump("OLOLO item.detailsViewModels 2 \(item.detailsViewModels)")
         updateDetails(with: item.detailsViewModels)
         
         removeLiquidity.sora.isEnabled = item.isRemoveLiquidityEnabled && item.isThereLiquidity
