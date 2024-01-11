@@ -30,21 +30,31 @@
 
 import Foundation
 import SoraUIKit
+import RobinHood
+import CommonWallet
+import UIKit
 
-final class ActivityDateItem: NSObject {
+typealias ActivityDataSource = UITableViewDiffableDataSource<ActivitySection, ActivitySectionItem>
+typealias ActivitySnapshot = NSDiffableDataSourceSnapshot<ActivitySection, ActivitySectionItem>
 
-    var text: String
-    var isFirstSection = false
-
-    init(text: String) {
-        self.text = text
-    }
+protocol ActivityViewProtocol: ControllerBackedProtocol {
+    func stopAnimating()
+    func resetPagination()
+    func startPaginationLoader()
+    func stopPaginationLoader()
 }
 
-extension ActivityDateItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { ActivityDateCell.self }
-
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-
-    var clipsToBounds: Bool { false }
+protocol ActivityViewModelProtocol: SoramitsuTableViewPaginationHandlerProtocol {
+    var snapshotPublisher: Published<ActivitySnapshot>.Publisher { get }
+    var title: String { get set }
+    var isNeedCloseButton: Bool { get }
+    var setupEmptyLabel: (() -> Void)? { get set }
+    var setupErrorContent: (() -> Void)? { get set }
+    var hideErrorContent: (() -> Void)? { get set }
+    func viewDidLoad()
+    func didSelect(with item: ActivitySectionItem) 
+    func headerText(for section: Int) -> String?
+    func isNeedHeader(for section: Int) -> Bool
+    func resetPagination()
 }
+

@@ -31,19 +31,39 @@
 import Foundation
 import SoraUIKit
 
-final class ActivityErrorItem: ItemProtocol {
-
-    var handler: (() -> Void)?
+final class ActivitySection {
+    var id = UUID()
+    var date: String?
+    var items: [ActivitySectionItem]
+    
+    init(date: String? = nil,
+         items: [ActivitySectionItem]) {
+        self.date = date
+        self.items = items
+    }
 }
 
-extension ActivityErrorItem: Hashable {
-    static func == (lhs: ActivityErrorItem, rhs: ActivityErrorItem) -> Bool {
-        return lhs === rhs
+enum ActivitySectionItem: Hashable {
+    case activity(ActivityItem)
+    case error(ActivityErrorItem)
+    case space(SoramitsuTableViewSpacerItem)
+}
+
+extension ActivitySection: Hashable {
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
     
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
+    static func == (lhs: ActivitySection, rhs: ActivitySection) -> Bool {
+        lhs.id == rhs.id
     }
 }
 
-
+extension ActivitySectionItem {
+    var isActivity: Bool {
+        if case .activity = self {
+            return true
+        }
+        return false
+    }
+}
