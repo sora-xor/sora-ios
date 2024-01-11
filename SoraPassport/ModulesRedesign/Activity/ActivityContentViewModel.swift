@@ -70,3 +70,23 @@ struct ActivityContentViewModel {
         self.isNeedTwoImage = isNeedTwoImage
     }
 }
+
+extension ActivityContentViewModel: Hashable {
+    static func == (lhs: ActivityContentViewModel, rhs: ActivityContentViewModel) -> Bool {
+        lhs.txHash == rhs.txHash &&
+        lhs.title == rhs.title &&
+        lhs.subtitle == rhs.subtitle &&
+        lhs.fiatText == rhs.fiatText &&
+        lhs.status == rhs.status &&
+        lhs.isNeedTwoImage == rhs.isNeedTwoImage
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(txHash)
+        hasher.combine(title)
+        hasher.combine(subtitle)
+        hasher.combine(fiatText)
+        hasher.combine(status)
+        hasher.combine(isNeedTwoImage)
+    }
+}

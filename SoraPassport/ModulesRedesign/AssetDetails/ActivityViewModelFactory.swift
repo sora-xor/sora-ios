@@ -38,7 +38,7 @@ import SoraFoundation
 protocol ActivityViewModelFactoryProtocol {
     var currentDate: Date? { get set } 
     func createActivityViewModels(with transactions: [Transaction],
-                                  tapHandler: @escaping (Transaction) -> Void) -> [SoramitsuTableViewItemProtocol]
+                                  tapHandler: @escaping (Transaction) -> Void) -> [ActivitySection]
     func createActivityViewModel(with transaction: Transaction) -> ActivityContentViewModel?
 }
 
@@ -46,7 +46,8 @@ final class ActivityViewModelFactory {
     let walletAssets: [AssetInfo]
     let assetManager: AssetManagerProtocol
     var currentDate: Date?
-
+//    var items: [ActivitySectionItem] = []
+    
     init(walletAssets: [AssetInfo], assetManager: AssetManagerProtocol) {
         self.walletAssets = walletAssets
         self.assetManager = assetManager
@@ -55,42 +56,38 @@ final class ActivityViewModelFactory {
 
 extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
     func createActivityViewModels(with transactions: [Transaction],
-                                  tapHandler: @escaping (Transaction) -> Void) -> [SoramitsuTableViewItemProtocol] {
-        var models: [SoramitsuTableViewItemProtocol] = []
+                                  tapHandler: @escaping (Transaction) -> Void) -> [ActivitySection] {
+        var sections: [ActivitySection] = []
+        var items: [ActivitySectionItem] = []
         
         transactions.forEach { transaction in
             let transactionDate = Date(timeIntervalSince1970: Double(transaction.base.timestamp) ?? 0)
             
             let dateOrder = Calendar.current.compare(transactionDate, to: currentDate ?? Date(), toGranularity: .day)
             
-            if currentDate == nil || dateOrder != .orderedSame {
-                let dateFormatter = EventListDateFormatterFactory.createDateFormatter()
-                dateFormatter.locale = LocalizationManager.shared.selectedLocale
-                let dateText = dateFormatter.string(from: transactionDate)
-                let dateItem = ActivityDateItem(text: dateText)
-                models.append(dateItem)
-                currentDate = transactionDate
-                
-                
-                if let transactionModel = createActivityViewModel(with: transaction) {
-                    let activityModel = ActivityItem(model: transactionModel)
-                    activityModel.handler = {
-                        tapHandler(transaction)
-                    }
-                    models.append(activityModel)
+            if let currentDate = currentDate, dateOrder != .orderedSame {
+                sections.append(ActivitySection(date: DateFormatter.activityDate.string(from: currentDate),
+                                                items: items))
+                items = []
+            }
+            
+            currentDate = transactionDate
+            
+            if let transactionModel = createActivityViewModel(with: transaction) {
+                let activityItem = ActivityItem(model: transactionModel)
+                activityItem.handler = {
+                    tapHandler(transaction)
                 }
-            } else {
-                if let transactionModel = createActivityViewModel(with: transaction) {
-                    let activityModel = ActivityItem(model: transactionModel)
-                    activityModel.handler = {
-                        tapHandler(transaction)
-                    }
-                    models.append(activityModel)
-                }
+                items.append(.activity(activityItem))
             }
         }
         
-        return models
+        if let currentDate = currentDate, !items.isEmpty {
+            sections.append(ActivitySection(date: DateFormatter.activityDate.string(from: currentDate),
+                                            items: items))
+        }
+        
+        return sections
     }
     
     func createActivityViewModel(with transaction: Transaction) -> ActivityContentViewModel? {

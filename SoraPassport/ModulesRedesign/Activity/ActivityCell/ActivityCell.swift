@@ -52,6 +52,7 @@ final class ActivityCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupView() {
+        contentView.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgSurface)
         contentView.addSubview(historyView)
     }
 
@@ -65,8 +66,8 @@ final class ActivityCell: SoramitsuTableViewCell {
     }
 }
 
-extension ActivityCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+extension ActivityCell: CellProtocol {
+    func set(item: ItemProtocol) {
         guard let item = item as? ActivityItem else {
             assertionFailure("Incorect type of item")
             return
