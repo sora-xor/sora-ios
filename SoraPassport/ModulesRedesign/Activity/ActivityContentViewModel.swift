@@ -80,7 +80,7 @@ extension ActivityContentViewModel: Hashable {
         lhs.status == rhs.status &&
         lhs.isNeedTwoImage == rhs.isNeedTwoImage
     }
-    
+
     public func hash(into hasher: inout Hasher) {
         hasher.combine(txHash)
         hasher.combine(title)

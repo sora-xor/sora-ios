@@ -36,11 +36,11 @@ import SoraFoundation
 final class ActivityViewModel {
     @Published var snapshot: ActivitySnapshot = ActivitySnapshot()
     var snapshotPublisher: Published<ActivitySnapshot>.Publisher { $snapshot }
-    
+
     var setupEmptyLabel: (() -> Void)?
     var setupErrorContent: (() -> Void)?
     var hideErrorContent: (() -> Void)?
-    
+
     weak var view: ActivityViewProtocol?
     var sections: [ActivitySection] = []
     let historyService: HistoryServiceProtocol
@@ -52,7 +52,7 @@ final class ActivityViewModel {
     var title: String = ""
     var isNeedCloseButton: Bool = false
     var pageNumber = 0
-    
+
     init(historyService: HistoryServiceProtocol,
          viewModelFactory: ActivityViewModelFactoryProtocol,
          wireframe: ActivityWireframeProtocol,
@@ -71,101 +71,92 @@ final class ActivityViewModel {
 
 extension ActivityViewModel: ActivityViewModelProtocol {
     func viewDidLoad() {
+        sections = viewModelFactory.createActivityShimmerModels()
+        snapshot = createSnapshot()
+        loadContent()
+    }
+
+    func updateContent() {
         if !sections.isEmpty {
             view?.startPaginationLoader()
         }
         loadContent()
     }
-    
+
     private func incrementPage() {
         pageNumber += 1
     }
-    
+
     private func reload() {
         incrementPage()
         view?.stopPaginationLoader()
         snapshot = createSnapshot()
     }
-    
+
     private func createSnapshot() -> ActivitySnapshot {
         var snapshot = ActivitySnapshot()
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
-        
+
         return snapshot
     }
-    
+
     private func contentSection(with items: [ActivitySectionItem]) -> [ActivitySection] {
         return [ActivitySection(items: items)]
     }
-    
+
     private func loadContent() {
         historyService.getPageHistory(count: 50, page: pageNumber + 1, assetId: assetId) { [weak self] result in
             guard let self = self else { return }
             if pageNumber == 0 {
-                let spaceItem: ActivitySectionItem = .space(SoramitsuTableViewSpacerItem(space: 32,
-                                                                                         radius: .large,
+                let spaceItem: ActivitySectionItem = .space(SoramitsuTableViewSpacerItem(space: 24,
+                                                                                         radius: .extraLarge,
                                                                                          mask: .top))
                 self.sections = contentSection(with: [spaceItem])
             }
-            
+
             self.view?.stopAnimating()
             switch result {
             case .success(let page):
                 if pageNumber == 0 && page.transactions.isEmpty && page.errorMessage == nil {
+                    self.sections = []
+                    snapshot = createSnapshot()
                     self.setupEmptyLabel?()
                     return
                 }
-                
+
                 if pageNumber == 0 && page.errorMessage != nil && page.transactions.isEmpty {
                     self.setupErrorContent?()
                     return
                 }
-                
+
                 self.hideErrorContent?()
-                
+
                 var sections: [ActivitySection] = self.viewModelFactory.createActivityViewModels(with: page.transactions) { [weak self] model in
                     guard let self = self, let view = self.view else { return }
                     self.wireframe.showActivityDetails(on: view.controller, model: model, assetManager: self.assetManager)
                 }
-                
+
                 if page.errorMessage != nil {
                     let errorItem = ActivityErrorItem()
                     errorItem.handler = { [weak self] in
                         self?.view?.resetPagination()
                     }
-                    
+
                     sections.insert(contentsOf: contentSection(with: [.error(errorItem)]), at: 0)
                     
                     let activityItemCount = self.sections.reduce(0) { partialResult, section in
                         partialResult + section.items.filter { $0.isActivity }.count
                     }
-                    
+
                     let dateItemCount = self.sections.compactMap { $0.date }.count
-                    
-                    let tabBarSize = 30
-                    let visibleHeight = Int(UIScreen.main.bounds.height) - tabBarSize - (activityItemCount * 56 + dateItemCount * 32)
-                    let spacerItem: ActivitySectionItem = .space(SoramitsuTableViewSpacerItem(space: visibleHeight > 30 ? CGFloat(visibleHeight) : 30))
-                    sections.append(contentsOf: contentSection(with: [spacerItem]))
-                    
-                    updateSections(with: sections)
-                    reload()
-                    return
-                }
-                
-                if page.endReached, !self.sections.isEmpty {
-                    let activityItemCount = self.sections.reduce(0) { partialResult, section in
-                        partialResult + section.items.filter { $0.isActivity }.count
-                    }
-                    
-                    let dateItemCount = self.sections.compactMap { $0.date }.count
-                    
+
                     let tabBarSize = 30
                     let visibleHeight = Int(UIScreen.main.bounds.height) - tabBarSize - (activityItemCount * 56 + dateItemCount * 32)
                     let spacerItem: ActivitySectionItem = .space(SoramitsuTableViewSpacerItem(space: visibleHeight > 30 ? CGFloat(visibleHeight) : 30))
                     sections.append(contentsOf: contentSection(with: [spacerItem]))
                 }
-                
+
                 updateSections(with: sections)
                 reload()
             case .failure:
@@ -174,18 +165,23 @@ extension ActivityViewModel: ActivityViewModelProtocol {
             }
         }
     }
-    
+
     private func updateSections(with sections: [ActivitySection]) {
         sections.forEach { section in
-            if let index = self.sections.firstIndex(where: { $0.date == section.date }) {
+            guard let date = section.date else {
+                self.sections.append(section)
+                return
+            }
+
+            if let index = self.sections.firstIndex(where: { $0.date == date }) {
                 self.sections[index].items.append(contentsOf: section.items)
                 return
             }
-            
+
             self.sections.append(section)
         }
     }
-    
+
     func didSelect(with item: ActivitySectionItem) {
         switch item {
         case .activity(let activityItem):
@@ -196,16 +192,16 @@ extension ActivityViewModel: ActivityViewModelProtocol {
             return
         }
     }
-    
+
     func headerText(for section: Int) -> String? {
         guard let date = sections[section].date else { return nil }
         return date.uppercased()
     }
-    
+
     func isNeedHeader(for section: Int) -> Bool {
         return sections[section].date != nil
     }
-    
+
     func resetPagination() {
         pageNumber = 0
         sections = []
@@ -214,13 +210,13 @@ extension ActivityViewModel: ActivityViewModelProtocol {
 }
 
 extension ActivityViewModel: EventVisitorProtocol {
-    
+
     func processNewTransactionCreated(event: NewTransactionCreatedEvent) {
         DispatchQueue.main.async {
             self.view?.resetPagination()
         }
     }
-    
+
     func processNewTransaction(event: WalletNewTransactionInserted) {
         DispatchQueue.main.async {
             self.view?.resetPagination()
@@ -232,7 +228,7 @@ extension ActivityViewModel: Localizable {
     private var languages: [String]? {
         localizationManager?.preferredLocalizations
     }
-    
+
     func applyLocalization() {
         self.view?.resetPagination()
     }
