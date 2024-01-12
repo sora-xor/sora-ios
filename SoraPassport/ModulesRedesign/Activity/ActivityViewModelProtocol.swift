@@ -52,9 +52,9 @@ protocol ActivityViewModelProtocol: SoramitsuTableViewPaginationHandlerProtocol 
     var setupErrorContent: (() -> Void)? { get set }
     var hideErrorContent: (() -> Void)? { get set }
     func viewDidLoad()
-    func didSelect(with item: ActivitySectionItem) 
+    func updateContent()
+    func didSelect(with item: ActivitySectionItem)
     func headerText(for section: Int) -> String?
     func isNeedHeader(for section: Int) -> Bool
     func resetPagination()
 }
-

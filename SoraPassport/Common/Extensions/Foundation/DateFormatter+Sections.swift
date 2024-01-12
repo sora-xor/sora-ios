@@ -38,7 +38,7 @@ extension DateFormatter {
 
         return dateFormatter
     }
-    
+
     static var activityDate: DateFormatter {
         let dateFormatter = EventListDateFormatterFactory.createDateFormatter()
         dateFormatter.locale = LocalizationManager.shared.selectedLocale

@@ -40,10 +40,8 @@ extension ActivityErrorItem: Hashable {
     static func == (lhs: ActivityErrorItem, rhs: ActivityErrorItem) -> Bool {
         return lhs === rhs
     }
-    
+
     public func hash(into hasher: inout Hasher) {
         hasher.combine(ObjectIdentifier(self))
     }
 }
-
-
