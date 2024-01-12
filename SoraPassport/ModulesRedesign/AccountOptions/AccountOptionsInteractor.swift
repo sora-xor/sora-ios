@@ -33,6 +33,7 @@ import RobinHood
 import SoraKeystore
 import IrohaCrypto
 import SSFCloudStorage
+import SCard
 
 final class AccountOptionsInteractor {
     weak var presenter: AccountOptionsInteractorOutputProtocol!
@@ -252,6 +253,7 @@ private extension AccountOptionsInteractor {
         cleanSettings()
         cleanCoreData()
         stopServices()
+        SCard.shared?.logout()
         // TODO: [SN-377] Clean Capital cache
         DispatchQueue.main.async {
             self.presenter?.restart()
