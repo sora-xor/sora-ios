@@ -72,6 +72,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
     private let qrEncoder: WalletQREncoderProtocol 
     private let sharingFactory: AccountShareFactoryProtocol 
     private let farmingService: DemeterFarmingServiceProtocol
+    private let feeProvider: FeeProviderProtocol
     
     init(
         accountId: String,
@@ -87,7 +88,8 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         marketCapService: MarketCapServiceProtocol,
         qrEncoder: WalletQREncoderProtocol,
         sharingFactory: AccountShareFactoryProtocol,
-        farmingService: DemeterFarmingServiceProtocol
+        farmingService: DemeterFarmingServiceProtocol,
+        feeProvider: FeeProviderProtocol
     ) {
         self.accountId = accountId
         self.address = address
@@ -103,6 +105,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         self.qrEncoder = qrEncoder
         self.sharingFactory = sharingFactory
         self.farmingService = farmingService
+        self.feeProvider = feeProvider
     }
     
 
@@ -262,6 +265,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
                                                                              assetsProvider: assetsProvider,
                                                                              marketCapService: marketCapService,
                                                                              farmingService: farmingService,
+                                                                             feeProvider: feeProvider,
                                                                              dismissHandler: nil) else {
             return
         }

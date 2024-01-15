@@ -42,7 +42,7 @@ final class ManageAssetListViewModel {
     var setupNavigationBar: ((WalletViewMode) -> Void)?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var dissmiss: ((Bool) -> Void)?
+    var dismiss: ((Bool) -> Void)?
     var updateHandler: ((UpdatedSection) -> Void)?
 
     var assetItems: [AssetListItem] = [] {
@@ -129,7 +129,7 @@ final class ManageAssetListViewModel {
     var polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol
     var qrEncoder: WalletQREncoderProtocol
     var sharingFactory: AccountShareFactoryProtocol
-    var wireframe: AssetListWireframeProtocol = AssetListWireframe()
+    var wireframe: AssetListWireframeProtocol
     weak var view: UIViewController?
     let referralFactory: ReferralsOperationFactoryProtocol
     private weak var assetsProvider: AssetProviderProtocol?
@@ -152,6 +152,7 @@ final class ManageAssetListViewModel {
          assetsProvider: AssetProviderProtocol?,
          marketCapService: MarketCapServiceProtocol,
          farmingService: DemeterFarmingServiceProtocol,
+         wireframe: AssetListWireframeProtocol,
          updateHandler: ((UpdatedSection) -> Void)?
     ) {
         self.assetViewModelFactory = assetViewModelFactory
@@ -170,6 +171,7 @@ final class ManageAssetListViewModel {
         self.assetsProvider = assetsProvider
         self.marketCapService = marketCapService
         self.farmingService = farmingService
+        self.wireframe = wireframe
         self.poolItemInfo = PriceInfoService.shared.priceInfo
     }
 }
@@ -192,7 +194,7 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
         assetsProvider?.add(observer: self)
     }
     
-    func viewDissmissed() {
+    func viewdismissed() {
         updateHandler?(.assets)
     }
 }

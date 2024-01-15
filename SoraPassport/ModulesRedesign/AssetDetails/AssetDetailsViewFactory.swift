@@ -49,7 +49,9 @@ final class AssetDetailsViewFactory {
                            referralFactory: ReferralsOperationFactoryProtocol,
                            assetsProvider: AssetProviderProtocol?,
                            marketCapService: MarketCapServiceProtocol,
-                           farmingService: DemeterFarmingServiceProtocol) -> AssetDetailsViewController? {
+                           farmingService: DemeterFarmingServiceProtocol,
+                           feeProvider: FeeProviderProtocol)
+    -> AssetDetailsViewController? {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let aseetList = assetManager.getAssetList(),
               let assetsProvider = assetsProvider else { return nil }
@@ -77,7 +79,8 @@ final class AssetDetailsViewFactory {
                                               marketCapService: marketCapService,
                                               qrEncoder: qrEncoder,
                                               sharingFactory: sharingFactory, 
-                                              farmingService: farmingService)
+                                              farmingService: farmingService,
+                                              feeProvider: feeProvider)
         
         let recentActivityService = RecentActivityItemService(assetId: assetInfo.assetId,
                                                               viewModelFactory: viewModelFactory,

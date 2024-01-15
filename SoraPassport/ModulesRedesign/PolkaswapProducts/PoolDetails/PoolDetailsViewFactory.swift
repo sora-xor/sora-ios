@@ -43,8 +43,9 @@ final class PoolDetailsViewFactory {
                            assetsProvider: AssetProviderProtocol?,
                            marketCapService: MarketCapServiceProtocol,
                            farmingService: DemeterFarmingServiceProtocol,
-                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController? {        
-        let viewModel = PoolDetailsViewModel(wireframe: PoolDetailsWireframe(),
+                           feeProvider: FeeProviderProtocol,
+                           dismissHandler: (() -> Void)?) -> PoolDetailsViewController? {
+        let viewModel = PoolDetailsViewModel(wireframe: PoolDetailsWireframe(feeProvider: feeProvider),
                                              poolInfo: poolInfo,
                                              fiatService: fiatService,
                                              poolsService: poolsService,

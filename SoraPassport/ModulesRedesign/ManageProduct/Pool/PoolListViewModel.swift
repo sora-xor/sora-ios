@@ -43,7 +43,7 @@ final class PoolListViewModel {
     var setupNavigationBar: ((WalletViewMode) -> Void)?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var dissmiss: ((Bool) -> Void)?
+    var dismiss: ((Bool) -> Void)?
     
     var poolItems: [PoolListItem] = [] {
         didSet {
@@ -101,6 +101,7 @@ final class PoolListViewModel {
     var priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
     let marketCapService: MarketCapServiceProtocol
     let farmingService: DemeterFarmingServiceProtocol
+    let feeProvider: FeeProviderProtocol
     let updateHandler: ((UpdatedSection) -> Void)?
 
     init(poolsService: PoolsServiceInputProtocol,
@@ -112,6 +113,7 @@ final class PoolListViewModel {
          assetsProvider: AssetProviderProtocol,
          marketCapService: MarketCapServiceProtocol,
          farmingService: DemeterFarmingServiceProtocol,
+         feeProvider: FeeProviderProtocol,
          updateHandler: ((UpdatedSection) -> Void)?
     ) {
         self.poolViewModelFactory = poolViewModelFactory
@@ -123,11 +125,12 @@ final class PoolListViewModel {
         self.assetsProvider = assetsProvider
         self.marketCapService = marketCapService
         self.farmingService = farmingService
+        self.feeProvider = feeProvider
         self.updateHandler = updateHandler
     }
-    func dissmissIfNeeded() {
+    func dismissIfNeeded() {
         if poolItems.isEmpty {
-            dissmiss?(false)
+            dismiss?(false)
         }
     }
 }
@@ -143,7 +146,7 @@ extension PoolListViewModel: PoolListViewModelProtocol {
         poolsService?.loadAccountPools(isNeedForceUpdate: false)
     }
     
-    func viewDissmissed() {
+    func viewdismissed() {
         updateHandler?(.pools)
     }
 }
@@ -152,7 +155,7 @@ extension PoolListViewModel: PoolsServiceOutput {
     func loaded(pools: [PoolInfo]) {
         Task {
             if pools.isEmpty {
-                dissmiss?(false)
+                dismiss?(false)
             }
             
             self.poolItems = try await pools.concurrentMap { pool in
@@ -187,7 +190,8 @@ extension PoolListViewModel: PoolsServiceOutput {
                                   assetsProvider: assetsProvider,
                                   marketCapService: marketCapService, 
                                   farmingService: farmingService,
-                                  dismissHandler: dissmissIfNeeded)
+                                  feeProvider: feeProvider,
+                                  dismissHandler: dismissIfNeeded)
     }
 }
 

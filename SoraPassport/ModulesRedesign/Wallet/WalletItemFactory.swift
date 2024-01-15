@@ -122,7 +122,6 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
                                       assetsProvider: assetsProvider,
                                       networkFacade: networkFacade,
                                       providerFactory: providerFactory,
-                                      feeProvider: feeProvider,
                                       isScanQRShown: false,
                                       marketCapService: marketCapService,
                                       closeHandler: nil)
