@@ -130,7 +130,7 @@ extension CustomNodeInteractor: CustomNodeInteractorInputProtocol {
                 by: url.absoluteString,
                 options: RepositoryFetchOptions())
         } else {
-            fetchNodeOperation =  BaseOperation.createWithResult(nil)
+            fetchNodeOperation = BaseOperation.createWithResult(nil)
         }
 
         let saveOperation = repository.saveOperation {

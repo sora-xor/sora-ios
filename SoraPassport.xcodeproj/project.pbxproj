@@ -540,6 +540,7 @@
 		36BB9B212AF37EB4002A000D /* RecentActivityItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BB9B202AF37EB4002A000D /* RecentActivityItemService.swift */; };
 		36BB9B232AF38A97002A000D /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BB9B222AF38A97002A000D /* ActivityView.swift */; };
 		36BB9B252AF4FCCF002A000D /* NewBlockEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BB9B242AF4FCCF002A000D /* NewBlockEvent.swift */; };
+		36C2EA762B569DE100CC3934 /* CustomNodeWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C2EA752B569DE100CC3934 /* CustomNodeWireframe.swift */; };
 		36C3708628228F450027BA77 /* ButtonCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708528228F450027BA77 /* ButtonCell.swift */; };
 		36C3708F2822960E0027BA77 /* ButtonViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C3708E2822960E0027BA77 /* ButtonViewModel.swift */; };
 		36C370E0282304460027BA77 /* InputRewardAmountPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C370DF282304460027BA77 /* InputRewardAmountPresenter.swift */; };
@@ -1943,6 +1944,7 @@
 		36BB9B202AF37EB4002A000D /* RecentActivityItemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentActivityItemService.swift; sourceTree = "<group>"; };
 		36BB9B222AF38A97002A000D /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		36BB9B242AF4FCCF002A000D /* NewBlockEvent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NewBlockEvent.swift; sourceTree = "<group>"; };
+		36C2EA752B569DE100CC3934 /* CustomNodeWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomNodeWireframe.swift; sourceTree = "<group>"; };
 		36C3708528228F450027BA77 /* ButtonCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonCell.swift; sourceTree = "<group>"; };
 		36C3708E2822960E0027BA77 /* ButtonViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonViewModel.swift; sourceTree = "<group>"; };
 		36C370DF282304460027BA77 /* InputRewardAmountPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRewardAmountPresenter.swift; sourceTree = "<group>"; };
@@ -4999,6 +5001,7 @@
 				36E5DB7F28CE81EB00AB8E28 /* CustomNodeOperationFactory.swift */,
 				36E5DB8128CE86DC00AB8E28 /* AddConnectionError.swift */,
 				36E5DB8328CE8BCF00AB8E28 /* ChainNodeModelMapper.swift */,
+				36C2EA752B569DE100CC3934 /* CustomNodeWireframe.swift */,
 			);
 			path = CustomNode;
 			sourceTree = "<group>";
@@ -8123,6 +8126,7 @@
 				02A053052222A99E00CA290F /* AnnouncementFetchMock.swift in Sources */,
 				84BA4EE9225E08AE005E6AC3 /* WalletHistoryFetchMock.swift in Sources */,
 				9481B481286EFC6000A472E2 /* ConnectionPool.swift in Sources */,
+				36C2EA762B569DE100CC3934 /* CustomNodeWireframe.swift in Sources */,
 				3611062B29784A23003A6352 /* SetupAccountNameViewController.swift in Sources */,
 				84F9912B244A3C480015A1AD /* EthereumRegistrationRequestError.swift in Sources */,
 				9481B46A286EFC2200A472E2 /* RuntimeFilesOperationFactory.swift in Sources */,
