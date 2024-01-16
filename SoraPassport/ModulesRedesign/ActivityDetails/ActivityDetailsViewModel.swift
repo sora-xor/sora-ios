@@ -197,7 +197,11 @@ extension ActivityDetailsViewModel {
                                                  fontData: FontType.headline3,
                                                  textColor: textColor,
                                                  alignment: .center)
-        let details = detailsFactory.createHeaderActivityDetailsViewModels(transactionBase: transaction.base, isHideFeeDetails: false) { [weak self] in
+        let isHideFeeDetails = transaction.transferType == .incoming
+        let details = detailsFactory.createHeaderActivityDetailsViewModels(
+            transactionBase: transaction.base,
+            isHideFeeDetails: isHideFeeDetails
+        ) { [weak self] in
             self?.networkFeeInfoButtonTapped()
         }
         
