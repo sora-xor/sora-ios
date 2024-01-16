@@ -169,7 +169,7 @@ final class InputAssetAmountViewModel {
 extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
     
     func didSelect(variant: Float) {
-        guard firstAssetBalance.balance.decimalValue > 0 else { return }
+        guard firstAssetBalance.balance.decimalValue > fee  else { return }
         let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
         let value = firstAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
         inputedFirstAmount = isFeeAsset ? value - fee : value
