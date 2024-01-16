@@ -85,6 +85,7 @@ protocol DetailViewModelFactoryProtocol {
     func createFarmDetailViewModels(with farm: Farm,
                                     userFarmInfo: UserFarm?,
                                     poolInfo: PoolInfo?,
+                                    fiatData: [FiatData],
                                     viewModel: FarmDetailsViewModelProtocol) -> [DetailViewModel]
     
     func createClaimViewModels(with farm: Farm,
@@ -180,6 +181,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
     func createFarmDetailViewModels(with farm: Farm,
                                     userFarmInfo: UserFarm?,
                                     poolInfo: PoolInfo?,
+                                    fiatData: [FiatData],
                                     viewModel: FarmDetailsViewModelProtocol) -> [DetailViewModel] {
         var viewModels: [DetailViewModel] = []
         
@@ -238,15 +240,24 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         }
 
         
-        if (userFarmInfo?.rewards ?? 0) > 0 {
-            let rewardsAmountText = NumberFormatter.cryptoAssets.stringFromDecimal(userFarmInfo?.rewards ?? .zero) ?? ""
+        if let rewards = userFarmInfo?.rewards, rewards > 0 {
+            let rewardsAmountText = NumberFormatter.cryptoAssets.stringFromDecimal(rewards) ?? ""
             let amountRewardText = SoramitsuTextItem(text: rewardsAmountText + " " + (farm.rewardAsset?.symbol ?? ""),
                                                fontData: FontType.textS,
                                                textColor: .fgPrimary,
                                                alignment: .right)
+            
+            let usdPrice = (fiatData.first { $0.id == farm.rewardAsset?.assetId }?.priceUsd ?? 0).decimalValue
+            let fiatRewardAmountText = (rewards * usdPrice).priceText()
+            let fiatRewardText = SoramitsuTextItem(text: fiatRewardAmountText ,
+                                                   fontData: FontType.textBoldXS,
+                                                   textColor: .fgSecondary,
+                                                   alignment: .right)
+
             let yourRewardsDetailsViewModel = DetailViewModel(
                 title: R.string.localizable.farmDetailsYourRewards(preferredLanguages: .currentLocale),
-                assetAmountText: amountRewardText
+                assetAmountText: amountRewardText,
+                fiatAmountText: fiatRewardText
             )
             viewModels.append(yourRewardsDetailsViewModel)
         }

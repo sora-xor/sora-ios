@@ -148,27 +148,27 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         
         if let poolInfo {
             snapshot = createSnapshot(poolInfo: poolInfo, userFarmInfo: userFarmInfo)
-            return
         }
         
         Task {
             guard let baseAssetId = farm.baseAsset?.assetId, let targetAssetId = farm.poolAsset?.assetId else { return }
             let poolInfo = await poolsService?.getPool(by: baseAssetId, targetAssetId: targetAssetId)
+            let fiatData = await fiatService?.getFiat() ?? []
             self.poolInfo = poolInfo
-            snapshot = createSnapshot(poolInfo: poolInfo, userFarmInfo: userFarmInfo)
+            snapshot = createSnapshot(poolInfo: poolInfo, userFarmInfo: userFarmInfo, fiatData: fiatData)
         }
     }
     
-    private func createSnapshot(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil) -> FarmDetailsSnapshot {
+    private func createSnapshot(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [FiatData] = []) -> FarmDetailsSnapshot {
         var snapshot = FarmDetailsSnapshot()
-        let sections = [ contentSection(poolInfo: poolInfo, userFarmInfo: userFarmInfo) ]
+        let sections = [ contentSection(poolInfo: poolInfo, userFarmInfo: userFarmInfo, fiatData: fiatData) ]
         snapshot.appendSections(sections)
         sections.forEach { snapshot.appendItems($0.items, toSection: $0) }
         
         return snapshot
     }
     
-    private func contentSection(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil) -> FarmDetailsSection {
+    private func contentSection(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [FiatData] = []) -> FarmDetailsSection {
         var items: [FarmDetailsSectionItem] = []
         
         var supplyLiquidityItem: SupplyPoolItem?
@@ -184,7 +184,8 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
                                                      userFarmInfo: userFarmInfo,
                                                      detailsFactory: detailsFactory,
                                                      viewModel: self,
-                                                     supplyItem: supplyLiquidityItem)
+                                                     supplyItem: supplyLiquidityItem,
+                                                     fiatData: fiatData)
         
         
         items.append(contentsOf: [
