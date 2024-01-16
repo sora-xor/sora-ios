@@ -92,8 +92,14 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
         if ConfigService.shared.config.isSoraCardEnabled,
            let scard = SCard.shared
         {
+            let languages = self.languages
             let subtitleStream: AsyncStream<String?> = scard.userStatusStream.map { userState in
-                return userState.text
+                switch userState {
+                case .none, .notStarted, .pending, .rejected, .userCanceled:
+                    userState.text
+                case .successful:
+                    R.string.localizable.moreMenuSoraCardSubtitle(preferredLanguages: languages)
+                }
             }
 
             let circleColorStream = scard.userStatusStream.map { userState in
