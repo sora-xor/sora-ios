@@ -31,20 +31,21 @@
 import SoraUIKit
 import Combine
 
-final class SwapDetailsItem: NSObject {
+final class SwapDetailsItem: ItemProtocol {
     
     @Published var viewModel: LiquidityViewModelProtocol
     
     init(viewModel: LiquidityViewModelProtocol) {
         self.viewModel = viewModel
-        super.init()
     }
 }
 
-extension SwapDetailsItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { FriendsCell.self }
+extension SwapDetailsItem: Hashable {
+    static func == (lhs: SwapDetailsItem, rhs: SwapDetailsItem) -> Bool {
+        lhs === rhs
+    }
     
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-    
-    var clipsToBounds: Bool { false }
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
 }

@@ -29,17 +29,15 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
+import SnapKit
 import Combine
 
 final class SwapDetailsCell: SoramitsuTableViewCell {
     
-    private var detailsItem: SwapDetailsItem?
-    
-    private var cancellables: Set<AnyCancellable> = []
-    private weak var viewModel: LiquidityViewModelProtocol? {
+    private var detailsItem: SwapDetailsItem? {
         didSet {
-            guard let viewModel else { return }
-            viewModel.detailsPublisher
+            guard let detailsItem else { return }
+            detailsItem.viewModel.detailsPublisher
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] details in
                     guard let details else { return }
@@ -48,14 +46,17 @@ final class SwapDetailsCell: SoramitsuTableViewCell {
                 .store(in: &cancellables)
         }
     }
-    
+
+    private var cancellables: Set<AnyCancellable> = []
+
     private let stackView: SoramitsuStackView = {
         let stackView = SoramitsuStackView()
-        stackView.sora.alignment = .center
         stackView.sora.axis = .vertical
         stackView.sora.distribution = .fill
+        stackView.sora.alignment = .fill
         stackView.spacing = 16
-        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.layoutMargins = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
+        stackView.isLayoutMarginsRelativeArrangement = true
         return stackView
     }()
 
@@ -80,23 +81,22 @@ final class SwapDetailsCell: SoramitsuTableViewCell {
             stackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
     }
-    
+
     private func setup(with details: [DetailViewModel]) {
-        stackView.arrangedSubviews.filter { $0 is DetailView || $0.tag == 1 }.forEach { subview in
+        stackView.arrangedSubviews.forEach { subview in
             stackView.removeArrangedSubview(subview)
             subview.removeFromSuperview()
         }
 
-        
         let detailsViews = details.map { detailModel -> DetailView in
             let view = DetailView()
-            
+
             view.assetImageView.isHidden = detailModel.rewardAssetImage == nil
-            
+
             if let image = detailModel.rewardAssetImage {
                 view.assetImageView.sora.picture = .logo(image: image)
             }
-            
+
             view.titleLabel.sora.text = detailModel.title
             view.valueLabel.sora.attributedText = detailModel.assetAmountText
             view.fiatValueLabel.sora.attributedText = detailModel.fiatAmountText
@@ -107,26 +107,27 @@ final class SwapDetailsCell: SoramitsuTableViewCell {
             }
             return view
         }
-        
-        detailsViews.forEach { subview in
+
+        detailsViews.enumerated().forEach { index, subview in
             stackView.addArrangedSubview(subview)
-            subview.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16).isActive = true
-            subview.centerXAnchor.constraint(equalTo: stackView.centerXAnchor).isActive = true
+            
+            if index != detailsViews.count - 1 {
+                let separatorView = SoramitsuView()
+                separatorView.heightAnchor.constraint(equalToConstant: 1).isActive = true
+                stackView.addArrangedSubview(separatorView)
+            }
         }
-        
-        layoutIfNeeded()
     }
 }
 
-extension SwapDetailsCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+extension SwapDetailsCell: CellProtocol {
+    func set(item: ItemProtocol) {
         guard let item = item as? SwapDetailsItem else {
             assertionFailure("Incorect type of item")
             return
         }
-        
+
         detailsItem = item
-        viewModel = item.viewModel
     }
 }
 

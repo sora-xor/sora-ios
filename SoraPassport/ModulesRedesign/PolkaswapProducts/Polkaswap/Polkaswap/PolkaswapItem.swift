@@ -31,20 +31,21 @@
 import SoraUIKit
 import Combine
 
-final class PolkaswapItem: NSObject {
+final class PolkaswapItem: ItemProtocol {
     
     @Published var viewModel: LiquidityViewModelProtocol
     
     init(viewModel: LiquidityViewModelProtocol) {
         self.viewModel = viewModel
-        super.init()
     }
 }
 
-extension PolkaswapItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { FriendsCell.self }
+extension PolkaswapItem: Hashable {
+    static func == (lhs: PolkaswapItem, rhs: PolkaswapItem) -> Bool {
+        lhs === rhs
+    }
     
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-    
-    var clipsToBounds: Bool { false }
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
 }

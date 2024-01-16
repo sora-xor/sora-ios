@@ -49,6 +49,7 @@ final class PolkaswapCell: SoramitsuTableViewCell {
                     asset.$balance
                         .receive(on: DispatchQueue.main)
                         .sink { [weak self] balance in
+                            guard !balance.isEmpty else { return }
                             self?.assetsView.firstAsset.sora.fullFiatText = balance
                         }
                         .store(in: &cancellables)
@@ -56,9 +57,8 @@ final class PolkaswapCell: SoramitsuTableViewCell {
                     asset.$symbol
                         .receive(on: DispatchQueue.main)
                         .sink { [weak self] symbol in
-                            if !symbol.isEmpty {
-                                self?.assetsView.firstAsset.sora.assetSymbol = symbol
-                            }
+                            guard !symbol.isEmpty else { return }
+                            self?.assetsView.firstAsset.sora.assetSymbol = symbol
                         }
                         .store(in: &cancellables)
                     
@@ -73,6 +73,7 @@ final class PolkaswapCell: SoramitsuTableViewCell {
                     asset.$fiat
                         .receive(on: DispatchQueue.main)
                         .sink { [weak self] fiat in
+                            guard !fiat.isEmpty else { return }
                             self?.assetsView.firstAsset.sora.inputedFiatAmountText = fiat
                         }
                         .store(in: &cancellables)
@@ -123,6 +124,7 @@ final class PolkaswapCell: SoramitsuTableViewCell {
                     asset.$balance
                         .receive(on: DispatchQueue.main)
                         .sink { [weak self] balance in
+                            guard !balance.isEmpty else { return }
                             self?.assetsView.secondAsset.sora.fullFiatText = balance
                         }
                         .store(in: &cancellables)
@@ -130,9 +132,8 @@ final class PolkaswapCell: SoramitsuTableViewCell {
                     asset.$symbol
                         .receive(on: DispatchQueue.main)
                         .sink { [weak self] symbol in
-                            if !symbol.isEmpty {
-                                self?.assetsView.secondAsset.sora.assetSymbol = symbol
-                            }
+                            guard !symbol.isEmpty else { return }
+                            self?.assetsView.secondAsset.sora.assetSymbol = symbol
                         }
                         .store(in: &cancellables)
                     
@@ -147,6 +148,7 @@ final class PolkaswapCell: SoramitsuTableViewCell {
                     asset.$fiat
                         .receive(on: DispatchQueue.main)
                         .sink { [weak self] fiat in
+                            guard !fiat.isEmpty else { return }
                             self?.assetsView.secondAsset.sora.inputedFiatAmountText = fiat
                         }
                         .store(in: &cancellables)
@@ -270,27 +272,39 @@ final class PolkaswapCell: SoramitsuTableViewCell {
         return stackView
     }()
     
+    private lazy var percentageAccessoryView: InputAccessoryView = {
+        let rect = CGRect(origin: .zero, size: CGSize(width: UIScreen.main.bounds.width, height: 48))
+        let view = InputAccessoryView(frame: rect)
+        view.delegate = viewModel
+        view.variants = [ InputAccessoryVariant(displayValue: "25%", value: 0.25),
+                          InputAccessoryVariant(displayValue: "50%", value: 0.5),
+                          InputAccessoryVariant(displayValue: "75%", value: 0.75),
+                          InputAccessoryVariant(displayValue: "100%", value: 1) ]
+        return view
+    }()
+    
     private lazy var assetsView: InputAssetsView = {
         let view = InputAssetsView()
-        view.middleButton.sora.image = viewModel?.actionButtonImage
         view.middleButton.sora.tintColor = .additionalPolkaswap
         view.middleButton.sora.addHandler(for: .touchUpInside) { [weak self] in
-            guard 
-                let self = self,
+            guard
+                let self,
                 let viewModel = self.viewModel
             else { return }
+            
             viewModel.middleButtonActionHandler?()
             
             if viewModel.isSwap {
                 self.rotateAnimation()
             }
         }
-        
-        view.firstAsset.sora.assetSymbol = R.string.localizable.chooseToken(preferredLanguages: .currentLocale)
+
         view.firstAsset.sora.fullFiatText = viewModel?.firstFieldEmptyStateFullFiatText
+        view.firstAsset.sora.assetSymbol = R.string.localizable.chooseToken(preferredLanguages: .currentLocale)
         view.firstAsset.sora.text = ""
+        view.firstAsset.sora.inputedFiatAmountText = "$0"
         view.firstAsset.sora.assetImage = R.image.wallet.emptyToken()
-        view.firstAsset.textField.inputAccessoryView = accessoryView
+        view.firstAsset.textField.inputAccessoryView = percentageAccessoryView
         view.firstAsset.sora.assetChoiceHandler = { [weak self] in
             self?.viewModel?.choiсeBaseAssetButtonTapped()
         }
@@ -303,12 +317,13 @@ final class PolkaswapCell: SoramitsuTableViewCell {
             self?.viewModel?.inputedFirstAmount = Decimal(string: self?.assetsView.firstAsset.textField.text ?? "", locale: Locale.current) ?? 0
             self?.viewModel?.recalculate(field: .one)
         }
-        
-        view.secondAsset.sora.assetSymbol = R.string.localizable.chooseToken(preferredLanguages: .currentLocale)
+
         view.secondAsset.sora.fullFiatText = viewModel?.secondFieldEmptyStateFullFiatText
+        view.secondAsset.sora.assetSymbol = R.string.localizable.chooseToken(preferredLanguages: .currentLocale)
         view.secondAsset.sora.text = ""
+        view.secondAsset.sora.inputedFiatAmountText = "$0"
         view.secondAsset.sora.assetImage = R.image.wallet.emptyToken()
-        view.secondAsset.textField.inputAccessoryView = accessoryView
+        view.secondAsset.textField.inputAccessoryView = percentageAccessoryView
         view.secondAsset.sora.assetChoiceHandler = { [weak self] in
             self?.viewModel?.choiсeTargetAssetButtonTapped()
         }
@@ -420,14 +435,19 @@ final class PolkaswapCell: SoramitsuTableViewCell {
     }
 }
 
-extension PolkaswapCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+extension PolkaswapCell: CellProtocol {
+    func set(item: ItemProtocol) {
         guard let item = item as? PolkaswapItem else {
             assertionFailure("Incorect type of item")
             return
         }
         
         polkaswapItem = item
+        
+        assetsView.middleButton.sora.image = item.viewModel.actionButtonImage
+        assetsView.firstAsset.sora.fullFiatText = item.viewModel.firstFieldEmptyStateFullFiatText
+        assetsView.secondAsset.sora.fullFiatText = item.viewModel.secondFieldEmptyStateFullFiatText
+        percentageAccessoryView.delegate = item.viewModel
         
         viewModel = item.viewModel
     }

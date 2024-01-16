@@ -64,7 +64,7 @@ final class SwapViewModel {
     @Published var reviewButtonTitle: String = ""
     @Published var isMiddleButtonEnabled: Bool = true
     @Published var isButtonEnabled: Bool = false
-    @Published var isAccessoryViewHidden: Bool = false
+    @Published var isAccessoryViewHidden: Bool = true
     @Published var isNeedLoadingState: Bool = false
     @Published var isMarketLoadingState: Bool = false
     @Published var warningViewModel: WarningViewModel?
@@ -349,16 +349,15 @@ extension SwapViewModel: LiquidityViewModelProtocol {
     }
     
     func didSelect(variant: Float) {
-        if focusedField == .one {
+        switch focusedField {
+        case .one:
             guard firstAssetBalance.balance.decimalValue > 0 else { return }
             let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
             let value = firstAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
             inputedFirstAmount = isFeeAsset ? value - fee : value
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             set(firstAsset, amount: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
-        }
-        
-        if focusedField == .two {
+        case .two:
             guard secondAssetBalance.balance.decimalValue > 0 else { return }
             let isFeeAsset = assetManager?.assetInfo(for: secondAssetId)?.isFeeAsset ?? false
             let value = secondAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
@@ -594,14 +593,11 @@ extension SwapViewModel {
     
     func setupInputedFiatText(from inputedAmount: Decimal, assetId: String) -> String {
         guard let asset = assetManager?.assetInfo(for: assetId) else { return "" }
-        
-        var fiatText = ""
-        
-        if let usdPrice = fiatData.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue {
-            let fiatDecimal = inputedAmount * usdPrice
-            fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
-        }
-        
+
+        let usdPrice = fiatData.first(where: { $0.id == asset.assetId })?.priceUsd?.decimalValue ?? 0
+        let fiatDecimal = inputedAmount * usdPrice
+        let fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
+
         return fiatText
     }
     

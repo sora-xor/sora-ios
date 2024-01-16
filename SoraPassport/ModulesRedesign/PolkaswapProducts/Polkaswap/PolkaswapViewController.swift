@@ -36,16 +36,6 @@ import Combine
 protocol LiquidityViewProtocol: ControllerBackedProtocol {}
 
 final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProtocol {
-    private lazy var accessoryView: InputAccessoryView = {
-//        let rect = CGRect(origin: .zero, size: CGSize(width: UIScreen.main.bounds.width, height: 48))
-        let view = InputAccessoryView(frame: .zero)
-        view.delegate = viewModel
-        view.variants = [ InputAccessoryVariant(displayValue: "25%", value: 0.25),
-                          InputAccessoryVariant(displayValue: "50%", value: 0.5),
-                          InputAccessoryVariant(displayValue: "75%", value: 0.75),
-                          InputAccessoryVariant(displayValue: "100%", value: 1) ]
-        return view
-    }()
     
     private lazy var tableView: SoramitsuTableView = {
         let tableView = SoramitsuTableView()
@@ -59,6 +49,8 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
         tableView.register(SoramitsuCell<SoramitsuTableViewSpaceView>.self, forCellReuseIdentifier: "SpaceCell")
         tableView.register(SwapDetailsCell.self, forCellReuseIdentifier: "SwapDetailsCell")
         tableView.sora.cancelsTouchesOnDragging = true
+        tableView.sora.keyboardDismissMode = .onDrag
+        tableView.sora.showsVerticalScrollIndicator = false
         return tableView
     }()
 
@@ -74,15 +66,15 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
             switch item {
             case .polkaswap(let item):
                 let cell: PolkaswapCell? = tableView.dequeueReusableCell(withIdentifier: "PolkaswapCell", for: indexPath) as? PolkaswapCell
-                cell?.set(item: item, context: nil)
+                cell?.set(item: item)
+                return cell ?? UITableViewCell()
+            case .details(let item):
+                let cell: SwapDetailsCell? = tableView.dequeueReusableCell(withIdentifier: "SwapDetailsCell", for: indexPath) as? SwapDetailsCell
+                cell?.set(item: item)
                 return cell ?? UITableViewCell()
             case .space(let item):
                 let cell: SoramitsuCell<SoramitsuTableViewSpaceView>? = tableView.dequeueReusableCell(withIdentifier: "SpaceCell",
                                                                                                       for: indexPath) as? SoramitsuCell<SoramitsuTableViewSpaceView>
-                cell?.set(item: item, context: nil)
-                return cell ?? UITableViewCell()
-            case .details(let item):
-                let cell: SwapDetailsCell? = tableView.dequeueReusableCell(withIdentifier: "SwapDetailsCell", for: indexPath) as? SwapDetailsCell
                 cell?.set(item: item, context: nil)
                 return cell ?? UITableViewCell()
             }
@@ -140,14 +132,6 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
                 self?.dataSource.apply(snapshot, animatingDifferences: false)
             }
             .store(in: &cancellables)
-        
-        
-        viewModel.isAccessoryViewHiddenPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isHidden in
-                self?.accessoryView.sora.isHidden = isHidden
-            }
-            .store(in: &cancellables)
     }
     
     @objc
@@ -158,7 +142,6 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
         view.addSubview(tableView)
-        view.addSubview(accessoryView)
     }
 
     private func setupConstraints() {
@@ -167,11 +150,6 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
-            accessoryView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            accessoryView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            accessoryView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            accessoryView.heightAnchor.constraint(equalToConstant: 48),
         ])
     }
 }
@@ -179,7 +157,7 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
 extension PolkaswapViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         guard let item = dataSource.itemIdentifier(for: indexPath) else {
-            return UITableView.automaticDimension
+            return 0
         }
         
         switch item {
