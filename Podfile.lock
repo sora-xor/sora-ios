@@ -207,7 +207,7 @@ PODS:
   - R.swift.Library (5.3.0)
   - ReachabilitySwift (5.0.0)
   - RobinHood (2.6.8)
-  - SCard (1.3.1):
+  - SCard (1.4.0):
     - IdensicMobileSDK
     - PayWingsOAuthSDK (= 1.2.2)
     - PayWingsOnboardingKYC (= 5.2.1)
@@ -327,7 +327,7 @@ DEPENDENCIES:
   - R.swift (~> 6.1.0)
   - ReachabilitySwift
   - RobinHood
-  - SCard (from `https://github.com/sora-xor/sora-card-ios`, tag `1.3.1`)
+  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.4.0`)
   - SnapKit
   - SoraDocuments
   - SoraFoundation
@@ -413,8 +413,8 @@ EXTERNAL SOURCES:
     :branch: version6-xcode13
     :git: https://github.com/onevcat/Kingfisher
   SCard:
+    :branch: release/1.4.0
     :git: https://github.com/sora-xor/sora-card-ios
-    :tag: 1.3.1
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.11
@@ -440,8 +440,8 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
+    :commit: bdc0abf48f84bd4273f677ffc29bf68627bcb637
     :git: https://github.com/sora-xor/sora-card-ios
-    :tag: 1.3.1
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.11
