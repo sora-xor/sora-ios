@@ -105,10 +105,16 @@ private extension OnboardingMainPresenter {
             guard let self = self else { return }
             self.wireframe.showAccountRestoreRedesign(from: self.view, sourceType: .seed)
         }
+        
+        let googleAction = AlertPresentableAction(title: "Google") { [weak self] in
+            guard let self = self else { return }
+            self.activateCloudStorageConnection()
+        }
+        
 
         let viewModel = AlertPresentableViewModel(title: title,
                                                   message: message,
-                                                  actions: [passphraseAction, rawSeedAction],
+                                                  actions: [googleAction, passphraseAction, rawSeedAction],
                                                   closeAction: closeActionText)
         wireframe.present(viewModel: viewModel, style: .actionSheet, from: view)
     }

@@ -141,6 +141,21 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                                    rewardTokenId: claimData.rewardAssetId)
             }
             
+            if callPath.isDepositFarmLiquidity || callPath.isWithdrawFarmLiquidity {
+                guard let data = item.data?.toFarmLiquidity() else {
+                    return nil
+                }
+
+                let amount = Amount(string: data.amount) ?? Amount(value: 0)
+                return FarmLiquidity(base: transactionBase,
+                                     firstTokenId: data.baseTokenAmount,
+                                     secondTokenId: data.poolTokenAmount,
+                                     rewardTokenId: data.rewardAssetId,
+                                     amount: amount,
+                                     sender: SelectedWalletSettings.shared.currentAccount?.address ?? "",
+                                     type: item.method == "deposit" ? .add : .withdraw)
+            }
+            
             if callPath == KmmCallCodingPath.batchUtility || callPath == KmmCallCodingPath.batchAllUtility {
                 let depositLiquidityData = item.nestedData?.first { $0.method == "depositLiquidity" }
                 

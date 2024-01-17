@@ -51,9 +51,8 @@ final class ClaimRewardsViewModel {
     private let itemFactory = ClaimRewardsItemFactory()
     private let service: ClaimRewardsServiceProtocol
     private let walletService: WalletServiceProtocol
-    private let wireframe: ClaimRewardsWireframeProtocol
+    private let wireframe: ConfirmTransactionWireframeProtocol
     private let assetManager: AssetManagerProtocol
-    private let completion: (() -> Void)?
     
     private var userFarmInfo: UserFarm? {
         didSet {
@@ -86,9 +85,8 @@ final class ClaimRewardsViewModel {
          detailsFactory: DetailViewModelFactoryProtocol,
          service: ClaimRewardsServiceProtocol,
          walletService: WalletServiceProtocol,
-         wireframe: ClaimRewardsWireframeProtocol,
-         assetManager: AssetManagerProtocol,
-         completion: (() -> Void)?
+         wireframe: ConfirmTransactionWireframeProtocol,
+         assetManager: AssetManagerProtocol
     ) {
         self.farm = farm
         self.poolInfo = poolInfo
@@ -99,7 +97,6 @@ final class ClaimRewardsViewModel {
         self.walletService = walletService
         self.wireframe = wireframe
         self.assetManager = assetManager
-        self.completion = completion
     }
     
     deinit {
@@ -231,7 +228,7 @@ extension ClaimRewardsViewModel: ClaimRewardsViewModelProtocol, AlertPresentable
         
         EventCenter.shared.notify(with: NewTransactionCreatedEvent(item: transaction))
         wireframe.showActivityDetails(on: view?.controller, model: transaction, assetManager: assetManager) { [weak self] in
-            self?.view?.dismiss(competion: self?.completion)
+            self?.view?.dismiss(competion: {})
         }
     }
 }

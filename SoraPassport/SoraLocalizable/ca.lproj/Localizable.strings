@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "Confirma la retirada";
 "polkaswap.not.enough.tokens.in.pool" = "No hi ha suficients tokens al Fons comú";
 "add.liquidity.confirmation.title" = "Confirma la teva aportació";
-"add.liquidity.pool.share.title" = "La teva participació al Fons comú serà de";
 "add.liquidity.pool.title" = "%s - %s Pool";
 "add.liquidity.pool.share.description" = "La quantitat obtinguda és aproximada. Si el preu canvia més d'un %s%%, la teva transacció serà cancel·lada.";
 "common.deposit.symbol" = "Dipòsit de %s";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

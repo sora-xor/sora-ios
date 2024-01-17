@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "تایید حذف";
 "polkaswap.not.enough.tokens.in.pool" = "توکن کافی در مخزن نیست";
 "add.liquidity.confirmation.title" = "تاییدیه برای تامین";
-"add.liquidity.pool.share.title" = "سهم شما از مخزن برابر خواهد بود با";
 "add.liquidity.pool.title" = "مخزن %s - %s";
 "add.liquidity.pool.share.description" = "نتیجه تخمینی میباشد. اگر قیمت بیش از %s%% تغییر کند، تراکنش شما لغو و برگشت میشود.";
 "common.deposit.symbol" = "سپرده گذاری %s";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

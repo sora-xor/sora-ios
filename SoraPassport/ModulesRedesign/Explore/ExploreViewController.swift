@@ -37,6 +37,9 @@ import Combine
 final class ExploreViewController: SoramitsuViewController, ControllerBackedProtocol {
     
     var viewModels: [ExplorePageViewModelProtocol]
+    var searchViewModel: ExplorePageViewModelProtocol
+    
+    private let searchController = UISearchController(searchResultsController: nil)
 
     lazy var scrollDelegate: ExploreScrollViewDelegate = {
         let delegate = ExploreScrollViewDelegate()
@@ -64,6 +67,12 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
+    
+    private lazy var searchView: ExplorePageView = {
+        let view = ExplorePageView()
+        view.isHidden = true
+        return view
+    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -71,6 +80,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         setupView()
         let slides = createSlides()
         setupSlideScrollView(slides: slides)
+        searchView.viewModel = searchViewModel
     }
     
     override func viewDidLayoutSubviews() {
@@ -78,16 +88,23 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         scrollView.contentSize = CGSize(width: view.frame.width * CGFloat(3), height: scrollView.frame.size.height)
     }
     
-    init(viewModels: [ExplorePageViewModelProtocol]) {
+    init(viewModels: [ExplorePageViewModelProtocol], searchViewModel: ExplorePageViewModelProtocol) {
         self.viewModels = viewModels
+        self.searchViewModel = searchViewModel
     }
 
     private func setupView() {
-        navigationController?.navigationBar.prefersLargeTitles = true
+        searchController.searchBar.placeholder = R.string.localizable.search(preferredLanguages: .currentLocale)
+        searchController.searchResultsUpdater = self
+        searchController.delegate = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        navigationItem.searchController = searchController
+        navigationItem.hidesSearchBarWhenScrolling = false
         
         soramitsuView.sora.backgroundColor = .bgPage
         view.addSubview(scrollView)
         view.addSubview(segmentView)
+        view.addSubview(searchView)
         
         NSLayoutConstraint.activate([
             segmentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -99,6 +116,12 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
             scrollView.topAnchor.constraint(equalTo: segmentView.bottomAnchor, constant: 16),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             scrollView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            
+            searchView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            searchView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            searchView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            searchView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            
         ])
     }
 
@@ -152,5 +175,25 @@ extension ExploreViewController: TitleSegmentControlViewModelDelegate {
         UIView.animate(withDuration: 0.33, animations: { [weak self] in
           self?.scrollView.contentOffset.x = CGFloat(offset)
         })
+    }
+}
+
+extension ExploreViewController: UISearchResultsUpdating {
+    func updateSearchResults(for searchController: UISearchController) {
+        searchViewModel.searchTextChanged(with: searchController.searchBar.text?.lowercased() ?? "")
+    }
+}
+
+extension ExploreViewController: UISearchControllerDelegate {
+    func willPresentSearchController(_ searchController: UISearchController) {
+        searchView.isHidden = false
+        segmentView.isHidden = true
+        scrollView.isHidden = true
+    }
+
+    func willDismissSearchController(_ searchController: UISearchController) {
+        searchView.isHidden = true
+        segmentView.isHidden = false
+        scrollView.isHidden = false
     }
 }

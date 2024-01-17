@@ -136,6 +136,7 @@ final class FriendsViewController: UIViewController {
     private lazy var activityIndicator: UIActivityIndicatorView = {
         let indicator = UIActivityIndicatorView(style: .large)
         indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.color = SoramitsuUI.shared.theme.palette.color(.fgSecondary)
         return indicator
     }()
     

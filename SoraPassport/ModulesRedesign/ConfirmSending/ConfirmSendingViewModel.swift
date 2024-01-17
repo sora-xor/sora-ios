@@ -80,12 +80,15 @@ final class ConfirmSendingViewModel {
     private var confirmationState: ConfirmationState = .readyToSubmit {
         didSet {
             updateContent()
+            Task { [weak self] in
+                let fiatDate = await self?.fiatService?.getFiat() ?? []
+                self?.updateContent(with: fiatDate)
+            }
         }
     }
     
     var firstAssetBalance: BalanceData = BalanceData(identifier: WalletAssetId.xor.rawValue, balance: AmountDecimal(value: 0)) {
         didSet {
-            let firstAsset = assetManager.assetInfo(for: assetId)
             // check if balance is enough
             if firstAssetAmount > firstAssetBalance.balance.decimalValue {
                 let firstAssetSymbol = assetManager.assetInfo(for: assetId)?.symbol ?? ""
@@ -190,42 +193,39 @@ extension ConfirmSendingViewModel: AssetProviderObserverProtocol {
 }
 
 extension ConfirmSendingViewModel {
-    func updateContent() {
-        fiatService?.getFiat { [weak self] fiatData in
-            guard let self = self else { return }
-            
-            let addressItem = RecipientAddressItem(address: self.recipientAddress)
-            
-            let firstAsset = self.assetManager.assetInfo(for: self.assetId)
-            let firstAssetPrecision = firstAsset?.precision ?? 0
-            let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: firstAssetPrecision)
-            
-            let sendAssetItem = SendAssetItem(imageViewModel: WalletSvgImageViewModel(svgString: firstAsset?.icon ?? ""),
-                                              symbol: firstAsset?.symbol ?? "",
-                                              amount: firstAssetFormatter.stringFromDecimal(self.firstAssetAmount) ?? "",
-                                              balance: self.setupFullBalanceText(from: self.firstAssetBalance, fiatData: fiatData),
-                                              fiat: self.setupFiatText(from: self.firstAssetAmount, assetId: self.assetId, fiatData: fiatData))
-            
-            let details = self.detailsFactory.createSendingAssetViewModels(fee: self.fee, fiatData: fiatData, viewModel: self)
-            let detailItem = ConfirmDetailsItem(detailViewModels: details)
-            
-            let buttonText = SoramitsuTextItem(text: self.confirmationState.title,
-                                               fontData: FontType.buttonM,
-                                               textColor: self.confirmationState.textColor,
-                                               alignment: .center)
-            let buttonItem = SoramitsuButtonItem(title: buttonText, isEnable: self.confirmationState == .readyToSubmit) { [weak self] in
-                self?.submit()
-            }
-
-            self.items = [addressItem,
-                     SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
-                     sendAssetItem,
-                     SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
-                     detailItem,
-                     SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
-                     buttonItem]
-            self.setupItems?(self.items)
+    func updateContent(with fiatData: [FiatData] = []) {
+        
+        let addressItem = RecipientAddressItem(address: self.recipientAddress)
+        
+        let firstAsset = self.assetManager.assetInfo(for: self.assetId)
+        let firstAssetPrecision = firstAsset?.precision ?? 0
+        let firstAssetFormatter: NumberFormatter = NumberFormatter.inputedAmoutFormatter(with: firstAssetPrecision)
+        
+        let sendAssetItem = SendAssetItem(imageViewModel: WalletSvgImageViewModel(svgString: firstAsset?.icon ?? ""),
+                                          symbol: firstAsset?.symbol ?? "",
+                                          amount: firstAssetFormatter.stringFromDecimal(self.firstAssetAmount) ?? "",
+                                          balance: self.setupFullBalanceText(from: self.firstAssetBalance, fiatData: fiatData),
+                                          fiat: self.setupFiatText(from: self.firstAssetAmount, assetId: self.assetId, fiatData: fiatData))
+        
+        let details = self.detailsFactory.createSendingAssetViewModels(fee: self.fee, fiatData: fiatData, viewModel: self)
+        let detailItem = ConfirmDetailsItem(detailViewModels: details)
+        
+        let buttonText = SoramitsuTextItem(text: self.confirmationState.title,
+                                           fontData: FontType.buttonM,
+                                           textColor: self.confirmationState.textColor,
+                                           alignment: .center)
+        let buttonItem = SoramitsuButtonItem(title: buttonText, isEnable: self.confirmationState == .readyToSubmit) { [weak self] in
+            self?.submit()
         }
+        
+        self.items = [addressItem,
+                      SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
+                      sendAssetItem,
+                      SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
+                      detailItem,
+                      SoramitsuTableViewSpacerItem(space: 16, color: .custom(uiColor: .clear)),
+                      buttonItem]
+        self.setupItems?(self.items)
     }
     
     func submit() {

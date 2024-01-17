@@ -89,15 +89,17 @@ final class SplashInteractor: SplashInteractorProtocol {
     }
 
     private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo]) {
-        AssetManager.networkAssets = assetsInfo
+        Task {
+            AssetManager.networkAssets = assetsInfo
 
-        let assetsIds = assetsInfo.filter{ $0.visible }.map { $0.assetId }
-        PriceInfoService.shared.setup(for: assetsIds)
+            let assetsIds = assetsInfo.filter{ $0.visible }.map { $0.assetId }
+            await PriceInfoService.shared.setup(for: assetsIds)
 
-        socketService.throttle()
+            socketService.throttle()
 
-        DispatchQueue.main.async {
-            self.startChain()
+            DispatchQueue.main.async {
+                self.startChain()
+            }
         }
     }
 

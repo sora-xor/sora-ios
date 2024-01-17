@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "Потврдите подизање";
 "polkaswap.not.enough.tokens.in.pool" = "Нема довољно токена у пулу";
 "add.liquidity.confirmation.title" = "Потврдите снабдевање";
-"add.liquidity.pool.share.title" = "Ваш удео у пулу ће бити";
 "add.liquidity.pool.title" = "%s - %s Пул";
 "add.liquidity.pool.share.description" = "Излаз је процењен. Ако се цена промени више од %s %% ваша трансакција ће бити враћена.";
 "common.deposit.symbol" = "%s уплатити на рачун";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

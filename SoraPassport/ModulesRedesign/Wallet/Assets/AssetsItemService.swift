@@ -38,8 +38,7 @@ final class AssetsItemService {
     let marketCapService: MarketCapServiceProtocol
     var fiatService: FiatServiceProtocol?
     let assetViewModelsFactory: AssetViewModelFactory
-    let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
-    var poolItemInfo: PriceInfo?
+    var priceInfo: PriceInfo?
     var assetManager: AssetManagerProtocol
     var updateHandler: (() -> Void)?
     
@@ -67,7 +66,7 @@ final class AssetsItemService {
     
     func setup() {
         let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId }
-        if poolItemInfo == nil || assetIds.count != assetViewModels.count {
+        if priceInfo == nil || assetIds.count != assetViewModels.count {
             let items = assetProvider.getBalances(with: assetIds)
 
             assetViewModels = items.compactMap { item in
@@ -78,7 +77,7 @@ final class AssetsItemService {
 
         Task {
             let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
-            self.poolItemInfo = poolItemInfo
+            self.priceInfo = poolItemInfo
             
             let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId } 
             let items = assetProvider.getBalances(with: assetIds)
@@ -93,10 +92,7 @@ final class AssetsItemService {
             moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
             
             assetViewModels = items.compactMap { item in
-                let deltaPrice = priceTrendService.getPriceTrend(for: item.identifier,
-                                                                 fiatData: poolItemInfo.fiatData,
-                                                                 marketCapInfo: poolItemInfo.marketCapInfo)
-                
+                let deltaPrice = poolItemInfo.marketCapInfo.first(where: { $0.assetId == item.identifier })?.hourDelta
                 return self.assetViewModelsFactory.createAssetViewModel(with: item,
                                                                         fiatData: poolItemInfo.fiatData,
                                                                         mode: .view,

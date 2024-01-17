@@ -61,10 +61,11 @@ final class InputAssetAmountViewController: SoramitsuViewController {
         return stackView
     }()
 
-    private let scrollView: SoramitsuScrollView = {
+    private lazy var scrollView: SoramitsuScrollView = {
         let scrollView = SoramitsuScrollView()
         scrollView.sora.keyboardDismissMode = .onDrag
         scrollView.sora.showsVerticalScrollIndicator = false
+        scrollView.delegate = self
         return scrollView
     }()
     

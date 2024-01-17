@@ -82,6 +82,14 @@ extension KmmCallCodingPath {
     static var getRewards: KmmCallCodingPath {
         KmmCallCodingPath(moduleName: "demeterFarmingPlatform", callName: "getRewards")
     }
+    
+    static var farmDeposit: KmmCallCodingPath {
+        KmmCallCodingPath(moduleName: "demeterFarmingPlatform", callName: "deposit")
+    }
+    
+    static var farmWithdraw: KmmCallCodingPath {
+        KmmCallCodingPath(moduleName: "demeterFarmingPlatform", callName: "withdraw")
+    }
 
 
     var isTransfer: Bool {
@@ -110,5 +118,13 @@ extension KmmCallCodingPath {
     
     var isClaimReward: Bool {
         [.getRewards].contains(self)
+    }
+    
+    var isDepositFarmLiquidity: Bool {
+        [.farmDeposit].contains(self)
+    }
+
+    var isWithdrawFarmLiquidity: Bool {
+        [.farmWithdraw].contains(self)
     }
 }

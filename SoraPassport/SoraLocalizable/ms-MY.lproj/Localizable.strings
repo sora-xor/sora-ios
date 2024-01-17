@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "Sahkan Alih Keluar";
 "polkaswap.not.enough.tokens.in.pool" = "Token tidak mencukupi dalam kolam";
 "add.liquidity.confirmation.title" = "Sahkan bekalan";
-"add.liquidity.pool.share.title" = "Bahagian kolam anda akan menjadi";
 "add.liquidity.pool.title" = "%s - %s Kolam";
 "add.liquidity.pool.share.description" = "Output dianggarkan. Jika harga berubah lebih daripada %s %% transaksi anda akan kembali.";
 "common.deposit.symbol" = "%s deposit";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

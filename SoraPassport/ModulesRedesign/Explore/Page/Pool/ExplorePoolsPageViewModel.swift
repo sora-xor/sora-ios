@@ -39,6 +39,7 @@ import Combine
 final class ExplorePoolsPageViewModel {
     @Published var snapshot: ExplorePageSnapshot = ExplorePageSnapshot()
     var snapshotPublisher: Published<ExplorePageSnapshot>.Publisher { $snapshot }
+
     private var cancellables: Set<AnyCancellable> = []
     
     var wireframe: ExploreWireframeProtocol
@@ -67,13 +68,13 @@ final class ExplorePoolsPageViewModel {
         if poolViewModels.isEmpty {
             let serialNumbers = Array(1...20)
             let shimmersPoolItems = serialNumbers.map {
-                ExplorePoolItem(poolViewModel: ExplorePoolViewModel(serialNumber: String($0)))
+                ExplorePoolItem(serialNumber: String($0), poolViewModel: ExplorePoolViewModel(serialNumber: String($0)))
             }
             
             let shimmerSection = ExplorePageSection(items: shimmersPoolItems.map { .pool($0) })
             sections.append(shimmerSection)
         } else {
-            let poolItems = poolViewModels.map { ExplorePoolItem(poolViewModel: $0) }
+            let poolItems = poolViewModels.map { ExplorePoolItem(serialNumber: $0.serialNumber, poolViewModel: $0) }
             let poolSection = ExplorePageSection(items: poolItems.map { .pool($0) })
             sections.append(poolSection)
         }
@@ -96,32 +97,40 @@ final class ExplorePoolsPageViewModel {
 }
 
 extension ExplorePoolsPageViewModel: ExplorePageViewModelProtocol {
+    var isNeedHeaders: Bool {
+        return false
+    }
+    
     func setup() {
         setupSubscription()
         snapshot = createSnapshot()
         poolViewModelsService.setup()
     }
     
-    func didSelect(with id: String?) {}
-    
-    func didSelect(with viewModel: ExplorePoolViewModel?) {
-        guard let viewModel else { return }
-        
-        let poolId = viewModel.poolId ?? ""
-        let baseAssetId = viewModel.baseAssetId ?? ""
-        let targetAssetId = viewModel.targetAssetId ?? ""
-        let account = SelectedWalletSettings.shared.currentAccount
-        
-        let accountId = (try? SS58AddressFactory().accountId(
-            fromAddress: account?.address ?? "",
-            type: account?.networkType ?? 0
-        ).toHex(includePrefix: true)) ?? ""
-        
-        guard let poolInfo = accountPoolsService?.getPool(by: poolId) else {
-            let poolInfo = PoolInfo(baseAssetId: baseAssetId, targetAssetId: targetAssetId, poolId: poolId, accountId: accountId)
+    func didSelect(with item: ExplorePageSectionItem?) {
+        switch item {
+        case .pool(let item):
+            let viewModel = item.poolViewModel
+            
+            let poolId = viewModel.poolId ?? ""
+            let baseAssetId = viewModel.baseAssetId ?? ""
+            let targetAssetId = viewModel.targetAssetId ?? ""
+            let account = SelectedWalletSettings.shared.currentAccount
+            
+            let accountId = (try? SS58AddressFactory().accountId(
+                fromAddress: account?.address ?? "",
+                type: account?.networkType ?? 0
+            ).toHex(includePrefix: true)) ?? ""
+            
+            guard let poolInfo = accountPoolsService?.getPool(by: poolId) else {
+                let poolInfo = PoolInfo(baseAssetId: baseAssetId, targetAssetId: targetAssetId, poolId: poolId, accountId: accountId)
+                wireframe.showAccountPoolDetails(on: view?.controller, poolInfo: poolInfo)
+                return
+            }
             wireframe.showAccountPoolDetails(on: view?.controller, poolInfo: poolInfo)
-            return
+        default: break
         }
-        wireframe.showAccountPoolDetails(on: view?.controller, poolInfo: poolInfo)
     }
+    
+    func searchTextChanged(with text: String) {}
 }
