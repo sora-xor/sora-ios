@@ -46,8 +46,6 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
         tableView.sectionHeaderHeight = .zero
         tableView.estimatedRowHeight = UITableView.automaticDimension
         tableView.register(PolkaswapCell.self, forCellReuseIdentifier: "PolkaswapCell")
-        tableView.register(SoramitsuCell<SoramitsuTableViewSpaceView>.self, forCellReuseIdentifier: "SpaceCell")
-        tableView.register(SwapDetailsCell.self, forCellReuseIdentifier: "SwapDetailsCell")
         tableView.sora.cancelsTouchesOnDragging = true
         tableView.sora.keyboardDismissMode = .onDrag
         tableView.sora.showsVerticalScrollIndicator = false
@@ -68,15 +66,6 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
                 let cell: PolkaswapCell? = tableView.dequeueReusableCell(withIdentifier: "PolkaswapCell", for: indexPath) as? PolkaswapCell
                 cell?.set(item: item)
                 return cell ?? UITableViewCell()
-            case .details(let item):
-                let cell: SwapDetailsCell? = tableView.dequeueReusableCell(withIdentifier: "SwapDetailsCell", for: indexPath) as? SwapDetailsCell
-                cell?.set(item: item)
-                return cell ?? UITableViewCell()
-            case .space(let item):
-                let cell: SoramitsuCell<SoramitsuTableViewSpaceView>? = tableView.dequeueReusableCell(withIdentifier: "SpaceCell",
-                                                                                                      for: indexPath) as? SoramitsuCell<SoramitsuTableViewSpaceView>
-                cell?.set(item: item, context: nil)
-                return cell ?? UITableViewCell()
             }
         }
     }()
@@ -96,6 +85,7 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
 
         setupView()
         setupConstraints()
+        addObservers()
         
         if let imageName = viewModel.imageName {
             let logo = UIImage(named: imageName)
@@ -152,6 +142,33 @@ final class PolkaswapViewController: SoramitsuViewController, LiquidityViewProto
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
+    
+    private func addObservers() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillShow),
+                                               name: UIResponder.keyboardWillShowNotification,
+                                               object: nil)
+
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillHide),
+                                               name: UIResponder.keyboardWillHideNotification,
+                                               object: nil)
+    }
+    
+    @objc
+    private func keyboardWillShow(_ notification:Notification) {
+        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
+            tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: keyboardSize.height, right: 0)
+            
+        }
+    }
+
+    @objc
+    private func keyboardWillHide(_ notification:Notification) {
+        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
+            tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+        }
+    }
 }
 
 extension PolkaswapViewController: UITableViewDelegate {
@@ -160,9 +177,6 @@ extension PolkaswapViewController: UITableViewDelegate {
             return 0
         }
         
-        switch item {
-        case .space: return 16
-        default: return UITableView.automaticDimension
-        }
+        return UITableView.automaticDimension
     }
 }

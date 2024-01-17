@@ -40,8 +40,6 @@ final class RemoveLiquidityViewModel {
     var snapshotPublisher: Published<PolkaswapSnapshot>.Publisher { $snapshot }
     
     var detailsItem: PoolDetailsItem?
-    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
-    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
     var completionHandler: (() -> Void)?
     
     weak var fiatService: FiatServiceProtocol?
@@ -308,13 +306,8 @@ extension RemoveLiquidityViewModel: LiquidityViewModelProtocol {
         var items: [PolkaswapSectionItem] = []
         
         let polkaswapItem = itemFactory.createPolkaswapItem(with: self)
-        let detailsItem = itemFactory.createSwapDetailsItem(with: self)
-        
-        items.append(contentsOf: [
-            .polkaswap(polkaswapItem),
-            .space(SoramitsuTableViewSpacerItem(space: 8, color: .custom(uiColor: .clear))),
-            .details(detailsItem)
-        ])
+
+        items.append(.polkaswap(polkaswapItem))
         
         return PolkaswapSection(items: items)
     }

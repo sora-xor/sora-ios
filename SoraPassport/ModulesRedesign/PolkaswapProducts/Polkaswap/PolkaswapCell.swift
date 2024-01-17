@@ -203,6 +203,8 @@ final class PolkaswapCell: SoramitsuTableViewCell {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] title in
                     self?.optionsView.marketButton.sora.title = title
+                    self?.optionsView.marketButton.sora.isHidden = false
+                    self?.optionsView.marketLabel.isHidden = false
                 }
                 .store(in: &cancellables)
             
@@ -259,6 +261,14 @@ final class PolkaswapCell: SoramitsuTableViewCell {
                     self?.firstLiquidityWarningView.setupView(with: viewModel)
                 }
                 .store(in: &cancellables)
+            
+            viewModel.detailsPublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] details in
+                    guard let details else { return }
+                    self?.setup(with: details)
+                }
+                .store(in: &cancellables)
         }
     }
     
@@ -268,7 +278,15 @@ final class PolkaswapCell: SoramitsuTableViewCell {
         stackView.sora.axis = .vertical
         stackView.sora.distribution = .fill
         stackView.spacing = 16
-        stackView.translatesAutoresizingMaskIntoConstraints = false
+        return stackView
+    }()
+    
+    private lazy var detailsStackView: SoramitsuStackView = {
+        let stackView = SoramitsuStackView()
+        stackView.sora.axis = .vertical
+        stackView.sora.distribution = .fill
+        stackView.sora.alignment = .fill
+        stackView.spacing = 12
         return stackView
     }()
     
@@ -378,6 +396,14 @@ final class PolkaswapCell: SoramitsuTableViewCell {
         return view
     }()
     
+    private let detailViews: [DetailView] = [
+        DetailView(),
+        DetailView(),
+        DetailView(),
+        DetailView(),
+        DetailView(),
+        DetailView()
+    ]
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -397,6 +423,11 @@ final class PolkaswapCell: SoramitsuTableViewCell {
         stackView.addArrangedSubview(firstLiquidityWarningView)
         stackView.addArrangedSubview(warningView)
         stackView.addArrangedSubview(reviewLiquidity)
+        stackView.addArrangedSubview(detailsStackView)
+        
+        detailViews.forEach { subview in
+            detailsStackView.addArrangedSubview(subview)
+        }
     }
 
     private func setupLayout() {
@@ -417,6 +448,9 @@ final class PolkaswapCell: SoramitsuTableViewCell {
 
             reviewLiquidity.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
             reviewLiquidity.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
+            
+            detailsStackView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
+            detailsStackView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
         ])
     }
     
@@ -431,6 +465,30 @@ final class PolkaswapCell: SoramitsuTableViewCell {
             options: UIView.AnimationOptions.curveEaseIn
         ) {
             self.assetsView.middleButton.transform = CGAffineTransform(rotationAngle: 2 * .pi)
+        }
+    }
+    
+    private func setup(with detailViewModels: [DetailViewModel]) {
+        zip(detailViews, detailViewModels).forEach { view, model in
+            view.assetImageView.isHidden = model.rewardAssetImage == nil
+            
+            if let image = model.rewardAssetImage {
+                view.assetImageView.sora.picture = .logo(image: image)
+            }
+            
+            view.titleLabel.sora.text = model.title
+            view.valueLabel.sora.attributedText = model.assetAmountText
+            view.fiatValueLabel.sora.attributedText = model.fiatAmountText
+            view.fiatValueLabel.sora.isHidden = model.fiatAmountText == nil
+            view.infoButton.sora.isHidden = model.infoHandler == nil
+            view.infoButton.sora.addHandler(for: .touchUpInside) { [weak model] in
+                model?.infoHandler?()
+            }
+            view.sora.isHidden = false
+        }
+        
+        for index in detailViewModels.count..<detailViews.count {
+            detailViews[index].sora.isHidden = true
         }
     }
 }

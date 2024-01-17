@@ -31,7 +31,7 @@
 import SoraUIKit
 import Combine
 
-final class SwapDetailsItem: ItemProtocol {
+final class PolkaswapItem: ItemProtocol {
     
     @Published var viewModel: LiquidityViewModelProtocol
     
@@ -40,12 +40,18 @@ final class SwapDetailsItem: ItemProtocol {
     }
 }
 
-extension SwapDetailsItem: Hashable {
-    static func == (lhs: SwapDetailsItem, rhs: SwapDetailsItem) -> Bool {
-        lhs === rhs
+extension PolkaswapItem: Hashable {
+    static func == (lhs: PolkaswapItem, rhs: PolkaswapItem) -> Bool {
+        lhs.viewModel.inputedFirstAmount == rhs.viewModel.inputedFirstAmount &&
+        lhs.viewModel.inputedSecondAmount == rhs.viewModel.inputedSecondAmount &&
+        lhs.viewModel.isSwap == rhs.viewModel.isSwap &&
+        lhs.viewModel.focusedField == rhs.viewModel.focusedField
     }
     
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
+        hasher.combine(viewModel.inputedFirstAmount)
+        hasher.combine(viewModel.inputedSecondAmount)
+        hasher.combine(viewModel.isSwap)
+        hasher.combine(viewModel.focusedField)
     }
 }

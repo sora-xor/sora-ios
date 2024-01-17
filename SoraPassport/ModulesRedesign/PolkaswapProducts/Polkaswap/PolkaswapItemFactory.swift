@@ -40,9 +40,4 @@ final class PolkaswapItemFactory {
         let polkaswapItem = PolkaswapItem(viewModel: viewModel)
         return polkaswapItem
     }
-    
-    func createSwapDetailsItem(with viewModel: LiquidityViewModelProtocol) -> SwapDetailsItem {
-        let detailsItem = SwapDetailsItem(viewModel: viewModel)
-        return detailsItem
-    }
 }

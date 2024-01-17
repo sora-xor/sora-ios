@@ -42,8 +42,6 @@ class PolkaswapSection {
 
 enum PolkaswapSectionItem: Hashable {
     case polkaswap(PolkaswapItem)
-    case space(SoramitsuTableViewSpacerItem)
-    case details(SwapDetailsItem)
 }
 
 extension PolkaswapSection: Hashable {

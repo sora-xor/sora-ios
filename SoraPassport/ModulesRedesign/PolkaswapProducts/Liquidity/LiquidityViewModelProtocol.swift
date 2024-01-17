@@ -33,15 +33,35 @@ import UIKit
 import Combine
 
 final class AssetProfile {
-    @Published var balance: String = ""
-    @Published var symbol: String = ""
+    @Published var balance: String
+    @Published var symbol: String
     @Published var image: UIImage?
-    @Published var fiat: String = ""
-    @Published var amount: String = ""
-    @Published var state: InputFieldState = .default
-    @Published var amountColor: SoramitsuColor = .custom(uiColor: .clear)
-    @Published var fiatColor: SoramitsuColor = .custom(uiColor: .clear)
-    @Published var isFirstResponder: Bool = false
+    @Published var fiat: String
+    @Published var amount: String
+    @Published var state: InputFieldState
+    @Published var amountColor: SoramitsuColor
+    @Published var fiatColor: SoramitsuColor
+    @Published var isFirstResponder: Bool
+    
+    init(balance: String = "",
+         symbol: String = "",
+         image: UIImage? = nil,
+         fiat: String = "",
+         amount: String = "",
+         state: InputFieldState = .default,
+         amountColor: SoramitsuColor = .custom(uiColor: .clear),
+         fiatColor: SoramitsuColor = .custom(uiColor: .clear),
+         isFirstResponder: Bool = false) {
+        self.balance = balance
+        self.symbol = symbol
+        self.image = image
+        self.fiat = fiat
+        self.amount = amount
+        self.state = state
+        self.amountColor = amountColor
+        self.fiatColor = fiatColor
+        self.isFirstResponder = isFirstResponder
+    }
 }
 
 typealias PolkaswapDataSource = UITableViewDiffableDataSource<PolkaswapSection, PolkaswapSectionItem>
@@ -57,8 +77,6 @@ protocol LiquidityViewModelProtocol: InputAccessoryViewDelegate {
     var inputedFirstAmount: Decimal { get set }
     var inputedSecondAmount: Decimal { get set }
     var middleButtonActionHandler: (() -> Void)? { get set }
-    var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
-    var reloadItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
     var focusedField: FocusedField { get set }
     
     var firstAssetPublisher: Published<AssetProfile>.Publisher { get }
