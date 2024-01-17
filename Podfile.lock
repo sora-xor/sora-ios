@@ -207,7 +207,7 @@ PODS:
   - R.swift.Library (5.3.0)
   - ReachabilitySwift (5.0.0)
   - RobinHood (2.6.8)
-  - SCard (1.3.1):
+  - SCard (1.4.0):
     - IdensicMobileSDK
     - PayWingsOAuthSDK (= 1.2.2)
     - PayWingsOnboardingKYC (= 5.2.1)
@@ -270,7 +270,7 @@ PODS:
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
   - SoraUIKit (1.1.10)
-  - sorawallet (0.2.5)
+  - sorawallet (0.2.6)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
@@ -327,14 +327,14 @@ DEPENDENCIES:
   - R.swift (~> 6.1.0)
   - ReachabilitySwift
   - RobinHood
-  - SCard (from `https://github.com/sora-xor/sora-card-ios`, tag `1.3.1`)
+  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.4.0`)
   - SnapKit
   - SoraDocuments
   - SoraFoundation
   - SoraKeystore
   - SoraUI
   - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.10`)
-  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.5/lib/sorawallet/sorawallet.podspec`)
+  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.6/lib/sorawallet/sorawallet.podspec`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
@@ -413,13 +413,13 @@ EXTERNAL SOURCES:
     :branch: version6-xcode13
     :git: https://github.com/onevcat/Kingfisher
   SCard:
+    :branch: release/1.4.0
     :git: https://github.com/sora-xor/sora-card-ios
-    :tag: 1.3.1
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.10
   sorawallet:
-    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.5/lib/sorawallet/sorawallet.podspec
+    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.6/lib/sorawallet/sorawallet.podspec
   Starscream:
     :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -440,8 +440,8 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
+    :commit: bdc0abf48f84bd4273f677ffc29bf68627bcb637
     :git: https://github.com/sora-xor/sora-card-ios
-    :tag: 1.3.1
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.10
@@ -493,7 +493,7 @@ SPEC CHECKSUMS:
   R.swift.Library: 0fc583cb55a99e28901299cc451614cad1161962
   ReachabilitySwift: 985039c6f7b23a1da463388634119492ff86c825
   RobinHood: b775a72cc0ae55cee3dfb4a5668597aca20ba244
-  SCard: 45a279b45c936a14a8635f69c123f7208955168c
+  SCard: 45a279b45c936a14a8635f69c123f7208955168
   scrypt.c: b42ae06183251329d2b2c620c226fb541a4a3592
   secp256k1.c: db47b726585d80f027423682eb369729e61b3b20
   SnapKit: e01d52ebb8ddbc333eefe2132acf85c8227d9c25
@@ -502,7 +502,7 @@ SPEC CHECKSUMS:
   SoraKeystore: c42760c9270fc232a79f644c1b4bb07d9ead4ee7
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   SoraUIKit: fc45d5481b9b2b17e7f2ea8f43b69bea6bd5dde0
-  sorawallet: 78f2aaf10fcff086369c7e96122760ea3dc6e347
+  sorawallet: cd5a23a7f5656dfd9d738e2d0949074962b83c0d
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
   SSFCloudStorage: c4123454b3084015ea8d88af92f51de79fce7f2c
   SSFModels: d85433036fd8a3bc88f93d570649f242d948f063
@@ -516,6 +516,6 @@ SPEC CHECKSUMS:
   VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 26155ba7658aed965c03341ef009330ead947b44
+PODFILE CHECKSUM: c9837a09fde9c3aacf381132f4600cd50f5ecdca
 
 COCOAPODS: 1.14.2

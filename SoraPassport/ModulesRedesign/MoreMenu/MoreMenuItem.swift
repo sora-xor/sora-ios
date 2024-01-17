@@ -34,15 +34,27 @@ final class MoreMenuItem: NSObject {
 
     let title: String
     let subtitle: String
+    let subtitleStream: AsyncStream<String?>?
     let picture: Picture?
     let circleColor: SoramitsuColor?
+    let circleColorStream: AsyncStream<SoramitsuColor?>?
     let onTap: (()->())?
 
-    init(title: String, subtitle: String, picture: Picture?, circleColor: SoramitsuColor? = nil, onTap: (()->())? = nil) {
+    init(
+        title: String,
+        subtitle: String,
+        subtitleStream: AsyncStream<String?>? = nil,
+        picture: Picture?,
+        circleColor: SoramitsuColor? = nil,
+        circleColorStream: AsyncStream<SoramitsuColor?>? = nil,
+        onTap: (()->())? = nil
+    ) {
         self.title = title
         self.subtitle = subtitle
+        self.subtitleStream = subtitleStream
         self.picture = picture
         self.circleColor = circleColor
+        self.circleColorStream = circleColorStream
         self.onTap = onTap
     }
 }

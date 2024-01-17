@@ -36,26 +36,18 @@ import SSFUtils
 final class EditFarmViewFactory {
     static func createView(farm: Farm,
                            poolInfo: PoolInfo,
-                           poolsService: PoolsServiceInputProtocol?,
-                           fiatService: FiatServiceProtocol?,
-                           assetManager: AssetManagerProtocol,
-                           providerFactory: BalanceProviderFactory,
-                           operationFactory: WalletNetworkOperationFactoryProtocol?,
                            assetsProvider: AssetProviderProtocol?,
-                           marketCapService: MarketCapServiceProtocol,
-                           farmingService: DemeterFarmingServiceProtocol,
-                           detailsFactory: DetailViewModelFactoryProtocol) -> EditFarmViewController? {
+                           feeProvider: FeeProviderProtocol,
+                           walletService: WalletServiceProtocol,
+                           assetManager: AssetManagerProtocol) -> EditFarmViewController? {
+        let wireframe = ConfirmTransactionWireframe()
         let viewModel = EditFarmViewModel(farm: farm,
                                           poolInfo: poolInfo,
-                                          poolsService: poolsService,
-                                          fiatService: fiatService,
-                                          assetManager: assetManager,
-                                          providerFactory: providerFactory,
-                                          operationFactory: operationFactory,
                                           assetsProvider: assetsProvider,
-                                          marketCapService: marketCapService,
-                                          farmingService: farmingService,
-                                          detailsFactory: detailsFactory)
+                                          feeProvider: feeProvider,
+                                          walletService: walletService,
+                                          wireframe: wireframe,
+                                          assetManager: assetManager)
         
         let view = EditFarmViewController(viewModel: viewModel)
         viewModel.view = view

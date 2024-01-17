@@ -75,6 +75,10 @@ final class AccountOptionsPresenter {
             view?.hideLoading()
             
             if isCurrentAccountBackedup {
+                var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
+                backupedAccountAddresses.append(account?.address ?? "")
+                ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
+                
                 backupState = .backedUp
                 showAlert(about: account)
                 return

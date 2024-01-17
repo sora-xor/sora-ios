@@ -30,13 +30,83 @@
 
 import SoraUIKit
 import SoraFoundation
+import Combine
 
 final class EditFarmCell: SoramitsuTableViewCell {
     
-    private var item: EditFarmItem?
     private let localizationManager = LocalizationManager.shared
+    private var cancellables: Set<AnyCancellable> = []
+    private let input: PassthroughSubject<Float, Never> = .init()
     
-    private var viewModel: EditFarmViewModelProtocol?
+    private var item: EditFarmItem? {
+        didSet {
+            guard let item, let service = item.service else { return }
+            let output = service.transform(input: input.eraseToAnyPublisher())
+            output
+                .receive(on: DispatchQueue.main)
+                .sink { event in }
+                .store(in: &cancellables)
+            
+            service.$feeText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self, let value else { return }
+                    self.feeDetailView.valueLabel.sora.text = value
+                }
+                .store(in: &cancellables)
+            
+            service.$networkFeeText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.networkFeeDetailView.valueLabel.sora.text = value
+                    self.networkFeeDetailView.valueLabel.sora.loadingPlaceholder.type = value.isEmpty ? .shimmer : .none
+                    self.networkFeeDetailView.isShimmerHidden = !value.isEmpty
+                }
+                .store(in: &cancellables)
+            
+            service.$percentageText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.sliderView.percentageLabel.sora.text = value
+                }
+                .store(in: &cancellables)
+            
+            service.$isMaxButtonHidden
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.sliderView.maxButton.sora.isHidden = value
+                }
+                .store(in: &cancellables)
+            
+            service.$willBePercentageText
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.yourPoolShareWillBeDetailView.valueLabel.sora.text = value
+                }
+                .store(in: &cancellables)
+            
+            service.$confirmButtonEnabled
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] value in
+                    guard let self = self else { return }
+                    self.confirmButton.sora.isUserInteractionEnabled = value
+                    self.confirmButton.sora.backgroundColor = value ? .additionalPolkaswap : .bgSurfaceVariant
+                    
+                    let titleColor: SoramitsuColor = value ? .custom(uiColor: .white) : .fgTertiary
+                    self.confirmButton.sora.attributedText = SoramitsuTextItem(
+                        text: R.string.localizable.commonConfirm(preferredLanguages: .currentLocale),
+                        fontData: FontType.buttonM,
+                        textColor: titleColor,
+                        alignment: .center
+                    )
+                }
+                .store(in: &cancellables)
+        }
+    }
     
     let containerView: SoramitsuStackView = {
         let view = SoramitsuStackView()
@@ -61,6 +131,7 @@ final class EditFarmCell: SoramitsuTableViewCell {
     
     private let sliderView: FarmSliderView = {
         let view = FarmSliderView()
+        view.clipsToBounds = false
         return view
     }()
     
@@ -73,13 +144,60 @@ final class EditFarmCell: SoramitsuTableViewCell {
         return view
     }()
     
+    private let yourPoolShareDetailView: DetailView = {
+        var view = DetailView()
+        view.assetImageView.sora.isHidden = true
+        view.fiatValueLabel.sora.isHidden = true
+        view.infoButton.sora.isHidden = true
+        view.progressView.isHidden = true
+        view.titleLabel.sora.text = R.string.localizable.polkaswapFarmingPoolShare(preferredLanguages: .currentLocale)
+        return view
+    }()
+    
+    private let yourPoolShareWillBeDetailView: DetailView = {
+        var view = DetailView()
+        view.assetImageView.sora.isHidden = true
+        view.fiatValueLabel.sora.isHidden = true
+        view.infoButton.sora.isHidden = true
+        view.progressView.isHidden = true
+        view.titleLabel.sora.text = R.string.localizable.polkaswapFarmingPoolShareWillBe(preferredLanguages: .currentLocale)
+        return view
+    }()
+    
+    private lazy var feeDetailView: DetailView = {
+        var view = DetailView()
+        view.assetImageView.sora.isHidden = true
+        view.fiatValueLabel.sora.isHidden = true
+        view.progressView.isHidden = true
+        view.titleLabel.sora.text = R.string.localizable.commonFee(preferredLanguages: .currentLocale)
+        view.infoButton.sora.isHidden = false
+        view.infoButton.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.item?.feeInfoHandler?()
+        }
+        return view
+    }()
+    
+    private lazy var networkFeeDetailView: DetailView = {
+        var view = DetailView()
+        view.assetImageView.sora.isHidden = true
+        view.fiatValueLabel.sora.isHidden = true
+        view.progressView.isHidden = true
+        view.titleLabel.sora.text = R.string.localizable.networkFee(preferredLanguages: .currentLocale)
+        view.infoButton.sora.isHidden = false
+        view.valueLabel.sora.loadingPlaceholder.type = .shimmer
+        view.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
+        view.isShimmerHidden = false
+        view.infoButton.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.item?.networkFeeHandler?()
+        }
+        return view
+    }()
+    
     private lazy var confirmButton: SoramitsuButton = {
         let button = SoramitsuButton()
-        button.sora.title = R.string.localizable.commonConfirm(preferredLanguages: .currentLocale)
         button.sora.backgroundColor = .additionalPolkaswap
         button.sora.cornerRadius = .circle
         button.sora.horizontalOffset = 0
-        button.sora.isEnabled = false
         button.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.item?.onConfirm?()
         }
@@ -107,6 +225,24 @@ final class EditFarmCell: SoramitsuTableViewCell {
         ])
         
         containerView.setCustomSpacing(40, after: headerLabel)
+
+        let detailViews = [
+            yourPoolShareDetailView,
+            yourPoolShareWillBeDetailView,
+            feeDetailView,
+            networkFeeDetailView
+        ]
+        
+        detailViews.enumerated().forEach { (index, detailView) in
+            stackView.addArrangedSubviews(detailView)
+            
+            if index != detailViews.count - 1 {
+                let separatorView = SoramitsuView()
+                separatorView.heightAnchor.constraint(equalToConstant: 1).isActive = true
+                separatorView.sora.backgroundColor = .bgPage
+                stackView.addArrangedSubviews(separatorView)
+            }
+        }
     }
 
     private func setupConstraints() {
@@ -132,95 +268,30 @@ final class EditFarmCell: SoramitsuTableViewCell {
     }
     
     private func maxButtonTapped() {
+        sliderView.slider.value = 1
         set(sliderValue: 1.0)
     }
     
     private func set(sliderValue: Float) {
-        guard let item else { return }
-        
-        let percentage = Double(sliderValue * 100)
-        let formattedText = NumberFormatter.percent.stringFromDecimal(Decimal(percentage)) ?? ""
-        let percentageText = localizationManager.isRightToLeft ? "%\(formattedText)" : "\(formattedText)%"
-        
-        sliderView.slider.value = sliderValue
-        sliderView.maxButton.sora.isHidden = sliderValue < 1.0 ? false : true
-        sliderView.percentageLabel.sora.text = percentageText
-        
-        if !item.isNeedInitialization {
-            viewModel?.sharePercentage = Decimal(percentage)
-        }
+        let sharePercentage = sliderValue * 100
+        input.send(sharePercentage)
     }
 }
 
-extension EditFarmCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+extension EditFarmCell: CellProtocol {
+    func set(item: ItemProtocol) {
         guard let item = item as? EditFarmItem else {
             assertionFailure("Incorect type of item")
             return
         }
         
         self.item = item
-        self.viewModel = item.viewModel
         
-        if item.isNeedInitialization {
-            set(sliderValue: item.viewModel.sharePercentage.floatValue / 100)
-            item.isNeedInitialization = false
-        }
+        sliderView.slider.value = item.stakedValue
+        set(sliderValue: item.stakedValue)
         
-        stackView.arrangedSubviews.forEach { subview in
-            stackView.removeArrangedSubview(subview)
-            subview.removeFromSuperview()
-        }
-        
-        let detailsViews = item.detailsViewModel.map { detailModel -> DetailView in
-            let view = DetailView()
-
-            view.assetImageView.sora.isHidden = detailModel.rewardAssetImage == nil
-            
-            if let image = detailModel.rewardAssetImage {
-                view.assetImageView.sora.picture = .logo(image: image)
-            }
-            
-            view.titleLabel.sora.text = detailModel.title
-            view.titleLabel.sora.loadingPlaceholder.type = detailModel.title.isEmpty ? .shimmer : .none
-            
-            view.valueLabel.sora.attributedText = detailModel.assetAmountText
-            view.valueLabel.sora.loadingPlaceholder.type = detailModel.assetAmountText.text.isEmpty ? .shimmer : .none
-            
-            view.fiatValueLabel.sora.attributedText = detailModel.fiatAmountText
-            view.fiatValueLabel.sora.isHidden = detailModel.fiatAmountText == nil
-            
-            view.infoButton.sora.isHidden = detailModel.infoHandler == nil
-
-            view.infoButton.sora.addHandler(for: .touchUpInside) { [weak detailModel] in
-                detailModel?.infoHandler?()
-            }
-            
-            switch detailModel.type {
-            case .casual:
-                view.progressView.isHidden = true
-            case .progress(let float):
-                view.progressView.isHidden = false
-                view.progressView.set(progressPercentage: float)
-            }
-            view.isShimmerHidden = detailModel.infoHandler == nil
-            
-            return view
-        }
-
-        if let detailsView = detailsViews.first {
-            stackView.setCustomSpacing(14, after: detailsView)
-        }
-        
-        detailsViews.enumerated().forEach { index, view in
-            stackView.addArrangedSubview(view)
-            
-            if index != detailsViews.count - 1 {
-                let separatorView = SoramitsuView()
-                separatorView.heightAnchor.constraint(equalToConstant: 1).isActive = true
-                separatorView.sora.backgroundColor = .bgPage
-                stackView.addArrangedSubview(separatorView)
-            }
-        }
+        let formattedText = NumberFormatter.percent.stringFromDecimal(item.sharePercentage) ?? ""
+        let percentageText = localizationManager.isRightToLeft ? "%\(formattedText)" : "\(formattedText)%"
+        yourPoolShareDetailView.valueLabel.sora.text = percentageText
     }
 }

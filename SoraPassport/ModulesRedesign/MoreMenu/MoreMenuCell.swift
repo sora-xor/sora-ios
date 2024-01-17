@@ -89,7 +89,28 @@ extension MoreMenuCell: SoramitsuTableViewCellProtocol {
         } else {
             categoryItem.hideCircle()
         }
-        
+
+        if let circleColorStream = item.circleColorStream {
+            Task {
+                for await color in circleColorStream {
+                    if let color = color {
+                        categoryItem.addCircle()
+                        categoryItem.circle.sora.backgroundColor = color
+                    } else {
+                        categoryItem.hideCircle()
+                    }
+                }
+            }
+        }
+
+        if let subtitleStream = item.subtitleStream {
+            Task {
+                for await subtitle in subtitleStream {
+                    categoryItem.subtitleLabel.sora.text = subtitle
+                }
+            }
+        }
+
         updateLayout()
     }
 }

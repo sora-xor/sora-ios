@@ -29,26 +29,69 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
+import Combine
 
 final class PoolDetailsCell: SoramitsuTableViewCell {
     
-    private var poolDetailsItem: PoolDetailsItem?
+    private var cancellables: Set<AnyCancellable> = []
     
-    private let stackView: SoramitsuStackView = {
-        var view = SoramitsuStackView()
+    private var poolDetailsItem: PoolDetailsItem? {
+        didSet {
+            guard let item = poolDetailsItem else { return }
+            item.service?.tvlTextPublisher
+                .receive(on: DispatchQueue.main)
+                .removeDuplicates()
+                .filter { !$0.isEmpty }
+                .sink { [weak self] value in
+                    print("OLOLO value \(value)")
+                    self?.headerView.subtitleLabel.sora.text = value
+                    self?.headerView.subtitleLabel.sora.loadingPlaceholder.type = .none
+                }
+                .store(in: &cancellables)
+
+            item.service?.detailsPublisher
+                .receive(on: DispatchQueue.main)
+                .removeDuplicates()
+                .dropFirst()
+                .sink { [weak self] value in
+                    self?.updateDetails(with: value)
+                }
+                .store(in: &cancellables)
+        }
+    }
+    
+    private let containerView: SoramitsuView = {
+        var view = SoramitsuView()
         view.sora.backgroundColor = .bgSurface
-        view.sora.axis = .vertical
         view.sora.cornerRadius = .max
-        view.sora.distribution = .fill
-        view.sora.shadow = .small
-        view.spacing = 14
-        view.layoutMargins = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
-        view.isLayoutMarginsRelativeArrangement = true
         return view
     }()
     
-    private lazy var headerView = PoolDetailsHeaderView()
+    private let detailsStackView: SoramitsuStackView = {
+        var view = SoramitsuStackView()
+        view.sora.backgroundColor = .bgSurface
+        view.sora.axis = .vertical
+        view.sora.distribution = .fill
+        view.spacing = 14
+        return view
+    }()
     
+    private let footerStackView: SoramitsuStackView = {
+        var view = SoramitsuStackView()
+        view.sora.backgroundColor = .bgSurface
+        view.sora.axis = .vertical
+        view.sora.distribution = .fill
+        view.spacing = 16
+        return view
+    }()
+    
+    private let headerView = {
+        let view = PoolDetailsHeaderView()
+        view.subtitleLabel.sora.loadingPlaceholder.type = .shimmer
+        view.subtitleLabel.sora.loadingPlaceholder.shimmerview.sora.cornerRadius = .small
+        return view
+    }()
+
     private lazy var supplyLiquidity: SoramitsuButton = {
         let button = SoramitsuButton()
         button.sora.horizontalOffset = 0
@@ -96,79 +139,44 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupView() {
-        contentView.addSubview(stackView)
-        
-        stackView.addArrangedSubviews(headerView)
-        stackView.setCustomSpacing(24, after: headerView)
+        contentView.addSubview(containerView)
+        containerView.addSubviews(headerView, detailsStackView, footerStackView)
+        footerStackView.addArrangedSubviews(supplyLiquidity, removeLiquidity, limitationLabel)
     }
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            stackView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            stackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            stackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
+            headerView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
+            headerView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            headerView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
+            headerView.heightAnchor.constraint(equalToConstant: 40),
+            
+            detailsStackView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor),
+            detailsStackView.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
+            detailsStackView.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 24),
+            
+            footerStackView.leadingAnchor.constraint(equalTo: detailsStackView.leadingAnchor),
+            footerStackView.centerXAnchor.constraint(equalTo: detailsStackView.centerXAnchor),
+            footerStackView.topAnchor.constraint(equalTo: detailsStackView.bottomAnchor, constant: 24),
+            footerStackView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -24),
+            
+            supplyLiquidity.heightAnchor.constraint(equalToConstant: 56),
+            removeLiquidity.heightAnchor.constraint(equalToConstant: 56),
         ])
     }
-}
-
-extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
-        guard let item = item as? PoolDetailsItem else {
-            assertionFailure("Incorect type of item")
-            return
-        }
-        poolDetailsItem = item
-        
-        removeLiquidity.sora.isEnabled = item.isRemoveLiquidityEnabled && item.isThereLiquidity
-        
-        let titleColor: SoramitsuColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswap : .fgTertiary
-        removeLiquidity.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonRemove(preferredLanguages: .currentLocale),
-                                                                fontData: FontType.buttonM ,
-                                                                textColor: titleColor,
-                                                                alignment: .center)
-        removeLiquidity.sora.backgroundColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswapContainer : .bgSurfaceVariant
-
-        headerView.titleLabel.sora.text = item.title
-        headerView.subtitleLabel.sora.text = item.subtitle
-
-        if let typeImage = item.typeImage.image {
-            headerView.typeImageView.sora.picture = .logo(image: typeImage)
-        }
-
-        headerView.titleLabel.sora.loadingPlaceholder.type = item.title.isEmpty ? .shimmer : .none
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            let icon = RemoteSerializer.shared.image(with: item.firstAssetImage ?? "")
-            DispatchQueue.main.async {
-                self.headerView.firstCurrencyImageView.image = icon
-                self.headerView.firstCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
-            }
-        }
-        
-        DispatchQueue.global(qos: .userInitiated).async {
-            let icon = RemoteSerializer.shared.image(with: item.secondAssetImage ?? "")
-            DispatchQueue.main.async {
-                self.headerView.secondCurrencyImageView.image = icon
-                self.headerView.secondCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
-            }
-        }
     
-        DispatchQueue.global(qos: .userInitiated).async {
-            let icon = RemoteSerializer.shared.image(with: item.rewardAssetImage ?? "")
-            DispatchQueue.main.async {
-                self.headerView.rewardImageView.image = icon
-                self.headerView.rewardImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
-            }
-        }
-
-        stackView.arrangedSubviews.filter { $0 is DetailView || $0 is SoramitsuButton || $0 is SoramitsuView }.forEach { subview in
-            stackView.removeArrangedSubview(subview)
+    func updateDetails(with details: [DetailViewModel]) {
+        detailsStackView.arrangedSubviews.forEach { subview in
+            detailsStackView.removeArrangedSubview(subview)
             subview.removeFromSuperview()
         }
-        stackView.removeArrangedSubview(limitationLabel)
         
-        let detailsViews = item.detailsViewModel.map { detailModel -> DetailView in
+        let detailsViews = details.map { detailModel -> DetailView in
             let view = DetailView()
 
             view.assetImageView.sora.isHidden = detailModel.rewardAssetImage == nil
@@ -200,32 +208,67 @@ extension PoolDetailsCell: SoramitsuTableViewCellProtocol {
             
             return view
         }
-
-        if let detailsView = detailsViews.first {
-            stackView.setCustomSpacing(14, after: detailsView)
-        }
         
         detailsViews.enumerated().forEach { index, view in
-            stackView.addArrangedSubview(view)
+            detailsStackView.addArrangedSubview(view)
             
             if index != detailsViews.count - 1 {
                 let separatorView = SoramitsuView()
                 separatorView.heightAnchor.constraint(equalToConstant: 1).isActive = true
                 separatorView.sora.backgroundColor = .bgPage
-                stackView.addArrangedSubview(separatorView)
+                detailsStackView.addArrangedSubview(separatorView)
+            }
+        }
+    }
+}
+
+extension PoolDetailsCell: CellProtocol {
+    func set(item: ItemProtocol) {
+        guard let item = item as? PoolDetailsItem else {
+            assertionFailure("Incorect type of item")
+            return
+        }
+
+        poolDetailsItem = item
+
+        updateDetails(with: item.detailsViewModels)
+        
+        removeLiquidity.sora.isEnabled = item.isRemoveLiquidityEnabled && item.isThereLiquidity
+        
+        let titleColor: SoramitsuColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswap : .fgTertiary
+        removeLiquidity.sora.attributedText = SoramitsuTextItem(text: R.string.localizable.commonRemove(preferredLanguages: .currentLocale),
+                                                                fontData: FontType.buttonM ,
+                                                                textColor: titleColor,
+                                                                alignment: .center)
+        removeLiquidity.sora.backgroundColor = item.isRemoveLiquidityEnabled && item.isThereLiquidity ? .additionalPolkaswapContainer : .bgSurfaceVariant
+
+        headerView.titleLabel.sora.text = item.title
+
+        if let typeImage = item.typeImage.image {
+            headerView.typeImageView.sora.picture = .logo(image: typeImage)
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let icon = RemoteSerializer.shared.image(with: item.firstAssetImage ?? "")
+            DispatchQueue.main.async {
+                self.headerView.firstCurrencyImageView.image = icon
             }
         }
         
-        
-        if let assetView = detailsViews.last {
-            stackView.setCustomSpacing(24, after: assetView)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let icon = RemoteSerializer.shared.image(with: item.secondAssetImage ?? "")
+            DispatchQueue.main.async {
+                self.headerView.secondCurrencyImageView.image = icon
+            }
+        }
+    
+        DispatchQueue.global(qos: .userInitiated).async {
+            let icon = RemoteSerializer.shared.image(with: item.rewardAssetImage ?? "")
+            DispatchQueue.main.async {
+                self.headerView.rewardImageView.image = icon
+            }
         }
 
-        stackView.addArrangedSubviews(supplyLiquidity, removeLiquidity)
-        stackView.setCustomSpacing(16, after: supplyLiquidity)
-        stackView.setCustomSpacing(16, after: removeLiquidity)
-        
-        stackView.addArrangedSubview(limitationLabel)
         limitationLabel.sora.isHidden = item.isRemoveLiquidityEnabled || !item.isThereLiquidity
     }
 }
