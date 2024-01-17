@@ -49,44 +49,47 @@ enum PoollProductType {
     }
 }
 
-final class PoolDetailsItem: NSObject {
+final class PoolDetailsItem: ItemProtocol {
 
     var title: String
-    let subtitle: String
     let firstAssetImage: String?
     let secondAssetImage: String?
     let rewardAssetImage: String?
-    var detailsViewModel: [DetailViewModel] = []
     var isRemoveLiquidityEnabled: Bool
     var isThereLiquidity: Bool
     let typeImage: PoollProductType
+    weak var service: PoolDetailsItemServiceProtocol?
+    let detailsViewModels: [DetailViewModel]
     var handler: ((Liquidity.TransactionLiquidityType) -> Void)?
 
     init(title: String,
-         subtitle: String,
          firstAssetImage: String?,
          secondAssetImage: String?,
          rewardAssetImage: String?,
-         detailsViewModel: [DetailViewModel],
          isRemoveLiquidityEnabled: Bool,
          typeImage: PoollProductType,
-         isThereLiquidity: Bool) {
+         isThereLiquidity: Bool,
+         detailsViewModels: [DetailViewModel],
+         poolInfo: PoolInfo,
+         service: PoolDetailsItemServiceProtocol?) {
         self.title = title
-        self.subtitle = subtitle
         self.typeImage = typeImage
         self.firstAssetImage = firstAssetImage
         self.secondAssetImage = secondAssetImage
         self.rewardAssetImage = rewardAssetImage
-        self.detailsViewModel = detailsViewModel
         self.isRemoveLiquidityEnabled = isRemoveLiquidityEnabled
         self.isThereLiquidity = isThereLiquidity
+        self.detailsViewModels = detailsViewModels
+        self.service = service
     }
 }
 
-extension PoolDetailsItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { PoolDetailsCell.self }
-
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-
-    var clipsToBounds: Bool { false }
+extension PoolDetailsItem: Hashable {
+    static func == (lhs: PoolDetailsItem, rhs: PoolDetailsItem) -> Bool {
+        lhs.isThereLiquidity == rhs.isThereLiquidity
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(isThereLiquidity)
+    }
 }

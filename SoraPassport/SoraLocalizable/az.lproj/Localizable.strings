@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "Silinməni təsdiqləyin";
 "polkaswap.not.enough.tokens.in.pool" = "Hovuzda kifayət qədər token yoxdur";
 "add.liquidity.confirmation.title" = "Təchizatı təsdiqləyin";
-"add.liquidity.pool.share.title" = "Hovuz payınız olacaq";
 "add.liquidity.pool.title" = "%s - %s Hovuz";
 "add.liquidity.pool.share.description" = "Çıxış təxmin edilir. Qiymət %s%% -dən çox dəyişərsə, əməliyyatınız geri qayıdacaq.";
 "common.deposit.symbol" = "%s depoziti";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Mükafatları tələb edin";
 "common.claim" = "iddia";
 "common.max" = "maks";
+"demeter.farming.deposit.fee.hint" = "Depozit haqqı sizin mədaxil etdiyiniz məbləğə tətbiq edilir";
+"polkaswap.farming.pool.share.will.be" = "Hovuzda iştirak payınız olacaq";
+"common.farms" = "Təsərrüfatlar";
+"common.nothing.found" = "Heç nə tapılmadı";

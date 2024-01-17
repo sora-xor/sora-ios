@@ -177,6 +177,9 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
                 self.cloudStorageService.deleteBackupAccount(account: foudedAccount) { [weak self] _ in
                     guard let self = self else { return }
                     
+                    let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
+                    ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != foudedAccount.address }
+                    
                     self.cloudStorageService.saveBackupAccount(account: self.backupAccount, password: password) { [weak self] result in
                         self?.view?.hideLoading()
                         self?.handler(result)

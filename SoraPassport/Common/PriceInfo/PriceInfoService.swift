@@ -39,14 +39,13 @@ struct PriceInfo {
 }
 
 protocol PriceInfoServiceProtocol: AnyObject {
-    var priceInfo: PriceInfo? { get }
-    func setup(for assetIds: [String])
+    func setup(for assetIds: [String]) async
     func getPriceInfo(for assetIds: [String]) async -> PriceInfo
 }
 
-final class PriceInfoService {
+actor PriceInfoService {
     static let shared = PriceInfoService()
-    var priceInfo: PriceInfo?
+    private var priceInfo: PriceInfo?
     private let fiatService = FiatService.shared
     private let marketCapService = MarketCapService.shared
     private var task: Task<Void, Swift.Error>?
@@ -61,11 +60,8 @@ final class PriceInfoService {
 
 extension PriceInfoService: PriceInfoServiceProtocol {
     
-    func setup(for assetIds: [String]) {
-        task?.cancel()
-        task = Task { [weak self] in
-            self?.priceInfo = await self?.downloadInfo(for: assetIds)
-        }
+    func setup(for assetIds: [String]) async {
+        priceInfo = await self.downloadInfo(for: assetIds)
     }
     
     func getPriceInfo(for assetIds: [String]) async -> PriceInfo {

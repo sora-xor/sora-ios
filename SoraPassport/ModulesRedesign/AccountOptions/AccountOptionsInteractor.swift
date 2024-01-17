@@ -167,7 +167,6 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
                 switch result {
                 case .success(let accounts):
                     let backupedAddresses = accounts.map { $0.address }
-                    ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses
                     
                     let searchingResult = backupedAddresses.contains(self.currentAccount.address)
                     continuation.resume(returning: searchingResult)
@@ -187,7 +186,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
         }
 
         forgetOperation.completionBlock = { [weak self] in
-            var backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
+            let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
             ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != self?.account.address }
             
             self?.cleanKeystore(leavingPin: true)

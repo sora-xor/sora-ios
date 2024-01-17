@@ -169,7 +169,7 @@ final class InputAssetAmountViewModel {
 extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
     
     func didSelect(variant: Float) {
-        guard firstAssetBalance.balance.decimalValue > 0 else { return }
+        guard firstAssetBalance.balance.decimalValue > fee  else { return }
         let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
         let value = firstAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
         inputedFirstAmount = isFeeAsset ? value - fee : value
@@ -185,18 +185,16 @@ extension InputAssetAmountViewModel: InputAssetAmountViewModelProtocol {
         } else {
             changeAddress()
         }
-
-        feeProvider.getFee(for: .outgoing) { [weak self] fee in
-            self?.fee = fee
-        }
-        
-        fiatService?.getFiat(completion: { [weak self] fiatData in
-            self?.fiatData = fiatData
-        })
         
         firstAssetId = selectedTokenId ?? WalletAssetId.xor.rawValue
         view?.setupButton(isEnabled: false)
         assetsProvider?.add(observer: self)
+        
+        Task { [weak self] in
+            guard let self else { return }
+            self.fee = await self.feeProvider.getFee(for: .outgoing)
+            self.fiatData = await self.fiatService?.getFiat() ?? []
+        }
     }
     
     func choiceBaseAssetButtonTapped() {

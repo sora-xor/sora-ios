@@ -118,6 +118,10 @@ extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
             return claimRewardTransactionViewModel(from: claimRewardTransaction)
         }
         
+        if let farmLiquidity = transaction as? FarmLiquidity {
+            return farmLiquidityTransactionViewModel(from: farmLiquidity)
+        }
+        
         return nil
     }
 }
@@ -361,5 +365,45 @@ private extension ActivityViewModelFactory {
                                         firstBalanceText: firstBalanceText,
                                         fiatText: "",
                                         status: transaction.base.status)
+    }
+    
+    func farmLiquidityTransactionViewModel(from transaction: FarmLiquidity) -> ActivityContentViewModel {
+        let baseAsset = walletAssets.first(where: { $0.identifier == transaction.firstTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let baseAssetInfo = assetManager.assetInfo(for: baseAsset?.identifier ?? "")
+        
+        var baseSymbolViewModel: WalletImageViewModelProtocol?
+        
+        if let iconString = baseAssetInfo?.icon {
+            baseSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        }
+        
+        let poolAsset = walletAssets.first(where: { $0.identifier == transaction.secondTokenId }) ?? walletAssets.first { $0.isFeeAsset }
+        let poolAssetInfo = assetManager.assetInfo(for: poolAsset?.identifier ?? "")
+        
+        var poolSymbolViewModel: WalletImageViewModelProtocol?
+        
+        if let iconString = poolAssetInfo?.icon {
+            poolSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        }
+        
+        let isRTL = LocalizationManager.shared.isRightToLeft
+        let firstBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(transaction.amount.decimalValue) ?? ""
+        let text = "\(firstBalance) \(baseAsset?.symbol ?? "")-\(poolAsset?.symbol ?? "")"
+        let textReversed = "\(poolAsset?.symbol ?? "")-\(baseAsset?.symbol ?? "") \(firstBalance)"
+        let firstBalanceText = SoramitsuTextItem(text: isRTL ? textReversed : text,
+                                                 fontData: FontType.textM,
+                                                 textColor: .fgPrimary,
+                                                 alignment: isRTL ? .left : .right)
+        
+        return ActivityContentViewModel(txHash: transaction.base.txHash,
+                                        title: transaction.type.subtitle,
+                                        subtitle: R.string.localizable.exploreDemeterTitle(preferredLanguages: .currentLocale),
+                                        typeTransactionImage: transaction.type.image,
+                                        firstAssetImageViewModel: baseSymbolViewModel,
+                                        secondAssetImageViewModel: poolSymbolViewModel,
+                                        firstBalanceText: firstBalanceText,
+                                        fiatText: "",
+                                        status: transaction.base.status,
+                                        isNeedTwoImage: true)
     }
 }

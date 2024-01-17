@@ -60,8 +60,6 @@ final class ExplorePoolCell: SoramitsuTableViewCell {
     }
     
     private func updateContent(with viewModel: ExplorePoolViewModel) {
-        poolView.serialNumber.sora.text = viewModel.serialNumber
-        
         if let baseAssetIcon = viewModel.baseAssetIcon {
             poolView.firstCurrencyImageView.sora.picture = .logo(image: baseAssetIcon)
             poolView.firstCurrencyImageView.sora.loadingPlaceholder.type = .none
@@ -96,6 +94,7 @@ extension ExplorePoolCell: CellProtocol {
             return
         }
         
+        poolView.serialNumber.sora.text = item.serialNumber
         updateContent(with: item.poolViewModel)
     }
 }

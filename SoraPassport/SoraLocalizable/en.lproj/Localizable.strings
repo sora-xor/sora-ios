@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "Confirm Remove";
 "polkaswap.not.enough.tokens.in.pool" = "Not enough tokens in pool";
 "add.liquidity.confirmation.title" = "Confirm supply";
-"add.liquidity.pool.share.title" = "Your pool share staked will be";
 "add.liquidity.pool.title" = "%s - %s Pool";
 "add.liquidity.pool.share.description" = "Output is estimated. If the price changes more than %s%% your transaction will revert.";
 "common.deposit.symbol" = "%s deposit";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

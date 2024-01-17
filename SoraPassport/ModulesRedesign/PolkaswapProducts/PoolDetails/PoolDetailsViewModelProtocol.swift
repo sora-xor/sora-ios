@@ -42,7 +42,6 @@ protocol PoolDetailsViewProtocol: ControllerBackedProtocol {}
 protocol PoolDetailsViewModelProtocol: AnyObject {
     var snapshotPublisher: Published<PoolDetailsSnapshot>.Publisher { get }
     func viewDidLoad()
-    func reload()
     var dismiss: (() -> Void)? { get set }
     func apyInfoButtonTapped()
     func infoButtonTapped(with type: Liquidity.TransactionLiquidityType)

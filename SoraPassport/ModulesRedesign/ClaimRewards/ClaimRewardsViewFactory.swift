@@ -41,8 +41,7 @@ final class ClaimRewardsViewFactory {
                            detailsFactory: DetailViewModelFactoryProtocol,
                            feeProvider: FeeProviderProtocol,
                            walletService: WalletServiceProtocol,
-                           assetManager: AssetManagerProtocol,
-                           completion: (() -> Void)?) -> ClaimRewardsViewController? {
+                           assetManager: AssetManagerProtocol) -> ClaimRewardsViewController? {
         let service = ClaimRewardsService(feeProvider: feeProvider)
         
         let viewModel = ClaimRewardsViewModel(
@@ -53,9 +52,8 @@ final class ClaimRewardsViewFactory {
             detailsFactory: detailsFactory,
             service: service,
             walletService: walletService,
-            wireframe: ClaimRewardsWireframe(),
-            assetManager: assetManager,
-            completion: completion
+            wireframe: ConfirmTransactionWireframe(),
+            assetManager: assetManager
         )
         
         let view = ClaimRewardsViewController(viewModel: viewModel)
