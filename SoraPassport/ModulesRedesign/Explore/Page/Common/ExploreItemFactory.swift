@@ -53,16 +53,7 @@ extension ExploreItemFactory {
         let fiatText = price.priceText()
         let marketCapText = "$" + marketCap.formatNumber()
         
-        var deltaArributedText: SoramitsuTextItem?
-        if let deltaPrice {
-            let deltaText = "\(NumberFormatter.percent.stringFromDecimal(deltaPrice) ?? "")%"
-            let deltaTextReversed = "%\(NumberFormatter.percent.stringFromDecimal(deltaPrice) ?? "")"
-            let deltaColor: SoramitsuColor = deltaPrice > 0 ? .statusSuccess : .statusError
-            deltaArributedText = SoramitsuTextItem(text: isRightToLeft ? deltaTextReversed : deltaText,
-                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
-                                                                                       textColor: deltaColor,
-                                                                                       alignment: isRightToLeft ? .left : .right))
-        }
+        var deltaArributedText: SoramitsuAttributedText? = deltaPrice?.priceDeltaAttributedText()
         
         return ExploreAssetViewModel(assetId: assetId,
                                      symbol: assetInfo.symbol,

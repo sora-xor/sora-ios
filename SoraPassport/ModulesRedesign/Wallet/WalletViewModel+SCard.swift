@@ -92,7 +92,8 @@ extension RedesignWalletViewModel {
                     self?.singleSidedXorFarmedPools = totalPooledTokens
 
                     /// pooled xor
-                    self?.poolsService.loadAccountPools(isNeedForceUpdate: false)
+                    let pools = self?.poolsService.getAccountPools() ?? []
+                    self?.loaded(pools: pools)
                 }
 
                 return

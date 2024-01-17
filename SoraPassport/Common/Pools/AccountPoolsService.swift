@@ -34,8 +34,8 @@ import RobinHood
 import sorawallet
 
 protocol PoolsServiceInputProtocol: AnyObject {
-    func subscribePoolsReserves(_ poolsDetails: [PoolInfo])
-    func loadAccountPools(isNeedForceUpdate: Bool)
+    func loadAccountPools()
+    func getAccountPools() -> [PoolInfo]
     func updatePools(_ pools: [PoolInfo])
     func getPool(by id: String) -> PoolInfo?
     func getPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo?
@@ -68,7 +68,7 @@ final class AccountPoolsService {
         let removedItems: [PoolInfo]
     }
 
-    var outputs: [PoolsServiceOutput] = []
+    var outputs: [WeakWrapper] = []
     var networkFacade: WalletNetworkOperationFactoryProtocol?
     var polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?
     let operationManager: OperationManagerProtocol = OperationManager()
@@ -110,12 +110,10 @@ final class AccountPoolsService {
     }
     
     func setup() {
-        subscribeAccountPools()
-    }
-    
-    func subscribeAccountPools() {
+        unsubscribePoolsReserves()
         subscribeAccountPool(baseAssetId: WalletAssetId.xor.rawValue)
         subscribeAccountPool(baseAssetId: WalletAssetId.xstusd.rawValue)
+        loadAccountPools()
     }
     
     func subscribeAccountPool(baseAssetId: String) {
@@ -126,10 +124,12 @@ final class AccountPoolsService {
                 .accountPoolsKeyForId(accountId, baseAssetId: baseAssetIdData)
                 .toHex(includePrefix: true)
             
-            let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] update in
-                guard let weakSelf = self else { return }
-                DispatchQueue.main.asyncDebounce(target: weakSelf, after: 0.25) {
-                    self?.loadAccountPools(isNeedForceUpdate: true)
+            let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { update in
+                Task { [weak self] in
+                    guard let self, let assetIds = try? await self.decodeCodes(with: update) else { return }
+                    assetIds.forEach { targetAssetId in
+                        self.subscribePoolReserves(baseAsset: baseAssetId, targetAsset: targetAssetId)
+                    }
                 }
             }
             
@@ -140,6 +140,39 @@ final class AccountPoolsService {
             subscriptionIds.append(subscriptionId)
         } catch {
             print("Can't subscribe to storage:  \(error)")
+        }
+    }
+    
+    private func decodeCodes(with update: JSONRPCSubscriptionUpdate<StorageUpdate>) async throws -> [String] {
+        let runtimeService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())
+        let fetchCoderFactoryOperation = runtimeService!.fetchCoderFactoryOperation()
+        
+        let decodingOperation = StorageFallbackDecodingListOperation<[AssetId]>(path: .userPools)
+        decodingOperation.addDependency(fetchCoderFactoryOperation)
+        decodingOperation.configurationBlock = {
+            do {
+                decodingOperation.codingFactory = try fetchCoderFactoryOperation.extractNoCancellableResultData()
+                decodingOperation.dataList = StorageUpdateData(update: update.params.result).changes.map(\.value)
+            } catch {
+                decodingOperation.result = .failure(error)
+            }
+        }
+        operationManager.enqueue(operations: [fetchCoderFactoryOperation, decodingOperation], in: .transient)
+        
+        return try await withCheckedThrowingContinuation { continuetion in
+            decodingOperation.completionBlock = {
+                do {
+                    guard let result = try decodingOperation.extractNoCancellableResultData().first, let result else {
+                        continuetion.resume(returning: [])
+                        return
+                    }
+                    
+                    let assetIds = result.map { $0.value }
+                    continuetion.resume(returning: assetIds)
+                } catch {
+                    print("Decoding error \(error)")
+                }
+            }
         }
     }
     
@@ -156,9 +189,7 @@ final class AccountPoolsService {
                     // first call during subscription; ignore
                     weakSelf.subscriptionUpdates[key] = update.params.result.blockHash
                 } else {
-                    DispatchQueue.main.asyncDebounce(target: weakSelf, after: 0.25) {
-                        weakSelf.loadAccountPools(isNeedForceUpdate: true)
-                    }
+                    weakSelf.loadAccountPools()
                 }
             }
             
@@ -183,7 +214,8 @@ final class AccountPoolsService {
 
 extension AccountPoolsService: PoolsServiceInputProtocol {
     func appendDelegate(delegate: PoolsServiceOutput) {
-        outputs.append(delegate)
+        let weakDelegate = WeakWrapper(target: delegate)
+        outputs.append(weakDelegate)
     }
     
     func getPool(by id: String) -> PoolInfo? {
@@ -199,31 +231,28 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
     }
     
     func loadPool(by baseAssetId: String, targetAssetId: String) async -> PoolInfo? {
-        guard let poolDetails = try? await (networkFacade as? WalletNetworkFacade)?.getPoolDetails(baseAsset: baseAssetId,
-                                                                                             targetAsset: targetAssetId) else { return nil }
+        guard let poolDetails = try? await (networkFacade as? WalletNetworkFacade)?.getPoolDetails(
+            baseAsset: baseAssetId,
+            targetAsset: targetAssetId
+        ) else { return nil }
         
-        return PoolInfo(baseAssetId: poolDetails.baseAsset,
-                        targetAssetId: poolDetails.targetAsset,
-                        poolId: "",
-                        isFavorite: false,
-                        accountId: "",
-                        yourPoolShare: poolDetails.yourPoolShare,
-                        baseAssetPooledByAccount: poolDetails.baseAssetPooledByAccount,
-                        targetAssetPooledByAccount: poolDetails.targetAssetPooledByAccount,
-                        baseAssetPooledTotal: poolDetails.baseAssetPooledTotal,
-                        targetAssetPooledTotal: poolDetails.targetAssetPooledTotal,
-                        totalIssuances: poolDetails.totalIssuances,
-                        baseAssetReserves: poolDetails.baseAssetReserves,
-                        targetAssetReserves: poolDetails.targetAssetReserves,
-                        accountPoolBalance: poolDetails.accountPoolBalance,
-                        farms: poolDetails.farms)
-    }
-
-    func subscribePoolsReserves(_ poolsDetails: [PoolInfo]) {
-        unsubscribePoolsReserves()
-        poolsDetails.forEach({
-            subscribePoolReserves(baseAsset: $0.baseAssetId, targetAsset: $0.targetAssetId)
-        })
+        return PoolInfo(
+            baseAssetId: poolDetails.baseAsset,
+            targetAssetId: poolDetails.targetAsset,
+            poolId: "",
+            isFavorite: false,
+            accountId: "",
+            yourPoolShare: poolDetails.yourPoolShare,
+            baseAssetPooledByAccount: poolDetails.baseAssetPooledByAccount,
+            targetAssetPooledByAccount: poolDetails.targetAssetPooledByAccount,
+            baseAssetPooledTotal: poolDetails.baseAssetPooledTotal,
+            targetAssetPooledTotal: poolDetails.targetAssetPooledTotal,
+            totalIssuances: poolDetails.totalIssuances,
+            baseAssetReserves: poolDetails.baseAssetReserves,
+            targetAssetReserves: poolDetails.targetAssetReserves,
+            accountPoolBalance: poolDetails.accountPoolBalance,
+            farms: poolDetails.farms
+        )
     }
     
     func checkIsPairExists(baseAsset: String, targetAsset: String, completion: @escaping (Bool) -> Void) {
@@ -250,17 +279,13 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
         return currentPools.filter { $0.baseAssetId == baseAssetId }
     }
     
-    func loadAccountPools(isNeedForceUpdate: Bool) {
+    func getAccountPools() -> [PoolInfo] {
+        return currentPools.sorted(by: orderSort)
+    }
+    
+    func loadAccountPools() {
         Task {
-            if !currentPools.isEmpty && !isNeedForceUpdate {
-                let sortedPools = currentPools.sorted(by: orderSort)
-                outputs.forEach {
-                    $0.loaded(pools: sortedPools)
-                }
-                return
-            }
-
-            guard let fetchRemotePoolsOperation = try? await (networkFacade as? WalletNetworkFacade)?.getAccountPoolsDetails() else { return }
+            guard let fetchRemotePoolsOperation = try? (networkFacade as? WalletNetworkFacade)?.getAccountPoolsDetails() else { return }
             let fetchOperation = poolRepository.fetchAllOperation(with: RepositoryFetchOptions())
             
             let processingOperation: BaseOperation<PoolsChanges> = ClosureOperation { [weak self] in
@@ -300,7 +325,7 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
                 let sortedPools = remotePoolInfo.sorted(by: self.orderSort)
                 self.currentPools = sortedPools
                 self.outputs.forEach {
-                    $0.loaded(pools: sortedPools)
+                    ($0.target as? PoolsServiceOutput)?.loaded(pools: sortedPools)
                 }
                 
                 let newOrUpdatedItems = remotePoolInfo.filter { !localPools.contains($0) }
@@ -323,7 +348,10 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
             }
             localSaveOperation.addDependency(processingOperation)
 
-            operationManager.enqueue(operations: fetchRemotePoolsOperation.allOperations + [fetchOperation, processingOperation, localSaveOperation], in: .transient)
+            operationManager.enqueue(
+                operations: fetchRemotePoolsOperation.allOperations + [fetchOperation, processingOperation, localSaveOperation],
+                in: .transient
+            )
         }
     }
     
@@ -405,4 +433,3 @@ extension AccountPoolsService {
         }
     }
 }
-

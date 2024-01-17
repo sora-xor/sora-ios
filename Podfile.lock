@@ -270,7 +270,7 @@ PODS:
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
   - SoraUIKit (1.1.11)
-  - sorawallet (0.2.5)
+  - sorawallet (0.2.6)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
@@ -334,7 +334,7 @@ DEPENDENCIES:
   - SoraKeystore
   - SoraUI
   - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.11`)
-  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.5/lib/sorawallet/sorawallet.podspec`)
+  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.6/lib/sorawallet/sorawallet.podspec`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
@@ -419,7 +419,7 @@ EXTERNAL SOURCES:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.11
   sorawallet:
-    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.5/lib/sorawallet/sorawallet.podspec
+    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.6/lib/sorawallet/sorawallet.podspec
   Starscream:
     :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -502,7 +502,7 @@ SPEC CHECKSUMS:
   SoraKeystore: c42760c9270fc232a79f644c1b4bb07d9ead4ee7
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   SoraUIKit: f32d51c0876d016f5f318b534eb8f7eb2eeaa00a
-  sorawallet: 78f2aaf10fcff086369c7e96122760ea3dc6e347
+  sorawallet: cd5a23a7f5656dfd9d738e2d0949074962b83c0d
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
   SSFCloudStorage: c4123454b3084015ea8d88af92f51de79fce7f2c
   SSFModels: d85433036fd8a3bc88f93d570649f242d948f063
@@ -518,4 +518,3 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 719e5c2d6cad98bcc9b5adae2a9d318f6d169e91
 
-COCOAPODS: 1.14.2

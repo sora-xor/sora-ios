@@ -605,23 +605,15 @@ extension SwapViewModel {
                        quote: SwapValues? = nil,
                        dexId: UInt32 = 0,
                        completion: (() -> Void)? = nil) {
-        let group = DispatchGroup()
         
-        group.enter()
-        fiatService?.getFiat { [weak self] fiatData in
-            self?.fiatData = fiatData
-            group.leave()
-        }
-        
-        group.enter()
-        feeProvider.getFee(for: .swap) { [weak self] fee in
-            self?.fee = fee
-            group.leave()
-        }
-        
-        group.notify(queue: .main) { [weak self] in
-            guard let self = self else { return }
-
+        Task { [weak self] in
+            guard let self else { return }
+            async let fiatData = fiatService?.getFiat() ?? []
+            async let fee = feeProvider.getFee(for: .swap)
+            let results = await (fiatData: fiatData, fee: fee)
+            self.fiatData = results.fiatData
+            self.fee = results.fee
+            
             self.quote = quote
             self.quoteParams = params
             self.dexId = dexId

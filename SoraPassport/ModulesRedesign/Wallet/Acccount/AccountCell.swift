@@ -78,7 +78,6 @@ final class AccountCell: SoramitsuTableViewCell {
         view.translatesAutoresizingMaskIntoConstraints = false
         view.sora.tintColor = .accentTertiary
         view.sora.backgroundColor = .bgSurface
-        view.sora.shadow = .small
         view.sora.image = R.image.wallet.qrScan()
         view.sora.cornerRadius = .circle
         view.sora.clipsToBounds = false

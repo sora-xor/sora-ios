@@ -34,13 +34,13 @@ import SoraUIKit
 import CommonWallet
 import RobinHood
 
-protocol ClaimRewardsWireframeProtocol {
+protocol ConfirmTransactionWireframeProtocol {
     func showActivityIndicator()
     func hideActivityIndicator()
     func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol, completion: (() -> Void)?)
 }
 
-final class ClaimRewardsWireframe: ClaimRewardsWireframeProtocol {
+final class ConfirmTransactionWireframe: ConfirmTransactionWireframeProtocol {
     var activityIndicatorWindow: UIWindow?
     
     func showActivityIndicator() {

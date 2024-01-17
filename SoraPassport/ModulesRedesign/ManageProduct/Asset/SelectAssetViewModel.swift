@@ -66,21 +66,18 @@ final class SelectAssetViewModel {
         }
     }
     
-    var poolItemInfo: PriceInfo? {
+    var priceInfo: PriceInfo? {
         didSet {
-            let fiatData = poolItemInfo?.fiatData ?? []
-            let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
+            let fiatData = priceInfo?.fiatData ?? []
+            let marketCapInfo = priceInfo?.marketCapInfo ?? []
             
             assetItems.forEach { item in
                 
                 let fiatText = FiatTextBuilder().build(fiatData: fiatData, amount: item.balance, assetId: item.assetInfo.assetId)
-                
-                let deltaArributedText = DeltaPriceBuilder().build(fiatData: fiatData,
-                                                                   marketCapInfo: marketCapInfo,
-                                                                   assetId: item.assetViewModel.identifier)
+                let deltaPrice = marketCapInfo.first(where: { $0.assetId == item.assetInfo.assetId })?.hourDelta
                 
                 item.assetViewModel.fiatText = fiatText
-                item.assetViewModel.deltaPriceText = deltaArributedText
+                item.assetViewModel.deltaPriceText = deltaPrice.priceDeltaAttributedText()
             }
             
             DispatchQueue.main.async {
@@ -105,7 +102,7 @@ final class SelectAssetViewModel {
     private weak var assetsProvider: AssetProviderProtocol?
     private var marketCapService: MarketCapServiceProtocol
     var assetIds: [String] = []
-    private let priceTrendService: PriceTrendServiceProtocol = PriceTrendService()
+    private let priceInfoService: PriceInfoServiceProtocol
 
     init(assetViewModelFactory: AssetViewModelFactory,
          fiatService: FiatServiceProtocol,
@@ -119,7 +116,7 @@ final class SelectAssetViewModel {
         self.assetsProvider = assetsProvider
         self.assetIds = assetIds
         self.marketCapService = marketCapService
-        self.poolItemInfo = PriceInfoService.shared.priceInfo
+        self.priceInfoService = PriceInfoService.shared
     }
 }
 
@@ -144,21 +141,19 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 
 private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) async {
-        let fiatData = poolItemInfo?.fiatData ?? []
-        let marketCapInfo = poolItemInfo?.marketCapInfo ?? []
+        priceInfo = await priceInfoService.getPriceInfo(for: assetIds)
+        let fiatData = priceInfo?.fiatData ?? []
+        let marketCapInfo = priceInfo?.marketCapInfo ?? []
         
         assetItems = balanceItems.compactMap { balance in
-            
-            let deltaPrice = priceTrendService.getPriceTrend(for: balance.identifier,
-                                                             fiatData: fiatData,
-                                                             marketCapInfo: marketCapInfo)
+            let priceDelta = marketCapInfo.first(where: { $0.assetId == balance.identifier })?.hourDelta
             
             guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
                   let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
                                                                                   assetInfo: assetInfo,
                                                                                   fiatData: fiatData,
                                                                                   mode: self.mode,
-                                                                                  priceDelta: deltaPrice) else {
+                                                                                  priceDelta: priceDelta) else {
                 return nil
             }
             
@@ -176,7 +171,7 @@ private extension SelectAssetViewModel {
         }.sorted { $0.assetViewModel.isFavorite && !$1.assetViewModel.isFavorite }
         
         let assetIds = balanceItems.map { $0.identifier }
-        poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
+        priceInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
     }
 
     func filterAssetList(with query: String) {

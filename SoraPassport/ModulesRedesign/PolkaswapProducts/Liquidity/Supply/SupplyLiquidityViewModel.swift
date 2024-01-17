@@ -353,8 +353,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
         
         updateBalanceData()
         
-        fiatService?.getFiat { [weak self] fiatData in
-            self?.fiatData = fiatData
+        Task { [weak self] in
+            self?.fiatData = await self?.fiatService?.getFiat() ?? []
         }
 
         assetsProvider?.add(observer: self)
@@ -413,9 +413,9 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
               let assets = assetManager.getAssetList()?.filter({ asset in
                   let assetId = asset.identifier
                   
-                  var assetFilter = assetId != firstAssetId
+                  let assetFilter = assetId != firstAssetId
                   
-                  var unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
+                  let unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
                   
                   return assetFilter && !unAcceptableAssetIds.contains(assetId)
               }) else { return }
@@ -584,27 +584,16 @@ extension SupplyLiquidityViewModel {
     func updateDetails(completion: (() -> Void)? = nil) {
         guard inputedFirstAmount > 0, inputedSecondAmount > 0 else { return }
         
-        let group = DispatchGroup()
-        
-        if !firstAssetId.isEmpty,
-            !secondAssetId.isEmpty,
-            transactionType != .liquidityAddNewPool,
-            transactionType != .liquidityAddToExistingPoolFirstTime {
-            group.enter()
-            apyService?.getApy(for: firstAssetId, targetAssetId: secondAssetId) { [weak self] apy in
-                self?.apy = apy
-                group.leave()
-            }
-        }
+        Task { [weak self] in
+            guard let self else { return }
 
-        group.enter()
-        feeProvider.getFee(for: transactionType) { [weak self] fee in
-            self?.fee = fee
-            group.leave()
-        }
-        
-        group.notify(queue: .main) { [weak self] in
-            guard let self = self else { return }
+            async let apy = apyService?.getApy(for: firstAssetId, targetAssetId: secondAssetId)
+            async let fee = feeProvider.getFee(for: transactionType)
+
+            let results = await (apy: apy, fee: fee)
+
+            self.apy = results.apy
+            self.fee = results.fee
             
             if let fromAsset = self.assetManager?.assetInfo(for: self.firstAssetId), fromAsset.isFeeAsset {
                 self.warningViewModel?.isHidden = self.firstAssetBalance.balance.decimalValue - self.inputedFirstAmount - self.fee > self.fee

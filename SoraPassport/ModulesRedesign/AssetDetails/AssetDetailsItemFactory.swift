@@ -37,7 +37,6 @@ import SCard
 final class AssetDetailsItemFactory {
     
     private weak var assetsProvider: AssetProviderProtocol?
-    private let priceTrendService: PriceTrendServiceProtocol
     private let poolViewModelsFactory: PoolViewModelFactory
     private let historyService: HistoryServiceProtocol
     private var recentActivityService: RecentActivityItemService
@@ -46,7 +45,6 @@ final class AssetDetailsItemFactory {
     private let transferableItemService: TransferableItemService
     
     init(assetsProvider: AssetProviderProtocol? = nil,
-         priceTrendService: PriceTrendServiceProtocol = PriceTrendService(),
          poolViewModelsFactory: PoolViewModelFactory,
          historyService: HistoryServiceProtocol,
          recentActivityService: RecentActivityItemService,
@@ -54,7 +52,6 @@ final class AssetDetailsItemFactory {
          poolsService: PoolsServiceInputProtocol?,
          transferableItemService: TransferableItemService) {
         self.assetsProvider = assetsProvider
-        self.priceTrendService = priceTrendService
         self.poolViewModelsFactory = poolViewModelsFactory
         self.historyService = historyService
         self.recentActivityService = recentActivityService
@@ -66,9 +63,7 @@ final class AssetDetailsItemFactory {
     func createPriceItem(with asset: AssetInfo, 
                          usdPrice: Decimal,
                          priceInfo: PriceInfo) -> SoramitsuTableViewItemProtocol {
-        let priceDelta: Decimal? = priceTrendService.getPriceTrend(for: asset.identifier,
-                                                                     fiatData: priceInfo.fiatData,
-                                                                     marketCapInfo: priceInfo.marketCapInfo)
+        let priceDelta = priceInfo.marketCapInfo.first(where: { $0.assetId == asset.identifier })?.hourDelta
         let priceDeltaText = priceDelta.priceDeltaAttributedText()
         
         return PriceItem(icon: asset.icon,

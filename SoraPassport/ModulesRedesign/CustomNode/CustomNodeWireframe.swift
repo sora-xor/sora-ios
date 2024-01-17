@@ -28,36 +28,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import Foundation
+import UIKit
 
-final class EditFarmItem: ItemProtocol {
+final class CustomNodeWireframe: Loadable {
+    var activityIndicatorWindow: UIWindow?
     
-    let sharePercentage: Decimal
-    let stakedValue: Float
-    
-    let stakeFeeAmount: Decimal
-    
-    weak var service: EditFarmItemService?
-    
-    var onConfirm: (() -> Void)?
-    var feeInfoHandler: (() -> Void)?
-    var networkFeeHandler: (() -> Void)?
-
-    init(sharePercentage: Decimal, stakedValue: Float, stakeFeeAmount: Decimal, service: EditFarmItemService?) {
-        self.sharePercentage = sharePercentage
-        self.stakedValue = stakedValue
-        self.stakeFeeAmount = stakeFeeAmount
-        self.service = service
-    }
+    init() {}
 }
-
-extension EditFarmItem: Hashable {
-    static func == (lhs: EditFarmItem, rhs: EditFarmItem) -> Bool {
-        lhs.stakedValue == rhs.stakedValue
-    }
-    
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(stakedValue)
-    }
-}
-

@@ -31,7 +31,7 @@
 import SoraUIKit
 import SnapKit
 
-final class SupplyPoolCell: SoramitsuTableViewCell {
+final class SupplyPoolView: SoramitsuView {
     
     private var supplyItem: SupplyPoolItem?
     
@@ -78,39 +78,17 @@ final class SupplyPoolCell: SoramitsuTableViewCell {
         return button
     }()
 
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
+    override init(frame: CGRect = .zero) {
+        super.init(frame: frame)
         setupView()
         setupConstraints()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    private func setupView() {
-        contentView.addSubview(stackView)
-        
-        stackView.addArrangedSubviews([
-            titleLabel,
-            poolView,
-            supplyLiquidity
-        ])
-    }
-
-    private func setupConstraints() {
-        stackView.snp.makeConstraints { make in
-            make.leading.equalTo(contentView).offset(16)
-            make.top.centerX.centerY.equalTo(contentView)
-        }
-    }
-}
-
-extension SupplyPoolCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
-        guard let item = item as? SupplyPoolItem else {
-            assertionFailure("Incorect type of item")
-            return
-        }
+    
+    func set(item: SupplyPoolItem?) {
+        guard let item else { return }
         supplyItem = item
 
         poolView.serialNumber.sora.isHidden = true
@@ -138,6 +116,23 @@ extension SupplyPoolCell: SoramitsuTableViewCellProtocol {
         if let price = item.poolViewModel.apy {
             poolView.amountUpLabel.sora.text = price
             poolView.amountUpLabel.sora.loadingPlaceholder.type = .none
+        }
+    }
+
+    private func setupView() {
+        addSubview(stackView)
+        
+        stackView.addArrangedSubviews([
+            titleLabel,
+            poolView,
+            supplyLiquidity
+        ])
+    }
+
+    private func setupConstraints() {
+        stackView.snp.makeConstraints { make in
+            make.leading.equalTo(self)
+            make.top.centerX.centerY.equalTo(self)
         }
     }
 }

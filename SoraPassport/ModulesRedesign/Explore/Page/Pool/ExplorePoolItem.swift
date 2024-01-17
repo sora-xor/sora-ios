@@ -48,9 +48,12 @@ struct ExplorePoolViewModel: Hashable {
 
 final class ExplorePoolItem: ItemProtocol {
 
+    let serialNumber: String
     let poolViewModel: ExplorePoolViewModel
 
-    init(poolViewModel: ExplorePoolViewModel) {
+    init(serialNumber: String,
+         poolViewModel: ExplorePoolViewModel) {
+        self.serialNumber = serialNumber
         self.poolViewModel = poolViewModel
     }
 }

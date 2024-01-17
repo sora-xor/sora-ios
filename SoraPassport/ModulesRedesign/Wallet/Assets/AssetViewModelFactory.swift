@@ -62,17 +62,7 @@ extension AssetViewModelFactory {
             fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
         }
         
-        var deltaArributedText: SoramitsuTextItem?
-        if let priceDelta {
-            let deltaText = "\(NumberFormatter.percent.stringFromDecimal(priceDelta * 100) ?? "")%"
-            let deltaTextReversed = "%\(NumberFormatter.percent.stringFromDecimal(priceDelta * 100) ?? "")"
-            let deltaColor: SoramitsuColor = priceDelta > 0 ? .statusSuccess : .statusError
-            deltaArributedText = SoramitsuTextItem(text: isRTL ? deltaTextReversed : deltaText,
-                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
-                                                                                       textColor: deltaColor,
-                                                                                       alignment: isRTL ? .left : .right))
-        }
-        
+        let deltaArributedText = priceDelta?.priceDeltaAttributedText()
         
         return AssetViewModel(identifier: asset.identifier,
                               title: asset.name,
@@ -96,17 +86,7 @@ extension AssetViewModelFactory {
             fiatText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
         }
         
-        var deltaArributedText: SoramitsuTextItem?
-        if let priceDelta {
-            let deltaText = "\(NumberFormatter.percent.stringFromDecimal(priceDelta * 100) ?? "")%"
-            let deltaTextReversed = "%\(NumberFormatter.percent.stringFromDecimal(priceDelta * 100) ?? "")"
-            let deltaColor: SoramitsuColor = priceDelta > 0 ? .statusSuccess : .statusError
-            deltaArributedText = SoramitsuTextItem(text: isRTL ? deltaTextReversed : deltaText,
-                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
-                                                                                       textColor: deltaColor,
-                                                                                       alignment: isRTL ? .left : .right))
-        }
-        
+        let deltaArributedText = priceDelta?.priceDeltaAttributedText()
         
         return AssetViewModel(identifier: assetInfo.identifier,
                               title: assetInfo.name,
@@ -128,16 +108,7 @@ extension AssetViewModelFactory {
             fiatText = "$" + (formatter.stringFromDecimal(usdPrice) ?? "")
         }
 
-        var deltaArributedText: SoramitsuTextItem?
-        if let priceDelta {
-            let deltaText = "\(NumberFormatter.percent.stringFromDecimal(priceDelta * 100) ?? "")%"
-            let deltaTextReversed = "%\(NumberFormatter.percent.stringFromDecimal(priceDelta * 100) ?? "")"
-            let deltaColor: SoramitsuColor = priceDelta > 0 ? .statusSuccess : .statusError
-            deltaArributedText = SoramitsuTextItem(text: isRTL ? deltaTextReversed : deltaText,
-                                                   attributes: SoramitsuTextAttributes(fontData: FontType.textBoldXS,
-                                                                                       textColor: deltaColor,
-                                                                                       alignment: isRTL ? .left : .right))
-        }
+        let deltaArributedText = priceDelta?.priceDeltaAttributedText()
 
         return AssetViewModel(identifier: asset.assetId,
                               title: asset.name,

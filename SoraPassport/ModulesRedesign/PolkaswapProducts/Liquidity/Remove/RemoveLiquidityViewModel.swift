@@ -529,36 +529,27 @@ extension RemoveLiquidityViewModel {
     }
     
     func updateDetails() {
-        let group = DispatchGroup()
-        
-        group.enter()
-        fiatService?.getFiat { [weak self] fiatData in
-            self?.fiatData = fiatData
-            group.leave()
-        }
-        
-        if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-            group.enter()
-            apyService?.getApy(for: firstAssetId, targetAssetId: secondAssetId) { [weak self] apy in
-                self?.apy = apy
-                group.leave()
-            }
-        }
-        
-        group.enter()
-        feeProvider.getFee(for: .liquidityRemoval) { [weak self] fee in
-            self?.fee = fee
-            group.leave()
-        }
-        
-        group.enter()
-        farmingService.getUserFarmInfos(baseAssetId: poolInfo?.baseAssetId, targetAssetId: poolInfo?.targetAssetId) { [weak self] pools in
-            self?.farms = pools
-            group.leave()
-        }
-        
-        group.notify(queue: .main) { [weak self] in
-            guard let self = self, let poolInfo = self.poolInfo else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            
+            async let fiatData = self.fiatService?.getFiat()
+            
+            async let apy = self.apyService?.getApy(for: firstAssetId, targetAssetId: secondAssetId)
+            async let fee = self.feeProvider.getFee(for: .liquidityRemoval)
+            
+            async let farms = self.farmingService.getUserFarmInfos(
+                baseAssetId: self.poolInfo?.baseAssetId,
+                targetAssetId: poolInfo?.targetAssetId
+            )
+            
+            let results = await (fiatData: fiatData, apy: apy, fee: fee, farms: farms)
+
+            self.fiatData = results.fiatData ?? []
+            self.apy = results.apy
+            self.fee = results.fee
+            self.farms = results.farms
+            
+            guard let poolInfo = self.poolInfo else { return }
             
             self.warningViewModel = self.warningViewModelFactory.poolShareStackedViewModel(isHidden: self.farms.isEmpty)
 
