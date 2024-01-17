@@ -72,8 +72,6 @@ final class ActivityViewController: SoramitsuViewController {
         }
         tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 32, right: 0)
         tableView.sora.cancelsTouchesOnDragging = true
-        tableView.sora.backgroundColor = .bgSurface
-        tableView.sora.cornerRadius = .extraLarge
         return tableView
     }()
     
@@ -186,7 +184,7 @@ final class ActivityViewController: SoramitsuViewController {
             activityIndicator.centerXAnchor.constraint(equalTo: errorView.centerXAnchor),
             activityIndicator.centerYAnchor.constraint(equalTo: errorView.centerYAnchor),
 
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),

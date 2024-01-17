@@ -110,7 +110,7 @@ extension ActivityViewModel: ActivityViewModelProtocol {
             guard let self = self else { return }
             if pageNumber == 0 {
                 let spaceItem: ActivitySectionItem = .space(SoramitsuTableViewSpacerItem(space: 24,
-                                                                                         radius: .extraLarge,
+                                                                                         radius: .medium,
                                                                                          mask: .top))
                 self.sections = contentSection(with: [spaceItem])
             }
