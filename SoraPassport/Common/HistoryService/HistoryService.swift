@@ -113,6 +113,12 @@ extension HistoryService: HistoryServiceProtocol {
                 return KotlinBoolean(value: item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId)
             }
             
+            if callPath.isDepositFarmLiquidity || callPath.isWithdrawFarmLiquidity {
+                return KotlinBoolean(value: item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId ||
+                                     item.data?.first { $0.paramName == "baseAssetId" }?.paramValue == assetId ||
+                                     item.data?.first { $0.paramName == "rewardAssetId" }?.paramValue == assetId)
+            }
+            
             return KotlinBoolean(value: false)
         } : nil
         
@@ -191,6 +197,12 @@ extension HistoryService: HistoryServiceProtocol {
             
             if callPath.isClaimReward {
                 return KotlinBoolean(value: item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId)
+            }
+            
+            if callPath.isDepositFarmLiquidity || callPath.isWithdrawFarmLiquidity {
+                return KotlinBoolean(value: item.data?.first { $0.paramName == "assetId" }?.paramValue == assetId ||
+                                     item.data?.first { $0.paramName == "baseAssetId" }?.paramValue == assetId ||
+                                     item.data?.first { $0.paramName == "rewardAssetId" }?.paramValue == assetId)
             }
             
             return KotlinBoolean(value: false)

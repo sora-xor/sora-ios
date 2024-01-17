@@ -33,14 +33,14 @@ import IrohaCrypto
 import RobinHood
 import sorawallet
 
-protocol APYServiceProtocol: AnyObject {
-    func getApy(for baseAssetId: String, targetAssetId: String, completion: @escaping (Decimal?) -> Void)
+protocol APYServiceProtocol: Actor {
     func getApy(for baseAssetId: String, targetAssetId: String) async -> Decimal?
+    func setup(factory: PolkaswapNetworkOperationFactoryProtocol)
 }
 
-final class APYService {
+actor APYService {
     static let shared = APYService()
-    var polkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol?
+    private var polkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol?
     private let operationManager: OperationManager = OperationManager()
     private var expiredDate: Date = Date()
     private var apy: [SbApyInfo] = []
@@ -49,18 +49,14 @@ final class APYService {
 
 extension APYService: APYServiceProtocol {
     
-    @available(*, renamed: "getApy(for:targetAssetId:)")
-    func getApy(for baseAssetId: String, targetAssetId: String, completion: @escaping (Decimal?) -> Void) {
-        task?.cancel()
-        task = Task {
-            let result = await getApy(for: baseAssetId, targetAssetId: targetAssetId)
-            completion(result)
-        }
+    func setup(factory: PolkaswapNetworkOperationFactoryProtocol) {
+        polkaswapNetworkOperationFactory = factory
     }
-    
-    
+
     func getApy(for baseAssetId: String, targetAssetId: String) async -> Decimal? {
-        guard let factory = self.polkaswapNetworkOperationFactory,
+        guard !baseAssetId.isEmpty,
+              !targetAssetId.isEmpty,
+              let factory = self.polkaswapNetworkOperationFactory,
               let poolPropertiesOperation = try? factory.poolProperties(baseAsset: baseAssetId, targetAsset: targetAssetId) else {
             return nil
         }
@@ -78,26 +74,37 @@ extension APYService: APYServiceProtocol {
                 
                 let reservesAccountId = try? SS58AddressFactory().addressFromAccountId(data: reservesAccountData.value,
                                                                                        type: selectedAccount.networkType)
-                
-                guard self.expiredDate < Date() || self.apy.isEmpty else {
-                    let apy = self.apy.first(where: { $0.id == reservesAccountId })
-                    continuation.resume(returning: apy?.sbApy?.decimalValue)
-                    return
+                Task {
+                    let expiredDate = await self.expiredDate
+                    let apy = await self.apy
+                    guard expiredDate < Date() || apy.isEmpty else {
+                        let apy = apy.first(where: { $0.id == reservesAccountId })
+                        continuation.resume(returning: apy?.sbApy?.decimalValue)
+                        return
+                    }
+                    
+                    guard let response = try? queryOperation.extractNoCancellableResultData() else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    let info = response.first(where: { $0.id == reservesAccountId })
+                    await self.updateApy(apy: response)
+                    await self.updateExpiredDate()
+                    continuation.resume(returning: info?.sbApy?.decimalValue)
                 }
-                
-                guard let response = try? queryOperation.extractNoCancellableResultData() else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                let info = response.first(where: { $0.id == reservesAccountId })
-                self.apy = response
-                self.expiredDate = Date().addingTimeInterval(60)
-                continuation.resume(returning: info?.sbApy?.decimalValue)
             }
             
             queryOperation.addDependency(poolPropertiesOperation)
             
             operationManager.enqueue(operations: [poolPropertiesOperation, queryOperation], in: .transient)
         }
+    }
+    
+    private func updateApy(apy: [SbApyInfo]) {
+        self.apy = apy
+    }
+    
+    private func updateExpiredDate() {
+        self.expiredDate = Date().addingTimeInterval(60)
     }
 }

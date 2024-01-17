@@ -173,6 +173,11 @@ extension ActivityDetailsViewModel {
             return claimRewardTransactionViewModel(from: transferTransaction)
         }
         
+        if let transferTransaction = transaction as? FarmLiquidity {
+            assetId = transferTransaction.rewardTokenId
+            return farmLiquidityTransactionViewModel(from: transferTransaction)
+        }
+        
         return nil
     }
     
@@ -192,7 +197,11 @@ extension ActivityDetailsViewModel {
                                                  fontData: FontType.headline3,
                                                  textColor: textColor,
                                                  alignment: .center)
-        let details = detailsFactory.createHeaderActivityDetailsViewModels(transactionBase: transaction.base, isHideFeeDetails: false) { [weak self] in
+        let isHideFeeDetails = transaction.transferType == .incoming
+        let details = detailsFactory.createHeaderActivityDetailsViewModels(
+            transactionBase: transaction.base,
+            isHideFeeDetails: isHideFeeDetails
+        ) { [weak self] in
             self?.networkFeeInfoButtonTapped()
         }
         
@@ -225,6 +234,39 @@ extension ActivityDetailsViewModel {
         return HeaderActivityDetailsItem(typeText: R.string.localizable.demeterClaimedReward(preferredLanguages: .currentLocale),
                                          typeTransactionImage: R.image.wallet.claimStar(),
                                          firstAssetImageViewModel: symbolViewModel,
+                                         firstBalanceText: firstBalanceText.attributedString,
+                                         details: details)
+    }
+    
+    func farmLiquidityTransactionViewModel(from transaction: FarmLiquidity) -> HeaderActivityDetailsItem {
+        let baseAssetInfo = assetManager.assetInfo(for: transaction.firstTokenId)
+        var baseSymbolViewModel: WalletImageViewModelProtocol?
+        
+        if let iconString = baseAssetInfo?.icon {
+            baseSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        }
+        
+        let poolAssetInfo = assetManager.assetInfo(for: transaction.secondTokenId)
+        var poolSymbolViewModel: WalletImageViewModelProtocol?
+        
+        if let iconString = poolAssetInfo?.icon {
+            poolSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
+        }
+        
+        let firstBalance = NumberFormatter.historyAmount.stringFromDecimal(transaction.amount.decimalValue) ?? ""
+        let text = "\(firstBalance) \(baseAssetInfo?.symbol ?? "")-\(poolAssetInfo?.symbol ?? "")"
+        let firstBalanceText = SoramitsuTextItem(text: text,
+                                                 fontData: FontType.headline3,
+                                                 textColor: .fgPrimary,
+                                                 alignment: .center)
+        let details = detailsFactory.createHeaderActivityDetailsViewModels(transactionBase: transaction.base, isHideFeeDetails: false) { [weak self] in
+            self?.networkFeeInfoButtonTapped()
+        }
+        
+        return HeaderActivityDetailsItem(typeText: transaction.type.subtitle,
+                                         typeTransactionImage: transaction.type.image,
+                                         firstAssetImageViewModel: baseSymbolViewModel,
+                                         secondAssetImageViewModel: poolSymbolViewModel,
                                          firstBalanceText: firstBalanceText.attributedString,
                                          details: details)
     }
@@ -401,6 +443,10 @@ extension ActivityDetailsViewModel {
             return detailsClaimRewardTransactionViewModel(from: transferTransaction)
         }
         
+        if let transferTransaction = transaction as? FarmLiquidity {
+            return detailsFarmLiquidityTransactionViewModel(from: transferTransaction)
+        }
+        
         return nil
     }
     
@@ -450,6 +496,28 @@ extension ActivityDetailsViewModel {
         let receipt = ActivityDetailViewModel(title: R.string.localizable.commonRecipient(preferredLanguages: .currentLocale),
                                               value: transfer.peer)
         details.append(receipt)
+        
+        return ActivityDetailsItem(detailViewModels: details)
+    }
+    
+    func detailsFarmLiquidityTransactionViewModel(from transfer: FarmLiquidity) -> ActivityDetailsItem {
+        var details: [ActivityDetailViewModel] = []
+        
+        if !transfer.base.txHash.isEmpty {
+            let txHash = ActivityDetailViewModel(title: R.string.localizable.transactionHash(preferredLanguages: .currentLocale),
+                                                 value: transfer.base.txHash)
+            details.append(txHash)
+        }
+
+        if !transfer.base.blockHash.isEmpty {
+            let blockHash = ActivityDetailViewModel(title: R.string.localizable.blockId(preferredLanguages: .currentLocale),
+                                                    value: transfer.base.blockHash)
+            details.append(blockHash)
+        }
+        
+        let sender = ActivityDetailViewModel(title: R.string.localizable.commonSender(preferredLanguages: .currentLocale),
+                                             value: transfer.sender)
+        details.append(sender)
         
         return ActivityDetailsItem(detailViewModels: details)
     }

@@ -43,7 +43,9 @@ final class MainTabBarViewController: UITabBarController {
         self.delegate = self
 
         let tabBar = TabBar(frame: tabBar.frame)
+        tabBar.middleButton.sora.backgroundColor = .custom(uiColor: .white)
         tabBar.middleButton.sora.image = R.image.wallet.polkaswap()
+        tabBar.middleButton.sora.shadow = .default
         tabBar.middleButton.sora.addHandler(for: .touchUpInside) { [weak self] in
             self?.middleButtonHadler?()
         }

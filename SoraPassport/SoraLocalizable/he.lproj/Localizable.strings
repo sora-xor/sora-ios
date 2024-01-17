@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "אשר הסרה";
 "polkaswap.not.enough.tokens.in.pool" = "אין מספיק טוקנים במאגר";
 "add.liquidity.confirmation.title" = "אשר אספקה";
-"add.liquidity.pool.share.title" = "הנתח שלך מהמאגר יהיה";
 "add.liquidity.pool.title" = "%s - %s מאגר";
 "add.liquidity.pool.share.description" = "התפוקה מוערכת. אם המחיר ישתנה יותר מ- %s %% הטרנזקציה שלך תחזור.";
 "common.deposit.symbol" = "הפקדה %s";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

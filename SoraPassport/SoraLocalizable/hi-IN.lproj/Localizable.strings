@@ -551,7 +551,6 @@
 "remove.pool.confirmation.title" = "हटाने की पुष्टि करें";
 "polkaswap.not.enough.tokens.in.pool" = "पूल में पर्याप्त टोकन नहीं हैं";
 "add.liquidity.confirmation.title" = "आपूर्ति की पुष्टि करें";
-"add.liquidity.pool.share.title" = "आपका पूल शेयर होगा";
 "add.liquidity.pool.title" = "%s - %s पूल";
 "add.liquidity.pool.share.description" = "आउटपुट अनुमानित है। यदि मूल्य %s %% से अधिक बदलता है तो आपका लेन-देन वापस कर दिया जाएगा।\n";
 "common.deposit.symbol" = "%s जमा";
@@ -935,3 +934,7 @@
 "claim.rewards" = "Claim rewards";
 "common.claim" = "Claim";
 "common.max" = "max";
+"demeter.farming.deposit.fee.hint" = "Deposit fee is applied to your amount to stake";
+"polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
+"common.farms" = "Farms";
+"common.nothing.found" = "Nothing found";

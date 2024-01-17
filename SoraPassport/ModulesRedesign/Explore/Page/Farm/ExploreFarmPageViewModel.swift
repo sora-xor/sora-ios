@@ -39,6 +39,7 @@ import Combine
 final class ExploreFarmsPageViewModel {
     @Published var snapshot: ExplorePageSnapshot = ExplorePageSnapshot()
     var snapshotPublisher: Published<ExplorePageSnapshot>.Publisher { $snapshot }
+    
     private var cancellables: Set<AnyCancellable> = []
     
     var wireframe: ExploreWireframeProtocol
@@ -67,13 +68,13 @@ final class ExploreFarmsPageViewModel {
         if viewModels.isEmpty {
             let serialNumbers = Array(1...20)
             let shimmersPoolItems = serialNumbers.map {
-                ExploreFarmItem(farmViewModel: ExploreFarmViewModel(serialNumber: String($0)))
+                ExploreFarmItem(serialNumber: String($0), farmViewModel: ExploreFarmViewModel(serialNumber: String($0)))
             }
             
             let shimmerSection = ExplorePageSection(items: shimmersPoolItems.map { .farm($0) })
             sections.append(shimmerSection)
         } else {
-            let farmItems = viewModels.map { ExploreFarmItem(farmViewModel: $0) }
+            let farmItems = viewModels.map { ExploreFarmItem(serialNumber: $0.serialNumber, farmViewModel: $0) }
             let farmSection = ExplorePageSection(items: farmItems.map { .farm($0) })
             sections.append(farmSection)
         }
@@ -96,16 +97,24 @@ final class ExploreFarmsPageViewModel {
 }
 
 extension ExploreFarmsPageViewModel: ExplorePageViewModelProtocol {
+    var isNeedHeaders: Bool {
+        return false
+    }
+    
     func setup() {
         setupSubscription()
         snapshot = createSnapshot()
         farmsViewModelsService.setup()
     }
     
-    func didSelect(with id: String?) {
-        guard let id, let farm = farmsViewModelsService.getFarm(with: id) else { return }
-        wireframe.showFarmDetails(on: view?.controller, farm: farm)
+    func didSelect(with item: ExplorePageSectionItem?) {
+        switch item {
+        case .farm(let item):
+            guard let id = item.farmViewModel.farmId, let farm = farmsViewModelsService.getFarm(with: id) else { return }
+            wireframe.showFarmDetails(on: view?.controller, farm: farm)
+        default: break
+        }
     }
-    
-    func didSelect(with viewModel: ExplorePoolViewModel?) {}
+
+    func searchTextChanged(with text: String) {}
 }
