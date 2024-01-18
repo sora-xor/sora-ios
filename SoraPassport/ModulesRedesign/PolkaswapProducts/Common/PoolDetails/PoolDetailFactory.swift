@@ -241,7 +241,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
 
         
         if let rewards = userFarmInfo?.rewards, rewards > 0 {
-            let rewardsAmountText = NumberFormatter.cryptoAssets.stringFromDecimal(rewards) ?? ""
+            let rewardsAmountText = NumberFormatter.cryptoAmounts .stringFromDecimal(rewards) ?? ""
             let amountRewardText = SoramitsuTextItem(text: rewardsAmountText + " " + (farm.rewardAsset?.symbol ?? ""),
                                                fontData: FontType.textS,
                                                textColor: .fgPrimary,
