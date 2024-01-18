@@ -31,6 +31,7 @@
 import Foundation
 import UIKit
 import SoraUIKit
+import CommonWallet
 
 protocol LiquidityViewProtocol: ControllerBackedProtocol, Warningable {
     func update(details: [DetailViewModel])
@@ -70,25 +71,16 @@ final class PolkaswapViewController: SoramitsuViewController {
                           InputAccessoryVariant(displayValue: "100%", value: 1) ]
         return view
     }()
-    
-    private let stackView: SoramitsuStackView = {
-        let stackView = SoramitsuStackView()
-        stackView.sora.alignment = .center
-        stackView.sora.axis = .vertical
-        stackView.sora.distribution = .fill
-        stackView.spacing = 16
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 0, right: 16)
-        stackView.isLayoutMarginsRelativeArrangement = true
-        return stackView
-    }()
 
-    private lazy var scrollView: SoramitsuScrollView = {
-        let scrollView = SoramitsuScrollView()
-        scrollView.sora.keyboardDismissMode = .onDrag
-        scrollView.sora.showsVerticalScrollIndicator = false
-//        scrollView.delegate = self
-        return scrollView
+    private lazy var containerView: ScrollableContainerView = {
+        let view = ScrollableContainerView()
+        view.stackView.isLayoutMarginsRelativeArrangement = true
+        view.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 0, right: 16)
+        view.stackView.spacing = 16
+        view.scrollView.keyboardDismissMode = .onDrag
+        view.scrollView.showsVerticalScrollIndicator = false
+        view.backgroundColor = .red
+        return view
     }()
     
     private lazy var assetsView: InputAssetsView = {
@@ -238,40 +230,33 @@ final class PolkaswapViewController: SoramitsuViewController {
 
     private func setupView() {
         soramitsuView.sora.backgroundColor = .custom(uiColor: .clear)
-        view.addSubviews(scrollView)
-        scrollView.addSubview(stackView)
-        
-        stackView.addArrangedSubview(assetsView)
-        stackView.addArrangedSubview(optionsView)
-        stackView.addArrangedSubview(firstLiquidityWarningView)
-        stackView.addArrangedSubview(warningView)
-        stackView.addArrangedSubview(reviewLiquidity)
+        view.addSubview(containerView)
+
+        containerView.addArrangedSubview(assetsView)
+        containerView.addArrangedSubview(optionsView)
+        containerView.addArrangedSubview(firstLiquidityWarningView)
+        containerView.addArrangedSubview(warningView)
+        containerView.addArrangedSubview(reviewLiquidity)
     }
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            stackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-            stackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            containerView.heightAnchor.constraint(equalTo: view.heightAnchor),
+            containerView.topAnchor.constraint(equalTo: view.topAnchor),
+            
+            assetsView.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16),
+            assetsView.trailingAnchor.constraint(equalTo: containerView.stackView.trailingAnchor, constant: -16),
+            
+            warningView.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16),
+            warningView.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor),
+            
+            firstLiquidityWarningView.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16),
+            firstLiquidityWarningView.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor),
 
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.heightAnchor.constraint(equalTo: view.heightAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            
-            assetsView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            assetsView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-            
-            warningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            warningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-            
-            firstLiquidityWarningView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            firstLiquidityWarningView.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
-
-            reviewLiquidity.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16),
-            reviewLiquidity.centerXAnchor.constraint(equalTo: stackView.centerXAnchor),
+            reviewLiquidity.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16),
+            reviewLiquidity.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor),
         ])
     }
     
@@ -292,8 +277,8 @@ final class PolkaswapViewController: SoramitsuViewController {
 
 extension PolkaswapViewController: LiquidityViewProtocol {
     func update(details: [DetailViewModel]) {
-        stackView.arrangedSubviews.filter { $0 is DetailView || $0.tag == 1 }.forEach { subview in
-            stackView.removeArrangedSubview(subview)
+        containerView.stackView.arrangedSubviews.filter { $0 is DetailView || $0.tag == 1 }.forEach { subview in
+            containerView.stackView.removeArrangedSubview(subview)
             subview.removeFromSuperview()
         }
 
@@ -318,17 +303,17 @@ extension PolkaswapViewController: LiquidityViewProtocol {
             return view
         }
         
-        stackView.addArrangedSubviews(detailsViews)
+        containerView.stackView.addArrangedSubviews(detailsViews)
         detailsViews.forEach {
-            $0.leadingAnchor.constraint(equalTo: stackView.leadingAnchor, constant: 16).isActive = true
-            $0.centerXAnchor.constraint(equalTo: stackView.centerXAnchor).isActive = true
+            $0.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16).isActive = true
+            $0.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor).isActive = true
         }
         
         let spaceView = SoramitsuView()
         spaceView.tag = 1
         spaceConstraint = spaceView.heightAnchor.constraint(equalToConstant: 0)
         spaceConstraint?.isActive = true
-        stackView.addArrangedSubviews(spaceView)
+        containerView.stackView.addArrangedSubviews(spaceView)
     }
     
     func updateFirstAsset(balance: String) {
