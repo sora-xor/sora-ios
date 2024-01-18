@@ -105,7 +105,7 @@ extension Decimal {
         
         switch self {
         case let x where x < 0:
-            sign = "-"
+            sign = ""
             deltaColor = .statusError
         case let x where x == 0:
             sign = ""
