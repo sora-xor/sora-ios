@@ -107,8 +107,8 @@ extension UISearchBar {
         let imageView = UIImageView()
         imageView.image = image
         imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.widthAnchor.constraint(equalToConstant: 40).isActive = true
-        imageView.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        imageView.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        imageView.heightAnchor.constraint(equalToConstant: 16).isActive = true
         imageView.tintColor = tintColor
 
         if padding != 0 {
