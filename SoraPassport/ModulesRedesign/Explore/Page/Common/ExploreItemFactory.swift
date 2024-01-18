@@ -49,11 +49,10 @@ extension ExploreItemFactory {
     func createExploreAssetViewModel(with assetId: String, price: Decimal?, deltaPrice: Decimal?, marketCap: Decimal) -> ExploreAssetViewModel? {
         guard let assetInfo = assetManager.assetInfo(for: assetId) else { return nil }
 
-        let isRightToLeft = localizationManager.isRightToLeft
         let fiatText = price.priceText()
         let marketCapText = "$" + marketCap.formatNumber()
         
-        var deltaArributedText: SoramitsuAttributedText? = deltaPrice?.priceDeltaAttributedText()
+        let deltaArributedText: SoramitsuAttributedText? = deltaPrice?.priceDeltaAttributedText()
         
         return ExploreAssetViewModel(assetId: assetId,
                                      symbol: assetInfo.symbol,
