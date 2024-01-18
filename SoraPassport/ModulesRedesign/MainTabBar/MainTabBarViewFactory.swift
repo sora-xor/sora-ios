@@ -637,6 +637,7 @@ extension MainTabBarViewFactory {
             viewModels: [assetsPageViewModel, poolsPageViewModel, farmsPageViewModel],
             searchViewModel: searchViewModel
         )
+        view.wireframe = wireframe
         view.localizationManager = LocalizationManager.shared
         
         assetsPageViewModel.view = view
