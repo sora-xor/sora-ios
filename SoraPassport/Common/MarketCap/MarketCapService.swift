@@ -100,9 +100,11 @@ extension MarketCapService: MarketCapServiceProtocol {
                 }
 
                 let result = response.map { info in
-                    return MarketCapInfo(assetId: info.tokenId,
-                                         hourDelta: Decimal(Double(truncating: info.hourDelta ?? 0)),
-                                         liquidity: Decimal(string: info.liquidity) ?? Decimal(0))
+                    let bigIntLiquidity = BigUInt(info.liquidity) ?? BigUInt(0)
+                    return MarketCapInfo(
+                        assetId: info.tokenId,
+                        hourDelta: Decimal(Double(truncating: info.hourDelta ?? 0)),
+                        liquidity: Decimal.fromSubstrateAmount(bigIntLiquidity, precision: 18) ?? 0)
                 }
 
                 Task {
