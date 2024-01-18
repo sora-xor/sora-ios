@@ -31,7 +31,6 @@
 import Foundation
 import UIKit
 import SoraUIKit
-import CommonWallet
 
 protocol LiquidityViewProtocol: ControllerBackedProtocol, Warningable {
     func update(details: [DetailViewModel])
@@ -59,8 +58,6 @@ protocol LiquidityViewProtocol: ControllerBackedProtocol, Warningable {
 
 final class PolkaswapViewController: SoramitsuViewController {
     
-    private var spaceConstraint: NSLayoutConstraint?
-    
     private lazy var accessoryView: InputAccessoryView = {
         let rect = CGRect(origin: .zero, size: CGSize(width: UIScreen.main.bounds.width, height: 48))
         let view = InputAccessoryView(frame: rect)
@@ -75,11 +72,11 @@ final class PolkaswapViewController: SoramitsuViewController {
     private lazy var containerView: ScrollableContainerView = {
         let view = ScrollableContainerView()
         view.stackView.isLayoutMarginsRelativeArrangement = true
-        view.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 0, right: 16)
+        view.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 0, bottom: 0, right: 0)
         view.stackView.spacing = 16
         view.scrollView.keyboardDismissMode = .onDrag
         view.scrollView.showsVerticalScrollIndicator = false
-        view.backgroundColor = .red
+        view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
     
@@ -189,6 +186,7 @@ final class PolkaswapViewController: SoramitsuViewController {
 
         setupView()
         setupConstraints()
+        addObservers()
         
         if let imageName = viewModel.imageName {
             let logo = UIImage(named: imageName)
@@ -216,11 +214,6 @@ final class PolkaswapViewController: SoramitsuViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         viewModel.viewWillAppear()
-    }
-    
-    override func viewWillLayoutSubviews() {
-        super.viewWillLayoutSubviews()
-        spaceConstraint?.constant = UIScreen.main.bounds.height - 600
     }
     
     @objc
@@ -273,6 +266,32 @@ final class PolkaswapViewController: SoramitsuViewController {
             self.assetsView.middleButton.transform = CGAffineTransform(rotationAngle: 2 * .pi)
         }
     }
+    
+    private func addObservers() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillShow),
+                                               name: UIResponder.keyboardWillShowNotification,
+                                               object: nil)
+
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillHide),
+                                               name: UIResponder.keyboardWillHideNotification,
+                                               object: nil)
+    }
+    
+    @objc
+    private func keyboardWillShow(_ notification:Notification) {
+        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
+            containerView.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 0, bottom: keyboardSize.height, right: 0)
+        }
+    }
+
+    @objc
+    private func keyboardWillHide(_ notification:Notification) {
+        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
+            containerView.stackView.layoutMargins = UIEdgeInsets(top: 16, left: 0, bottom: 0, right: 0)
+        }
+    }
 }
 
 extension PolkaswapViewController: LiquidityViewProtocol {
@@ -303,17 +322,12 @@ extension PolkaswapViewController: LiquidityViewProtocol {
             return view
         }
         
-        containerView.stackView.addArrangedSubviews(detailsViews)
-        detailsViews.forEach {
-            $0.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16).isActive = true
-            $0.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor).isActive = true
+        detailsViews.forEach { detailView in
+            containerView.addArrangedSubview(detailView)
+            
+            detailView.leadingAnchor.constraint(equalTo: containerView.stackView.leadingAnchor, constant: 16).isActive = true
+            detailView.centerXAnchor.constraint(equalTo: containerView.stackView.centerXAnchor).isActive = true
         }
-        
-        let spaceView = SoramitsuView()
-        spaceView.tag = 1
-        spaceConstraint = spaceView.heightAnchor.constraint(equalToConstant: 0)
-        spaceConstraint?.isActive = true
-        containerView.stackView.addArrangedSubviews(spaceView)
     }
     
     func updateFirstAsset(balance: String) {
