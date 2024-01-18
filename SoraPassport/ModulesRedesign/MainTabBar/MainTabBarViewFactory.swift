@@ -643,6 +643,7 @@ extension MainTabBarViewFactory {
         assetsPageViewModel.view = view
         poolsPageViewModel.view = view
         farmsPageViewModel.view = view
+        searchViewModel.view = view
         
         let navigationController = SoraNavigationController().then {
             $0.navigationBar.topItem?.title = title
