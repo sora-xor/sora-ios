@@ -637,11 +637,13 @@ extension MainTabBarViewFactory {
             viewModels: [assetsPageViewModel, poolsPageViewModel, farmsPageViewModel],
             searchViewModel: searchViewModel
         )
+        view.wireframe = wireframe
         view.localizationManager = LocalizationManager.shared
         
         assetsPageViewModel.view = view
         poolsPageViewModel.view = view
         farmsPageViewModel.view = view
+        searchViewModel.view = view
         
         let navigationController = SoraNavigationController().then {
             $0.navigationBar.topItem?.title = title
