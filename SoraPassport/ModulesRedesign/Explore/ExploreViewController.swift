@@ -38,6 +38,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     
     var viewModels: [ExplorePageViewModelProtocol]
     var searchViewModel: ExplorePageViewModelProtocol
+    var wireframe: ExploreWireframeProtocol?
     
     private let searchController = UISearchController(searchResultsController: nil)
 
@@ -94,6 +95,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     }
 
     private func setupView() {
+        navigationItem.rightBarButtonItem = createRightButtonItem()
         searchController.searchBar.placeholder = R.string.localizable.search(preferredLanguages: .currentLocale)
         searchController.searchResultsUpdater = self
         searchController.delegate = self
@@ -153,6 +155,24 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
             slides[i].heightAnchor.constraint(equalTo: scrollView.heightAnchor).isActive = true
             slides[i].widthAnchor.constraint(equalTo: scrollView.widthAnchor).isActive = true
         }
+    }
+    
+    private func createRightButtonItem() -> UIBarButtonItem? {
+        let cratePoolButton = UIBarButtonItem(title: R.string.localizable.exploreCreatePool(preferredLanguages: .currentLocale),
+                                              style: .plain,
+                                              target: self,
+                                              action: #selector(createPool))
+        cratePoolButton.setTitleTextAttributes([
+            .font: FontType.textBoldS.font,
+            .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)
+        ], for: .normal)
+
+        return cratePoolButton
+    }
+    
+    @objc
+    private func createPool() {
+        wireframe?.showLiquidity(on: self)
     }
 }
 
