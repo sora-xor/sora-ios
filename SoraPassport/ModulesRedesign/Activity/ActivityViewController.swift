@@ -37,6 +37,7 @@ import Combine
 final class ActivityViewController: SoramitsuViewController {
     
     public var backgroundColor: SoramitsuColor = .custom(uiColor: .clear)
+    private let bottomOffset: Int = 32
     
     private let emptyLabel: SoramitsuLabel = {
         let emptyLabel = SoramitsuLabel()
@@ -70,8 +71,10 @@ final class ActivityViewController: SoramitsuViewController {
         if #available(iOS 15.0, *) {
             tableView.sectionHeaderTopPadding = 0
         }
-        tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 32, right: 0)
         tableView.sora.cancelsTouchesOnDragging = true
+        tableView.sora.clipsToBounds = true
+        tableView.sora.cornerRadius = .extraLarge
+        tableView.sora.cornerMask = .top
         return tableView
     }()
     
@@ -81,8 +84,19 @@ final class ActivityViewController: SoramitsuViewController {
         return view
     }()
     
+    private lazy var paginationView: SoramitsuView = {
+        let view = SoramitsuView()
+        view.frame = CGRect(origin: .zero, size: .init(width: Int(tableView.frame.size.width),
+                                                       height: Int(paginationIndicator.sora.size.height) + bottomOffset))
+        view.sora.backgroundColor = .bgSurface
+        view.sora.useAutoresizingMask = true
+        view.addSubview(paginationIndicator)
+        return view
+    }()
+
     private lazy var paginationIndicator: SoramitsuActivityIndicatorView = {
         let view = SoramitsuActivityIndicatorView()
+        view.frame = CGRect(x: 0, y: 0, width: tableView.frame.size.width, height: view.sora.size.height)
         view.sora.backgroundColor = .bgSurface
         view.sora.useAutoresizingMask = true
         return view
@@ -177,6 +191,7 @@ final class ActivityViewController: SoramitsuViewController {
         soramitsuView.sora.backgroundColor = backgroundColor
         view.addSubviews(tableView, emptyLabel, errorView)
         tableView.addSubview(activityIndicator)
+//        paginationView.addSubview(paginationIndicator)
     }
 
     private func setupConstraints() {
@@ -184,7 +199,7 @@ final class ActivityViewController: SoramitsuViewController {
             activityIndicator.centerXAnchor.constraint(equalTo: errorView.centerXAnchor),
             activityIndicator.centerYAnchor.constraint(equalTo: errorView.centerYAnchor),
 
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -214,6 +229,11 @@ final class ActivityViewController: SoramitsuViewController {
         let headerView = SoramitsuView()
         headerView.sora.backgroundColor = .bgSurface
         headerView.sora.useAutoresizingMask = true
+        
+        if section == 0 {
+            headerView.sora.cornerRadius = .extraLarge
+            headerView.sora.cornerMask = .top
+        }
 
         let headerLabel = SoramitsuLabel()
         headerLabel.sora.font = FontType.headline4
@@ -223,7 +243,7 @@ final class ActivityViewController: SoramitsuViewController {
 
         headerView.addSubview(headerLabel)
 
-        headerLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: section == 0 ? 0 : 8).isActive = true
+        headerLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: section == 0 ? 24 : 8).isActive = true
         headerLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 24).isActive = true
         headerLabel.centerXAnchor.constraint(equalTo: headerView.centerXAnchor).isActive = true
         headerLabel.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -8).isActive = true
@@ -246,7 +266,7 @@ extension ActivityViewController: ActivityViewProtocol {
 
     func startPaginationLoader() {
         paginationIndicator.start()
-        tableView.tableFooterView = paginationIndicator
+        tableView.tableFooterView = paginationView
     }
 
     func stopPaginationLoader() {
