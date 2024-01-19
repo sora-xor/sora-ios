@@ -141,7 +141,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         viewModels.append(rewardDetailsViewModel)
         
         if let yourPoolShare = poolInfo.yourPoolShare {
-            let poolShareText = NumberFormatter.percent.stringFromDecimal(yourPoolShare) ?? ""
+            let poolShareText = NumberFormatter.apy.stringFromDecimal(yourPoolShare) ?? ""
             let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                           fontData: FontType.textS,
                                                           textColor: .fgPrimary,
@@ -311,7 +311,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                       pooled: pool?.targetAssetPooledByAccount ?? 0,
                                                       reserves: pool?.targetAssetReserves ?? 0)
 
-        let poolShareText = NumberFormatter.percent.stringFromDecimal(poolShareDecimal) ?? ""
+        let poolShareText = NumberFormatter.apy.stringFromDecimal(poolShareDecimal) ?? ""
         let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,
@@ -379,7 +379,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                          pooled: pool.targetAssetPooledByAccount ?? 0,
                                                          reserves: pool.targetAssetReserves ?? 0)
 
-        let poolShareText = NumberFormatter.percent.stringFromDecimal(poolShareDecimal) ?? ""
+        let poolShareText = NumberFormatter.apy.stringFromDecimal(poolShareDecimal) ?? ""
         let yourPoolShareText = SoramitsuTextItem(text: "\(poolShareText)%",
                                                       fontData: FontType.textS,
                                                       textColor: .fgPrimary,
