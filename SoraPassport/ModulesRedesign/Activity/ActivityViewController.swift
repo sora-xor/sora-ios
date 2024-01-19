@@ -191,7 +191,6 @@ final class ActivityViewController: SoramitsuViewController {
         soramitsuView.sora.backgroundColor = backgroundColor
         view.addSubviews(tableView, emptyLabel, errorView)
         tableView.addSubview(activityIndicator)
-//        paginationView.addSubview(paginationIndicator)
     }
 
     private func setupConstraints() {
