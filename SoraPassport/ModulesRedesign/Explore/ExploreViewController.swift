@@ -39,6 +39,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     var viewModels: [ExplorePageViewModelProtocol]
     var searchViewModel: ExplorePageViewModelProtocol
     var wireframe: ExploreWireframeProtocol?
+    let debouncer = Debouncer(interval: 0.8)
     
     private let searchController = UISearchController(searchResultsController: nil)
 
@@ -100,6 +101,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         searchController.searchResultsUpdater = self
         searchController.delegate = self
         searchController.obscuresBackgroundDuringPresentation = false
+        updateSearchBar()
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
         
@@ -123,8 +125,9 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
             searchView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             searchView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             searchView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            
         ])
+        
+        SoramitsuUI.updates.addObserver(self)
     }
 
     func createSlides() -> [ExplorePageView] {
@@ -174,6 +177,17 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     private func createPool() {
         wireframe?.showLiquidity(on: self)
     }
+    
+    private func updateSearchBar() {
+        let color = SoramitsuUI.shared.theme == .light ? UIColor(hex: "#3C3C43", alpha: 0.6) : .white
+        
+        searchController.searchBar.searchTextField.attributedPlaceholder = NSAttributedString.init(
+            string: R.string.localizable.search(),
+            attributes: [ NSAttributedString.Key.foregroundColor: color]
+        )
+        searchController.searchBar.setLeftImage(R.image.magnifyingglass()!, with: 8, tintColor: color)
+        searchController.searchBar.searchTextField.textColor = color
+    }
 }
 
 extension ExploreViewController: Localizable {
@@ -200,7 +214,9 @@ extension ExploreViewController: TitleSegmentControlViewModelDelegate {
 
 extension ExploreViewController: UISearchResultsUpdating {
     func updateSearchResults(for searchController: UISearchController) {
-        searchViewModel.searchTextChanged(with: searchController.searchBar.text?.lowercased() ?? "")
+        debouncer.perform { [weak self] in
+            self?.searchViewModel.searchTextChanged(with: searchController.searchBar.text?.lowercased() ?? "")
+        }
     }
 }
 
@@ -215,5 +231,11 @@ extension ExploreViewController: UISearchControllerDelegate {
         searchView.isHidden = true
         segmentView.isHidden = false
         scrollView.isHidden = false
+    }
+}
+
+extension ExploreViewController: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        updateSearchBar()
     }
 }
