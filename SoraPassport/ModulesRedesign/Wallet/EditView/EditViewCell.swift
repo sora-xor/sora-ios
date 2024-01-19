@@ -36,7 +36,7 @@ final class EditViewCell: SoramitsuTableViewCell {
     
     private var editViewItem: EditViewItem?
     
-    private lazy var editButton: SoramitsuButton = {
+    private var editButton: SoramitsuButton = {
         let title = SoramitsuTextItem(text: R.string.localizable.editView(preferredLanguages: .currentLocale),
                                       fontData: FontType.buttonM ,
                                       textColor: .accentSecondary,
@@ -44,9 +44,9 @@ final class EditViewCell: SoramitsuTableViewCell {
         let button = SoramitsuButton()
         button.sora.horizontalOffset = 16
         button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .bgSurface
         button.sora.attributedText = title
         button.sora.isUserInteractionEnabled = false
+        button.sora.backgroundColor = .bgSurface
         button.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         return button
     }()
@@ -55,6 +55,8 @@ final class EditViewCell: SoramitsuTableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupHierarchy()
         setupLayout()
+        
+        SoramitsuUI.updates.addObserver(self)
     }
 
     @available(*, unavailable)
@@ -80,5 +82,11 @@ extension EditViewCell: SoramitsuTableViewCellProtocol {
             return
         }
         editViewItem = item
+    }
+}
+
+extension EditViewCell: SoramitsuObserver {
+    func styleDidChange(options: UpdateOptions) {
+        editButton.sora.backgroundColor = .bgSurface
     }
 }

@@ -4,8 +4,6 @@
 <dict>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
 	<key>AppConfigName</key>
 	<string>$(SORA_APPLICATION_CONFIG)</string>
 	<key>CFBundleDevelopmentRegion</key>
