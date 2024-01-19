@@ -31,15 +31,17 @@
 import Foundation
 import SoraUIKit
 
-final class ActivityErrorItem: NSObject {
+final class ActivityErrorItem: ItemProtocol {
 
     var handler: (() -> Void)?
 }
 
-extension ActivityErrorItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { ActivityErrorCell.self }
+extension ActivityErrorItem: Hashable {
+    static func == (lhs: ActivityErrorItem, rhs: ActivityErrorItem) -> Bool {
+        return lhs === rhs
+    }
 
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
-
-    var clipsToBounds: Bool { false }
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
 }

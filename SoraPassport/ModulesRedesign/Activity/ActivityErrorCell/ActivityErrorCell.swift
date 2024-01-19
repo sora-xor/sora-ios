@@ -86,8 +86,8 @@ final class ActivityErrorCell: SoramitsuTableViewCell {
     }
 }
 
-extension ActivityErrorCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+extension ActivityErrorCell: CellProtocol {
+    func set(item: ItemProtocol) {
         guard let item = item as? ActivityErrorItem else {
             assertionFailure("Incorect type of item")
             return
