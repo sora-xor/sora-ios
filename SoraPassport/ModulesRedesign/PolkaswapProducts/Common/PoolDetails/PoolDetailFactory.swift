@@ -209,15 +209,17 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         )
         viewModels.append(rewardDetailsViewModel)
         
-        let feeText = SoramitsuTextItem(text: "\(farm.depositFee)%",
-                                           fontData: FontType.textS,
-                                           textColor: .fgPrimary,
-                                           alignment: .right)
-        let feeDetailsViewModel = DetailViewModel(
-            title: R.string.localizable.commonFee(preferredLanguages: .currentLocale),
-            assetAmountText: feeText
-        )
-        viewModels.append(feeDetailsViewModel)
+        if userFarmInfo?.pooledTokens?.isZero ?? true {
+            let feeText = SoramitsuTextItem(text: "\(farm.depositFee)%",
+                                               fontData: FontType.textS,
+                                               textColor: .fgPrimary,
+                                               alignment: .right)
+            let feeDetailsViewModel = DetailViewModel(
+                title: R.string.localizable.commonFee(preferredLanguages: .currentLocale),
+                assetAmountText: feeText
+            )
+            viewModels.append(feeDetailsViewModel)
+        }
         
         
         let accountPoolBalance = poolInfo?.accountPoolBalance ?? .zero
