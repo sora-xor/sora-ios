@@ -1,4 +1,4 @@
-@Library('jenkins-library') _
+@Library('jenkins-libraryfeature/DOPS-2956') _
 
 // Job properties
 def jobParams = [
