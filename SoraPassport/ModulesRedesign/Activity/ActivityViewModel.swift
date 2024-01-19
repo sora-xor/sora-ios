@@ -109,10 +109,7 @@ extension ActivityViewModel: ActivityViewModelProtocol {
         historyService.getPageHistory(count: 50, page: pageNumber + 1, assetId: assetId) { [weak self] result in
             guard let self = self else { return }
             if pageNumber == 0 {
-                let spaceItem: ActivitySectionItem = .space(SoramitsuTableViewSpacerItem(space: 24,
-                                                                                         radius: .medium,
-                                                                                         mask: .top))
-                self.sections = contentSection(with: [spaceItem])
+                self.sections = []
             }
 
             self.view?.stopAnimating()
