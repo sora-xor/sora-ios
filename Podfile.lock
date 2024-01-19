@@ -269,8 +269,8 @@ PODS:
   - SoraUI/PinView (1.10.3):
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
-  - SoraUIKit (1.1.5)
-  - sorawallet (0.2.6)
+  - SoraUIKit (1.1.11)
+  - sorawallet (0.2.8)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
@@ -333,8 +333,8 @@ DEPENDENCIES:
   - SoraFoundation
   - SoraKeystore
   - SoraUI
-  - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.5`)
-  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.6/lib/sorawallet/sorawallet.podspec`)
+  - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.11`)
+  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
@@ -417,9 +417,9 @@ EXTERNAL SOURCES:
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
-    :tag: 1.1.5
+    :tag: 1.1.11
   sorawallet:
-    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.6/lib/sorawallet/sorawallet.podspec
+    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec
   Starscream:
     :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -444,7 +444,7 @@ CHECKOUT OPTIONS:
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
-    :tag: 1.1.5
+    :tag: 1.1.11
   Starscream:
     :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
@@ -501,8 +501,8 @@ SPEC CHECKSUMS:
   SoraFoundation: 988d90ee3159311b02e42aeba0cf7e85d8bc724c
   SoraKeystore: c42760c9270fc232a79f644c1b4bb07d9ead4ee7
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
-  SoraUIKit: 091bd40b53d31ccda3c9e3f8a2db0e6e9f5516bf
-  sorawallet: cd5a23a7f5656dfd9d738e2d0949074962b83c0d
+  SoraUIKit: f32d51c0876d016f5f318b534eb8f7eb2eeaa00a
+  sorawallet: ca3f0821e006c78b27618fe4ea1140ca4a189c75
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
   SSFCloudStorage: c4123454b3084015ea8d88af92f51de79fce7f2c
   SSFModels: d85433036fd8a3bc88f93d570649f242d948f063
@@ -516,6 +516,6 @@ SPEC CHECKSUMS:
   VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: c9837a09fde9c3aacf381132f4600cd50f5ecdca
+PODFILE CHECKSUM: 087af30a874c62c69fb02777fb366de3ecd02fdb
 
 COCOAPODS: 1.14.2
