@@ -134,9 +134,20 @@ final class FarmDetailsViewModel {
 
 extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
     func viewDidLoad() {
-        setupSubscription()
         reload()
         poolViewModelsService?.setup()
+        
+        Task { [weak self] in
+            let baseAssetId = self?.farm.baseAsset?.assetId ?? ""
+            let targetAssetId =  self?.farm.poolAsset?.assetId ?? ""
+
+            self?.poolInfo = await self?.poolsService?.loadPool(
+                by: baseAssetId,
+                targetAssetId: targetAssetId
+            )
+            
+            self?.setupSubscription()
+        }
     }
     
     private func reload() {
