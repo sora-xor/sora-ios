@@ -316,8 +316,8 @@ extension ConfirmSwapViewModel {
             txHash = hex.toHex(includePrefix: true)
         }
         let base = TransactionBase(txHash: txHash,
-                                   blockHash: "",
-                                   fee: Amount(value: fee),
+                                   blockHash: "", 
+                                   fee: Amount(value: fee * pow(10, 18)),
                                    status: status,
                                    timestamp: "\(Date().timeIntervalSince1970)")
         
