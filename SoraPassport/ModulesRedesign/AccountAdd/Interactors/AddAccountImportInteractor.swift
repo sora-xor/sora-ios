@@ -108,9 +108,17 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
     private func validateAccountItem(_ item: AccountItem, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
         let checkOperation = accountRepository.fetchOperation(by: item.address,
                                                               options: RepositoryFetchOptions())
+        
         checkOperation.completionBlock = {
+            guard let account = try? checkOperation.extractNoCancellableResultData() else {
+                DispatchQueue.main.async {
+                    completion?(.success(item))
+                }
+                return
+            }
+            
             DispatchQueue.main.async {
-                completion?(checkOperation.result)
+                completion?(.failure(AccountCreateError.duplicated))
             }
         }
         
