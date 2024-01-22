@@ -275,7 +275,7 @@ extension ConfirmSendingViewModel {
         }
         let base = TransactionBase(txHash: txHash,
                                    blockHash: "",
-                                   fee: Amount(value: fee),
+                                   fee: Amount(value: fee * pow(10, 18)),
                                    status: status,
                                    timestamp: "\(Date().timeIntervalSince1970)")
         let transaction = TransferTransaction(base: base,
