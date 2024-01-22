@@ -38,7 +38,8 @@ import SoraFoundation
 protocol ActivityViewModelFactoryProtocol {
     var currentDate: Date? { get set } 
     func createActivityViewModels(with transactions: [Transaction],
-                                  tapHandler: @escaping (Transaction) -> Void) -> [SoramitsuTableViewItemProtocol]
+                                  tapHandler: @escaping (Transaction) -> Void) -> [ActivitySection]
+    func createActivityShimmerModels() -> [ActivitySection]
     func createActivityViewModel(with transaction: Transaction) -> ActivityContentViewModel?
 }
 
@@ -55,65 +56,61 @@ final class ActivityViewModelFactory {
 
 extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
     func createActivityViewModels(with transactions: [Transaction],
-                                  tapHandler: @escaping (Transaction) -> Void) -> [SoramitsuTableViewItemProtocol] {
-        var models: [SoramitsuTableViewItemProtocol] = []
-        
+                                  tapHandler: @escaping (Transaction) -> Void) -> [ActivitySection] {
+        var sections: [ActivitySection] = []
+        var items: [ActivitySectionItem] = []
+
         transactions.forEach { transaction in
             let transactionDate = Date(timeIntervalSince1970: Double(transaction.base.timestamp) ?? 0)
-            
+
             let dateOrder = Calendar.current.compare(transactionDate, to: currentDate ?? Date(), toGranularity: .day)
-            
-            if currentDate == nil || dateOrder != .orderedSame {
-                let dateFormatter = EventListDateFormatterFactory.createDateFormatter()
-                dateFormatter.locale = LocalizationManager.shared.selectedLocale
-                let dateText = dateFormatter.string(from: transactionDate)
-                let dateItem = ActivityDateItem(text: dateText)
-                models.append(dateItem)
-                currentDate = transactionDate
-                
-                
-                if let transactionModel = createActivityViewModel(with: transaction) {
-                    let activityModel = ActivityItem(model: transactionModel)
-                    activityModel.handler = {
-                        tapHandler(transaction)
-                    }
-                    models.append(activityModel)
+
+            if let currentDate = currentDate, dateOrder != .orderedSame {
+                sections.append(ActivitySection(date: DateFormatter.activityDate.string(from: currentDate),
+                                                items: items))
+                items = []
+            }
+
+            currentDate = transactionDate
+
+            if let transactionModel = createActivityViewModel(with: transaction) {
+                let activityItem = ActivityItem(model: transactionModel)
+                activityItem.handler = {
+                    tapHandler(transaction)
                 }
-            } else {
-                if let transactionModel = createActivityViewModel(with: transaction) {
-                    let activityModel = ActivityItem(model: transactionModel)
-                    activityModel.handler = {
-                        tapHandler(transaction)
-                    }
-                    models.append(activityModel)
-                }
+                items.append(.activity(activityItem))
             }
         }
-        
-        return models
+
+        if let currentDate = currentDate, !items.isEmpty {
+            sections.append(ActivitySection(date: DateFormatter.activityDate.string(from: currentDate),
+                                            items: items))
+        }
+
+        return sections
     }
-    
+
     func createActivityViewModel(with transaction: Transaction) -> ActivityContentViewModel? {
         if let transferTransaction = transaction as? TransferTransaction {
             return transferTransactionViewModel(from: transferTransaction)
         }
-        
+
         if let swapTransaction = transaction as? Swap {
             return swapTransactionViewModel(from: swapTransaction)
         }
-        
+
         if let liquidityTransaction = transaction as? Liquidity {
             return liquidityTransactionViewModel(from: liquidityTransaction)
         }
-        
+
         if let bondTransaction = transaction as? ReferralBondTransaction {
             return bondTransactionViewModel(from: bondTransaction)
         }
-        
+
         if let setReferrerTransaction = transaction as? SetReferrerTransaction {
             return setReferrerTransactionViewModel(from: setReferrerTransaction)
         }
-        
+
         if let claimRewardTransaction = transaction as? ClaimReward {
             return claimRewardTransactionViewModel(from: claimRewardTransaction)
         }
@@ -121,8 +118,25 @@ extension ActivityViewModelFactory: ActivityViewModelFactoryProtocol {
         if let farmLiquidity = transaction as? FarmLiquidity {
             return farmLiquidityTransactionViewModel(from: farmLiquidity)
         }
-        
+      
         return nil
+    }
+
+    func createActivityShimmerModels() -> [ActivitySection] {
+        let shimmerItems: [ActivitySectionItem] = (1...20).map { index in
+            let model = ActivityContentViewModel(txHash: "\(index)")
+            let item = ActivityItem(model: model)
+            return .activity(item)
+        }
+
+        let spaceSection = ActivitySection(items: [.space(SoramitsuTableViewSpacerItem(space: 24,
+                                                                                 radius: .extraLarge,
+                                                                                 mask: .top))])
+
+        let shimmerSection = ActivitySection(date: DateFormatter.activityDate.string(from: Date()),
+                                             items: shimmerItems)
+
+        return [spaceSection, shimmerSection]
     }
 }
 
