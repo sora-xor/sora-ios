@@ -32,15 +32,12 @@ import Foundation
 import UIKit
 import SoraUIKit
 import SoraFoundation
-
-protocol ActivityViewProtocol: ControllerBackedProtocol {
-    func stopAnimating()
-    func resetPagination()
-}
+import Combine
 
 final class ActivityViewController: SoramitsuViewController {
     
     public var backgroundColor: SoramitsuColor = .custom(uiColor: .clear)
+    private let bottomOffset: Int = 32
     
     private let emptyLabel: SoramitsuLabel = {
         let emptyLabel = SoramitsuLabel()
@@ -54,19 +51,30 @@ final class ActivityViewController: SoramitsuViewController {
     
     private lazy var errorView: ErrorView = {
         let view = ErrorView()
-        view.button.sora.associate(states: .pressed) { [weak tableView] _ in
-            tableView?.resetPagination()
+        view.button.sora.associate(states: .pressed) { [weak self] _ in
+            self?.resetPagination()
         }
         view.sora.isHidden = true
         return view
     }()
-        
-
-    private lazy var tableView: SoramitsuTableView = {
+    
+    private lazy var tableView: UITableView = {
         let tableView = SoramitsuTableView()
-        tableView.sora.estimatedRowHeight = UITableView.automaticDimension
-        tableView.sora.context = SoramitsuTableViewContext(scrollView: tableView, viewController: self)
+        tableView.delegate = self
+        tableView.separatorStyle = .none
+        tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.sectionHeaderHeight = .zero
+        tableView.estimatedRowHeight = UITableView.automaticDimension
+        tableView.register(ActivityCell.self, forCellReuseIdentifier: "ActivityCell")
+        tableView.register(ActivityErrorCell.self, forCellReuseIdentifier: "ActivityErrorCell")
+        tableView.register(SoramitsuCell<SoramitsuTableViewSpaceView>.self, forCellReuseIdentifier: "SoramitsuSpaceCell")
+        if #available(iOS 15.0, *) {
+            tableView.sectionHeaderTopPadding = 0
+        }
+        tableView.sora.cancelsTouchesOnDragging = true
+        tableView.sora.clipsToBounds = true
+        tableView.sora.cornerRadius = .extraLarge
+        tableView.sora.cornerMask = .top
         return tableView
     }()
     
@@ -75,12 +83,59 @@ final class ActivityViewController: SoramitsuViewController {
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
+    
+    private lazy var paginationView: SoramitsuView = {
+        let view = SoramitsuView()
+        view.frame = CGRect(origin: .zero, size: .init(width: Int(tableView.frame.size.width),
+                                                       height: Int(paginationIndicator.sora.size.height) + bottomOffset))
+        view.sora.backgroundColor = .bgSurface
+        view.sora.useAutoresizingMask = true
+        view.addSubview(paginationIndicator)
+        return view
+    }()
 
-    var viewModel: ActivityViewModelProtocol
+    private lazy var paginationIndicator: SoramitsuActivityIndicatorView = {
+        let view = SoramitsuActivityIndicatorView()
+        view.frame = CGRect(x: 0, y: 0, width: tableView.frame.size.width, height: view.sora.size.height)
+        view.sora.backgroundColor = .bgSurface
+        view.sora.useAutoresizingMask = true
+        return view
+    }()
+
+    var viewModel: ActivityViewModelProtocol {
+        didSet {
+            setupSubscription()
+        }
+    }
+
+    private var cancellables: Set<AnyCancellable> = []
+
+    private lazy var dataSource: ActivityDataSource = {
+        ActivityDataSource(tableView: tableView) { tableView, indexPath, item in
+            switch item {
+            case .activity(let item):
+                let cell: ActivityCell? = tableView.dequeueReusableCell(withIdentifier: "ActivityCell",
+                                                                        for: indexPath) as? ActivityCell
+                cell?.set(item: item)
+                return cell ?? UITableViewCell()
+            case .error(let item):
+                let cell: ActivityErrorCell? = tableView.dequeueReusableCell(withIdentifier: "ActivityErrorCell",
+                                                                        for: indexPath) as? ActivityErrorCell
+                cell?.set(item: item)
+                return cell ?? UITableViewCell()
+            case .space(let item):
+                let cell: SoramitsuCell<SoramitsuTableViewSpaceView>? = tableView.dequeueReusableCell(withIdentifier: "SoramitsuSpaceCell",
+                                                                                                      for: indexPath) as? SoramitsuCell<SoramitsuTableViewSpaceView>
+                cell?.set(item: item, context: nil)
+                return cell ?? UITableViewCell()
+            }
+        }
+    }()
 
     init(viewModel: ActivityViewModelProtocol) {
         self.viewModel = viewModel
         super.init()
+        setupSubscription()
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -93,16 +148,8 @@ final class ActivityViewController: SoramitsuViewController {
         setupView()
         setupConstraints()
         applyLocalization()
-        
-        tableView.sora.paginationHandler = viewModel
-        
-        viewModel.appendItems = { [weak self] items in
-            DispatchQueue.main.async {
-                self?.emptyLabel.sora.isHidden = true
-                self?.errorView.sora.isHidden = true
-                self?.tableView.sora.appendPageOnTop(items: items, resetPages: false)
-            }
-        }
+
+        viewModel.viewDidLoad()
 
         viewModel.setupEmptyLabel = { [weak self] in
             DispatchQueue.main.async {
@@ -110,14 +157,14 @@ final class ActivityViewController: SoramitsuViewController {
                 self?.errorView.sora.isHidden = true
             }
         }
-        
+
         viewModel.setupErrorContent = { [weak self] in
             DispatchQueue.main.async {
                 self?.errorView.sora.isHidden = false
                 self?.emptyLabel.sora.isHidden = true
             }
         }
-        
+
         viewModel.hideErrorContent = { [weak self] in
             DispatchQueue.main.async {
                 self?.errorView.sora.isHidden = true
@@ -129,19 +176,18 @@ final class ActivityViewController: SoramitsuViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationItem.title = viewModel.title
-        
+
         navigationController?.navigationBar.prefersLargeTitles = true
     }
 
     private func setupView() {
-        activityIndicator.startAnimating()
         let closeButton = UIBarButtonItem(image: R.image.wallet.cross(),
                                      style: .plain,
                                      target: self,
                                      action: #selector(close))
-        
+
         navigationItem.rightBarButtonItem = viewModel.isNeedCloseButton ? closeButton : nil
-            
+
         soramitsuView.sora.backgroundColor = backgroundColor
         view.addSubviews(tableView, emptyLabel, errorView)
         tableView.addSubview(activityIndicator)
@@ -151,40 +197,82 @@ final class ActivityViewController: SoramitsuViewController {
         NSLayoutConstraint.activate([
             activityIndicator.centerXAnchor.constraint(equalTo: errorView.centerXAnchor),
             activityIndicator.centerYAnchor.constraint(equalTo: errorView.centerYAnchor),
-            
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
+
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             tableView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
+
             emptyLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
             emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            
+
             errorView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
             errorView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             errorView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
     }
-    
-    @objc
-    func refreshContent() {
-        activityIndicator.startAnimating()
-        tableView.resetPagination()
+
+    private func setupSubscription() {
+        viewModel.snapshotPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] snapshot in
+                self?.dataSource.apply(snapshot, animatingDifferences: false)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func headerView(for section: Int) -> UIView? {
+        guard let title = viewModel.headerText(for: section) else { return nil }
+
+        let headerView = SoramitsuView()
+        headerView.sora.backgroundColor = .bgSurface
+        headerView.sora.useAutoresizingMask = true
+        
+        if section == 0 {
+            headerView.sora.cornerRadius = .extraLarge
+            headerView.sora.cornerMask = .top
+        }
+
+        let headerLabel = SoramitsuLabel()
+        headerLabel.sora.font = FontType.headline4
+        headerLabel.sora.textColor = .fgSecondary
+        headerLabel.sora.alignment = LocalizationManager.shared.isRightToLeft ? .right : .left
+        headerLabel.sora.text = title
+
+        headerView.addSubview(headerLabel)
+
+        headerLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: section == 0 ? 24 : 8).isActive = true
+        headerLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 24).isActive = true
+        headerLabel.centerXAnchor.constraint(equalTo: headerView.centerXAnchor).isActive = true
+        headerLabel.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -8).isActive = true
+
+        return headerView
     }
 }
 
 extension ActivityViewController: ActivityViewProtocol {
     func stopAnimating() {
         DispatchQueue.main.async {
-            self.tableView.refreshControl?.endRefreshing()
             self.activityIndicator.stopAnimating()
         }
     }
-    
+
     func resetPagination() {
         activityIndicator.startAnimating()
-        tableView.resetPagination()
+        viewModel.resetPagination()
+    }
+
+    func startPaginationLoader() {
+        paginationIndicator.start()
+        tableView.tableFooterView = paginationView
+    }
+
+    func stopPaginationLoader() {
+        DispatchQueue.main.async {
+            self.paginationIndicator.stop()
+            self.tableView.tableFooterView = nil
+        }
     }
 }
 
@@ -192,7 +280,7 @@ extension ActivityViewController: Localizable {
     private var languages: [String]? {
         localizationManager?.preferredLocalizations
     }
-    
+
     func applyLocalization() {
         let languages = localizationManager?.preferredLocalizations
         navigationItem.title = viewModel.title
@@ -202,5 +290,43 @@ extension ActivityViewController: Localizable {
                                                                  fontData: FontType.textBoldS,
                                                                  textColor: .fgSecondary,
                                                                  alignment: .center)
+    }
+}
+
+extension ActivityViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else {
+            return UITableView.automaticDimension
+        }
+
+        switch item {
+        case .space:
+            return 24
+        default:
+            return UITableView.automaticDimension
+        }
+    }
+
+    public func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        let lastSection = tableView.numberOfSections
+        let lastRow = tableView.numberOfRows(inSection: lastSection - 1)
+        let last = IndexPath(row: lastRow - 1, section: lastSection - 1)
+        if last == indexPath {
+            viewModel.updateContent()
+        }
+    }
+
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        guard let header = headerView(for: section) else { return nil }
+        return header
+    }
+
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        return viewModel.isNeedHeader(for: section) ? UITableView.automaticDimension : .zero
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+        viewModel.didSelect(with: item)
     }
 }
