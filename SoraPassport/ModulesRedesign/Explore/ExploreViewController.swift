@@ -96,7 +96,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
     }
 
     private func setupView() {
-        navigationItem.rightBarButtonItem = createRightButtonItem()
+        updateRightButtonItem()
         searchController.searchBar.placeholder = R.string.localizable.search(preferredLanguages: .currentLocale)
         searchController.searchResultsUpdater = self
         searchController.delegate = self
@@ -160,7 +160,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
         }
     }
     
-    private func createRightButtonItem() -> UIBarButtonItem? {
+    private func updateRightButtonItem() {
         let cratePoolButton = UIBarButtonItem(title: R.string.localizable.exploreCreatePool(preferredLanguages: .currentLocale),
                                               style: .plain,
                                               target: self,
@@ -170,7 +170,7 @@ final class ExploreViewController: SoramitsuViewController, ControllerBackedProt
             .foregroundColor: SoramitsuUI.shared.theme.palette.color(.accentPrimary)
         ], for: .normal)
 
-        return cratePoolButton
+        navigationItem.rightBarButtonItem = cratePoolButton
     }
     
     @objc
@@ -237,5 +237,6 @@ extension ExploreViewController: UISearchControllerDelegate {
 extension ExploreViewController: SoramitsuObserver {
     func styleDidChange(options: UpdateOptions) {
         updateSearchBar()
+        updateRightButtonItem()
     }
 }
