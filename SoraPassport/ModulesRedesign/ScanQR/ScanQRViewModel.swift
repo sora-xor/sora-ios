@@ -176,10 +176,8 @@ final class ScanQRViewModel: NSObject {
     }
 
     private func handleQRExtractionService(error: WalletQRExtractionServiceError) {
-        switch error {
-        case .noFeatures: break
-        case .detectorUnavailable, .invalidImage: break
-        }
+        let message = L10n.InvoiceScan.Error.extractFail
+        view?.presentAlert(title: message)
     }
 
     private func handleImageGallery(error: ImageGalleryError) {

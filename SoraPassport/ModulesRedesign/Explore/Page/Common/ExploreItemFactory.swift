@@ -46,21 +46,25 @@ final class ExploreItemFactory {
 
 extension ExploreItemFactory {
     
-    func createExploreAssetViewModel(with assetId: String, price: Decimal?, deltaPrice: Decimal?, marketCap: Decimal) -> ExploreAssetViewModel? {
+    func createExploreAssetViewModel(
+        with assetId: String,
+        price: Decimal?,
+        deltaPrice: LoadingState<SoramitsuAttributedText?>,
+        marketCap: LoadingState<String>
+    ) -> ExploreAssetViewModel? {
         guard let assetInfo = assetManager.assetInfo(for: assetId) else { return nil }
 
         let fiatText = price.priceText()
-        let marketCapText = "$" + marketCap.formatNumber()
         
-        let deltaArributedText: SoramitsuAttributedText? = deltaPrice?.priceDeltaAttributedText()
-        
-        return ExploreAssetViewModel(assetId: assetId,
-                                     symbol: assetInfo.symbol,
-                                     title: assetInfo.name,
-                                     price: fiatText,
-                                     marketCap: marketCapText,
-                                     icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
-                                     deltaPrice: deltaArributedText)
+        return ExploreAssetViewModel(
+            assetId: assetId,
+            symbol: assetInfo.symbol,
+            title: assetInfo.name,
+            price: fiatText,
+            marketCap: marketCap,
+            icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
+            deltaPrice: deltaPrice
+        )
     }
 
     func createPoolsItem(with pool: ExplorePool, serialNumber: String, apy: Decimal? = nil) -> ExplorePoolViewModel {
