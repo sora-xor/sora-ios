@@ -73,7 +73,8 @@ final class ExploreAssetViewModelService {
         let result = await PriceInfoService.shared.getPriceInfo(for: assetIds)
 
         let assetMarketCap = result.marketCapInfo.compactMap { asset in
-            return ExploreAssetLiquidity(tokenId: asset.assetId, marketCap: asset.liquidity, oldPrice: asset.hourDelta)
+            let price = result.fiatData.first { asset.assetId == $0.id }?.priceUsd?.decimalValue ?? 0
+            return ExploreAssetLiquidity(tokenId: asset.assetId, marketCap: asset.liquidity * price, oldPrice: asset.hourDelta)
         }.sorted { $0.marketCap > $1.marketCap }
         
         var fullListAssets = assetMarketCap.compactMap { marketCap in
