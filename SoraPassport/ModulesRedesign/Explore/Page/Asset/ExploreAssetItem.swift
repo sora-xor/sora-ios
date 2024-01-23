@@ -40,6 +40,26 @@ struct ExploreAssetLiquidity {
     let oldPrice: Decimal
 }
 
+enum LoadingState<T> {
+    case loaded(T)
+    case loading
+    case error
+    
+    var value: T? {
+        if case .loaded(let value) = self { return value }
+        return nil
+    }
+    
+    var shimmerType: SoramitsuLoadingPlaceholderType {
+        switch self {
+        case .error, .loaded:
+            return .none
+        case .loading:
+            return .shimmer
+        }
+    }
+}
+
 struct ExploreAssetViewModel: Hashable {
     static func == (lhs: ExploreAssetViewModel, rhs: ExploreAssetViewModel) -> Bool {
         lhs.assetId == rhs.assetId && lhs.serialNumber == rhs.serialNumber
@@ -50,9 +70,9 @@ struct ExploreAssetViewModel: Hashable {
         hasher.combine(symbol)
         hasher.combine(title)
         hasher.combine(serialNumber)
-        hasher.combine(marketCap)
+        hasher.combine(marketCap.value)
         hasher.combine(icon)
-        hasher.combine(deltaPrice?.attributedString.string)
+        hasher.combine(deltaPrice.value??.attributedString.string)
     }
     
     var assetId: String?
@@ -60,9 +80,9 @@ struct ExploreAssetViewModel: Hashable {
     var title: String?
     var price: String?
     var serialNumber: String = ""
-    var marketCap: String?
+    var marketCap: LoadingState<String> = .loading
     var icon: UIImage?
-    var deltaPrice: SoramitsuAttributedText?
+    var deltaPrice: LoadingState<SoramitsuAttributedText?> = .loading
 }
 
 final class ExploreAssetItem: ItemProtocol {
