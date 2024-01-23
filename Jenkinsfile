@@ -15,7 +15,15 @@ def pipeline = new org.ios.AppPipeline(
     jobParams: jobParams,
     label: "mac-sora",
     appPushNoti: true,
-    dojoProductType: 'sora-mobile'
+    dojoProductType: 'sora-mobile',
+    deepSecretScannerExclusion: [
+      'SoraPassport.xcodeproj',
+      'SoraPassport.xcworkspace',
+      'SoraPassport',
+      'SoraPassportIntegrationTests',
+      'SoraPassportTests',
+      'SoraPassportUITests',
+      'SoraPassportUITests']
 )
 
 pipeline.runPipeline('sora')
