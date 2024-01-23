@@ -31,7 +31,7 @@
 import Foundation
 import SoraUIKit
 
-final class ActivityItem: NSObject {
+final class ActivityItem: ItemProtocol {
 
     var model: ActivityContentViewModel
     var handler: (() -> Void)?
@@ -41,14 +41,12 @@ final class ActivityItem: NSObject {
     }
 }
 
-extension ActivityItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { ActivityCell.self }
-
-    var backgroundColor: SoramitsuColor { .bgSurface }
-
-    var clipsToBounds: Bool { true }
+extension ActivityItem: Hashable {
+    static func == (lhs: ActivityItem, rhs: ActivityItem) -> Bool {
+        lhs.model == rhs.model
+    }
     
-    func itemActionTap(with context: SoramitsuTableViewContext?) {
-        handler?()
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(model)
     }
 }

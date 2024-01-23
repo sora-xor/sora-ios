@@ -84,13 +84,13 @@ final class InputAssetsView: SoramitsuView {
 
     private func setupLayout() {
         NSLayoutConstraint.activate([
-            firstAsset.leadingAnchor.constraint(equalTo: leadingAnchor),
-            firstAsset.centerXAnchor.constraint(equalTo: centerXAnchor),
             firstAsset.topAnchor.constraint(equalTo: topAnchor),
+            firstAsset.leadingAnchor.constraint(equalTo: leadingAnchor),
+            firstAsset.trailingAnchor.constraint(equalTo: trailingAnchor),
             
             secondAsset.topAnchor.constraint(equalTo: firstAsset.bottomAnchor, constant: 8),
             secondAsset.leadingAnchor.constraint(equalTo: leadingAnchor),
-            secondAsset.centerXAnchor.constraint(equalTo: centerXAnchor),
+            secondAsset.trailingAnchor.constraint(equalTo: trailingAnchor),
             secondAsset.bottomAnchor.constraint(equalTo: bottomAnchor),
             
             middleButton.centerXAnchor.constraint(equalTo: centerXAnchor),

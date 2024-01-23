@@ -30,18 +30,31 @@
 
 import Foundation
 import SoraUIKit
+import RobinHood
+import CommonWallet
+import UIKit
 
-final class ActivityErrorItem: ItemProtocol {
+typealias ActivityDataSource = UITableViewDiffableDataSource<ActivitySection, ActivitySectionItem>
+typealias ActivitySnapshot = NSDiffableDataSourceSnapshot<ActivitySection, ActivitySectionItem>
 
-    var handler: (() -> Void)?
+protocol ActivityViewProtocol: ControllerBackedProtocol {
+    func stopAnimating()
+    func resetPagination()
+    func startPaginationLoader()
+    func stopPaginationLoader()
 }
 
-extension ActivityErrorItem: Hashable {
-    static func == (lhs: ActivityErrorItem, rhs: ActivityErrorItem) -> Bool {
-        return lhs === rhs
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
-    }
+protocol ActivityViewModelProtocol: SoramitsuTableViewPaginationHandlerProtocol {
+    var snapshotPublisher: Published<ActivitySnapshot>.Publisher { get }
+    var title: String { get set }
+    var isNeedCloseButton: Bool { get }
+    var setupEmptyLabel: (() -> Void)? { get set }
+    var setupErrorContent: (() -> Void)? { get set }
+    var hideErrorContent: (() -> Void)? { get set }
+    func viewDidLoad()
+    func updateContent()
+    func didSelect(with item: ActivitySectionItem)
+    func headerText(for section: Int) -> String?
+    func isNeedHeader(for section: Int) -> Bool
+    func resetPagination()
 }

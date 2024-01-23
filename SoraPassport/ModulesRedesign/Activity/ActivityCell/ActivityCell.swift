@@ -52,6 +52,7 @@ final class ActivityCell: SoramitsuTableViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupView() {
+        contentView.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgSurface)
         contentView.addSubview(historyView)
     }
 
@@ -65,8 +66,8 @@ final class ActivityCell: SoramitsuTableViewCell {
     }
 }
 
-extension ActivityCell: SoramitsuTableViewCellProtocol {
-    func set(item: SoramitsuTableViewItemProtocol, context: SoramitsuTableViewContext?) {
+extension ActivityCell: CellProtocol {
+    func set(item: ItemProtocol) {
         guard let item = item as? ActivityItem else {
             assertionFailure("Incorect type of item")
             return
@@ -75,20 +76,36 @@ extension ActivityCell: SoramitsuTableViewCellProtocol {
         assetItem = item
 
         item.model.firstAssetImageViewModel?.loadImage { [weak self] (icon, _) in
-            self?.historyView.sora.firstHistoryTransactionImage  = icon
+            self?.historyView.sora.firstHistoryTransactionImage = icon
+            self?.historyView.firstCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
         }
         
         item.model.secondAssetImageViewModel?.loadImage { [weak self] (icon, _) in
             self?.historyView.sora.secondHistoryTransactionImage = icon
+            self?.historyView.secondCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
         }
 
         historyView.sora.titleText = item.model.title
+        historyView.titleLabel.sora.loadingPlaceholder.type = item.model.title.isEmpty ? .shimmer : .none
+        
         historyView.sora.subtitleText = item.model.subtitle
+        historyView.subtitleLabel.sora.loadingPlaceholder.type = item.model.subtitle.isEmpty ? .shimmer : .none
+        
         historyView.sora.transactionType = item.model.typeTransactionImage
+        historyView.transactionTypeImageView.sora.loadingPlaceholder.type = item.model.typeTransactionImage == nil ? .shimmer : .none
+        
         historyView.sora.upAmountText = item.model.firstBalanceText
+        historyView.amountUpLabel.sora.loadingPlaceholder.type = .none
+        
         historyView.sora.fiatText = item.model.fiatText
+        historyView.fiatLabel.sora.loadingPlaceholder.type = item.model.fiatText.isEmpty ? .shimmer : .none
+        
         historyView.sora.isNeedTwoTokens = item.model.isNeedTwoImage
+        historyView.oneCurrencyImageView.sora.loadingPlaceholder.type = item.model.isNeedTwoImage ? .shimmer : .none
+        
         historyView.sora.statusImage = item.model.status.image
+        historyView.statusImageView.sora.loadingPlaceholder.type = item.model.status.image == nil ? .shimmer : .none
+        
         
         let defaultAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .right : .left
         let reversedAlignment: NSTextAlignment = localizationManager.isRightToLeft ? .left : .right
