@@ -15,7 +15,7 @@ def pipeline = new org.ios.AppPipeline(
     jobParams: jobParams,
     label: "mac-sora",
     appPushNoti: true,
-    dojoProductType: 'sora'
+    dojoProductType: 'sora-mobile'
 )
 
 pipeline.runPipeline('sora')
