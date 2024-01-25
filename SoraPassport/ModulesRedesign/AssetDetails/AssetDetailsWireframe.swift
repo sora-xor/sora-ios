@@ -109,7 +109,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
     }
     
 
-    func showActivity(assetId: String) {
+    @MainActor func showActivity(assetId: String) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount else { return }
         let assets = assetManager.getAssetList() ?? []
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
@@ -146,7 +146,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showActivityDetails(model: Transaction) {
+    @MainActor func showActivityDetails(model: Transaction) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount, let aseetList = assetManager.getAssetList() else { return }
 
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,
@@ -171,7 +171,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showSwap() {
+    @MainActor func showSwap() {
         guard let swapController = SwapViewFactory.createView(selectedTokenId: assetInfo.assetId,
                                                               selectedSecondTokenId: "",
                                                               assetManager: assetManager,
@@ -187,7 +187,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showSend() {
+    @MainActor func showSend() {
         let viewModel = InputAssetAmountViewModel(selectedTokenId: assetInfo.assetId,
                                                   selectedAddress: nil,
                                                   fiatService: fiatService,
@@ -213,7 +213,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showReceive() {
+    @MainActor func showReceive() {
         let qrService = WalletQRService(operationFactory: WalletQROperationFactory(), encoder: qrEncoder)
         
         let viewModel = ReceiveViewModel(qrService: qrService,
@@ -238,7 +238,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showFrozenBalance(frozenDetailViewModels: [BalanceDetailViewModel]) {
+    @MainActor func showFrozenBalance(frozenDetailViewModels: [BalanceDetailViewModel]) {
         let receiveController = BalanceDetailsViewController(viewModels: frozenDetailViewModels)
         
         let containerView = BlurViewController()
@@ -253,7 +253,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         controller?.present(viewController, animated: true)
     }
     
-    func showPoolDetails(poolInfo: PoolInfo,
+    @MainActor func showPoolDetails(poolInfo: PoolInfo,
                          poolsService: PoolsServiceInputProtocol) {
         guard let operationFactory = networkFacade,
               let assetDetailsController = PoolDetailsViewFactory.createView(poolInfo: poolInfo,

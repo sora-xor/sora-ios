@@ -60,7 +60,7 @@ extension ConfirmWireframe: ConfirmWireframeProtocol {
         activityIndicatorWindow = nil
     }
     
-    func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol, completion: (() -> Void)?) {
+    @MainActor func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol, completion: (() -> Void)?) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount, let aseetList = assetManager.getAssetList() else { return }
 
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,

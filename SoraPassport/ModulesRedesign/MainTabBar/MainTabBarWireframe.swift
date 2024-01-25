@@ -61,7 +61,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         }
     }
 
-    func presentClaim(on view: MainTabBarViewProtocol?, with service: MigrationServiceProtocol) {
+    @MainActor func presentClaim(on view: MainTabBarViewProtocol?, with service: MigrationServiceProtocol) {
         guard let tabBarController = view?.controller else {
             return
         }
@@ -111,6 +111,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         }
     }
     
+    @MainActor
     func recreateWalletViewController(on view: MainTabBarViewProtocol?) {
         let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(for: Chain.sora.genesisHash())
         assetManager.setup(for: SelectedWalletSettings.shared)

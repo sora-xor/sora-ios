@@ -42,7 +42,7 @@ final class ConfirmPassphraseWireframe: ConfirmPassphraseWireframeProtocol {
     var endAddingBlock: (() -> Void)?
     var isNeedSetupName: Bool = true
     
-    func proceed(on controller: UIViewController?) {
+    @MainActor func proceed(on controller: UIViewController?) {
         if endAddingBlock != nil {
             guard
                 !isNeedSetupName,
