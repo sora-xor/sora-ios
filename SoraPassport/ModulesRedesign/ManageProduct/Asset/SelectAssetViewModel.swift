@@ -131,7 +131,7 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
     
     func viewDidLoad() {
         setupNavigationBar?(mode)
-        if let balanceData = assetsProvider?.getBalances(with: assetIds) {            
+        if let balanceData = assetsProvider?.getBalances(with: assetIds) {
             Task { [weak self] in
                 await self?.items(with: balanceData)
             }
@@ -141,19 +141,13 @@ extension SelectAssetViewModel: SelectAssetViewModelProtocol {
 
 private extension SelectAssetViewModel {
     func items(with balanceItems: [BalanceData]) async {
-        priceInfo = await priceInfoService.getPriceInfo(for: assetIds)
-        let fiatData = priceInfo?.fiatData ?? []
-        let marketCapInfo = priceInfo?.marketCapInfo ?? []
-        
         assetItems = balanceItems.compactMap { balance in
-            let priceDelta = marketCapInfo.first(where: { $0.assetId == balance.identifier })?.hourDelta
             
             guard let assetInfo = self.assetManager?.assetInfo(for: balance.identifier),
                   let viewModel = self.assetViewModelFactory.createAssetViewModel(with: balance,
                                                                                   assetInfo: assetInfo,
-                                                                                  fiatData: fiatData,
-                                                                                  mode: self.mode,
-                                                                                  priceDelta: priceDelta) else {
+                                                                                  fiatData: [],
+                                                                                  mode: self.mode) else {
                 return nil
             }
             
