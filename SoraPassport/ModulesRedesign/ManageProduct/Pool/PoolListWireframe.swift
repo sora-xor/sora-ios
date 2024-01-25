@@ -50,6 +50,7 @@ protocol PoolListWireframeProtocol {
 }
 
 final class PoolListWireframe: PoolListWireframeProtocol {
+    @MainActor
     func showPoolDetails(on viewController: UIViewController?,
                          poolInfo: PoolInfo,
                          assetManager: AssetManagerProtocol,

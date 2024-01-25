@@ -51,6 +51,7 @@ protocol ScanQRWireframeProtocol {
 
 final class ScanQRWireframe: ScanQRWireframeProtocol {
 
+    @MainActor
     func showGenerateQR(on controller: UIViewController?,
                         accountId: String,
                         address: String,

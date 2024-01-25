@@ -40,6 +40,7 @@ import SSFUtils
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
     
+    @MainActor
     static func createView() -> MainTabBarViewProtocol? {
         
         guard let keystoreImportService: KeystoreImportServiceProtocol = URLHandlingService.shared.findService() else {
@@ -194,6 +195,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         view.didReplaceView(for: walletController, for: Self.walletIndex)
     }
     
+    @MainActor
     static func swapDisclamerController(completion: (() -> Void)?) -> UIViewController? {
         let viewModel = SwapDisclaimerViewModel()
         viewModel.completion = completion
@@ -243,6 +245,7 @@ extension MainTabBarViewFactory {
 //MARK: Redesign
 
 extension MainTabBarViewFactory {
+    @MainActor
     private static func redesignedViewControllers(for view: MainTabBarViewController,
                                                   walletContext: CommonWalletContextProtocol,
                                                   assetManager: AssetManagerProtocol,
@@ -655,6 +658,7 @@ extension MainTabBarViewFactory {
         return navigationController
     }
     
+    @MainActor
     static func createSwapController(
         walletContext: CommonWalletContextProtocol,
         assetManager: AssetManagerProtocol,
