@@ -279,8 +279,8 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let networkFeeDetailsViewModel = DetailViewModel(title: R.string.localizable.networkFee(preferredLanguages: .currentLocale),
                                                          assetAmountText: networkFeeText)
         
-        networkFeeDetailsViewModel.infoHandler = {
-            viewModel.networkFeeInfoButtonTapped()
+        networkFeeDetailsViewModel.infoHandler = { [weak viewModel] in
+            viewModel?.networkFeeInfoButtonTapped()
         }
         
         viewModels.append(networkFeeDetailsViewModel)
@@ -328,8 +328,8 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                     alignment: .right)
             let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
                                                       assetAmountText: assetAmountText)
-            apyDetailsViewModel.infoHandler = {
-                viewModel.apyInfoButtonTapped()
+            apyDetailsViewModel.infoHandler = { [weak viewModel] in
+                viewModel?.apyInfoButtonTapped()
             }
             viewModels.append(apyDetailsViewModel)
         }
@@ -395,8 +395,8 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                 alignment: .right)
         let apyDetailsViewModel = DetailViewModel(title: Constants.apyTitle,
                                                   assetAmountText: assetAmountText)
-        apyDetailsViewModel.infoHandler = {
-            viewModel.apyInfoButtonTapped()
+        apyDetailsViewModel.infoHandler = { [weak viewModel] in
+            viewModel?.apyInfoButtonTapped()
         }
         
         let feeText = SoramitsuTextItem(text: "\(NumberFormatter.cryptoAssets.stringFromDecimal(fee) ?? "") XOR",
