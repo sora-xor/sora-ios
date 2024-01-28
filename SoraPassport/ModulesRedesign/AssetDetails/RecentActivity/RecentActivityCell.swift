@@ -43,7 +43,7 @@ final class RecentActivityCell: SoramitsuTableViewCell {
     private var activityItem: RecentActivityItem? {
         didSet {
             guard let item = activityItem else { return }
-            item.service.$historyViewModels
+            item.service?.$historyViewModels
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let self = self else { return }
@@ -146,15 +146,14 @@ final class RecentActivityCell: SoramitsuTableViewCell {
         let activityViews = viewModels.map { model -> ActivityView in
             let view = ActivityView()
             view.isUserInteractionEnabled = true
-            model.firstAssetImageViewModel?.loadImage { (icon, _) in
-                guard let icon else { return }
-                view.firstCurrencyImageView.sora.picture = .logo(image: icon)
+            
+            if let image = model.firstAssetImageViewModel {
+                view.firstCurrencyImageView.sora.picture = .logo(image: image)
             }
             view.firstCurrencyImageView.sora.loadingPlaceholder.type = model.firstAssetImageViewModel == nil ? .shimmer : .none
             
-            model.secondAssetImageViewModel?.loadImage { (icon, _) in
-                guard let icon else { return }
-                view.secondCurrencyImageView.sora.picture = .logo(image: icon)
+            if let image = model.secondAssetImageViewModel {
+                view.secondCurrencyImageView.sora.picture = .logo(image: image)
             }
             view.secondCurrencyImageView.sora.loadingPlaceholder.type = model.secondAssetImageViewModel == nil ? .shimmer : .none
 
@@ -212,7 +211,7 @@ extension RecentActivityCell: SoramitsuTableViewCellProtocol {
             activityItem = item
         }
         
-        let viewModels = Array((item.service.historyViewModels))
+        let viewModels = item.service?.historyViewModels ?? []
         updateContent(with: viewModels)
         updateSemantics()
     }
