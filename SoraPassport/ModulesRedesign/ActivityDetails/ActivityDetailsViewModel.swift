@@ -184,12 +184,6 @@ extension ActivityDetailsViewModel {
     func headerTransferTransactionViewModel(from transaction: TransferTransaction) -> HeaderActivityDetailsItem {
         let assetInfo = assetManager.assetInfo(for: transaction.tokenId)
         
-        var symbolViewModel: WalletImageViewModelProtocol?
-        
-        if let iconString = assetInfo?.icon {
-            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
-        }
-        
         let firstBalance = NumberFormatter.historyAmount.stringFromDecimal(transaction.amount.decimalValue) ?? ""
         let text = transaction.transferType == .incoming ? "+ \(firstBalance) \(assetInfo?.symbol ?? "")" : "\(firstBalance) \(assetInfo?.symbol ?? "")"
         let textColor: SoramitsuColor = transaction.transferType == .incoming ? .statusSuccess : .fgPrimary
@@ -207,19 +201,13 @@ extension ActivityDetailsViewModel {
         
         return HeaderActivityDetailsItem(typeText: transaction.transferType.detailsTitle,
                                          typeTransactionImage: transaction.transferType.image,
-                                         firstAssetImageViewModel: symbolViewModel,
+                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                          firstBalanceText: firstBalanceText.attributedString,
                                          details: details)
     }
     
     func claimRewardTransactionViewModel(from transaction: ClaimReward) -> HeaderActivityDetailsItem {
         let assetInfo = assetManager.assetInfo(for: transaction.rewardTokenId)
-        
-        var symbolViewModel: WalletImageViewModelProtocol?
-        
-        if let iconString = assetInfo?.icon {
-            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
-        }
         
         let firstBalance = NumberFormatter.historyAmount.stringFromDecimal(transaction.amount.decimalValue) ?? ""
         let text = "+ \(firstBalance) \(assetInfo?.symbol ?? "")"
@@ -233,25 +221,14 @@ extension ActivityDetailsViewModel {
         
         return HeaderActivityDetailsItem(typeText: R.string.localizable.demeterClaimedReward(preferredLanguages: .currentLocale),
                                          typeTransactionImage: R.image.wallet.claimStar(),
-                                         firstAssetImageViewModel: symbolViewModel,
+                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                          firstBalanceText: firstBalanceText.attributedString,
                                          details: details)
     }
     
     func farmLiquidityTransactionViewModel(from transaction: FarmLiquidity) -> HeaderActivityDetailsItem {
         let baseAssetInfo = assetManager.assetInfo(for: transaction.firstTokenId)
-        var baseSymbolViewModel: WalletImageViewModelProtocol?
-        
-        if let iconString = baseAssetInfo?.icon {
-            baseSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
-        }
-        
         let poolAssetInfo = assetManager.assetInfo(for: transaction.secondTokenId)
-        var poolSymbolViewModel: WalletImageViewModelProtocol?
-        
-        if let iconString = poolAssetInfo?.icon {
-            poolSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
-        }
         
         let firstBalance = NumberFormatter.historyAmount.stringFromDecimal(transaction.amount.decimalValue) ?? ""
         let text = "\(firstBalance) \(baseAssetInfo?.symbol ?? "")-\(poolAssetInfo?.symbol ?? "")"
@@ -265,8 +242,8 @@ extension ActivityDetailsViewModel {
         
         return HeaderActivityDetailsItem(typeText: transaction.type.subtitle,
                                          typeTransactionImage: transaction.type.image,
-                                         firstAssetImageViewModel: baseSymbolViewModel,
-                                         secondAssetImageViewModel: poolSymbolViewModel,
+                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: baseAssetInfo?.icon ?? ""),
+                                         secondAssetImageViewModel: RemoteSerializer.shared.image(with: poolAssetInfo?.icon ?? ""),
                                          firstBalanceText: firstBalanceText.attributedString,
                                          details: details)
     }
@@ -274,17 +251,7 @@ extension ActivityDetailsViewModel {
     func headerSwapTransactionViewModel(from swap: Swap) -> HeaderActivityDetailsItem {
         let fromAssetInfo = assetManager.assetInfo(for: swap.fromTokenId)
         let toAssetInfo = assetManager.assetInfo(for: swap.toTokenId)
-        
-        var fromSymbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = fromAssetInfo?.icon {
-            fromSymbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
-        
-        var toSymbolViewModel: WalletImageViewModelProtocol?
-        if let toIconString = toAssetInfo?.icon {
-            toSymbolViewModel = WalletSvgImageViewModel(svgString: toIconString)
-        }
-        
+
         let fromBalance = NumberFormatter.historyAmount.stringFromDecimal(swap.fromAmount.decimalValue) ?? ""
         let fromBalanceText = SoramitsuTextItem(text: "\(fromBalance) \(fromAssetInfo?.symbol ?? "")",
                                                 fontData: FontType.headline3,
@@ -308,8 +275,8 @@ extension ActivityDetailsViewModel {
         return HeaderActivityDetailsItem(typeText: R.string.localizable.polkaswapSwapped(preferredLanguages: .currentLocale),
                                          typeTransactionImage: R.image.wallet.swap(),
                                          actionTransactionImage: R.image.wallet.arrow(),
-                                         firstAssetImageViewModel: fromSymbolViewModel,
-                                         secondAssetImageViewModel: toSymbolViewModel,
+                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
+                                         secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
                                          firstBalanceText: fromBalanceText.attributedString,
                                          secondBalanceText: toBalanceText.attributedString,
                                          details: details)
@@ -318,16 +285,6 @@ extension ActivityDetailsViewModel {
     func headerLiquidityTransactionViewModel(from liquidity: Liquidity) -> HeaderActivityDetailsItem {
         let fromAssetInfo = assetManager.assetInfo(for: liquidity.firstTokenId)
         let toAssetInfo = assetManager.assetInfo(for: liquidity.secondTokenId)
-        
-        var fromSymbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = fromAssetInfo?.icon {
-            fromSymbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
-        
-        var toSymbolViewModel: WalletImageViewModelProtocol?
-        if let toIconString = toAssetInfo?.icon {
-            toSymbolViewModel = WalletSvgImageViewModel(svgString: toIconString)
-        }
         
         let textColor: SoramitsuColor = liquidity.type == .withdraw ? .statusSuccess : .fgPrimary
         let fromBalance = NumberFormatter.historyAmount.stringFromDecimal(liquidity.secondAmount.decimalValue) ?? ""
@@ -355,8 +312,8 @@ extension ActivityDetailsViewModel {
         return HeaderActivityDetailsItem(typeText: title,
                                          typeTransactionImage: liquidity.type.image,
                                          actionTransactionImage: R.image.wallet.detailsPlus(),
-                                         firstAssetImageViewModel: toSymbolViewModel,
-                                         secondAssetImageViewModel: fromSymbolViewModel,
+                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
+                                         secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
                                          firstBalanceText: toBalanceText.attributedString,
                                          secondBalanceText: fromBalanceText.attributedString,
                                          details: details)
@@ -364,11 +321,6 @@ extension ActivityDetailsViewModel {
     
     func headerBondTransactionViewModel(from bond: ReferralBondTransaction) -> HeaderActivityDetailsItem {
         let assetInfo = assetManager.assetInfo(for: bond.tokenId)
-        
-        var symbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = assetInfo?.icon {
-            symbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
         
         let textColor: SoramitsuColor = bond.type == .unbond ? .statusSuccess : .fgPrimary
         let balance = NumberFormatter.historyAmount.stringFromDecimal(bond.amount.decimalValue) ?? ""
@@ -384,18 +336,13 @@ extension ActivityDetailsViewModel {
         
         return HeaderActivityDetailsItem(typeText: bond.type.detailsTitle,
                                          typeTransactionImage: bond.type.image,
-                                         firstAssetImageViewModel: symbolViewModel,
+                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                          firstBalanceText: balanceText.attributedString,
                                          details: details)
     }
     
     func headerSetReferrerTransactionViewModel(from setReferrer: SetReferrerTransaction) -> HeaderActivityDetailsItem {
         let assetInfo = assetManager.assetInfo(for: setReferrer.tokenId)
-        
-        var symbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = assetInfo?.icon {
-            symbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
         
         let balance = NumberFormatter.historyAmount.stringFromDecimal(setReferrer.base.fee.decimalValue) ?? ""
         let xorText = "\(balance) \(assetInfo?.symbol ?? "")"
@@ -413,7 +360,7 @@ extension ActivityDetailsViewModel {
         
         return HeaderActivityDetailsItem(typeText: title,
                                          typeTransactionImage: R.image.wallet.send(),
-                                         firstAssetImageViewModel: symbolViewModel,
+                                         firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                          firstBalanceText: balanceText.attributedString,
                                          details: details)
     }
