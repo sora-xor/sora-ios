@@ -145,12 +145,6 @@ private extension ActivityViewModelFactory {
         let asset = walletAssets.first(where: { $0.identifier == transaction.tokenId }) ?? walletAssets.first { $0.isFeeAsset }
         let assetInfo = assetManager.assetInfo(for: asset?.identifier ?? "")
         
-        var symbolViewModel: WalletImageViewModelProtocol?
-        
-        if let iconString = assetInfo?.icon {
-            symbolViewModel = WalletSvgImageViewModel(svgString: iconString)
-        }
-        
         let isRTL = LocalizationManager.shared.isRightToLeft
         let firstBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(transaction.amount.decimalValue) ?? ""
         let text = transaction.transferType == .incoming ? "+ \(firstBalance) \(assetInfo?.symbol ?? "")" : "\(firstBalance) \(assetInfo?.symbol ?? "")"
@@ -165,7 +159,7 @@ private extension ActivityViewModelFactory {
                                         title: transaction.transferType.title,
                                         subtitle: transaction.peer,
                                         typeTransactionImage: transaction.transferType.image,
-                                        firstAssetImageViewModel: symbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                         firstBalanceText: firstBalanceText,
                                         fiatText: "",
                                         status: transaction.base.status)
@@ -186,16 +180,6 @@ private extension ActivityViewModelFactory {
         
         let fromAssetInfo = assetManager.assetInfo(for: fromAsset?.identifier ?? "")
         let toAssetInfo = assetManager.assetInfo(for: toAsset?.identifier ?? "")
-        
-        var fromSymbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = fromAssetInfo?.icon {
-            fromSymbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
-        
-        var toSymbolViewModel: WalletImageViewModelProtocol?
-        if let toIconString = toAssetInfo?.icon {
-            toSymbolViewModel = WalletSvgImageViewModel(svgString: toIconString)
-        }
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let fromBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(swap.fromAmount.decimalValue) ?? ""
@@ -222,8 +206,8 @@ private extension ActivityViewModelFactory {
                                         title: R.string.localizable.polkaswapSwapped(preferredLanguages: .currentLocale),
                                         subtitle: subtitle,
                                         typeTransactionImage: R.image.wallet.swap(),
-                                        firstAssetImageViewModel: fromSymbolViewModel,
-                                        secondAssetImageViewModel: toSymbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
+                                        secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: swap.base.status,
@@ -245,16 +229,6 @@ private extension ActivityViewModelFactory {
         
         let fromAssetInfo = assetManager.assetInfo(for: fromAsset?.identifier ?? "")
         let toAssetInfo = assetManager.assetInfo(for: toAsset?.identifier ?? "")
-        
-        var fromSymbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = fromAssetInfo?.icon {
-            fromSymbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
-        
-        var toSymbolViewModel: WalletImageViewModelProtocol?
-        if let toIconString = toAssetInfo?.icon {
-            toSymbolViewModel = WalletSvgImageViewModel(svgString: toIconString)
-        }
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let textColor: SoramitsuColor = liquidity.type == .add ? .fgPrimary : .statusSuccess
@@ -288,8 +262,8 @@ private extension ActivityViewModelFactory {
                                         title: title,
                                         subtitle: subtitle,
                                         typeTransactionImage: liquidity.type.image,
-                                        firstAssetImageViewModel: toSymbolViewModel,
-                                        secondAssetImageViewModel: fromSymbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: fromAssetInfo?.icon ?? ""),
+                                        secondAssetImageViewModel: RemoteSerializer.shared.image(with: toAssetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: liquidity.base.status,
@@ -298,11 +272,6 @@ private extension ActivityViewModelFactory {
     
     func bondTransactionViewModel(from bond: ReferralBondTransaction) -> ActivityContentViewModel {
         let assetInfo = assetManager.assetInfo(for: bond.tokenId)
-        
-        var symbolViewModel: WalletImageViewModelProtocol?
-        if let fromIconString = assetInfo?.icon {
-            symbolViewModel = WalletSvgImageViewModel(svgString: fromIconString)
-        }
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let textColor: SoramitsuColor = bond.type == .unbond ? .statusSuccess : .fgPrimary
@@ -318,7 +287,7 @@ private extension ActivityViewModelFactory {
                                         title: bond.type.detailsTitle,
                                         subtitle: SelectedWalletSettings.shared.currentAccount?.address ?? "",
                                         typeTransactionImage: bond.type.image,
-                                        firstAssetImageViewModel: symbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: bond.base.status,
@@ -345,7 +314,7 @@ private extension ActivityViewModelFactory {
                                         title: title,
                                         subtitle: subtitle,
                                         typeTransactionImage: R.image.wallet.send(),
-                                        firstAssetImageViewModel: symbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                         firstBalanceText: balanceText,
                                         fiatText: "",
                                         status: setReferrer.base.status,
@@ -375,7 +344,7 @@ private extension ActivityViewModelFactory {
                                         title: R.string.localizable.demeterClaimedReward(preferredLanguages: .currentLocale),
                                         subtitle: R.string.localizable.exploreDemeterTitle(preferredLanguages: .currentLocale),
                                         typeTransactionImage: R.image.wallet.claimStar(),
-                                        firstAssetImageViewModel: symbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: assetInfo?.icon ?? ""),
                                         firstBalanceText: firstBalanceText,
                                         fiatText: "",
                                         status: transaction.base.status)
@@ -385,20 +354,8 @@ private extension ActivityViewModelFactory {
         let baseAsset = walletAssets.first(where: { $0.identifier == transaction.firstTokenId }) ?? walletAssets.first { $0.isFeeAsset }
         let baseAssetInfo = assetManager.assetInfo(for: baseAsset?.identifier ?? "")
         
-        var baseSymbolViewModel: WalletImageViewModelProtocol?
-        
-        if let iconString = baseAssetInfo?.icon {
-            baseSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
-        }
-        
         let poolAsset = walletAssets.first(where: { $0.identifier == transaction.secondTokenId }) ?? walletAssets.first { $0.isFeeAsset }
         let poolAssetInfo = assetManager.assetInfo(for: poolAsset?.identifier ?? "")
-        
-        var poolSymbolViewModel: WalletImageViewModelProtocol?
-        
-        if let iconString = poolAssetInfo?.icon {
-            poolSymbolViewModel = WalletSvgImageViewModel(svgString: iconString)
-        }
         
         let isRTL = LocalizationManager.shared.isRightToLeft
         let firstBalance = NumberFormatter.cryptoAmounts.stringFromDecimal(transaction.amount.decimalValue) ?? ""
@@ -413,8 +370,8 @@ private extension ActivityViewModelFactory {
                                         title: transaction.type.subtitle,
                                         subtitle: R.string.localizable.exploreDemeterTitle(preferredLanguages: .currentLocale),
                                         typeTransactionImage: transaction.type.image,
-                                        firstAssetImageViewModel: baseSymbolViewModel,
-                                        secondAssetImageViewModel: poolSymbolViewModel,
+                                        firstAssetImageViewModel: RemoteSerializer.shared.image(with: baseAssetInfo?.icon ?? ""),
+                                        secondAssetImageViewModel: RemoteSerializer.shared.image(with: poolAssetInfo?.icon ?? ""),
                                         firstBalanceText: firstBalanceText,
                                         fiatText: "",
                                         status: transaction.base.status,
