@@ -136,6 +136,13 @@ extension StorageKeyFactoryProtocol {
         try createStorageKey(moduleName: codingPath.moduleName, storageName: codingPath.itemName)
     }
     
+    func xykPoolKeyReserves(asset: Data) throws -> Data {
+        try createStorageKey(moduleName: "PoolXYK",
+                             storageName: "Reserves",
+                             key: asset,
+                             hasher: .blake128Concat)
+    }
+    
     func xykPoolKey(asset1: Data, asset2: Data) throws -> Data {
         try createStorageKey(moduleName: "PoolXYK",
                              storageName: "Reserves",

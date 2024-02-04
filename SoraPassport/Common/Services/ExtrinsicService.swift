@@ -160,7 +160,7 @@ final class ExtrinsicService {
                                                          using: codingFactory.createEncoder(),
                                                          metadata: codingFactory.metadata)
             let extrinsic = try builder.buildExtrinsic(metadata: codingFactory.metadata)
-            let extrinsicData = try builder.build(encodingBy: codingFactory.createEncoder(), metadata: codingFactory.metadata)
+            let extrinsicData = try builder.build(encodingBy: codingFactory.createEncoder(), extrinsic: extrinsic)
             return ExtrinsicInfo(data: extrinsicData, object: extrinsic)
         }
     }

@@ -59,6 +59,7 @@ enum RPCMethod {
     static let availableMarketAlgorithms    = "liquidityProxy_listEnabledSourcesForPath"
     static let recalculateSwapValues        = "liquidityProxy_quote"
     static let swapExtrinsic                = "liquidityProxy_swap"
+    static let dexInfos                     = "dexManager_dexInfos"
     
     static let accountPools                 = "PoolXYK_AccountPools"
     static let isPairEnabled                = "tradingPair_isPairEnabled"

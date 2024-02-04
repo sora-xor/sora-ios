@@ -12,7 +12,6 @@ abstract_target 'SoraPassportAll' do
   pod 'FireMock', :inhibit_warnings => true
   pod 'SoraDocuments'
   pod 'IrohaCrypto', '~> 0.9.0'
-  pod 'SoraKeystore'
   pod 'SoraUI'
   pod 'RobinHood'
   pod 'Kingfisher', :git => 'https://github.com/onevcat/Kingfisher', :branch => 'version6-xcode13', :inhibit_warnings => true
@@ -46,7 +45,6 @@ abstract_target 'SoraPassportAll' do
       pod 'SoraUI'
       pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :branch => 'feature/without-origin'
       pod 'SoraDocuments'
-      pod 'SoraKeystore'
       pod 'RobinHood'
       pod 'IrohaCrypto', '~> 0.9.0'
       pod 'FearlessUtils', :git => 'https://github.com/soramitsu/fearless-utils-iOS.git', :branch => 'feature/fearless-utils-for-sora'

@@ -257,6 +257,12 @@ final class SupplyLiquidityViewModel {
         self.assetsProvider = assetsProvider
         self.warningViewModelFactory = warningViewModelFactory
         self.marketCapService = marketCapService
+        self.poolsService?.isPairPresentedInNetwork(baseAssetId: firstAssetId,
+                                               targetAssetId: secondAssetId,
+                                               accountId: "",
+                                               completion: { [weak self] isPresented in
+            self?.isPairPresented = isPresented
+        })
     }
 }
 
@@ -498,13 +504,7 @@ extension SupplyLiquidityViewModel {
         let group = DispatchGroup()
 
         group.enter()
-        poolsService?.isPairPresentedInNetwork(baseAssetId: firstAssetId,
-                                               targetAssetId: secondAssetId,
-                                               accountId: "",
-                                               completion: { [weak self] isPresented in
-            self?.isPairPresented = isPresented
-            group.leave()
-        })
+
         
         group.enter()
         poolsService?.isPairEnabled(baseAssetId: firstAssetId,

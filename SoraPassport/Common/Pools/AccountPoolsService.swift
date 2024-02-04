@@ -32,6 +32,8 @@ import CommonWallet
 import SSFUtils
 import RobinHood
 import sorawallet
+import IrohaCrypto
+import Combine
 
 protocol PoolsServiceInputProtocol: AnyObject {
     func loadAccountPools()
@@ -79,7 +81,8 @@ final class AccountPoolsService {
     private let poolRepository: AnyDataProviderRepository<PoolInfo>
     private var currentPools: [PoolInfo] = []
     private var polkaswapOperationFactory: PolkaswapNetworkOperationFactoryProtocol
-    private var task: Task<Void, Swift.Error>?
+    private let testService: PoolsService
+    private var cancellables: Set<AnyCancellable> = []
     
     var currentOrder: [String] {
         get {
@@ -106,6 +109,44 @@ final class AccountPoolsService {
         
         self.poolRepository = AnyDataProviderRepository(PoolRepositoryFactory().createRepository())
         
+        let storageRequestFactory = StorageRequestFactory(
+            remoteFactory: StorageKeyFactory(),
+            operationManager: OperationManagerFacade.sharedManager
+        )
+
+        let operationFactory = PolkaswapOperationFactoryImpl(
+            storageRequestFactory: storageRequestFactory,
+            chainRegistry: ChainRegistryFacade.sharedRegistry,
+            chainId: Chain.sora.genesisHash()
+        )
+
+        let worker = PolkaswapWorkerImpl(operationFactory: operationFactory)
+        
+        let apyWorker = PolkaswapAPYWorkerImpl()
+        let apyService = PolkaswapAPYServiceImpl(worker: apyWorker)
+        
+        let remoteService = RemotePolkaswapPoolsServiceImpl(
+            chain: Chain.sora, 
+            worker: worker,
+            apyService: apyService,
+            addressFactory: SS58AddressFactory()
+        )
+        
+        let localPairService = LocalLiquidityPairServiceImpl(
+            repository: AnyDataProviderRepository(PolkaswapPoolRepositoryFactory().createRepository()),
+            operationManager: OperationManager()
+        )
+        
+        let localAccountPoolService = LocalAccountPairServiceImpl(
+            repository: AnyDataProviderRepository(PolkaswapPoolRepositoryFactory().createRepository()),
+            operationManager: OperationManager()
+        )
+        
+        self.testService = PolkaswapService(
+            remoteService: remoteService,
+            localPairService: localPairService, 
+            localAccountPoolService: localAccountPoolService
+        )
         setup()
     }
     
@@ -291,6 +332,7 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
             let processingOperation: BaseOperation<PoolsChanges> = ClosureOperation { [weak self] in
                 guard let self = self else { return PoolsChanges(newOrUpdatedItems: [], removedItems: []) }
                 let localPools = try fetchOperation.extractNoCancellableResultData()
+                print("OLOLO localPools \(localPools)")
                 let remotePoolDetails = (try? fetchRemotePoolsOperation.targetOperation.extractResultData()) ?? []
                 let accountId = (self.networkFacade as? WalletNetworkFacade)?.accountSettings.accountId ?? ""
 
@@ -330,7 +372,7 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
                 
                 let newOrUpdatedItems = remotePoolInfo.filter { !localPools.contains($0) }
                 let removedItems = localPools.filter { !remotePoolInfo.contains($0) }
-                
+                print("OLOLO localPools removedItems =\(removedItems) newOrUpdatedItems=\(newOrUpdatedItems)")
                 return PoolsChanges(newOrUpdatedItems: newOrUpdatedItems, removedItems: removedItems)
             }
 
@@ -400,6 +442,32 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
         targetAssetId: String,
         accountId: String,
         completion: @escaping (Bool) -> Void) {
+            
+            Task {
+
+                guard let account = SelectedWalletSettings.shared.currentAccount else { return }
+                let accountId = (try? SS58AddressFactory().accountId(fromAddress: account.address, type: account.networkType)) ?? Data()
+                
+                self.testService.accountPoolsPublisher
+                    .receive(on: DispatchQueue.main)
+                    .sink { [weak self] pairs in
+                        print("OLOLO result \(pairs)")
+                    }
+                    .store(in: &cancellables)
+                
+                try await self.testService.subscribeAccountPools(accountId: accountId)
+                
+                
+//                self.testService.pairsPublisher
+//                    .receive(on: DispatchQueue.main)
+//                    .sink { [weak self] pairs in
+//                        print("OLOLO result \(pairs)")
+//                    }
+//                    .store(in: &cancellables)
+//                
+//                try await self.testService.subscribeAllPairs()
+            }
+            
             if currentPools.first(
                 where: { $0.accountId == accountId &&
                     $0.baseAssetId == baseAssetId &&
@@ -418,8 +486,8 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
                     completion(reserves?.underlyingValue != nil)
                 }
             }
-
-            operationManager.enqueue(operations: [operation], in: .blockAfter)
+            
+            operationManager.enqueue(operations: [/*dexOperation,*/ operation], in: .blockAfter)
         }
 }
 

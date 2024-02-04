@@ -72,7 +72,6 @@ protocol PolkaswapNetworkOperationFactoryProtocol: AnyObject {
                                                   liquiditySources: [String],
                                                   filterMode: FilterMode) -> JSONRPCOperation<[JSONAny], SwapValues>
     
-    func accountPoolsApy(accountId: String) -> JSONRPCOperation<[String], [Data]>
     func accountPools(accountId: Data, baseAssetId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<AccountPools>>
     func poolProperties(baseAsset: String, targetAsset: String) throws -> JSONRPCListOperation<JSONScaleDecodable<PoolProperties>>
     func poolProvidersBalance() throws -> JSONRPCListOperation<JSONScaleDecodable<Balance>>
@@ -143,10 +142,6 @@ final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryPr
         return JSONRPCOperation<[JSONAny], SwapValues>(engine: engine,
                                                        method: RPCMethod.recalculateSwapValues,
                                                        parameters: paramsArray)
-    }
-
-    func accountPoolsApy(accountId: String) -> JSONRPCOperation<[String], [Data]> {
-        return JSONRPCOperation<[String], [Data]>(engine: engine, method: RPCMethod.accountPools, parameters: [accountId])
     }
 
     func accountPools(accountId: Data, baseAssetId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<AccountPools>> {

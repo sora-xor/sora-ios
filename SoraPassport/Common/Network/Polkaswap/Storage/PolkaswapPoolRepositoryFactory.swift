@@ -29,47 +29,26 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import Combine
-import BigInt
+import RobinHood
 
-final class ExplorePoolsViewModelService {
-    var apyService: APYServiceProtocol
-    let itemFactory: ExploreItemFactory
-    var poolsService: ExplorePoolsServiceInputProtocol
-    
-    @Published var viewModels: [ExplorePoolViewModel] = {
-        let serialNumbers = Array(1...20)
-        let shimmersAssetItems = serialNumbers.map {
-            ExplorePoolViewModel(serialNumber: String($0))
-        }
-        return shimmersAssetItems
-    }()
-    
-    init(
-        itemFactory: ExploreItemFactory,
-        poolsService: ExplorePoolsServiceInputProtocol,
-        apyService: APYServiceProtocol
-    ) {
-        self.poolsService = poolsService
-        self.itemFactory = itemFactory
-        self.apyService = apyService
+final class PolkaswapPoolRepositoryFactory {
+    let storageFacade: StorageFacadeProtocol
+
+    init(storageFacade: StorageFacadeProtocol = PoolsDataStorageFacade.shared) {
+        self.storageFacade = storageFacade
+    }
+
+    func createRepository(
+        for filter: NSPredicate? = nil,
+        sortDescriptors: [NSSortDescriptor] = []
+    ) -> CoreDataRepository<AccountPool, CDAccountPool> {
+        return storageFacade.createRepository()
     }
     
-    func setup() {
-        Task {
-            let fiatData = await FiatService.shared.getFiat()
-            let pools = (try? await poolsService.getPools(with: fiatData)) ?? []
-            
-            viewModels = pools.enumerated().compactMap { (index, pool) in
-                return itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1))
-            }
-            
-            async let viewModels = (pools.enumerated().concurrentMap { (index, pool) in
-                let apy = await self.apyService.getApy(for: pool.baseAssetId, targetAssetId: pool.targetAssetId)
-                return self.itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1), apy: apy)
-            })
-
-            self.viewModels = (try? await viewModels) ?? []
-        }
+    func createRepository(
+        for filter: NSPredicate? = nil,
+        sortDescriptors: [NSSortDescriptor] = []
+    ) -> CoreDataRepository<LiquidityPair, CDLiquidityPair> {
+        return storageFacade.createRepository()
     }
 }

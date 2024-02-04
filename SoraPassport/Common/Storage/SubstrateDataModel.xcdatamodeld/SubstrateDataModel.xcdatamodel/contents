@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="20086" systemVersion="21E230" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22222" systemVersion="23A344" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
     <entity name="CDAssetInfo" representedClassName="CDAssetInfo" syncable="YES" codeGenerationType="class">
         <attribute name="assetId" attributeType="String"/>
         <attribute name="icon" optional="YES" attributeType="String"/>
@@ -120,17 +120,4 @@
         <attribute name="timestamp" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="txIndex" optional="YES" attributeType="Integer 16" usesScalarValueType="NO"/>
     </entity>
-    <elements>
-        <element name="CDAssetInfo" positionX="160" positionY="192" width="128" height="134"/>
-        <element name="CDChain" positionX="160" positionY="192" width="128" height="374"/>
-        <element name="CDChainAsset" positionX="160" positionY="192" width="128" height="119"/>
-        <element name="CDChainNode" positionX="160" positionY="192" width="128" height="104"/>
-        <element name="CDChainStorageItem" positionX="160" positionY="192" width="128" height="59"/>
-        <element name="CDContactItem" positionX="160" positionY="192" width="128" height="104"/>
-        <element name="CDPhishingItem" positionX="160" positionY="192" width="128" height="74"/>
-        <element name="CDPoolInfo" positionX="180" positionY="360" width="128" height="134"/>
-        <element name="CDRuntimeMetadataItem" positionX="160" positionY="192" width="128" height="89"/>
-        <element name="CDSingleValue" positionX="160" positionY="192" width="128" height="59"/>
-        <element name="CDTransactionHistoryItem" positionX="160" positionY="192" width="128" height="239"/>
-    </elements>
 </model>

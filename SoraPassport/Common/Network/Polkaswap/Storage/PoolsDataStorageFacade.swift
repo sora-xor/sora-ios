@@ -28,48 +28,41 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import Foundation
-import Combine
-import BigInt
+import RobinHood
+import CoreData
 
-final class ExplorePoolsViewModelService {
-    var apyService: APYServiceProtocol
-    let itemFactory: ExploreItemFactory
-    var poolsService: ExplorePoolsServiceInputProtocol
-    
-    @Published var viewModels: [ExplorePoolViewModel] = {
-        let serialNumbers = Array(1...20)
-        let shimmersAssetItems = serialNumbers.map {
-            ExplorePoolViewModel(serialNumber: String($0))
-        }
-        return shimmersAssetItems
-    }()
-    
-    init(
-        itemFactory: ExploreItemFactory,
-        poolsService: ExplorePoolsServiceInputProtocol,
-        apyService: APYServiceProtocol
-    ) {
-        self.poolsService = poolsService
-        self.itemFactory = itemFactory
-        self.apyService = apyService
+class PoolsDataStorageFacade: StorageFacadeProtocol {
+    static let shared = PoolsDataStorageFacade()
+
+    let databaseService: CoreDataServiceProtocol
+
+    private init() {
+        let modelName = "PoolsDataModel"
+        let modelURL = Bundle.main.url(forResource: modelName, withExtension: "momd")
+        let databaseName = "\(modelName).sqlite"
+
+        let baseURL = FileManager.default.urls(for: .documentDirectory,
+                                               in: .userDomainMask).first?.appendingPathComponent("CoreData")
+
+        let persistentSettings = CoreDataPersistentSettings(databaseDirectory: baseURL!,
+                                                            databaseName: databaseName,
+                                                            incompatibleModelStrategy: .removeStore)
+
+        let configuration = CoreDataServiceConfiguration(modelURL: modelURL!,
+                                                         storageType: .persistent(settings: persistentSettings))
+
+        databaseService = CoreDataService(configuration: configuration)
     }
-    
-    func setup() {
-        Task {
-            let fiatData = await FiatService.shared.getFiat()
-            let pools = (try? await poolsService.getPools(with: fiatData)) ?? []
-            
-            viewModels = pools.enumerated().compactMap { (index, pool) in
-                return itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1))
-            }
-            
-            async let viewModels = (pools.enumerated().concurrentMap { (index, pool) in
-                let apy = await self.apyService.getApy(for: pool.baseAssetId, targetAssetId: pool.targetAssetId)
-                return self.itemFactory.createPoolsItem(with: pool, serialNumber: String(index + 1), apy: apy)
-            })
 
-            self.viewModels = (try? await viewModels) ?? []
-        }
+    func createRepository<T, U>(filter: NSPredicate?,
+                                sortDescriptors: [NSSortDescriptor],
+                                mapper: AnyCoreDataMapper<T, U>) -> CoreDataRepository<T, U>
+    where T: Identifiable, U: NSManagedObject {
+        return CoreDataRepository(
+            databaseService: databaseService,
+            mapper: mapper,
+            filter: filter,
+            sortDescriptors: sortDescriptors
+        )
     }
 }

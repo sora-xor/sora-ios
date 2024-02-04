@@ -26,6 +26,7 @@ public protocol ExtrinsicBuilderProtocol: AnyObject {
         encodingBy encoder: DynamicScaleEncoding,
         metadata: RuntimeMetadata
     ) throws -> Data
+    func build(encodingBy encoder: DynamicScaleEncoding, extrinsic: Extrinsic) throws -> Data
 }
 
 public enum ExtrinsicBuilderError: Error {
@@ -264,6 +265,17 @@ extension ExtrinsicBuilder: ExtrinsicBuilderProtocol {
         Log.enable(kind: "DynamicScale")
         let extrinsic = Extrinsic(call: call, signature: signature)
 
+        try encoder.append(extrinsic, ofType: GenericType.extrinsic.name)
+        
+        let encoded = try encoder.encode()
+        Log.write("DynamicScale", message: "Extrinsic encoded: \(encoded.toHex(includePrefix: true))")
+        Log.disable(kind: "DynamicScale")
+        
+        return encoded
+    }
+    
+    public func build(encodingBy encoder: DynamicScaleEncoding, extrinsic: Extrinsic) throws -> Data {
+        Log.enable(kind: "DynamicScale")
         try encoder.append(extrinsic, ofType: GenericType.extrinsic.name)
         
         let encoded = try encoder.encode()

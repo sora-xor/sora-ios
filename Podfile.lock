@@ -331,7 +331,6 @@ DEPENDENCIES:
   - SnapKit
   - SoraDocuments
   - SoraFoundation
-  - SoraKeystore
   - SoraUI
   - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.11`)
   - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec`)
@@ -516,6 +515,6 @@ SPEC CHECKSUMS:
   VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: ae21202346e2c1186d2b0018041a3bea0c7440a3
+PODFILE CHECKSUM: f4e24ad99ece9b76216d2db002d299d130969132
 
 COCOAPODS: 1.12.1
