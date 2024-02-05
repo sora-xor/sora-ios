@@ -1309,9 +1309,9 @@
 		B73BF7D58DBA79CEACC46515 /* AccountOptionsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB304504F402D4647C4D83 /* AccountOptionsInteractor.swift */; };
 		B77906262B282888003A2566 /* SupplyPoolItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77906252B282888003A2566 /* SupplyPoolItem.swift */; };
 		B77B9D8A2AEA765C00D39AE0 /* AccountBackuped.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77B9D892AEA765C00D39AE0 /* AccountBackuped.swift */; };
+		B786ACBA2B5A89EB002F9DCD /* ScrollableContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B786ACB92B5A89EB002F9DCD /* ScrollableContainerView.swift */; };
 		B78B31B12B47C8BC005444D1 /* ActivitySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78B31B02B47C8BC005444D1 /* ActivitySection.swift */; };
 		B78B31B32B47CC52005444D1 /* ActivityViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78B31B22B47CC52005444D1 /* ActivityViewModelProtocol.swift */; };
-		B786ACBA2B5A89EB002F9DCD /* ScrollableContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B786ACB92B5A89EB002F9DCD /* ScrollableContainerView.swift */; };
 		B78D62382B08DF8900450DA9 /* OnboardingRootWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */; };
 		B78D623A2B0A24C900450DA9 /* SetupNameImportRootPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D62392B0A24C900450DA9 /* SetupNameImportRootPresenter.swift */; };
 		B78D623C2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D623B2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift */; };
@@ -2754,9 +2754,9 @@
 		B73A213F2B32C5750091DDE8 /* ClaimRewardsItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimRewardsItemFactory.swift; sourceTree = "<group>"; };
 		B77906252B282888003A2566 /* SupplyPoolItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupplyPoolItem.swift; sourceTree = "<group>"; };
 		B77B9D892AEA765C00D39AE0 /* AccountBackuped.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountBackuped.swift; sourceTree = "<group>"; };
+		B786ACB92B5A89EB002F9DCD /* ScrollableContainerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScrollableContainerView.swift; sourceTree = "<group>"; };
 		B78B31B02B47C8BC005444D1 /* ActivitySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitySection.swift; sourceTree = "<group>"; };
 		B78B31B22B47CC52005444D1 /* ActivityViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityViewModelProtocol.swift; sourceTree = "<group>"; };
-		B786ACB92B5A89EB002F9DCD /* ScrollableContainerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScrollableContainerView.swift; sourceTree = "<group>"; };
 		B78D62372B08DF8900450DA9 /* OnboardingRootWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRootWireframe.swift; sourceTree = "<group>"; };
 		B78D62392B0A24C900450DA9 /* SetupNameImportRootPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupNameImportRootPresenter.swift; sourceTree = "<group>"; };
 		B78D623B2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupNameCreateAccountPresenter.swift; sourceTree = "<group>"; };
@@ -6841,7 +6841,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKeyTest=$SORA_CARD_API_KEY_TEST,soraCardAPIKeyProd=$SORA_CARD_API_KEY_PROD,soraCardDomainTest=$SORA_CARD_DOMAIN_TEST,soraCardDomainProd=$SORA_CARD_DOMAIN_PROD,soraCardKYCEndpointUrlTest=$SORA_CARD_KYC_ENDPOINT_URL_TEST,,soraCardKYCEndpointUrlProd=$SORA_CARD_KYC_ENDPOINT_URL_PROD,soraCardKycUsernameTest=$SORA_CARD_KYC_USERNAME_TEST,soraCardKycUsernameProd=$SORA_CARD_KYC_USERNAME_PROD,soraCardKycPasswordTest=$SORA_CARD_KYC_PASSWORD_TEST,soraCardKycPasswordProd=$SORA_CARD_KYC_PASSWORD_PROD,soraCardBackendTestUrl=$SORA_BACKEND_DEBUG,soraCardBackendProdUrl=$SORA_BACKEND_RELEASE,soraCardXOneEndpointTest=$X1_ENDPOINT_URL_DEBUG,soraCardXOneEndpointProd=$X1_ENDPOINT_URL_RELEASE,soraCardXOneIdTest=$X1_WIDGET_ID_DEBUG,soraCardXOneIdProd=$X1_WIDGET_ID_RELEASE,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_GOOGLE_URL_SCHEME_DEV,soraGoogleToken=$SORA_GOOGLE_TOKEN_DEV\n#add params to the xcconfig files\nvariableNames=(\"SORA_GOOGLE_TOKEN_DEV\" \"SORA_GOOGLE_URL_SCHEME_DEV\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n        # Remove lines without values\n        sed -i '' -e \"/^$variableName = $/d\" \"$file\"\n    done\ndone\n\nif [ -n \"$JENKINS_URL\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $SORA_GOOGLE_URL_SCHEME_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\n    /usr/libexec/PlistBuddy -c \"Set :GIDClientID $SORA_GOOGLE_TOKEN_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\nfi\n\n";
+			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKeyTest=$SORA_CARD_API_KEY_TEST,soraCardAPIKeyProd=$SORA_CARD_API_KEY_PROD,soraCardAppPlatformIdTest=$SORA_CARD_APP_PLATFORM_ID_TEST,soraCardAppPlatformIdProd=$SORA_CARD_APP_PLATFORM_ID_PROD,soraCardRecaptchaKeyTest=$SORA_CARD_RECAPTCHA_KEY_TEST,soraCardRecaptchaKeyProd=$SORA_CARD_RECAPTCHA_KEY_PROD,soraCardDomainTest=$SORA_CARD_DOMAIN_TEST,soraCardDomainProd=$SORA_CARD_DOMAIN_PROD,soraCardKYCEndpointUrlTest=$SORA_CARD_KYC_ENDPOINT_URL_TEST,,soraCardKYCEndpointUrlProd=$SORA_CARD_KYC_ENDPOINT_URL_PROD,soraCardKycUsernameTest=$SORA_CARD_KYC_USERNAME_TEST,soraCardKycUsernameProd=$SORA_CARD_KYC_USERNAME_PROD,soraCardKycPasswordTest=$SORA_CARD_KYC_PASSWORD_TEST,soraCardKycPasswordProd=$SORA_CARD_KYC_PASSWORD_PROD,soraCardBackendTestUrl=$SORA_BACKEND_DEBUG,soraCardBackendProdUrl=$SORA_BACKEND_RELEASE,soraCardXOneEndpointTest=$X1_ENDPOINT_URL_DEBUG,soraCardXOneEndpointProd=$X1_ENDPOINT_URL_RELEASE,soraCardXOneIdTest=$X1_WIDGET_ID_DEBUG,soraCardXOneIdProd=$X1_WIDGET_ID_RELEASE,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_GOOGLE_URL_SCHEME_DEV,soraGoogleToken=$SORA_GOOGLE_TOKEN_DEV\n#add params to the xcconfig files\nvariableNames=(\"SORA_GOOGLE_TOKEN_DEV\" \"SORA_GOOGLE_URL_SCHEME_DEV\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n        # Remove lines without values\n        sed -i '' -e \"/^$variableName = $/d\" \"$file\"\n    done\ndone\n\nif [ -n \"$JENKINS_URL\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $SORA_GOOGLE_URL_SCHEME_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\n    /usr/libexec/PlistBuddy -c \"Set :GIDClientID $SORA_GOOGLE_TOKEN_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\nfi\n\n";
 		};
 		6075338863283E7E14AAD876 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -6872,12 +6872,14 @@
 				"${BUILT_PRODUCTS_DIR}/GoogleSignIn/GoogleSignIn.framework",
 				"${BUILT_PRODUCTS_DIR}/GoogleUtilities/GoogleUtilities.framework",
 				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
+				"${BUILT_PRODUCTS_DIR}/JOSESwift/JOSESwift.framework",
 				"${BUILT_PRODUCTS_DIR}/Kingfisher/Kingfisher.framework",
 				"${BUILT_PRODUCTS_DIR}/Nantes/Nantes.framework",
 				"${BUILT_PRODUCTS_DIR}/PromisesObjC/FBLPromises.framework",
 				"${BUILT_PRODUCTS_DIR}/PromisesSwift/Promises.framework",
 				"${BUILT_PRODUCTS_DIR}/R.swift.Library/Rswift.framework",
 				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
+				"${BUILT_PRODUCTS_DIR}/RecaptchaInterop/RecaptchaInterop.framework",
 				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
 				"${BUILT_PRODUCTS_DIR}/SCard/SCard.framework",
 				"${BUILT_PRODUCTS_DIR}/SSFModels/SSFModels.framework",
@@ -6893,16 +6895,14 @@
 				"${BUILT_PRODUCTS_DIR}/SwiftyBeaver/SwiftyBeaver.framework",
 				"${BUILT_PRODUCTS_DIR}/Then/Then.framework",
 				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
-				"${PODS_ROOT}/eIDRTC/WebRTC/WebRTC.framework",
 				"${BUILT_PRODUCTS_DIR}/lottie-ios/Lottie.framework",
 				"${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework",
 				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
 				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
 				"${BUILT_PRODUCTS_DIR}/xxHash-Swift/xxHash_Swift.framework",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/IdensicMobileSDK/IdensicMobileSDK.framework/IdensicMobileSDK",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsKycSDK/PayWingsKycSDK.framework/PayWingsKycSDK",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOAuthSDK/PayWingsOAuthSDK.framework/PayWingsOAuthSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOnboardingKYC/PayWingsOnboardingKYC.framework/PayWingsOnboardingKYC",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/VideoID/VideoID.framework/VideoID",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/sorawallet/sorawallet.framework/sorawallet",
 			);
 			name = "[CP] Embed Pods Frameworks";
@@ -6929,12 +6929,14 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleSignIn.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleUtilities.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/JOSESwift.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Kingfisher.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Nantes.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBLPromises.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Promises.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Rswift.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RecaptchaInterop.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SCard.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SSFModels.framework",
@@ -6950,16 +6952,14 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SwiftyBeaver.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Then.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/WebRTC.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Lottie.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/nanopb.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/xxHash_Swift.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IdensicMobileSDK.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsKycSDK.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOAuthSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOnboardingKYC.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/VideoID.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/sorawallet.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -7118,12 +7118,14 @@
 				"${BUILT_PRODUCTS_DIR}/GoogleSignIn/GoogleSignIn.framework",
 				"${BUILT_PRODUCTS_DIR}/GoogleUtilities/GoogleUtilities.framework",
 				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
+				"${BUILT_PRODUCTS_DIR}/JOSESwift/JOSESwift.framework",
 				"${BUILT_PRODUCTS_DIR}/Kingfisher/Kingfisher.framework",
 				"${BUILT_PRODUCTS_DIR}/Nantes/Nantes.framework",
 				"${BUILT_PRODUCTS_DIR}/PromisesObjC/FBLPromises.framework",
 				"${BUILT_PRODUCTS_DIR}/PromisesSwift/Promises.framework",
 				"${BUILT_PRODUCTS_DIR}/R.swift.Library/Rswift.framework",
 				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
+				"${BUILT_PRODUCTS_DIR}/RecaptchaInterop/RecaptchaInterop.framework",
 				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
 				"${BUILT_PRODUCTS_DIR}/SCard/SCard.framework",
 				"${BUILT_PRODUCTS_DIR}/SSFModels/SSFModels.framework",
@@ -7139,16 +7141,14 @@
 				"${BUILT_PRODUCTS_DIR}/SwiftyBeaver/SwiftyBeaver.framework",
 				"${BUILT_PRODUCTS_DIR}/Then/Then.framework",
 				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
-				"${PODS_ROOT}/eIDRTC/WebRTC/WebRTC.framework",
 				"${BUILT_PRODUCTS_DIR}/lottie-ios/Lottie.framework",
 				"${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework",
 				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
 				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
 				"${BUILT_PRODUCTS_DIR}/xxHash-Swift/xxHash_Swift.framework",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/IdensicMobileSDK/IdensicMobileSDK.framework/IdensicMobileSDK",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsKycSDK/PayWingsKycSDK.framework/PayWingsKycSDK",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOAuthSDK/PayWingsOAuthSDK.framework/PayWingsOAuthSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOnboardingKYC/PayWingsOnboardingKYC.framework/PayWingsOnboardingKYC",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/VideoID/VideoID.framework/VideoID",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/sorawallet/sorawallet.framework/sorawallet",
 			);
 			name = "[CP] Embed Pods Frameworks";
@@ -7175,12 +7175,14 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleSignIn.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleUtilities.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/JOSESwift.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Kingfisher.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Nantes.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBLPromises.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Promises.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Rswift.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RecaptchaInterop.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SCard.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SSFModels.framework",
@@ -7196,16 +7198,14 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SwiftyBeaver.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Then.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/WebRTC.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Lottie.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/nanopb.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/xxHash_Swift.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IdensicMobileSDK.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsKycSDK.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOAuthSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOnboardingKYC.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/VideoID.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/sorawallet.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
