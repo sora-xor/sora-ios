@@ -14,7 +14,7 @@ extension RedesignWalletViewModel {
         startTotalBalanceStream()
 
         #if F_DEV
-        let config = SCard.Config.test // Sora Dev
+        let config = SCard.Config.dev // Sora Dev
         #elseif F_TEST
         let config = SCard.Config.test // Soralution
         #elseif F_STAGING
