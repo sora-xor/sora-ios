@@ -64,6 +64,22 @@ extension SCard.Config {
         themeMode: SoramitsuUI.shared.themeMode
     )
 
+    static let dev = SCard.Config(
+        appStoreUrl: "https://apps.apple.com/us/app/sora-wallet-polkaswap/id1457566711",
+        backendUrl: SoraCardCIKeys.backendTestUrl,
+        pwAuthDomain: SoraCardCIKeys.domainTest,
+        pwApiKey: SoraCardCIKeys.apiKeyTest,
+        appPlatformId: SoraCardCIKeys.appPlatformIdDev,
+        recaptchaKey: SoraCardCIKeys.recaptchaKeyDev,
+        kycUrl: SoraCardCIKeys.kycEndpointUrlTest,
+        kycUsername: SoraCardCIKeys.kycUsernameTest,
+        kycPassword: SoraCardCIKeys.kycPasswordTest,
+        xOneEndpoint: SoraCardCIKeys.xOneEndpointTest,
+        xOneId: SoraCardCIKeys.xOneIdTest,
+        environmentType: .test,
+        themeMode: SoramitsuUI.shared.themeMode
+    )
+
     // Dev
     static let local = SCard.Config(
         appStoreUrl: "https://apps.apple.com/us/app/sora-wallet-polkaswap/id1457566711",
