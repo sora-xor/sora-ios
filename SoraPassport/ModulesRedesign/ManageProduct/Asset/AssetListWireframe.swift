@@ -62,7 +62,7 @@ final class AssetListWireframe: AssetListWireframeProtocol {
         self.feeProvider = feeProvider
     }
     
-    func showAssetDetails(on viewController: UIViewController?,
+    @MainActor func showAssetDetails(on viewController: UIViewController?,
                           assetInfo: AssetInfo,
                           assetManager: AssetManagerProtocol,
                           fiatService: FiatServiceProtocol,

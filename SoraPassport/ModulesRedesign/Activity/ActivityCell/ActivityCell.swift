@@ -75,15 +75,8 @@ extension ActivityCell: CellProtocol {
         
         assetItem = item
 
-        item.model.firstAssetImageViewModel?.loadImage { [weak self] (icon, _) in
-            self?.historyView.sora.firstHistoryTransactionImage = icon
-            self?.historyView.firstCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
-        }
-        
-        item.model.secondAssetImageViewModel?.loadImage { [weak self] (icon, _) in
-            self?.historyView.sora.secondHistoryTransactionImage = icon
-            self?.historyView.secondCurrencyImageView.sora.loadingPlaceholder.type = icon == nil ? .shimmer : .none
-        }
+        historyView.sora.firstHistoryTransactionImage  = item.model.firstAssetImageViewModel
+        historyView.sora.secondHistoryTransactionImage = item.model.secondAssetImageViewModel
 
         historyView.sora.titleText = item.model.title
         historyView.titleLabel.sora.loadingPlaceholder.type = item.model.title.isEmpty ? .shimmer : .none

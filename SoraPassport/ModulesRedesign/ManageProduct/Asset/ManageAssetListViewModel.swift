@@ -186,8 +186,8 @@ extension ManageAssetListViewModel: ManageAssetListViewModelProtocol {
         let balanceData = assetsProvider?.getBalances(with: ids) ?? []
 
         Task { [weak self] in
-            self?.priceInfo = await self?.priceInfoService.getPriceInfo(for: ids)
             await self?.items(with: balanceData)
+            self?.priceInfo = await self?.priceInfoService.getPriceInfo(for: ids)
         }
 
         assetsProvider?.add(observer: self)

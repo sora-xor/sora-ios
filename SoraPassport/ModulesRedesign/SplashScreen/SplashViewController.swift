@@ -60,6 +60,7 @@ class SplashViewController: UIViewController, SplashViewProtocol {
     private var loaderView: UIActivityIndicatorView = {
         let loaderView = UIActivityIndicatorView(style: .large)
         loaderView.translatesAutoresizingMaskIntoConstraints = false
+        loaderView.color = SoramitsuUI.shared.theme.palette.color(.fgSecondary)
         return loaderView
     }()
     
@@ -74,7 +75,11 @@ class SplashViewController: UIViewController, SplashViewProtocol {
         view.backgroundColor = R.color.baseBackground()
         setupHierarchy()
         setupLayout()
-        animationView.play(fromProgress: 0, toProgress: 0.8, loopMode: .playOnce) { [weak self] _ in }
+        animationView.play(fromProgress: 0, toProgress: 0.8, loopMode: .playOnce) { [weak self] _ in
+            self?.presenter.showIsLoading(after: 5.0) { [weak self] in
+                self?.showLoader()
+            }
+        }
     }
     
     private func setupHierarchy() {

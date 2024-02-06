@@ -113,6 +113,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         self.walletService = walletService
     }
     
+    @MainActor
     func showAssetDetails(on viewController: UIViewController?, assetId: String) {
         guard let assetInfo = assetManager.assetInfo(for: assetId),
               let fiatService = fiatService,
@@ -145,6 +146,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         viewController?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showAccountPoolDetails(on viewController: UIViewController?, poolInfo: PoolInfo) {
         guard let fiatService = fiatService,
               let networkFacade = networkFacade,
@@ -175,6 +177,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         viewController?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showLiquidity(on controller: UIViewController?) {
         guard let fiatService = fiatService, let networkFacade = networkFacade else { return }
         
@@ -198,6 +201,7 @@ final class ExploreWireframe: ExploreWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showFarmDetails(on viewController: UIViewController?, farm: Farm) {
         let wireframe = FarmDetailsWireframe(feeProvider: feeProvider, walletService: walletService, assetManager: assetManager)
         let userFarmService = UserFarmsService()

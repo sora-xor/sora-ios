@@ -39,8 +39,8 @@ struct ActivityContentViewModel {
     let title: String
     let subtitle: String
     let typeTransactionImage: UIImage?
-    let firstAssetImageViewModel: WalletImageViewModelProtocol?
-    let secondAssetImageViewModel: WalletImageViewModelProtocol?
+    let firstAssetImageViewModel: UIImage?
+    let secondAssetImageViewModel: UIImage?
     let firstBalanceText: SoramitsuAttributedText
     let fiatText: String
     let status: TransactionBase.Status
@@ -50,8 +50,8 @@ struct ActivityContentViewModel {
          title: String = "",
          subtitle: String = "",
          typeTransactionImage: UIImage? = nil,
-         firstAssetImageViewModel: WalletImageViewModelProtocol? = nil,
-         secondAssetImageViewModel: WalletImageViewModelProtocol? = nil,
+         firstAssetImageViewModel: UIImage? = nil,
+         secondAssetImageViewModel: UIImage? = nil,
          firstBalanceText: SoramitsuAttributedText = SoramitsuTextItem(text: "",
                                                                        attributes: SoramitsuTextAttributes(fontData: FontType.textM,
                                                                                                            textColor: .accentPrimary)),

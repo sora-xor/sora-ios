@@ -43,6 +43,7 @@ final class AccountExportWireframe: AccountExportWireframeProtocol, Authorizatio
         self.localizationManager = localizationManager
     }
 
+    @MainActor
     func showJson(from view: AccountExportViewProtocol?, accounts: [AccountItem]) {
         let warning = AccountWarningViewController(warningType: .json)
         warning.localizationManager = self.localizationManager

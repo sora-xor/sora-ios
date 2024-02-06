@@ -108,6 +108,7 @@ protocol LiquidityWireframeProtocol: AlertPresentable {
 
 final class LiquidityWireframe: LiquidityWireframeProtocol {
 
+    @MainActor
     func showChoiсeBaseAsset(on controller: UIViewController?,
                              assetManager: AssetManagerProtocol,
                              fiatService: FiatServiceProtocol,
