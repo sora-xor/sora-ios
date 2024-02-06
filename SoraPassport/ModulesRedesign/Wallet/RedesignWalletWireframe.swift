@@ -160,6 +160,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         SCard.shared?.start(in: viewController)
     }
 
+    @MainActor
     func showFullListAssets(on controller: UIViewController?,
                             assetManager: AssetManagerProtocol,
                             fiatService: FiatServiceProtocol,
@@ -209,6 +210,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showFullListPools(on controller: UIViewController?,
                            poolsService: PoolsServiceInputProtocol,
                            networkFacade: WalletNetworkOperationFactoryProtocol,
@@ -248,6 +250,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showAssetDetails(on viewController: UIViewController?,
                           assetInfo: AssetInfo,
                           assetManager: AssetManagerProtocol,
@@ -294,6 +297,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         viewController?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showPoolDetails(on viewController: UIViewController?,
                          poolInfo: PoolInfo,
                          assetManager: AssetManagerProtocol,
@@ -331,6 +335,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         viewController?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showManageAccount(on view: UIViewController, completion: @escaping () -> Void) {
         guard let changeAccountView = ChangeAccountViewFactory.changeAccountViewController(with: completion) else {
             return
@@ -346,6 +351,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         view.present(containerView, animated: true)
     }
     
+    @MainActor
     func showGenerateQR(on controller: UIViewController?,
                         accountId: String,
                         address: String,
@@ -393,6 +399,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showSend(on controller: UIViewController?,
                   selectedTokenId: String?,
                   selectedAddress: String,
@@ -429,6 +436,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showReferralProgram(from view: RedesignWalletViewProtocol?,
                              walletContext: CommonWalletContextProtocol,
                              assetManager: AssetManagerProtocol) {
@@ -452,6 +460,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller.present(containerView, animated: true)
     }
     
+    @MainActor
     func showEditView(from view: RedesignWalletViewProtocol?,
                       poolsService: PoolsServiceInputProtocol,
                       editViewService: EditViewServiceProtocol,
@@ -474,6 +483,7 @@ final class RedesignWalletWireframe: RedesignWalletWireframeProtocol {
         controller.present(containerView, animated: true)
     }
     
+    @MainActor
     func showAccountOptions(from view: RedesignWalletViewProtocol?,
                             account: AccountItem?) {
         guard

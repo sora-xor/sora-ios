@@ -96,6 +96,7 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
         self.controller = controller
     }
     
+    @MainActor
     func showAssetSelection(
         assetManager: AssetManagerProtocol,
         fiatService: FiatServiceProtocol,
@@ -152,6 +153,7 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
         controller?.navigationController?.pushViewController(receiveController, animated: true)
     }
     
+    @MainActor
     func showScanQR(on view: UIViewController,
                     networkFacade: WalletNetworkOperationFactoryProtocol,
                     assetManager: AssetManagerProtocol,
@@ -182,6 +184,7 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
         view.present(containerView, animated: true)
     }
     
+    @MainActor
     func showConfirmSendingAsset(on controller: UIViewController?,
                                  assetId: String,
                                  walletService: WalletServiceProtocol,
@@ -216,6 +219,7 @@ final class GenerateQRWireframe: GenerateQRWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
+    @MainActor
     func showSend(on controller: UIViewController?,
                   selectedTokenId: String?,
                   selectedAddress: String,

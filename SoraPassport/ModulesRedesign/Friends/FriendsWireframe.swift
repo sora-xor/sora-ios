@@ -85,7 +85,7 @@ final class FriendsWireframe: FriendsWireframeProtocol {
         controller.present(activityViewController, animated: true, completion: nil)
     }
     
-    func showActivityDetails(from controller: UIViewController?, model: Transaction, completion: (() -> Void)?) {
+    @MainActor func showActivityDetails(from controller: UIViewController?, model: Transaction, completion: (() -> Void)?) {
         guard let activityDetailsController = ReferralViewFactory.createActivityDetailsView(assetManager: assetManager,
                                                                                             model: model,
                                                                                             completion: completion),

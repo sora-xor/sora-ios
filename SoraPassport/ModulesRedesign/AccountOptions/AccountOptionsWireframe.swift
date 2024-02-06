@@ -45,6 +45,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
         self.localizationManager = localizationManager
     }
 
+    @MainActor
     func showPassphrase(from view: AccountOptionsViewProtocol?, account: AccountItem) {
         let warning = AccountWarningViewController(warningType: .passphrase)
         warning.localizationManager = self.localizationManager
@@ -66,7 +67,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
         }
     }
     
-    func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?,
+    @MainActor func setupBackupAccountPassword(on controller: AccountOptionsViewProtocol?,
                                     account: OpenBackupAccount,
                                     completion: @escaping () -> Void) {
         guard let setupPasswordView = SetupPasswordViewFactory.createView(
@@ -86,6 +87,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
         controller?.controller.present(containerView, animated: true)
     }
 
+    @MainActor
     func showRawSeed(from view: AccountOptionsViewProtocol?, account: AccountItem) {
         let warning = AccountWarningViewController(warningType: .rawSeed)
         warning.localizationManager = self.localizationManager
@@ -109,6 +111,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
         }
     }
 
+    @MainActor
     func showJson(account: AccountItem, from view: AccountOptionsViewProtocol?) {
         let warning = AccountWarningViewController(warningType: .json)
         warning.localizationManager = self.localizationManager
@@ -146,6 +149,7 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
         _ = SplashPresenterFactory.createSplashPresenter(with: rootWindow)
     }
 
+    @MainActor
     func showLogout(from view: AccountOptionsViewProtocol?, isNeedCustomNodeText: Bool, completionBlock: (() -> Void)?) {
         let languages = localizationManager.preferredLocalizations
 

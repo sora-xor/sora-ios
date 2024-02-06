@@ -35,7 +35,7 @@ import SoraUIKit
 import UIKit
 
 final class SwapViewFactory {
-    static func createView(
+    @MainActor static func createView(
         selectedTokenId: String,
         selectedSecondTokenId: String,
         assetManager: AssetManagerProtocol,

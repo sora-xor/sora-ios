@@ -70,20 +70,20 @@ final class ExploreAssetCell: SoramitsuTableViewCell {
             assetView.titleLabel.sora.loadingPlaceholder.type = .none
         }
         
-        if let subtitle = viewModel.marketCap {
-            assetView.subtitleLabel.sora.text = subtitle
-            assetView.subtitleLabel.sora.loadingPlaceholder.type = .none
+        if let marketCap = viewModel.marketCap.value {
+            assetView.subtitleLabel.sora.text = marketCap
         }
+        assetView.subtitleLabel.sora.loadingPlaceholder.type = viewModel.marketCap.shimmerType
         
         if let price = viewModel.price {
             assetView.amountUpLabel.sora.text = price
             assetView.amountUpLabel.sora.loadingPlaceholder.type = .none
         }
         
-        if let delta = viewModel.deltaPrice {
+        if let delta = viewModel.deltaPrice.value {
             assetView.amountDownLabel.sora.attributedText = delta
-            assetView.amountDownLabel.sora.loadingPlaceholder.type = .none
         }
+        assetView.amountDownLabel.sora.loadingPlaceholder.type = viewModel.deltaPrice.shimmerType
     }
 }
 

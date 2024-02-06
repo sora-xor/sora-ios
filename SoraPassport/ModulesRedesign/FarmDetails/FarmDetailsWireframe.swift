@@ -73,7 +73,7 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
         self.assetManager = assetManager
     }
     
-    func showPoolDetails(on controller: UIViewController?,
+    @MainActor func showPoolDetails(on controller: UIViewController?,
                          poolInfo: PoolInfo?,
                          fiatService: FiatServiceProtocol?,
                          poolsService: PoolsServiceInputProtocol?,
@@ -115,7 +115,7 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showStakeDetails(on controller: UIViewController?,
+    @MainActor func showStakeDetails(on controller: UIViewController?,
                           farm: Farm,
                           poolInfo: PoolInfo?,
                           assetsProvider: AssetProviderProtocol?,
@@ -144,7 +144,7 @@ final class FarmDetailsWireframe: FarmDetailsWireframeProtocol {
         controller?.present(containerView, animated: true)
     }
     
-    func showClaimRewards(on controller: UIViewController?,
+    @MainActor func showClaimRewards(on controller: UIViewController?,
                           farm: Farm,
                           poolInfo: PoolInfo?,
                           fiatService: FiatServiceProtocol?,

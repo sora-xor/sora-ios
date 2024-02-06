@@ -47,6 +47,7 @@ final class RootWireframe: RootWireframeProtocol {
         view.rootViewController = containerView
     }
 
+    @MainActor
     func showLocalAuthentication(on view: UIWindow) {
         let pinView = PinViewFactory.createRedesignSecuredPinView()?.controller ?? UIViewController()
         

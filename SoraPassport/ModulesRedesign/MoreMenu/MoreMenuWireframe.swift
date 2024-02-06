@@ -67,6 +67,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
         self.assetManager = assetManager
     }
         
+    @MainActor
     func showChangeAccountView(from view: MoreMenuViewProtocol?) {
         guard let changeAccountView = ChangeAccountViewFactory.changeAccountViewController(with: {}) else {
             return
@@ -84,6 +85,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
         SCard.shared?.start(in: view.controller)
     }
     
+    @MainActor
     func showInformation(from view: MoreMenuViewProtocol?) {
         let informationView = SettingsInformationFactory.createInformation()
         
@@ -94,6 +96,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
         present(blurred: informationView.controller, on: presentingVC)
     }
     
+    @MainActor
     func showNodes(from view: MoreMenuViewProtocol?) {
         guard let nodesView = NodesViewFactory.createView() else {
             return
@@ -115,6 +118,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
     func showPersonalDetailsView(from view: MoreMenuViewProtocol?, completion: @escaping () -> Void) {
     }
 
+    @MainActor
     func showFriendsView(from view: MoreMenuViewProtocol?) {
         guard let friendsView = FriendsViewFactory.createView(walletContext: walletContext,
                                                               assetManager: assetManager)
@@ -133,6 +137,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
         }
     }
 
+    @MainActor
     func showAppSettings(from view: MoreMenuViewProtocol?) {
         let settingsView = AppSettingsFactory.createAppSettings()
         
@@ -143,6 +148,7 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
         present(blurred: settingsView.controller, on: presentingVC)
     }
     
+    @MainActor
     func showSecurity(from view: MoreMenuViewProtocol?) {
         let securityView = ProfileLoginFactory.createView()
         

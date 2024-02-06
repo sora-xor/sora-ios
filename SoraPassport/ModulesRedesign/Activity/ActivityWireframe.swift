@@ -38,7 +38,7 @@ protocol ActivityWireframeProtocol {
 
 final class ActivityWireframe: ActivityWireframeProtocol {
 
-    func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol) {
+    @MainActor func showActivityDetails(on controller: UIViewController?, model: Transaction, assetManager: AssetManagerProtocol) {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount, let aseetList = assetManager.getAssetList() else { return }
 
         let historyService = HistoryService(operationManager: OperationManagerFacade.sharedManager,

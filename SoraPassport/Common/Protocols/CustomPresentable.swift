@@ -35,6 +35,7 @@ import SoraUIKit
 protocol CustomPresentable {}
 
 extension CustomPresentable {
+    @MainActor
     func present(blurred viewController: UIViewController, on presentingViewController: UIViewController) {
         let containerView = BlurViewController()
         containerView.modalPresentationStyle = .overFullScreen
