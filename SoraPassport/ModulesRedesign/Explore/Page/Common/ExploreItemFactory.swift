@@ -56,15 +56,15 @@ extension ExploreItemFactory {
 
         let fiatText = price.priceText()
         
-        return ExploreAssetViewModel(
-            assetId: assetId,
-            symbol: assetInfo.symbol,
-            title: assetInfo.name,
-            price: fiatText,
-            marketCap: marketCap,
-            icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
-            deltaPrice: deltaPrice
-        )
+        let deltaArributedText: SoramitsuAttributedText? = deltaPrice?.priceDeltaAttributedText()
+        
+        return ExploreAssetViewModel(assetId: assetId,
+                                     symbol: assetInfo.symbol,
+                                     title: assetInfo.name,
+                                     price: fiatText,
+                                     marketCap: marketCapText,
+                                     icon: RemoteSerializer.shared.image(with: assetInfo.icon ?? ""),
+                                     deltaPrice: deltaArributedText)
     }
 
     func createPoolsItem(with pool: ExplorePool, serialNumber: String, apy: Decimal? = nil) -> ExplorePoolViewModel {
