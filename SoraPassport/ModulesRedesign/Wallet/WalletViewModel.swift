@@ -205,6 +205,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         isReferralProgramHidden = true
     }
     
+    @MainActor
     func updateItems() {
         var items: [SoramitsuTableViewItemProtocol] = []
         let enabledIds = ApplicationConfig.shared.getAvailableApplicationSections()
@@ -262,6 +263,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
     }
     
 
+    @MainActor
     func fetchAssets(completion: @escaping ([SoramitsuTableViewItemProtocol]) -> Void) {
         walletItems = buildItems()
         updateItems()
@@ -274,6 +276,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         wireframe?.showSoraCard(on: view?.controller, address: address, balanceProvider: balanceProvider)
     }
 
+    @MainActor
     private func buildItems() -> [SoramitsuTableViewItemProtocol] {
         
         var items: [SoramitsuTableViewItemProtocol] = []
@@ -340,7 +343,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         return items
     }
 
-    internal func showReceiveController(in vc: UIViewController) {
+    @MainActor internal func showReceiveController(in vc: UIViewController) {
 
         let qrService = WalletQRService(operationFactory: WalletQROperationFactory(), encoder: qrEncoder)
 
@@ -369,11 +372,13 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         vc.present(containerView, animated: true)
     }
 
+    @MainActor
     internal func showSwapController(in vc: UIViewController) {
         guard let swapController = createSwapController(presenter: vc) else { return }
         vc.present(swapController, animated: true)
     }
 
+    @MainActor
     private func createSwapController(
         presenter: UIViewController,
         localizationManager: LocalizationManagerProtocol = LocalizationManager.shared
@@ -537,6 +542,7 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
 }
 
 extension RedesignWalletViewModel: EventVisitorProtocol {
+    @MainActor
     func processAccountBackuped(event: AccountBackuped) {
         updateItems()
     }

@@ -76,6 +76,7 @@ extension NodesPresenter: NodesInteractorOutputProtocol {
 }
 
 extension NodesPresenter: NodesCellDelegate {
+    @MainActor
     func onAction(_ action: NodeAction) {
         switch action {
         case .select(let node):
@@ -138,6 +139,7 @@ extension NodesPresenter: NodesCellDelegate {
         present(viewModel: viewModel, style: .alert, from: view)
     }
 
+    @MainActor
     private func onSelected(_ node: ChainNodeModel) {
         
         let actionTitle = R.string.localizable.commonOk(preferredLanguages: .currentLocale)
@@ -188,6 +190,7 @@ private extension NodesPresenter {
 }
 
 extension NodesPresenter: ButtonCellDelegate {
+    @MainActor
     func buttonTapped() {
         onAction(.add)
     }

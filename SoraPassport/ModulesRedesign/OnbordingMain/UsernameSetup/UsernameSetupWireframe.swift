@@ -50,7 +50,7 @@ final class UsernameSetupWireframe: UsernameSetupWireframeProtocol {
         view?.controller.navigationController?.pushViewController(accountCreation.controller, animated: true)
     }
     
-    func showPinCode(from view: UsernameSetupViewProtocol?) {
+    @MainActor func showPinCode(from view: UsernameSetupViewProtocol?) {
         let pinCodeView = PinViewFactory.createRedesignPinSetupView()
         
         let containerView = BlurViewController()

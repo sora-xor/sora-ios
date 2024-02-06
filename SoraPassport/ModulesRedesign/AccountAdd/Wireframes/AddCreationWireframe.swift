@@ -57,7 +57,7 @@ final class AddCreationWireframe: AccountCreateWireframeProtocol {
         }
     }
     
-    func proceed(on controller: UIViewController?) {
+    @MainActor func proceed(on controller: UIViewController?) {
         if endAddingBlock != nil {
             guard
                 !isNeedSetupName,

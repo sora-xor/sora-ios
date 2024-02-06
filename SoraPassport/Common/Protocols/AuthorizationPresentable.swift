@@ -115,7 +115,7 @@ extension AuthorizationPresentable {
         authorize(animated: animated, cancellable: false, inView: nil, with: completionBlock)
     }
 
-    func authorize(animated: Bool,
+    @MainActor func authorize(animated: Bool,
                    cancellable: Bool,
                    inView: UINavigationController?,
                    with completionBlock: @escaping AuthorizationCompletionBlock) {

@@ -31,6 +31,7 @@
 import Foundation
 import Combine
 import BigInt
+import SoraUIKit
 
 final class ExploreAssetViewModelService {
     let marketCapService: MarketCapServiceProtocol
@@ -47,9 +48,9 @@ final class ExploreAssetViewModelService {
                 title: nil,
                 price: nil,
                 serialNumber: String($0),
-                marketCap: nil,
+                marketCap: .loading,
                 icon: nil,
-                deltaPrice: nil
+                deltaPrice: .loading
             )
         }
         return shimmersAssetItems
@@ -79,20 +80,43 @@ final class ExploreAssetViewModelService {
         
         var fullListAssets = assetMarketCap.compactMap { marketCap in
             let price = result.fiatData.first(where: { $0.id == marketCap.tokenId })?.priceUsd?.decimalValue ?? 0
-
-            return self.itemFactory.createExploreAssetViewModel(with: marketCap.tokenId,
-                                                                price: price,
-                                                                deltaPrice: marketCap.oldPrice,
-                                                                marketCap: marketCap.marketCap)
+            
+            let marketCapText = LoadingState.loaded("$" + marketCap.marketCap.formatNumber())
+            
+            let deltaArributedText = LoadingState.loaded(marketCap.oldPrice.priceDeltaAttributedText())
+            
+            return self.itemFactory.createExploreAssetViewModel(
+                with: marketCap.tokenId,
+                price: price,
+                deltaPrice: deltaArributedText,
+                marketCap: marketCapText
+            )
         }
         
         (0..<fullListAssets.count).forEach { fullListAssets[$0].serialNumber += "\($0 + 1)" }
         
         if fullListAssets.isEmpty {
-            return await setup()
+            return assetViewModels(from: assetInfos, result: result)
         } else {
             viewModels = fullListAssets
             return fullListAssets
         }
+    }
+    
+    private func assetViewModels(from assetInfos: [AssetInfo], result: PriceInfo) -> [ExploreAssetViewModel] {
+
+        var fullListAssets = assetInfos.sorted { $0.name.lowercased() < $1.name.lowercased() }.compactMap { assetInfo in
+            let price = result.fiatData.first(where: { $0.id == assetInfo.assetId })?.priceUsd?.decimalValue ?? 0
+
+            return self.itemFactory.createExploreAssetViewModel(
+                with: assetInfo.assetId,
+                price: price,
+                deltaPrice: .error,
+                marketCap: .error
+            )
+        }
+        
+        (0..<fullListAssets.count).forEach { fullListAssets[$0].serialNumber += "\($0 + 1)" }
+        return fullListAssets
     }
 }

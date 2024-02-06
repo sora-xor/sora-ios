@@ -48,7 +48,7 @@ protocol ContactsWireframeProtocol {
 }
 
 final class ContactsWireframe: ContactsWireframeProtocol {
-    func showScanQR(on view: UIViewController?,
+    @MainActor func showScanQR(on view: UIViewController?,
                     networkFacade: WalletNetworkOperationFactoryProtocol,
                     assetManager: AssetManagerProtocol,
                     qrEncoder: WalletQREncoderProtocol,
