@@ -78,6 +78,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
         self.marketCapService = marketCapService
     }
     
+    @MainActor
     func showLiquidity(
         on controller: UIViewController?,
         poolInfo: PoolInfo,
@@ -125,6 +126,7 @@ final class PoolDetailsWireframe: PoolDetailsWireframeProtocol {
             controller?.present(containerView, animated: true)
         }
     
+    @MainActor
     func showFarmDetails(
         on viewController: UIViewController?,
         poolsService: PoolsServiceInputProtocol?,

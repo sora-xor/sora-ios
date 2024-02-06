@@ -42,11 +42,13 @@ protocol ProfileLoginPresenterProtocol: AnyObject {
 final class ProfileLoginPresenter: ProfileLoginPresenterProtocol, AuthorizationPresentable {
     weak var view: ProfileLoginView?
 
+    @MainActor
     func reload() {
         let model = createModel()
         view?.update(model: model)
     }
 
+    @MainActor
     private func createModel() -> ProfileLoginModel {
         var sections: [SoramitsuTableViewSection] = []
         sections.append(firstSection())
@@ -54,6 +56,7 @@ final class ProfileLoginPresenter: ProfileLoginPresenterProtocol, AuthorizationP
                              sections: sections)
     }
 
+    @MainActor
     private func firstSection() -> SoramitsuTableViewSection {
         var items: [AppSettingsItem] = []
         let pin = AppSettingsItem(title: R.string.localizable.changePin(preferredLanguages: languages),
@@ -79,6 +82,7 @@ final class ProfileLoginPresenter: ProfileLoginPresenterProtocol, AuthorizationP
         return SoramitsuTableViewSection(rows: [card])
     }
 
+    @MainActor
     private func showPin() {
         guard let view = view else { return }
         authorize(animated: true, cancellable: true, inView: nil) { (isAuthorized) in
@@ -117,6 +121,7 @@ extension ProfileLoginPresenter: Localizable {
         localizationManager?.preferredLocalizations
     }
 
+    @MainActor
     func applyLocalization() {
         let model = createModel()
         view?.update(model: model)

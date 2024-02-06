@@ -5,6 +5,7 @@ import SoraFoundation
 
 extension RedesignWalletViewModel {
 
+    @MainActor
     internal func initSoraCard() -> SCard {
         guard SCard.shared == nil else {
             startTotalBalanceStream()

@@ -45,7 +45,7 @@ final class AccountCreateWireframe {
 }
 
 extension AccountCreateWireframe: AccountCreateWireframeProtocol {
-    func proceed(on controller: UIViewController?) {
+    @MainActor func proceed(on controller: UIViewController?) {
         let view = PinViewFactory.createRedesignPinSetupView()
         
         let containerView = BlurViewController()

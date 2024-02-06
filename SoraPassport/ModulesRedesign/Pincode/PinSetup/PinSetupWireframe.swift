@@ -49,6 +49,7 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
         }
     }
 
+    @MainActor
     func showMain(from view: PinSetupViewProtocol?) {
         guard let mainViewController = MainTabBarViewFactory.createView()?.controller else { return }
 

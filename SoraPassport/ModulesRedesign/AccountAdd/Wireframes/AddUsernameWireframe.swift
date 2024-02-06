@@ -56,7 +56,7 @@ final class AddUsernameWireframe: UsernameSetupWireframeProtocol {
                                                                   animated: true)
     }
     
-    func showPinCode(from view: UsernameSetupViewProtocol?) {
+    @MainActor func showPinCode(from view: UsernameSetupViewProtocol?) {
         let view = PinViewFactory.createRedesignPinSetupView()
         
         let containerView = BlurViewController()

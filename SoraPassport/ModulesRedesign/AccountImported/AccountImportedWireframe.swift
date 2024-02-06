@@ -49,6 +49,7 @@ final class AccountImportedWireframe {
 }
 
 extension AccountImportedWireframe: AccountImportedWireframeProtocol {
+    @MainActor 
     func showSetupPinCode() {
         let view = PinViewFactory.createRedesignPinSetupView()
         
