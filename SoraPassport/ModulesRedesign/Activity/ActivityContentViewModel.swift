@@ -39,8 +39,8 @@ struct ActivityContentViewModel {
     let title: String
     let subtitle: String
     let typeTransactionImage: UIImage?
-    let firstAssetImageViewModel: WalletImageViewModelProtocol?
-    let secondAssetImageViewModel: WalletImageViewModelProtocol?
+    let firstAssetImageViewModel: UIImage?
+    let secondAssetImageViewModel: UIImage?
     let firstBalanceText: SoramitsuAttributedText
     let fiatText: String
     let status: TransactionBase.Status
@@ -50,8 +50,8 @@ struct ActivityContentViewModel {
          title: String = "",
          subtitle: String = "",
          typeTransactionImage: UIImage? = nil,
-         firstAssetImageViewModel: WalletImageViewModelProtocol? = nil,
-         secondAssetImageViewModel: WalletImageViewModelProtocol? = nil,
+         firstAssetImageViewModel: UIImage? = nil,
+         secondAssetImageViewModel: UIImage? = nil,
          firstBalanceText: SoramitsuAttributedText = SoramitsuTextItem(text: "",
                                                                        attributes: SoramitsuTextAttributes(fontData: FontType.textM,
                                                                                                            textColor: .accentPrimary)),
@@ -68,5 +68,25 @@ struct ActivityContentViewModel {
         self.fiatText = fiatText
         self.status = status
         self.isNeedTwoImage = isNeedTwoImage
+    }
+}
+
+extension ActivityContentViewModel: Hashable {
+    static func == (lhs: ActivityContentViewModel, rhs: ActivityContentViewModel) -> Bool {
+        lhs.txHash == rhs.txHash &&
+        lhs.title == rhs.title &&
+        lhs.subtitle == rhs.subtitle &&
+        lhs.fiatText == rhs.fiatText &&
+        lhs.status == rhs.status &&
+        lhs.isNeedTwoImage == rhs.isNeedTwoImage
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(txHash)
+        hasher.combine(title)
+        hasher.combine(subtitle)
+        hasher.combine(fiatText)
+        hasher.combine(status)
+        hasher.combine(isNeedTwoImage)
     }
 }

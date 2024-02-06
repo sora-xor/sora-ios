@@ -31,20 +31,39 @@
 import Foundation
 import SoraUIKit
 
-final class ActivityDateItem: NSObject {
-
-    var text: String
-    var isFirstSection = false
-
-    init(text: String) {
-        self.text = text
+final class ActivitySection {
+    var id = UUID()
+    var date: String?
+    var items: [ActivitySectionItem]
+    
+    init(date: String? = nil,
+         items: [ActivitySectionItem]) {
+        self.date = date
+        self.items = items
     }
 }
 
-extension ActivityDateItem: SoramitsuTableViewItemProtocol {
-    var cellType: AnyClass { ActivityDateCell.self }
+enum ActivitySectionItem: Hashable {
+    case activity(ActivityItem)
+    case error(ActivityErrorItem)
+    case space(SoramitsuTableViewSpacerItem)
+}
 
-    var backgroundColor: SoramitsuColor { .custom(uiColor: .clear) }
+extension ActivitySection: Hashable {
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: ActivitySection, rhs: ActivitySection) -> Bool {
+        lhs.id == rhs.id
+    }
+}
 
-    var clipsToBounds: Bool { false }
+extension ActivitySectionItem {
+    var isActivity: Bool {
+        if case .activity = self {
+            return true
+        }
+        return false
+    }
 }

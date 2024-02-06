@@ -34,13 +34,13 @@ import CommonWallet
 
 final class RecentActivityItem: NSObject {
 
-    var service: RecentActivityItemService
+    weak var service: RecentActivityItemService?
     var openActivityDetailsHandler: ((String) -> Void)?
     var openFullActivityHandler: (() -> Void)?
 
     init(service: RecentActivityItemService) {
         self.service = service
-        self.service.setup()
+        self.service?.setup()
     }
 }
 

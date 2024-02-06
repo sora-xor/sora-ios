@@ -212,17 +212,9 @@ extension HeaderActivityDetailsCell: SoramitsuTableViewCellProtocol {
         secondCurrencyImageView.isHidden = item.secondAssetImageViewModel == nil
         oneCurrencyImageView.isHidden = item.secondAssetImageViewModel != nil
         
-        item.firstAssetImageViewModel?.loadImage { [weak self] (icon, _) in
-            self?.firstCurrencyImageView.image = icon
-        }
-        
-        item.secondAssetImageViewModel?.loadImage { [weak self] (icon, _) in
-            self?.secondCurrencyImageView.image = icon
-        }
-        
-        item.firstAssetImageViewModel?.loadImage { [weak self] (icon, _) in
-            self?.oneCurrencyImageView.image = icon
-        }
+        firstCurrencyImageView.image = item.firstAssetImageViewModel
+        secondCurrencyImageView.image = item.secondAssetImageViewModel
+        oneCurrencyImageView.image = item.firstAssetImageViewModel
         
         transactionTypeImageView.image = item.typeTransactionImage
         transactionTypeLabel.sora.text = item.typeText

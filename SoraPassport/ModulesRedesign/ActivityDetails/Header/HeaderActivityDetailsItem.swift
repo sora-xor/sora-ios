@@ -37,8 +37,8 @@ final class HeaderActivityDetailsItem: NSObject {
     let typeText: String
     let typeTransactionImage: UIImage?
     let actionTransactionImage: UIImage?
-    let firstAssetImageViewModel: WalletImageViewModelProtocol?
-    let secondAssetImageViewModel: WalletImageViewModelProtocol?
+    let firstAssetImageViewModel: UIImage?
+    let secondAssetImageViewModel: UIImage?
     let firstBalanceText: NSAttributedString
     let secondBalanceText: NSAttributedString?
     var details: [DetailViewModel]
@@ -46,8 +46,8 @@ final class HeaderActivityDetailsItem: NSObject {
     init(typeText: String,
          typeTransactionImage: UIImage?,
          actionTransactionImage: UIImage? = nil,
-         firstAssetImageViewModel: WalletImageViewModelProtocol?,
-         secondAssetImageViewModel: WalletImageViewModelProtocol? = nil,
+         firstAssetImageViewModel: UIImage?,
+         secondAssetImageViewModel: UIImage? = nil,
          firstBalanceText: NSAttributedString,
          secondBalanceText: NSAttributedString? = nil,
          details: [DetailViewModel]) {
