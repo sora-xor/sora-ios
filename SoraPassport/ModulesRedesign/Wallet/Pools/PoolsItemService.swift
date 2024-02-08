@@ -62,15 +62,17 @@ final class PoolsItemService {
     
     func setup(with pools: [PoolInfo]) {
         if fiatData.isEmpty {
-            self.poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
-                return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
+            poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
+                return poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
             }
 
-            self.updateHandler?()
+            updateHandler?()
         }
         
-        Task {
-            let fiatData = await fiatService?.getFiat() ?? []
+        Task { [weak self] in
+            guard let self else { return }
+
+            let fiatData = await self.fiatService?.getFiat() ?? []
             self.fiatData = fiatData
             
             let fiatDecimal = pools.filter { $0.isFavorite }.reduce(Decimal(0), { partialResult, pool in
@@ -86,12 +88,12 @@ final class PoolsItemService {
                 return partialResult
             })
             
-            self.moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
+            moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
             
-            self.poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
+            poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
                 return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
             }
-            self.updateHandler?()
+            updateHandler?()
         }
     }
 }
