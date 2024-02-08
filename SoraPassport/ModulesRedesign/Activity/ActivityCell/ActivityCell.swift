@@ -76,7 +76,10 @@ extension ActivityCell: CellProtocol {
         assetItem = item
 
         historyView.sora.firstHistoryTransactionImage  = item.model.firstAssetImageViewModel
+        historyView.firstCurrencyImageView.sora.loadingPlaceholder.type = item.model.firstAssetImageViewModel != nil ? .none : .shimmer
+
         historyView.sora.secondHistoryTransactionImage = item.model.secondAssetImageViewModel
+        historyView.secondCurrencyImageView.sora.loadingPlaceholder.type = item.model.firstAssetImageViewModel != nil ? .none : .shimmer
 
         historyView.sora.titleText = item.model.title
         historyView.titleLabel.sora.loadingPlaceholder.type = item.model.title.isEmpty ? .shimmer : .none
