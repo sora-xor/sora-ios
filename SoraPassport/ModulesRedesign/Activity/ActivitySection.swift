@@ -52,10 +52,12 @@ enum ActivitySectionItem: Hashable {
 extension ActivitySection: Hashable {
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+        hasher.combine(date)
+        hasher.combine(items)
     }
     
     static func == (lhs: ActivitySection, rhs: ActivitySection) -> Bool {
-        lhs.id == rhs.id
+        lhs.id == rhs.id && lhs.date == rhs.date && lhs.items == rhs.items
     }
 }
 
