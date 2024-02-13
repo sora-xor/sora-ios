@@ -23,7 +23,7 @@ abstract_target 'SoraPassportAll' do
   pod 'Firebase/Crashlytics'
   pod 'FirebaseAnalytics'
   pod 'ReachabilitySwift'
-  pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :branch => 'feature/without-origin'
+  pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :tag => ‘4.0.9’
   pod 'SwiftyBeaver'
   pod 'SoraFoundation'
   pod 'Anchorage'
@@ -44,7 +44,7 @@ abstract_target 'SoraPassportAll' do
       pod 'Cuckoo', '~> 1.9.1'
       pod 'FireMock'
       pod 'SoraUI'
-      pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :branch => 'feature/without-origin'
+      pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :tag => ‘4.0.9’
       pod 'SoraDocuments'
       pod 'SoraKeystore'
       pod 'RobinHood'

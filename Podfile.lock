@@ -300,7 +300,7 @@ PODS:
     - Starscream
     - TweetNacl (~> 1.0.0)
     - xxHash-Swift (~> 1.0.0)
-  - Starscream (4.0.8)
+  - Starscream (4.0.9)
   - SVGKit (2.1.0):
     - CocoaLumberjack (~> 3.0)
   - SwiftLint (0.49.1)
@@ -339,7 +339,7 @@ DEPENDENCIES:
   - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec`)
   - Sourcery (~> 1.4)
   - SSFCloudStorage
-  - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
+  - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, tag `4.0.9`)
   - SVGKit (from `https://github.com/SVGKit/SVGKit.git`, tag `3.0.0`)
   - SwiftLint (~> 0.49.0)
   - SwiftyBeaver
@@ -424,8 +424,8 @@ EXTERNAL SOURCES:
   sorawallet:
     :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec
   Starscream:
-    :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
+    :tag: 4.0.9
   SVGKit:
     :git: https://github.com/SVGKit/SVGKit.git
     :tag: 3.0.0
@@ -449,8 +449,8 @@ CHECKOUT OPTIONS:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.11
   Starscream:
-    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
+    :tag: 4.0.9
   SVGKit:
     :git: https://github.com/SVGKit/SVGKit.git
     :tag: 3.0.0
@@ -512,7 +512,7 @@ SPEC CHECKSUMS:
   SSFCloudStorage: c4123454b3084015ea8d88af92f51de79fce7f2c
   SSFModels: d85433036fd8a3bc88f93d570649f242d948f063
   SSFUtils: 1b0bbf20c0d3577bd17f56e4f8d7107925f49c76
-  Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
+  Starscream: a4e6a77c535efeca8cd2ad85c0e2689500bc6c3d
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5
   SwiftyBeaver: 84069991dd5dca07d7069100985badaca7f0ce82
@@ -520,6 +520,6 @@ SPEC CHECKSUMS:
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 76c1c6fa418cba617c18ffdf5d78b82d5651c4c7
+PODFILE CHECKSUM: 6deeae7fe276f72675cf5b03885c387a8c1e784f
 
 COCOAPODS: 1.12.1
