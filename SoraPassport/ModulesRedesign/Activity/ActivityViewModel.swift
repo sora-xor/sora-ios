@@ -52,6 +52,7 @@ final class ActivityViewModel {
     var title: String = ""
     var isNeedCloseButton: Bool = false
     var pageNumber = 0
+    private var task: Task<Void, Swift.Error>?
 
     init(historyService: HistoryServiceProtocol,
          viewModelFactory: ActivityViewModelFactoryProtocol,
@@ -213,7 +214,8 @@ extension ActivityViewModel: ActivityViewModelProtocol {
         pageNumber = 0
         sections = []
 
-        Task { [weak self] in
+        task?.cancel()
+        task = Task { [weak self] in
             await self?.loadContent()
         }
     }
