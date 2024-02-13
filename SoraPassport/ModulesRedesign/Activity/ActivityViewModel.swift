@@ -165,7 +165,12 @@ extension ActivityViewModel: ActivityViewModelProtocol {
             }
 
             updateSections(with: sections)
-            reload()
+            
+            let updateSections = Set(sections)
+            let currentSectionsSet = Set(self.sections)
+            if !updateSections.intersection(currentSectionsSet).isEmpty {
+                reload()
+            }
         } catch {
             guard pageNumber == 0 else { return }
             setupErrorContent?()
