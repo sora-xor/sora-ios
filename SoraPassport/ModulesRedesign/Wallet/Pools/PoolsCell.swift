@@ -40,14 +40,14 @@ final class PoolsCell: SoramitsuTableViewCell {
     private var poolsItem: PoolsItem? {
         didSet {
             guard let item = poolsItem else { return }
-            item.service.$moneyText
+            item.service?.$moneyText
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     self?.moneyLabel.sora.loadingPlaceholder.type = !value.isEmpty ? .none : .shimmer
                     self?.moneyLabel.sora.text = value
                 }
                 .store(in: &cancellables)
-            item.service.$poolViewModels
+            item.service?.$poolViewModels
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] value in
                     guard let self = self else { return }
@@ -268,12 +268,12 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
             poolsItem = item
         }
        
-        moneyLabel.sora.text = item.service.moneyText
+        moneyLabel.sora.text = item.service?.moneyText
         moneyLabel.sora.alignment = localizationManager.isRightToLeft ? .left : .right
 
         arrowButton.configure(title: item.title, isExpand: item.isExpand)
 
-        let viewModels = Array(item.service.poolViewModels)
+        let viewModels = Array(item.service?.poolViewModels ?? [])
         updateContent(with: viewModels)
 
         openFullListPoolsButton.sora.isHidden = !item.isExpand
@@ -281,7 +281,7 @@ extension PoolsCell: SoramitsuTableViewCellProtocol {
                                                                           fontData: FontType.buttonM,
                                                                           textColor: .accentPrimary,
                                                                           alignment: localizationManager.isRightToLeft ? .right : .left)
-        heightConstraint?.isActive = item.service.poolViewModels.isEmpty || item.isHidden
+        heightConstraint?.isActive = item.service?.poolViewModels.isEmpty ?? true || item.isHidden
     }
 }
 
