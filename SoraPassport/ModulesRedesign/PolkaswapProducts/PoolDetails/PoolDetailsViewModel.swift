@@ -102,19 +102,19 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
     func viewDidLoad() {
         snapshot = createSnapshot(with: poolInfo, farms: poolInfo.farms)
         
-        Task { [weak self] in
-            guard let self else { return }
+        Task { [weak self, weak poolDetailsService] in
+            guard let self, let poolDetailsService else { return }
             self.detailsContent = await (try? self.farmingService.getAllFarms().filter {
                 $0.baseAsset?.assetId == self.poolInfo.baseAssetId &&
                 $0.poolAsset?.assetId == self.poolInfo.targetAssetId
             }) ?? []
 
             self.snapshot = self.createSnapshot(with: poolInfo, farms: poolInfo.farms)
-            self.poolDetailsService.setup(with: poolInfo)
+            poolDetailsService.setup(with: poolInfo)
         }
         
-        Task { [weak self] in
-            guard let self else { return }
+        Task { [weak self, weak poolDetailsService] in
+            guard let self, let poolDetailsService else { return }
             try? await self.userFarmService.subscribeUserFarms(to: poolInfo.baseAssetId, targetAssetId: poolInfo.targetAssetId)
             await self.userFarmService.userFarms
                 .dropFirst()
@@ -123,7 +123,7 @@ extension PoolDetailsViewModel: PoolDetailsViewModelProtocol {
                         guard let self else { return }
                         self.poolInfo.farms = values
                         self.snapshot = self.createSnapshot(with: poolInfo, farms: values)
-                        self.poolDetailsService.setup(with: poolInfo)
+                        poolDetailsService.setup(with: poolInfo)
                     }
                 ).store(in: &self.cancellables)
         }

@@ -57,7 +57,7 @@ extension LocalTransactionStorage: EventVisitorProtocol {
         if let transaction = event.items.first,
            let address = currentAccount.currentAccount?.address,
            var transactions = transactions[address],
-           var foundedTransactionIndex = transactions.firstIndex(where: { $0.base.txHash == transaction.extrinsicHash.toHex(includePrefix: true) }) {
+           let foundedTransactionIndex = transactions.firstIndex(where: { $0.base.txHash == transaction.extrinsicHash.toHex(includePrefix: true) }) {
             
             transactions[foundedTransactionIndex].base.status = transaction.processingResult.isSuccess ? .success : .failed
             self.transactions[address] = transactions
