@@ -101,7 +101,7 @@ final class PoolDetailsItemFactory {
             let title = "\(baseAssetSymbol)-\(poolAssetSymbol)"
             let id = "\(baseAssetId)-\(poolAssetId)-\(rewardAssetId)"
             
-            let rewards = userFarm.rewards ?? .zero
+            let rewards = NumberFormatter.cryptoAmounts.stringFromDecimal(userFarm.rewards ?? .zero) ?? ""
             let subtitle = R.string.localizable.poolDetailsReward(preferredLanguages: .currentLocale) + ": \(rewards) \(rewardAssetSymbol)"
             
             let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
