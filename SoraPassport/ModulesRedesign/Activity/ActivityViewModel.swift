@@ -133,6 +133,8 @@ extension ActivityViewModel: ActivityViewModelProtocol {
             }
 
             if pageNumber == 0 && page.errorMessage != nil && page.transactions.isEmpty {
+                sections = []
+                snapshot = createSnapshot()
                 setupErrorContent?()
                 return
             }
