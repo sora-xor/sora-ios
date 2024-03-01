@@ -146,7 +146,7 @@ final class RedesignWalletViewModel {
         self.eventCenter.add(observer: self, dispatchIn: .main)
     }
 
-    @SCStream internal var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
+    internal var xorBalanceStream = SCStream<Decimal>(wrappedValue: Decimal(0))
     internal var balanceProvider: SingleValueProvider<[BalanceData]>?
     internal var totalXorBalance: Decimal?
     internal var singleSidedXorFarmedPools: Decimal?
