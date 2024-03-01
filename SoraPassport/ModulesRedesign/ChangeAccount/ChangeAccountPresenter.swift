@@ -32,7 +32,8 @@ import Foundation
 import UIKit
 import SoraKeystore
 import RobinHood
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 final class ChangeAccountPresenter {
     weak var view: ChangeAccountViewProtocol?
@@ -91,7 +92,7 @@ final class ChangeAccountPresenter {
         return accounts.enumerated().map { [weak self] (index, account) -> AccountMenuItem in
             
             let icon = try? iconGenerator.generateFromAddress(account.address)
-                .imageWithFillColor(.white,
+                .imageWithFillColor(UIColor.white,
                                     size: CGSize(width: 40.0, height: 40.0),
                                     contentScale: UIScreen.main.scale)
             

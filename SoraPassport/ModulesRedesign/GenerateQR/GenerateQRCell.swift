@@ -29,7 +29,8 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 final class GenerateQRCell: SoramitsuTableViewCell {
     
@@ -182,7 +183,7 @@ extension GenerateQRCell: SoramitsuTableViewCellProtocol {
         self.item = item
         accountAddress.sora.text = item.address
         accountImageView.image = try? generator.generateFromAddress(item.address)
-            .imageWithFillColor(.white,
+            .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)
         

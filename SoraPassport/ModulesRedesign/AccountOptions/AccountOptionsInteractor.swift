@@ -132,24 +132,25 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     
     func deleteBackup(completion: @escaping (Error?) -> Void) {
         let account = OpenBackupAccount(address: currentAccount.address)
-        cloudStorageService.deleteBackupAccount(account: account) { [weak self] result in
-            switch result {
-            case .success:
+        Task { [weak self] in
+            do {
+                try await self?.cloudStorageService.deleteBackup(account: account)
                 let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
                 ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != self?.currentAccount.address }
                 completion(nil)
-            case .failure(let error):
+            } catch {
                 completion(error)
             }
         }
     }
 
     func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?) {
-        cloudStorageService.signInIfNeeded { [weak self] result in
-            guard result == .authorized, let self = self else {
+        Task { [weak self] in
+            guard let result = try await self?.cloudStorageService.signInIfNeeded(), result == .authorized, let self = self else {
                 completion?(nil)
                 return
             }
+
             let metadata = self.getMetadata()
             let account = OpenBackupAccount(name: self.currentAccount.username,
                                             address: self.currentAccount.address,
@@ -161,20 +162,14 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     }
     
     func checkCurrentAccountBackedup() async -> Bool {
-        return await withCheckedContinuation { continuation in
-            cloudStorageService.getBackupAccounts { [weak self] result in
-                guard let self = self else { return }
-                
-                switch result {
-                case .success(let accounts):
-                    let backupedAddresses = accounts.map { $0.address }
-                    
-                    let searchingResult = backupedAddresses.contains(self.currentAccount.address)
-                    continuation.resume(returning: searchingResult)
-                case .failure:
-                    continuation.resume(returning: false)
-                }
-            }
+        do {
+            let accounts = try await cloudStorageService.getBackupAccounts()
+            let backupedAddresses = accounts.map { $0.address }
+            
+            let searchingResult = backupedAddresses.contains(currentAccount.address)
+            return searchingResult
+        } catch {
+            return false
         }
     }
 

@@ -252,7 +252,7 @@ extension ExtrinsicBuilder: ExtrinsicBuilderProtocol {
         let call = try prepareExtrinsicCall(for: metadata)
         
         Log.enable(kind: "DynamicScale")
-        return Extrinsic(call: call, signature: signature)
+        return Extrinsic(signature: signature, call: call)
     }
 
     public func build(
@@ -262,7 +262,7 @@ extension ExtrinsicBuilder: ExtrinsicBuilderProtocol {
         let call = try prepareExtrinsicCall(for: metadata)
         
         Log.enable(kind: "DynamicScale")
-        let extrinsic = Extrinsic(call: call, signature: signature)
+        let extrinsic = Extrinsic(signature: signature, call: call)
 
         try encoder.append(extrinsic, ofType: GenericType.extrinsic.name)
         

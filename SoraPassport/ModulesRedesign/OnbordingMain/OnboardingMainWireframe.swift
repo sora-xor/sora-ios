@@ -30,6 +30,7 @@
 
 import Foundation
 import SSFCloudStorage
+import UIKit
 
 final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
     lazy var rootAnimator: RootControllerAnimationCoordinatorProtocol = RootControllerAnimationCoordinator()

@@ -173,7 +173,7 @@
 		10EB77992541A369000123B9 /* ExtensibleBarNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EB77972541A368000123B9 /* ExtensibleBarNavigationController.swift */; };
 		10F6D03025344EFD00EB64CD /* LinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */; };
 		1C881931464751B44D4BB3D5 /* AccountOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */; };
-		20D9ACBA22DBBB68D16C8674 /* (null) in Sources */ = {isa = PBXBuildFile; };
+		20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */ = {isa = PBXBuildFile; };
 		253663B5C127B5B99C84BDA3 /* MainTabBarInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */; };
 		2E5D137B391C1456F7601073 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12564A5FC576A04D42BADEF6 /* Pods_SoraPassportAll_SoraPassport.framework */; };
 		3213A3092237DAB4001BE041 /* VerificationCodeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3213A3082237DAB4001BE041 /* VerificationCodeData.swift */; };
@@ -508,6 +508,8 @@
 		3694D45B2971F5450045A295 /* ActivityErrorItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3694D4592971F5450045A295 /* ActivityErrorItem.swift */; };
 		3694D45C2971F5450045A295 /* ActivityErrorCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3694D45A2971F5450045A295 /* ActivityErrorCell.swift */; };
 		36982465290EA54100F5E3D4 /* ActivityViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36982464290EA54100F5E3D4 /* ActivityViewModelFactory.swift */; };
+		369E10BB2B91DAEC0097DB61 /* IrohaCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 369E10BA2B91DAEC0097DB61 /* IrohaCrypto */; };
+		369E10C32B91DF3D0097DB61 /* PolkadotIconGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 369E10C22B91DF3D0097DB61 /* PolkadotIconGenerator.swift */; };
 		36A0CE232B1D86A900187E3C /* ExtrinsicBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A0CE222B1D86A900187E3C /* ExtrinsicBuilder.swift */; };
 		36A0CE252B1D870500187E3C /* ExtrinsicCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A0CE242B1D870500187E3C /* ExtrinsicCheck.swift */; };
 		36A12693289143D7009117B9 /* WalletNetworkOperationFactoryProtocolMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84F5D76F248FC8750064650D /* WalletNetworkOperationFactoryProtocolMock.swift */; };
@@ -554,6 +556,13 @@
 		36C66EAE2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */; };
 		36C88A262A32EAA800B3CF39 /* AccountOptionSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88A252A32EAA800B3CF39 /* AccountOptionSeparator.swift */; };
 		36C88DFF2821283E0038B7F9 /* InputLinkViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C88DFE2821283E0038B7F9 /* InputLinkViewController.swift */; };
+		36CEAD7B2B9471DD00D532E0 /* SSFCloudStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 36CEAD7A2B9471DD00D532E0 /* SSFCloudStorage */; };
+		36CEAD7D2B94734200D532E0 /* SSFCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 36CEAD7C2B94734200D532E0 /* SSFCrypto */; };
+		36CEAD812B9488CD00D532E0 /* AddressQREncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CEAD802B9488CD00D532E0 /* AddressQREncoder.swift */; };
+		36CEAD832B948A0B00D532E0 /* SSFQRService in Frameworks */ = {isa = PBXBuildFile; productRef = 36CEAD822B948A0B00D532E0 /* SSFQRService */; };
+		36CEAD862B948DBE00D532E0 /* SubstrateQRCommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CEAD842B948DBD00D532E0 /* SubstrateQRCommon.swift */; };
+		36CEAD872B948DBE00D532E0 /* AddressQRDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CEAD852B948DBE00D532E0 /* AddressQRDecoder.swift */; };
+		36CEAD892B94938900D532E0 /* QRCommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CEAD882B94938900D532E0 /* QRCommon.swift */; };
 		36DB198429EDC5CB00B3E3BF /* AccountCreateWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197529EDC5CA00B3E3BF /* AccountCreateWireframe.swift */; };
 		36DB198529EDC5CB00B3E3BF /* AccountCreateInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197629EDC5CA00B3E3BF /* AccountCreateInteractor.swift */; };
 		36DB198629EDC5CB00B3E3BF /* AccountCreateViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB197729EDC5CA00B3E3BF /* AccountCreateViewFactory.swift */; };
@@ -691,7 +700,7 @@
 		60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC6270EEEDB00916408 /* Migrating.swift */; };
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
-		82933CD8A0C33141410DBBB2 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -1913,6 +1922,7 @@
 		3694D4592971F5450045A295 /* ActivityErrorItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityErrorItem.swift; sourceTree = "<group>"; };
 		3694D45A2971F5450045A295 /* ActivityErrorCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ActivityErrorCell.swift; sourceTree = "<group>"; };
 		36982464290EA54100F5E3D4 /* ActivityViewModelFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityViewModelFactory.swift; sourceTree = "<group>"; };
+		369E10C22B91DF3D0097DB61 /* PolkadotIconGenerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PolkadotIconGenerator.swift; sourceTree = "<group>"; };
 		36A0CE222B1D86A900187E3C /* ExtrinsicBuilder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExtrinsicBuilder.swift; sourceTree = "<group>"; };
 		36A0CE242B1D870500187E3C /* ExtrinsicCheck.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExtrinsicCheck.swift; sourceTree = "<group>"; };
 		36A619FE295D02A300B3C752 /* SubqueryFiatInfoOperation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SubqueryFiatInfoOperation.swift; sourceTree = "<group>"; };
@@ -1959,6 +1969,10 @@
 		36C66EAD2A5D72E000ADAD5E /* PoolDetailsItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailsItemFactory.swift; sourceTree = "<group>"; };
 		36C88A252A32EAA800B3CF39 /* AccountOptionSeparator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountOptionSeparator.swift; sourceTree = "<group>"; };
 		36C88DFE2821283E0038B7F9 /* InputLinkViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputLinkViewController.swift; sourceTree = "<group>"; };
+		36CEAD802B9488CD00D532E0 /* AddressQREncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AddressQREncoder.swift; sourceTree = "<group>"; };
+		36CEAD842B948DBD00D532E0 /* SubstrateQRCommon.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SubstrateQRCommon.swift; sourceTree = "<group>"; };
+		36CEAD852B948DBE00D532E0 /* AddressQRDecoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AddressQRDecoder.swift; sourceTree = "<group>"; };
+		36CEAD882B94938900D532E0 /* QRCommon.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QRCommon.swift; sourceTree = "<group>"; };
 		36DB197529EDC5CA00B3E3BF /* AccountCreateWireframe.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountCreateWireframe.swift; sourceTree = "<group>"; };
 		36DB197629EDC5CA00B3E3BF /* AccountCreateInteractor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountCreateInteractor.swift; sourceTree = "<group>"; };
 		36DB197729EDC5CA00B3E3BF /* AccountCreateViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountCreateViewFactory.swift; sourceTree = "<group>"; };
@@ -2790,6 +2804,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				2E5D137B391C1456F7601073 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */,
+				36CEAD832B948A0B00D532E0 /* SSFQRService in Frameworks */,
+				369E10BB2B91DAEC0097DB61 /* IrohaCrypto in Frameworks */,
+				36CEAD7B2B9471DD00D532E0 /* SSFCloudStorage in Frameworks */,
+				36CEAD7D2B94734200D532E0 /* SSFCrypto in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2805,7 +2823,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* (null) in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
 				983223605FA38815FD68A2C7 /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3206,6 +3224,7 @@
 		02623EF92179D0B50011250E /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				369E10C12B91DF230097DB61 /* IconGenerator */,
 				3618AE532AC43C5D00F582BD /* PriceInfo */,
 				363EAB662A7BCAC400603361 /* MarketCap */,
 				360FF41D2A568E2400D94BA9 /* DemeterFarming */,
@@ -4667,6 +4686,10 @@
 		366D53CD2952B3130094CE36 /* ScanQR */ = {
 			isa = PBXGroup;
 			children = (
+				36CEAD882B94938900D532E0 /* QRCommon.swift */,
+				36CEAD852B948DBE00D532E0 /* AddressQRDecoder.swift */,
+				36CEAD842B948DBD00D532E0 /* SubstrateQRCommon.swift */,
+				36CEAD802B9488CD00D532E0 /* AddressQREncoder.swift */,
 				3653BD0D2A029A66003C71A4 /* ScanQRWireframe.swift */,
 				3653BD0B2A028CE5003C71A4 /* QRFrameView.swift */,
 				949C789525D3EB1C00E260B9 /* WalletQRCoderFactory.swift */,
@@ -4744,6 +4767,14 @@
 				3694D4592971F5450045A295 /* ActivityErrorItem.swift */,
 			);
 			path = ActivityErrorCell;
+			sourceTree = "<group>";
+		};
+		369E10C12B91DF230097DB61 /* IconGenerator */ = {
+			isa = PBXGroup;
+			children = (
+				369E10C22B91DF3D0097DB61 /* PolkadotIconGenerator.swift */,
+			);
+			path = IconGenerator;
 			sourceTree = "<group>";
 		};
 		36A652EF2921A0C400C1D608 /* SlippageTolerance */ = {
@@ -6461,6 +6492,12 @@
 			dependencies = (
 			);
 			name = SoraPassport;
+			packageProductDependencies = (
+				369E10BA2B91DAEC0097DB61 /* IrohaCrypto */,
+				36CEAD7A2B9471DD00D532E0 /* SSFCloudStorage */,
+				36CEAD7C2B94734200D532E0 /* SSFCrypto */,
+				36CEAD822B948A0B00D532E0 /* SSFQRService */,
+			);
 			productName = SoraPassport;
 			productReference = 02623EB52178C0910011250E /* SoraPassport.app */;
 			productType = "com.apple.product-type.application";
@@ -6607,6 +6644,9 @@
 				pt,
 			);
 			mainGroup = 02623EAC2178C0910011250E;
+			packageReferences = (
+				369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */,
+			);
 			productRefGroup = 02623EB62178C0910011250E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -6739,7 +6779,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				$PROJECT_DIR/R.generated.swift,
+				"$PROJECT_DIR/R.generated.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6837,7 +6877,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
+				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -6856,7 +6896,6 @@
 				"${BUILT_PRODUCTS_DIR}/CocoaLumberjack/CocoaLumberjack.framework",
 				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
 				"${BUILT_PRODUCTS_DIR}/FLEX/FLEX.framework",
-				"${BUILT_PRODUCTS_DIR}/FearlessUtils/FearlessUtils.framework",
 				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
 				"${BUILT_PRODUCTS_DIR}/FirebaseCore/FirebaseCore.framework",
 				"${BUILT_PRODUCTS_DIR}/FirebaseCoreExtension/FirebaseCoreExtension.framework",
@@ -6913,7 +6952,6 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CocoaLumberjack.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FLEX.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FearlessUtils.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCore.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreExtension.framework",
@@ -7040,47 +7078,31 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh",
-				"${BUILT_PRODUCTS_DIR}/BigInt/BigInt.framework",
 				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
-				"${BUILT_PRODUCTS_DIR}/FearlessUtils/FearlessUtils.framework",
 				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
 				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
 				"${BUILT_PRODUCTS_DIR}/GoogleAPIClientForREST/GoogleAPIClientForREST.framework",
-				"${BUILT_PRODUCTS_DIR}/IrohaCrypto/IrohaCrypto.framework",
-				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
 				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
 				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
 				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
-				"${BUILT_PRODUCTS_DIR}/TweetNacl/TweetNacl.framework",
-				"${BUILT_PRODUCTS_DIR}/scrypt.c/scrypt.framework",
-				"${BUILT_PRODUCTS_DIR}/secp256k1.c/secp256k1.framework",
-				"${BUILT_PRODUCTS_DIR}/xxHash-Swift/xxHash_Swift.framework",
 				"${BUILT_PRODUCTS_DIR}/Cuckoo/Cuckoo.framework",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/sorawallet/sorawallet.framework/sorawallet",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BigInt.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FearlessUtils.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMSessionFetcher.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleAPIClientForREST.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IrohaCrypto.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/TweetNacl.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/scrypt.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/secp256k1.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/xxHash_Swift.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Cuckoo.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/sorawallet.framework",
 			);
@@ -7102,7 +7124,6 @@
 				"${BUILT_PRODUCTS_DIR}/CocoaLumberjack/CocoaLumberjack.framework",
 				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
 				"${BUILT_PRODUCTS_DIR}/FLEX/FLEX.framework",
-				"${BUILT_PRODUCTS_DIR}/FearlessUtils/FearlessUtils.framework",
 				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
 				"${BUILT_PRODUCTS_DIR}/FirebaseCore/FirebaseCore.framework",
 				"${BUILT_PRODUCTS_DIR}/FirebaseCoreExtension/FirebaseCoreExtension.framework",
@@ -7159,7 +7180,6 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CocoaLumberjack.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FLEX.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FearlessUtils.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCore.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreExtension.framework",
@@ -7310,6 +7330,7 @@
 				94B3010426FDF41D00F239D7 /* PriceData.swift in Sources */,
 				B2A56EFD2A5E955E00844A35 /* FeeView.swift in Sources */,
 				02E319A221D2B16A00B33B66 /* DecentralizedDocumentRequestError+TextConvertible.swift in Sources */,
+				36CEAD812B9488CD00D532E0 /* AddressQREncoder.swift in Sources */,
 				36583CFA2B47A66D007725ED /* UserFarmsService.swift in Sources */,
 				94497DDE25EF89A700FD4F14 /* ActiveEraInfo.swift in Sources */,
 				365BFF8E2B3BCE3C0035DD78 /* DemeterFarmingClaimRewardCall.swift in Sources */,
@@ -7682,6 +7703,7 @@
 				94497F0B25F13CD800FD4F14 /* Era+BlockNumber.swift in Sources */,
 				8BD084B429411F9B00EEAE0D /* InformationItem.swift in Sources */,
 				94497E1725EF94B300FD4F14 /* StakingOverviewSubscription.swift in Sources */,
+				36CEAD872B948DBE00D532E0 /* AddressQRDecoder.swift in Sources */,
 				9441F94025C96D0600775559 /* TransactionHistoryItem+Wallet.swift in Sources */,
 				94497D5125EE8A0A00FD4F14 /* WebSocketServiceFactory.swift in Sources */,
 				36DB19BE29EDDA9100B3E3BF /* UsernameSetupProtocols.swift in Sources */,
@@ -7943,6 +7965,7 @@
 				94497DDB25EF89A700FD4F14 /* ValidatorPrefs.swift in Sources */,
 				94497DCA25EF89A700FD4F14 /* SlashingSpans.swift in Sources */,
 				026AEA1B21A7CB46002EEB67 /* ErrorPresentable+AlertText.swift in Sources */,
+				36CEAD892B94938900D532E0 /* QRCommon.swift in Sources */,
 				9481B49B286F019700A472E2 /* ChainSyncEvents.swift in Sources */,
 				8474359F22D5D7C5002B1BDC /* UserDataError+TextConvertible.swift in Sources */,
 				553069DC290A7F4F00F265A3 /* AppSettingsPresenter.swift in Sources */,
@@ -7986,6 +8009,7 @@
 				3645269A28C128BA00260340 /* NodesProtocols.swift in Sources */,
 				363D99092B3FC47A0038E46F /* SupplyPoolView.swift in Sources */,
 				36110B992953BB2400712BEB /* InputAssetAmountViewController.swift in Sources */,
+				36CEAD862B948DBE00D532E0 /* SubstrateQRCommon.swift in Sources */,
 				9441FC1F25D1536300775559 /* AddImportedWireframe.swift in Sources */,
 				94497CFC25E949A700FD4F14 /* MigrationViewFactory.swift in Sources */,
 				848A880B247C602B00B22C44 /* NSDecimalNumberHandler+Wallet.swift in Sources */,
@@ -8260,6 +8284,7 @@
 				9441FBDB25CC034800775559 /* WebSocketService.swift in Sources */,
 				94497DE525EF8DEF00FD4F14 /* SubstrateCallFactory.swift in Sources */,
 				10D644872553FE0600C18F1C /* Reusable.swift in Sources */,
+				369E10C32B91DF3D0097DB61 /* PolkadotIconGenerator.swift in Sources */,
 				847A17A32375796E003BA71A /* RoundedCellControlView.swift in Sources */,
 				8481A5E7230541F70056D3D4 /* UIViewController+Modal.swift in Sources */,
 				9481B48D286EFE8E00A472E2 /* ChainAccountModel.swift in Sources */,
@@ -8445,7 +8470,7 @@
 				945A578325DE8B06003E4023 /* ExtrinsicEraTests.swift in Sources */,
 				8409323823414FEE0013C871 /* WalletContextMock.swift in Sources */,
 				BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */,
-				20D9ACBA22DBBB68D16C8674 /* (null) in Sources */,
+				20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */,
 				945A574A25DE8495003E4023 /* RuntimeMetadataCreationHelper.swift in Sources */,
 				44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */,
 				36A12693289143D7009117B9 /* WalletNetworkOperationFactoryProtocolMock.swift in Sources */,
@@ -8679,7 +8704,7 @@
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -8818,7 +8843,7 @@
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9020,7 +9045,7 @@
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9048,7 +9073,7 @@
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9357,7 +9382,7 @@
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9489,6 +9514,40 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/soramitsu/shared-features-spm";
+			requirement = {
+				kind = revision;
+				revision = c73e07b5d3b9ba0929daabe70294101cd6b513a8;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		369E10BA2B91DAEC0097DB61 /* IrohaCrypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */;
+			productName = IrohaCrypto;
+		};
+		36CEAD7A2B9471DD00D532E0 /* SSFCloudStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */;
+			productName = SSFCloudStorage;
+		};
+		36CEAD7C2B94734200D532E0 /* SSFCrypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */;
+			productName = SSFCrypto;
+		};
+		36CEAD822B948A0B00D532E0 /* SSFQRService */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */;
+			productName = SSFQRService;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
 		84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */ = {

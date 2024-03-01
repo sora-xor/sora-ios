@@ -29,7 +29,8 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 extension DrawableIcon {
     func imageWithFillColor(_ color: UIColor, size: CGSize, contentScale: CGFloat) -> UIImage? {
