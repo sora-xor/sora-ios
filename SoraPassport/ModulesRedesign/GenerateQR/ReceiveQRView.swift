@@ -29,7 +29,8 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 struct ReceiveQRViewModel {
     let name: String
@@ -49,7 +50,7 @@ final class ReceiveQRView: SoramitsuView {
             guard let viewModel = viewModel else { return }
             accountAddress.sora.text = viewModel.address
             accountImageView.image = try? generator.generateFromAddress(viewModel.address)
-                .imageWithFillColor(.white,
+                .imageWithFillColor(UIColor.white,
                                     size: CGSize(width: 40.0, height: 40.0),
                                     contentScale: UIScreen.main.scale)
             

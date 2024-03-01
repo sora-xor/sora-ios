@@ -30,6 +30,7 @@
 
 import SSFUtils
 import RobinHood
+import Foundation
 
 protocol GenesisProviderProtocol {
     func load(completion: @escaping (String?) -> Void)

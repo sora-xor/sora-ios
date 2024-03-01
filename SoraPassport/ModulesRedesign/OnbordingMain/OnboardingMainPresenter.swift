@@ -78,7 +78,19 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
     
     func activateCloudStorageConnection() {
         view?.showLoading()
-        interactor.getBackupedAccounts(completion: showScreenAfterSelection)
+        Task { [weak self] in
+            do {
+                guard let self else { return }
+                let result = try await self.interactor.getBackupedAccounts()
+                
+                let accounts = result.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
+                if accounts.isEmpty {
+                    self.wireframe.showSignup(from: self.view, isGoogleBackupSelected: true)
+                    return
+                }
+                self.wireframe.showBackupedAccounts(from: self.view, accounts: accounts)
+            } catch {}
+        }
     }
 }
 

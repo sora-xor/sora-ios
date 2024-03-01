@@ -30,6 +30,7 @@
 
 import Foundation
 import SSFUtils
+import UIKit
 
 struct EmptyAccountIcon: DrawableIcon {
     func drawInContext(_ context: CGContext, fillColor: UIColor, size: CGSize) {}

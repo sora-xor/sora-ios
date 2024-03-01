@@ -30,6 +30,7 @@
 
 import Foundation
 import SSFUtils
+import SSFModels
 
 extension CryptoType {
     init(_ utilsType: CryptoType) {
@@ -40,17 +41,6 @@ extension CryptoType {
             self = .ed25519
         case .ecdsa:
             self = .ecdsa
-        }
-    }
-
-    var utilsType: SSFUtils.CryptoType {
-        switch self {
-        case .sr25519:
-            return .sr25519
-        case .ed25519:
-            return .ed25519
-        case .ecdsa:
-            return .ecdsa
         }
     }
 }

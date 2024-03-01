@@ -170,28 +170,38 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     }
     
     private func updateCloudStorage(with password: String) {
-        cloudStorageService.getBackupAccounts { [weak self] result in
+        Task { [weak self] in
             guard let self = self else { return }
             
-            if case let .success(accounts) = result, let foudedAccount = accounts.first(where: { self.backupAccount.address == $0.address }) {
-                self.cloudStorageService.deleteBackupAccount(account: foudedAccount) { [weak self] _ in
-                    guard let self = self else { return }
+            do {
+                let accounts = try await self.cloudStorageService.getBackupAccounts()
+                if let foudedAccount = accounts.first(where: { self.backupAccount.address == $0.address }) {
+                    try await self.cloudStorageService.deleteBackup(account: foudedAccount)
                     
                     let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
                     ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != foudedAccount.address }
                     
-                    self.cloudStorageService.saveBackupAccount(account: self.backupAccount, password: password) { [weak self] result in
-                        self?.view?.hideLoading()
-                        self?.handler(result)
+                    try await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
+                    
+                    self.view?.hideLoading()
+                    
+                    var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
+                    backupedAccountAddresses.append(backupAccount.address)
+                    ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
+                    
+                    if completion != nil {
+                        await view?.controller.dismiss(animated: true, completion: completion)
+                    } else {
+                        wireframe?.showSetupPinCode()
                     }
                 }
-            } else {
-                
-                self.cloudStorageService.saveBackupAccount(account: self.backupAccount, password: password) { [weak self] result in
-                    self?.view?.hideLoading()
-                    self?.handler(result)
-                }
-                
+            } catch {
+                try? await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
+                self.view?.hideLoading()
+                self.wireframe?.present(message: nil,
+                                        title: error.localizedDescription,
+                                        closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                                        from: view)
             }
         }
     }

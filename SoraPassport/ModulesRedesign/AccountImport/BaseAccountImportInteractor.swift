@@ -215,13 +215,13 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
     }
     
     func importBackedupAccount(request: AccountImportBackedupRequest) {
-        cloudStorage?.importBackupAccount(account: request.account, password: request.password) { [weak self] result in
-            guard let self = self else { return }
-            switch result {
-            case .success(let account):
-                self.importAccount(account, password: request.password)
-            case .failure(let error):
-                self.presenter.didReceiveAccountImport(error: error)
+        Task { [weak self] in
+            guard let cloudStorage = self?.cloudStorage else { return }
+            do {
+                let account = try await cloudStorage.importBackup(account: request.account, password: request.password)
+                self?.importAccount(account, password: request.password)
+            } catch {
+                self?.presenter.didReceiveAccountImport(error: error)
             }
         }
     }

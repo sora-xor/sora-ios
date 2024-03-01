@@ -30,7 +30,8 @@
 
 import SoraUIKit
 import Anchorage
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 final class EnterPasswordCell: SoramitsuTableViewCell {
     
@@ -138,7 +139,7 @@ extension EnterPasswordCell: SoramitsuTableViewCellProtocol {
         accountView.accountTitle.sora.isHidden = item.accountName?.isEmpty ?? true
         accountView.accountAddress.sora.text = item.accountAddress
         accountView.accountImageView.image = try? generator.generateFromAddress(item.accountAddress)
-            .imageWithFillColor(.white,
+            .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)
         passwordInputField.textField.becomeFirstResponder()

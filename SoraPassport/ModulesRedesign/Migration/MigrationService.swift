@@ -78,6 +78,7 @@ class MigrationService: MigrationServiceProtocol {
     lazy var did: String = createDid()
 
     func checkMigration() {
+        print("OLOLO checkMigration")
         irohaKeyPair = createIrohaKeyPair()
         did = createDid()
         if !settings.hasMigrated {

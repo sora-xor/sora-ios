@@ -31,6 +31,7 @@
 import SSFUtils
 import Foundation
 import IrohaCrypto
+import SSFQRService
 
 public struct SoraSubstrateQRInfo: Equatable {
     public let prefix: String
@@ -40,7 +41,7 @@ public struct SoraSubstrateQRInfo: Equatable {
     public let assetId: String
     public let amount: String?
 
-    public init(prefix: String = SubstrateQR.prefix,
+    public init(prefix: String = SubstrateQRConstants.prefix,
                 address: String,
                 rawPublicKey: Data,
                 username: String?,

@@ -33,6 +33,7 @@ import SSFUtils
 import IrohaCrypto
 import RobinHood
 import SoraKeystore
+import SSFCrypto
 
 protocol AccountOperationFactoryProtocol {
     func newAccountOperation(request: AccountCreationRequest,
