@@ -196,8 +196,8 @@ PODS:
   - nanopb/decode (2.30909.1)
   - nanopb/encode (2.30909.1)
   - Nantes (0.1.2)
-  - PayWingsKycSDK (1.0.0)
-  - PayWingsOAuthSDK (2.0.0):
+  - PayWingsKycSDK (1.0.1)
+  - PayWingsOAuthSDK (2.0.2):
     - JOSESwift (= 2.4.0)
     - RecaptchaEnterprise (= 18.3.0)
   - PromisesObjC (2.3.1)
@@ -211,10 +211,10 @@ PODS:
     - RecaptchaInterop (~> 100.0.0)
   - RecaptchaInterop (100.0.0)
   - RobinHood (2.6.8)
-  - SCard (1.5.0):
+  - SCard (1.5.1):
     - IdensicMobileSDK
-    - PayWingsKycSDK (= 1.0.0)
-    - PayWingsOAuthSDK (= 2.0.0)
+    - PayWingsKycSDK (= 1.0.1)
+    - PayWingsOAuthSDK (= 2.0.2)
     - R.swift (~> 6.1.0)
     - SnapKit
     - SoraUIKit (~> 1.1.2)
@@ -329,7 +329,7 @@ DEPENDENCIES:
   - R.swift (~> 6.1.0)
   - ReachabilitySwift
   - RobinHood
-  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.5.0`)
+  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.5.1`)
   - SnapKit
   - SoraDocuments
   - SoraFoundation
@@ -416,7 +416,7 @@ EXTERNAL SOURCES:
     :branch: version6-xcode13
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :branch: release/1.5.0
+    :branch: release/1.5.1
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
@@ -443,7 +443,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: 5739c2078ff4c1734fbd29d8b3ee043b44da91b0
+    :commit: 2ed5b3159556d624f2e42e55ef42211c8ae5d778
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
@@ -488,8 +488,8 @@ SPEC CHECKSUMS:
   lottie-ios: c55158d67d0629a260625cc2ded2052b829e3c3e
   nanopb: d4d75c12cd1316f4a64e3c6963f879ecd4b5e0d5
   Nantes: 0396442578e32242223fed46050dea1850236184
-  PayWingsKycSDK: b997360d19e585328ae56d5a836d9d2cdd61792d
-  PayWingsOAuthSDK: bde59cb75d4f1e283b6f2743f38f1dbfeffbe4b8
+  PayWingsKycSDK: c709ff0ebff5c5a7d771c211655c2857f209edb0
+  PayWingsOAuthSDK: 40168c32d47402bf33ef1c167ce2261dac6da102
   PromisesObjC: c50d2056b5253dadbd6c2bea79b0674bd5a52fa4
   PromisesSwift: 28dca69a9c40779916ac2d6985a0192a5cb4a265
   R.swift: ec98ff71c4ab2f6fd01dd077e5afd15e63a4834c
@@ -498,7 +498,7 @@ SPEC CHECKSUMS:
   RecaptchaEnterprise: 9b60bc1e1633d120e24a098d80546776fab1282e
   RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
   RobinHood: b775a72cc0ae55cee3dfb4a5668597aca20ba244
-  SCard: 2ce0da1b75b72119550da5514a0574b52b3b173b
+  SCard: b5bad38b2b5d06116338f2586feebf37405cb9b6
   scrypt.c: b42ae06183251329d2b2c620c226fb541a4a3592
   secp256k1.c: db47b726585d80f027423682eb369729e61b3b20
   SnapKit: e01d52ebb8ddbc333eefe2132acf85c8227d9c25
@@ -520,6 +520,6 @@ SPEC CHECKSUMS:
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 76c1c6fa418cba617c18ffdf5d78b82d5651c4c7
+PODFILE CHECKSUM: dd594e43f2cffcafcb35b5e9f4c62eaf8d70079f
 
 COCOAPODS: 1.12.1
