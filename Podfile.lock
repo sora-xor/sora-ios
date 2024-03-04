@@ -20,7 +20,6 @@ PODS:
   - Cuckoo (1.9.1):
     - Cuckoo/Swift (= 1.9.1)
   - Cuckoo/Swift (1.9.1)
-  - eIDRTC (1.1.34)
   - FearlessUtils (0.14.0):
     - BigInt (~> 5.0)
     - IrohaCrypto/ed25519
@@ -188,6 +187,7 @@ PODS:
   - IrohaCrypto/ss58 (0.9.0):
     - IrohaCrypto/blake2
     - IrohaCrypto/Common
+  - JOSESwift (2.4.0)
   - Kingfisher (6.3.1)
   - lottie-ios (3.5.0)
   - nanopb (2.30909.1):
@@ -196,9 +196,10 @@ PODS:
   - nanopb/decode (2.30909.1)
   - nanopb/encode (2.30909.1)
   - Nantes (0.1.2)
-  - PayWingsOAuthSDK (1.2.2)
-  - PayWingsOnboardingKYC (5.2.1):
-    - VideoID (= 7.1.31)
+  - PayWingsKycSDK (1.0.1)
+  - PayWingsOAuthSDK (2.0.2):
+    - JOSESwift (= 2.4.0)
+    - RecaptchaEnterprise (= 18.3.0)
   - PromisesObjC (2.3.1)
   - PromisesSwift (2.3.1):
     - PromisesObjC (= 2.3.1)
@@ -206,14 +207,17 @@ PODS:
     - R.swift.Library (~> 5.3.0)
   - R.swift.Library (5.3.0)
   - ReachabilitySwift (5.0.0)
+  - RecaptchaEnterprise (18.3.0):
+    - RecaptchaInterop (~> 100.0.0)
+  - RecaptchaInterop (100.0.0)
   - RobinHood (2.6.8)
-  - SCard (1.4.0):
+  - SCard (1.5.1):
     - IdensicMobileSDK
-    - PayWingsOAuthSDK (= 1.2.2)
-    - PayWingsOnboardingKYC (= 5.2.1)
+    - PayWingsKycSDK (= 1.0.1)
+    - PayWingsOAuthSDK (= 2.0.2)
     - R.swift (~> 6.1.0)
     - SnapKit
-    - SoraUIKit (~> 1.1.2)
+    - SoraUIKit
   - scrypt.c (0.1.1)
   - secp256k1.c (0.1.2)
   - SnapKit (5.6.0)
@@ -303,8 +307,6 @@ PODS:
   - SwiftyBeaver (1.9.5)
   - Then (3.0.0)
   - TweetNacl (1.0.2)
-  - VideoID (7.1.31):
-    - eIDRTC (= 1.1.34)
   - xxHash-Swift (1.0.13)
 
 DEPENDENCIES:
@@ -327,7 +329,7 @@ DEPENDENCIES:
   - R.swift (~> 6.1.0)
   - ReachabilitySwift
   - RobinHood
-  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.4.0`)
+  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.5.1`)
   - SnapKit
   - SoraDocuments
   - SoraFoundation
@@ -350,7 +352,6 @@ SPEC REPOS:
     - BigInt
     - CocoaLumberjack
     - Cuckoo
-    - eIDRTC
     - Firebase
     - FirebaseAnalytics
     - FirebaseCore
@@ -370,16 +371,19 @@ SPEC REPOS:
     - GTMAppAuth
     - GTMSessionFetcher
     - IrohaCrypto
+    - JOSESwift
     - lottie-ios
     - nanopb
     - Nantes
+    - PayWingsKycSDK
     - PayWingsOAuthSDK
-    - PayWingsOnboardingKYC
     - PromisesObjC
     - PromisesSwift
     - R.swift
     - R.swift.Library
     - ReachabilitySwift
+    - RecaptchaEnterprise
+    - RecaptchaInterop
     - RobinHood
     - scrypt.c
     - secp256k1.c
@@ -393,7 +397,6 @@ SPEC REPOS:
     - SwiftyBeaver
     - Then
     - TweetNacl
-    - VideoID
     - xxHash-Swift
   https://github.com/soramitsu/SSFSpecs.git:
     - SSFCloudStorage
@@ -413,7 +416,7 @@ EXTERNAL SOURCES:
     :branch: version6-xcode13
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :branch: release/1.4.0
+    :branch: release/1.5.1
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
@@ -440,7 +443,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: bdc0abf48f84bd4273f677ffc29bf68627bcb637
+    :commit: 4fbcf6c388e90981d17ee305711f3d55e9bec5ed
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
@@ -459,7 +462,6 @@ SPEC CHECKSUMS:
   CocoaLumberjack: f8d89a516e7710fdb2e9b8f1560b16ec6040eef0
   CommonWallet: 3c67d5fd85593a20f6b55777c2660ff886fc4148
   Cuckoo: 1b6793fe60fac29af50b0a5915bc309a4a1ac673
-  eIDRTC: debca63e4c367be509c77292df65b9527d695f10
   FearlessUtils: 29225af385d297526e802d5218fa111763ff10de
   Firebase: 63ce8ece0d43743dc28eacac0c6867a2d7fd5a9d
   FirebaseAnalytics: 87513010b13b7c8610164d3602ea10571f76afc1
@@ -481,19 +483,22 @@ SPEC CHECKSUMS:
   GTMSessionFetcher: 41b9ef0b4c08a6db4b7eb51a21ae5183ec99a2c8
   IdensicMobileSDK: 57c80d5544ee364fa526670c1d3bb2e80f374c2b
   IrohaCrypto: 6be75a4268cd1f5cec4231c6d3f95cb03f723fd3
+  JOSESwift: 7ff178bb9173ff42c6e990929a9f2fa702a34f69
   Kingfisher: 8b783c3d7be73a99b2172a743a5bc0a4dd331d79
   lottie-ios: c55158d67d0629a260625cc2ded2052b829e3c3e
   nanopb: d4d75c12cd1316f4a64e3c6963f879ecd4b5e0d5
   Nantes: 0396442578e32242223fed46050dea1850236184
-  PayWingsOAuthSDK: 97c104c6efa982313fd515c22339279f24ac3461
-  PayWingsOnboardingKYC: eaac16a6e95ee1e20931e1633106acfca26c946a
+  PayWingsKycSDK: c709ff0ebff5c5a7d771c211655c2857f209edb0
+  PayWingsOAuthSDK: 40168c32d47402bf33ef1c167ce2261dac6da102
   PromisesObjC: c50d2056b5253dadbd6c2bea79b0674bd5a52fa4
   PromisesSwift: 28dca69a9c40779916ac2d6985a0192a5cb4a265
   R.swift: ec98ff71c4ab2f6fd01dd077e5afd15e63a4834c
   R.swift.Library: 0fc583cb55a99e28901299cc451614cad1161962
   ReachabilitySwift: 985039c6f7b23a1da463388634119492ff86c825
+  RecaptchaEnterprise: 9b60bc1e1633d120e24a098d80546776fab1282e
+  RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
   RobinHood: b775a72cc0ae55cee3dfb4a5668597aca20ba244
-  SCard: 624362d14b97663df4cc026d61f09240d7931714
+  SCard: 58ad6131ab20174c1c50e6c474132b79c6d16a13
   scrypt.c: b42ae06183251329d2b2c620c226fb541a4a3592
   secp256k1.c: db47b726585d80f027423682eb369729e61b3b20
   SnapKit: e01d52ebb8ddbc333eefe2132acf85c8227d9c25
@@ -513,9 +518,8 @@ SPEC CHECKSUMS:
   SwiftyBeaver: 84069991dd5dca07d7069100985badaca7f0ce82
   Then: 844265ae87834bbe1147d91d5d41a404da2ec27d
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
-  VideoID: d48d4f30f79f12229421a09e65692561960dc5b5
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 3ad6cecf10de5362e1abbd4f6afbd101b17b43c3
+PODFILE CHECKSUM: b988b1be03413e57ae18a50ed8628a2350e52d4f
 
 COCOAPODS: 1.12.1
