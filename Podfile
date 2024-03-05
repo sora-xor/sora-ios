@@ -74,7 +74,7 @@ post_install do |installer|
   installer.generated_projects.each do |project|
     project.build_configurations.each do |config|
       config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
-#      config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
+      config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
       if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 9.0
         config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       end
