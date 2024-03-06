@@ -36,6 +36,7 @@ import Then
 import SoraUIKit
 import IrohaCrypto
 import SSFUtils
+import RobinHood
 
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
@@ -556,10 +557,36 @@ extension MainTabBarViewFactory {
                                             assetManager: assetManager,
                                             fiatService: fiatService)
         
-        let explorePoolsService = ExplorePoolsService(assetInfos: walletAssets,
-                                                      fiatService: fiatService,
-                                                      polkaswapOperationFactory: polkaswapNetworkFacade,
-                                                      networkFacade: networkFacade)
+        let storageRequestFactory = StorageRequestFactory(
+            remoteFactory: StorageKeyFactory(),
+            operationManager: OperationManagerFacade.sharedManager
+        )
+        let addressFactory = SS58AddressFactory()
+        let polkaswapOperationFactory = PolkaswapOperationFactoryDefault(
+            storageRequestFactory: storageRequestFactory,
+            chainRegistry: ChainRegistryFacade.sharedRegistry, 
+            addressFactory: addressFactory,
+            chainId: Chain.sora.genesisHash(),
+            chain: Chain.sora
+        )
+        let worker = PolkaswapWorkerDefault(operationFactory: polkaswapOperationFactory)
+        let apyWorker = PolkaswapAPYWorkerDefault()
+        let apyService = PolkaswapAPYServiceDefault(worker: apyWorker)
+
+        let remotePolkaswapService = RemotePolkaswapPoolsServiceDefault(
+            chain: Chain.sora,
+            worker: worker,
+            apyService: apyService,
+            addressFactory: addressFactory
+        )
+        
+        let explorePoolsService = ExplorePoolsService(
+            assetInfos: walletAssets,
+            fiatService: fiatService,
+            polkaswapOperationFactory: polkaswapNetworkFacade,
+            networkFacade: networkFacade,
+            remotePolkaswapService: remotePolkaswapService
+        )
         
         let poolViewModelsService = ExplorePoolsViewModelService(itemFactory: itemFactory,
                                                                 poolsService: explorePoolsService,

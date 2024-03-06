@@ -51,7 +51,6 @@ protocol DetailViewModelFactoryProtocol {
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
                                          isPresented: Bool,
-                                         isEnabled: Bool,
                                          fee: Decimal,
                                          viewModel: LiquidityViewModelProtocol) -> [DetailViewModel]
     
@@ -62,8 +61,6 @@ protocol DetailViewModelFactoryProtocol {
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
-                                         isPresented: Bool,
-                                         isEnabled: Bool,
                                          fee: Decimal,
                                          viewModel: LiquidityViewModelProtocol) -> [DetailViewModel]
     
@@ -298,7 +295,6 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
                                          isPresented: Bool,
-                                         isEnabled: Bool,
                                          fee: Decimal,
                                          viewModel: LiquidityViewModelProtocol) -> [DetailViewModel] {
         var viewModels: [DetailViewModel] = []
@@ -373,8 +369,6 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                          fiatData: [FiatData],
                                          focusedField: FocusedField,
                                          slippageTolerance: Float,
-                                         isPresented: Bool,
-                                         isEnabled: Bool,
                                          fee: Decimal,
                                          viewModel: LiquidityViewModelProtocol) -> [DetailViewModel] {
         let poolShareDecimal = estimateRemoveShareOfPool(amount: targetAssetAmount,

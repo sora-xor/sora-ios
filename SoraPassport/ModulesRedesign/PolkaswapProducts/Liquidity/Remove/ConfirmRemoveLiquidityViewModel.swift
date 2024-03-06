@@ -50,6 +50,7 @@ final class ConfirmRemoveLiquidityViewModel {
     var details: [DetailViewModel]
     let fee: Decimal
     let walletService: WalletServiceProtocol
+    let poolOperationService: PoolsOperationService
     
     var title: String? {
         return R.string.localizable.removePoolConfirmationTitle(preferredLanguages: .currentLocale)
@@ -68,7 +69,8 @@ final class ConfirmRemoveLiquidityViewModel {
         slippageTolerance: Float,
         details: [DetailViewModel],
         walletService: WalletServiceProtocol,
-        fee: Decimal
+        fee: Decimal,
+        poolOperationService: PoolsOperationService
     ) {
         self.poolInfo = poolInfo
         self.wireframe = wireframe
@@ -80,6 +82,7 @@ final class ConfirmRemoveLiquidityViewModel {
         self.fee = fee
         self.walletService = walletService
         self.slippageTolerance = slippageTolerance
+        self.poolOperationService = poolOperationService
     }
 }
 
@@ -175,14 +178,31 @@ extension ConfirmRemoveLiquidityViewModel {
             context: context
         )
         
-        wireframe?.showActivityIndicator()
-        walletService.transfer(info: transferInfo, runCompletionIn: .main) { [weak self] (optionalResult) in
-            self?.wireframe?.hideActivityIndicator()
+        let operationInfo = RemoveLiquidityInfo(
+            dexId: dexId,
+            baseAsset: PooledAssetInfo(id: poolInfo.baseAssetId, precision: 18),
+            targetAsset: PooledAssetInfo(id: poolInfo.targetAssetId, precision: 18),
+            baseAssetAmount: firstAssetAmount,
+            targetAssetAmount: secondAssetAmount,
+            baseAssetReserves: poolInfo.baseAssetReserves ?? Decimal(0),
+            totalIssuances: poolInfo.totalIssuances ?? Decimal(0),
+            slippage: Decimal(0.5)
+        )
 
-            if let result = optionalResult {
-                self?.handleTransfer(result: result)
-            }
+        let operation = PoolOperation.substrateRemoveLiquidity(operationInfo)
+        
+        Task {
+            try await poolOperationService.submit(liquidityOperation: operation)
         }
+        
+//        wireframe?.showActivityIndicator()
+//        walletService.transfer(info: transferInfo, runCompletionIn: .main) { [weak self] (optionalResult) in
+//            self?.wireframe?.hideActivityIndicator()
+//
+//            if let result = optionalResult {
+//                self?.handleTransfer(result: result)
+//            }
+//        }
     }
     
     private func handleTransfer(result: Result<Data, Error>) {

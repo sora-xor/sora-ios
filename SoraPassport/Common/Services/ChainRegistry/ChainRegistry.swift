@@ -372,6 +372,7 @@ extension ChainRegistry: ChainRegistryProtocol {
 extension ChainRegistry: ConnectionPoolDelegate {
 
     func connectionNeedsReconnect(url: URL, attempt: Int) {
+        print("OLOLOLO3333 \(url.absoluteString) \(attempt)")
         guard let failedChain = chains.first(where: { chain in
             return chain.nodes.first { $0.url == url } != nil || chain.customNodes?.first { $0.url == url } != nil
         }) else {

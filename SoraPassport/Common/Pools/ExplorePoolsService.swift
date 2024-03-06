@@ -57,18 +57,21 @@ final class ExplorePoolsService {
     private var networkFacade: WalletNetworkOperationFactoryProtocol?
     private var pools: [ExplorePool] = []
     private let assetInfos: [AssetInfo]
+    private let remotePolkaswapService: RemotePolkaswapPoolsService
     private var task: Task<Void, Swift.Error>?
     
     init(
         assetInfos: [AssetInfo],
         fiatService: FiatServiceProtocol?,
         polkaswapOperationFactory: PolkaswapNetworkOperationFactoryProtocol?,
-        networkFacade: WalletNetworkOperationFactoryProtocol?
+        networkFacade: WalletNetworkOperationFactoryProtocol?,
+        remotePolkaswapService: RemotePolkaswapPoolsService
     ) {
         self.assetInfos = assetInfos
         self.fiatService = fiatService
         self.polkaswapOperationFactory = polkaswapOperationFactory
         self.networkFacade = networkFacade
+        self.remotePolkaswapService = remotePolkaswapService
     }
 }
 
@@ -82,22 +85,65 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
             }
 
             self.task?.cancel()
-            self.task = Task {
+            self.task = Task { [weak self] in
+                guard let self else { return }
+                
                 if !self.pools.isEmpty {
                     continuation.resume(returning: self.pools)
                     return
                 }
                 
-                let baseAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
-                let targetAssetIds: [String] = self.assetInfos.filter { !baseAssetIds.contains($0.assetId) }.map { $0.assetId }
-
-                async let explorePools = self.collectPools(baseAssetIds: baseAssetIds, targetAssetIds: targetAssetIds).concurrentMap({ poolTuple in
-                    return await self.createExplorePool(poolTuple: poolTuple, fiatData: fiatData)
-                }).sorted(by: { $0.tvl > $1.tvl })
+                let baseAssetIds = try await self.remotePolkaswapService.getBaseAssetIds()
+                print("OLOLO liquidityPairs \(baseAssetIds)")
                 
-                let pools = (try? await explorePools) ?? []
-                self.pools = pools
-                continuation.resume(returning: pools)
+                async let pairsReservesIds = baseAssetIds.concurrentMap { baseAsset in
+                    return try await self.remotePolkaswapService.getPoolReservesId(baseAssetId: baseAsset)
+                }
+                
+                let finalPairs = try await pairsReservesIds
+                print("OLOLO finalPairs \(finalPairs)")
+//                
+//                
+//                var liquidityPairs = try await self.remotePolkaswapService.getAllPairs()
+//                print("OLOLO liquidityPairs \(liquidityPairs)")
+//                
+//                let pairs = try await liquidityPairs.asyncMap { [weak self] pair in
+//                    if let reservesId = pair.reservesId {
+//                        return pair.update(reservesId: reservesId)
+//                    }
+//                    
+//                    let reservesId = try await self?.remotePolkaswapService.getPoolReservesId(
+//                        baseAssetId: pair.baseAssetId,
+//                        targetAssetId: pair.targetAssetId
+//                    )
+//                    return pair.update(reservesId: reservesId)
+//                }
+//                print("OLOLO liquidityPairs1 \(pairs)")
+//                
+//                liquidityPairs = try await pairs.asyncMap { [weak self] pair in
+//                    let apy = try await self?.remotePolkaswapService.getAPY(reservesId: pair.reservesId)
+//                    return pair.update(apy: apy)
+//                }
+//                print("OLOLO liquidityPairs2 \(liquidityPairs)")
+//                
+//                let pools = liquidityPairs.compactMap { pair in
+//                    let idData = NSMutableData()
+//                    idData.append(Data(pair.baseAssetId.utf8))
+//                    idData.append(Data(pair.targetAssetId.utf8))
+//                    let poolId = String(idData.hashValue)
+//                    
+//                    let priceUsd = fiatData.first(where: { $0.id == pair.baseAssetId })?.priceUsd?.decimalValue ?? .zero
+//                    let reserves = pair.reserves ?? Decimal(0)
+//                    return ExplorePool(
+//                        id: poolId,
+//                        baseAssetId: pair.baseAssetId,
+//                        targetAssetId: pair.targetAssetId,
+//                        tvl: priceUsd * reserves * 2
+//                    )
+//                }
+//                print("OLOLO pools \(pools)")
+//                self.pools = pools
+                continuation.resume(returning: [])
             }
         }
     }

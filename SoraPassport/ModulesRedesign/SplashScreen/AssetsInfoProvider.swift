@@ -80,12 +80,16 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
 
     func load(completion: ([AssetInfo]) -> Void) {
         loadAssetsInfoKeys()
+        loadAssetInfos(completion: completion)
+    }
+    
+    private func loadAssetInfos(completion: ([AssetInfo]) -> Void) {
         loadAssetsInfo()
         if !assetsInfo.isEmpty {
             completion(assetsInfo)
             return
         }
-        load(completion: completion)
+        loadAssetInfos(completion: completion)
     }
 
     //MARK: - Load Keys

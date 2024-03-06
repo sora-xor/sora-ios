@@ -73,8 +73,18 @@ public enum StorageCodingPath: Equatable, CaseIterable {
             return (moduleName: "DemeterFarmingPlatform", itemName: "Pools")
         case .demeterFarmingTokenInfo:
             return (moduleName: "DemeterFarmingPlatform", itemName: "TokenInfos")
+        case .dexInfos:
+            return (moduleName: "DEXManager", itemName: "DEXInfos")
         case .userPools:
             return (moduleName: "PoolXYK", itemName: "AccountPools")
+        case .poolProperties:
+            return (moduleName: "PoolXYK", itemName: "Properties")
+        case .poolProviders:
+            return (moduleName: "PoolXYK", itemName: "PoolProviders")
+        case .totalIssuances:
+            return (moduleName: "PoolXYK", itemName: "TotalIssuances")
+        case .poolReserves:
+            return (moduleName: "PoolXYK", itemName: "Reserves")
         }
     }
     
@@ -94,5 +104,10 @@ public enum StorageCodingPath: Equatable, CaseIterable {
     case demeterFarmingUserInfo
     case demeterFarmingPools
     case demeterFarmingTokenInfo
+    case dexInfos
     case userPools
+    case poolProperties
+    case poolProviders
+    case totalIssuances
+    case poolReserves
 }

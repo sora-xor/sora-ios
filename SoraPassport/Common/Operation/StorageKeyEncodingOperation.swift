@@ -121,6 +121,7 @@ class MapKeyEncodingOperation<T: Encodable>: BaseOperation<[Data]> {
                 throw StorageKeyEncodingOperationError.missingRequiredParams
             }
 
+            print("OLOLO moduleName \(path.moduleName) storageName \(path.itemName)\n")
             guard let entry = factory.metadata.getStorageMetadata(
                 in: path.moduleName,
                 storageName: path.itemName
@@ -131,6 +132,7 @@ class MapKeyEncodingOperation<T: Encodable>: BaseOperation<[Data]> {
             let keyType: String
             let hasher: StorageHasher
 
+            print("OLOLO entry \(entry) path.moduleName \(path.moduleName) storageName \(path.itemName)\n")
             switch entry.type {
             case let .map(mapEntry):
                 keyType = mapEntry.key
@@ -165,7 +167,101 @@ class MapKeyEncodingOperation<T: Encodable>: BaseOperation<[Data]> {
                     hasher: hasher
                 )
             ]
+            print("OLOLO path.moduleName \(path.moduleName) storageName \(path.itemName) keys=\(keys.map { $0.toHex() })\n")
+            result = .success(keys)
+        } catch {
+            result = .failure(error)
+        }
+    }
 
+    override func main() {
+        super.main()
+
+        if isCancelled {
+            return
+        }
+
+        if result != nil {
+            return
+        }
+
+        performEncoding()
+    }
+}
+
+class MapKeyEncodingOperation1<T1: Encodable, T2: Encodable>: BaseOperation<[Data]> {
+    var keyParam1: [T1]?
+    var keyParam2: [T2]?
+    var codingFactory: RuntimeCoderFactoryProtocol?
+
+    let path: StorageCodingPath
+    let storageKeyFactory: StorageKeyFactoryProtocol
+
+    init(path: StorageCodingPath, storageKeyFactory: StorageKeyFactoryProtocol, keyParam1: [T1]? = nil, keyParam2: [T2]? = nil ) {
+        self.path = path
+        self.keyParam1 = keyParam1
+        self.keyParam2 = keyParam2
+        self.storageKeyFactory = storageKeyFactory
+
+        super.init()
+    }
+
+    private func performEncoding() {
+        do {
+            guard let factory = codingFactory, let keyParam1 = keyParam1, let keyParam2 = keyParam2 else {
+                throw StorageKeyEncodingOperationError.missingRequiredParams
+            }
+
+            guard let entry = factory.metadata.getStorageMetadata(
+                in: path.moduleName,
+                storageName: path.itemName
+            ) else {
+                throw StorageKeyEncodingOperationError.invalidStoragePath
+            }
+
+            let keyType: String
+            let hasher: StorageHasher
+
+            print("OLOLO entry \(entry) path.moduleName \(path.moduleName) storageName \(path.itemName)\n")
+            switch entry.type {
+            case let .map(mapEntry):
+                keyType = mapEntry.key
+                hasher = mapEntry.hasher
+            case let .doubleMap(doubleMapEntry):
+                keyType = doubleMapEntry.key1
+                hasher = doubleMapEntry.hasher
+            case let .nMap(nMapEntry):
+                guard
+                    let firstKey = try nMapEntry.keys(using: factory.metadata.schemaResolver).first,
+                    let firstHasher = nMapEntry.hashers.first else {
+                    throw StorageKeyEncodingOperationError.missingRequiredParams
+                }
+
+                keyType = firstKey
+                hasher = firstHasher
+            case .plain:
+                throw StorageKeyEncodingOperationError.incompatibleStorageType
+            }
+            
+            let encoder = factory.createEncoder()
+            [keyParam1].forEach { keyParam in
+                try? encoder.append(keyParam, ofType: keyType)
+            }
+            [keyParam2].forEach { keyParam in
+                try? encoder.append(keyParam, ofType: keyType)
+            }
+            print("OLOLO ([keyParam1, keyParam2] as? [Encodable]) \(([keyParam1, keyParam2] as? [Encodable]))\n")
+            let encodedParam = try encoder.encode()
+
+            let keys: [Data] = [
+                try storageKeyFactory.createStorageKey(
+                    moduleName: path.moduleName,
+                    storageName: path.itemName,
+                    key: encodedParam,
+                    hasher: hasher
+                )
+            ]
+            print("OLOLO path.moduleName \(path.moduleName) storageName \(path.itemName) keys=\(keys.map { $0.toHex() })\n")
             result = .success(keys)
         } catch {
             result = .failure(error)
@@ -220,6 +316,7 @@ class DoubleMapKeyEncodingOperation<T1: Encodable, T2: Encodable>: BaseOperation
             return
         }
 
+        print("OLOLO started keys")
         do {
             guard let factory = codingFactory,
                   let keyParams1 = keyParams1,
@@ -262,7 +359,7 @@ class DoubleMapKeyEncodingOperation<T1: Encodable, T2: Encodable>: BaseOperation
                     hasher2: doubleMapEntry.key2Hasher
                 )
             }
-
+            print("OLOLO keys= \(keys.forEach { $0.toHex() })")
             result = .success(keys)
         } catch {
             result = .failure(error)
@@ -321,9 +418,10 @@ class NMapKeyEncodingOperation: BaseOperation<[Data]> {
                 in: path.moduleName,
                 storageName: path.itemName
             ) else {
+                print("OLOLO entry error")
                 throw StorageKeyEncodingOperationError.invalidStoragePath
             }
-
+            print("OLOLO entry \(entry) path.moduleName \(path.moduleName) storageName \(path.itemName)\n")
             guard case let .nMap(nMapEntry) = entry.type else {
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }
@@ -333,6 +431,7 @@ class NMapKeyEncodingOperation: BaseOperation<[Data]> {
                 throw StorageKeyEncodingOperationError.incompatibleStorageType
             }
 
+            print("OLOLO entry \(entry) path.moduleName \(path.moduleName) storageName \(path.itemName)\n")
             var params: [[NMapKeyParamProtocol]] = []
             for index in 0 ..< keyParams[0].count {
                 var array: [NMapKeyParamProtocol] = []
@@ -354,7 +453,7 @@ class NMapKeyEncodingOperation: BaseOperation<[Data]> {
                     hashers: nMapEntry.hashers
                 )
             }
-
+            print("OLOLO path.moduleName \(path.moduleName) storageName \(path.itemName) keys=\(keys.map { $0.toHex() })\n")
             result = .success(keys)
         } catch {
             result = .failure(error)

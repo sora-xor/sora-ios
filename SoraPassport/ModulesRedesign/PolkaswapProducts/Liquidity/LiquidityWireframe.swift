@@ -34,6 +34,9 @@ import RobinHood
 import CommonWallet
 import sorawallet
 import SoraUIKit
+import SSFUtils
+import IrohaCrypto
+import SoraKeystore
 
 protocol LiquidityWireframeProtocol: AlertPresentable {
     func showChoiсeBaseAsset(on controller: UIViewController?,
@@ -171,18 +174,95 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
         fee: Decimal,
         operationFactory: WalletNetworkOperationFactoryProtocol
     ) {
+        
+        let selectedAccount = SelectedWalletSettings.shared.currentAccount!
+        let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash())!
+        let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())!
+        let polkaswapOperationFactory = PolkaswapNetworkOperationFactory(engine: connection)
+        
+        let poolRepository = AnyDataProviderRepository(PoolRepositoryFactory().createRepository())
+        
+        let storageRequestFactory = StorageRequestFactory(
+            remoteFactory: StorageKeyFactory(),
+            operationManager: OperationManagerFacade.sharedManager
+        )
+    
+        let addressFactory = SS58AddressFactory()
+        let poolsOperationFactory = PolkaswapOperationFactoryDefault(
+            storageRequestFactory: storageRequestFactory,
+            chainRegistry: ChainRegistryFacade.sharedRegistry,
+            addressFactory: addressFactory,
+            chainId: Chain.sora.genesisHash(),
+            chain: Chain.sora
+        )
 
-        let viewModel = ConfirmSupplyLiquidityViewModel(wireframe: ConfirmWireframe(),
-                                                        baseAssetId: baseAssetId,
-                                                        targetAssetId: targetAssetId,
-                                                        assetManager: assetManager,
-                                                        firstAssetAmount: firstAssetAmount,
-                                                        secondAssetAmount: secondAssetAmount,
-                                                        slippageTolerance: slippageTolerance,
-                                                        details: details,
-                                                        transactionType: transactionType,
-                                                        fee: fee,
-                                                        walletService: WalletService(operationFactory: operationFactory))
+        let worker = PolkaswapWorkerDefault(operationFactory: poolsOperationFactory)
+        
+        let apyWorker = PolkaswapAPYWorkerDefault()
+        let apyService = PolkaswapAPYServiceDefault(worker: apyWorker)
+        
+        let remoteService = RemotePolkaswapPoolsServiceDefault(
+            chain: Chain.sora,
+            worker: worker,
+            apyService: apyService,
+            addressFactory: addressFactory
+        )
+        
+        let localPairService = LocalLiquidityPairServiceDefault(
+            repository: AnyDataProviderRepository(PolkaswapPoolRepositoryFactory().createRepository()),
+            operationManager: OperationManager()
+        )
+        
+        let localAccountPoolService = LocalAccountPairServiceDefault(
+            repository: AnyDataProviderRepository(PolkaswapPoolRepositoryFactory().createRepository()),
+            operationManager: OperationManager()
+        )
+        
+        let subscriptionService = PolkaswapPoolSubscriptionService(
+            keyFactory: StorageKeyFactory(),
+            connection: connection
+        )
+        
+        let poolsService = PolkaswapService(
+            remoteService: remoteService,
+            localPairService: localPairService,
+            localAccountPoolService: localAccountPoolService, 
+            subscriptionService: subscriptionService
+        )
+        
+        let extrinsicService = ExtrinsicService(
+            address: selectedAccount.address,
+            cryptoType: selectedAccount.cryptoType,
+            runtimeRegistry: runtime,
+            engine: connection,
+            operationManager: OperationManagerFacade.sharedManager
+        )
+        
+        let accountSigner = SigningWrapper(keystore: Keychain(), account: selectedAccount)
+        
+        let extrinsicBuilder = PolkaswapExtrinsicBuilder(callFactory: SubstrateCallFactory())
+        
+        let poolOperationService = PolkaswapPoolOperationService(
+            extrinsicBuilder: extrinsicBuilder,
+            extrisicService: extrinsicService,
+            signingWrapper: accountSigner,
+            poolService: poolsService
+        )
+
+        let viewModel = ConfirmSupplyLiquidityViewModel(
+            wireframe: ConfirmWireframe(),
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId,
+            assetManager: assetManager,
+            firstAssetAmount: firstAssetAmount,
+            secondAssetAmount: secondAssetAmount,
+            slippageTolerance: slippageTolerance,
+            details: details,
+            transactionType: transactionType,
+            fee: fee,
+            walletService: WalletService(operationFactory: operationFactory),
+            poolOperationService: poolOperationService
+        )
         let view = ConfirmViewController(viewModel: viewModel)
         viewModel.view = view
         controller?.pushViewController(view, animated: true)
@@ -200,16 +280,94 @@ final class LiquidityWireframe: LiquidityWireframeProtocol {
         operationFactory: WalletNetworkOperationFactoryProtocol,
         completionHandler: (() -> Void)?
     ) {
+        
+        
+        let selectedAccount = SelectedWalletSettings.shared.currentAccount!
+        let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash())!
+        let runtime = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash())!
+        let polkaswapOperationFactory = PolkaswapNetworkOperationFactory(engine: connection)
+        
+        let poolRepository = AnyDataProviderRepository(PoolRepositoryFactory().createRepository())
+        
+        let storageRequestFactory = StorageRequestFactory(
+            remoteFactory: StorageKeyFactory(),
+            operationManager: OperationManagerFacade.sharedManager
+        )
+    
+        let addressFactory = SS58AddressFactory()
+        let poolsOperationFactory = PolkaswapOperationFactoryDefault(
+            storageRequestFactory: storageRequestFactory,
+            chainRegistry: ChainRegistryFacade.sharedRegistry,
+            addressFactory: addressFactory,
+            chainId: Chain.sora.genesisHash(),
+            chain: Chain.sora
+        )
 
-        let viewModel = ConfirmRemoveLiquidityViewModel(wireframe: ConfirmWireframe(),
-                                                        poolInfo: poolInfo,
-                                                        assetManager: assetManager,
-                                                        firstAssetAmount: firstAssetAmount,
-                                                        secondAssetAmount: secondAssetAmount,
-                                                        slippageTolerance: slippageTolerance,
-                                                        details: details,
-                                                        walletService: WalletService(operationFactory: operationFactory),
-                                                        fee: fee)
+        let worker = PolkaswapWorkerDefault(operationFactory: poolsOperationFactory)
+        
+        let apyWorker = PolkaswapAPYWorkerDefault()
+        let apyService = PolkaswapAPYServiceDefault(worker: apyWorker)
+        
+        let remoteService = RemotePolkaswapPoolsServiceDefault(
+            chain: Chain.sora,
+            worker: worker,
+            apyService: apyService,
+            addressFactory: addressFactory
+        )
+        
+        let localPairService = LocalLiquidityPairServiceDefault(
+            repository: AnyDataProviderRepository(PolkaswapPoolRepositoryFactory().createRepository()),
+            operationManager: OperationManager()
+        )
+        
+        let localAccountPoolService = LocalAccountPairServiceDefault(
+            repository: AnyDataProviderRepository(PolkaswapPoolRepositoryFactory().createRepository()),
+            operationManager: OperationManager()
+        )
+        
+        let subscriptionService = PolkaswapPoolSubscriptionService(
+            keyFactory: StorageKeyFactory(),
+            connection: connection
+        )
+        
+        let poolsService = PolkaswapService(
+            remoteService: remoteService,
+            localPairService: localPairService,
+            localAccountPoolService: localAccountPoolService,
+            subscriptionService: subscriptionService
+        )
+        
+        let extrinsicService = ExtrinsicService(
+            address: selectedAccount.address,
+            cryptoType: selectedAccount.cryptoType,
+            runtimeRegistry: runtime,
+            engine: connection,
+            operationManager: OperationManagerFacade.sharedManager
+        )
+        
+        let accountSigner = SigningWrapper(keystore: Keychain(), account: selectedAccount)
+        
+        let extrinsicBuilder = PolkaswapExtrinsicBuilder(callFactory: SubstrateCallFactory())
+        
+        let poolOperationService = PolkaswapPoolOperationService(
+            extrinsicBuilder: extrinsicBuilder,
+            extrisicService: extrinsicService,
+            signingWrapper: accountSigner,
+            poolService: poolsService
+        )
+
+        let viewModel = ConfirmRemoveLiquidityViewModel(
+            wireframe: ConfirmWireframe(),
+            poolInfo: poolInfo,
+            assetManager: assetManager,
+            firstAssetAmount: firstAssetAmount,
+            secondAssetAmount: secondAssetAmount,
+            slippageTolerance: slippageTolerance,
+            details: details,
+            walletService: WalletService(operationFactory: operationFactory),
+            fee: fee,
+            poolOperationService: poolOperationService
+        )
         viewModel.completionHandler = completionHandler
         let view = ConfirmViewController(viewModel: viewModel)
         viewModel.view = view

@@ -34,6 +34,29 @@ import Foundation
 import IrohaCrypto
 
 protocol SubstrateCallFactoryProtocol {
+    func register(dexId: String, baseAssetId: String, targetAssetId: String) throws -> RuntimeCall<PairRegisterCall>
+    
+    func initializePool(dexId: String, baseAssetId: String, targetAssetId: String) throws -> RuntimeCall<InitializePoolCall>
+    
+    func depositLiquidity(
+        dexId: String,
+        assetA: String,
+        assetB: String,
+        desiredA: BigUInt,
+        desiredB: BigUInt,
+        minA: BigUInt,
+        minB: BigUInt
+    ) throws -> RuntimeCall<DepositLiquidityCall>
+    
+    func withdrawLiquidityCall(
+        dexId: String,
+        assetA: String,
+        assetB: String,
+        assetDesired: BigUInt,
+        minA: BigUInt,
+        minB: BigUInt
+    ) throws -> RuntimeCall<WithdrawLiquidityCall>
+
     func migrate(irohaAddress: String, irohaKey: String, signature: String) throws -> RuntimeCall<MigrateCall>
 }
 

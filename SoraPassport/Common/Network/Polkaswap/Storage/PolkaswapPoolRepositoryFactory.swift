@@ -31,17 +31,24 @@
 import Foundation
 import RobinHood
 
-final class PoolRepositoryFactory {
-    private let storageFacade: StorageFacadeProtocol
+final class PolkaswapPoolRepositoryFactory {
+    let storageFacade: StorageFacadeProtocol
 
-    init(storageFacade: StorageFacadeProtocol = SubstrateDataStorageFacade.shared) {
+    init(storageFacade: StorageFacadeProtocol = PoolsDataStorageFacade.shared) {
         self.storageFacade = storageFacade
     }
 
     func createRepository(
         for filter: NSPredicate? = nil,
         sortDescriptors: [NSSortDescriptor] = []
-    ) -> CoreDataRepository<PoolInfo, CDPoolInfo> {
+    ) -> CoreDataRepository<AccountPool, CDAccountPool> {
+        return storageFacade.createRepository()
+    }
+    
+    func createRepository(
+        for filter: NSPredicate? = nil,
+        sortDescriptors: [NSSortDescriptor] = []
+    ) -> CoreDataRepository<LiquidityPair, CDLiquidityPair> {
         return storageFacade.createRepository()
     }
 }

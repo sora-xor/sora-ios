@@ -65,12 +65,15 @@ extension StorageKeyFactoryProtocol {
     }
 
     func accountPoolsKeyForId(_ identifier: Data, baseAssetId: Data) throws -> Data {
-        try createStorageKey(moduleName: "PoolXYK",
-                             storageName: "AccountPools",
-                             key1: identifier,
-                             hasher1: .identity,
-                             key2: baseAssetId,
-                             hasher2: .blake128Concat)
+        let codingPath = StorageCodingPath.userPools
+        return try createStorageKey(
+            moduleName: codingPath.moduleName,
+            storageName: codingPath.itemName,
+            key1: identifier,
+            hasher1: .identity,
+            key2: baseAssetId,
+            hasher2: .blake128Concat
+        )
     }
 
     func accountPoolTotalIssuancesKeyForId(_ identifier: Data) throws -> Data {
@@ -134,6 +137,23 @@ extension StorageKeyFactoryProtocol {
 
     func key(from codingPath: StorageCodingPath) throws -> Data {
         try createStorageKey(moduleName: codingPath.moduleName, storageName: codingPath.itemName)
+    }
+    
+    func xykPoolKeyReserves(asset: Data) throws -> Data {
+        let codingPath = StorageCodingPath.poolReserves
+        return try createStorageKey(
+            moduleName: codingPath.moduleName,
+            storageName: codingPath.itemName,
+            key: asset,
+            hasher: .blake128Concat
+        )
+    }
+    
+    func xykPoolKeyProperties(asset: Data) throws -> Data {
+        try createStorageKey(moduleName: "PoolXYK",
+                             storageName: "Properties",
+                             key: asset,
+                             hasher: .blake128Concat)
     }
     
     func xykPoolKey(asset1: Data, asset2: Data) throws -> Data {

@@ -509,8 +509,6 @@ extension RemoveLiquidityViewModel {
                                                                                fiatData: self.fiatData,
                                                                                focusedField: self.focusedField,
                                                                                slippageTolerance: self.slippageTolerance,
-                                                                               isPresented: self.isPairPresented,
-                                                                               isEnabled: self.isPairEnabled,
                                                                                fee: self.fee,
                                                                                viewModel: self)
         }

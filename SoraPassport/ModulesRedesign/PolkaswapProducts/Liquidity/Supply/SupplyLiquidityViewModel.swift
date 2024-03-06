@@ -257,11 +257,19 @@ final class SupplyLiquidityViewModel {
         self.assetsProvider = assetsProvider
         self.warningViewModelFactory = warningViewModelFactory
         self.marketCapService = marketCapService
+        self.poolsService?.isPairPresentedInNetwork(baseAssetId: firstAssetId,
+                                               targetAssetId: secondAssetId,
+                                               accountId: "",
+                                               completion: { [weak self] isPresented in
+            self?.isPairPresented = isPresented
+        })
     }
 }
 
 extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
     func didSelect(variant: Float) {
+        poolsService?.unsubsribe()
+
         if focusedField == .one {
             guard firstAssetBalance.balance.decimalValue > 0 else { return }
             let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
@@ -498,13 +506,7 @@ extension SupplyLiquidityViewModel {
         let group = DispatchGroup()
 
         group.enter()
-        poolsService?.isPairPresentedInNetwork(baseAssetId: firstAssetId,
-                                               targetAssetId: secondAssetId,
-                                               accountId: "",
-                                               completion: { [weak self] isPresented in
-            self?.isPairPresented = isPresented
-            group.leave()
-        })
+
         
         group.enter()
         poolsService?.isPairEnabled(baseAssetId: firstAssetId,
@@ -562,7 +564,6 @@ extension SupplyLiquidityViewModel {
                                                                                focusedField: self.focusedField,
                                                                                slippageTolerance: self.slippageTolerance,
                                                                                isPresented: self.isPairPresented,
-                                                                               isEnabled: self.isPairEnabled,
                                                                                fee: self.fee,
                                                                                viewModel: self)
             completion?()

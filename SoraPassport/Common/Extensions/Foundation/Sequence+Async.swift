@@ -29,6 +29,17 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 extension Sequence {
+    func asyncMap<T>(
+        _ closure: @Sendable (Element) async throws -> T
+    ) async rethrows -> [T] {
+        var array: [T] = []
+        array.reserveCapacity(self.underestimatedCount)
+        for element in self {
+            array.append(try await closure(element))
+        }
+        return array
+    }
+    
     func asyncCompactMap<T>(
          _ transform: (Element) async throws -> T?
      ) async rethrows -> [T] {
