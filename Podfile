@@ -36,8 +36,8 @@ abstract_target 'SoraPassportAll' do
   pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.5.0'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
   pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec'
-  pod 'SSFCloudStorage'
-
+  pod 'SSFCloudStorage', :podspec => 'https://raw.githubusercontent.com/soramitsu/shared-features-ios/feature/sora-wallet-fixes/SSFCloudStorage/SSFCloudStorage.podspec?token=GHSAT0AAAAAACMAEXYTORNSHQYW5Y6J7VB4ZPO4DZA'
+  
   target 'SoraPassportTests' do
       inherit! :search_paths
       
