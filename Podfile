@@ -37,6 +37,7 @@ abstract_target 'SoraPassportAll' do
   pod 'FLEX', :configurations => ['Debug', 'Dev']
   pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec'
   pod 'SSFCloudStorage', '0.1.34'
+  pod 'SSFUtils', '0.1.31'
   
   target 'SoraPassportTests' do
       inherit! :search_paths
