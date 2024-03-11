@@ -88,26 +88,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         #if F_DEV
 
         FLEXManager.shared.registerGlobalEntry(withName: "Reset SORA Card Token") { tableViewController in
-            Task {
-                let token = await SCard.shared?.accessToken()
-                let title = "Reset SORA Card Token"
-                let alertController = UIAlertController(title: title, message: token, preferredStyle: .alert)
+            let isUserSignIn = SCard.shared?.isUserSignIn ?? false
+            let message = "User is signed in: \(isUserSignIn)"
+            let title = "Reset SORA Card Token"
+            let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
 
-                let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                    UIPasteboard.general.string = token
-                }
-                let removeAction = UIAlertAction(title: "Remove",  style: .destructive) { _ in
-                    Task { await SCard.shared?.removeToken() }
-                }
-                let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
+            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
+                UIPasteboard.general.string = message
+            }
+            let removeAction = UIAlertAction(title: "Logout",  style: .destructive) { _ in
+                SCard.shared?.logout()
+            }
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
 
-                alertController.addAction(cancelAction)
-                alertController.addAction(copyAction)
-                alertController.addAction(removeAction)
+            alertController.addAction(cancelAction)
+            alertController.addAction(copyAction)
+            alertController.addAction(removeAction)
 
-                DispatchQueue.main.async {
-                    tableViewController.present(alertController, animated: true)
-                }
+            DispatchQueue.main.async {
+                tableViewController.present(alertController, animated: true)
             }
         }
 
