@@ -32,6 +32,10 @@ import Foundation
 import SSFUtils
 import RobinHood
 
+enum RuntimeHotBootSnapshotFactoryError: Error {
+    case unexpectedError
+}
+
 protocol RuntimeHotBootSnapshotFactoryProtocol {
     func createRuntimeSnapshotWrapper(
         for typesUsage: ChainModel.TypesUsage,
@@ -63,7 +67,7 @@ final class RuntimeHotBootSnapshotFactory {
         let chainTypesFetchOperation = filesOperationFactory.fetchChainTypesOperation(for: chainId)
 
         let snapshotOperation = ClosureOperation<RuntimeSnapshot?> { [weak self] in
-            guard let self else { return nil }
+            guard let self else { throw RuntimeHotBootSnapshotFactoryError.unexpectedError }
             let chainTypes = try chainTypesFetchOperation.targetOperation.extractNoCancellableResultData()
 
             let decoder = try ScaleDecoder(data: self.runtimeItem.metadata)
@@ -75,7 +79,7 @@ final class RuntimeHotBootSnapshotFactory {
             }
 
             guard let chainTypes = chainTypes else {
-                return nil
+                throw RuntimeHotBootSnapshotFactoryError.unexpectedError
             }
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
@@ -106,7 +110,7 @@ final class RuntimeHotBootSnapshotFactory {
         _ dataHasher: StorageHasher
     ) -> CompoundOperationWrapper<RuntimeSnapshot?> {
         let snapshotOperation = ClosureOperation<RuntimeSnapshot?> { [weak self] in
-            guard let strongSelf = self else { return nil }
+            guard let strongSelf = self else { throw RuntimeHotBootSnapshotFactoryError.unexpectedError }
 
             let decoder = try ScaleDecoder(data: strongSelf.runtimeItem.metadata)
             var runtimeMetadata: RuntimeMetadata
