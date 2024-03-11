@@ -1,10 +1,10 @@
 PODS:
   - Anchorage (4.5.0)
-  - AppAuth (1.6.2):
-    - AppAuth/Core (= 1.6.2)
-    - AppAuth/ExternalUserAgent (= 1.6.2)
-  - AppAuth/Core (1.6.2)
-  - AppAuth/ExternalUserAgent (1.6.2):
+  - AppAuth (1.7.1):
+    - AppAuth/Core (= 1.7.1)
+    - AppAuth/ExternalUserAgent (= 1.7.1)
+  - AppAuth/Core (1.7.1)
+  - AppAuth/ExternalUserAgent (1.7.1):
     - AppAuth/Core
   - BigInt (5.2.0)
   - CocoaLumberjack (3.8.2):
@@ -278,7 +278,7 @@ PODS:
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
-  - SSFCloudStorage (0.1.0):
+  - SSFCloudStorage (0.1.34):
     - GoogleAPIClientForREST/Drive (~> 1.2.1)
     - GoogleSignIn (~> 7.0.0)
     - IrohaCrypto/Scrypt
@@ -338,7 +338,7 @@ DEPENDENCIES:
   - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.11`)
   - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec`)
   - Sourcery (~> 1.4)
-  - "SSFCloudStorage (from `https://raw.githubusercontent.com/soramitsu/shared-features-ios/feature/sora-wallet-fixes/SSFCloudStorage/SSFCloudStorage.podspec?token=GHSAT0AAAAAACMAEXYTORNSHQYW5Y6J7VB4ZPO4DZA`)"
+  - SSFCloudStorage (= 0.1.34)
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, tag `4.0.9`)
   - SVGKit (from `https://github.com/SVGKit/SVGKit.git`, tag `3.0.0`)
   - SwiftLint (~> 0.49.0)
@@ -399,6 +399,7 @@ SPEC REPOS:
     - TweetNacl
     - xxHash-Swift
   https://github.com/soramitsu/SSFSpecs.git:
+    - SSFCloudStorage
     - SSFModels
     - SSFUtils
 
@@ -422,8 +423,6 @@ EXTERNAL SOURCES:
     :tag: 1.1.11
   sorawallet:
     :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec
-  SSFCloudStorage:
-    :podspec: "https://raw.githubusercontent.com/soramitsu/shared-features-ios/feature/sora-wallet-fixes/SSFCloudStorage/SSFCloudStorage.podspec?token=GHSAT0AAAAAACMAEXYTORNSHQYW5Y6J7VB4ZPO4DZA"
   Starscream:
     :git: https://github.com/soramitsu/fearless-starscream.git
     :tag: 4.0.9
@@ -458,7 +457,7 @@ CHECKOUT OPTIONS:
 
 SPEC CHECKSUMS:
   Anchorage: 1961bc81c84aeed54ad7ffc697c50cd9de748ba6
-  AppAuth: 3bb1d1cd9340bd09f5ed189fb00b1cc28e1e8570
+  AppAuth: e93b919be5dbcbba49555011ce94f7d716368574
   BigInt: f668a80089607f521586bbe29513d708491ef2f7
   CocoaLumberjack: f8d89a516e7710fdb2e9b8f1560b16ec6040eef0
   CommonWallet: 3c67d5fd85593a20f6b55777c2660ff886fc4148
@@ -510,7 +509,7 @@ SPEC CHECKSUMS:
   SoraUIKit: f32d51c0876d016f5f318b534eb8f7eb2eeaa00a
   sorawallet: 1af3b1c3f612645f52a2fd48034a2173d0bff4e6
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
-  SSFCloudStorage: 3ffb2311c2d05c8a7b1459f101322fb5a4b1eb9b
+  SSFCloudStorage: 2556a9df7865e1d5e3fd6ec2dfc306e237d0a4f9
   SSFModels: 8d6d7daa95b5491a43483c99dae953011bb65b2e
   SSFUtils: 56ce5b6a1090da55e49180c6d78ecaf7d155cc52
   Starscream: a4e6a77c535efeca8cd2ad85c0e2689500bc6c3d
@@ -521,6 +520,6 @@ SPEC CHECKSUMS:
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: fa0389d3b41e64ae889f0041dd3bd251fb6c4fa7
+PODFILE CHECKSUM: 7a724bbfcc5ca6f00715330dee30bb4ae1fea308
 
 COCOAPODS: 1.12.1
