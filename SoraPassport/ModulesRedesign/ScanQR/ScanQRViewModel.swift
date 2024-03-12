@@ -31,7 +31,6 @@
 import Foundation
 import RobinHood
 import SoraFoundation
-import CommonWallet
 import SoraUIKit
 import AVFoundation
 import Photos
