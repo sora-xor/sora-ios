@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import CommonWallet
+
 
 struct CoingeckoPriceData: Codable, Equatable {
     let usdPrice: Decimal

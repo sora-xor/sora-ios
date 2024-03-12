@@ -31,7 +31,7 @@
 import SoraUIKit
 import sorawallet
 import SoraFoundation
-import CommonWallet
+
 import SCard
 
 final class AssetDetailsItemFactory {

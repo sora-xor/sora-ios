@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraFoundation
-import CommonWallet
+
 
 class SendToContactCommand: WalletCommandProtocol {
 

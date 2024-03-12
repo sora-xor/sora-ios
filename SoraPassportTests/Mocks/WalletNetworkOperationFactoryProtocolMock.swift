@@ -1,6 +1,6 @@
 import Foundation
 @testable import SoraPassport
-import CommonWallet
+
 import RobinHood
 import SSFUtils
 

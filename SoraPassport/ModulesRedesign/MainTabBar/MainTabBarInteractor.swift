@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraKeystore
-import CommonWallet
+
 import SoraFoundation
 import SSFUtils
 
