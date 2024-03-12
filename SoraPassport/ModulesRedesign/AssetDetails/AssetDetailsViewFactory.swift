@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+
 
 final class AssetDetailsViewFactory {
     static func createView(assetInfo: AssetInfo,

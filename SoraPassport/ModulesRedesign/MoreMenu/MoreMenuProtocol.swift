@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+import UIKit
 
 typealias MoreMenuDataSource = UITableViewDiffableDataSource<MoreMenuSection, MoreMenuItem>
 typealias MoreMenuSnapshot = NSDiffableDataSourceSnapshot<MoreMenuSection, MoreMenuItem>

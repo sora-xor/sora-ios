@@ -172,7 +172,7 @@
 		10EB77992541A369000123B9 /* ExtensibleBarNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EB77972541A368000123B9 /* ExtensibleBarNavigationController.swift */; };
 		10F6D03025344EFD00EB64CD /* LinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */; };
 		1C881931464751B44D4BB3D5 /* AccountOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */; };
-		20D9ACBA22DBBB68D16C8674 /* (null) in Sources */ = {isa = PBXBuildFile; };
+		20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */ = {isa = PBXBuildFile; };
 		253663B5C127B5B99C84BDA3 /* MainTabBarInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */; };
 		3213A3092237DAB4001BE041 /* VerificationCodeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3213A3082237DAB4001BE041 /* VerificationCodeData.swift */; };
 		3213A30B2237ED04001BE041 /* sendSmsCodeSuccessResponse.json in Resources */ = {isa = PBXBuildFile; fileRef = 3213A30A2237ED04001BE041 /* sendSmsCodeSuccessResponse.json */; };
@@ -639,6 +639,11 @@
 		36E34FF72BA08257005A44BC /* AccountUpdateCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FF62BA08257005A44BC /* AccountUpdateCommand.swift */; };
 		36E34FF92BA0826E005A44BC /* LanguageSwitchCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FF82BA0826D005A44BC /* LanguageSwitchCommand.swift */; };
 		36E34FFB2BA082A7005A44BC /* CommandError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FFA2BA082A7005A44BC /* CommandError.swift */; };
+		36E34FFF2BA08FC2005A44BC /* SingleProviderIdentifierFactory-Legacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FFE2BA08FC2005A44BC /* SingleProviderIdentifierFactory-Legacy.swift */; };
+		36E350012BA09099005A44BC /* NumberFormatterFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E350002BA09099005A44BC /* NumberFormatterFactory.swift */; };
+		36E350032BA090D3005A44BC /* TransferPresenterError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E350022BA090D3005A44BC /* TransferPresenterError.swift */; };
+		36E350072BA0920B005A44BC /* CapitalCache.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 36E350042BA0920A005A44BC /* CapitalCache.xcdatamodeld */; };
+		36E350082BA0920B005A44BC /* CDSingleValue+CoreDataCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E350062BA0920B005A44BC /* CDSingleValue+CoreDataCodable.swift */; };
 		36E5CF10295B46200098D4D2 /* WelcomeBackgroundViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E5CF0F295B46200098D4D2 /* WelcomeBackgroundViewController.swift */; };
 		36E5CF14295B49F90098D4D2 /* WelcomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E5CF13295B49F90098D4D2 /* WelcomeViewController.swift */; };
 		36E5DB7828CC8CF000AB8E28 /* CustomNodeInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E5DB7328CC8CF000AB8E28 /* CustomNodeInteractor.swift */; };
@@ -754,7 +759,7 @@
 		629C68D39DA425EBDF450E0E /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7CB6915F0CF214AE35B19178 /* Pods_SoraPassportUITests.framework */; };
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
-		82933CD8A0C33141410DBBB2 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -2101,6 +2106,11 @@
 		36E34FF62BA08257005A44BC /* AccountUpdateCommand.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountUpdateCommand.swift; sourceTree = "<group>"; };
 		36E34FF82BA0826D005A44BC /* LanguageSwitchCommand.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LanguageSwitchCommand.swift; sourceTree = "<group>"; };
 		36E34FFA2BA082A7005A44BC /* CommandError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CommandError.swift; sourceTree = "<group>"; };
+		36E34FFE2BA08FC2005A44BC /* SingleProviderIdentifierFactory-Legacy.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SingleProviderIdentifierFactory-Legacy.swift"; sourceTree = "<group>"; };
+		36E350002BA09099005A44BC /* NumberFormatterFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NumberFormatterFactory.swift; sourceTree = "<group>"; };
+		36E350022BA090D3005A44BC /* TransferPresenterError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TransferPresenterError.swift; sourceTree = "<group>"; };
+		36E350052BA0920B005A44BC /* CapitalCache.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = CapitalCache.xcdatamodel; sourceTree = "<group>"; };
+		36E350062BA0920B005A44BC /* CDSingleValue+CoreDataCodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CDSingleValue+CoreDataCodable.swift"; sourceTree = "<group>"; };
 		36E5CF0F295B46200098D4D2 /* WelcomeBackgroundViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WelcomeBackgroundViewController.swift; sourceTree = "<group>"; };
 		36E5CF13295B49F90098D4D2 /* WelcomeViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WelcomeViewController.swift; sourceTree = "<group>"; };
 		36E5DB7328CC8CF000AB8E28 /* CustomNodeInteractor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CustomNodeInteractor.swift; sourceTree = "<group>"; };
@@ -2929,7 +2939,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* (null) in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
 				629C68D39DA425EBDF450E0E /* Pods_SoraPassportUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5115,6 +5125,11 @@
 		36E34F832BA05489005A44BC /* Legacy */ = {
 			isa = PBXGroup;
 			children = (
+				36E350042BA0920A005A44BC /* CapitalCache.xcdatamodeld */,
+				36E350062BA0920B005A44BC /* CDSingleValue+CoreDataCodable.swift */,
+				36E350022BA090D3005A44BC /* TransferPresenterError.swift */,
+				36E350002BA09099005A44BC /* NumberFormatterFactory.swift */,
+				36E34FFE2BA08FC2005A44BC /* SingleProviderIdentifierFactory-Legacy.swift */,
 				36E34FFA2BA082A7005A44BC /* CommandError.swift */,
 				36E34FF82BA0826D005A44BC /* LanguageSwitchCommand.swift */,
 				36E34FF62BA08257005A44BC /* AccountUpdateCommand.swift */,
@@ -6946,7 +6961,7 @@
 			);
 			name = R.swift;
 			outputPaths = (
-				$PROJECT_DIR/R.generated.swift,
+				"$PROJECT_DIR/R.generated.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -7066,7 +7081,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				$PROJECT_DIR/SoraPassport/CIKeys.generated.swift,
+				"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -7127,7 +7142,6 @@
 				"${BUILT_PRODUCTS_DIR}/AppAuth/AppAuth.framework",
 				"${BUILT_PRODUCTS_DIR}/BigInt/BigInt.framework",
 				"${BUILT_PRODUCTS_DIR}/CocoaLumberjack/CocoaLumberjack.framework",
-				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
 				"${BUILT_PRODUCTS_DIR}/FLEX/FLEX.framework",
 				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
 				"${BUILT_PRODUCTS_DIR}/FirebaseCore/FirebaseCore.framework",
@@ -7183,7 +7197,6 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AppAuth.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BigInt.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CocoaLumberjack.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FLEX.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCore.framework",
@@ -7249,7 +7262,6 @@
 				"${BUILT_PRODUCTS_DIR}/AppAuth/AppAuth.framework",
 				"${BUILT_PRODUCTS_DIR}/BigInt/BigInt.framework",
 				"${BUILT_PRODUCTS_DIR}/CocoaLumberjack/CocoaLumberjack.framework",
-				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
 				"${BUILT_PRODUCTS_DIR}/FLEX/FLEX.framework",
 				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
 				"${BUILT_PRODUCTS_DIR}/FirebaseCore/FirebaseCore.framework",
@@ -7305,7 +7317,6 @@
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AppAuth.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BigInt.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CocoaLumberjack.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FLEX.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCore.framework",
@@ -7367,7 +7378,6 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh",
-				"${BUILT_PRODUCTS_DIR}/CommonWallet/CommonWallet.framework",
 				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
 				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
 				"${BUILT_PRODUCTS_DIR}/GoogleAPIClientForREST/GoogleAPIClientForREST.framework",
@@ -7382,7 +7392,6 @@
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CommonWallet.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMSessionFetcher.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleAPIClientForREST.framework",
@@ -7407,6 +7416,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				36E350012BA09099005A44BC /* NumberFormatterFactory.swift in Sources */,
 				8BD084BB2941F9CE00EEAE0D /* RedesignWalletViewController.swift in Sources */,
 				029879142181AB8A0085E605 /* DecentralizedDocumentFetchMock.swift in Sources */,
 				847527432362E14A0028D871 /* DeviceInfoFactory.swift in Sources */,
@@ -7540,6 +7550,7 @@
 				02623EED2179AD4F0011250E /* RootWireframe.swift in Sources */,
 				9441FB2D25CAE65D00775559 /* KeystoreImportService.swift in Sources */,
 				84CD3AEA232A5ED00076E056 /* RemoteEnviroment.swift in Sources */,
+				36E350032BA090D3005A44BC /* TransferPresenterError.swift in Sources */,
 				3662C4B629880CE4002FABC8 /* AuthorizationPresenter.swift in Sources */,
 				364BF1D12B1860ED00758323 /* FarmViewModel.swift in Sources */,
 				024B000F219413F800671679 /* WebPresentable.swift in Sources */,
@@ -7664,6 +7675,7 @@
 				364E6E8A2B1C88F600002EE3 /* ExploreFarmViewModelService.swift in Sources */,
 				364BF2132B1C433300758323 /* ExplorePageView.swift in Sources */,
 				367A32262B4551D9001AFA90 /* ExploreSearchPageViewModel.swift in Sources */,
+				36E350072BA0920B005A44BC /* CapitalCache.xcdatamodeld in Sources */,
 				94653DE928870FBB00311EC7 /* MultiAddress+Query.swift in Sources */,
 				5E683ED42A3AF0E600EA0EED /* AccountExporter.swift in Sources */,
 				8481A5DC2302F3290056D3D4 /* DateFormatterFactory.swift in Sources */,
@@ -8011,6 +8023,7 @@
 				B2CD5DAC2A7A5A1800B16F8A /* EditViewController.swift in Sources */,
 				9441F9F125C9823800775559 /* JSONRPCData.swift in Sources */,
 				B2E133802A863BD9008A46E0 /* EnabledSection.swift in Sources */,
+				36E34FFF2BA08FC2005A44BC /* SingleProviderIdentifierFactory-Legacy.swift in Sources */,
 				36110B952953B56400712BEB /* ScanQRViewFactory.swift in Sources */,
 				36E5DB7B28CC8CF000AB8E28 /* CustomNodeViewController.swift in Sources */,
 				02D4684B219092CD00F9D3D0 /* ProjectsRegisterMock.swift in Sources */,
@@ -8493,6 +8506,7 @@
 				84324BDE2412A04900CA339A /* EthereumSignature.swift in Sources */,
 				94497DFD25EF925900FD4F14 /* ChainStorage+Decodable.swift in Sources */,
 				36E34FF12BA07FAF005A44BC /* CoreDataCacheFacade.swift in Sources */,
+				36E350082BA0920B005A44BC /* CDSingleValue+CoreDataCodable.swift in Sources */,
 				36E34F8B2BA05530005A44BC /* WalletPresentationCommand.swift in Sources */,
 				3694D45C2971F5450045A295 /* ActivityErrorCell.swift in Sources */,
 				36DBFE0728FC48C600735535 /* ZeroBalanceItem.swift in Sources */,
@@ -8690,7 +8704,7 @@
 				945A578325DE8B06003E4023 /* ExtrinsicEraTests.swift in Sources */,
 				8409323823414FEE0013C871 /* WalletContextMock.swift in Sources */,
 				BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */,
-				20D9ACBA22DBBB68D16C8674 /* (null) in Sources */,
+				20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */,
 				945A574A25DE8495003E4023 /* RuntimeMetadataCreationHelper.swift in Sources */,
 				44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */,
 				36A12693289143D7009117B9 /* WalletNetworkOperationFactoryProtocolMock.swift in Sources */,
@@ -9770,6 +9784,16 @@
 /* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
+		36E350042BA0920A005A44BC /* CapitalCache.xcdatamodeld */ = {
+			isa = XCVersionGroup;
+			children = (
+				36E350052BA0920B005A44BC /* CapitalCache.xcdatamodel */,
+			);
+			currentVersion = 36E350052BA0920B005A44BC /* CapitalCache.xcdatamodel */;
+			path = CapitalCache.xcdatamodeld;
+			sourceTree = "<group>";
+			versionGroupType = wrapper.xcdatamodel;
+		};
 		84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (

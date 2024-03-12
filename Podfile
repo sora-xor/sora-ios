@@ -16,7 +16,6 @@ abstract_target 'SoraPassportAll' do
   pod 'RobinHood', '~> 2.6.1'
   pod 'Kingfisher', :git => 'https://github.com/onevcat/Kingfisher', :branch => 'version6-xcode13', :inhibit_warnings => true
   pod 'SVGKit', :git => 'https://github.com/SVGKit/SVGKit.git', :tag => '3.0.0'
-  pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :branch => 'feature/sora-propositions'
   pod 'FirebaseMessaging'
   pod 'Firebase/Crashlytics'
   pod 'FirebaseAnalytics'
@@ -47,7 +46,6 @@ abstract_target 'SoraPassportAll' do
       pod 'SoraDocuments'
       pod 'SoraKeystore'
       pod 'RobinHood', '~> 2.6.1'
-      pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :branch => 'feature/sora-propositions'
       pod 'SoraFoundation'
       pod 'GoogleAPIClientForREST/Core'
       pod 'GoogleAPIClientForREST/Drive'

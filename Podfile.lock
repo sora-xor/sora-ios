@@ -10,13 +10,6 @@ PODS:
   - CocoaLumberjack (3.8.2):
     - CocoaLumberjack/Core (= 3.8.2)
   - CocoaLumberjack/Core (3.8.2)
-  - CommonWallet/Core (1.16.0):
-    - RobinHood (~> 2.6.1)
-    - SoraFoundation/DateProcessing (~> 1.0.0)
-    - SoraFoundation/Localization (~> 1.0.0)
-    - SoraFoundation/NotificationHandlers (~> 1.0.0)
-    - SoraFoundation/NumberProcessing (~> 1.0.0)
-    - SoraUI (~> 1.10.0)
   - Cuckoo (1.9.1):
     - Cuckoo/Swift (= 1.9.1)
   - Cuckoo/Swift (1.9.1)
@@ -296,7 +289,6 @@ PODS:
 
 DEPENDENCIES:
   - Anchorage
-  - CommonWallet/Core (from `https://github.com/soramitsu/Capital-iOS.git`, branch `feature/sora-propositions`)
   - Cuckoo (~> 1.9.1)
   - Firebase/Crashlytics
   - FirebaseAnalytics
@@ -388,9 +380,6 @@ SPEC REPOS:
     - SSFUtils
 
 EXTERNAL SOURCES:
-  CommonWallet:
-    :branch: feature/sora-propositions
-    :git: https://github.com/soramitsu/Capital-iOS.git
   IdensicMobileSDK:
     :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.3.tar.gz
   Kingfisher:
@@ -412,9 +401,6 @@ EXTERNAL SOURCES:
     :tag: 3.0.0
 
 CHECKOUT OPTIONS:
-  CommonWallet:
-    :commit: 71f013b5e86c52776216c0a43ee87bbea6cb9137
-    :git: https://github.com/soramitsu/Capital-iOS.git
   IdensicMobileSDK:
     :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.3.tar.gz
   Kingfisher:
@@ -438,7 +424,6 @@ SPEC CHECKSUMS:
   AppAuth: e93b919be5dbcbba49555011ce94f7d716368574
   BigInt: f668a80089607f521586bbe29513d708491ef2f7
   CocoaLumberjack: f8d89a516e7710fdb2e9b8f1560b16ec6040eef0
-  CommonWallet: 3c67d5fd85593a20f6b55777c2660ff886fc4148
   Cuckoo: 1b6793fe60fac29af50b0a5915bc309a4a1ac673
   Firebase: 63ce8ece0d43743dc28eacac0c6867a2d7fd5a9d
   FirebaseAnalytics: 87513010b13b7c8610164d3602ea10571f76afc1
@@ -497,6 +482,6 @@ SPEC CHECKSUMS:
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 4fac16ef81d1f607790342d76662e3aa951880a5
+PODFILE CHECKSUM: 95edb9f421b6a74afdb2dae964949a319ef071d4
 
 COCOAPODS: 1.12.1

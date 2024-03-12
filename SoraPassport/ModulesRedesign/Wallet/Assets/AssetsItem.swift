@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 
 final class AssetsItem: NSObject {

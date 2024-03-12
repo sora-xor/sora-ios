@@ -31,7 +31,7 @@
 import Foundation
 import SoraUIKit
 import RobinHood
-import CommonWallet
+
 import UIKit
 
 typealias FarmDetailsDataSource = UITableViewDiffableDataSource<FarmDetailsSection, FarmDetailsSectionItem>

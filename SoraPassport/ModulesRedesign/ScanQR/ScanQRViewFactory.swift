@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraFoundation
-import CommonWallet
+
 
 final class ScanQRViewFactory {
     static func createView(assetManager: AssetManagerProtocol,

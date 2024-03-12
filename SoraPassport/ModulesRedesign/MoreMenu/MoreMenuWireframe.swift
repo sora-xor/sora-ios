@@ -31,7 +31,7 @@
 import Foundation
 import SoraKeystore
 import SoraFoundation
-import CommonWallet
+
 import SoraUIKit
 import RobinHood
 import SCard

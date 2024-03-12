@@ -35,7 +35,7 @@ import SoraUI
 import BigInt
 import sorawallet
 import SSFUtils
-import CommonWallet
+
 
 extension FriendsPresenter {
     enum InvitationActionType: Int {
