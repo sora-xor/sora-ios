@@ -29,7 +29,13 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import CommonWallet
+import UIKit
+
+public protocol WalletImageViewModelProtocol: AnyObject {
+    var image: UIImage? { get }
+    func loadImage(with completionBlock: @escaping (UIImage?, Error?) -> Void)
+    func cancel()
+}
 
 final class WalletSvgImageViewModel: WalletImageViewModelProtocol {
     var image: UIImage?

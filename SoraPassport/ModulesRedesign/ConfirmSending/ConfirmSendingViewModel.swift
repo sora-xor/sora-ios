@@ -31,7 +31,6 @@
 import UIKit
 import IrohaCrypto
 import SoraUIKit
-import CommonWallet
 import RobinHood
 import SoraFoundation
 import sorawallet

@@ -30,7 +30,6 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
 
 typealias BalanceCompletionBlock = (Result<[BalanceData]?, Error>?) -> Void
 typealias TransactionHistoryBlock = (Result<AssetTransactionPageData?, Error>?) -> Void

@@ -30,7 +30,6 @@
 
 import UIKit
 import SoraKeystore
-import CommonWallet
 import SoraFoundation
 import Then
 import SoraUIKit
@@ -210,36 +209,6 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return containerView
     }
     
-}
-
-//MARK: Old design
-
-extension MainTabBarViewFactory {
-    
-    static func createWalletController(
-        walletContext: CommonWalletContextProtocol,
-        localizationManager: LocalizationManagerProtocol = LocalizationManager.shared
-    ) -> UIViewController? {
-        guard let walletController = try? walletContext.createRootController() else {
-            return nil
-        }
-        
-        let localizableTitle = LocalizableResource { locale in
-            R.string.localizable.commonAssets(preferredLanguages: locale.rLanguages)
-        }
-        
-        let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-        
-        walletController.navigationItem.largeTitleDisplayMode = .never
-        walletController.tabBarItem = createTabBarItem(title: currentTitle, image: R.image.tabBar.wallet())
-        
-        localizationManager.addObserver(with: walletController) { [weak walletController] (_, _) in
-            let currentTitle = localizableTitle.value(for: localizationManager.selectedLocale)
-            walletController?.tabBarItem.title = currentTitle
-        }
-        
-        return walletController
-    }
 }
 
 //MARK: Redesign

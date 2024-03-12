@@ -311,7 +311,7 @@ DEPENDENCIES:
   - Nantes
   - R.swift (~> 6.1.0)
   - ReachabilitySwift
-  - RobinHood
+  - RobinHood (~> 2.6.1)
   - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.5.1`)
   - SnapKit
   - SoraDocuments
@@ -497,6 +497,6 @@ SPEC CHECKSUMS:
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: a0f62c811c65c1f817947f998ad862fa5b48df6f
+PODFILE CHECKSUM: 4fac16ef81d1f607790342d76662e3aa951880a5
 
 COCOAPODS: 1.12.1
