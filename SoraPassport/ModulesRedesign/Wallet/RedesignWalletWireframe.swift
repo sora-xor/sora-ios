@@ -31,7 +31,6 @@
 import Foundation
 import SoraUIKit
 import RobinHood
-import CommonWallet
 import SoraFoundation
 import SCard
 
@@ -100,7 +99,7 @@ protocol RedesignWalletWireframeProtocol: AlertPresentable {
 
     func showSoraCard(on viewController: UIViewController?,
                       address: AccountAddress,
-                      balanceProvider: RobinHood.SingleValueProvider<[CommonWallet.BalanceData]>?)
+                      balanceProvider: RobinHood.SingleValueProvider<[BalanceData]>?)
     
     func showManageAccount(on view: UIViewController, completion: @escaping () -> Void)
     

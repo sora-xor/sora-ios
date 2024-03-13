@@ -32,8 +32,19 @@ import Foundation
 import IrohaCrypto
 import RobinHood
 import SoraFoundation
-import CommonWallet
 import SoraUIKit
+
+public protocol ContactViewModelDelegate: AnyObject {
+    func didSelect(contact: ContactViewModelProtocol)
+}
+
+public protocol ContactViewModelProtocol: WalletViewModelProtocol {
+    var firstName: String { get }
+    var lastName: String { get }
+    var accountId: String { get }
+    var image: UIImage? { get }
+    var name: String { get }
+}
 
 public struct ContactModuleParameters {
     public let accountId: String

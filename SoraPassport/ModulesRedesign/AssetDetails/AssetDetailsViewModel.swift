@@ -31,7 +31,7 @@
 import UIKit
 import SCard
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import sorawallet
 

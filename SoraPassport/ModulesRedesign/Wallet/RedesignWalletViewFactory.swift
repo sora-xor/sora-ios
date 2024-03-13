@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+
 
 final class RedesignWalletViewFactory {
     static func createView(providerFactory: BalanceProviderFactory,

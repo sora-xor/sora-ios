@@ -30,7 +30,6 @@
 
 import sorawallet
 import BigInt
-import CommonWallet
 import IrohaCrypto
 import SSFUtils
 

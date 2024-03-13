@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SSFUtils
+import Foundation
 
 struct AssetInfoDto: ScaleCodable {
     let symbol: String

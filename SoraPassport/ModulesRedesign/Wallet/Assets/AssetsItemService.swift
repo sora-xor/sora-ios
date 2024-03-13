@@ -31,7 +31,6 @@
 import Foundation
 import Combine
 import BigInt
-import CommonWallet
 
 final class AssetsItemService {
     let assetProvider: AssetProviderProtocol
@@ -104,7 +103,7 @@ final class AssetsItemService {
 }
 
 extension AssetsItemService: AssetProviderObserverProtocol {
-    func processBalance(data: [CommonWallet.BalanceData]) {
+    func processBalance(data: [BalanceData]) {
         setup()
     }
 }

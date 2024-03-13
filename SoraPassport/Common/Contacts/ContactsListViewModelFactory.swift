@@ -29,7 +29,6 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import CommonWallet
 import SoraFoundation
 
 public protocol ContactsListViewModelFactoryProtocol {
@@ -58,7 +57,7 @@ final class ContactsListViewModelFactory: ContactsListViewModelFactoryProtocol {
     private var itemViewModelFactory =
         ContactsViewModelFactory(dataStorageFacade: SubstrateDataStorageFacade.shared)
 
-    func createContactViewModelListFromItems(_ items: [CommonWallet.SearchData], parameters: ContactModuleParameters, locale: Locale, delegate: ContactViewModelDelegate?, commandFactory: WalletCommandFactoryProtocol) -> [ContactSectionViewModelProtocol] {
+    func createContactViewModelListFromItems(_ items: [SearchData], parameters: ContactModuleParameters, locale: Locale, delegate: ContactViewModelDelegate?, commandFactory: WalletCommandFactoryProtocol) -> [ContactSectionViewModelProtocol] {
         let (localItems, remoteItems) = items.reduce(([SearchData](), [SearchData]())) { (result, item) in
             let context = ContactContext(context: item.context ?? [:])
 
@@ -118,13 +117,6 @@ final class ContactsListViewModelFactory: ContactsListViewModelFactoryProtocol {
                                      locale: Locale,
                                      commandFactory: WalletCommandFactoryProtocol)
     -> WalletBarActionViewModelProtocol? {
-        guard let icon = R.image.iconWalletScan() else {
-            return nil
-        }
-
-        let command = commandFactory.prepareScanReceiverCommand()
-        let viewModel = WalletBarActionViewModel(displayType: .icon(icon.withRenderingMode(.alwaysOriginal)),
-                                                 command: command)
-        return viewModel
+        return nil
     }
 }

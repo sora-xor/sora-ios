@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+
 
 extension NetworkResponseError: ErrorContentConvertible {
     func toErrorContent(for locale: Locale?) -> ErrorContent {

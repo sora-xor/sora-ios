@@ -31,7 +31,7 @@
 import Foundation
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 
 protocol GenerateQRWireframeProtocol: AnyObject {
     func showAssetSelection(

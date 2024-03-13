@@ -31,7 +31,7 @@
 import Foundation
 import Combine
 import BigInt
-import CommonWallet
+
 
 protocol PoolDetailsItemServiceProtocol: AnyObject {
     var tvlTextPublisher: Published<String>.Publisher { get }

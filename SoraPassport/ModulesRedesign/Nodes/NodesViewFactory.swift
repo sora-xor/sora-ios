@@ -31,7 +31,7 @@
 import Foundation
 import SoraFoundation
 import SoraKeystore
-import CommonWallet
+
 import RobinHood
 
 final class NodesViewFactory: NodesViewFactoryProtocol {

@@ -32,7 +32,7 @@ import SoraUI
 import IrohaCrypto
 import SoraKeystore
 import CoreGraphics
-import CommonWallet
+
 
 protocol ReferralViewFactoryProtocol {
     static func createReferrerView(with referrer: String) -> UIViewController

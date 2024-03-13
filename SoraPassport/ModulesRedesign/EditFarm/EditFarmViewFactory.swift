@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+
 import SSFUtils
 
 final class EditFarmViewFactory {

@@ -30,7 +30,7 @@
 
 import Foundation
 import UIKit
-import CommonWallet
+
 import SoraUIKit
 
 enum Cards: Int, CaseIterable {

@@ -30,7 +30,6 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
 
 enum WalletServiceError: Error {
     case invalidPageHash

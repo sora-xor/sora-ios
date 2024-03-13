@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 import sorawallet
 import SSFUtils
 import SoraFoundation

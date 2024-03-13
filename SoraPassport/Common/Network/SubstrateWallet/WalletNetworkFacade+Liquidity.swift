@@ -31,7 +31,7 @@
 import Foundation
 import RobinHood
 import SoraKeystore
-import CommonWallet
+
 import IrohaCrypto
 
 

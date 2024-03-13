@@ -1,5 +1,5 @@
 import Foundation
-import CommonWallet
+
 
 class WalletCommandMock: WalletCommandProtocol {
     private(set) var executionCount: Int = 0
