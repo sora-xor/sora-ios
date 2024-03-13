@@ -32,6 +32,10 @@ import Foundation
 import SSFUtils
 import RobinHood
 
+enum RuntimeSnapshotFactoryError: Error {
+    case unexpectedError
+}
+
 protocol RuntimeSnapshotFactoryProtocol {
     func createRuntimeSnapshotWrapper(
         for typesUsage: ChainModel.TypesUsage,
@@ -71,14 +75,14 @@ final class RuntimeSnapshotFactory {
 
             guard let runtimeMetadataItem = try runtimeMetadataOperation
                 .extractNoCancellableResultData() else {
-                return nil
+                throw RuntimeSnapshotFactoryError.unexpectedError
             }
 
             let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
             let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
 
             guard let commonTypes = commonTypes, let chainTypes = chainTypes else {
-                return nil
+                throw RuntimeSnapshotFactoryError.unexpectedError
             }
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
@@ -119,16 +123,15 @@ final class RuntimeSnapshotFactory {
         let snapshotOperation = ClosureOperation<RuntimeSnapshot?> {
             let commonTypes = try commonTypesFetchOperation.targetOperation.extractNoCancellableResultData()
 
-            guard let runtimeMetadataItem = try runtimeMetadataOperation
-                .extractNoCancellableResultData() else {
-                return nil
+            guard let runtimeMetadataItem = try runtimeMetadataOperation.extractNoCancellableResultData() else {
+                throw RuntimeSnapshotFactoryError.unexpectedError
             }
 
             let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
             let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
 
             guard let commonTypes = commonTypes else {
-                return nil
+                throw RuntimeSnapshotFactoryError.unexpectedError
             }
 
             let catalog = try TypeRegistryCatalog.createFromTypeDefinition(
@@ -169,14 +172,14 @@ final class RuntimeSnapshotFactory {
 
             guard let runtimeMetadataItem = try runtimeMetadataOperation
                 .extractNoCancellableResultData() else {
-                return nil
+                throw RuntimeSnapshotFactoryError.unexpectedError
             }
 
             let decoder = try ScaleDecoder(data: runtimeMetadataItem.metadata)
             let runtimeMetadata = try RuntimeMetadata(scaleDecoder: decoder)
 
             guard let ownTypes = ownTypes else {
-                return nil
+                throw RuntimeSnapshotFactoryError.unexpectedError
             }
 
             // TODO: think about it
