@@ -301,7 +301,8 @@ extension SwapViewModel: LiquidityViewModelProtocol {
             guard firstAssetBalance.balance.decimalValue > 0 else { return }
             let isFeeAsset = assetManager?.assetInfo(for: firstAssetId)?.isFeeAsset ?? false
             let value = firstAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
-            inputedFirstAmount = isFeeAsset ? value - fee : value
+            let afterFee = isFeeAsset ? value - fee : value
+            inputedFirstAmount = afterFee < 0 ? value : afterFee
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(firstAmountText: formatter.stringFromDecimal(inputedFirstAmount) ?? "")
         }
@@ -310,7 +311,8 @@ extension SwapViewModel: LiquidityViewModelProtocol {
             guard secondAssetBalance.balance.decimalValue > 0 else { return }
             let isFeeAsset = assetManager?.assetInfo(for: secondAssetId)?.isFeeAsset ?? false
             let value = secondAssetBalance.balance.decimalValue * (Decimal(string: "\(variant)") ?? 0)
-            inputedSecondAmount = isFeeAsset ? value - fee : value
+            let afterFee = isFeeAsset ? value - fee : value
+            inputedSecondAmount = afterFee < 0 ? value : afterFee
             let formatter = NumberFormatter.inputedAmoutFormatter(with: assetManager?.assetInfo(for: firstAssetId)?.precision ?? 0)
             view?.set(secondAmountText: formatter.stringFromDecimal(inputedSecondAmount) ?? "")
         }
