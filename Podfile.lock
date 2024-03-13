@@ -1,17 +1,17 @@
 PODS:
   - Anchorage (4.5.0)
-  - AppAuth (1.6.2):
-    - AppAuth/Core (= 1.6.2)
-    - AppAuth/ExternalUserAgent (= 1.6.2)
-  - AppAuth/Core (1.6.2)
-  - AppAuth/ExternalUserAgent (1.6.2):
+  - AppAuth (1.7.2):
+    - AppAuth/Core (= 1.7.2)
+    - AppAuth/ExternalUserAgent (= 1.7.2)
+  - AppAuth/Core (1.7.2)
+  - AppAuth/ExternalUserAgent (1.7.2):
     - AppAuth/Core
   - BigInt (5.2.0)
   - CocoaLumberjack (3.8.2):
     - CocoaLumberjack/Core (= 3.8.2)
   - CocoaLumberjack/Core (3.8.2)
   - CommonWallet/Core (1.16.0):
-    - RobinHood (~> 2.6.1)
+    - RobinHood (~> 2.6.8)
     - SoraFoundation/DateProcessing (~> 1.0.0)
     - SoraFoundation/Localization (~> 1.0.0)
     - SoraFoundation/NotificationHandlers (~> 1.0.0)
@@ -274,18 +274,18 @@ PODS:
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
   - SoraUIKit (1.1.11)
-  - sorawallet (0.2.8)
+  - sorawallet (0.2.9)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
-  - SSFCloudStorage (0.1.23):
+  - SSFCloudStorage (0.1.34):
     - GoogleAPIClientForREST/Drive (~> 1.2.1)
     - GoogleSignIn (~> 7.0.0)
     - IrohaCrypto/Scrypt
     - SSFModels
-    - SSFUtils
+    - SSFUtils (~> 0.1.31)
     - TweetNacl (~> 1.0.0)
-  - SSFModels (0.1.31):
+  - SSFModels (0.1.32):
     - IrohaCrypto
   - SSFUtils (0.1.31):
     - BigInt (~> 5.0)
@@ -300,7 +300,7 @@ PODS:
     - Starscream
     - TweetNacl (~> 1.0.0)
     - xxHash-Swift (~> 1.0.0)
-  - Starscream (4.0.8)
+  - Starscream (4.0.9)
   - SVGKit (2.1.0):
     - CocoaLumberjack (~> 3.0)
   - SwiftLint (0.49.1)
@@ -336,10 +336,11 @@ DEPENDENCIES:
   - SoraKeystore
   - SoraUI
   - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.11`)
-  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec`)
+  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec`)
   - Sourcery (~> 1.4)
-  - SSFCloudStorage
-  - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, branch `feature/without-origin`)
+  - SSFCloudStorage (= 0.1.34)
+  - SSFUtils (= 0.1.31)
+  - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, tag `4.0.9`)
   - SVGKit (from `https://github.com/SVGKit/SVGKit.git`, tag `3.0.0`)
   - SwiftLint (~> 0.49.0)
   - SwiftyBeaver
@@ -422,10 +423,10 @@ EXTERNAL SOURCES:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.11
   sorawallet:
-    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec
+    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec
   Starscream:
-    :branch: feature/without-origin
     :git: https://github.com/soramitsu/fearless-starscream.git
+    :tag: 4.0.9
   SVGKit:
     :git: https://github.com/SVGKit/SVGKit.git
     :tag: 3.0.0
@@ -449,18 +450,18 @@ CHECKOUT OPTIONS:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.11
   Starscream:
-    :commit: 9b26310bfaee979e785fecbf3dbefd2385f0e461
     :git: https://github.com/soramitsu/fearless-starscream.git
+    :tag: 4.0.9
   SVGKit:
     :git: https://github.com/SVGKit/SVGKit.git
     :tag: 3.0.0
 
 SPEC CHECKSUMS:
   Anchorage: 1961bc81c84aeed54ad7ffc697c50cd9de748ba6
-  AppAuth: 3bb1d1cd9340bd09f5ed189fb00b1cc28e1e8570
+  AppAuth: ca2458caccec349cc1e26d8d9e8fd7d22f1d01f3
   BigInt: f668a80089607f521586bbe29513d708491ef2f7
   CocoaLumberjack: f8d89a516e7710fdb2e9b8f1560b16ec6040eef0
-  CommonWallet: 3c67d5fd85593a20f6b55777c2660ff886fc4148
+  CommonWallet: 4e3ce6aec6901714438d3714d18aa7d8f4b08e13
   Cuckoo: 1b6793fe60fac29af50b0a5915bc309a4a1ac673
   FearlessUtils: 29225af385d297526e802d5218fa111763ff10de
   Firebase: 63ce8ece0d43743dc28eacac0c6867a2d7fd5a9d
@@ -507,12 +508,12 @@ SPEC CHECKSUMS:
   SoraKeystore: c42760c9270fc232a79f644c1b4bb07d9ead4ee7
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   SoraUIKit: f32d51c0876d016f5f318b534eb8f7eb2eeaa00a
-  sorawallet: ca3f0821e006c78b27618fe4ea1140ca4a189c75
+  sorawallet: 1af3b1c3f612645f52a2fd48034a2173d0bff4e6
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
-  SSFCloudStorage: c4123454b3084015ea8d88af92f51de79fce7f2c
-  SSFModels: d85433036fd8a3bc88f93d570649f242d948f063
+  SSFCloudStorage: 2556a9df7865e1d5e3fd6ec2dfc306e237d0a4f9
+  SSFModels: 8d6d7daa95b5491a43483c99dae953011bb65b2e
   SSFUtils: 1b0bbf20c0d3577bd17f56e4f8d7107925f49c76
-  Starscream: b676ee89781677a2d8d36029a78c970710e2d3eb
+  Starscream: a4e6a77c535efeca8cd2ad85c0e2689500bc6c3d
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5
   SwiftyBeaver: 84069991dd5dca07d7069100985badaca7f0ce82
@@ -520,6 +521,6 @@ SPEC CHECKSUMS:
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: dd594e43f2cffcafcb35b5e9f4c62eaf8d70079f
+PODFILE CHECKSUM: 62fd3b25016db0e6d89fd44255b0d4fd6838cb5c
 
 COCOAPODS: 1.12.1

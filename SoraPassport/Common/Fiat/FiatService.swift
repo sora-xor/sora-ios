@@ -44,16 +44,27 @@ struct FiatServiceObserver {
     weak var observer: FiatServiceObserverProtocol?
 }
 
-actor FiatService {
+final class FiatService {
     static let shared = FiatService()
     private let operationManager: OperationManager = OperationManager()
     private var expiredDate: Date = Date()
     private var fiatData: [FiatData] = []
     private var observers: [FiatServiceObserver] = []
     private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.fiat.service")
-    private var task: Task<Void, Swift.Error>?
 
-    private func updateFiatData() async -> [FiatData] {
+    private func updateFiatData() {
+        let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
+        queryOperation.completionBlock = { [weak self] in
+            guard let self, let response = try? queryOperation.extractNoCancellableResultData() else {
+                return
+            }
+            self.fiatData = response
+            self.expiredDate = Date().addingTimeInterval(20)
+        }
+        operationManager.enqueue(operations: [queryOperation], in: .transient)
+    }
+    
+    private func updateFiatDataAwait() async -> [FiatData] {
         let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
         operationManager.enqueue(operations: [queryOperation], in: .transient)
 
@@ -77,12 +88,17 @@ actor FiatService {
 extension FiatService: FiatServiceProtocol {
     
     func getFiat() async -> [FiatData] {
-        guard expiredDate < Date() || fiatData.isEmpty else {
+        if expiredDate < Date() {
+            updateFiatData()
+        }
+        
+        if !fiatData.isEmpty {
             return fiatData
         }
-
-        let response = await updateFiatData() 
+        
+        let response = await updateFiatDataAwait()
         await updateFiatData(with: response)
+        
         return response
     }
 }
