@@ -444,7 +444,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: bd8feb45d101af5d11fa14b3958c7533e20880e4
+    :commit: 45aae5001341a5bb5fbde12401d7a7cdca98c9a3
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
