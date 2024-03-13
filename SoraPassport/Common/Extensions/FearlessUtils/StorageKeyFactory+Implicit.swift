@@ -30,6 +30,7 @@
 
 import SSFUtils
 import Foundation
+import scrypt
 
 enum PalleteName: String {
 //    case System
