@@ -1,17 +1,17 @@
 PODS:
   - Anchorage (4.5.0)
-  - AppAuth (1.7.2):
-    - AppAuth/Core (= 1.7.2)
-    - AppAuth/ExternalUserAgent (= 1.7.2)
-  - AppAuth/Core (1.7.2)
-  - AppAuth/ExternalUserAgent (1.7.2):
+  - AppAuth (1.7.1):
+    - AppAuth/Core (= 1.7.1)
+    - AppAuth/ExternalUserAgent (= 1.7.1)
+  - AppAuth/Core (1.7.1)
+  - AppAuth/ExternalUserAgent (1.7.1):
     - AppAuth/Core
   - BigInt (5.2.0)
   - CocoaLumberjack (3.8.2):
     - CocoaLumberjack/Core (= 3.8.2)
   - CocoaLumberjack/Core (3.8.2)
   - CommonWallet/Core (1.16.0):
-    - RobinHood (~> 2.6.8)
+    - RobinHood (~> 2.6.1)
     - SoraFoundation/DateProcessing (~> 1.0.0)
     - SoraFoundation/Localization (~> 1.0.0)
     - SoraFoundation/NotificationHandlers (~> 1.0.0)
@@ -444,7 +444,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: 4fbcf6c388e90981d17ee305711f3d55e9bec5ed
+    :commit: 45aae5001341a5bb5fbde12401d7a7cdca98c9a3
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
@@ -458,10 +458,10 @@ CHECKOUT OPTIONS:
 
 SPEC CHECKSUMS:
   Anchorage: 1961bc81c84aeed54ad7ffc697c50cd9de748ba6
-  AppAuth: ca2458caccec349cc1e26d8d9e8fd7d22f1d01f3
+  AppAuth: e93b919be5dbcbba49555011ce94f7d716368574
   BigInt: f668a80089607f521586bbe29513d708491ef2f7
   CocoaLumberjack: f8d89a516e7710fdb2e9b8f1560b16ec6040eef0
-  CommonWallet: 4e3ce6aec6901714438d3714d18aa7d8f4b08e13
+  CommonWallet: 3c67d5fd85593a20f6b55777c2660ff886fc4148
   Cuckoo: 1b6793fe60fac29af50b0a5915bc309a4a1ac673
   FearlessUtils: 29225af385d297526e802d5218fa111763ff10de
   Firebase: 63ce8ece0d43743dc28eacac0c6867a2d7fd5a9d
