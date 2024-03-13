@@ -1,10 +1,10 @@
 PODS:
   - Anchorage (4.5.0)
-  - AppAuth (1.6.2):
-    - AppAuth/Core (= 1.6.2)
-    - AppAuth/ExternalUserAgent (= 1.6.2)
-  - AppAuth/Core (1.6.2)
-  - AppAuth/ExternalUserAgent (1.6.2):
+  - AppAuth (1.7.1):
+    - AppAuth/Core (= 1.7.1)
+    - AppAuth/ExternalUserAgent (= 1.7.1)
+  - AppAuth/Core (1.7.1)
+  - AppAuth/ExternalUserAgent (1.7.1):
     - AppAuth/Core
   - BigInt (5.2.0)
   - CocoaLumberjack (3.8.2):
@@ -196,8 +196,8 @@ PODS:
   - nanopb/decode (2.30909.1)
   - nanopb/encode (2.30909.1)
   - Nantes (0.1.2)
-  - PayWingsKycSDK (1.0.0)
-  - PayWingsOAuthSDK (2.0.0):
+  - PayWingsKycSDK (1.0.1)
+  - PayWingsOAuthSDK (2.0.2):
     - JOSESwift (= 2.4.0)
     - RecaptchaEnterprise (= 18.3.0)
   - PromisesObjC (2.3.1)
@@ -211,13 +211,13 @@ PODS:
     - RecaptchaInterop (~> 100.0.0)
   - RecaptchaInterop (100.0.0)
   - RobinHood (2.6.8)
-  - SCard (1.5.0):
+  - SCard (1.5.1):
     - IdensicMobileSDK
-    - PayWingsKycSDK (= 1.0.0)
-    - PayWingsOAuthSDK (= 2.0.0)
+    - PayWingsKycSDK (= 1.0.1)
+    - PayWingsOAuthSDK (= 2.0.2)
     - R.swift (~> 6.1.0)
     - SnapKit
-    - SoraUIKit (~> 1.1.2)
+    - SoraUIKit
   - scrypt.c (0.1.1)
   - secp256k1.c (0.1.2)
   - SnapKit (5.6.0)
@@ -274,18 +274,18 @@ PODS:
     - SoraUI/Controls
   - SoraUI/Skrull (1.10.3)
   - SoraUIKit (1.1.11)
-  - sorawallet (0.2.8)
+  - sorawallet (0.2.9)
   - Sourcery (1.9.2):
     - Sourcery/CLI-Only (= 1.9.2)
   - Sourcery/CLI-Only (1.9.2)
-  - SSFCloudStorage (0.1.23):
+  - SSFCloudStorage (0.1.34):
     - GoogleAPIClientForREST/Drive (~> 1.2.1)
     - GoogleSignIn (~> 7.0.0)
     - IrohaCrypto/Scrypt
     - SSFModels
-    - SSFUtils
+    - SSFUtils (~> 0.1.31)
     - TweetNacl (~> 1.0.0)
-  - SSFModels (0.1.31):
+  - SSFModels (0.1.32):
     - IrohaCrypto
   - SSFUtils (0.1.31):
     - BigInt (~> 5.0)
@@ -329,16 +329,17 @@ DEPENDENCIES:
   - R.swift (~> 6.1.0)
   - ReachabilitySwift
   - RobinHood
-  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.5.0`)
+  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.5.1`)
   - SnapKit
   - SoraDocuments
   - SoraFoundation
   - SoraKeystore
   - SoraUI
   - SoraUIKit (from `https://github.com/soramitsu/ios-ui`, tag `1.1.11`)
-  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec`)
+  - sorawallet (from `https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec`)
   - Sourcery (~> 1.4)
-  - SSFCloudStorage
+  - SSFCloudStorage (= 0.1.34)
+  - SSFUtils (= 0.1.31)
   - Starscream (from `https://github.com/soramitsu/fearless-starscream.git`, tag `4.0.9`)
   - SVGKit (from `https://github.com/SVGKit/SVGKit.git`, tag `3.0.0`)
   - SwiftLint (~> 0.49.0)
@@ -416,13 +417,13 @@ EXTERNAL SOURCES:
     :branch: version6-xcode13
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :branch: release/1.5.0
+    :branch: release/1.5.1
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
     :tag: 1.1.11
   sorawallet:
-    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec
+    :podspec: https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec
   Starscream:
     :git: https://github.com/soramitsu/fearless-starscream.git
     :tag: 4.0.9
@@ -443,7 +444,7 @@ CHECKOUT OPTIONS:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: 5739c2078ff4c1734fbd29d8b3ee043b44da91b0
+    :commit: 45aae5001341a5bb5fbde12401d7a7cdca98c9a3
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
@@ -457,7 +458,7 @@ CHECKOUT OPTIONS:
 
 SPEC CHECKSUMS:
   Anchorage: 1961bc81c84aeed54ad7ffc697c50cd9de748ba6
-  AppAuth: 3bb1d1cd9340bd09f5ed189fb00b1cc28e1e8570
+  AppAuth: e93b919be5dbcbba49555011ce94f7d716368574
   BigInt: f668a80089607f521586bbe29513d708491ef2f7
   CocoaLumberjack: f8d89a516e7710fdb2e9b8f1560b16ec6040eef0
   CommonWallet: 3c67d5fd85593a20f6b55777c2660ff886fc4148
@@ -488,8 +489,8 @@ SPEC CHECKSUMS:
   lottie-ios: c55158d67d0629a260625cc2ded2052b829e3c3e
   nanopb: d4d75c12cd1316f4a64e3c6963f879ecd4b5e0d5
   Nantes: 0396442578e32242223fed46050dea1850236184
-  PayWingsKycSDK: b997360d19e585328ae56d5a836d9d2cdd61792d
-  PayWingsOAuthSDK: bde59cb75d4f1e283b6f2743f38f1dbfeffbe4b8
+  PayWingsKycSDK: c709ff0ebff5c5a7d771c211655c2857f209edb0
+  PayWingsOAuthSDK: 40168c32d47402bf33ef1c167ce2261dac6da102
   PromisesObjC: c50d2056b5253dadbd6c2bea79b0674bd5a52fa4
   PromisesSwift: 28dca69a9c40779916ac2d6985a0192a5cb4a265
   R.swift: ec98ff71c4ab2f6fd01dd077e5afd15e63a4834c
@@ -498,7 +499,7 @@ SPEC CHECKSUMS:
   RecaptchaEnterprise: 9b60bc1e1633d120e24a098d80546776fab1282e
   RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
   RobinHood: b775a72cc0ae55cee3dfb4a5668597aca20ba244
-  SCard: 2ce0da1b75b72119550da5514a0574b52b3b173b
+  SCard: 58ad6131ab20174c1c50e6c474132b79c6d16a13
   scrypt.c: b42ae06183251329d2b2c620c226fb541a4a3592
   secp256k1.c: db47b726585d80f027423682eb369729e61b3b20
   SnapKit: e01d52ebb8ddbc333eefe2132acf85c8227d9c25
@@ -507,10 +508,10 @@ SPEC CHECKSUMS:
   SoraKeystore: c42760c9270fc232a79f644c1b4bb07d9ead4ee7
   SoraUI: 1ec71151eb962591eeb898bcdd98bded59745f2d
   SoraUIKit: f32d51c0876d016f5f318b534eb8f7eb2eeaa00a
-  sorawallet: ca3f0821e006c78b27618fe4ea1140ca4a189c75
+  sorawallet: 1af3b1c3f612645f52a2fd48034a2173d0bff4e6
   Sourcery: 179539341c2261068528cd15a31837b7238fd901
-  SSFCloudStorage: c4123454b3084015ea8d88af92f51de79fce7f2c
-  SSFModels: d85433036fd8a3bc88f93d570649f242d948f063
+  SSFCloudStorage: 2556a9df7865e1d5e3fd6ec2dfc306e237d0a4f9
+  SSFModels: 8d6d7daa95b5491a43483c99dae953011bb65b2e
   SSFUtils: 1b0bbf20c0d3577bd17f56e4f8d7107925f49c76
   Starscream: a4e6a77c535efeca8cd2ad85c0e2689500bc6c3d
   SVGKit: 132b010efbf57ec345309fe4a7f627c0a40c5d63
@@ -520,6 +521,6 @@ SPEC CHECKSUMS:
   TweetNacl: 3abf4d1d2082b0114e7a67410e300892448951e6
   xxHash-Swift: 30bd6a7507b3b7348a277c49b1cb6346c2905ec7
 
-PODFILE CHECKSUM: 6deeae7fe276f72675cf5b03885c387a8c1e784f
+PODFILE CHECKSUM: 62fd3b25016db0e6d89fd44255b0d4fd6838cb5c
 
 COCOAPODS: 1.12.1
