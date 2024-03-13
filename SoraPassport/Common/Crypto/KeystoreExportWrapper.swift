@@ -33,6 +33,7 @@ import SoraKeystore
 import SSFUtils
 import IrohaCrypto
 import TweetNacl
+import SSFModels
 
 protocol KeystoreExportWrapperProtocol {
     func export(account: AccountItem, password: String?) throws -> Data
@@ -79,10 +80,13 @@ final class KeystoreExportWrapper: KeystoreExportWrapperProtocol {
             builder = builder.with(genesisHash: genesisHashData.toHex(includePrefix: true))
         }
 
-        let keystoreData = KeystoreData(address: account.address,
-                                        secretKeyData: secretKey,
-                                        publicKeyData: account.publicKeyData,
-                                        cryptoType: account.cryptoType.utilsType)
+        let cryptoType = SSFModels.CryptoType.init(onChainType: account.cryptoType.rawValue) ?? .sr25519
+        let keystoreData = KeystoreData(
+            address: account.address,
+            secretKeyData: secretKey,
+            publicKeyData: account.publicKeyData,
+            cryptoType: cryptoType
+        )
 
         let definition = try builder.build(from: keystoreData, password: password, isEthereum: false)
 

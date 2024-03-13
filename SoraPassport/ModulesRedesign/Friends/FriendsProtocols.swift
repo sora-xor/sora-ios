@@ -30,7 +30,7 @@
 
 import UIKit
 import sorawallet
-import CommonWallet
+
 
 // MARK: - View
 

@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+import UIKit
 
 typealias SetupPasswordDataSource = UITableViewDiffableDataSource<SetupPasswordSection, SetupPasswordSectionItem>
 typealias SetupPasswordSnapshot = NSDiffableDataSourceSnapshot<SetupPasswordSection, SetupPasswordSectionItem>

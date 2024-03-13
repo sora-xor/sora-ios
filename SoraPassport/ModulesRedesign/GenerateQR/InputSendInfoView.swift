@@ -29,7 +29,8 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraUIKit
-import FearlessUtils
+import SSFUtils
+import UIKit
 import Combine
 
 final class InputSendInfoView: SoramitsuView {
@@ -93,7 +94,7 @@ final class InputSendInfoView: SoramitsuView {
                     guard let self = self else { return }
                     self.recipientView.contactView.accountTitle.sora.text = viewModel.address
                     self.recipientView.contactView.accountImageView.image = try? self.generator.generateFromAddress(viewModel.address ?? "")
-                        .imageWithFillColor(.white,
+                        .imageWithFillColor(UIColor.white,
                                             size: CGSize(width: 40.0, height: 40.0),
                                             contentScale: UIScreen.main.scale)
                 }

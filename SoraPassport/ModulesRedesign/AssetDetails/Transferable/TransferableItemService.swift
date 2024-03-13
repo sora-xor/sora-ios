@@ -31,7 +31,7 @@
 import Foundation
 import Combine
 import BigInt
-import CommonWallet
+
 
 final class TransferableItemService {
     @Published var balanceAmount: Decimal?

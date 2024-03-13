@@ -11,14 +11,11 @@ abstract_target 'SoraPassportAll' do
   pod 'R.swift', '~> 6.1.0'
   pod 'FireMock', :inhibit_warnings => true
   pod 'SoraDocuments'
-  pod 'IrohaCrypto', '~> 0.9.0'
   pod 'SoraKeystore'
   pod 'SoraUI'
-  pod 'RobinHood'
+  pod 'RobinHood', '~> 2.6.1'
   pod 'Kingfisher', :git => 'https://github.com/onevcat/Kingfisher', :branch => 'version6-xcode13', :inhibit_warnings => true
   pod 'SVGKit', :git => 'https://github.com/SVGKit/SVGKit.git', :tag => '3.0.0'
-  pod 'FearlessUtils', :git => 'https://github.com/soramitsu/fearless-utils-iOS.git', :branch => 'feature/fearless-utils-for-sora'
-  pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :branch => 'feature/sora-propositions'
   pod 'FirebaseMessaging'
   pod 'Firebase/Crashlytics'
   pod 'FirebaseAnalytics'
@@ -36,8 +33,6 @@ abstract_target 'SoraPassportAll' do
   pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.5.1'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
   pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec'
-  pod 'SSFCloudStorage', '0.1.34'
-  pod 'SSFUtils', '0.1.31'
   
   target 'SoraPassportTests' do
       inherit! :search_paths
@@ -48,10 +43,7 @@ abstract_target 'SoraPassportAll' do
       pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :tag => ‘4.0.9’
       pod 'SoraDocuments'
       pod 'SoraKeystore'
-      pod 'RobinHood'
-      pod 'IrohaCrypto', '~> 0.9.0'
-      pod 'FearlessUtils', :git => 'https://github.com/soramitsu/fearless-utils-iOS.git', :branch => 'feature/fearless-utils-for-sora'
-      pod 'CommonWallet/Core', :git => 'https://github.com/soramitsu/Capital-iOS.git', :branch => 'feature/sora-propositions'
+      pod 'RobinHood', '~> 2.6.1'
       pod 'SoraFoundation'
       pod 'GoogleAPIClientForREST/Core'
       pod 'GoogleAPIClientForREST/Drive'
@@ -75,7 +67,6 @@ post_install do |installer|
   installer.generated_projects.each do |project|
     project.build_configurations.each do |config|
       config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
-      config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
       if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 9.0
         config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       end

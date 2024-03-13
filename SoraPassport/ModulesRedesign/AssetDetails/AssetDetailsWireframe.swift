@@ -32,7 +32,7 @@ import Foundation
 import SCard
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import SoraFoundation
 
@@ -228,7 +228,7 @@ final class AssetDetailsWireframe: AssetDetailsWireframeProtocol {
         viewModel.view = receiveController
 
         let navigationController = UINavigationController(rootViewController: receiveController)
-        navigationController.navigationBar.backgroundColor = .clear
+        navigationController.navigationBar.backgroundColor = UIColor.clear
         navigationController.addCustomTransitioning()
         
         let containerView = BlurViewController()

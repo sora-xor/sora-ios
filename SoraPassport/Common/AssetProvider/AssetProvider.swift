@@ -29,9 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-
 import RobinHood
-import CommonWallet
 
 protocol AssetProviderObserverProtocol: AnyObject {
     func processBalance(data: [BalanceData])

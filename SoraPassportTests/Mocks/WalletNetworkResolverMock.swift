@@ -1,5 +1,5 @@
 import Foundation
-import CommonWallet
+
 import RobinHood
 /*
 final class WalletNetworkResolverMock: MiddlewareNetworkResolverProtocol {

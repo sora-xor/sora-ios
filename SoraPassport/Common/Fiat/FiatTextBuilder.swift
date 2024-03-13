@@ -30,7 +30,7 @@
 
 import Foundation
 import sorawallet
-import CommonWallet
+
 
 struct FiatTextBuilder {
     func build(fiatData: [FiatData], amount: Decimal, assetId: String) -> String {

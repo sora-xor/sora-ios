@@ -7,7 +7,7 @@ import SoraKeystore
 @testable import SoraPassport
 import XCTest
 import xxHash_Swift
-import CommonWallet
+
 
 import XCTest
 

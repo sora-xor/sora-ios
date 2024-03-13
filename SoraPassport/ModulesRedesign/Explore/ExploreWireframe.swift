@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraUIKit
-import CommonWallet
+
 
 protocol ExploreWireframeProtocol {
     func showAssetDetails(on viewController: UIViewController?, assetId: String)

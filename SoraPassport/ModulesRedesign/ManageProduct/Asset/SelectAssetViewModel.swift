@@ -30,7 +30,7 @@
 
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 import RobinHood
 import SoraFoundation
 

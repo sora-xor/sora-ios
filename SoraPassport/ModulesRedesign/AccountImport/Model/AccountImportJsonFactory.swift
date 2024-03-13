@@ -55,7 +55,7 @@ final class AccountImportJsonFactory {
 
         return AccountImportPreferredInfo(username: info.meta?.name,
                                           networkType: chain,
-                                          cryptoType: CryptoType(type: info.cryptoType.rawValue),
+                                          cryptoType: CryptoType(type: info.cryptoType.stringValue),
                                           networkTypeConfirmed: networkTypeConfirmed)
     }
 }

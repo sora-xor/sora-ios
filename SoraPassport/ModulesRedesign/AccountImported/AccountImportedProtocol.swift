@@ -30,7 +30,7 @@
 
 import Foundation
 import RobinHood
-import CommonWallet
+import UIKit
 import SSFCloudStorage
 
 typealias AccountImportedDataSource = UITableViewDiffableDataSource<AccountImportedSection, AccountImportedSectionItem>

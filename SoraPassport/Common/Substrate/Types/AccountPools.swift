@@ -30,6 +30,7 @@
 
 import BigInt
 import SSFUtils
+import Foundation
 
 struct AccountPools: ScaleDecodable {
     let assetIds: [String]

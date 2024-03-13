@@ -31,7 +31,7 @@
 import Foundation
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 
 protocol ScanQRWireframeProtocol {
     func showGenerateQR(on controller: UIViewController?,

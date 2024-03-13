@@ -30,7 +30,7 @@
 
 import UIKit
 import SoraUIKit
-import CommonWallet
+
 
 protocol ActivityDetailsViewModelProtocol: SoramitsuTableViewPaginationHandlerProtocol {
     func updateContent(completion: ([SoramitsuTableViewItemProtocol]) -> Void)

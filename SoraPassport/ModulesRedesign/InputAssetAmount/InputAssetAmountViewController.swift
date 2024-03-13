@@ -31,7 +31,8 @@
 import Foundation
 import UIKit
 import SoraUIKit
-import FearlessUtils
+import SSFUtils
+import UIKit
 
 protocol InputAssetAmountViewProtocol: ControllerBackedProtocol, Warningable {
     func updateFirstAsset(balance: String)
@@ -243,7 +244,7 @@ extension InputAssetAmountViewController: InputAssetAmountViewProtocol {
     func updateRecipientView(with address: String) {
         recipientView.contactView.accountTitle.sora.text = address
         recipientView.contactView.accountImageView.image = try? generator.generateFromAddress(address)
-            .imageWithFillColor(.white,
+            .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)
     }

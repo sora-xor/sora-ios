@@ -31,7 +31,7 @@
 import Foundation
 import UIKit
 import RobinHood
-import CommonWallet
+
 import sorawallet
 import SoraUIKit
 

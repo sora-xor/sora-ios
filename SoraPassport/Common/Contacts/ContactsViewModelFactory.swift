@@ -29,9 +29,10 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import CommonWallet
+
 import IrohaCrypto
-import FearlessUtils
+import SSFUtils
+import UIKit
 import RobinHood
 
 public protocol ContactsFactoryWrapperProtocol {
@@ -62,7 +63,7 @@ final class ContactsViewModelFactory: ContactsFactoryWrapperProtocol {
             }
 
             let icon = try iconGenerator.generateFromAddress(contact.firstName)
-                .imageWithFillColor(.white,
+                .imageWithFillColor(UIColor.white,
                                     size: CGSize(width: 24.0, height: 24.0),
                                     contentScale: UIScreen.main.scale)
 

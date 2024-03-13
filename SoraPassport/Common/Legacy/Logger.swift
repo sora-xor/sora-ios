@@ -31,7 +31,7 @@
 import Foundation
 import SwiftyBeaver
 
-protocol LoggerProtocol {
+public protocol LoggerProtocol {
     func verbose(message: String, file: String, function: String, line: Int)
     func debug(message: String, file: String, function: String, line: Int)
     func info(message: String, file: String, function: String, line: Int)

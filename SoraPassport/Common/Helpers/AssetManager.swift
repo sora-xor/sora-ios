@@ -30,7 +30,7 @@
 
 import Foundation
 import SoraKeystore
-import CommonWallet
+
 import RobinHood
 import sorawallet
 
