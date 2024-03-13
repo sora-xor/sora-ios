@@ -43,7 +43,6 @@ final class PoolDetailsCell: SoramitsuTableViewCell {
                 .removeDuplicates()
                 .filter { !$0.isEmpty }
                 .sink { [weak self] value in
-                    print("OLOLO value \(value)")
                     self?.headerView.subtitleLabel.sora.text = value
                     self?.headerView.subtitleLabel.sora.loadingPlaceholder.type = .none
                 }

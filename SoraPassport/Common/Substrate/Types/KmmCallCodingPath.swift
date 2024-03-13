@@ -39,6 +39,10 @@ extension KmmCallCodingPath {
     static var transfer: KmmCallCodingPath {
         KmmCallCodingPath(moduleName: "assets", callName: "transfer")
     }
+    
+    static var adarTransfer: KmmCallCodingPath {
+        KmmCallCodingPath(moduleName: "assets", callName: "Transfer")
+    }
 
     static var transferKeepAlive: KmmCallCodingPath {
         KmmCallCodingPath(moduleName: "assets", callName: "transferKeepAlive")
@@ -93,7 +97,7 @@ extension KmmCallCodingPath {
 
 
     var isTransfer: Bool {
-        [.transfer, .transferKeepAlive].contains(self)
+        [.transfer, .transferKeepAlive, .adarTransfer].contains(self)
     }
 
     var isSwap: Bool {

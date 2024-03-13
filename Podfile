@@ -23,7 +23,7 @@ abstract_target 'SoraPassportAll' do
   pod 'Firebase/Crashlytics'
   pod 'FirebaseAnalytics'
   pod 'ReachabilitySwift'
-  pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :branch => 'feature/without-origin'
+  pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :tag => ‘4.0.9’
   pod 'SwiftyBeaver'
   pod 'SoraFoundation'
   pod 'Anchorage'
@@ -35,16 +35,17 @@ abstract_target 'SoraPassportAll' do
   pod 'IdensicMobileSDK', :http => 'https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.3.tar.gz'
   pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.5.1'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
-  pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec'
-  pod 'SSFCloudStorage'
-
+  pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec'
+  pod 'SSFCloudStorage', '0.1.34'
+  pod 'SSFUtils', '0.1.31'
+  
   target 'SoraPassportTests' do
       inherit! :search_paths
       
       pod 'Cuckoo', '~> 1.9.1'
       pod 'FireMock'
       pod 'SoraUI'
-      pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :branch => 'feature/without-origin'
+      pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :tag => ‘4.0.9’
       pod 'SoraDocuments'
       pod 'SoraKeystore'
       pod 'RobinHood'
@@ -54,7 +55,7 @@ abstract_target 'SoraPassportAll' do
       pod 'SoraFoundation'
       pod 'GoogleAPIClientForREST/Core'
       pod 'GoogleAPIClientForREST/Drive'
-      pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/release/0.2.8/lib/sorawallet/sorawallet.podspec'
+      pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec'
   end
   
   target 'SoraPassportUITests' do
