@@ -275,6 +275,13 @@ class MigrationService: MigrationServiceProtocol {
     }
     
     private func createIrohaKeyPair() -> IRCryptoKeypairProtocol? {
+        let address = SelectedWalletSettings.shared.currentAccount?.address ?? ""
+        print("OLOLO address \(address)")
+        let entropy = try? keystore.fetchEntropyForAddress(address) ?? Data()
+        print("OLOLO entropy \(entropy?.toHex())")
+        let mnemonic = try? IRMnemonicCreator().mnemonic(fromEntropy: entropy ?? Data())
+        print("OLOLO mnemonic \(mnemonic?.allWords())")
+        
         if let address = SelectedWalletSettings.shared.currentAccount?.address,
             let entropy = try? keystore.fetchEntropyForAddress(address),
             let mnemonic = try? IRMnemonicCreator().mnemonic(fromEntropy: entropy),
