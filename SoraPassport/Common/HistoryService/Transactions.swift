@@ -165,7 +165,6 @@ struct Swap: Transaction {
     let fromAmount: Amount
     let toAmount: Amount
     let market: LiquiditySourceType
-    let lpFee: Amount
 }
 
 struct Liquidity: Transaction {
