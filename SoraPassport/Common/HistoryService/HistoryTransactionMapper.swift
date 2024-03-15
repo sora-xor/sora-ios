@@ -31,8 +31,12 @@
 import Foundation
 import sorawallet
 
+enum HistoryTransactionMapperError: Swift.Error {
+    case unexpectedError
+}
+
 protocol HistoryTransactionMapperProtocol {
-    func map(items: [TxHistoryItem]) -> [Transaction?]
+    func map(items: [TxHistoryItem]) throws -> [Transaction?]
 }
 
 final class HistoryTransactionMapper {
@@ -47,8 +51,8 @@ final class HistoryTransactionMapper {
 }
 
 extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
-    func map(items: [TxHistoryItem]) -> [Transaction?] {
-        return items.compactMap { item in
+    func map(items: [TxHistoryItem]) throws -> [Transaction?] {
+        return try items.compactMap { item in
             let transactionBase = TransactionBase(txHash: item.id,
                                                   blockHash: item.blockHash,
                                                   fee: Amount(string: item.networkFee) ?? Amount(value: 0),
@@ -58,7 +62,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
             
             if callPath.isTransfer {
                 guard let transferData = item.data?.toTransferData() else {
-                    return nil
+                    throw HistoryTransactionMapperError.unexpectedError
                 }
                 
                 return TransferTransaction(base: transactionBase,
@@ -70,7 +74,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
             
             if callPath == KmmCallCodingPath.bondReferralBalance {
                 guard let referralBondData = item.data?.toReferralData() else {
-                    return nil
+                    throw HistoryTransactionMapperError.unexpectedError
                 }
                 
                 return ReferralBondTransaction(base: transactionBase,
@@ -81,7 +85,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
             
             if callPath == KmmCallCodingPath.unbondReferralBalance {
                 guard let referralBondData = item.data?.toReferralData() else {
-                    return nil
+                    throw HistoryTransactionMapperError.unexpectedError
                 }
                 
                 return ReferralBondTransaction(base: transactionBase,
@@ -92,7 +96,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
             
             if callPath == KmmCallCodingPath.setReferral {
                 guard let setReferrerData = item.data?.toSetReferrerData(with: myAddress) else {
-                    return nil
+                    throw HistoryTransactionMapperError.unexpectedError
                 }
                 
                 return SetReferrerTransaction(base: transactionBase,
@@ -103,7 +107,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
             
             if callPath.isSwap {
                 guard let swapData = item.data?.toSwapData() else {
-                    return nil
+                    throw HistoryTransactionMapperError.unexpectedError
                 }
 
                 let market = LiquiditySourceType.allCases.first(where: { $0.rawValue == swapData.selectedMarket }) ?? LiquiditySourceType.smart
@@ -112,13 +116,12 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                             toTokenId: swapData.targetTokenId,
                             fromAmount: Amount(string: swapData.baseTokenAmount) ?? Amount(value: 0),
                             toAmount: Amount(string: swapData.targetTokenAmount) ?? Amount(value: 0),
-                            market: market,
-                            lpFee: Amount(string: swapData.liquidityProviderFee) ?? Amount(value: 0))
+                            market: market)
             }
             
             if callPath.isDepositLiquidity || callPath.isWithdrawLiquidity {
                 guard let liquidityData = item.data?.toLiquidityData() else {
-                    return nil
+                    throw HistoryTransactionMapperError.unexpectedError
                 }
 
                 return Liquidity(base: transactionBase,
@@ -131,7 +134,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
             
             if callPath.isClaimReward {
                 guard let claimData = item.data?.toClaimRewardData() else {
-                    return nil
+                    throw HistoryTransactionMapperError.unexpectedError
                 }
 
                 let amount = Amount(string: claimData.amount) ?? Amount(value: 0)
@@ -143,7 +146,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
             
             if callPath.isDepositFarmLiquidity || callPath.isWithdrawFarmLiquidity {
                 guard let data = item.data?.toFarmLiquidity() else {
-                    return nil
+                    throw HistoryTransactionMapperError.unexpectedError
                 }
 
                 let amount = Amount(string: data.amount) ?? Amount(value: 0)
@@ -161,7 +164,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                 
                 if depositLiquidityData != nil {
                     guard let liquidityBatchData = depositLiquidityData?.data.toLiquidityBatchData() else {
-                        return nil
+                        throw HistoryTransactionMapperError.unexpectedError
                     }
                     
                     return Liquidity(base: transactionBase,
@@ -176,7 +179,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                 let withdrawLiquidityData = item.nestedData?.first { $0.method == "withdrawLiquidity" }
                 if withdrawLiquidityData != nil {
                     guard let liquidityBatchData = withdrawLiquidityData?.data.toLiquidityBatchData()  else {
-                        return nil
+                        throw HistoryTransactionMapperError.unexpectedError
                     }
                     
                     return Liquidity(base: transactionBase,
