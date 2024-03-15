@@ -190,7 +190,6 @@ extension TransactionHistoryItem {
             txHash: transactionHash.toHex(includePrefix: true),
             timestamp: timestamp,
             fee: transactionFee,
-            lpFee: lpFee,
             blockNumber: nil,
             txIndex: nil,
             callPath: callPath,

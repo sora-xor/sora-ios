@@ -55,7 +55,6 @@ final class ConfirmSwapViewModel {
     let market: LiquiditySourceType
     let walletService: WalletServiceProtocol
     let fee: Decimal
-    var lpFee: Decimal
     var swapVariant: SwapVariant
     var minMaxValue: Decimal
     private var dexId: UInt32
@@ -132,7 +131,6 @@ final class ConfirmSwapViewModel {
         swapVariant: SwapVariant,
         minMaxValue: Decimal,
         dexId: UInt32,
-        lpFee: Decimal,
         interactor: PolkaswapMainInteractorInputProtocol,
         quoteParams: PolkaswapMainInteractorQuoteParams,
         assetsProvider: AssetProviderProtocol?,
@@ -153,7 +151,6 @@ final class ConfirmSwapViewModel {
         self.swapVariant = swapVariant
         self.minMaxValue = minMaxValue
         self.dexId = dexId
-        self.lpFee = lpFee
         self.interactor = interactor
         self.quoteParams = quoteParams
         self.assetsProvider = assetsProvider
@@ -274,8 +271,7 @@ extension ConfirmSwapViewModel {
                                                    maxValue: nil,
                                                    context: nil)
         let networkFee = Fee(value: AmountDecimal(value: fee), feeDescription: networkFeeDescription)
-        let lpFee = Fee(value: AmountDecimal(value: lpFee), feeDescription: networkFeeDescription)
-        
+
         let amount = AmountDecimal(value: firstAssetAmount)
         let sourceAsset = firstAssetId
         let estimatedAmount = AmountDecimal(value: secondAssetAmount)
@@ -286,7 +282,7 @@ extension ConfirmSwapViewModel {
                                         amount: amount,
                                         asset: sourceAsset,
                                         details: "",
-                                        fees: [networkFee, lpFee],
+                                        fees: [networkFee],
                                         context: [TransactionContextKeys.transactionType: TransactionType.swap.rawValue,
                                                   TransactionContextKeys.estimatedAmount: estimatedAmount.stringValue,
                                                   TransactionContextKeys.marketType: market.rawValue,
@@ -326,8 +322,7 @@ extension ConfirmSwapViewModel {
                                    toTokenId: secondAssetId,
                                    fromAmount:  Amount(value: firstAssetAmount),
                                    toAmount:  Amount(value: secondAssetAmount),
-                                   market: market,
-                                   lpFee: Amount(value: lpFee))
+                                   market: market)
         
         eventCenter.notify(with: NewTransactionCreatedEvent(item: swapTransaction))
         wireframe?.showActivityDetails(on: view?.controller, model: swapTransaction, assetManager: assetManager) { [weak self] in
@@ -357,7 +352,6 @@ extension ConfirmSwapViewModel {
         }
         self.amounts = amounts
         self.dexId = dexId
-        self.lpFee = amounts.lpAmount
         
         let route = quote.route.compactMap({ self.assetManager.assetInfo(for: $0)?.symbol }).joined(separator: " → ")
         

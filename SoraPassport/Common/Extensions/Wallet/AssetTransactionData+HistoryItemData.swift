@@ -133,14 +133,6 @@ extension AssetTransactionData {
             context: nil
         )
 
-        let lpFeeDecimal: Decimal = Decimal(string: item.lpFee ?? "") ?? .zero
-        let lpFee = AssetTransactionFee(
-            identifier: asset.identifier,
-            assetId: asset.identifier,
-            amount: AmountDecimal(value: lpFeeDecimal),
-            context: ["type": TransactionType.swap.rawValue]
-        )
-
         return AssetTransactionData(
             transactionId: item.txHash,
             status: item.status.walletValue,
@@ -151,7 +143,7 @@ extension AssetTransactionData {
             peerName: deposit?.assetA.value,
             details: desiredADecimal.description,
             amount: AmountDecimal(value: desiredBDecimal),
-            fees: [fee, lpFee],
+            fees: [fee],
             timestamp: item.timestamp,
             type: TransactionType.liquidityAdd.rawValue,
             reason: nil,
@@ -188,14 +180,6 @@ extension AssetTransactionData {
             context: nil
         )
 
-        let lpFeeDecimal: Decimal = Decimal(string: item.lpFee ?? "") ?? .zero
-        let lpFee = AssetTransactionFee(
-            identifier: asset.identifier,
-            assetId: asset.identifier,
-            amount: AmountDecimal(value: lpFeeDecimal),
-            context: ["type": TransactionType.swap.rawValue]
-        )
-
         let assetId: String = withdraw?.assetB.value ?? "?"
         let peerId: String = withdraw?.assetA.value ?? "??"
 
@@ -209,7 +193,7 @@ extension AssetTransactionData {
             peerName: assetId,
             details: desiredADecimal.description,
             amount: AmountDecimal(value: desiredBDecimal),
-            fees: [fee, lpFee],
+            fees: [fee],
             timestamp: item.timestamp,
             type: TransactionType.liquidityRemoval.rawValue,
             reason: nil,
@@ -309,21 +293,6 @@ extension AssetTransactionData {
             context: nil
         )
 
-        let lpFeeDecimal: Decimal = {
-            guard let feeValue = BigUInt(item.lpFee ?? "") else {
-                return Decimal(string: item.lpFee ?? "") ?? .zero
-            }
-
-            return Decimal.fromSubstrateAmount(feeValue, precision: asset.precision) ?? .zero
-        }()
-
-        let lpFee = AssetTransactionFee(
-            identifier: asset.identifier,
-            assetId: asset.identifier,
-            amount: AmountDecimal(value: lpFeeDecimal),
-            context: ["type": TransactionType.swap.rawValue]
-        )
-
         return AssetTransactionData(
             transactionId: item.txHash,
             status: item.status.walletValue,
@@ -334,7 +303,7 @@ extension AssetTransactionData {
             peerName: marketType.rawValue,
             details: fromAmountDecimal.description,
             amount: AmountDecimal(value: amountDecimal),
-            fees: [fee, lpFee],
+            fees: [fee],
             timestamp: item.timestamp,
             type: TransactionType.swap.rawValue,
             reason: nil,
