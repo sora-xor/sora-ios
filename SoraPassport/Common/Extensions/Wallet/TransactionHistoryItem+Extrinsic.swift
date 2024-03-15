@@ -72,7 +72,6 @@ extension TransactionHistoryItem {
                 txHash: result.extrinsicHash.toHex(includePrefix: true),
                 timestamp: timestamp,
                 fee: String(result.processingResult.fee ?? 0),
-                lpFee: nil,
                 blockNumber: result.blockNumber,
                 txIndex: result.txIndex,
                 callPath: result.processingResult.callPath,

@@ -429,7 +429,6 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                         networkFacade: networkFacade,
                                         minMaxValue: minBuy,
                                         dexId: dexId,
-                                        lpFee: amounts.lpAmount,
                                         quoteParams: quoteParams,
                                         assetsProvider: assetsProvider,
                                         fiatData: fiatData,
