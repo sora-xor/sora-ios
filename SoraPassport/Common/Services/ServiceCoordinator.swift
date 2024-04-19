@@ -132,9 +132,6 @@ extension ServiceCoordinator: ServiceCoordinatorProtocol {
     }
 
     func checkMigration() {
-        #if !targetEnvironment(simulator)
-        self.migrationService.checkMigration()
-        #endif
     }
 }
 
