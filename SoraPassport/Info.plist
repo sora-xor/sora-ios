@@ -2,13 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>soracard.wallet.test</string>
-		<string>soracard.wallet</string>
-	</array>
-	<key>FirebaseAppDelegateProxyEnabled</key>
-	<false/>
 	<key>AppConfigName</key>
 	<string>$(SORA_APPLICATION_CONFIG)</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -34,14 +27,21 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>$(SORA_GOOGLE_URL_SCHEME_DEBUG)</string>
+				<string>$(SORA_GOOGLE_URL_SCHEME_DEV)</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>4</string>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
 	<key>GIDClientID</key>
-	<string>$(SORA_GOOGLE_TOKEN_DEBUG)</string>
+	<string>$(SORA_GOOGLE_TOKEN_DEV)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>soracard.wallet.test</string>
+		<string>soracard.wallet</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
