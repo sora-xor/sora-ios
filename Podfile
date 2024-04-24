@@ -29,8 +29,8 @@ abstract_target 'SoraPassportAll' do
   pod 'Nantes'
   pod 'SnapKit'
   pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui', :tag => ‘1.1.11’
-  pod 'IdensicMobileSDK', :http => 'https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.3.tar.gz'
-  pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.5.1'
+  pod 'IdensicMobileSDK', :http => 'https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz'
+  pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.6.0'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
   pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking/feature/0.2.9/lib/sorawallet/sorawallet.podspec'
   
