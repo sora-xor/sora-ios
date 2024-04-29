@@ -31,6 +31,7 @@
 import Foundation
 import SSFUtils
 import RobinHood
+import SSFStorageQueryKit
 
 final class StakingInfoSubscription: WebSocketSubscribing {
     let engine: JSONRPCEngine

@@ -31,6 +31,7 @@
 import SSFUtils
 import RobinHood
 import sorawallet
+import SSFStorageQueryKit
 
 protocol PoolsServiceInputProtocol: AnyObject {
     func loadAccountPools()

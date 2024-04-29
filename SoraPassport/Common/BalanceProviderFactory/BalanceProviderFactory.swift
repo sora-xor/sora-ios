@@ -30,7 +30,8 @@
 
 import Foundation
 import RobinHood
-
+import CoreData
+import SSFSingleValueCache
 
 class BalanceProviderFactory {
 
@@ -64,7 +65,7 @@ class BalanceProviderFactory {
 
         let targetId = identifierFactory.balanceIdentifierForAccountId(accountId)
 
-        let cache = createSingleValueCache()
+        let cache = SingleValueCacheRepositoryFactoryDefault().createSingleValueCacheRepository()
 
         return SingleValueProvider(targetIdentifier: targetId,
                                    source: source,
@@ -80,7 +81,7 @@ class BalanceProviderFactory {
             return operation
         }
         
-        let cache = createSingleValueCache()
+        let cache = SingleValueCacheRepositoryFactoryDefault().createSingleValueCacheRepository()
         
         let updateTrigger = DataProviderEventTrigger.onAddObserver
 
@@ -92,11 +93,5 @@ class BalanceProviderFactory {
                                    updateTrigger: updateTrigger,
                                    executionQueue: BalanceProviderFactory.executionQueue,
                                    serialSyncQueue: BalanceProviderFactory.contactsSyncQueue)
-    }
-    
-
-    private func createSingleValueCache()
-        -> CoreDataRepository<SingleValueProviderObject, CDCWSingleValue> {
-            return cacheFacade.createCoreDataCache(filter: nil)
     }
 }
