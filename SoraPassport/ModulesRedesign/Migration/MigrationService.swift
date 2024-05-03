@@ -78,7 +78,6 @@ class MigrationService: MigrationServiceProtocol {
     lazy var did: String = createDid()
 
     func checkMigration() {
-        print("OLOLO checkMigration")
         irohaKeyPair = createIrohaKeyPair()
         did = createDid()
         if !settings.hasMigrated {
@@ -275,15 +274,6 @@ class MigrationService: MigrationServiceProtocol {
     }
     
     private func createIrohaKeyPair() -> IRCryptoKeypairProtocol? {
-        let address = SelectedWalletSettings.shared.currentAccount?.address ?? ""
-        print("OLOLO address \(address)")
-        let entropy = try? keystore.fetchEntropyForAddress(address) ?? Data()
-        print("OLOLO entropy \(entropy?.toHex())")
-        let mnemonic = try? IRMnemonicCreator().mnemonic(fromEntropy: entropy ?? Data())
-        print("OLOLO mnemonic \(mnemonic?.allWords())")
-        let irohaKey = try? IRKeypairFacade().deriveKeypair(from: mnemonic?.toString() ?? "")
-        print("OLOLO irohaKey \(irohaKey?.privateKey().rawData().toHex()) \(irohaKey?.publicKey().rawData().toHex())")
-        
         if let address = SelectedWalletSettings.shared.currentAccount?.address,
             let entropy = try? keystore.fetchEntropyForAddress(address),
             let mnemonic = try? IRMnemonicCreator().mnemonic(fromEntropy: entropy),

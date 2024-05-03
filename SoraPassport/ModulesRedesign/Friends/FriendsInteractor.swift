@@ -35,6 +35,7 @@ import SSFUtils
 import BigInt
 import sorawallet
 import IrohaCrypto
+import SSFStorageQueryKit
 
 final class FriendsInteractor {
     weak var presenter: FriendsInteractorOutputProtocol?

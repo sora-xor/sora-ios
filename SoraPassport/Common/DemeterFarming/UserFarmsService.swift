@@ -33,6 +33,7 @@ import IrohaCrypto
 import RobinHood
 import SSFUtils
 import Combine
+import SSFStorageQueryKit
 
 protocol UserFarmsServiceProtocol: Actor {
     var userFarms: AnyPublisher<[UserFarm], Never> { get }
