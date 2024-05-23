@@ -56,6 +56,8 @@ protocol WalletItemFactoryProtocol: AnyObject {
     func createSoraCardItem(with walletViewModel: RedesignWalletViewModelProtocol,
                             service: SCard) -> SoramitsuTableViewItemProtocol
 
+    func createSoraCardExchangeItem(with walletViewModel: RedesignWalletViewModelProtocol) -> SoramitsuTableViewItemProtocol
+
     func createAssetsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                           assetManager: AssetManagerProtocol,
                           assetsProvider: AssetProviderProtocol,
@@ -182,7 +184,24 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
 
         return soraCardItem
     }
-    
+
+    func createSoraCardExchangeItem(with walletViewModel: RedesignWalletViewModelProtocol) -> SoramitsuTableViewItemProtocol {
+        let soraCardItem = SCBuyXorItem() { [weak walletViewModel] in
+                guard let walletViewModel = walletViewModel else { return }
+                walletViewModel.closeSCExchange()
+                walletViewModel.updateItems()
+        } onTap: { [weak walletViewModel] in
+            guard let walletViewModel = walletViewModel else { return }
+            if let isReachable = ReachabilityManager.shared?.isReachable, isReachable {
+                walletViewModel.showSoraCardExchange()
+            } else {
+                walletViewModel.showInternerConnectionAlert()
+            }
+        }
+
+        return soraCardItem
+    }
+
     func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                                  assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol {
 
