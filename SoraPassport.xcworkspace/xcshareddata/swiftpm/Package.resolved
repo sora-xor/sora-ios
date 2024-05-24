@@ -91,6 +91,15 @@
       }
     },
     {
+      "identity" : "scrypt.c",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/v57/scrypt.c.git",
+      "state" : {
+        "revision" : "0a1ac944808cd667a0c2e2457a4729dcdd447085",
+        "version" : "0.1.1"
+      }
+    },
+    {
       "identity" : "secp256k1.swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Boilertalk/secp256k1.swift.git",
@@ -104,7 +113,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/soramitsu/shared-features-spm",
       "state" : {
-        "revision" : "b5c4ff4029720efad0ce1a6ece24f816bfc02149"
+        "revision" : "7c318b68d2a8b5e4d79339f2990fbd14b7d3c3dd"
       }
     },
     {
