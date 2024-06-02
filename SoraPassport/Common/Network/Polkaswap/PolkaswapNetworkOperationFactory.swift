@@ -37,14 +37,10 @@ let xstusdDexID: UInt32 = 1
 
 struct SwapValues: Decodable, Equatable {
     let amount: String
-    let fee: String
-    let rewards: [String]
     let route: [String]
 
     enum CodingKeys: String, CodingKey {
         case amount
-        case fee
-        case rewards
         case route
     }
 }
