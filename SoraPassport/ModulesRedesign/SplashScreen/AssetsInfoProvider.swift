@@ -81,24 +81,30 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     }
 
     func load(completion: ([AssetInfo]) -> Void) {
-        loadAssetsInfoKeys()
+        loadAssetsInfoKeys() { [weak self] in
+            self?.loadInfo(completion: completion)
+        }
+    }
+    
+    private func loadInfo(completion: ([AssetInfo]) -> Void) {
         loadAssetsInfo()
         if !assetsInfo.isEmpty {
             completion(assetsInfo)
             return
         }
-        load(completion: completion)
+        loadInfo(completion: completion)
     }
 
     //MARK: - Load Keys
 
-    func loadAssetsInfoKeys() {
+    func loadAssetsInfoKeys(completion: (() -> Void?)) {
         currentGetKeysOperation = nextGetKeysOperation()
         while(currentGetKeysOperation != nil) {
             guard let currentGetKeysOperation = currentGetKeysOperation else { break }
             performGetKeysOperation(currentGetKeysOperation)
             self.currentGetKeysOperation = nextGetKeysOperation()
         }
+        completion()
     }
 
     func nextGetKeysOperation() -> JSONRPCOperation<[JSONAny], [String]>? {
@@ -116,7 +122,7 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
             method: SoraPassport.RPCMethod.getStorageKeysPaged,
             parameters: paramsArray)
     }
-//    0x270c102199328d18305885706f3f591a4c72016d74b63ae83d79b02efdb5528e0083a6b3fbc6edae06f115c8953ddd7cbfba0b74579d6ea190f96853073b76f40200090000000000000000000000000000000000000000000000000000000000
+
     func didLoadAllKeys() -> Bool {
         let didStartLoading = currentGetKeysOperation != nil
         let didNotReceiveKeysInLastResponse = keysOnCurrentPageCount == 0
@@ -125,11 +131,6 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
 
     func performGetKeysOperation(_ operation:JSONRPCOperation<[JSONAny], [String]>) {
         operationQueue.addOperations([operation], waitUntilFinished: true)
-        do {
-            try operation.extractResultData()
-        } catch let error {
-            Logger.shared.error("ASSET KEYS FAIL \(error)")
-        }
         guard let page = try? operation.extractResultData() else { return }
         didReceive(page: page)
     }
@@ -146,15 +147,11 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
         let operation = JSONRPCOperation<[[String]], [StorageUpdate]>(
             engine: engine,
             method: SoraPassport.RPCMethod.queryStorageAt,
-            parameters: [keys])
+            parameters: [keys],
+            timeout: 100
+        )
 
         operationQueue.addOperations([operation], waitUntilFinished: true)
-
-        do {
-            try operation.extractResultData()
-        } catch let error {
-            Logger.shared.error("ASSET FAIL \(error)")
-        }
 
         guard let storageUpdate = try? operation.extractResultData()?.first
         else {
@@ -176,18 +173,22 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     func assetInfo(from change: StorageUpdateData.StorageUpdateChangeData) -> AssetInfo? {
         guard let assetInfoDto = assetInfoDto(from: change.value) else { return nil }
         let assetId = assetId(from: change.key)
-        return AssetInfo(id: assetId,
-                         symbol: assetInfoDto.symbol,
-                         chainId: chainId ?? "",
-                         precision: UInt32(assetInfoDto.precision),
-                         icon: nil,
-                         displayName: assetInfoDto.name,
-                         visible: [WalletAssetId.xor.rawValue,
-                                   WalletAssetId.val.rawValue,
-                                   WalletAssetId.pswap.rawValue,
-                                   WalletAssetId.xst.rawValue,
-                                   WalletAssetId.xstusd.rawValue,
-                                   WalletAssetId.tbcd.rawValue].contains(assetId))
+        return AssetInfo(
+            id: assetId,
+            symbol: assetInfoDto.symbol,
+            chainId: chainId ?? "",
+            precision: UInt32(assetInfoDto.precision),
+            icon: nil,
+            displayName: assetInfoDto.name,
+            visible: [
+                WalletAssetId.xor.rawValue,
+                WalletAssetId.val.rawValue,
+                WalletAssetId.pswap.rawValue,
+                WalletAssetId.xst.rawValue,
+                WalletAssetId.xstusd.rawValue,
+                WalletAssetId.tbcd.rawValue
+            ].contains(assetId)
+        )
     }
 
     func assetId(from assetKey: Data) -> String {

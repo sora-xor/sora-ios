@@ -130,8 +130,6 @@ extension PolkaswapMainInteractor: PolkaswapMainInteractorInputProtocol {
 
         let mergeOperation: BaseOperation<(quote: SwapValues?, dexId: UInt32)> = ClosureOperation {
             let quotes: [(quote: SwapValues?, dexId: UInt32)?] = operations.map { (quote: try? $0.operation.extractResultData(), dexId: $0.dexId) }
-            
-            print("OLOLO \(quotes)")
 
             if params.swapVariant == .desiredInput {
                 let quote = quotes.compactMap { $0?.quote }.max {
