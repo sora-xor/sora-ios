@@ -12,13 +12,15 @@ extension RedesignWalletViewModel {
         }
 
         #if F_DEV
-        let config = SCard.Config.dev // Sora Dev
+        let config = SCard.Config.local // Sora Dev
         #elseif F_TEST
         let config = SCard.Config.test // Soralution
         #elseif F_STAGING
         let config = SCard.Config.prod // Sora Staging
+        #elseif F_RELEASE
+        let config = SCard.Config.prod // Sora Production
         #else
-        let config = SCard.Config.prod // SORA release
+        let config = SCard.Config.prod // Sora Production
         #endif
 
         let soraCard = SCard(

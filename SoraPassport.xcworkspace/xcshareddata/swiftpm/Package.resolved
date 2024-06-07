@@ -1,12 +1,13 @@
 {
+  "originHash" : "8e7333367f094ccb82531946902ec4835653d938b1edfb4ef64a267346914da7",
   "pins" : [
     {
       "identity" : "appauth-ios",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/openid/AppAuth-iOS.git",
       "state" : {
-        "revision" : "71cde449f13d453227e687458144bde372d30fc7",
-        "version" : "1.6.2"
+        "revision" : "c89ed571ae140f8eb1142735e6e23d7bb8c34cb2",
+        "version" : "1.7.5"
       }
     },
     {
@@ -23,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/soramitsu/fearless-starscream",
       "state" : {
-        "revision" : "9b31c94e94d81dd5df144f368ce90e18062b3f21",
-        "version" : "4.0.9"
+        "revision" : "3e1de9baeab87de379e0cb01c64d5db18fbf130f",
+        "version" : "4.0.12"
       }
     },
     {
@@ -32,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/google-api-objectivec-client-for-rest.git",
       "state" : {
-        "revision" : "8b200e6e447c04140ac027cba4f368402766965f",
-        "version" : "3.5.1"
+        "revision" : "11941123a0d9c2641197fa83d57e6ff9f088b907",
+        "version" : "3.5.2"
       }
     },
     {
@@ -41,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/GoogleSignIn-iOS",
       "state" : {
-        "revision" : "7932d33686c1dc4d7df7a919aae47361d1cdfda4",
-        "version" : "7.0.0"
+        "revision" : "a7965d134c5d3567026c523e0a8a583f73b62b0d",
+        "version" : "7.1.0"
       }
     },
     {
@@ -50,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/gtm-session-fetcher.git",
       "state" : {
-        "revision" : "76135c9f4e1ac85459d5fec61b6f76ac47ab3a4c",
-        "version" : "3.3.1"
+        "revision" : "0382ca27f22fb3494cf657d8dc356dc282cd1193",
+        "version" : "3.4.1"
       }
     },
     {
@@ -59,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/GTMAppAuth.git",
       "state" : {
-        "revision" : "cee3c709307912d040bd1e06ca919875a92339c6",
-        "version" : "2.0.0"
+        "revision" : "5d7d66f647400952b1758b230e019b07c0b4b22a",
+        "version" : "4.1.1"
       }
     },
     {
@@ -68,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ashleymills/Reachability.swift",
       "state" : {
-        "revision" : "c01127cb51f591045696128effe43c16840d08bf",
-        "version" : "5.2.0"
+        "revision" : "57da4b1270cab7c2228919eabc0e4e1bf93e48ea",
+        "version" : "5.2.2"
       }
     },
     {
@@ -117,5 +118,5 @@
       }
     }
   ],
-  "version" : 2
+  "version" : 3
 }
