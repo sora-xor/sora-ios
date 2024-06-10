@@ -38,7 +38,6 @@ protocol SwapQuoteConverterProtocol {
 struct SwapQuoteAmounts: Equatable {
     let fromAmount: Decimal
     let toAmount: Decimal
-    let lpAmount: Decimal
 }
 
 class SwapQuoteAmountsFactory: SwapQuoteConverterProtocol {
@@ -46,15 +45,11 @@ class SwapQuoteAmountsFactory: SwapQuoteConverterProtocol {
         guard
             let fromAmountBig = BigUInt(params.amount),
             let toAmountBig = BigUInt(quote.amount),
-            let feeBig = BigUInt(quote.fee),
             let fromAmount = Decimal.fromSubstrateAmount(fromAmountBig, precision: Int16(fromAsset.precision)),
-            let toAmount = Decimal.fromSubstrateAmount(toAmountBig, precision: Int16(toAsset.precision)),
-            let lpAmount = Decimal.fromSubstrateAmount(feeBig, precision: 18) else {
+            let toAmount = Decimal.fromSubstrateAmount(toAmountBig, precision: Int16(toAsset.precision)) else {
                 return nil
         }
 
-        return SwapQuoteAmounts(fromAmount: fromAmount,
-                              toAmount: toAmount,
-                              lpAmount: lpAmount)
+        return SwapQuoteAmounts(fromAmount: fromAmount, toAmount: toAmount)
     }
 }
