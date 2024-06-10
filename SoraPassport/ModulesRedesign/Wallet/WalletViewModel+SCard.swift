@@ -12,7 +12,7 @@ extension RedesignWalletViewModel {
         }
 
         #if F_DEV
-        let config = SCard.Config.local // Sora Dev
+        let config = SCard.Config.dev // Sora Dev
         #elseif F_TEST
         let config = SCard.Config.test // Soralution
         #elseif F_STAGING
