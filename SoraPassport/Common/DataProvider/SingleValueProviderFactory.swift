@@ -32,6 +32,7 @@ import Foundation
 import RobinHood
 import IrohaCrypto
 import SSFUtils
+import SSFSingleValueCache
 
 typealias DecodedAccountInfo = ChainStorageDecodedItem<DyAccountInfo>
 
@@ -77,8 +78,8 @@ extension SingleValueProviderFactory: SingleValueProviderFactoryProtocol {
             return AnySingleValueProvider(provider)
         }
 
-        let repository: CoreDataRepository<SingleValueProviderObject, CDSingleValue> =
-            facade.createRepository()
+        let repository = 
+        SingleValueCacheRepositoryFactoryDefault().createSingleValueCacheRepository()
 
         let source = CoingeckoPriceSource(assetId: assetId)
 

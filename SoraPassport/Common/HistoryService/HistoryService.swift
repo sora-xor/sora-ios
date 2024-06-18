@@ -134,7 +134,7 @@ extension HistoryService: HistoryServiceProtocol {
                 do {
                     guard let self1 = self, let address = SelectedWalletSettings.shared.currentAccount?.address else { return }
                     let response = try queryOperation.extractNoCancellableResultData()
-                    let remoteTransactions: [Transaction] = self1.historyMapper.map(items: response.items as? [TxHistoryItem] ?? []).compactMap { $0 }
+                    let remoteTransactions: [Transaction] = try self1.historyMapper.map(items: response.items as? [TxHistoryItem] ?? []).compactMap { $0 }
                     let localTransaction = self1.localStorage.transactions[address] ?? []
                     
                     let existingHashes = Set(remoteTransactions.map { $0.base.txHash })
@@ -232,7 +232,7 @@ extension HistoryService: HistoryServiceProtocol {
                 do {
                     guard let self, let address = SelectedWalletSettings.shared.currentAccount?.address else { return }
                     let response = try queryOperation.extractNoCancellableResultData()
-                    let remoteTransactions: [Transaction] = self.historyMapper.map(items: response.items as? [TxHistoryItem] ?? []).compactMap { $0 }
+                    let remoteTransactions: [Transaction] = try self.historyMapper.map(items: response.items as? [TxHistoryItem] ?? []).compactMap { $0 }
                     let localTransaction = page == 1 ? (self.localStorage.transactions[address] ?? []) : []
                     let existingHashes = Set(remoteTransactions.map { $0.base.txHash })
                     

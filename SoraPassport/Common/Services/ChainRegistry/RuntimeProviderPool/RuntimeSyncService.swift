@@ -31,6 +31,7 @@
 import Foundation
 import RobinHood
 import SSFUtils
+import SSFModels
 
 protocol RuntimeSyncServiceProtocol {
     func register(chain: ChainModel, with connection: ChainConnection)

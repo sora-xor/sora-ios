@@ -34,6 +34,8 @@ import SSFUtils
 import Foundation
 import IrohaCrypto
 import RobinHood
+import SSFModels
+import SSFStorageQueryKit
 
 final class WalletNetworkOperationFactory {
     let accountSettings: WalletAccountSettingsProtocol

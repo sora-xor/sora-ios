@@ -481,23 +481,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
             viewModel?.networkFeeInfoButtonTapped()
         }
         
-        let lpFeeText = SoramitsuTextItem(text: "\(NumberFormatter.cryptoAssets.stringFromDecimal(quote.lpAmount) ?? "") XOR",
-                                        fontData: FontType.textS,
-                                        textColor: .fgPrimary,
-                                        alignment: .right)
-        let fiatLpFeeText = SoramitsuTextItem(text: "$\(NumberFormatter.fiat.stringFromDecimal(usdPrice * quote.lpAmount) ?? "")" ,
-                                            fontData: FontType.textBoldXS,
-                                            textColor: .fgSecondary,
-                                            alignment: .right)
-        let lpFeeViewModel = DetailViewModel(title: R.string.localizable.polkaswapLiquidityTotalFee(preferredLanguages: .currentLocale),
-                                             assetAmountText: lpFeeText,
-                                             fiatAmountText: fiatLpFeeText)
-        
-        lpFeeViewModel.infoHandler = { [weak viewModel] in
-            viewModel?.swapFeeInfoButtonTapped()
-        }
-        
-        return [minMaxReceivedViewModel, fromAssetToAsset, toAssetFromAsset, routeModel, feeViewModel, lpFeeViewModel]
+        return [minMaxReceivedViewModel, fromAssetToAsset, toAssetFromAsset, routeModel, feeViewModel]
     }
     
     func createSendingAssetViewModels(fee: Decimal,

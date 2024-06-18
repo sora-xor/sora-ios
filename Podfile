@@ -25,10 +25,10 @@ abstract_target 'SoraPassportAll' do
   pod 'SoraFoundation'
   pod 'Anchorage'
   pod 'Then'
-  pod 'lottie-ios', '~> 3.5.0'  
+  pod 'lottie-ios', '~> 4.4.3'  
   pod 'Nantes'
   pod 'SnapKit'
-  pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui', :tag => ‘1.1.11’
+  pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui', :tag => ‘1.1.12’
   pod 'IdensicMobileSDK', :http => 'https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz'
   pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.6.0'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
@@ -67,7 +67,7 @@ post_install do |installer|
   installer.generated_projects.each do |project|
     project.build_configurations.each do |config|
       config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
-      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 9.0
+      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f <= 9.0
         config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       end
     end
@@ -75,7 +75,7 @@ post_install do |installer|
       target.build_configurations.each do |config|
         config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
         config.build_settings["DEVELOPMENT_TEAM"] = "YLWWUD25VZ"
-        if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 9.0
+        if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f <= 9.0
           config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
           config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
         end

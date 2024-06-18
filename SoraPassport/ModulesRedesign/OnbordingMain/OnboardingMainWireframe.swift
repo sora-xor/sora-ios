@@ -48,7 +48,9 @@ final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
             return
         }
         
-        navigationController.pushViewController(usernameSetupController, animated: true)
+        DispatchQueue.main.async {
+            navigationController.pushViewController(usernameSetupController, animated: true)
+        }
     }
     
     func showAccountRestoreRedesign(from view: OnboardingMainViewProtocol?, sourceType: AccountImportSource) {
@@ -89,6 +91,9 @@ final class OnboardingMainWireframe: OnboardingMainWireframeProtocol {
     
     func showBackupedAccounts(from view: OnboardingMainViewProtocol?, accounts: [OpenBackupAccount]) {
         guard let viewController = BackupedAccountsViewFactory.createView(with: accounts, endAddingBlock: endAddingBlock)?.controller else { return }
-        view?.controller.navigationController?.pushViewController(viewController, animated: true)
+        
+        DispatchQueue.main.async {
+            view?.controller.navigationController?.pushViewController(viewController, animated: true)
+        }
     }
 }
