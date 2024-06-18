@@ -132,7 +132,7 @@ PODS:
   - GTMSessionFetcher/Core (3.4.1)
   - GTMSessionFetcher/Full (3.4.1):
     - GTMSessionFetcher/Core
-  - IdensicMobileSDK (1.28.0)
+  - IdensicMobileSDK (1.30.0)
   - JOSESwift (2.4.0)
   - Kingfisher (6.3.1)
   - lottie-ios (4.4.3)
@@ -142,7 +142,7 @@ PODS:
   - nanopb/decode (2.30910.0)
   - nanopb/encode (2.30910.0)
   - Nantes (0.1.2)
-  - PayWingsKycSDK (1.0.1)
+  - PayWingsKycSDK (1.0.2)
   - PayWingsOAuthSDK (2.0.2):
     - JOSESwift (= 2.4.0)
     - RecaptchaEnterprise (= 18.3.0)
@@ -157,9 +157,9 @@ PODS:
     - RecaptchaInterop (~> 100.0.0)
   - RecaptchaInterop (100.0.0)
   - RobinHood (2.6.8)
-  - SCard (1.5.1):
+  - SCard (1.6.0):
     - IdensicMobileSDK
-    - PayWingsKycSDK (= 1.0.1)
+    - PayWingsKycSDK (= 1.0.2)
     - PayWingsOAuthSDK (= 2.0.2)
     - R.swift (~> 6.1.0)
     - SnapKit
@@ -239,14 +239,14 @@ DEPENDENCIES:
   - FLEX
   - GoogleAPIClientForREST/Core
   - GoogleAPIClientForREST/Drive
-  - "IdensicMobileSDK (from `{:http=>\"https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.3.tar.gz\"}`)"
+  - "IdensicMobileSDK (from `{:http=>\"https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz\"}`)"
   - Kingfisher (from `https://github.com/onevcat/Kingfisher`, branch `version6-xcode13`)
   - lottie-ios (~> 4.4.3)
   - Nantes
   - R.swift (~> 6.1.0)
   - ReachabilitySwift
   - RobinHood (~> 2.6.1)
-  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.5.1`)
+  - SCard (from `https://github.com/sora-xor/sora-card-ios`, branch `release/1.6.0`)
   - SnapKit
   - SoraDocuments
   - SoraFoundation
@@ -309,12 +309,12 @@ SPEC REPOS:
 
 EXTERNAL SOURCES:
   IdensicMobileSDK:
-    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.3.tar.gz
+    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz
   Kingfisher:
     :branch: version6-xcode13
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :branch: release/1.5.1
+    :branch: release/1.6.0
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
@@ -330,12 +330,12 @@ EXTERNAL SOURCES:
 
 CHECKOUT OPTIONS:
   IdensicMobileSDK:
-    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.3.tar.gz
+    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz
   Kingfisher:
     :commit: d0494dd78f7adf2d3526fdf3267176553020c041
     :git: https://github.com/onevcat/Kingfisher
   SCard:
-    :commit: 45aae5001341a5bb5fbde12401d7a7cdca98c9a3
+    :commit: 301c599eadc69afadfcfb5231af4ede766726187
     :git: https://github.com/sora-xor/sora-card-ios
   SoraUIKit:
     :git: https://github.com/soramitsu/ios-ui
@@ -368,13 +368,13 @@ SPEC CHECKSUMS:
   GoogleDataTransport: 6c09b596d841063d76d4288cc2d2f42cc36e1e2a
   GoogleUtilities: ea963c370a38a8069cc5f7ba4ca849a60b6d7d15
   GTMSessionFetcher: 8000756fc1c19d2e5697b90311f7832d2e33f6cd
-  IdensicMobileSDK: 57c80d5544ee364fa526670c1d3bb2e80f374c2b
+  IdensicMobileSDK: 2f148d82c4a8222571086c4368dc0622c8571122
   JOSESwift: 7ff178bb9173ff42c6e990929a9f2fa702a34f69
   Kingfisher: 8b783c3d7be73a99b2172a743a5bc0a4dd331d79
   lottie-ios: fcb5e73e17ba4c983140b7d21095c834b3087418
   nanopb: 438bc412db1928dac798aa6fd75726007be04262
   Nantes: 0396442578e32242223fed46050dea1850236184
-  PayWingsKycSDK: c709ff0ebff5c5a7d771c211655c2857f209edb0
+  PayWingsKycSDK: bd0a9c4294f536b1338f47004ddcdcca108e95c0
   PayWingsOAuthSDK: 40168c32d47402bf33ef1c167ce2261dac6da102
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PromisesSwift: 9d77319bbe72ebf6d872900551f7eeba9bce2851
@@ -384,7 +384,7 @@ SPEC CHECKSUMS:
   RecaptchaEnterprise: 9b60bc1e1633d120e24a098d80546776fab1282e
   RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
   RobinHood: b775a72cc0ae55cee3dfb4a5668597aca20ba244
-  SCard: 58ad6131ab20174c1c50e6c474132b79c6d16a13
+  SCard: e68363341b3e69e37644a815a9a44c1325185424
   SnapKit: d612e99e678a2d3b95bf60b0705ed0a35c03484a
   SoraDocuments: c927a79974f73672a8f39d8c2bb143afca5d3561
   SoraFoundation: 988d90ee3159311b02e42aeba0cf7e85d8bc724c
@@ -399,6 +399,6 @@ SPEC CHECKSUMS:
   SwiftyBeaver: 84069991dd5dca07d7069100985badaca7f0ce82
   Then: 844265ae87834bbe1147d91d5d41a404da2ec27d
 
-PODFILE CHECKSUM: da876a328d60a7ac15838787d140c4b6f73ecf71
+PODFILE CHECKSUM: 3d2cdb4aa9b5a06194ee9b39277af0233ad78550
 
 COCOAPODS: 1.12.1

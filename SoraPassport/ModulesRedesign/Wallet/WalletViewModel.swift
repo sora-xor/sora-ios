@@ -46,6 +46,7 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)? { get set }
     func fetchAssets(completion: @escaping ([SoramitsuTableViewItemProtocol]) -> Void)
     func closeSC()
+    func closeSCExchange()
     func closeReferralProgram()
     func updateItems()
     func updateAssets(updatedSection: UpdatedSection)
@@ -54,6 +55,7 @@ protocol RedesignWalletViewModelProtocol: AnyObject {
     func showAssetDetails(with assetInfo: AssetInfo)
     func showPoolDetails(with pool: PoolInfo)
     func showSoraCardDetails()
+    func showSoraCardExchange()
     func showInternerConnectionAlert()
     func showReferralProgram(assetManager: AssetManagerProtocol)
     func showEditView(poolsService: PoolsServiceInputProtocol,
@@ -197,7 +199,13 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         ApplicationConfig.shared.updateAvailableApplicationSections(cards: config)
         SCard.shared?.isSCBannerHidden = true
     }
-    
+
+    func closeSCExchange() {
+        var config = ApplicationConfig.shared.getAvailableApplicationSections()
+        config.removeAll(where: { $0 == Cards.scExchange.id })
+        ApplicationConfig.shared.updateAvailableApplicationSections(cards: config)
+    }
+
     func closeReferralProgram() {
         var config = ApplicationConfig.shared.getAvailableApplicationSections()
         config.removeAll(where: { $0 == Cards.referralProgram.id })
@@ -222,6 +230,13 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
             items.append(soraCardItem)
             ConfigService.shared.config.isSoraCardEnabled = true
             soraCard.isSCBannerHidden = false
+        }
+        
+        let isSCUserSignIn = SCard.shared?.isUserSignIn ?? false
+        let hasSCIban = SCard.shared?.hasIban ?? false
+        if enabledIds.contains(Cards.scExchange.id), isSCUserSignIn, hasSCIban {
+            let exchangeItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardExchangeItem(with: self)
+            items.append(exchangeItem)
         }
         
         if !backupedAccounts.contains(address), let backupItem = walletItems.first(where: { $0 is BackupItem }) {
@@ -276,6 +291,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         wireframe?.showSoraCard(on: view?.controller, address: address, balanceProvider: balanceProvider)
     }
 
+    func showSoraCardExchange() {
+        wireframe?.showSoraCardExchange(on: view?.controller)
+    }
+
     @MainActor
     private func buildItems() -> [SoramitsuTableViewItemProtocol] {
         
@@ -304,7 +323,10 @@ extension RedesignWalletViewModel: RedesignWalletViewModelProtocol {
         items.append(soraCardItem)
         ConfigService.shared.config.isSoraCardEnabled = true
         soraCard.isSCBannerHidden = false
-        
+
+        let exchangeItem: SoramitsuTableViewItemProtocol = itemFactory.createSoraCardExchangeItem(with: self)
+        items.append(exchangeItem)
+
         let backupItem: SoramitsuTableViewItemProtocol = itemFactory.createBackupItem(with: self,
                                                                                       assetManager: assetManager)
         items.append(backupItem)

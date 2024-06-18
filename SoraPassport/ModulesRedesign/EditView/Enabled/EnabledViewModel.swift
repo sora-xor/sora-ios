@@ -34,8 +34,12 @@ import UIKit
 import SoraUIKit
 
 enum Cards: Int, CaseIterable {
-    case soraCard = 0, referralProgram, liquidAssets, pooledAssets
-    
+    case soraCard = 0
+    case referralProgram
+    case liquidAssets
+    case pooledAssets
+    case scExchange
+
     var id: Int {
         return self.rawValue
     }
@@ -50,12 +54,14 @@ enum Cards: Int, CaseIterable {
             return R.string.localizable.liquidAssets(preferredLanguages: .currentLocale)
         case .pooledAssets:
             return R.string.localizable.pooledAssets(preferredLanguages: .currentLocale)
+        case .scExchange:
+            return ""
         }
     }
     
     var defaultState: State {
         switch self {
-        case .soraCard, .referralProgram, .pooledAssets:
+        case .soraCard, .scExchange, .referralProgram, .pooledAssets:
             return .selected
         case .liquidAssets:
             return .unselected
