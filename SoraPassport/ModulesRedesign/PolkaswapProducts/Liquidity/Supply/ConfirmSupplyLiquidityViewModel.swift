@@ -173,7 +173,7 @@ extension ConfirmSupplyLiquidityViewModel {
             feeDescription: networkFeeDescription
         )
 
-        let dexId = (assetManager.assetInfo(for: baseAssetId)?.isFeeAsset ?? false) ? "0" : "1"
+        let dexId = (assetManager.assetInfo(for: baseAssetId)?.isFeeAsset ?? false) || baseAssetId == WalletAssetId.kxor ? "0" : "1"
         let shareOfPool = details.first(where: { $0.title == Constants.apyTitle })?.assetAmountText.text ?? ""
         let apy = details.first(where: { $0.title == Constants.apyTitle })?.assetAmountText.text ?? ""
         

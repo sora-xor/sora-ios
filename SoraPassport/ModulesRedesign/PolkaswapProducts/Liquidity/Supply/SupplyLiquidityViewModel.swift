@@ -112,7 +112,10 @@ final class SupplyLiquidityViewModel {
                 view?.updateFirstAsset(symbol: asset.symbol, image: image)
                 updateBalanceData()
                 if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+                    poolInfo = await poolsService?.getPool(
+                        by: firstAssetId.kensetsuCase,
+                        targetAssetId: secondAssetId//.kensetsuCase
+                    )
                 }
                 view?.setAccessoryView(isHidden: false)
                 recalculate(field: .one)
@@ -128,7 +131,10 @@ final class SupplyLiquidityViewModel {
                 view?.updateSecondAsset(symbol: asset.symbol, image: image)
                 updateBalanceData()
                 if !firstAssetId.isEmpty, !secondAssetId.isEmpty {
-                    poolInfo = await poolsService?.getPool(by: firstAssetId, targetAssetId: secondAssetId)
+                    poolInfo = await poolsService?.getPool(
+                        by: firstAssetId.kensetsuCase,
+                        targetAssetId: secondAssetId
+                    )
                 }
                 view?.setAccessoryView(isHidden: false)
                 recalculate(field: .two)
@@ -335,9 +341,11 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
         guard let assetManager = assetManager,
               let fiatService = fiatService,
               let xorAsset = assetManager.assetInfo(for: WalletAssetId.xor.rawValue),
-              let xstUsdAsset = assetManager.assetInfo(for: WalletAssetId.xstusd.rawValue) else { return }
+              let xstUsdAsset = assetManager.assetInfo(for: WalletAssetId.xstusd.rawValue),
+              let kxorAsset = assetManager.assetInfo(for: WalletAssetId.kxor)
+        else { return }
 
-        var acceptableAssets = [xorAsset]
+        var acceptableAssets = [xorAsset, kxorAsset]
         
         if secondAssetId != WalletAssetId.xst.rawValue {
             acceptableAssets.append(xstUsdAsset)
@@ -361,17 +369,23 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
     }
     
     func choiсeTargetAssetButtonTapped() {
-        guard let assetManager = assetManager,
-              let fiatService = fiatService,
-              let assets = assetManager.getAssetList()?.filter({ asset in
-                  let assetId = asset.identifier
-                  
-                  let assetFilter = assetId != firstAssetId
-                  
-                  let unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
-                  
-                  return assetFilter && !unAcceptableAssetIds.contains(assetId)
-              }) else { return }
+        guard
+            let assetManager = assetManager,
+            let fiatService = fiatService,
+            let ethAsset = assetManager.assetInfo(for: WalletAssetId.eth),
+            var assets = assetManager.getAssetList()?.filter({ asset in
+                let assetId = asset.identifier
+                
+                let assetFilter = assetId != firstAssetId
+                
+                let unAcceptableAssetIds = [WalletAssetId.xor.rawValue, WalletAssetId.xstusd.rawValue]
+                
+                return assetFilter && !unAcceptableAssetIds.contains(assetId)
+            }) else { return }
+        
+        if firstAssetId == WalletAssetId.kxor {
+            assets = [ ethAsset ]
+        }
 
         let factory = AssetViewModelFactory(walletAssets: assetManager.getAssetList() ?? [],
                                             assetManager: assetManager,
@@ -402,8 +416,8 @@ extension SupplyLiquidityViewModel: LiquidityViewModelProtocol {
               let fiatService = fiatService,
               let assetManager = assetManager else { return }
         wireframe?.showSupplyLiquidityConfirmation(on: view?.controller.navigationController,
-                                                   baseAssetId: firstAssetId,
-                                                   targetAssetId: secondAssetId,
+                                                   baseAssetId: firstAssetId,//.kensetsuCase,
+                                                   targetAssetId: secondAssetId,//.kensetsuCase,
                                                    fiatService: fiatService,
                                                    poolsService: poolsService,
                                                    assetManager: assetManager,
@@ -498,7 +512,7 @@ extension SupplyLiquidityViewModel {
         let group = DispatchGroup()
 
         group.enter()
-        poolsService?.isPairPresentedInNetwork(baseAssetId: firstAssetId,
+        poolsService?.isPairPresentedInNetwork(baseAssetId: firstAssetId.kensetsuCase,
                                                targetAssetId: secondAssetId,
                                                accountId: "",
                                                completion: { [weak self] isPresented in
@@ -507,7 +521,7 @@ extension SupplyLiquidityViewModel {
         })
         
         group.enter()
-        poolsService?.isPairEnabled(baseAssetId: firstAssetId,
+        poolsService?.isPairEnabled(baseAssetId: firstAssetId.kensetsuCase,
                                     targetAssetId: secondAssetId,
                                     accountId: "",
                                     completion: { [weak self] isEnabled in
