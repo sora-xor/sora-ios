@@ -79,7 +79,7 @@ protocol PolkaswapNetworkOperationFactoryProtocol: AnyObject {
 
 final class PolkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol {
     func dexId(for baseAssetId: String) -> UInt32 {
-        if baseAssetId == WalletAssetId.xor.rawValue {
+        if baseAssetId == WalletAssetId.xor.rawValue || baseAssetId == WalletAssetId.kxor {
             return xorDexID
         } else if baseAssetId == WalletAssetId.xstusd.rawValue {
             return xstusdDexID

@@ -583,6 +583,7 @@
 		36DB19C229EDDA9100B3E3BF /* OnboardingMainProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB19B729EDDA9100B3E3BF /* OnboardingMainProtocol.swift */; };
 		36DB19C329EDDA9100B3E3BF /* OnboardingMainInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB19B829EDDA9100B3E3BF /* OnboardingMainInteractor.swift */; };
 		36DB19C529EDEB9F00B3E3BF /* OnboardingMainPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB19C429EDEB9F00B3E3BF /* OnboardingMainPresenter.swift */; };
+		36DB33D42C29BAE500058E71 /* String+Kensetsu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB33D32C29BAE500058E71 /* String+Kensetsu.swift */; };
 		36DBFE0628FC48C600735535 /* ZeroBalanceCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DBFE0428FC48C600735535 /* ZeroBalanceCell.swift */; };
 		36DBFE0728FC48C600735535 /* ZeroBalanceItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DBFE0528FC48C600735535 /* ZeroBalanceItem.swift */; };
 		36E00BB029DB2DAD0023D8BD /* AssetProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E00BAF29DB2DAD0023D8BD /* AssetProvider.swift */; };
@@ -2044,6 +2045,7 @@
 		36DB19B729EDDA9100B3E3BF /* OnboardingMainProtocol.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnboardingMainProtocol.swift; sourceTree = "<group>"; };
 		36DB19B829EDDA9100B3E3BF /* OnboardingMainInteractor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnboardingMainInteractor.swift; sourceTree = "<group>"; };
 		36DB19C429EDEB9F00B3E3BF /* OnboardingMainPresenter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnboardingMainPresenter.swift; sourceTree = "<group>"; };
+		36DB33D32C29BAE500058E71 /* String+Kensetsu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Kensetsu.swift"; sourceTree = "<group>"; };
 		36DBFE0428FC48C600735535 /* ZeroBalanceCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ZeroBalanceCell.swift; sourceTree = "<group>"; };
 		36DBFE0528FC48C600735535 /* ZeroBalanceItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ZeroBalanceItem.swift; sourceTree = "<group>"; };
 		36E00BAF29DB2DAD0023D8BD /* AssetProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetProvider.swift; sourceTree = "<group>"; };
@@ -3589,6 +3591,7 @@
 				5E6587EA28CA1CEA000E7234 /* DispatchQueue+debounce.swift */,
 				5E7DCA9F28D880B500C37182 /* Decima+Substrate.swift */,
 				364D64C22A96191400072106 /* Sequence+Async.swift */,
+				36DB33D32C29BAE500058E71 /* String+Kensetsu.swift */,
 			);
 			path = Foundation;
 			sourceTree = "<group>";
@@ -7467,6 +7470,7 @@
 				3645269528C1286E00260340 /* NodesPresenter.swift in Sources */,
 				945A576B25DE8701003E4023 /* TimeInterval+Time.swift in Sources */,
 				0292035E219B188900D9BACD /* InvitedUserData.swift in Sources */,
+				36DB33D42C29BAE500058E71 /* String+Kensetsu.swift in Sources */,
 				9481B482286EFC6000A472E2 /* WebSocketEngine+Connection.swift in Sources */,
 				366D53C129527A4C0094CE36 /* ContactCell.swift in Sources */,
 				84CB1DC5230B49AA003635F9 /* SkeletonCellViewModel.swift in Sources */,
