@@ -9705,7 +9705,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/soramitsu/shared-features-spm";
 			requirement = {
-				branch = "feature/neon-fix";
+				branch = develop;
 				kind = branch;
 			};
 		};
