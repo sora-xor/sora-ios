@@ -105,8 +105,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/soramitsu/shared-features-spm",
       "state" : {
-        "branch" : "feature/neon-fix",
-        "revision" : "08f3d7f575b63585caa66f53680992da5590e778"
+        "branch" : "develop",
+        "revision" : "a95594321115d2cb87dffa64d19926521965b3ca"
       }
     },
     {
