@@ -979,7 +979,6 @@
 		8BF428792940A66E00590F92 /* LanguageItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF428782940A66E00590F92 /* LanguageItem.swift */; };
 		8BF4287B2940A6F800590F92 /* LanguageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF4287A2940A6F800590F92 /* LanguageCell.swift */; };
 		8BF4287D2940B1E600590F92 /* LanguageItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF4287C2940B1E600590F92 /* LanguageItemView.swift */; };
-		9107880D2D9557A7002421DA /* StringArrayTransformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9107880C2D9557A7002421DA /* StringArrayTransformer.swift */; };
 		91D7B04B7F0479B242327146 /* FriendsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */; };
 		9406839C267908E1005F520D /* EventCodingPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9406839B267908E1005F520D /* EventCodingPath.swift */; };
 		940683A226790B44005F520D /* OperationCombiningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940683A126790B44005F520D /* OperationCombiningService.swift */; };
@@ -2502,7 +2501,6 @@
 		8BF4287A2940A6F800590F92 /* LanguageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageCell.swift; sourceTree = "<group>"; };
 		8BF4287C2940B1E600590F92 /* LanguageItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageItemView.swift; sourceTree = "<group>"; };
 		8FC3AC1242F0F1C1CF37B488 /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
-		9107880C2D9557A7002421DA /* StringArrayTransformer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringArrayTransformer.swift; sourceTree = "<group>"; };
 		9406839B267908E1005F520D /* EventCodingPath.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EventCodingPath.swift; sourceTree = "<group>"; };
 		940683A126790B44005F520D /* OperationCombiningService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OperationCombiningService.swift; sourceTree = "<group>"; };
 		940683A826790C55005F520D /* Longrun.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Longrun.swift; sourceTree = "<group>"; };
@@ -5989,7 +5987,6 @@
 				94D4B65928BF6FCF007F98EB /* PersistentValueSettings.swift */,
 				94D4B65828BF6FCF007F98EB /* SelectedWalletSettings.swift */,
 				94922FD228ACF689009BF91B /* LocalStorageKeyFactory.swift */,
-				9107880C2D9557A7002421DA /* StringArrayTransformer.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -8069,7 +8066,6 @@
 				364D64DB2A97464400072106 /* ExplorePoolsViewModelService.swift in Sources */,
 				363D99072B3D74A70038E46F /* EditFarmItemService.swift in Sources */,
 				9441F89125C957C400775559 /* SubstrateOperationFactory.swift in Sources */,
-				9107880D2D9557A7002421DA /* StringArrayTransformer.swift in Sources */,
 				02A053112223300300CA290F /* HelpData.swift in Sources */,
 				9481B49C286F019700A472E2 /* RuntimeSyncEvents.swift in Sources */,
 				02165AC321A1E62900EC1FCC /* CharacterSet+Mnemonic.swift in Sources */,
