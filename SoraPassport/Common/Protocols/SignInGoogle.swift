@@ -44,7 +44,9 @@ extension SignInGoogle {
     func signInToGoogleIfNeeded(completion: @escaping (CloudStorageAccountState) -> Void) {
         Task { [weak self] in
             guard let state = try? await self?.cloudStorageService?.signInIfNeeded() else { return }
-            completion(state)
+            await MainActor.run {
+                completion(state)
+            }
         }
     }
 }

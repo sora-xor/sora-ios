@@ -82,13 +82,16 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
             do {
                 guard let self else { return }
                 let result = try await self.interactor.getBackupedAccounts()
-                
-                let accounts = result.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
-                if accounts.isEmpty {
-                    self.wireframe.showSignup(from: self.view, isGoogleBackupSelected: true)
-                    return
+
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    let accounts = result.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
+                    if accounts.isEmpty {
+                        self.wireframe.showSignup(from: view, isGoogleBackupSelected: true)
+                        return
+                    }
+                    wireframe.showBackupedAccounts(from: view, accounts: accounts)
                 }
-                self.wireframe.showBackupedAccounts(from: self.view, accounts: accounts)
             } catch {}
         }
     }

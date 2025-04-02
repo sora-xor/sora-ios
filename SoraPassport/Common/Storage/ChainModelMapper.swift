@@ -69,7 +69,9 @@ final class ChainModelMapper {
         } else {
             staking = nil
         }
-        let purchaseProviders: [PurchaseProvider]? = entity.purchaseProviders?.compactMap {
+
+        let array = entity.purchaseProviders as? [String]
+        let purchaseProviders: [PurchaseProvider]? = array?.compactMap {
             PurchaseProvider(rawValue: $0)
         }
         return ChainAssetModel(
@@ -118,7 +120,7 @@ final class ChainModelMapper {
             let purchaseProviders: [String]? = asset.purchaseProviders?.map(\.rawValue)
 
             assetEntity.assetId = asset.assetId
-            assetEntity.purchaseProviders = purchaseProviders
+            assetEntity.purchaseProviders = purchaseProviders as NSArray?
             assetEntity.staking = asset.staking?.rawValue
             assetEntity.type = asset.type.rawValue
             updateEntityAsset(

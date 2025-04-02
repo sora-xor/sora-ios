@@ -56,7 +56,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             setupLanguage()
             
             TypographyConstants.registerFonts(from: Bundle(for: TypographyConstants.self))
-            
+            ValueTransformer.setValueTransformer(StringArrayTransformer(), forName: NSValueTransformerName("StringArrayTransformer"))
+
+
             let rootWindow = SoraWindow()
             rootWindow.backgroundColor = SoramitsuUI.shared.theme.palette.color(.bgPage)
             window = rootWindow

@@ -174,48 +174,51 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
             guard let self = self else { return }
             
             do {
-                let accounts = try await self.cloudStorageService.getBackupAccounts()
-                
+                let accounts = try await cloudStorageService.getBackupAccounts()
+
+                let updateUI: () async -> () = {
+                    await MainActor.run { [weak self] in
+                        guard let self else { return }
+
+                        view?.hideLoading()
+                        if completion != nil {
+                            view?.controller.dismiss(animated: true, completion: completion)
+                        } else {
+                            wireframe?.showSetupPinCode()
+                        }
+                    }
+                }
+
                 if let foudedAccount = accounts.first(where: { self.backupAccount.address == $0.address }) {
-                    try await self.cloudStorageService.deleteBackup(account: foudedAccount)
+                    try await cloudStorageService.deleteBackup(account: foudedAccount)
                     
                     let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
                     ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != foudedAccount.address }
                     
-                    try await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
-                    
-                    self.view?.hideLoading()
-                    
+                    try await cloudStorageService.saveBackup(account: backupAccount, password: password)
+
                     var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
                     backupedAccountAddresses.append(backupAccount.address)
                     ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
-                    
-                    if completion != nil {
-                        await view?.controller.dismiss(animated: true, completion: completion)
-                    } else {
-                        wireframe?.showSetupPinCode()
-                    }
+
+                    await updateUI()
                 } else {
-                    try? await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
-                    self.view?.hideLoading()
-                    
+                    try? await cloudStorageService.saveBackup(account: backupAccount, password: password)
+
                     var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
                     backupedAccountAddresses.append(backupAccount.address)
                     ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
-                    
-                    if completion != nil {
-                        await view?.controller.dismiss(animated: true, completion: completion)
-                    } else {
-                        wireframe?.showSetupPinCode()
-                    }
+
+                    await updateUI()
                 }
             } catch {
-                try? await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
-                self.view?.hideLoading()
-                self.wireframe?.present(message: nil,
-                                        title: error.localizedDescription,
-                                        closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
-                                        from: view)
+                try? await cloudStorageService.saveBackup(account: backupAccount, password: password)
+                view?.hideLoading()
+                wireframe?.present(
+                    message: nil,
+                    title: error.localizedDescription,
+                    closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                    from: view)
             }
         }
     }
