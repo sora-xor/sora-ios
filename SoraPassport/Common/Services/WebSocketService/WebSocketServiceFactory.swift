@@ -30,6 +30,7 @@
 
 import Foundation
 import SoraFoundation
+import class UIKit.UIApplication
 
 final class WebSocketServiceFactory {
     static func createService() -> WebSocketServiceProtocol {

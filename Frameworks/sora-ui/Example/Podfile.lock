@@ -1,0 +1,47 @@
+PODS:
+  - SoraUI (1.9.4):
+    - SoraUI/AdaptiveDesign (= 1.9.4)
+    - SoraUI/Animator (= 1.9.4)
+    - SoraUI/Camera (= 1.9.4)
+    - SoraUI/Controls (= 1.9.4)
+    - SoraUI/DetailsView (= 1.9.4)
+    - SoraUI/EmptyState (= 1.9.4)
+    - SoraUI/Helpers (= 1.9.4)
+    - SoraUI/LoadingView (= 1.9.4)
+    - SoraUI/ModalPresentation (= 1.9.4)
+    - SoraUI/PageLoader (= 1.9.4)
+    - SoraUI/PinView (= 1.9.4)
+    - SoraUI/Skrull (= 1.9.4)
+  - SoraUI/AdaptiveDesign (1.9.4)
+  - SoraUI/Animator (1.9.4)
+  - SoraUI/Camera (1.9.4)
+  - SoraUI/Controls (1.9.4):
+    - SoraUI/Animator
+  - SoraUI/DetailsView (1.9.4):
+    - SoraUI/Controls
+  - SoraUI/EmptyState (1.9.4):
+    - SoraUI/Animator
+  - SoraUI/Helpers (1.9.4)
+  - SoraUI/LoadingView (1.9.4):
+    - SoraUI/Controls
+  - SoraUI/ModalPresentation (1.9.4):
+    - SoraUI/Animator
+    - SoraUI/Controls
+  - SoraUI/PageLoader (1.9.4)
+  - SoraUI/PinView (1.9.4):
+    - SoraUI/Controls
+  - SoraUI/Skrull (1.9.4)
+
+DEPENDENCIES:
+  - SoraUI (from `../`)
+
+EXTERNAL SOURCES:
+  SoraUI:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  SoraUI: cf9681c377dfcdad2f121b3629ea45e698a5d7a3
+
+PODFILE CHECKSUM: bb766dae3a5ddd7acf3a123997936163f86b09c0
+
+COCOAPODS: 1.10.1

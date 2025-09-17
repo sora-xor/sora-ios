@@ -30,6 +30,7 @@
 
 import Foundation
 import SoraFoundation
+import class UIKit.UIPasteboard
 
 enum NodeAction {
     case add

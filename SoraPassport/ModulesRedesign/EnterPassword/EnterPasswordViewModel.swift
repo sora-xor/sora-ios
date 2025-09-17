@@ -90,7 +90,7 @@ final class EnterPasswordViewModel {
 }
 
 extension EnterPasswordViewModel: EnterPasswordViewModelProtocol {
-    func reload() {        
+    func reload() {
         title = R.string.localizable.enterBackupPasswordTitle(preferredLanguages: languages)
         snapshot = createSnapshot()
     }
@@ -110,8 +110,14 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
     
     func didReceiveAccountImport(error: Error) {
         errorText = error.localizedDescription
-        view?.hideLoading()
-        reload()
+        
+        Task {
+            await MainActor.run { [weak self] in
+                guard let self = self else { return }
+                view?.hideLoading()
+                reload()
+            }
+        }
     }
     
     func didSuggestKeystore(text: String, preferredInfo: AccountImportPreferredInfo?) {}

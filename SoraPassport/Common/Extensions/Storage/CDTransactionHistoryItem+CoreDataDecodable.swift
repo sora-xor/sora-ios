@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+/*
 import Foundation
 import RobinHood
 import CoreData
@@ -82,3 +83,4 @@ extension CDTransactionHistoryItem: CoreDataCodable {
         try container.encodeIfPresent(call, forKey: .call)
     }
 }
+*/

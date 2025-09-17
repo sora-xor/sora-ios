@@ -85,6 +85,8 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
 
                 await MainActor.run { [weak self] in
                     guard let self else { return }
+                    view?.hideLoading()
+                    
                     let accounts = result.filter { !ApplicationConfig.shared.backupedAccountAddresses.contains($0.address) }
                     if accounts.isEmpty {
                         self.wireframe.showSignup(from: view, isGoogleBackupSelected: true)
@@ -92,7 +94,11 @@ extension OnboardingMainPresenter: OnboardingMainPresenterProtocol {
                     }
                     wireframe.showBackupedAccounts(from: view, accounts: accounts)
                 }
-            } catch {}
+            } catch {
+                await MainActor.run { [weak self] in
+                    self?.view?.hideLoading()
+                }
+            }
         }
     }
 }

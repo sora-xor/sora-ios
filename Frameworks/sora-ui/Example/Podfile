@@ -1,0 +1,11 @@
+use_frameworks!
+
+target 'SoraUI_Example' do
+  pod 'SoraUI', :path => '../'
+
+  target 'SoraUI_Tests' do
+    inherit! :search_paths
+
+    
+  end
+end

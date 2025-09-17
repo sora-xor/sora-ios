@@ -32,6 +32,7 @@ import Foundation
 import SoraKeystore
 import SoraFoundation
 import SSFCloudStorage
+import UIKit
 
 final class EnterPasswordWireframe: CustomPresentable {
     private weak var currentController: EnterPasswordViewProtocol?

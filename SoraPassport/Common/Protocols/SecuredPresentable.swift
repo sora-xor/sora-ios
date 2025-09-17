@@ -37,60 +37,62 @@ protocol SecuredPresentable: AnyObject {
 }
 
 private struct SecuredPresentableConstants {
-    static var securityViewKey = "co.jp.sora.secure.view"
+    static var securityViewKey: UInt8 = 0
 }
-
-private let securePresentation = UUID().uuidString
 
 extension SecuredPresentable {
     private var securityView: UIView? {
         get {
-            return objc_getAssociatedObject(securePresentation,
-                                            &SecuredPresentableConstants.securityViewKey)
-                as? UIView
+            objc_getAssociatedObject(self, &SecuredPresentableConstants.securityViewKey) as? UIView
         }
-
         set {
-            objc_setAssociatedObject(securePresentation,
-                                     &SecuredPresentableConstants.securityViewKey,
-                                     newValue,
-                                     .OBJC_ASSOCIATION_RETAIN)
+            objc_setAssociatedObject(self, &SecuredPresentableConstants.securityViewKey, newValue, .OBJC_ASSOCIATION_RETAIN)
         }
     }
 
     private var presentationView: UIView? {
-        return UIApplication.shared.keyWindow
+        UIApplication.shared.keyWindow
     }
-}
 
-extension SecuredPresentable {
     func securePresentingView(animated: Bool) {
-        guard securityView == nil, let presentationView = presentationView else {
-            return
-        }
+        DispatchQueue.main.async {
+            guard
+                self.securityView == nil,
+                let presentationView = self.presentationView
+            else {
+                return
+            }
 
-        let blurView = UIVisualEffectView()
-        blurView.effect = UIBlurEffect(style: .regular)
-        blurView.translatesAutoresizingMaskIntoConstraints = false
-        presentationView.addSubview(blurView)
+            let blurView = UIVisualEffectView(effect: UIBlurEffect(style: .regular))
+            blurView.translatesAutoresizingMaskIntoConstraints = false
+            presentationView.addSubview(blurView)
 
-        NSLayoutConstraint.activate([
-            blurView.heightAnchor.constraint(equalTo: presentationView.heightAnchor),
-            blurView.widthAnchor.constraint(equalTo: presentationView.widthAnchor),
-            blurView.centerXAnchor.constraint(equalTo: presentationView.centerXAnchor),
-            blurView.centerYAnchor.constraint(equalTo: presentationView.centerYAnchor)
+            NSLayoutConstraint.activate([
+                blurView.topAnchor.constraint(equalTo: presentationView.topAnchor),
+                blurView.leadingAnchor.constraint(equalTo: presentationView.leadingAnchor),
+                blurView.trailingAnchor.constraint(equalTo: presentationView.trailingAnchor),
+                blurView.bottomAnchor.constraint(equalTo: presentationView.bottomAnchor)
             ])
 
-        self.securityView = blurView
+            self.securityView = blurView
 
-        if animated {
-            let transitionAnimator = TransitionAnimator(type: .reveal)
-            transitionAnimator.animate(view: blurView, completionBlock: nil)
+            if animated {
+                blurView.alpha = 0
+                UIView.animate(withDuration: 0.3) {
+                    blurView.alpha = 1
+                }
+            }
         }
     }
 
     func unsecurePresentingView() {
-        securityView?.removeFromSuperview()
-        securityView = nil
+        DispatchQueue.main.async {
+            UIView.animate(withDuration: 0.3, animations: {
+                self.securityView?.alpha = 0
+            }, completion: { _ in
+                self.securityView?.removeFromSuperview()
+                self.securityView = nil
+            })
+        }
     }
 }

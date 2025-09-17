@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import SoraFoundation
 import SSFUtils
 
 final class WeakConnection {
@@ -58,6 +59,7 @@ class ConnectionPool {
     private var mutex = NSLock()
 
     private(set) var connectionsByChainIds: [ChainModel.Id: WeakConnection] = [:]
+    private let applicationHandler = ApplicationHandler()
 
     private func clearUnusedConnections() {
         connectionsByChainIds = connectionsByChainIds.filter { $0.value.target != nil }
@@ -65,6 +67,7 @@ class ConnectionPool {
 
     init(connectionFactory: ConnectionFactoryProtocol) {
         self.connectionFactory = connectionFactory
+        //applicationHandler.delegate = self
     }
 }
 
@@ -127,17 +130,35 @@ extension ConnectionPool: WebSocketEngineDelegate {
 
         switch newState {
         case let .connecting(attempt):
+            break
+            /*
             if attempt > 1 {
                 // temporary disable autobalance , maybe this causing crashes
                 delegate?.connectionNeedsReconnect(url: previousUrl, attempt: attempt)
             }
+            */
         case .connected:
-            delegate?.connectionUpdated(url: previousUrl)
-
+            //delegate?.connectionUpdated(url: previousUrl)
+            break
         case .notConnected, .notReachable:
             break
         case .waitingReconnection(attempt: let attempt):
             break
+        }
+    }
+}
+
+extension ConnectionPool: ApplicationHandlerDelegate {
+    func didReceiveDidEnterBackground(notification _: Notification) {
+        connectionsByChainIds.values.forEach { connection in
+            connection.target?.disconnectIfNeeded()
+        }
+
+    }
+
+    func didReceiveWillEnterForeground(notification: Notification) {
+        connectionsByChainIds.values.forEach { connection in
+            connection.target?.connectIfNeeded()
         }
     }
 }

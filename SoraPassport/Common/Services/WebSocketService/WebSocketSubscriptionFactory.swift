@@ -29,9 +29,10 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
-import SSFUtils
 import IrohaCrypto
 import RobinHood
+import SSFUtils
+import SSFIndexers
 
 final class WebSocketSubscriptionFactory: WebSocketSubscriptionFactoryProtocol {
     let storageFacade: StorageFacadeProtocol

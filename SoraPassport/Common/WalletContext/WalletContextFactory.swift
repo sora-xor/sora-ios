@@ -34,6 +34,7 @@ import SoraKeystore
 import SoraFoundation
 import RobinHood
 import SSFUtils
+import SSFIndexers
 
 protocol WalletContextFactoryProtocol: AnyObject {
     func createContext(connection: JSONRPCEngine,

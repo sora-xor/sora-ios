@@ -31,7 +31,6 @@
 import Foundation
 import UIKit
 import SoraUI
-
 import SoraUIKit
 
 struct AppearanceFactory {
@@ -44,12 +43,12 @@ struct AppearanceFactory {
 
     private static func configureButtons() {
         SoraButton.appearance().titleFont = .styled(for: .button)
-        SoraButton.appearance().cornerRadius = 12.0
-        SoraButton.appearance().shadowOpacity = 0
-
+        SoraButton.appearance().privateCornerRadius = 12.0
+        SoraButton.appearance().privateShadowOpacity = 0
+        
         GrayCopyButton.appearance().titleFont = .styled(for: .paragraph2)
-        GrayCopyButton.appearance().cornerRadius = 24.0
-        GrayCopyButton.appearance().shadowOpacity = 0
+        GrayCopyButton.appearance().privateCornerRadius = 24.0
+        GrayCopyButton.appearance().privateShadowOpacity = 0
     }
 
     private static func configureSearchBar() {

@@ -30,6 +30,7 @@
 
 import Foundation
 import IrohaCrypto
+import SSFIndexers
 
 extension NSPredicate {
     static func filterAccountBy(networkType: SNAddressType) -> NSPredicate {

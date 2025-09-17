@@ -41,7 +41,7 @@ class SoraButton: RoundedButton {
         }
     }
 
-    @objc dynamic public var cornerRadius: NSNumber? {
+    @objc dynamic public var privateCornerRadius: NSNumber? {
         get { return (roundedBackgroundView?.cornerRadius ?? 0) as NSNumber }
         set(newValue) {
             roundedBackgroundView?.cornerRadius = CGFloat(truncating: newValue ?? 0)
@@ -49,7 +49,7 @@ class SoraButton: RoundedButton {
         }
     }
 
-    @objc dynamic public var shadowOpacity: NSNumber? {
+    @objc dynamic public var privateShadowOpacity: NSNumber? {
         get { return (roundedBackgroundView?.shadowOpacity ?? 0) as NSNumber }
         set(newValue) {
             roundedBackgroundView?.shadowOpacity = Float(truncating: newValue ?? 0)

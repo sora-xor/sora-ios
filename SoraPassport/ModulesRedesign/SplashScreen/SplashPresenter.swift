@@ -34,7 +34,7 @@ import SoraKeystore
 final class SplashPresenter: SplashPresenterProtocol {
     weak var view: SplashViewProtocol?
     var interactor: SplashInteractorProtocol!
-    var window: SoraWindow!
+    var window: SoraWindow?
     var wireframe: SplashWireframe?
 
     init(window: SoraWindow) {
@@ -43,8 +43,9 @@ final class SplashPresenter: SplashPresenterProtocol {
 
     func setupComplete() {
         DispatchQueue.main.async {
-            self.view?.animate(duration: 2, completion: {
-                self.wireframe?.showRoot(on: self.window)
+            self.view?.animate(duration: 2, completion: { [weak self] in
+                guard let window = self?.window else { return }
+                self?.wireframe?.showRoot(on: window)
             })
         }
     }

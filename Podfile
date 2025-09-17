@@ -11,26 +11,19 @@ abstract_target 'SoraPassportAll' do
   pod 'R.swift', '~> 6.1.0'
   pod 'FireMock', :inhibit_warnings => true
   pod 'SoraDocuments'
-  pod 'SoraKeystore'
-  pod 'SoraUI'
-  pod 'RobinHood', '~> 2.6.1'
+  pod 'SoraUI', :path => './Frameworks/sora-ui'
   pod 'Kingfisher', :git => 'https://github.com/onevcat/Kingfisher', :branch => 'version6-xcode13', :inhibit_warnings => true
-  pod 'SVGKit', :git => 'https://github.com/SVGKit/SVGKit.git', :tag => '3.0.0'
+  pod 'SVGKit', :git => 'https://github.com/SVGKit/SVGKit.git', :branch => '3.x'
   pod 'FirebaseMessaging'
   pod 'Firebase/Crashlytics'
   pod 'FirebaseAnalytics'
-  pod 'ReachabilitySwift'
-  pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :tag => ‘4.0.9’
-  pod 'SwiftyBeaver'
-  pod 'SoraFoundation'
   pod 'Anchorage'
   pod 'Then'
-  pod 'lottie-ios', '~> 4.4.3'  
+  pod 'lottie-ios', '~> 4.4.3'
   pod 'Nantes'
   pod 'SnapKit'
-  pod 'SoraUIKit', :git => 'https://github.com/soramitsu/ios-ui', :tag => ‘1.1.13’
+  pod 'SoraUIKit', :path => './Frameworks/ios-ui'
   pod 'IdensicMobileSDK', :http => 'https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz'
-  pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :branch => 'release/1.7.0'
   pod 'FLEX', :configurations => ['Debug', 'Dev']
   pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking-old/0.2.10/lib/sorawallet/sorawallet.podspec'
 
@@ -39,12 +32,8 @@ abstract_target 'SoraPassportAll' do
       
       pod 'Cuckoo', '~> 1.9.1'
       pod 'FireMock'
-      pod 'SoraUI'
-      pod 'Starscream', :git => 'https://github.com/soramitsu/fearless-starscream.git', :tag => ‘4.0.9’
+      pod 'SoraUI', :path => './Frameworks/sora-ui'
       pod 'SoraDocuments'
-      pod 'SoraKeystore'
-      pod 'RobinHood', '~> 2.6.1'
-      pod 'SoraFoundation'
       pod 'GoogleAPIClientForREST/Core'
       pod 'GoogleAPIClientForREST/Drive'
       pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking-old/0.2.10/lib/sorawallet/sorawallet.podspec'
@@ -56,7 +45,9 @@ abstract_target 'SoraPassportAll' do
 
   target 'SoraPassportIntegrationTests'
 
-  target 'SoraPassport'
+  target 'SoraPassport' do
+      pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :tag => ‘1.8.3’
+  end
   
 end
 

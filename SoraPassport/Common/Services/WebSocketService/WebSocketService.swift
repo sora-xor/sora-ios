@@ -35,7 +35,6 @@ import IrohaCrypto
 import SSFUtils
 
 final class WebSocketService: WebSocketServiceProtocol {
-    //Should be used only once, at startup
     static let shared: WebSocketService = {
         let lastUrl: URL
         if let url = SettingsManager.shared.lastSuccessfulUrl {
@@ -49,7 +48,7 @@ final class WebSocketService: WebSocketServiceProtocol {
             addressType: ApplicationConfig.shared.addressType,
             address: nil
         )
-        let storageFacade = SubstrateDataStorageFacade.shared
+
         return WebSocketService(
             settings: settings,
             applicationHandler: ApplicationHandler()
@@ -66,22 +65,52 @@ final class WebSocketService: WebSocketServiceProtocol {
 
     let applicationHandler: ApplicationHandlerProtocol
 
-    private(set) var settings: WebSocketServiceSettings
-    private(set) var engine: WebSocketEngine?
+    private let syncQueue = DispatchQueue(label: "com.sora.websocket.sync", attributes: .concurrent)
 
-    private(set) var subscriptions: [WebSocketSubscribing]?
+    private var settingsStorage: WebSocketServiceSettings
+    private var engineStorage: WebSocketEngine?
+    private var subscriptionsStorage: [WebSocketSubscribing]?
+    private var isThrottledFlag: Bool = true
+    private var isActiveFlag: Bool = true
+    private var stateListenersStorage: [WeakWrapper] = []
 
-    private(set) var isThrottled: Bool = true
-    private(set) var isActive: Bool = true
+    var settings: WebSocketServiceSettings {
+        get { syncQueue.sync { settingsStorage } }
+        set { syncQueue.async(flags: .barrier) { self.settingsStorage = newValue } }
+    }
+
+    var engine: WebSocketEngine? {
+        get { syncQueue.sync { engineStorage } }
+        set { syncQueue.async(flags: .barrier) { self.engineStorage = newValue } }
+    }
+
+    var subscriptions: [WebSocketSubscribing]? {
+        get { syncQueue.sync { subscriptionsStorage } }
+        set { syncQueue.async(flags: .barrier) { self.subscriptionsStorage = newValue } }
+    }
+
+    var isThrottled: Bool {
+        get { syncQueue.sync { isThrottledFlag } }
+        set { syncQueue.async(flags: .barrier) { self.isThrottledFlag = newValue } }
+    }
+
+    var isActive: Bool {
+        get { syncQueue.sync { isActiveFlag } }
+        set { syncQueue.async(flags: .barrier) { self.isActiveFlag = newValue } }
+    }
+
+    var stateListeners: [WeakWrapper] {
+        get { syncQueue.sync { stateListenersStorage } }
+        set { syncQueue.async(flags: .barrier) { self.stateListenersStorage = newValue } }
+    }
 
     var networkStatusPresenter: NetworkAvailabilityLayerInteractorOutputProtocol?
-    private var stateListeners: [WeakWrapper] = []
 
     init(
         settings: WebSocketServiceSettings,
         applicationHandler: ApplicationHandlerProtocol
     ) {
-        self.settings = settings
+        self.settingsStorage = settings
         self.applicationHandler = applicationHandler
     }
 
@@ -91,9 +120,6 @@ final class WebSocketService: WebSocketServiceProtocol {
         }
 
         isThrottled = false
-
-        applicationHandler.delegate = self
-
         setupConnection()
     }
 
@@ -103,8 +129,8 @@ final class WebSocketService: WebSocketServiceProtocol {
         }
 
         isThrottled = true
-
         clearConnection()
+
     }
 
     func update(settings: WebSocketServiceSettings) {
@@ -121,43 +147,31 @@ final class WebSocketService: WebSocketServiceProtocol {
     }
 
     func addStateListener(_ listener: WebSocketServiceStateListener) {
-        stateListeners.append(WeakWrapper(target: listener))
+        syncQueue.async(flags: .barrier) {
+            // cleanup deallocated listeners to avoid accumulation
+            self.stateListenersStorage.removeAll { $0.target == nil }
+            self.stateListenersStorage.append(WeakWrapper(target: listener))
+        }
     }
 
     func removeStateListener(_ listener: WebSocketServiceStateListener) {
-        stateListeners = stateListeners.filter { $0 !== listener }
+        syncQueue.async(flags: .barrier) {
+            self.stateListenersStorage.removeAll { $0.target == nil || ($0.target as AnyObject) === listener }
+        }
     }
 
     private func clearConnection() {
         engine?.delegate = nil
         engine?.disconnectIfNeeded()
         engine = nil
-
         subscriptions = nil
     }
+
     private func setupConnection() {
-        let engine = WebSocketEngineFactory().createEngine(for: settings.url, autoconnect: isActive)
-        engine.delegate = self
-        self.engine = engine
+        let newEngine = WebSocketEngineFactory().createEngine(for: settings.url, autoconnect: isActive)
+        newEngine.delegate = self
+        engine = newEngine
         Logger.shared.info("start socket connected: \(settings.url)")
-    }
-}
-
-extension WebSocketService: ApplicationHandlerDelegate {
-    func didReceiveDidBecomeActive(notification _: Notification) {
-        if !isThrottled, !isActive {
-            isActive = true
-
-            engine?.connectIfNeeded()
-        }
-    }
-
-    func didReceiveDidEnterBackground(notification _: Notification) {
-        if !isThrottled, isActive {
-            isActive = false
-
-            engine?.disconnectIfNeeded()
-        }
     }
 }
 
@@ -171,16 +185,22 @@ extension WebSocketService: WebSocketEngineDelegate {
         case let .connecting(attempt):
             if attempt > 1 {
                 scheduleNetworkUnreachable()
-
-                stateListeners.forEach { listenerWeakWrapper in
-                    (listenerWeakWrapper.target as? WebSocketServiceStateListener)?.websocketNetworkDown(url: settings.url)
-                }
+                notifyListenersNetworkDown()
             }
         case .connected:
             scheduleNetworkReachable()
-
         case .notConnected, .waitingReconnection, .notReachable:
-            break
+            scheduleNetworkUnreachable()
+            notifyListenersNetworkDown()
+        }
+    }
+
+    private func notifyListenersNetworkDown() {
+        let listeners = stateListeners
+        let url = settings.url
+
+        for wrapper in listeners {
+            (wrapper.target as? WebSocketServiceStateListener)?.websocketNetworkDown(url: url)
         }
     }
 

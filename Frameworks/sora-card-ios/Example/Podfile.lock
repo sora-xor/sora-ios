@@ -1,0 +1,72 @@
+PODS:
+  - IdensicMobileSDK (1.30.0)
+  - JOSESwift (2.4.0)
+  - PayWingsKycSDK (1.0.6)
+  - PayWingsOAuthSDK (2.0.2):
+    - JOSESwift (= 2.4.0)
+    - RecaptchaEnterprise (= 18.3.0)
+  - R.swift (6.1.0):
+    - R.swift.Library (~> 5.3.0)
+  - R.swift.Library (5.3.0)
+  - RecaptchaEnterprise (18.3.0):
+    - RecaptchaInterop (~> 100.0.0)
+  - RecaptchaInterop (100.0.0)
+  - SCard (1.7.0):
+    - IdensicMobileSDK
+    - PayWingsKycSDK (= 1.0.6)
+    - PayWingsOAuthSDK (= 2.0.2)
+    - R.swift (~> 6.1.0)
+    - SnapKit
+    - SoraUIKit
+  - SnapKit (5.7.1)
+  - SoraUIKit (1.1.13)
+
+DEPENDENCIES:
+  - "IdensicMobileSDK (from `{http: \"https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz\"}`)"
+  - R.swift (~> 6.1.0)
+  - SCard (from `../`)
+  - SoraUIKit (from `https://github.com/soramitsu/ios-ui.git`, tag `1.1.13`)
+
+SPEC REPOS:
+  trunk:
+    - JOSESwift
+    - PayWingsKycSDK
+    - PayWingsOAuthSDK
+    - R.swift
+    - R.swift.Library
+    - RecaptchaEnterprise
+    - RecaptchaInterop
+    - SnapKit
+
+EXTERNAL SOURCES:
+  IdensicMobileSDK:
+    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz
+  SCard:
+    :path: "../"
+  SoraUIKit:
+    :git: https://github.com/soramitsu/ios-ui.git
+    :tag: 1.1.13
+
+CHECKOUT OPTIONS:
+  IdensicMobileSDK:
+    :http: https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz
+  SoraUIKit:
+    :git: https://github.com/soramitsu/ios-ui.git
+    :tag: 1.1.13
+
+SPEC CHECKSUMS:
+  IdensicMobileSDK: 2f148d82c4a8222571086c4368dc0622c8571122
+  JOSESwift: 7ff178bb9173ff42c6e990929a9f2fa702a34f69
+  PayWingsKycSDK: bfd7f03a22d0df4ff40937d7fdb64e992db2dee0
+  PayWingsOAuthSDK: 40168c32d47402bf33ef1c167ce2261dac6da102
+  R.swift: ec98ff71c4ab2f6fd01dd077e5afd15e63a4834c
+  R.swift.Library: 0fc583cb55a99e28901299cc451614cad1161962
+  RecaptchaEnterprise: 9b60bc1e1633d120e24a098d80546776fab1282e
+  RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
+  SCard: 6075ad5169cc002dc83ec431dd0b62a0c749fbe0
+  SnapKit: d612e99e678a2d3b95bf60b0705ed0a35c03484a
+  SoraUIKit: 847a9a3dd14705ec84ecacdb6e9f937dc73481eb
+
+PODFILE CHECKSUM: d989dc6846fce53b28a91ea4ed7250fa107b16da
+
+COCOAPODS: 1.16.2

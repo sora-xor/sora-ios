@@ -43,6 +43,7 @@ class GitHubConfigOperationFactory<T: Decodable>: GitHubConfigOperationFactoryPr
             var request = URLRequest(url: url)
             request.setValue(HttpContentType.json.rawValue, forHTTPHeaderField: HttpHeaderKey.contentType.rawValue)
             request.httpMethod = HttpMethod.get.rawValue
+            request.timeoutInterval = 10
             return request
         }
 
