@@ -146,7 +146,7 @@ extension DetailsRoundedView {
     }
 
     @IBInspectable
-    private var _titleFontName: String? {
+    private var titleFontName: String? {
         get {
             return titleLabel.font.fontName
         }
@@ -166,7 +166,7 @@ extension DetailsRoundedView {
     }
 
     @IBInspectable
-    private var _titleFontSize: CGFloat {
+    private var titleFontSize: CGFloat {
         get {
             titleLabel.font.pointSize
         }
@@ -181,7 +181,7 @@ extension DetailsRoundedView {
     }
 
     @IBInspectable
-    private var _subtitleFontName: String? {
+    private var subtitleFontName: String? {
         get {
             return titleLabel.font.fontName
         }
@@ -201,7 +201,7 @@ extension DetailsRoundedView {
     }
 
     @IBInspectable
-    private var _subtitleFontSize: CGFloat {
+    private var subtitleFontSize: CGFloat {
         get {
             subtitleLabel?.font.pointSize ?? 0.0
         }
@@ -263,7 +263,7 @@ extension DetailsRoundedView {
     }
 
     @IBInspectable
-    private var _iconRadius: CGFloat {
+    private var privateIconRadius: CGFloat {
         get {
             iconRadius
         }
@@ -274,7 +274,7 @@ extension DetailsRoundedView {
     }
 
     @IBInspectable
-    private var _horizontalSpacing: CGFloat {
+    private var privateHorizontalSpacing: CGFloat {
         get {
             horizontalSpacing
         }
@@ -285,7 +285,7 @@ extension DetailsRoundedView {
     }
 
     @IBInspectable
-    private var _layout: UInt8 {
+    private var privateLayout: UInt8 {
         get {
             switch layout {
             case .largeIconTitleSubtitle:

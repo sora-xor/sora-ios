@@ -32,7 +32,7 @@ import UIKit
 
 extension RoundedCellControlView {
     @IBInspectable
-    private var _fillColor: UIColor {
+    private var fillColor: UIColor {
         get {
             return roundedBackgroundView!.fillColor
         }
@@ -43,7 +43,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _highlightedFillColor: UIColor {
+    private var highlightedFillColor: UIColor {
         get {
             return roundedBackgroundView!.highlightedFillColor
         }
@@ -54,7 +54,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _strokeColor: UIColor {
+    private var strokeColor: UIColor {
         get {
             return roundedBackgroundView!.strokeColor
         }
@@ -65,7 +65,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _highlightedStrokeColor: UIColor {
+    private var highlightedStrokeColor: UIColor {
         get {
             return roundedBackgroundView!.highlightedStrokeColor
         }
@@ -76,7 +76,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _strokeWidth: CGFloat {
+    private var strokeWidth: CGFloat {
         get {
             return roundedBackgroundView!.strokeWidth
         }
@@ -87,7 +87,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _icon: UIImage? {
+    private var icon: UIImage? {
         get {
             return titleAccessoryView.titleView.iconImage
         }
@@ -99,7 +99,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _highlightedIcon: UIImage? {
+    private var highlightedIcon: UIImage? {
         get {
             return titleAccessoryView.titleView.highlightedIconImage
         }
@@ -111,7 +111,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _title: String? {
+    private var title: String? {
         get {
             return titleAccessoryView.titleView.title
         }
@@ -123,7 +123,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _titleColor: UIColor? {
+    private var titleColor: UIColor? {
         get {
             return titleAccessoryView.titleView.titleColor
         }
@@ -134,7 +134,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _highlightedTitleColor: UIColor? {
+    private var highlightedTitleColor: UIColor? {
         get {
             return titleAccessoryView.titleView.highlightedTitleColor
         }
@@ -145,7 +145,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _titleFontName: String? {
+    private var titleFontName: String? {
         get {
             return titleAccessoryView.titleView.titleFont?.fontName
         }
@@ -164,7 +164,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _titleFontSize: CGFloat {
+    private var titleFontSize: CGFloat {
         get {
             return titleAccessoryView.titleView.titleFont?.pointSize ?? UIFont.labelFontSize
         }
@@ -179,7 +179,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _spacingBetweenLabelAndIcon: CGFloat {
+    private var spacingBetweenLabelAndIcon: CGFloat {
         get {
             return titleAccessoryView.titleView.spacingBetweenLabelAndIcon
         }
@@ -190,7 +190,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _subtitle: String? {
+    private var subtitle: String? {
         get {
             return titleAccessoryView.accessoryLabel.text
         }
@@ -202,7 +202,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _subtitleColor: UIColor? {
+    private var subtitleColor: UIColor? {
         get {
             return titleAccessoryView.accessoryLabel.textColor
         }
@@ -213,7 +213,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _highlightedSubtitleColor: UIColor? {
+    private var highlightedSubtitleColor: UIColor? {
         get {
             return titleAccessoryView.accessoryLabel.highlightedTextColor
         }
@@ -224,7 +224,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _subtitleFontName: String? {
+    private var subtitleFontName: String? {
         get {
             return titleAccessoryView.accessoryLabel.font.fontName
         }
@@ -243,7 +243,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _subtitleFontSize: CGFloat {
+    private var subtitleFontSize: CGFloat {
         get {
             return titleAccessoryView.accessoryLabel.font.pointSize
         }
@@ -257,7 +257,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _shadowColor: UIColor {
+    private var shadowColor: UIColor {
         get {
             return self.roundedBackgroundView!.shadowColor
         }
@@ -269,7 +269,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _shadowOffset: CGSize {
+    private var shadowOffset: CGSize {
         get {
             return self.roundedBackgroundView!.shadowOffset
         }
@@ -280,7 +280,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _shadowRadius: CGFloat {
+    private var shadowRadius: CGFloat {
         get {
             return self.roundedBackgroundView!.shadowRadius
         }
@@ -291,7 +291,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _shadowOpacity: Float {
+    private var shadowOpacity: Float {
         get {
             return self.roundedBackgroundView!.shadowOpacity
         }
@@ -302,7 +302,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _cornerRadius: CGFloat {
+    private var cornerRadius: CGFloat {
         get {
             return self.roundedBackgroundView!.cornerRadius
         }
@@ -313,7 +313,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _contentOpacityWhenHighlighted: CGFloat {
+    private var didContentOpacityWhenHighlighted: CGFloat {
         get {
             return contentOpacityWhenHighlighted
         }
@@ -324,7 +324,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _changesContentOpacityWhenHighlighted: Bool {
+    private var didChangesContentOpacityWhenHighlighted: Bool {
         get {
             return changesContentOpacityWhenHighlighted
         }
@@ -335,7 +335,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _separatorColor: UIColor {
+    private var separatorColor: UIColor {
         get {
             return borderView.strokeColor
         }
@@ -346,7 +346,7 @@ extension RoundedCellControlView {
     }
 
     @IBInspectable
-    private var _separatorWidth: CGFloat {
+    private var separatorWidth: CGFloat {
         get {
             return borderView.strokeWidth
         }

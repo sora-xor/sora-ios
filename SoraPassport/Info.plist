@@ -46,6 +46,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera is used to capture QR code</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location is used to enable location-based features while you use the app.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app require the access to Microphone to pass KYC</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -71,7 +71,6 @@ PODS:
     - nanopb (~> 3.30910.0)
     - PromisesSwift (~> 2.1)
   - FireMock (3.1)
-  - FLEX (5.22.10)
   - GoogleAPIClientForREST/Core (4.0.0):
     - GTMSessionFetcher/Full (< 5.0, >= 1.6.1)
   - GoogleAPIClientForREST/Drive (4.0.0):
@@ -213,7 +212,6 @@ DEPENDENCIES:
   - FirebaseAnalytics
   - FirebaseMessaging
   - FireMock
-  - FLEX
   - GoogleAPIClientForREST/Core
   - GoogleAPIClientForREST/Drive
   - "IdensicMobileSDK (from `{:http=>\"https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz\"}`)"
@@ -248,7 +246,6 @@ SPEC REPOS:
     - FirebaseRemoteConfigInterop
     - FirebaseSessions
     - FireMock
-    - FLEX
     - GoogleAPIClientForREST
     - GoogleAppMeasurement
     - GoogleDataTransport
@@ -320,7 +317,6 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: c3a5c31b3c22079f41ba1dc645df889d9ce38cb9
   FirebaseSessions: 655ff17f3cc1a635cbdc2d69b953878001f9e25b
   FireMock: 3eed872059c12f94855413347da83b9d6d1a6fac
-  FLEX: f21ee4f498eed3f8a1eded66b21939fd3b7a22ce
   GoogleAPIClientForREST: f2c48f89acfb29b462bc75747b70eab19e33c83e
   GoogleAppMeasurement: c8bac5f6ad85d3a0bdf2b9aee7fd484d6615d486
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
@@ -352,6 +348,6 @@ SPEC CHECKSUMS:
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5
   Then: 844265ae87834bbe1147d91d5d41a404da2ec27d
 
-PODFILE CHECKSUM: 465e5074e494b357b565b636c4dcba802a7955a9
+PODFILE CHECKSUM: 0ec41b6102a32c18cbf950afb78cfc79f17a7d7c
 
 COCOAPODS: 1.16.2

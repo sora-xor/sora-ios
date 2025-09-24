@@ -32,7 +32,7 @@ import UIKit
 
 extension ProfileButton {
     @IBInspectable
-    private var _fillColor: UIColor {
+    private var fillColor: UIColor {
         get {
             return self.roundedBackgroundView!.fillColor
         }
@@ -43,7 +43,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _highlightedFillColor: UIColor {
+    private var highlightedFillColor: UIColor {
         get {
             return self.roundedBackgroundView!.highlightedFillColor
         }
@@ -54,7 +54,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _strokeColor: UIColor {
+    private var strokeColor: UIColor {
         get {
             return self.roundedBackgroundView!.strokeColor
         }
@@ -65,7 +65,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _highlightedStrokeColor: UIColor {
+    private var highlightedStrokeColor: UIColor {
         get {
             return self.roundedBackgroundView!.highlightedStrokeColor
         }
@@ -76,7 +76,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _strokeWidth: CGFloat {
+    private var strokeWidth: CGFloat {
         get {
             return self.roundedBackgroundView!.strokeWidth
         }
@@ -87,7 +87,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _title: String? {
+    private var title: String? {
         get {
             return self.titleLabel.text
         }
@@ -98,7 +98,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _titleColor: UIColor? {
+    private var titleColor: UIColor? {
         get {
             return self.titleLabel.textColor
         }
@@ -109,7 +109,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _highlightedTitleColor: UIColor? {
+    private var highlightedTitleColor: UIColor? {
         get {
             return self.titleLabel.highlightedTextColor
         }
@@ -120,7 +120,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _titleFontName: String? {
+    private var titleFontName: String? {
         get {
             return self.titleLabel.font.fontName
         }
@@ -137,7 +137,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _titleFontSize: CGFloat {
+    private var titleFontSize: CGFloat {
         get {
             return self.titleLabel.font.pointSize
         }
@@ -149,7 +149,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _subtitle: String? {
+    private var subtitle: String? {
         get {
             return self.subtitleLabel.text
         }
@@ -160,7 +160,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _subtitleColor: UIColor? {
+    private var subtitleColor: UIColor? {
         get {
             return self.subtitleLabel.textColor
         }
@@ -171,7 +171,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _highlightedSubtitleColor: UIColor? {
+    private var highlightedSubtitleColor: UIColor? {
         get {
             return self.subtitleLabel.highlightedTextColor
         }
@@ -182,7 +182,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _subtitleFontName: String? {
+    private var subtitleFontName: String? {
         get {
             return self.subtitleLabel.font.fontName
         }
@@ -199,7 +199,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _subtitleFontSize: CGFloat {
+    private var subtitleFontSize: CGFloat {
         get {
             return self.subtitleLabel.font.pointSize
         }
@@ -211,7 +211,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _shadowColor: UIColor {
+    private var shadowColor: UIColor {
         get {
             return self.roundedBackgroundView!.shadowColor
         }
@@ -223,7 +223,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _shadowOffset: CGSize {
+    private var shadowOffset: CGSize {
         get {
             return self.roundedBackgroundView!.shadowOffset
         }
@@ -234,7 +234,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _shadowRadius: CGFloat {
+    private var shadowRadius: CGFloat {
         get {
             return self.roundedBackgroundView!.shadowRadius
         }
@@ -245,7 +245,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _shadowOpacity: Float {
+    private var shadowOpacity: Float {
         get {
             return self.roundedBackgroundView!.shadowOpacity
         }
@@ -256,7 +256,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _cornerRadius: CGFloat {
+    private var cornerRadius: CGFloat {
         get {
             return self.roundedBackgroundView!.cornerRadius
         }
@@ -267,7 +267,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _contentOpacityWhenHighlighted: CGFloat {
+    private var didContentOpacityWhenHighlighted: CGFloat {
         get {
             return contentOpacityWhenHighlighted
         }
@@ -278,7 +278,7 @@ extension ProfileButton {
     }
 
     @IBInspectable
-    private var _changesContentOpacityWhenHighlighted: Bool {
+    private var didChangesContentOpacityWhenHighlighted: Bool {
         get {
             return changesContentOpacityWhenHighlighted
         }

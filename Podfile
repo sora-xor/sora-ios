@@ -24,7 +24,6 @@ abstract_target 'SoraPassportAll' do
   pod 'SnapKit'
   pod 'SoraUIKit', :path => './Frameworks/ios-ui'
   pod 'IdensicMobileSDK', :http => 'https://github.com/PayWings/PayWingsOnboardingKycSDK-iOS-IdensicMobile/archive/v2.2.5.tar.gz'
-  pod 'FLEX', :configurations => ['Debug', 'Dev']
   pod 'sorawallet', :podspec => 'https://raw.githubusercontent.com/soramitsu/x-networking-old/0.2.10/lib/sorawallet/sorawallet.podspec'
 
   target 'SoraPassportTests' do

@@ -30,9 +30,6 @@
 
 import UIKit
 import SoraUI
-#if F_DEV
-import FLEX
-#endif
 
 final class SoraWindow: UIWindow {
     private struct Constants {
@@ -54,14 +51,6 @@ final class SoraWindow: UIWindow {
         super.bringSubviewToFront(view)
 
         bringStatusToFront()
-    }
-    
-    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        #if F_DEV
-        if motion == .motionShake {
-            FLEXManager.shared.showExplorer()
-        }
-        #endif
     }
 
     private func bringStatusToFront() {

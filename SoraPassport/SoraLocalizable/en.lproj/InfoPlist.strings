@@ -2,3 +2,4 @@
 "NSFaceIDUsageDescription" = "Face ID is used to authorize in application";
 "NSPhotoLibraryUsageDescription" = "Load photos from library";
 "NSPhotoLibraryAddUsageDescription" = "Save transfer request as a qr code";
+"NSLocationWhenInUseUsageDescription" = "Location is used to enable location-based features while you use the app.";

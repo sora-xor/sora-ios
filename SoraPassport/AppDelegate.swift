@@ -34,9 +34,6 @@ import SCard
 import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
-#if F_DEV
-import FLEX
-#endif
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -52,7 +49,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if !isUnitTesting {
             FirebaseApp.configure()
 
-            initFlex()
             setupLanguage()
             
             TypographyConstants.registerFonts(from: Bundle(for: TypographyConstants.self))
@@ -86,98 +82,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
-    private func initFlex() {
-        #if F_DEV
-
-        FLEXManager.shared.registerGlobalEntry(withName: "Reset SORA Card Token") { tableViewController in
-            let isUserSignIn = SCard.shared?.isUserSignIn ?? false
-            let message = "User is signed in: \(isUserSignIn)"
-            let title = "Reset SORA Card Token"
-            let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = message
-            }
-            let removeAction = UIAlertAction(title: "Logout",  style: .destructive) { _ in
-                SCard.shared?.logout()
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-            alertController.addAction(removeAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        guard let url = Bundle.main.url(forResource: "/Podfile", withExtension: "lock") else { return }
-        let data = try? String(contentsOf: url, encoding: .utf8)
-
-        let scardInfo = data?.groups(for: "SCard:\n\\s*:[a-z]*:.*\n\\s*:[a-z]*:.*")
-        let commit = scardInfo?[safe: 1]?[safe: 0]?.groups(for: ":commit: (.*)")[safe: 0]?[safe: 1]?.prefix(10) ?? "-"
-        let scardInfoMessage = scardInfo?.flatMap{ $0 }.joined()
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard commit:\(commit)") { tableViewController in
-
-            let title = "SCard pod version"
-            let alertController = UIAlertController(title: title, message: scardInfoMessage, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard Config") { tableViewController in
-
-            let title = "SCard Config"
-
-            let alertController = UIAlertController(title: title, message: SCard.shared?.configuration, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard update version") { tableViewController in
-
-            let title = "SCard update version"
-
-            let alertController = UIAlertController(title: title, message: SCard.currentSDKVersion, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        #endif
-    }
-    
     func setupLanguage() {
         let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         UIView.appearance().semanticContentAttribute = semanticContentAttribute
