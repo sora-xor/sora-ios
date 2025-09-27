@@ -2,12 +2,16 @@
 
 OTHER_SWIFT_FLAGS = $(inherited) "-DF_TEST"
 
-SORA_APPLICATION_CONFIG = Test
+//SORA_APPLICATION_CONFIG = Test
+SORA_BUNDLE_ID = co.jp.soramitsu.sora.test
+SORA_APPLICATION_CONFIG = Staging
 FIREBASE_CONFIG = GoogleService-Info-Test.plist
 SORA_NAME = Soralution
-SORA_GOOGLE_TOKEN = 
-SORA_GOOGLE_URL_SCHEME = 
-SORA_GOOGLE_TOKEN_DEBUG = 
-SORA_GOOGLE_URL_SCHEME_DEBUG = 
-SORA_IOS_GOOGLE_TOKEN_PROD = 
-SORA_IOS_GOOGLE_URL_SCHEME_PROD = 
+SORA_GOOGLE_TOKEN = co.jp.soramitsu.sora.test
+SORA_GOOGLE_URL_SCHEME = co.jp.soramitsu.sora.fest
+SORA_GOOGLE_TOKEN_DEBUG = co.jp.soramitsu.sora.dev
+SORA_GOOGLE_URL_SCHEME_DEBUG = co.jp.soramitsu.sora.dev
+SORA_IOS_GOOGLE_TOKEN_PROD =
+SORA_IOS_GOOGLE_URL_SCHEME_PROD =
+SORA_GOOGLE_TOKEN_DEV = 976903753703-1uajkdgd01bssj8plgpspgdtvfvsg45b.apps.googleusercontent.com
+SORA_GOOGLE_URL_SCHEME_DEV = com.googleusercontent.apps.976903753703-1uajkdgd01bssj8plgpspgdtvfvsg45b
