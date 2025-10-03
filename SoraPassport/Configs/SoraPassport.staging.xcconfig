@@ -2,9 +2,9 @@
 
 OTHER_SWIFT_FLAGS = $(inherited) "-DF_STAGING"
 
-SORA_BUNDLE_ID = co.jp.soramitsu.sora.stage
+SORA_BUNDLE_ID = co.jp.soramitsu.sora.test
 SORA_APPLICATION_CONFIG = Staging
-FIREBASE_CONFIG = GoogleService-Info-Stage.plist
+FIREBASE_CONFIG = GoogleService-Info-Staging.plist
 SORA_NAME = Sora Staging
 SORA_GOOGLE_TOKEN = co.jp.soramitsu.sora.test
 SORA_GOOGLE_URL_SCHEME = co.jp.soramitsu.sora.fest
@@ -12,5 +12,5 @@ SORA_GOOGLE_TOKEN_DEBUG = co.jp.soramitsu.sora.dev
 SORA_GOOGLE_URL_SCHEME_DEBUG = co.jp.soramitsu.sora.dev
 SORA_IOS_GOOGLE_TOKEN_PROD =
 SORA_IOS_GOOGLE_URL_SCHEME_PROD =
-SORA_GOOGLE_TOKEN_DEV = 976903753703-u2ptb5hu1g4l6ag5k0pr4nc3varv0rrd.apps.googleusercontent.com
-SORA_GOOGLE_URL_SCHEME_DEV = com.googleusercontent.apps.976903753703-u2ptb5hu1g4l6ag5k0pr4nc3varv0rrd
+SORA_GOOGLE_TOKEN_DEV = 976903753703-1uajkdgd01bssj8plgpspgdtvfvsg45b.apps.googleusercontent.com
+SORA_GOOGLE_URL_SCHEME_DEV = com.googleusercontent.apps.976903753703-1uajkdgd01bssj8plgpspgdtvfvsg45b

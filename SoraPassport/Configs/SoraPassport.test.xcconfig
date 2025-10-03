@@ -2,7 +2,6 @@
 
 OTHER_SWIFT_FLAGS = $(inherited) "-DF_TEST"
 
-//SORA_APPLICATION_CONFIG = Test
 SORA_BUNDLE_ID = co.jp.soramitsu.sora.test
 SORA_APPLICATION_CONFIG = Staging
 FIREBASE_CONFIG = GoogleService-Info-Test.plist

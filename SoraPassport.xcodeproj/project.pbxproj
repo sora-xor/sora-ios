@@ -981,6 +981,7 @@
 		8BF4287D2940B1E600590F92 /* LanguageItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF4287C2940B1E600590F92 /* LanguageItemView.swift */; };
 		91AB95FD2E781EB6002B6EE2 /* SoraFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 91AB95FC2E781EB6002B6EE2 /* SoraFoundation */; };
 		91AB95FF2E781F51002B6EE2 /* SSFIndexers in Frameworks */ = {isa = PBXBuildFile; productRef = 91AB95FE2E781F51002B6EE2 /* SSFIndexers */; };
+		91C8F2F52E8F8A870098E29E /* CDTransactionHistoryItem+CoreDataDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91C8F2F42E8F8A870098E29E /* CDTransactionHistoryItem+CoreDataDecodable.swift */; };
 		91D7B04B7F0479B242327146 /* FriendsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */; };
 		9406839C267908E1005F520D /* EventCodingPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9406839B267908E1005F520D /* EventCodingPath.swift */; };
 		940683A226790B44005F520D /* OperationCombiningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940683A126790B44005F520D /* OperationCombiningService.swift */; };
@@ -1069,7 +1070,6 @@
 		9441F9C725C9815E00775559 /* DataProviderChange+Result.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C025C9815B00775559 /* DataProviderChange+Result.swift */; };
 		9441F9C825C9815E00775559 /* Storage+Identifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C125C9815B00775559 /* Storage+Identifiable.swift */; };
 		9441F9C925C9815E00775559 /* CDContactItem+CoreDataDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C225C9815C00775559 /* CDContactItem+CoreDataDecodable.swift */; };
-		9441F9CA25C9815E00775559 /* CDTransactionHistoryItem+CoreDataDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C325C9815C00775559 /* CDTransactionHistoryItem+CoreDataDecodable.swift */; };
 		9441F9CB25C9815E00775559 /* CDAccountItem+CoreDataDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C425C9815D00775559 /* CDAccountItem+CoreDataDecodable.swift */; };
 		9441F9CC25C9815E00775559 /* SortDescriptor+Storage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C525C9815D00775559 /* SortDescriptor+Storage.swift */; };
 		9441F9CD25C9815E00775559 /* CDChainStorageItem+CoreDataDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C625C9815E00775559 /* CDChainStorageItem+CoreDataDecodable.swift */; };
@@ -2503,6 +2503,7 @@
 		8BF4287A2940A6F800590F92 /* LanguageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageCell.swift; sourceTree = "<group>"; };
 		8BF4287C2940B1E600590F92 /* LanguageItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageItemView.swift; sourceTree = "<group>"; };
 		8FC3AC1242F0F1C1CF37B488 /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
+		91C8F2F42E8F8A870098E29E /* CDTransactionHistoryItem+CoreDataDecodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CDTransactionHistoryItem+CoreDataDecodable.swift"; sourceTree = "<group>"; };
 		9406839B267908E1005F520D /* EventCodingPath.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EventCodingPath.swift; sourceTree = "<group>"; };
 		940683A126790B44005F520D /* OperationCombiningService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OperationCombiningService.swift; sourceTree = "<group>"; };
 		940683A826790C55005F520D /* Longrun.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Longrun.swift; sourceTree = "<group>"; };
@@ -2589,7 +2590,6 @@
 		9441F9C025C9815B00775559 /* DataProviderChange+Result.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "DataProviderChange+Result.swift"; sourceTree = "<group>"; };
 		9441F9C125C9815B00775559 /* Storage+Identifiable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Storage+Identifiable.swift"; sourceTree = "<group>"; };
 		9441F9C225C9815C00775559 /* CDContactItem+CoreDataDecodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CDContactItem+CoreDataDecodable.swift"; sourceTree = "<group>"; };
-		9441F9C325C9815C00775559 /* CDTransactionHistoryItem+CoreDataDecodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CDTransactionHistoryItem+CoreDataDecodable.swift"; sourceTree = "<group>"; };
 		9441F9C425C9815D00775559 /* CDAccountItem+CoreDataDecodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CDAccountItem+CoreDataDecodable.swift"; sourceTree = "<group>"; };
 		9441F9C525C9815D00775559 /* SortDescriptor+Storage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SortDescriptor+Storage.swift"; sourceTree = "<group>"; };
 		9441F9C625C9815E00775559 /* CDChainStorageItem+CoreDataDecodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CDChainStorageItem+CoreDataDecodable.swift"; sourceTree = "<group>"; };
@@ -6003,7 +6003,7 @@
 				9441F9C625C9815E00775559 /* CDChainStorageItem+CoreDataDecodable.swift */,
 				94497DFC25EF925900FD4F14 /* ChainStorage+Decodable.swift */,
 				9441F9C225C9815C00775559 /* CDContactItem+CoreDataDecodable.swift */,
-				9441F9C325C9815C00775559 /* CDTransactionHistoryItem+CoreDataDecodable.swift */,
+				91C8F2F42E8F8A870098E29E /* CDTransactionHistoryItem+CoreDataDecodable.swift */,
 				945A577025DE878C003E4023 /* CDPhishingItem+CoreDataDecodable.swift */,
 				9441F9C025C9815B00775559 /* DataProviderChange+Result.swift */,
 				9441F9C525C9815D00775559 /* SortDescriptor+Storage.swift */,
@@ -7415,6 +7415,7 @@
 				36C370F3282531980027BA77 /* SubqueryReferrerRewards.swift in Sources */,
 				9441F92F25C96CC300775559 /* CryptoType+ViewModel.swift in Sources */,
 				9441F8F025C9699400775559 /* ConnectionItem.swift in Sources */,
+				91C8F2F52E8F8A870098E29E /* CDTransactionHistoryItem+CoreDataDecodable.swift in Sources */,
 				84530A45223BEB4400AD7598 /* SecurityLayerProtocols.swift in Sources */,
 				9441D2A22678FD0700FDD374 /* ExtrinsicProcessing.swift in Sources */,
 				366D53B2295249280094CE36 /* ContactsViewModel.swift in Sources */,
@@ -8492,7 +8493,6 @@
 				9441F95525C9707200775559 /* BaseOperation+Result.swift in Sources */,
 				36165509291B12CE00060A8D /* PooledCell.swift in Sources */,
 				9441FB0925CAE15700775559 /* PolkadotIcon+Image.swift in Sources */,
-				9441F9CA25C9815E00775559 /* CDTransactionHistoryItem+CoreDataDecodable.swift in Sources */,
 				36B7D612295C941B00ECBBF6 /* FiatService.swift in Sources */,
 				94497E9925EFDBA400FD4F14 /* InMemoryDataProviderRepository.swift in Sources */,
 				B267AA9F2A7A2F7200EF9CF0 /* EditViewItem.swift in Sources */,
@@ -9726,7 +9726,7 @@
 			repositoryURL = "https://github.com/soramitsu/shared-features-spm";
 			requirement = {
 				kind = revision;
-				revision = d258abfea99d5781aec35b8f4f7961e7965c2a07;
+				revision = 0df0c8b2c9d11b567fc7b6aefbfee069000789ab;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
