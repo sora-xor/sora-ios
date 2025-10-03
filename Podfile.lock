@@ -219,7 +219,7 @@ DEPENDENCIES:
   - lottie-ios (~> 4.4.3)
   - Nantes
   - R.swift (~> 6.1.0)
-  - SCard (from `https://github.com/sora-xor/sora-card-ios`, tag `1.8.3`)
+  - SCard (from `https://github.com/sora-xor/sora-card-ios`, tag `1.8.3.1`)
   - SnapKit
   - SoraDocuments
   - SoraUI (from `./Frameworks/sora-ui`)
@@ -278,7 +278,7 @@ EXTERNAL SOURCES:
     :git: https://github.com/onevcat/Kingfisher
   SCard:
     :git: https://github.com/sora-xor/sora-card-ios
-    :tag: 1.8.3
+    :tag: 1.8.3.1
   SoraUI:
     :path: "./Frameworks/sora-ui"
   SoraUIKit:
@@ -297,7 +297,7 @@ CHECKOUT OPTIONS:
     :git: https://github.com/onevcat/Kingfisher
   SCard:
     :git: https://github.com/sora-xor/sora-card-ios
-    :tag: 1.8.3
+    :tag: 1.8.3.1
   SVGKit:
     :commit: a26fb848b01bd9580f2980d191923b7ca02fd8be
     :git: https://github.com/SVGKit/SVGKit.git
@@ -337,7 +337,7 @@ SPEC CHECKSUMS:
   RecaptchaEnterprise: a5914ad9db6ff79eaca7258d82ecef6f10009936
   RecaptchaEnterpriseSDK: 5e72d7f19d2f679b68c25071c33b40f817e21149
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
-  SCard: eccd377d41fb26ec5734146639e18f15a603e002
+  SCard: 71a033d45c80a15027a2ed4f10b8a768782b884b
   SnapKit: d612e99e678a2d3b95bf60b0705ed0a35c03484a
   SoraDocuments: c927a79974f73672a8f39d8c2bb143afca5d3561
   SoraUI: 69fc496a40cddd6db693f929b7060674a91a2a0f
@@ -348,6 +348,6 @@ SPEC CHECKSUMS:
   SwiftLint: 32ee33ded0636d0905ef6911b2b67bbaeeedafa5
   Then: 844265ae87834bbe1147d91d5d41a404da2ec27d
 
-PODFILE CHECKSUM: 0ec41b6102a32c18cbf950afb78cfc79f17a7d7c
+PODFILE CHECKSUM: a27683a6a5d7a5e073fbb56a1865a43656e07b71
 
 COCOAPODS: 1.16.2

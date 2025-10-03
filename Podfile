@@ -45,7 +45,7 @@ abstract_target 'SoraPassportAll' do
   target 'SoraPassportIntegrationTests'
 
   target 'SoraPassport' do
-      pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :tag => ‘1.8.3’
+      pod 'SCard', :git => 'https://github.com/sora-xor/sora-card-ios', :tag => ‘1.8.3.1’
   end
   
 end
