@@ -35,7 +35,7 @@ import Foundation
 import IrohaCrypto
 import RobinHood
 import SSFModels
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 final class WalletNetworkOperationFactory {
     let accountSettings: WalletAccountSettingsProtocol
@@ -100,7 +100,7 @@ final class WalletNetworkOperationFactory {
                 parameters: [
                     try StorageKeyFactory().accountsKey(
                         account: address.accountId!,
-                        asset: Data(hex: assetId)
+                        asset: Data.sora(hex: assetId)
                     ).toHex(includePrefix: true)
                 ]
             )

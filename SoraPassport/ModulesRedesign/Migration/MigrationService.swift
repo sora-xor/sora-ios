@@ -209,7 +209,7 @@ class MigrationService: MigrationServiceProtocol {
         let operationManager = OperationManagerFacade.sharedManager
         let requestFactory = StorageRequestFactory(remoteFactory: storageFactory as! StorageKeyFactoryProtocol, operationManager: operationManager)
 
-        let block = try? Data(hex: hash)
+        let block = try? Data.sora(hex: hash)
         let wrapper: CompoundOperationWrapper<[StorageResponse<[EventRecord]>]> =
             requestFactory.queryItems(engine: engine,
                                       keys: { [remoteKey!] },

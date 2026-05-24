@@ -1641,6 +1641,17 @@ import os
     
     
     
+     var polkaswapIndexerURL: URL {
+        get {
+            return cuckoo_manager.getter("polkaswapIndexerURL",
+                superclassCall:
+                    
+                    Cuckoo.MockManager.crashOnProtocolSuperclassCall()
+                    ,
+                defaultCall: __defaultImplStub!.polkaswapIndexerURL)
+        }
+        
+    }
      var subqueryUrl: URL {
         get {
             return cuckoo_manager.getter("subqueryUrl",
@@ -1932,6 +1943,13 @@ import os
         
         
         
+        var polkaswapIndexerURL: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
+            return .init(manager: cuckoo_manager, name: "polkaswapIndexerURL")
+        }
+        
+        
+        
+        
         var subqueryUrl: Cuckoo.ProtocolToBeStubbedReadOnlyProperty<MockApplicationConfigProtocol, URL> {
             return .init(manager: cuckoo_manager, name: "subqueryUrl")
         }
@@ -2159,6 +2177,13 @@ import os
         
         var shareURL: Cuckoo.VerifyReadOnlyProperty<URL> {
             return .init(manager: cuckoo_manager, name: "shareURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
+        }
+        
+        
+        
+        
+        var polkaswapIndexerURL: Cuckoo.VerifyReadOnlyProperty<URL> {
+            return .init(manager: cuckoo_manager, name: "polkaswapIndexerURL", callMatcher: callMatcher, sourceLocation: sourceLocation)
         }
         
         
@@ -2476,6 +2501,17 @@ import os
     
     
      var shareURL: URL {
+        get {
+            return DefaultValueRegistry.defaultValue(for: (URL).self)
+        }
+        
+    }
+    
+    
+    
+    
+    
+     var polkaswapIndexerURL: URL {
         get {
             return DefaultValueRegistry.defaultValue(for: (URL).self)
         }
@@ -2904,7 +2940,3 @@ import Reachability
     
     
 }
-
-
-
-

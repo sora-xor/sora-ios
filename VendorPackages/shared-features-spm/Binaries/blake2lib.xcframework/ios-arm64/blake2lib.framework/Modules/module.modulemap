@@ -1,0 +1,6 @@
+framework module blake2lib {
+  umbrella header "blake2lib.h"
+  export *
+
+  module * { export * }
+}

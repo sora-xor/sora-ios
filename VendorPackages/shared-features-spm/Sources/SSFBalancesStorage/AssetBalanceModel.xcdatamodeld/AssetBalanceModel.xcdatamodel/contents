@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23507" systemVersion="24B83" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+    <entity name="CDAssetBalance" representedClassName="CDAssetBalance" syncable="YES" codeGenerationType="class">
+        <attribute name="accountId" optional="YES" attributeType="String"/>
+        <attribute name="assetId" attributeType="String"/>
+        <attribute name="balance" optional="YES" attributeType="Decimal" defaultValueString="0.0"/>
+        <attribute name="balanceId" attributeType="String"/>
+        <attribute name="chainId" attributeType="String"/>
+        <attribute name="deltaPrice" optional="YES" attributeType="Decimal" defaultValueString="0.0"/>
+        <attribute name="lockedBalance" optional="YES" attributeType="Decimal" defaultValueString="0.0"/>
+        <attribute name="price" optional="YES" attributeType="Decimal" defaultValueString="0.0"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="balanceId"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+</model>

@@ -1,0 +1,2503 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 5.7.2 (swiftlang-5.7.2.135.5 clang-1400.0.29.51)
+// swift-module-flags: -target arm64-apple-ios13.0 -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -module-name PayWingsKycSDK
+// swift-module-flags-ignorable: -enable-bare-slash-regex
+import Combine
+import CommonCrypto
+import CryptoKit
+import Dispatch
+import Foundation
+import IdensicMobileSDK
+import MobileCoreServices
+@_exported import PayWingsKycSDK
+import Security
+import Swift
+import SystemConfiguration
+import UIKit
+import UniformTypeIdentifiers
+import _Concurrency
+import _StringProcessing
+public typealias Parameters = [Swift.String : Any]
+public protocol ParameterEncoding {
+  func encode(_ urlRequest: PayWingsKycSDK.URLRequestConvertible, with parameters: PayWingsKycSDK.Parameters?) throws -> Foundation.URLRequest
+}
+public struct URLEncoding : PayWingsKycSDK.ParameterEncoding {
+  public enum Destination {
+    case methodDependent
+    case queryString
+    case httpBody
+    public static func == (a: PayWingsKycSDK.URLEncoding.Destination, b: PayWingsKycSDK.URLEncoding.Destination) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public enum ArrayEncoding {
+    case brackets
+    case noBrackets
+    case indexInBrackets
+    case custom((_ key: Swift.String, _ index: Swift.Int) -> Swift.String)
+  }
+  public enum BoolEncoding {
+    case numeric
+    case literal
+    public static func == (a: PayWingsKycSDK.URLEncoding.BoolEncoding, b: PayWingsKycSDK.URLEncoding.BoolEncoding) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public static var `default`: PayWingsKycSDK.URLEncoding {
+    get
+  }
+  public static var queryString: PayWingsKycSDK.URLEncoding {
+    get
+  }
+  public static var httpBody: PayWingsKycSDK.URLEncoding {
+    get
+  }
+  public let destination: PayWingsKycSDK.URLEncoding.Destination
+  public let arrayEncoding: PayWingsKycSDK.URLEncoding.ArrayEncoding
+  public let boolEncoding: PayWingsKycSDK.URLEncoding.BoolEncoding
+  public init(destination: PayWingsKycSDK.URLEncoding.Destination = .methodDependent, arrayEncoding: PayWingsKycSDK.URLEncoding.ArrayEncoding = .brackets, boolEncoding: PayWingsKycSDK.URLEncoding.BoolEncoding = .numeric)
+  public func encode(_ urlRequest: PayWingsKycSDK.URLRequestConvertible, with parameters: PayWingsKycSDK.Parameters?) throws -> Foundation.URLRequest
+  public func queryComponents(fromKey key: Swift.String, value: Any) -> [(Swift.String, Swift.String)]
+  public func escape(_ string: Swift.String) -> Swift.String
+}
+public struct JSONEncoding : PayWingsKycSDK.ParameterEncoding {
+  public enum Error : Swift.Error {
+    case invalidJSONObject
+    public static func == (a: PayWingsKycSDK.JSONEncoding.Error, b: PayWingsKycSDK.JSONEncoding.Error) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public static var `default`: PayWingsKycSDK.JSONEncoding {
+    get
+  }
+  public static var prettyPrinted: PayWingsKycSDK.JSONEncoding {
+    get
+  }
+  public let options: Foundation.JSONSerialization.WritingOptions
+  public init(options: Foundation.JSONSerialization.WritingOptions = [])
+  public func encode(_ urlRequest: PayWingsKycSDK.URLRequestConvertible, with parameters: PayWingsKycSDK.Parameters?) throws -> Foundation.URLRequest
+  public func encode(_ urlRequest: PayWingsKycSDK.URLRequestConvertible, withJSONObject jsonObject: Any? = nil) throws -> Foundation.URLRequest
+}
+extension PayWingsKycSDK.JSONEncoding.Error {
+  public var localizedDescription: Swift.String {
+    get
+  }
+}
+final public class URLEncodedFormEncoder {
+  public enum ArrayEncoding {
+    case brackets
+    case noBrackets
+    case indexInBrackets
+    case custom((_ key: Swift.String, _ index: Swift.Int) -> Swift.String)
+  }
+  public enum BoolEncoding {
+    case numeric
+    case literal
+    public static func == (a: PayWingsKycSDK.URLEncodedFormEncoder.BoolEncoding, b: PayWingsKycSDK.URLEncodedFormEncoder.BoolEncoding) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public enum DataEncoding {
+    case deferredToData
+    case base64
+    case custom((Foundation.Data) throws -> Swift.String)
+  }
+  public enum DateEncoding {
+    case deferredToDate
+    case secondsSince1970
+    case millisecondsSince1970
+    case iso8601
+    case formatted(Foundation.DateFormatter)
+    case custom((Foundation.Date) throws -> Swift.String)
+  }
+  public enum KeyEncoding {
+    case useDefaultKeys
+    case convertToSnakeCase
+    case convertToKebabCase
+    case capitalized
+    case uppercased
+    case lowercased
+    case custom((Swift.String) -> Swift.String)
+  }
+  public struct KeyPathEncoding {
+    public static let brackets: PayWingsKycSDK.URLEncodedFormEncoder.KeyPathEncoding
+    public static let dots: PayWingsKycSDK.URLEncodedFormEncoder.KeyPathEncoding
+    public init(encoding: @escaping (_ subkey: Swift.String) -> Swift.String)
+  }
+  public struct NilEncoding {
+    public static let dropKey: PayWingsKycSDK.URLEncodedFormEncoder.NilEncoding
+    public static let dropValue: PayWingsKycSDK.URLEncodedFormEncoder.NilEncoding
+    public static let null: PayWingsKycSDK.URLEncodedFormEncoder.NilEncoding
+    public init(encoding: @escaping () -> Swift.String?)
+  }
+  public enum SpaceEncoding {
+    case percentEscaped
+    case plusReplaced
+    public static func == (a: PayWingsKycSDK.URLEncodedFormEncoder.SpaceEncoding, b: PayWingsKycSDK.URLEncodedFormEncoder.SpaceEncoding) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public enum Error : Swift.Error {
+    case invalidRootObject(Swift.String)
+  }
+  final public let alphabetizeKeyValuePairs: Swift.Bool
+  final public let arrayEncoding: PayWingsKycSDK.URLEncodedFormEncoder.ArrayEncoding
+  final public let boolEncoding: PayWingsKycSDK.URLEncodedFormEncoder.BoolEncoding
+  final public let dataEncoding: PayWingsKycSDK.URLEncodedFormEncoder.DataEncoding
+  final public let dateEncoding: PayWingsKycSDK.URLEncodedFormEncoder.DateEncoding
+  final public let keyEncoding: PayWingsKycSDK.URLEncodedFormEncoder.KeyEncoding
+  final public let keyPathEncoding: PayWingsKycSDK.URLEncodedFormEncoder.KeyPathEncoding
+  final public let nilEncoding: PayWingsKycSDK.URLEncodedFormEncoder.NilEncoding
+  final public let spaceEncoding: PayWingsKycSDK.URLEncodedFormEncoder.SpaceEncoding
+  final public var allowedCharacters: Foundation.CharacterSet
+  public init(alphabetizeKeyValuePairs: Swift.Bool = true, arrayEncoding: PayWingsKycSDK.URLEncodedFormEncoder.ArrayEncoding = .brackets, boolEncoding: PayWingsKycSDK.URLEncodedFormEncoder.BoolEncoding = .numeric, dataEncoding: PayWingsKycSDK.URLEncodedFormEncoder.DataEncoding = .base64, dateEncoding: PayWingsKycSDK.URLEncodedFormEncoder.DateEncoding = .deferredToDate, keyEncoding: PayWingsKycSDK.URLEncodedFormEncoder.KeyEncoding = .useDefaultKeys, keyPathEncoding: PayWingsKycSDK.URLEncodedFormEncoder.KeyPathEncoding = .brackets, nilEncoding: PayWingsKycSDK.URLEncodedFormEncoder.NilEncoding = .dropKey, spaceEncoding: PayWingsKycSDK.URLEncodedFormEncoder.SpaceEncoding = .percentEscaped, allowedCharacters: Foundation.CharacterSet = .afURLQueryAllowed)
+  final public func encode(_ value: Swift.Encodable) throws -> Swift.String
+  final public func encode(_ value: Swift.Encodable) throws -> Foundation.Data
+  @objc deinit
+}
+extension Foundation.CharacterSet {
+  public static let afURLQueryAllowed: Foundation.CharacterSet
+}
+public protocol DataResponseSerializerProtocol {
+  associatedtype SerializedObject
+  func serialize(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, data: Foundation.Data?, error: Swift.Error?) throws -> Self.SerializedObject
+}
+public protocol DownloadResponseSerializerProtocol {
+  associatedtype SerializedObject
+  func serializeDownload(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, fileURL: Foundation.URL?, error: Swift.Error?) throws -> Self.SerializedObject
+}
+public protocol ResponseSerializer : PayWingsKycSDK.DataResponseSerializerProtocol, PayWingsKycSDK.DownloadResponseSerializerProtocol {
+  var dataPreprocessor: PayWingsKycSDK.DataPreprocessor { get }
+  var emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> { get }
+  var emptyResponseCodes: Swift.Set<Swift.Int> { get }
+}
+public protocol DataPreprocessor {
+  func preprocess(_ data: Foundation.Data) throws -> Foundation.Data
+}
+public struct PassthroughPreprocessor : PayWingsKycSDK.DataPreprocessor {
+  public init()
+  public func preprocess(_ data: Foundation.Data) throws -> Foundation.Data
+}
+public struct GoogleXSSIPreprocessor : PayWingsKycSDK.DataPreprocessor {
+  public init()
+  public func preprocess(_ data: Foundation.Data) throws -> Foundation.Data
+}
+extension PayWingsKycSDK.DataPreprocessor where Self == PayWingsKycSDK.PassthroughPreprocessor {
+  public static var passthrough: PayWingsKycSDK.PassthroughPreprocessor {
+    get
+  }
+}
+extension PayWingsKycSDK.DataPreprocessor where Self == PayWingsKycSDK.GoogleXSSIPreprocessor {
+  public static var googleXSSI: PayWingsKycSDK.GoogleXSSIPreprocessor {
+    get
+  }
+}
+extension PayWingsKycSDK.ResponseSerializer {
+  public static var defaultDataPreprocessor: PayWingsKycSDK.DataPreprocessor {
+    get
+  }
+  public static var defaultEmptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> {
+    get
+  }
+  public static var defaultEmptyResponseCodes: Swift.Set<Swift.Int> {
+    get
+  }
+  public var dataPreprocessor: PayWingsKycSDK.DataPreprocessor {
+    get
+  }
+  public var emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> {
+    get
+  }
+  public var emptyResponseCodes: Swift.Set<Swift.Int> {
+    get
+  }
+  public func requestAllowsEmptyResponseData(_ request: Foundation.URLRequest?) -> Swift.Bool?
+  public func responseAllowsEmptyResponseData(_ response: Foundation.HTTPURLResponse?) -> Swift.Bool?
+  public func emptyResponseAllowed(forRequest request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?) -> Swift.Bool
+}
+extension PayWingsKycSDK.DownloadResponseSerializerProtocol where Self : PayWingsKycSDK.DataResponseSerializerProtocol {
+  public func serializeDownload(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, fileURL: Foundation.URL?, error: Swift.Error?) throws -> Self.SerializedObject
+}
+extension PayWingsKycSDK.DataRequest {
+  @discardableResult
+  public func response(queue: Dispatch.DispatchQueue = .main, completionHandler: @escaping (PayWingsKycSDK.AFDataResponse<Foundation.Data?>) -> Swift.Void) -> Self
+  @discardableResult
+  public func response<Serializer>(queue: Dispatch.DispatchQueue = .main, responseSerializer: Serializer, completionHandler: @escaping (PayWingsKycSDK.AFDataResponse<Serializer.SerializedObject>) -> Swift.Void) -> Self where Serializer : PayWingsKycSDK.DataResponseSerializerProtocol
+  @discardableResult
+  public func response<Serializer>(queue: Dispatch.DispatchQueue = .main, responseSerializer: Serializer, completionHandler: @escaping (PayWingsKycSDK.AFDataResponse<Serializer.SerializedObject>) -> Swift.Void) -> Self where Serializer : PayWingsKycSDK.ResponseSerializer
+}
+extension PayWingsKycSDK.DownloadRequest {
+  @discardableResult
+  public func response(queue: Dispatch.DispatchQueue = .main, completionHandler: @escaping (PayWingsKycSDK.AFDownloadResponse<Foundation.URL?>) -> Swift.Void) -> Self
+  @discardableResult
+  public func response<Serializer>(queue: Dispatch.DispatchQueue = .main, responseSerializer: Serializer, completionHandler: @escaping (PayWingsKycSDK.AFDownloadResponse<Serializer.SerializedObject>) -> Swift.Void) -> Self where Serializer : PayWingsKycSDK.DownloadResponseSerializerProtocol
+  @discardableResult
+  public func response<Serializer>(queue: Dispatch.DispatchQueue = .main, responseSerializer: Serializer, completionHandler: @escaping (PayWingsKycSDK.AFDownloadResponse<Serializer.SerializedObject>) -> Swift.Void) -> Self where Serializer : PayWingsKycSDK.ResponseSerializer
+}
+public struct URLResponseSerializer : PayWingsKycSDK.DownloadResponseSerializerProtocol {
+  public init()
+  public func serializeDownload(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, fileURL: Foundation.URL?, error: Swift.Error?) throws -> Foundation.URL
+  public typealias SerializedObject = Foundation.URL
+}
+extension PayWingsKycSDK.DownloadResponseSerializerProtocol where Self == PayWingsKycSDK.URLResponseSerializer {
+  public static var url: PayWingsKycSDK.URLResponseSerializer {
+    get
+  }
+}
+extension PayWingsKycSDK.DownloadRequest {
+  @discardableResult
+  public func responseURL(queue: Dispatch.DispatchQueue = .main, completionHandler: @escaping (PayWingsKycSDK.AFDownloadResponse<Foundation.URL>) -> Swift.Void) -> Self
+}
+final public class DataResponseSerializer : PayWingsKycSDK.ResponseSerializer {
+  final public let dataPreprocessor: PayWingsKycSDK.DataPreprocessor
+  final public let emptyResponseCodes: Swift.Set<Swift.Int>
+  final public let emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod>
+  public init(dataPreprocessor: PayWingsKycSDK.DataPreprocessor = DataResponseSerializer.defaultDataPreprocessor, emptyResponseCodes: Swift.Set<Swift.Int> = DataResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DataResponseSerializer.defaultEmptyRequestMethods)
+  final public func serialize(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, data: Foundation.Data?, error: Swift.Error?) throws -> Foundation.Data
+  public typealias SerializedObject = Foundation.Data
+  @objc deinit
+}
+extension PayWingsKycSDK.ResponseSerializer where Self == PayWingsKycSDK.DataResponseSerializer {
+  public static var data: PayWingsKycSDK.DataResponseSerializer {
+    get
+  }
+  public static func data(dataPreprocessor: PayWingsKycSDK.DataPreprocessor = DataResponseSerializer.defaultDataPreprocessor, emptyResponseCodes: Swift.Set<Swift.Int> = DataResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DataResponseSerializer.defaultEmptyRequestMethods) -> PayWingsKycSDK.DataResponseSerializer
+}
+extension PayWingsKycSDK.DataRequest {
+  @discardableResult
+  public func responseData(queue: Dispatch.DispatchQueue = .main, dataPreprocessor: PayWingsKycSDK.DataPreprocessor = DataResponseSerializer.defaultDataPreprocessor, emptyResponseCodes: Swift.Set<Swift.Int> = DataResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DataResponseSerializer.defaultEmptyRequestMethods, completionHandler: @escaping (PayWingsKycSDK.AFDataResponse<Foundation.Data>) -> Swift.Void) -> Self
+}
+extension PayWingsKycSDK.DownloadRequest {
+  @discardableResult
+  public func responseData(queue: Dispatch.DispatchQueue = .main, dataPreprocessor: PayWingsKycSDK.DataPreprocessor = DataResponseSerializer.defaultDataPreprocessor, emptyResponseCodes: Swift.Set<Swift.Int> = DataResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DataResponseSerializer.defaultEmptyRequestMethods, completionHandler: @escaping (PayWingsKycSDK.AFDownloadResponse<Foundation.Data>) -> Swift.Void) -> Self
+}
+final public class StringResponseSerializer : PayWingsKycSDK.ResponseSerializer {
+  final public let dataPreprocessor: PayWingsKycSDK.DataPreprocessor
+  final public let encoding: Swift.String.Encoding?
+  final public let emptyResponseCodes: Swift.Set<Swift.Int>
+  final public let emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod>
+  public init(dataPreprocessor: PayWingsKycSDK.DataPreprocessor = StringResponseSerializer.defaultDataPreprocessor, encoding: Swift.String.Encoding? = nil, emptyResponseCodes: Swift.Set<Swift.Int> = StringResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = StringResponseSerializer.defaultEmptyRequestMethods)
+  final public func serialize(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, data: Foundation.Data?, error: Swift.Error?) throws -> Swift.String
+  public typealias SerializedObject = Swift.String
+  @objc deinit
+}
+extension PayWingsKycSDK.ResponseSerializer where Self == PayWingsKycSDK.StringResponseSerializer {
+  public static var string: PayWingsKycSDK.StringResponseSerializer {
+    get
+  }
+  public static func string(dataPreprocessor: PayWingsKycSDK.DataPreprocessor = StringResponseSerializer.defaultDataPreprocessor, encoding: Swift.String.Encoding? = nil, emptyResponseCodes: Swift.Set<Swift.Int> = StringResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = StringResponseSerializer.defaultEmptyRequestMethods) -> PayWingsKycSDK.StringResponseSerializer
+}
+extension PayWingsKycSDK.DataRequest {
+  @discardableResult
+  public func responseString(queue: Dispatch.DispatchQueue = .main, dataPreprocessor: PayWingsKycSDK.DataPreprocessor = StringResponseSerializer.defaultDataPreprocessor, encoding: Swift.String.Encoding? = nil, emptyResponseCodes: Swift.Set<Swift.Int> = StringResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = StringResponseSerializer.defaultEmptyRequestMethods, completionHandler: @escaping (PayWingsKycSDK.AFDataResponse<Swift.String>) -> Swift.Void) -> Self
+}
+extension PayWingsKycSDK.DownloadRequest {
+  @discardableResult
+  public func responseString(queue: Dispatch.DispatchQueue = .main, dataPreprocessor: PayWingsKycSDK.DataPreprocessor = StringResponseSerializer.defaultDataPreprocessor, encoding: Swift.String.Encoding? = nil, emptyResponseCodes: Swift.Set<Swift.Int> = StringResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = StringResponseSerializer.defaultEmptyRequestMethods, completionHandler: @escaping (PayWingsKycSDK.AFDownloadResponse<Swift.String>) -> Swift.Void) -> Self
+}
+@available(*, deprecated, message: "JSONResponseSerializer deprecated and will be removed in Alamofire 6. Use DecodableResponseSerializer instead.")
+final public class JSONResponseSerializer : PayWingsKycSDK.ResponseSerializer {
+  final public let dataPreprocessor: PayWingsKycSDK.DataPreprocessor
+  final public let emptyResponseCodes: Swift.Set<Swift.Int>
+  final public let emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod>
+  final public let options: Foundation.JSONSerialization.ReadingOptions
+  public init(dataPreprocessor: PayWingsKycSDK.DataPreprocessor = JSONResponseSerializer.defaultDataPreprocessor, emptyResponseCodes: Swift.Set<Swift.Int> = JSONResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = JSONResponseSerializer.defaultEmptyRequestMethods, options: Foundation.JSONSerialization.ReadingOptions = .allowFragments)
+  final public func serialize(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, data: Foundation.Data?, error: Swift.Error?) throws -> Any
+  public typealias SerializedObject = Any
+  @objc deinit
+}
+extension PayWingsKycSDK.DataRequest {
+  @available(*, deprecated, message: "responseJSON deprecated and will be removed in Alamofire 6. Use responseDecodable instead.")
+  @discardableResult
+  public func responseJSON(queue: Dispatch.DispatchQueue = .main, dataPreprocessor: PayWingsKycSDK.DataPreprocessor = JSONResponseSerializer.defaultDataPreprocessor, emptyResponseCodes: Swift.Set<Swift.Int> = JSONResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = JSONResponseSerializer.defaultEmptyRequestMethods, options: Foundation.JSONSerialization.ReadingOptions = .allowFragments, completionHandler: @escaping (PayWingsKycSDK.AFDataResponse<Any>) -> Swift.Void) -> Self
+}
+extension PayWingsKycSDK.DownloadRequest {
+  @available(*, deprecated, message: "responseJSON deprecated and will be removed in Alamofire 6. Use responseDecodable instead.")
+  @discardableResult
+  public func responseJSON(queue: Dispatch.DispatchQueue = .main, dataPreprocessor: PayWingsKycSDK.DataPreprocessor = JSONResponseSerializer.defaultDataPreprocessor, emptyResponseCodes: Swift.Set<Swift.Int> = JSONResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = JSONResponseSerializer.defaultEmptyRequestMethods, options: Foundation.JSONSerialization.ReadingOptions = .allowFragments, completionHandler: @escaping (PayWingsKycSDK.AFDownloadResponse<Any>) -> Swift.Void) -> Self
+}
+public protocol EmptyResponse {
+  static func emptyValue() -> Self
+}
+public struct Empty : Swift.Codable {
+  public static let value: PayWingsKycSDK.Empty
+  public func encode(to encoder: Swift.Encoder) throws
+  public init(from decoder: Swift.Decoder) throws
+}
+extension PayWingsKycSDK.Empty : PayWingsKycSDK.EmptyResponse {
+  public static func emptyValue() -> PayWingsKycSDK.Empty
+}
+public protocol DataDecoder {
+  func decode<D>(_ type: D.Type, from data: Foundation.Data) throws -> D where D : Swift.Decodable
+}
+extension Foundation.JSONDecoder : PayWingsKycSDK.DataDecoder {
+}
+extension Foundation.PropertyListDecoder : PayWingsKycSDK.DataDecoder {
+}
+final public class DecodableResponseSerializer<T> : PayWingsKycSDK.ResponseSerializer where T : Swift.Decodable {
+  final public let dataPreprocessor: PayWingsKycSDK.DataPreprocessor
+  final public let decoder: PayWingsKycSDK.DataDecoder
+  final public let emptyResponseCodes: Swift.Set<Swift.Int>
+  final public let emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod>
+  public init(dataPreprocessor: PayWingsKycSDK.DataPreprocessor = DecodableResponseSerializer.defaultDataPreprocessor, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), emptyResponseCodes: Swift.Set<Swift.Int> = DecodableResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DecodableResponseSerializer.defaultEmptyRequestMethods)
+  final public func serialize(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, data: Foundation.Data?, error: Swift.Error?) throws -> T
+  public typealias SerializedObject = T
+  @objc deinit
+}
+extension PayWingsKycSDK.ResponseSerializer {
+  public static func decodable<T>(of type: T.Type, dataPreprocessor: PayWingsKycSDK.DataPreprocessor = DecodableResponseSerializer<T>.defaultDataPreprocessor, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), emptyResponseCodes: Swift.Set<Swift.Int> = DecodableResponseSerializer<T>.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DecodableResponseSerializer<T>.defaultEmptyRequestMethods) -> PayWingsKycSDK.DecodableResponseSerializer<T> where Self == PayWingsKycSDK.DecodableResponseSerializer<T>, T : Swift.Decodable
+}
+extension PayWingsKycSDK.DataRequest {
+  @discardableResult
+  public func responseDecodable<T>(of type: T.Type = T.self, queue: Dispatch.DispatchQueue = .main, dataPreprocessor: PayWingsKycSDK.DataPreprocessor = DecodableResponseSerializer<T>.defaultDataPreprocessor, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), emptyResponseCodes: Swift.Set<Swift.Int> = DecodableResponseSerializer<T>.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DecodableResponseSerializer<T>.defaultEmptyRequestMethods, completionHandler: @escaping (PayWingsKycSDK.AFDataResponse<T>) -> Swift.Void) -> Self where T : Swift.Decodable
+}
+extension PayWingsKycSDK.DownloadRequest {
+  @discardableResult
+  public func responseDecodable<T>(of type: T.Type = T.self, queue: Dispatch.DispatchQueue = .main, dataPreprocessor: PayWingsKycSDK.DataPreprocessor = DecodableResponseSerializer<T>.defaultDataPreprocessor, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), emptyResponseCodes: Swift.Set<Swift.Int> = DecodableResponseSerializer<T>.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DecodableResponseSerializer<T>.defaultEmptyRequestMethods, completionHandler: @escaping (PayWingsKycSDK.AFDownloadResponse<T>) -> Swift.Void) -> Self where T : Swift.Decodable
+}
+public protocol DataStreamSerializer {
+  associatedtype SerializedObject
+  func serialize(_ data: Foundation.Data) throws -> Self.SerializedObject
+}
+public struct DecodableStreamSerializer<T> : PayWingsKycSDK.DataStreamSerializer where T : Swift.Decodable {
+  public let decoder: PayWingsKycSDK.DataDecoder
+  public let dataPreprocessor: PayWingsKycSDK.DataPreprocessor
+  public init(decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), dataPreprocessor: PayWingsKycSDK.DataPreprocessor = PassthroughPreprocessor())
+  public func serialize(_ data: Foundation.Data) throws -> T
+  public typealias SerializedObject = T
+}
+public struct PassthroughStreamSerializer : PayWingsKycSDK.DataStreamSerializer {
+  public init()
+  public func serialize(_ data: Foundation.Data) throws -> Foundation.Data
+  public typealias SerializedObject = Foundation.Data
+}
+public struct StringStreamSerializer : PayWingsKycSDK.DataStreamSerializer {
+  public init()
+  public func serialize(_ data: Foundation.Data) throws -> Swift.String
+  public typealias SerializedObject = Swift.String
+}
+extension PayWingsKycSDK.DataStreamSerializer {
+  public static func decodable<T>(of type: T.Type, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), dataPreprocessor: PayWingsKycSDK.DataPreprocessor = PassthroughPreprocessor()) -> Self where Self == PayWingsKycSDK.DecodableStreamSerializer<T>, T : Swift.Decodable
+}
+extension PayWingsKycSDK.DataStreamSerializer where Self == PayWingsKycSDK.PassthroughStreamSerializer {
+  public static var passthrough: PayWingsKycSDK.PassthroughStreamSerializer {
+    get
+  }
+}
+extension PayWingsKycSDK.DataStreamSerializer where Self == PayWingsKycSDK.StringStreamSerializer {
+  public static var string: PayWingsKycSDK.StringStreamSerializer {
+    get
+  }
+}
+extension PayWingsKycSDK.DataStreamRequest {
+  @discardableResult
+  final public func responseStream(on queue: Dispatch.DispatchQueue = .main, stream: @escaping PayWingsKycSDK.DataStreamRequest.Handler<Foundation.Data, Swift.Never>) -> Self
+  @discardableResult
+  final public func responseStream<Serializer>(using serializer: Serializer, on queue: Dispatch.DispatchQueue = .main, stream: @escaping PayWingsKycSDK.DataStreamRequest.Handler<Serializer.SerializedObject, PayWingsKycSDK.AFError>) -> Self where Serializer : PayWingsKycSDK.DataStreamSerializer
+  @discardableResult
+  final public func responseStreamString(on queue: Dispatch.DispatchQueue = .main, stream: @escaping PayWingsKycSDK.DataStreamRequest.Handler<Swift.String, Swift.Never>) -> Self
+  @discardableResult
+  final public func responseStreamDecodable<T>(of type: T.Type = T.self, on queue: Dispatch.DispatchQueue = .main, using decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), preprocessor: PayWingsKycSDK.DataPreprocessor = PassthroughPreprocessor(), stream: @escaping PayWingsKycSDK.DataStreamRequest.Handler<T, PayWingsKycSDK.AFError>) -> Self where T : Swift.Decodable
+}
+open class MultipartFormData {
+  public static let encodingMemoryThreshold: Swift.UInt64
+  open var contentType: Swift.String {
+    get
+    set
+  }
+  public var contentLength: Swift.UInt64 {
+    get
+  }
+  final public let boundary: Swift.String
+  public init(fileManager: Foundation.FileManager = .default, boundary: Swift.String? = nil)
+  public func append(_ data: Foundation.Data, withName name: Swift.String, fileName: Swift.String? = nil, mimeType: Swift.String? = nil)
+  public func append(_ fileURL: Foundation.URL, withName name: Swift.String)
+  public func append(_ fileURL: Foundation.URL, withName name: Swift.String, fileName: Swift.String, mimeType: Swift.String)
+  public func append(_ stream: Foundation.InputStream, withLength length: Swift.UInt64, name: Swift.String, fileName: Swift.String, mimeType: Swift.String)
+  public func append(_ stream: Foundation.InputStream, withLength length: Swift.UInt64, headers: PayWingsKycSDK.HTTPHeaders)
+  public func encode() throws -> Foundation.Data
+  public func writeEncodedData(to fileURL: Foundation.URL) throws
+  @objc deinit
+}
+public struct HTTPHeaders {
+  public init()
+  public init(_ headers: [PayWingsKycSDK.HTTPHeader])
+  public init(_ dictionary: [Swift.String : Swift.String])
+  public mutating func add(name: Swift.String, value: Swift.String)
+  public mutating func add(_ header: PayWingsKycSDK.HTTPHeader)
+  public mutating func update(name: Swift.String, value: Swift.String)
+  public mutating func update(_ header: PayWingsKycSDK.HTTPHeader)
+  public mutating func remove(name: Swift.String)
+  public mutating func sort()
+  public func sorted() -> PayWingsKycSDK.HTTPHeaders
+  public func value(for name: Swift.String) -> Swift.String?
+  public subscript(name: Swift.String) -> Swift.String? {
+    get
+    set
+  }
+  public var dictionary: [Swift.String : Swift.String] {
+    get
+  }
+}
+extension PayWingsKycSDK.HTTPHeaders : Swift.ExpressibleByDictionaryLiteral {
+  public init(dictionaryLiteral elements: (Swift.String, Swift.String)...)
+  public typealias Key = Swift.String
+  public typealias Value = Swift.String
+}
+extension PayWingsKycSDK.HTTPHeaders : Swift.ExpressibleByArrayLiteral {
+  public init(arrayLiteral elements: PayWingsKycSDK.HTTPHeader...)
+  public typealias ArrayLiteralElement = PayWingsKycSDK.HTTPHeader
+}
+extension PayWingsKycSDK.HTTPHeaders : Swift.Sequence {
+  public func makeIterator() -> Swift.IndexingIterator<[PayWingsKycSDK.HTTPHeader]>
+}
+extension PayWingsKycSDK.HTTPHeaders : Swift.Collection {
+  public var startIndex: Swift.Int {
+    get
+  }
+  public var endIndex: Swift.Int {
+    get
+  }
+  public subscript(position: Swift.Int) -> PayWingsKycSDK.HTTPHeader {
+    get
+  }
+  public func index(after i: Swift.Int) -> Swift.Int
+  public typealias Element = PayWingsKycSDK.HTTPHeader
+  public typealias Index = Swift.Int
+  public typealias Indices = Swift.DefaultIndices<PayWingsKycSDK.HTTPHeaders>
+  public typealias Iterator = Swift.IndexingIterator<[PayWingsKycSDK.HTTPHeader]>
+  public typealias SubSequence = Swift.Slice<PayWingsKycSDK.HTTPHeaders>
+}
+extension PayWingsKycSDK.HTTPHeaders : Swift.CustomStringConvertible {
+  public var description: Swift.String {
+    get
+  }
+}
+public struct HTTPHeader : Swift.Hashable {
+  public let name: Swift.String
+  public let value: Swift.String
+  public init(name: Swift.String, value: Swift.String)
+  public func hash(into hasher: inout Swift.Hasher)
+  public static func == (a: PayWingsKycSDK.HTTPHeader, b: PayWingsKycSDK.HTTPHeader) -> Swift.Bool
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+extension PayWingsKycSDK.HTTPHeader : Swift.CustomStringConvertible {
+  public var description: Swift.String {
+    get
+  }
+}
+extension PayWingsKycSDK.HTTPHeader {
+  public static func accept(_ value: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func acceptCharset(_ value: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func acceptLanguage(_ value: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func acceptEncoding(_ value: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func authorization(username: Swift.String, password: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func authorization(bearerToken: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func authorization(_ value: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func contentDisposition(_ value: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func contentEncoding(_ value: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func contentType(_ value: Swift.String) -> PayWingsKycSDK.HTTPHeader
+  public static func userAgent(_ value: Swift.String) -> PayWingsKycSDK.HTTPHeader
+}
+extension PayWingsKycSDK.HTTPHeaders {
+  public static let `default`: PayWingsKycSDK.HTTPHeaders
+}
+extension PayWingsKycSDK.HTTPHeader {
+  public static let defaultAcceptEncoding: PayWingsKycSDK.HTTPHeader
+  public static let defaultAcceptLanguage: PayWingsKycSDK.HTTPHeader
+  public static let defaultUserAgent: PayWingsKycSDK.HTTPHeader
+}
+extension Foundation.URLRequest {
+  public var headers: PayWingsKycSDK.HTTPHeaders {
+    get
+    set
+  }
+}
+extension Foundation.HTTPURLResponse {
+  public var headers: PayWingsKycSDK.HTTPHeaders {
+    get
+  }
+}
+extension Foundation.URLSessionConfiguration {
+  public var headers: PayWingsKycSDK.HTTPHeaders {
+    get
+    set
+  }
+}
+@_hasMissingDesignatedInitializers final public class PayWingsKyc {
+  public typealias KYCTokenRefreshHandler = (_ methodUrl: Swift.String, @escaping (Swift.String?, Swift.String?) -> Swift.Void) -> Swift.Void
+  public static func tokenRefreshHandler(_ handler: @escaping PayWingsKycSDK.PayWingsKyc.KYCTokenRefreshHandler)
+  public static func initialize(vc: UIKit.UIViewController, credentials: PayWingsKycSDK.KycCredentials, result: PayWingsKycSDK.VerificationResult)
+  public static func startKyc(settings: PayWingsKycSDK.KycSettings)
+  @objc deinit
+}
+public enum HttpRequestMethod : Swift.String {
+  case GET, DELETE, HEAD, POST, PUT
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+final public class KycCredentials {
+  public init(username: Swift.String, password: Swift.String, endpointUrl: Swift.String)
+  @objc deinit
+}
+final public class KycSettings {
+  public init(referenceID: Swift.String, referenceNumber: Swift.String, language: Swift.String?)
+  @objc deinit
+}
+public protocol CachedResponseHandler {
+  func dataTask(_ task: Foundation.URLSessionDataTask, willCacheResponse response: Foundation.CachedURLResponse, completion: @escaping (Foundation.CachedURLResponse?) -> Swift.Void)
+}
+public struct ResponseCacher {
+  public enum Behavior {
+    case cache
+    case doNotCache
+    case modify((Foundation.URLSessionDataTask, Foundation.CachedURLResponse) -> Foundation.CachedURLResponse?)
+  }
+  public static let cache: PayWingsKycSDK.ResponseCacher
+  public static let doNotCache: PayWingsKycSDK.ResponseCacher
+  public let behavior: PayWingsKycSDK.ResponseCacher.Behavior
+  public init(behavior: PayWingsKycSDK.ResponseCacher.Behavior)
+}
+extension PayWingsKycSDK.ResponseCacher : PayWingsKycSDK.CachedResponseHandler {
+  public func dataTask(_ task: Foundation.URLSessionDataTask, willCacheResponse response: Foundation.CachedURLResponse, completion: @escaping (Foundation.CachedURLResponse?) -> Swift.Void)
+}
+extension PayWingsKycSDK.CachedResponseHandler where Self == PayWingsKycSDK.ResponseCacher {
+  public static var cache: PayWingsKycSDK.ResponseCacher {
+    get
+  }
+  public static var doNotCache: PayWingsKycSDK.ResponseCacher {
+    get
+  }
+  public static func modify(using closure: @escaping ((Foundation.URLSessionDataTask, Foundation.CachedURLResponse) -> Foundation.CachedURLResponse?)) -> PayWingsKycSDK.ResponseCacher
+}
+public enum KycErrorCode : Swift.Int {
+  case UNKNOWN_ERROR
+  case MISSING_REFERENCE_NUMBER
+  case REFERENCE_NUMBER_TOO_LONG
+  case MISSING_ENDPOINT_URL
+  case INVALID_ENDPOINT_URL
+  case MISSING_USERNAME
+  case MISSING_PASSWORD
+  case INVALID_AUTHORIZATION
+  case ANOTHER_KYC_ALREADY_IN_PROGRESS
+  case INSUFFICIENT_FUNDS
+  case ABORTED_BY_USER
+  case MISMATCH_MOBILE_NUMBER
+  case MISMATCH_EMAIL
+  case REFERENCE_NUMBER_NOT_EXIST
+  case REFERENCE_NUMBER_ALREADY_USED
+  case INTERNET_CONNECTION_ISSUE
+  case ACCOUNT_CONFIGURATION_NOT_SUPPORTED
+  case KycAlreadyDone
+  public var description: Swift.String {
+    get
+  }
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers final public class KycError {
+  final public var code: PayWingsKycSDK.KycErrorCode
+  final public var message: Swift.String
+  @objc deinit
+}
+open class RetryPolicy : PayWingsKycSDK.RequestInterceptor {
+  public static let defaultRetryLimit: Swift.UInt
+  public static let defaultExponentialBackoffBase: Swift.UInt
+  public static let defaultExponentialBackoffScale: Swift.Double
+  public static let defaultRetryableHTTPMethods: Swift.Set<PayWingsKycSDK.HTTPMethod>
+  public static let defaultRetryableHTTPStatusCodes: Swift.Set<Swift.Int>
+  public static let defaultRetryableURLErrorCodes: Swift.Set<Foundation.URLError.Code>
+  final public let retryLimit: Swift.UInt
+  final public let exponentialBackoffBase: Swift.UInt
+  final public let exponentialBackoffScale: Swift.Double
+  final public let retryableHTTPMethods: Swift.Set<PayWingsKycSDK.HTTPMethod>
+  final public let retryableHTTPStatusCodes: Swift.Set<Swift.Int>
+  final public let retryableURLErrorCodes: Swift.Set<Foundation.URLError.Code>
+  public init(retryLimit: Swift.UInt = RetryPolicy.defaultRetryLimit, exponentialBackoffBase: Swift.UInt = RetryPolicy.defaultExponentialBackoffBase, exponentialBackoffScale: Swift.Double = RetryPolicy.defaultExponentialBackoffScale, retryableHTTPMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = RetryPolicy.defaultRetryableHTTPMethods, retryableHTTPStatusCodes: Swift.Set<Swift.Int> = RetryPolicy.defaultRetryableHTTPStatusCodes, retryableURLErrorCodes: Swift.Set<Foundation.URLError.Code> = RetryPolicy.defaultRetryableURLErrorCodes)
+  open func retry(_ request: PayWingsKycSDK.Request, for session: PayWingsKycSDK.Session, dueTo error: Swift.Error, completion: @escaping (PayWingsKycSDK.RetryResult) -> Swift.Void)
+  open func shouldRetry(request: PayWingsKycSDK.Request, dueTo error: Swift.Error) -> Swift.Bool
+  @objc deinit
+}
+extension PayWingsKycSDK.RequestInterceptor where Self == PayWingsKycSDK.RetryPolicy {
+  public static var retryPolicy: PayWingsKycSDK.RetryPolicy {
+    get
+  }
+  public static func retryPolicy(retryLimit: Swift.UInt = RetryPolicy.defaultRetryLimit, exponentialBackoffBase: Swift.UInt = RetryPolicy.defaultExponentialBackoffBase, exponentialBackoffScale: Swift.Double = RetryPolicy.defaultExponentialBackoffScale, retryableHTTPMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = RetryPolicy.defaultRetryableHTTPMethods, retryableHTTPStatusCodes: Swift.Set<Swift.Int> = RetryPolicy.defaultRetryableHTTPStatusCodes, retryableURLErrorCodes: Swift.Set<Foundation.URLError.Code> = RetryPolicy.defaultRetryableURLErrorCodes) -> PayWingsKycSDK.RetryPolicy
+}
+open class ConnectionLostRetryPolicy : PayWingsKycSDK.RetryPolicy {
+  public init(retryLimit: Swift.UInt = RetryPolicy.defaultRetryLimit, exponentialBackoffBase: Swift.UInt = RetryPolicy.defaultExponentialBackoffBase, exponentialBackoffScale: Swift.Double = RetryPolicy.defaultExponentialBackoffScale, retryableHTTPMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = RetryPolicy.defaultRetryableHTTPMethods)
+  @objc deinit
+}
+extension PayWingsKycSDK.RequestInterceptor where Self == PayWingsKycSDK.ConnectionLostRetryPolicy {
+  public static var connectionLostRetryPolicy: PayWingsKycSDK.ConnectionLostRetryPolicy {
+    get
+  }
+  public static func connectionLostRetryPolicy(retryLimit: Swift.UInt = RetryPolicy.defaultRetryLimit, exponentialBackoffBase: Swift.UInt = RetryPolicy.defaultExponentialBackoffBase, exponentialBackoffScale: Swift.Double = RetryPolicy.defaultExponentialBackoffScale, retryableHTTPMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = RetryPolicy.defaultRetryableHTTPMethods) -> PayWingsKycSDK.ConnectionLostRetryPolicy
+}
+@_hasMissingDesignatedInitializers open class NetworkReachabilityManager {
+  public enum NetworkReachabilityStatus {
+    case unknown
+    case notReachable
+    case reachable(PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus.ConnectionType)
+    public enum ConnectionType {
+      case ethernetOrWiFi
+      case cellular
+      public static func == (a: PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus.ConnectionType, b: PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus.ConnectionType) -> Swift.Bool
+      public func hash(into hasher: inout Swift.Hasher)
+      public var hashValue: Swift.Int {
+        get
+      }
+    }
+  }
+  public typealias Listener = (PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus) -> Swift.Void
+  public static let `default`: PayWingsKycSDK.NetworkReachabilityManager?
+  open var isReachable: Swift.Bool {
+    get
+  }
+  open var isReachableOnCellular: Swift.Bool {
+    get
+  }
+  open var isReachableOnEthernetOrWiFi: Swift.Bool {
+    get
+  }
+  final public let reachabilityQueue: Dispatch.DispatchQueue
+  open var flags: SystemConfiguration.SCNetworkReachabilityFlags? {
+    get
+  }
+  open var status: PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus {
+    get
+  }
+  convenience public init?(host: Swift.String)
+  convenience public init?()
+  @objc deinit
+  @discardableResult
+  open func startListening(onQueue queue: Dispatch.DispatchQueue = .main, onUpdatePerforming listener: @escaping PayWingsKycSDK.NetworkReachabilityManager.Listener) -> Swift.Bool
+  open func stopListening()
+}
+extension PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus : Swift.Equatable {
+  public static func == (a: PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus, b: PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus) -> Swift.Bool
+}
+public struct AlamofireExtension<ExtendedType> {
+  public var type: ExtendedType {
+    get
+  }
+  public init(_ type: ExtendedType)
+}
+public protocol AlamofireExtended {
+  associatedtype ExtendedType
+  static var af: PayWingsKycSDK.AlamofireExtension<Self.ExtendedType>.Type { get set }
+  var af: PayWingsKycSDK.AlamofireExtension<Self.ExtendedType> { get set }
+}
+extension PayWingsKycSDK.AlamofireExtended {
+  public static var af: PayWingsKycSDK.AlamofireExtension<Self>.Type {
+    get
+    set
+  }
+  public var af: PayWingsKycSDK.AlamofireExtension<Self> {
+    get
+    set
+  }
+}
+open class ServerTrustManager {
+  final public let allHostsMustBeEvaluated: Swift.Bool
+  final public let evaluators: [Swift.String : PayWingsKycSDK.ServerTrustEvaluating]
+  public init(allHostsMustBeEvaluated: Swift.Bool = true, evaluators: [Swift.String : PayWingsKycSDK.ServerTrustEvaluating])
+  open func serverTrustEvaluator(forHost host: Swift.String) throws -> PayWingsKycSDK.ServerTrustEvaluating?
+  @objc deinit
+}
+public protocol ServerTrustEvaluating {
+  func evaluate(_ trust: Security.SecTrust, forHost host: Swift.String) throws
+}
+final public class DefaultTrustEvaluator : PayWingsKycSDK.ServerTrustEvaluating {
+  public init(validateHost: Swift.Bool = true)
+  final public func evaluate(_ trust: Security.SecTrust, forHost host: Swift.String) throws
+  @objc deinit
+}
+final public class RevocationTrustEvaluator : PayWingsKycSDK.ServerTrustEvaluating {
+  public struct Options : Swift.OptionSet {
+    public static let crl: PayWingsKycSDK.RevocationTrustEvaluator.Options
+    public static let networkAccessDisabled: PayWingsKycSDK.RevocationTrustEvaluator.Options
+    public static let ocsp: PayWingsKycSDK.RevocationTrustEvaluator.Options
+    public static let preferCRL: PayWingsKycSDK.RevocationTrustEvaluator.Options
+    public static let requirePositiveResponse: PayWingsKycSDK.RevocationTrustEvaluator.Options
+    public static let any: PayWingsKycSDK.RevocationTrustEvaluator.Options
+    public let rawValue: CoreFoundation.CFOptionFlags
+    public init(rawValue: CoreFoundation.CFOptionFlags)
+    public typealias ArrayLiteralElement = PayWingsKycSDK.RevocationTrustEvaluator.Options
+    public typealias Element = PayWingsKycSDK.RevocationTrustEvaluator.Options
+    public typealias RawValue = CoreFoundation.CFOptionFlags
+  }
+  public init(performDefaultValidation: Swift.Bool = true, validateHost: Swift.Bool = true, options: PayWingsKycSDK.RevocationTrustEvaluator.Options = .any)
+  final public func evaluate(_ trust: Security.SecTrust, forHost host: Swift.String) throws
+  @objc deinit
+}
+extension PayWingsKycSDK.ServerTrustEvaluating where Self == PayWingsKycSDK.RevocationTrustEvaluator {
+  public static var revocationChecking: PayWingsKycSDK.RevocationTrustEvaluator {
+    get
+  }
+  public static func revocationChecking(performDefaultValidation: Swift.Bool = true, validateHost: Swift.Bool = true, options: PayWingsKycSDK.RevocationTrustEvaluator.Options = .any) -> PayWingsKycSDK.RevocationTrustEvaluator
+}
+final public class PinnedCertificatesTrustEvaluator : PayWingsKycSDK.ServerTrustEvaluating {
+  public init(certificates: [Security.SecCertificate] = Bundle.main.af.certificates, acceptSelfSignedCertificates: Swift.Bool = false, performDefaultValidation: Swift.Bool = true, validateHost: Swift.Bool = true)
+  final public func evaluate(_ trust: Security.SecTrust, forHost host: Swift.String) throws
+  @objc deinit
+}
+extension PayWingsKycSDK.ServerTrustEvaluating where Self == PayWingsKycSDK.PinnedCertificatesTrustEvaluator {
+  public static var pinnedCertificates: PayWingsKycSDK.PinnedCertificatesTrustEvaluator {
+    get
+  }
+  public static func pinnedCertificates(certificates: [Security.SecCertificate] = Bundle.main.af.certificates, acceptSelfSignedCertificates: Swift.Bool = false, performDefaultValidation: Swift.Bool = true, validateHost: Swift.Bool = true) -> PayWingsKycSDK.PinnedCertificatesTrustEvaluator
+}
+final public class PublicKeysTrustEvaluator : PayWingsKycSDK.ServerTrustEvaluating {
+  public init(keys: [Security.SecKey] = Bundle.main.af.publicKeys, performDefaultValidation: Swift.Bool = true, validateHost: Swift.Bool = true)
+  final public func evaluate(_ trust: Security.SecTrust, forHost host: Swift.String) throws
+  @objc deinit
+}
+extension PayWingsKycSDK.ServerTrustEvaluating where Self == PayWingsKycSDK.PublicKeysTrustEvaluator {
+  public static var publicKeys: PayWingsKycSDK.PublicKeysTrustEvaluator {
+    get
+  }
+  public static func publicKeys(keys: [Security.SecKey] = Bundle.main.af.publicKeys, performDefaultValidation: Swift.Bool = true, validateHost: Swift.Bool = true) -> PayWingsKycSDK.PublicKeysTrustEvaluator
+}
+final public class CompositeTrustEvaluator : PayWingsKycSDK.ServerTrustEvaluating {
+  public init(evaluators: [PayWingsKycSDK.ServerTrustEvaluating])
+  final public func evaluate(_ trust: Security.SecTrust, forHost host: Swift.String) throws
+  @objc deinit
+}
+extension PayWingsKycSDK.ServerTrustEvaluating where Self == PayWingsKycSDK.CompositeTrustEvaluator {
+  public static func composite(evaluators: [PayWingsKycSDK.ServerTrustEvaluating]) -> PayWingsKycSDK.CompositeTrustEvaluator
+}
+@available(*, deprecated, renamed: "DisabledTrustEvaluator", message: "DisabledEvaluator has been renamed DisabledTrustEvaluator.")
+public typealias DisabledEvaluator = PayWingsKycSDK.DisabledTrustEvaluator
+final public class DisabledTrustEvaluator : PayWingsKycSDK.ServerTrustEvaluating {
+  public init()
+  final public func evaluate(_ trust: Security.SecTrust, forHost host: Swift.String) throws
+  @objc deinit
+}
+extension Swift.Array where Element == PayWingsKycSDK.ServerTrustEvaluating {
+  public func evaluate(_ trust: Security.SecTrust, forHost host: Swift.String) throws
+}
+extension Foundation.Bundle : PayWingsKycSDK.AlamofireExtended {
+  public typealias ExtendedType = Foundation.Bundle
+}
+extension PayWingsKycSDK.AlamofireExtension where ExtendedType : Foundation.Bundle {
+  public var certificates: [Security.SecCertificate] {
+    get
+  }
+  public var publicKeys: [Security.SecKey] {
+    get
+  }
+  public func paths(forResourcesOfTypes types: [Swift.String]) -> [Swift.String]
+}
+extension Security.SecTrust : PayWingsKycSDK.AlamofireExtended {
+  public typealias ExtendedType = Security.SecTrust
+}
+extension PayWingsKycSDK.AlamofireExtension where ExtendedType == Security.SecTrust {
+  @available(iOS 12, macOS 10.14, tvOS 12, watchOS 5, *)
+  public func evaluate(afterApplying policy: Security.SecPolicy) throws
+  @available(iOS, introduced: 10, deprecated: 12, renamed: "evaluate(afterApplying:)")
+  @available(macOS, introduced: 10.12, deprecated: 10.14, renamed: "evaluate(afterApplying:)")
+  @available(tvOS, introduced: 10, deprecated: 12, renamed: "evaluate(afterApplying:)")
+  @available(watchOS, introduced: 3, deprecated: 5, renamed: "evaluate(afterApplying:)")
+  public func validate(policy: Security.SecPolicy, errorProducer: (_ status: Darwin.OSStatus, _ result: Security.SecTrustResultType) -> Swift.Error) throws
+  public func apply(policy: Security.SecPolicy) throws -> Security.SecTrust
+  @available(iOS 12, macOS 10.14, tvOS 12, watchOS 5, *)
+  public func evaluate() throws
+  @available(iOS, introduced: 10, deprecated: 12, renamed: "evaluate()")
+  @available(macOS, introduced: 10.12, deprecated: 10.14, renamed: "evaluate()")
+  @available(tvOS, introduced: 10, deprecated: 12, renamed: "evaluate()")
+  @available(watchOS, introduced: 3, deprecated: 5, renamed: "evaluate()")
+  public func validate(errorProducer: (_ status: Darwin.OSStatus, _ result: Security.SecTrustResultType) -> Swift.Error) throws
+  public func setAnchorCertificates(_ certificates: [Security.SecCertificate]) throws
+  public var publicKeys: [Security.SecKey] {
+    get
+  }
+  public var certificates: [Security.SecCertificate] {
+    get
+  }
+  public var certificateData: [Foundation.Data] {
+    get
+  }
+  public func performDefaultValidation(forHost host: Swift.String) throws
+  public func performValidation(forHost host: Swift.String) throws
+}
+extension Security.SecPolicy : PayWingsKycSDK.AlamofireExtended {
+  public typealias ExtendedType = Security.SecPolicy
+}
+extension PayWingsKycSDK.AlamofireExtension where ExtendedType == Security.SecPolicy {
+  public static let `default`: Security.SecPolicy
+  public static func hostname(_ hostname: Swift.String) -> Security.SecPolicy
+  public static func revocation(options: PayWingsKycSDK.RevocationTrustEvaluator.Options) throws -> Security.SecPolicy
+}
+extension Swift.Array : PayWingsKycSDK.AlamofireExtended {
+  public typealias ExtendedType = Swift.Array<Element>
+}
+extension PayWingsKycSDK.AlamofireExtension where ExtendedType == [Security.SecCertificate] {
+  public var data: [Foundation.Data] {
+    get
+  }
+  public var publicKeys: [Security.SecKey] {
+    get
+  }
+}
+extension Security.SecCertificate : PayWingsKycSDK.AlamofireExtended {
+  public typealias ExtendedType = Security.SecCertificate
+}
+extension PayWingsKycSDK.AlamofireExtension where ExtendedType == Security.SecCertificate {
+  public var publicKey: Security.SecKey? {
+    get
+  }
+}
+extension Swift.Int32 : PayWingsKycSDK.AlamofireExtended {
+  public typealias ExtendedType = Swift.Int32
+}
+extension PayWingsKycSDK.AlamofireExtension where ExtendedType == Swift.Int32 {
+  public var isSuccess: Swift.Bool {
+    get
+  }
+}
+extension Security.SecTrustResultType : PayWingsKycSDK.AlamofireExtended {
+  public typealias ExtendedType = Security.SecTrustResultType
+}
+extension PayWingsKycSDK.AlamofireExtension where ExtendedType == Security.SecTrustResultType {
+  public var isSuccess: Swift.Bool {
+    get
+  }
+}
+public struct HTTPMethod : Swift.RawRepresentable, Swift.Equatable, Swift.Hashable {
+  public static let connect: PayWingsKycSDK.HTTPMethod
+  public static let delete: PayWingsKycSDK.HTTPMethod
+  public static let get: PayWingsKycSDK.HTTPMethod
+  public static let head: PayWingsKycSDK.HTTPMethod
+  public static let options: PayWingsKycSDK.HTTPMethod
+  public static let patch: PayWingsKycSDK.HTTPMethod
+  public static let post: PayWingsKycSDK.HTTPMethod
+  public static let put: PayWingsKycSDK.HTTPMethod
+  public static let query: PayWingsKycSDK.HTTPMethod
+  public static let trace: PayWingsKycSDK.HTTPMethod
+  public let rawValue: Swift.String
+  public init(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+}
+public protocol RedirectHandler {
+  func task(_ task: Foundation.URLSessionTask, willBeRedirectedTo request: Foundation.URLRequest, for response: Foundation.HTTPURLResponse, completion: @escaping (Foundation.URLRequest?) -> Swift.Void)
+}
+public struct Redirector {
+  public enum Behavior {
+    case follow
+    case doNotFollow
+    case modify((Foundation.URLSessionTask, Foundation.URLRequest, Foundation.HTTPURLResponse) -> Foundation.URLRequest?)
+  }
+  public static let follow: PayWingsKycSDK.Redirector
+  public static let doNotFollow: PayWingsKycSDK.Redirector
+  public let behavior: PayWingsKycSDK.Redirector.Behavior
+  public init(behavior: PayWingsKycSDK.Redirector.Behavior)
+}
+extension PayWingsKycSDK.Redirector : PayWingsKycSDK.RedirectHandler {
+  public func task(_ task: Foundation.URLSessionTask, willBeRedirectedTo request: Foundation.URLRequest, for response: Foundation.HTTPURLResponse, completion: @escaping (Foundation.URLRequest?) -> Swift.Void)
+}
+extension PayWingsKycSDK.RedirectHandler where Self == PayWingsKycSDK.Redirector {
+  public static var follow: PayWingsKycSDK.Redirector {
+    get
+  }
+  public static var doNotFollow: PayWingsKycSDK.Redirector {
+    get
+  }
+  public static func modify(using closure: @escaping (Foundation.URLSessionTask, Foundation.URLRequest, Foundation.HTTPURLResponse) -> Foundation.URLRequest?) -> PayWingsKycSDK.Redirector
+}
+public struct RequestAdapterState {
+  public let requestID: Foundation.UUID
+  public let session: PayWingsKycSDK.Session
+}
+public protocol RequestAdapter {
+  func adapt(_ urlRequest: Foundation.URLRequest, for session: PayWingsKycSDK.Session, completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void)
+  func adapt(_ urlRequest: Foundation.URLRequest, using state: PayWingsKycSDK.RequestAdapterState, completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void)
+}
+extension PayWingsKycSDK.RequestAdapter {
+  public func adapt(_ urlRequest: Foundation.URLRequest, using state: PayWingsKycSDK.RequestAdapterState, completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void)
+}
+public enum RetryResult {
+  case retry
+  case retryWithDelay(Foundation.TimeInterval)
+  case doNotRetry
+  case doNotRetryWithError(Swift.Error)
+}
+public protocol RequestRetrier {
+  func retry(_ request: PayWingsKycSDK.Request, for session: PayWingsKycSDK.Session, dueTo error: Swift.Error, completion: @escaping (PayWingsKycSDK.RetryResult) -> Swift.Void)
+}
+public protocol RequestInterceptor : PayWingsKycSDK.RequestAdapter, PayWingsKycSDK.RequestRetrier {
+}
+extension PayWingsKycSDK.RequestInterceptor {
+  public func adapt(_ urlRequest: Foundation.URLRequest, for session: PayWingsKycSDK.Session, completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void)
+  public func retry(_ request: PayWingsKycSDK.Request, for session: PayWingsKycSDK.Session, dueTo error: Swift.Error, completion: @escaping (PayWingsKycSDK.RetryResult) -> Swift.Void)
+}
+public typealias AdaptHandler = (Foundation.URLRequest, PayWingsKycSDK.Session, _ completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void) -> Swift.Void
+public typealias RetryHandler = (PayWingsKycSDK.Request, PayWingsKycSDK.Session, Swift.Error, _ completion: @escaping (PayWingsKycSDK.RetryResult) -> Swift.Void) -> Swift.Void
+open class Adapter : PayWingsKycSDK.RequestInterceptor {
+  public init(_ adaptHandler: @escaping PayWingsKycSDK.AdaptHandler)
+  open func adapt(_ urlRequest: Foundation.URLRequest, for session: PayWingsKycSDK.Session, completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void)
+  open func adapt(_ urlRequest: Foundation.URLRequest, using state: PayWingsKycSDK.RequestAdapterState, completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void)
+  @objc deinit
+}
+extension PayWingsKycSDK.RequestAdapter where Self == PayWingsKycSDK.Adapter {
+  public static func adapter(using closure: @escaping PayWingsKycSDK.AdaptHandler) -> PayWingsKycSDK.Adapter
+}
+open class Retrier : PayWingsKycSDK.RequestInterceptor {
+  public init(_ retryHandler: @escaping PayWingsKycSDK.RetryHandler)
+  open func retry(_ request: PayWingsKycSDK.Request, for session: PayWingsKycSDK.Session, dueTo error: Swift.Error, completion: @escaping (PayWingsKycSDK.RetryResult) -> Swift.Void)
+  @objc deinit
+}
+extension PayWingsKycSDK.RequestRetrier where Self == PayWingsKycSDK.Retrier {
+  public static func retrier(using closure: @escaping PayWingsKycSDK.RetryHandler) -> PayWingsKycSDK.Retrier
+}
+open class Interceptor : PayWingsKycSDK.RequestInterceptor {
+  final public let adapters: [PayWingsKycSDK.RequestAdapter]
+  final public let retriers: [PayWingsKycSDK.RequestRetrier]
+  public init(adaptHandler: @escaping PayWingsKycSDK.AdaptHandler, retryHandler: @escaping PayWingsKycSDK.RetryHandler)
+  public init(adapter: PayWingsKycSDK.RequestAdapter, retrier: PayWingsKycSDK.RequestRetrier)
+  public init(adapters: [PayWingsKycSDK.RequestAdapter] = [], retriers: [PayWingsKycSDK.RequestRetrier] = [], interceptors: [PayWingsKycSDK.RequestInterceptor] = [])
+  open func adapt(_ urlRequest: Foundation.URLRequest, for session: PayWingsKycSDK.Session, completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void)
+  open func adapt(_ urlRequest: Foundation.URLRequest, using state: PayWingsKycSDK.RequestAdapterState, completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void)
+  open func retry(_ request: PayWingsKycSDK.Request, for session: PayWingsKycSDK.Session, dueTo error: Swift.Error, completion: @escaping (PayWingsKycSDK.RetryResult) -> Swift.Void)
+  @objc deinit
+}
+extension PayWingsKycSDK.RequestInterceptor where Self == PayWingsKycSDK.Interceptor {
+  public static func interceptor(adapter: @escaping PayWingsKycSDK.AdaptHandler, retrier: @escaping PayWingsKycSDK.RetryHandler) -> PayWingsKycSDK.Interceptor
+  public static func interceptor(adapter: PayWingsKycSDK.RequestAdapter, retrier: PayWingsKycSDK.RequestRetrier) -> PayWingsKycSDK.Interceptor
+  public static func interceptor(adapters: [PayWingsKycSDK.RequestAdapter] = [], retriers: [PayWingsKycSDK.RequestRetrier] = [], interceptors: [PayWingsKycSDK.RequestInterceptor] = []) -> PayWingsKycSDK.Interceptor
+}
+extension Foundation.URLSessionConfiguration : PayWingsKycSDK.AlamofireExtended {
+  public typealias ExtendedType = Foundation.URLSessionConfiguration
+}
+extension PayWingsKycSDK.AlamofireExtension where ExtendedType : Foundation.URLSessionConfiguration {
+  public static var `default`: Foundation.URLSessionConfiguration {
+    get
+  }
+  public static var ephemeral: Foundation.URLSessionConfiguration {
+    get
+  }
+}
+public protocol ParameterEncoder {
+  func encode<Parameters>(_ parameters: Parameters?, into request: Foundation.URLRequest) throws -> Foundation.URLRequest where Parameters : Swift.Encodable
+}
+open class JSONParameterEncoder : PayWingsKycSDK.ParameterEncoder {
+  public static var `default`: PayWingsKycSDK.JSONParameterEncoder {
+    get
+  }
+  public static var prettyPrinted: PayWingsKycSDK.JSONParameterEncoder {
+    get
+  }
+  @available(macOS 10.13, iOS 11.0, tvOS 11.0, watchOS 4.0, *)
+  public static var sortedKeys: PayWingsKycSDK.JSONParameterEncoder {
+    get
+  }
+  final public let encoder: Foundation.JSONEncoder
+  public init(encoder: Foundation.JSONEncoder = JSONEncoder())
+  open func encode<Parameters>(_ parameters: Parameters?, into request: Foundation.URLRequest) throws -> Foundation.URLRequest where Parameters : Swift.Encodable
+  @objc deinit
+}
+extension PayWingsKycSDK.ParameterEncoder where Self == PayWingsKycSDK.JSONParameterEncoder {
+  public static var json: PayWingsKycSDK.JSONParameterEncoder {
+    get
+  }
+  public static func json(encoder: Foundation.JSONEncoder = JSONEncoder()) -> PayWingsKycSDK.JSONParameterEncoder
+}
+open class URLEncodedFormParameterEncoder : PayWingsKycSDK.ParameterEncoder {
+  public enum Destination {
+    case methodDependent
+    case queryString
+    case httpBody
+    public static func == (a: PayWingsKycSDK.URLEncodedFormParameterEncoder.Destination, b: PayWingsKycSDK.URLEncodedFormParameterEncoder.Destination) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public static var `default`: PayWingsKycSDK.URLEncodedFormParameterEncoder {
+    get
+  }
+  final public let encoder: PayWingsKycSDK.URLEncodedFormEncoder
+  final public let destination: PayWingsKycSDK.URLEncodedFormParameterEncoder.Destination
+  public init(encoder: PayWingsKycSDK.URLEncodedFormEncoder = URLEncodedFormEncoder(), destination: PayWingsKycSDK.URLEncodedFormParameterEncoder.Destination = .methodDependent)
+  open func encode<Parameters>(_ parameters: Parameters?, into request: Foundation.URLRequest) throws -> Foundation.URLRequest where Parameters : Swift.Encodable
+  @objc deinit
+}
+extension PayWingsKycSDK.ParameterEncoder where Self == PayWingsKycSDK.URLEncodedFormParameterEncoder {
+  public static var urlEncodedForm: PayWingsKycSDK.URLEncodedFormParameterEncoder {
+    get
+  }
+  public static func urlEncodedForm(encoder: PayWingsKycSDK.URLEncodedFormEncoder = URLEncodedFormEncoder(), destination: PayWingsKycSDK.URLEncodedFormParameterEncoder.Destination = .methodDependent) -> PayWingsKycSDK.URLEncodedFormParameterEncoder
+}
+public typealias AFResult<Success> = Swift.Result<Success, PayWingsKycSDK.AFError>
+final public class VerificationResult {
+  weak final public var delegate: PayWingsKycSDK.VerificationResultDelegate?
+  public init()
+  @objc deinit
+}
+public protocol VerificationResultDelegate : AnyObject {
+  func onSuccess(result: PayWingsKycSDK.SuccessEvent)
+  func onError(result: PayWingsKycSDK.ErrorEvent)
+}
+@_hasMissingDesignatedInitializers final public class SuccessEvent {
+  final public let KycID: Swift.String?
+  final public let PersonID: Swift.String?
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class ErrorEvent {
+  final public let KycReferenceID: Swift.String?
+  final public let KycID: Swift.String?
+  final public let PersonID: Swift.String?
+  final public let ErrorData: PayWingsKycSDK.KycError
+  @objc deinit
+}
+extension Foundation.URLRequest {
+  public var method: PayWingsKycSDK.HTTPMethod? {
+    get
+    set
+  }
+  public func validate() throws
+}
+@_hasMissingDesignatedInitializers public class Request {
+  public enum State {
+    case initialized
+    case resumed
+    case suspended
+    case cancelled
+    case finished
+    public static func == (a: PayWingsKycSDK.Request.State, b: PayWingsKycSDK.Request.State) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  final public let id: Foundation.UUID
+  final public let underlyingQueue: Dispatch.DispatchQueue
+  final public let serializationQueue: Dispatch.DispatchQueue
+  final public let eventMonitor: PayWingsKycSDK.EventMonitor?
+  final public let interceptor: PayWingsKycSDK.RequestInterceptor?
+  weak public var delegate: PayWingsKycSDK.RequestDelegate? {
+    get
+  }
+  public var state: PayWingsKycSDK.Request.State {
+    get
+  }
+  public var isInitialized: Swift.Bool {
+    get
+  }
+  public var isResumed: Swift.Bool {
+    get
+  }
+  public var isSuspended: Swift.Bool {
+    get
+  }
+  public var isCancelled: Swift.Bool {
+    get
+  }
+  public var isFinished: Swift.Bool {
+    get
+  }
+  public typealias ProgressHandler = (Foundation.Progress) -> Swift.Void
+  final public let uploadProgress: Foundation.Progress
+  final public let downloadProgress: Foundation.Progress
+  public var redirectHandler: PayWingsKycSDK.RedirectHandler? {
+    get
+  }
+  public var cachedResponseHandler: PayWingsKycSDK.CachedResponseHandler? {
+    get
+  }
+  public var credential: Foundation.URLCredential? {
+    get
+  }
+  public var requests: [Foundation.URLRequest] {
+    get
+  }
+  public var firstRequest: Foundation.URLRequest? {
+    get
+  }
+  public var lastRequest: Foundation.URLRequest? {
+    get
+  }
+  public var request: Foundation.URLRequest? {
+    get
+  }
+  public var performedRequests: [Foundation.URLRequest] {
+    get
+  }
+  public var response: Foundation.HTTPURLResponse? {
+    get
+  }
+  public var tasks: [Foundation.URLSessionTask] {
+    get
+  }
+  public var firstTask: Foundation.URLSessionTask? {
+    get
+  }
+  public var lastTask: Foundation.URLSessionTask? {
+    get
+  }
+  public var task: Foundation.URLSessionTask? {
+    get
+  }
+  public var allMetrics: [Foundation.URLSessionTaskMetrics] {
+    get
+  }
+  public var firstMetrics: Foundation.URLSessionTaskMetrics? {
+    get
+  }
+  public var lastMetrics: Foundation.URLSessionTaskMetrics? {
+    get
+  }
+  public var metrics: Foundation.URLSessionTaskMetrics? {
+    get
+  }
+  public var retryCount: Swift.Int {
+    get
+  }
+  public var error: PayWingsKycSDK.AFError? {
+    get
+  }
+  @discardableResult
+  public func cancel() -> Self
+  @discardableResult
+  public func suspend() -> Self
+  @discardableResult
+  public func resume() -> Self
+  @discardableResult
+  public func authenticate(username: Swift.String, password: Swift.String, persistence: Foundation.URLCredential.Persistence = .forSession) -> Self
+  @discardableResult
+  public func authenticate(with credential: Foundation.URLCredential) -> Self
+  @discardableResult
+  public func downloadProgress(queue: Dispatch.DispatchQueue = .main, closure: @escaping PayWingsKycSDK.Request.ProgressHandler) -> Self
+  @discardableResult
+  public func uploadProgress(queue: Dispatch.DispatchQueue = .main, closure: @escaping PayWingsKycSDK.Request.ProgressHandler) -> Self
+  @discardableResult
+  public func redirect(using handler: PayWingsKycSDK.RedirectHandler) -> Self
+  @discardableResult
+  public func cacheResponse(using handler: PayWingsKycSDK.CachedResponseHandler) -> Self
+  @discardableResult
+  public func cURLDescription(on queue: Dispatch.DispatchQueue, calling handler: @escaping (Swift.String) -> Swift.Void) -> Self
+  @discardableResult
+  public func cURLDescription(calling handler: @escaping (Swift.String) -> Swift.Void) -> Self
+  @discardableResult
+  public func onURLRequestCreation(on queue: Dispatch.DispatchQueue = .main, perform handler: @escaping (Foundation.URLRequest) -> Swift.Void) -> Self
+  @discardableResult
+  public func onURLSessionTaskCreation(on queue: Dispatch.DispatchQueue = .main, perform handler: @escaping (Foundation.URLSessionTask) -> Swift.Void) -> Self
+  @objc deinit
+}
+extension PayWingsKycSDK.Request {
+  public enum ResponseDisposition {
+    case allow
+    case cancel
+    public static func == (a: PayWingsKycSDK.Request.ResponseDisposition, b: PayWingsKycSDK.Request.ResponseDisposition) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+}
+extension PayWingsKycSDK.Request : Swift.Equatable {
+  public static func == (lhs: PayWingsKycSDK.Request, rhs: PayWingsKycSDK.Request) -> Swift.Bool
+}
+extension PayWingsKycSDK.Request : Swift.Hashable {
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+extension PayWingsKycSDK.Request : Swift.CustomStringConvertible {
+  public var description: Swift.String {
+    get
+  }
+}
+extension PayWingsKycSDK.Request {
+  public func cURLDescription() -> Swift.String
+}
+public protocol RequestDelegate : AnyObject {
+  var sessionConfiguration: Foundation.URLSessionConfiguration { get }
+  var startImmediately: Swift.Bool { get }
+  func cleanup(after request: PayWingsKycSDK.Request)
+  func retryResult(for request: PayWingsKycSDK.Request, dueTo error: PayWingsKycSDK.AFError, completion: @escaping (PayWingsKycSDK.RetryResult) -> Swift.Void)
+  func retryRequest(_ request: PayWingsKycSDK.Request, withDelay timeDelay: Foundation.TimeInterval?)
+}
+@_hasMissingDesignatedInitializers public class DataRequest : PayWingsKycSDK.Request {
+  final public let convertible: PayWingsKycSDK.URLRequestConvertible
+  public var data: Foundation.Data? {
+    get
+  }
+  @discardableResult
+  public func validate(_ validation: @escaping PayWingsKycSDK.DataRequest.Validation) -> Self
+  @discardableResult
+  @_disfavoredOverload public func onHTTPResponse(on queue: Dispatch.DispatchQueue = .main, perform handler: @escaping (_ response: Foundation.HTTPURLResponse, _ completionHandler: @escaping (PayWingsKycSDK.Request.ResponseDisposition) -> Swift.Void) -> Swift.Void) -> Self
+  @discardableResult
+  public func onHTTPResponse(on queue: Dispatch.DispatchQueue = .main, perform handler: @escaping (Foundation.HTTPURLResponse) -> Swift.Void) -> Self
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class DataStreamRequest : PayWingsKycSDK.Request {
+  public typealias Handler<Success, Failure> = (PayWingsKycSDK.DataStreamRequest.Stream<Success, Failure>) throws -> Swift.Void where Failure : Swift.Error
+  public struct Stream<Success, Failure> where Failure : Swift.Error {
+    public let event: PayWingsKycSDK.DataStreamRequest.Event<Success, Failure>
+    public let token: PayWingsKycSDK.DataStreamRequest.CancellationToken
+    public func cancel()
+  }
+  public enum Event<Success, Failure> where Failure : Swift.Error {
+    case stream(Swift.Result<Success, Failure>)
+    case complete(PayWingsKycSDK.DataStreamRequest.Completion)
+  }
+  public struct Completion {
+    public let request: Foundation.URLRequest?
+    public let response: Foundation.HTTPURLResponse?
+    public let metrics: Foundation.URLSessionTaskMetrics?
+    public let error: PayWingsKycSDK.AFError?
+  }
+  public struct CancellationToken {
+    public func cancel()
+  }
+  final public let convertible: PayWingsKycSDK.URLRequestConvertible
+  final public let automaticallyCancelOnStreamError: Swift.Bool
+  @discardableResult
+  final public func validate(_ validation: @escaping PayWingsKycSDK.DataStreamRequest.Validation) -> Self
+  final public func asInputStream(bufferSize: Swift.Int = 1024) -> Foundation.InputStream?
+  @discardableResult
+  @_disfavoredOverload final public func onHTTPResponse(on queue: Dispatch.DispatchQueue = .main, perform handler: @escaping (_ response: Foundation.HTTPURLResponse, _ completionHandler: @escaping (PayWingsKycSDK.Request.ResponseDisposition) -> Swift.Void) -> Swift.Void) -> Self
+  @discardableResult
+  final public func onHTTPResponse(on queue: Dispatch.DispatchQueue = .main, perform handler: @escaping (Foundation.HTTPURLResponse) -> Swift.Void) -> Self
+  @objc deinit
+}
+extension PayWingsKycSDK.DataStreamRequest.Stream {
+  public var result: Swift.Result<Success, Failure>? {
+    get
+  }
+  public var value: Success? {
+    get
+  }
+  public var error: Failure? {
+    get
+  }
+  public var completion: PayWingsKycSDK.DataStreamRequest.Completion? {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers public class DownloadRequest : PayWingsKycSDK.Request {
+  public struct Options : Swift.OptionSet {
+    public static let createIntermediateDirectories: PayWingsKycSDK.DownloadRequest.Options
+    public static let removePreviousFile: PayWingsKycSDK.DownloadRequest.Options
+    public let rawValue: Swift.Int
+    public init(rawValue: Swift.Int)
+    public typealias ArrayLiteralElement = PayWingsKycSDK.DownloadRequest.Options
+    public typealias Element = PayWingsKycSDK.DownloadRequest.Options
+    public typealias RawValue = Swift.Int
+  }
+  public typealias Destination = (_ temporaryURL: Foundation.URL, _ response: Foundation.HTTPURLResponse) -> (destinationURL: Foundation.URL, options: PayWingsKycSDK.DownloadRequest.Options)
+  public class func suggestedDownloadDestination(for directory: Foundation.FileManager.SearchPathDirectory = .documentDirectory, in domain: Foundation.FileManager.SearchPathDomainMask = .userDomainMask, options: PayWingsKycSDK.DownloadRequest.Options = []) -> PayWingsKycSDK.DownloadRequest.Destination
+  public enum Downloadable {
+    case request(PayWingsKycSDK.URLRequestConvertible)
+    case resumeData(Foundation.Data)
+  }
+  public var resumeData: Foundation.Data? {
+    get
+  }
+  public var fileURL: Foundation.URL? {
+    get
+  }
+  final public let downloadable: PayWingsKycSDK.DownloadRequest.Downloadable
+  public func task(forResumeData data: Foundation.Data, using session: Foundation.URLSession) -> Foundation.URLSessionTask
+  @discardableResult
+  override public func cancel() -> Self
+  @discardableResult
+  public func cancel(producingResumeData shouldProduceResumeData: Swift.Bool) -> Self
+  @discardableResult
+  public func cancel(byProducingResumeData completionHandler: @escaping (_ data: Foundation.Data?) -> Swift.Void) -> Self
+  @discardableResult
+  public func validate(_ validation: @escaping PayWingsKycSDK.DownloadRequest.Validation) -> Self
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class UploadRequest : PayWingsKycSDK.DataRequest {
+  public enum Uploadable {
+    case data(Foundation.Data)
+    case file(Foundation.URL, shouldRemove: Swift.Bool)
+    case stream(Foundation.InputStream)
+  }
+  final public let upload: PayWingsKycSDK.UploadableConvertible
+  final public let fileManager: Foundation.FileManager
+  public var uploadable: PayWingsKycSDK.UploadRequest.Uploadable?
+  public func cleanup()
+  @objc deinit
+}
+public protocol UploadableConvertible {
+  func createUploadable() throws -> PayWingsKycSDK.UploadRequest.Uploadable
+}
+extension PayWingsKycSDK.UploadRequest.Uploadable : PayWingsKycSDK.UploadableConvertible {
+  public func createUploadable() throws -> PayWingsKycSDK.UploadRequest.Uploadable
+}
+public protocol UploadConvertible : PayWingsKycSDK.URLRequestConvertible, PayWingsKycSDK.UploadableConvertible {
+}
+@available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+public struct DataResponsePublisher<Value> : Combine.Publisher {
+  public typealias Output = PayWingsKycSDK.DataResponse<Value, PayWingsKycSDK.AFError>
+  public typealias Failure = Swift.Never
+  public init<Serializer>(_ request: PayWingsKycSDK.DataRequest, queue: Dispatch.DispatchQueue, serializer: Serializer) where Value == Serializer.SerializedObject, Serializer : PayWingsKycSDK.ResponseSerializer
+  public init<Serializer>(_ request: PayWingsKycSDK.DataRequest, queue: Dispatch.DispatchQueue, serializer: Serializer) where Value == Serializer.SerializedObject, Serializer : PayWingsKycSDK.DataResponseSerializerProtocol
+  public func result() -> Combine.AnyPublisher<Swift.Result<Value, PayWingsKycSDK.AFError>, Swift.Never>
+  public func value() -> Combine.AnyPublisher<Value, PayWingsKycSDK.AFError>
+  public func receive<S>(subscriber: S) where S : Combine.Subscriber, S.Failure == Swift.Never, S.Input == PayWingsKycSDK.DataResponse<Value, PayWingsKycSDK.AFError>
+}
+@available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+extension PayWingsKycSDK.DataResponsePublisher where Value == Foundation.Data? {
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public init(_ request: PayWingsKycSDK.DataRequest, queue: Dispatch.DispatchQueue)
+}
+extension PayWingsKycSDK.DataRequest {
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishResponse<Serializer, T>(using serializer: Serializer, on queue: Dispatch.DispatchQueue = .main) -> PayWingsKycSDK.DataResponsePublisher<T> where Serializer : PayWingsKycSDK.ResponseSerializer, T == Serializer.SerializedObject
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishData(queue: Dispatch.DispatchQueue = .main, preprocessor: PayWingsKycSDK.DataPreprocessor = DataResponseSerializer.defaultDataPreprocessor, emptyResponseCodes: Swift.Set<Swift.Int> = DataResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DataResponseSerializer.defaultEmptyRequestMethods) -> PayWingsKycSDK.DataResponsePublisher<Foundation.Data>
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishString(queue: Dispatch.DispatchQueue = .main, preprocessor: PayWingsKycSDK.DataPreprocessor = StringResponseSerializer.defaultDataPreprocessor, encoding: Swift.String.Encoding? = nil, emptyResponseCodes: Swift.Set<Swift.Int> = StringResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = StringResponseSerializer.defaultEmptyRequestMethods) -> PayWingsKycSDK.DataResponsePublisher<Swift.String>
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  @available(*, deprecated, message: "Renamed publishDecodable(type:queue:preprocessor:decoder:emptyResponseCodes:emptyRequestMethods).")
+  @_disfavoredOverload public func publishDecodable<T>(type: T.Type = T.self, queue: Dispatch.DispatchQueue = .main, preprocessor: PayWingsKycSDK.DataPreprocessor = DecodableResponseSerializer<T>.defaultDataPreprocessor, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), emptyResponseCodes: Swift.Set<Swift.Int> = DecodableResponseSerializer<T>.defaultEmptyResponseCodes, emptyResponseMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DecodableResponseSerializer<T>.defaultEmptyRequestMethods) -> PayWingsKycSDK.DataResponsePublisher<T> where T : Swift.Decodable
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishDecodable<T>(type: T.Type = T.self, queue: Dispatch.DispatchQueue = .main, preprocessor: PayWingsKycSDK.DataPreprocessor = DecodableResponseSerializer<T>.defaultDataPreprocessor, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), emptyResponseCodes: Swift.Set<Swift.Int> = DecodableResponseSerializer<T>.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DecodableResponseSerializer<T>.defaultEmptyRequestMethods) -> PayWingsKycSDK.DataResponsePublisher<T> where T : Swift.Decodable
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishUnserialized(queue: Dispatch.DispatchQueue = .main) -> PayWingsKycSDK.DataResponsePublisher<Foundation.Data?>
+}
+@available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+public struct DataStreamPublisher<Value> : Combine.Publisher {
+  public typealias Output = PayWingsKycSDK.DataStreamRequest.Stream<Value, PayWingsKycSDK.AFError>
+  public typealias Failure = Swift.Never
+  public init<Serializer>(_ request: PayWingsKycSDK.DataStreamRequest, queue: Dispatch.DispatchQueue, serializer: Serializer) where Value == Serializer.SerializedObject, Serializer : PayWingsKycSDK.DataStreamSerializer
+  public func result() -> Combine.AnyPublisher<Swift.Result<Value, PayWingsKycSDK.AFError>, Swift.Never>
+  public func value() -> Combine.AnyPublisher<Value, PayWingsKycSDK.AFError>
+  public func receive<S>(subscriber: S) where S : Combine.Subscriber, S.Failure == Swift.Never, S.Input == PayWingsKycSDK.DataStreamRequest.Stream<Value, PayWingsKycSDK.AFError>
+}
+extension PayWingsKycSDK.DataStreamRequest {
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  final public func publishStream<Serializer>(using serializer: Serializer, on queue: Dispatch.DispatchQueue = .main) -> PayWingsKycSDK.DataStreamPublisher<Serializer.SerializedObject> where Serializer : PayWingsKycSDK.DataStreamSerializer
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  final public func publishData(queue: Dispatch.DispatchQueue = .main) -> PayWingsKycSDK.DataStreamPublisher<Foundation.Data>
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  final public func publishString(queue: Dispatch.DispatchQueue = .main) -> PayWingsKycSDK.DataStreamPublisher<Swift.String>
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  final public func publishDecodable<T>(type: T.Type = T.self, queue: Dispatch.DispatchQueue = .main, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), preprocessor: PayWingsKycSDK.DataPreprocessor = PassthroughPreprocessor()) -> PayWingsKycSDK.DataStreamPublisher<T> where T : Swift.Decodable
+}
+@available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+public struct DownloadResponsePublisher<Value> : Combine.Publisher {
+  public typealias Output = PayWingsKycSDK.DownloadResponse<Value, PayWingsKycSDK.AFError>
+  public typealias Failure = Swift.Never
+  public init<Serializer>(_ request: PayWingsKycSDK.DownloadRequest, queue: Dispatch.DispatchQueue, serializer: Serializer) where Value == Serializer.SerializedObject, Serializer : PayWingsKycSDK.ResponseSerializer
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public init<Serializer>(_ request: PayWingsKycSDK.DownloadRequest, queue: Dispatch.DispatchQueue, serializer: Serializer) where Value == Serializer.SerializedObject, Serializer : PayWingsKycSDK.DownloadResponseSerializerProtocol
+  public func result() -> Combine.AnyPublisher<Swift.Result<Value, PayWingsKycSDK.AFError>, Swift.Never>
+  public func value() -> Combine.AnyPublisher<Value, PayWingsKycSDK.AFError>
+  public func receive<S>(subscriber: S) where S : Combine.Subscriber, S.Failure == Swift.Never, S.Input == PayWingsKycSDK.DownloadResponse<Value, PayWingsKycSDK.AFError>
+}
+extension PayWingsKycSDK.DownloadRequest {
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishResponse<Serializer, T>(using serializer: Serializer, on queue: Dispatch.DispatchQueue = .main) -> PayWingsKycSDK.DownloadResponsePublisher<T> where Serializer : PayWingsKycSDK.ResponseSerializer, T == Serializer.SerializedObject
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishResponse<Serializer, T>(using serializer: Serializer, on queue: Dispatch.DispatchQueue = .main) -> PayWingsKycSDK.DownloadResponsePublisher<T> where Serializer : PayWingsKycSDK.DownloadResponseSerializerProtocol, T == Serializer.SerializedObject
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishURL(queue: Dispatch.DispatchQueue = .main) -> PayWingsKycSDK.DownloadResponsePublisher<Foundation.URL>
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishData(queue: Dispatch.DispatchQueue = .main, preprocessor: PayWingsKycSDK.DataPreprocessor = DataResponseSerializer.defaultDataPreprocessor, emptyResponseCodes: Swift.Set<Swift.Int> = DataResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DataResponseSerializer.defaultEmptyRequestMethods) -> PayWingsKycSDK.DownloadResponsePublisher<Foundation.Data>
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishString(queue: Dispatch.DispatchQueue = .main, preprocessor: PayWingsKycSDK.DataPreprocessor = StringResponseSerializer.defaultDataPreprocessor, encoding: Swift.String.Encoding? = nil, emptyResponseCodes: Swift.Set<Swift.Int> = StringResponseSerializer.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = StringResponseSerializer.defaultEmptyRequestMethods) -> PayWingsKycSDK.DownloadResponsePublisher<Swift.String>
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  @available(*, deprecated, message: "Renamed publishDecodable(type:queue:preprocessor:decoder:emptyResponseCodes:emptyRequestMethods).")
+  @_disfavoredOverload public func publishDecodable<T>(type: T.Type = T.self, queue: Dispatch.DispatchQueue = .main, preprocessor: PayWingsKycSDK.DataPreprocessor = DecodableResponseSerializer<T>.defaultDataPreprocessor, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), emptyResponseCodes: Swift.Set<Swift.Int> = DecodableResponseSerializer<T>.defaultEmptyResponseCodes, emptyResponseMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DecodableResponseSerializer<T>.defaultEmptyRequestMethods) -> PayWingsKycSDK.DownloadResponsePublisher<T> where T : Swift.Decodable
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishDecodable<T>(type: T.Type = T.self, queue: Dispatch.DispatchQueue = .main, preprocessor: PayWingsKycSDK.DataPreprocessor = DecodableResponseSerializer<T>.defaultDataPreprocessor, decoder: PayWingsKycSDK.DataDecoder = JSONDecoder(), emptyResponseCodes: Swift.Set<Swift.Int> = DecodableResponseSerializer<T>.defaultEmptyResponseCodes, emptyRequestMethods: Swift.Set<PayWingsKycSDK.HTTPMethod> = DecodableResponseSerializer<T>.defaultEmptyRequestMethods) -> PayWingsKycSDK.DownloadResponsePublisher<T> where T : Swift.Decodable
+}
+@available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+extension PayWingsKycSDK.DownloadResponsePublisher where Value == Foundation.URL? {
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public init(_ request: PayWingsKycSDK.DownloadRequest, queue: Dispatch.DispatchQueue)
+}
+extension PayWingsKycSDK.DownloadRequest {
+  @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+  public func publishUnserialized(on queue: Dispatch.DispatchQueue = .main) -> PayWingsKycSDK.DownloadResponsePublisher<Foundation.URL?>
+}
+public protocol AuthenticationCredential {
+  var requiresRefresh: Swift.Bool { get }
+}
+public protocol Authenticator : AnyObject {
+  associatedtype Credential : PayWingsKycSDK.AuthenticationCredential
+  func apply(_ credential: Self.Credential, to urlRequest: inout Foundation.URLRequest)
+  func refresh(_ credential: Self.Credential, for session: PayWingsKycSDK.Session, completion: @escaping (Swift.Result<Self.Credential, Swift.Error>) -> Swift.Void)
+  func didRequest(_ urlRequest: Foundation.URLRequest, with response: Foundation.HTTPURLResponse, failDueToAuthenticationError error: Swift.Error) -> Swift.Bool
+  func isRequest(_ urlRequest: Foundation.URLRequest, authenticatedWith credential: Self.Credential) -> Swift.Bool
+}
+public enum AuthenticationError : Swift.Error {
+  case missingCredential
+  case excessiveRefresh
+  public static func == (a: PayWingsKycSDK.AuthenticationError, b: PayWingsKycSDK.AuthenticationError) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+public class AuthenticationInterceptor<AuthenticatorType> : PayWingsKycSDK.RequestInterceptor where AuthenticatorType : PayWingsKycSDK.Authenticator {
+  public typealias Credential = AuthenticatorType.Credential
+  public struct RefreshWindow {
+    public let interval: Foundation.TimeInterval
+    public let maximumAttempts: Swift.Int
+    public init(interval: Foundation.TimeInterval = 30.0, maximumAttempts: Swift.Int = 5)
+  }
+  public var credential: PayWingsKycSDK.AuthenticationInterceptor<AuthenticatorType>.Credential? {
+    get
+    set
+  }
+  public init(authenticator: AuthenticatorType, credential: PayWingsKycSDK.AuthenticationInterceptor<AuthenticatorType>.Credential? = nil, refreshWindow: PayWingsKycSDK.AuthenticationInterceptor<AuthenticatorType>.RefreshWindow? = RefreshWindow())
+  public func adapt(_ urlRequest: Foundation.URLRequest, for session: PayWingsKycSDK.Session, completion: @escaping (Swift.Result<Foundation.URLRequest, Swift.Error>) -> Swift.Void)
+  public func retry(_ request: PayWingsKycSDK.Request, for session: PayWingsKycSDK.Session, dueTo error: Swift.Error, completion: @escaping (PayWingsKycSDK.RetryResult) -> Swift.Void)
+  @objc deinit
+}
+public enum SwiftyJSONError : Swift.Int, Swift.Error {
+  case unsupportedType
+  case indexOutOfBounds
+  case elementTooDeep
+  case wrongType
+  case notExist
+  case invalidJSON
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+extension PayWingsKycSDK.SwiftyJSONError : Foundation.CustomNSError {
+  public static var errorDomain: Swift.String {
+    get
+  }
+  public var errorCode: Swift.Int {
+    get
+  }
+  public var errorUserInfo: [Swift.String : Any] {
+    get
+  }
+}
+public enum Type : Swift.Int {
+  case number
+  case string
+  case bool
+  case array
+  case dictionary
+  case null
+  case unknown
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+public struct JSON {
+  public init(data: Foundation.Data, options opt: Foundation.JSONSerialization.ReadingOptions = []) throws
+  public init(_ object: Any)
+  public init(parseJSON jsonString: Swift.String)
+  public mutating func merge(with other: PayWingsKycSDK.JSON) throws
+  public func merged(with other: PayWingsKycSDK.JSON) throws -> PayWingsKycSDK.JSON
+  public var type: PayWingsKycSDK.`Type` {
+    get
+  }
+  public var error: PayWingsKycSDK.SwiftyJSONError? {
+    get
+  }
+  public var object: Any {
+    get
+    set
+  }
+  @available(*, unavailable, renamed: "null")
+  public static var nullJSON: PayWingsKycSDK.JSON {
+    get
+  }
+  public static var null: PayWingsKycSDK.JSON {
+    get
+  }
+}
+public enum Index<T> : Swift.Comparable {
+  case array(Swift.Int)
+  case dictionary(Swift.DictionaryIndex<Swift.String, T>)
+  case null
+  public static func == (lhs: PayWingsKycSDK.Index<T>, rhs: PayWingsKycSDK.Index<T>) -> Swift.Bool
+  public static func < (lhs: PayWingsKycSDK.Index<T>, rhs: PayWingsKycSDK.Index<T>) -> Swift.Bool
+}
+public typealias JSONIndex = PayWingsKycSDK.Index<PayWingsKycSDK.JSON>
+public typealias JSONRawIndex = PayWingsKycSDK.Index<Any>
+extension PayWingsKycSDK.JSON : Swift.Collection {
+  public typealias Index = PayWingsKycSDK.JSONRawIndex
+  public var startIndex: PayWingsKycSDK.JSON.Index {
+    get
+  }
+  public var endIndex: PayWingsKycSDK.JSON.Index {
+    get
+  }
+  public func index(after i: PayWingsKycSDK.JSON.Index) -> PayWingsKycSDK.JSON.Index
+  public subscript(position: PayWingsKycSDK.JSON.Index) -> (Swift.String, PayWingsKycSDK.JSON) {
+    get
+  }
+  public typealias Element = (Swift.String, PayWingsKycSDK.JSON)
+  public typealias Indices = Swift.DefaultIndices<PayWingsKycSDK.JSON>
+  public typealias Iterator = Swift.IndexingIterator<PayWingsKycSDK.JSON>
+  public typealias SubSequence = Swift.Slice<PayWingsKycSDK.JSON>
+}
+public enum JSONKey {
+  case index(Swift.Int)
+  case key(Swift.String)
+}
+public protocol JSONSubscriptType {
+  var jsonKey: PayWingsKycSDK.JSONKey { get }
+}
+extension Swift.Int : PayWingsKycSDK.JSONSubscriptType {
+  public var jsonKey: PayWingsKycSDK.JSONKey {
+    get
+  }
+}
+extension Swift.String : PayWingsKycSDK.JSONSubscriptType {
+  public var jsonKey: PayWingsKycSDK.JSONKey {
+    get
+  }
+}
+extension PayWingsKycSDK.JSON {
+  public subscript(path: [PayWingsKycSDK.JSONSubscriptType]) -> PayWingsKycSDK.JSON {
+    get
+    set
+  }
+  public subscript(path: PayWingsKycSDK.JSONSubscriptType...) -> PayWingsKycSDK.JSON {
+    get
+    set
+  }
+}
+extension PayWingsKycSDK.JSON : Swift.ExpressibleByStringLiteral {
+  public init(stringLiteral value: Swift.StringLiteralType)
+  public init(extendedGraphemeClusterLiteral value: Swift.StringLiteralType)
+  public init(unicodeScalarLiteral value: Swift.StringLiteralType)
+  public typealias ExtendedGraphemeClusterLiteralType = Swift.StringLiteralType
+  public typealias StringLiteralType = Swift.StringLiteralType
+  public typealias UnicodeScalarLiteralType = Swift.StringLiteralType
+}
+extension PayWingsKycSDK.JSON : Swift.ExpressibleByIntegerLiteral {
+  public init(integerLiteral value: Swift.IntegerLiteralType)
+  public typealias IntegerLiteralType = Swift.IntegerLiteralType
+}
+extension PayWingsKycSDK.JSON : Swift.ExpressibleByBooleanLiteral {
+  public init(booleanLiteral value: Swift.BooleanLiteralType)
+  public typealias BooleanLiteralType = Swift.BooleanLiteralType
+}
+extension PayWingsKycSDK.JSON : Swift.ExpressibleByFloatLiteral {
+  public init(floatLiteral value: Swift.FloatLiteralType)
+  public typealias FloatLiteralType = Swift.FloatLiteralType
+}
+extension PayWingsKycSDK.JSON : Swift.ExpressibleByDictionaryLiteral {
+  public init(dictionaryLiteral elements: (Swift.String, Any)...)
+  public typealias Key = Swift.String
+  public typealias Value = Any
+}
+extension PayWingsKycSDK.JSON : Swift.ExpressibleByArrayLiteral {
+  public init(arrayLiteral elements: Any...)
+  public typealias ArrayLiteralElement = Any
+}
+extension PayWingsKycSDK.JSON : Swift.RawRepresentable {
+  public init?(rawValue: Any)
+  public var rawValue: Any {
+    get
+  }
+  public func rawData(options opt: Foundation.JSONSerialization.WritingOptions = JSONSerialization.WritingOptions(rawValue: 0)) throws -> Foundation.Data
+  public func rawString(_ encoding: Swift.String.Encoding = .utf8, options opt: Foundation.JSONSerialization.WritingOptions = .prettyPrinted) -> Swift.String?
+  public func rawString(_ options: [PayWingsKycSDK.writingOptionsKeys : Any]) -> Swift.String?
+  public typealias RawValue = Any
+}
+extension PayWingsKycSDK.JSON : Swift.CustomStringConvertible, Swift.CustomDebugStringConvertible {
+  public var description: Swift.String {
+    get
+  }
+  public var debugDescription: Swift.String {
+    get
+  }
+}
+extension PayWingsKycSDK.JSON {
+  public var array: [PayWingsKycSDK.JSON]? {
+    get
+  }
+  public var arrayValue: [PayWingsKycSDK.JSON] {
+    get
+  }
+  public var arrayObject: [Any]? {
+    get
+    set
+  }
+}
+extension PayWingsKycSDK.JSON {
+  public var dictionary: [Swift.String : PayWingsKycSDK.JSON]? {
+    get
+  }
+  public var dictionaryValue: [Swift.String : PayWingsKycSDK.JSON] {
+    get
+  }
+  public var dictionaryObject: [Swift.String : Any]? {
+    get
+    set
+  }
+}
+extension PayWingsKycSDK.JSON {
+  public var bool: Swift.Bool? {
+    get
+    set
+  }
+  public var boolValue: Swift.Bool {
+    get
+    set
+  }
+}
+extension PayWingsKycSDK.JSON {
+  public var string: Swift.String? {
+    get
+    set
+  }
+  public var stringValue: Swift.String {
+    get
+    set
+  }
+}
+extension PayWingsKycSDK.JSON {
+  public var number: Foundation.NSNumber? {
+    get
+    set
+  }
+  public var numberValue: Foundation.NSNumber {
+    get
+    set
+  }
+}
+extension PayWingsKycSDK.JSON {
+  public var null: Foundation.NSNull? {
+    get
+    set
+  }
+  public func exists() -> Swift.Bool
+}
+extension PayWingsKycSDK.JSON {
+  public var url: Foundation.URL? {
+    get
+    set
+  }
+}
+extension PayWingsKycSDK.JSON {
+  public var double: Swift.Double? {
+    get
+    set
+  }
+  public var doubleValue: Swift.Double {
+    get
+    set
+  }
+  public var float: Swift.Float? {
+    get
+    set
+  }
+  public var floatValue: Swift.Float {
+    get
+    set
+  }
+  public var int: Swift.Int? {
+    get
+    set
+  }
+  public var intValue: Swift.Int {
+    get
+    set
+  }
+  public var uInt: Swift.UInt? {
+    get
+    set
+  }
+  public var uIntValue: Swift.UInt {
+    get
+    set
+  }
+  public var int8: Swift.Int8? {
+    get
+    set
+  }
+  public var int8Value: Swift.Int8 {
+    get
+    set
+  }
+  public var uInt8: Swift.UInt8? {
+    get
+    set
+  }
+  public var uInt8Value: Swift.UInt8 {
+    get
+    set
+  }
+  public var int16: Swift.Int16? {
+    get
+    set
+  }
+  public var int16Value: Swift.Int16 {
+    get
+    set
+  }
+  public var uInt16: Swift.UInt16? {
+    get
+    set
+  }
+  public var uInt16Value: Swift.UInt16 {
+    get
+    set
+  }
+  public var int32: Swift.Int32? {
+    get
+    set
+  }
+  public var int32Value: Swift.Int32 {
+    get
+    set
+  }
+  public var uInt32: Swift.UInt32? {
+    get
+    set
+  }
+  public var uInt32Value: Swift.UInt32 {
+    get
+    set
+  }
+  public var int64: Swift.Int64? {
+    get
+    set
+  }
+  public var int64Value: Swift.Int64 {
+    get
+    set
+  }
+  public var uInt64: Swift.UInt64? {
+    get
+    set
+  }
+  public var uInt64Value: Swift.UInt64 {
+    get
+    set
+  }
+}
+extension PayWingsKycSDK.JSON : Swift.Comparable {
+}
+public func == (lhs: PayWingsKycSDK.JSON, rhs: PayWingsKycSDK.JSON) -> Swift.Bool
+public func <= (lhs: PayWingsKycSDK.JSON, rhs: PayWingsKycSDK.JSON) -> Swift.Bool
+public func >= (lhs: PayWingsKycSDK.JSON, rhs: PayWingsKycSDK.JSON) -> Swift.Bool
+public func > (lhs: PayWingsKycSDK.JSON, rhs: PayWingsKycSDK.JSON) -> Swift.Bool
+public func < (lhs: PayWingsKycSDK.JSON, rhs: PayWingsKycSDK.JSON) -> Swift.Bool
+public enum writingOptionsKeys {
+  case jsonSerialization
+  case castNilToNSNull
+  case maxObjextDepth
+  case encoding
+  public static func == (a: PayWingsKycSDK.writingOptionsKeys, b: PayWingsKycSDK.writingOptionsKeys) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+extension PayWingsKycSDK.JSON : Swift.Codable {
+  public init(from decoder: Swift.Decoder) throws
+  public func encode(to encoder: Swift.Encoder) throws
+}
+public typealias AFDataResponse<Success> = PayWingsKycSDK.DataResponse<Success, PayWingsKycSDK.AFError>
+public typealias AFDownloadResponse<Success> = PayWingsKycSDK.DownloadResponse<Success, PayWingsKycSDK.AFError>
+public struct DataResponse<Success, Failure> where Failure : Swift.Error {
+  public let request: Foundation.URLRequest?
+  public let response: Foundation.HTTPURLResponse?
+  public let data: Foundation.Data?
+  public let metrics: Foundation.URLSessionTaskMetrics?
+  public let serializationDuration: Foundation.TimeInterval
+  public let result: Swift.Result<Success, Failure>
+  public var value: Success? {
+    get
+  }
+  public var error: Failure? {
+    get
+  }
+  public init(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, data: Foundation.Data?, metrics: Foundation.URLSessionTaskMetrics?, serializationDuration: Foundation.TimeInterval, result: Swift.Result<Success, Failure>)
+}
+extension PayWingsKycSDK.DataResponse : Swift.CustomStringConvertible, Swift.CustomDebugStringConvertible {
+  public var description: Swift.String {
+    get
+  }
+  public var debugDescription: Swift.String {
+    get
+  }
+}
+extension PayWingsKycSDK.DataResponse {
+  public func map<NewSuccess>(_ transform: (Success) -> NewSuccess) -> PayWingsKycSDK.DataResponse<NewSuccess, Failure>
+  public func tryMap<NewSuccess>(_ transform: (Success) throws -> NewSuccess) -> PayWingsKycSDK.DataResponse<NewSuccess, Swift.Error>
+  public func mapError<NewFailure>(_ transform: (Failure) -> NewFailure) -> PayWingsKycSDK.DataResponse<Success, NewFailure> where NewFailure : Swift.Error
+  public func tryMapError<NewFailure>(_ transform: (Failure) throws -> NewFailure) -> PayWingsKycSDK.DataResponse<Success, Swift.Error> where NewFailure : Swift.Error
+}
+public struct DownloadResponse<Success, Failure> where Failure : Swift.Error {
+  public let request: Foundation.URLRequest?
+  public let response: Foundation.HTTPURLResponse?
+  public let fileURL: Foundation.URL?
+  public let resumeData: Foundation.Data?
+  public let metrics: Foundation.URLSessionTaskMetrics?
+  public let serializationDuration: Foundation.TimeInterval
+  public let result: Swift.Result<Success, Failure>
+  public var value: Success? {
+    get
+  }
+  public var error: Failure? {
+    get
+  }
+  public init(request: Foundation.URLRequest?, response: Foundation.HTTPURLResponse?, fileURL: Foundation.URL?, resumeData: Foundation.Data?, metrics: Foundation.URLSessionTaskMetrics?, serializationDuration: Foundation.TimeInterval, result: Swift.Result<Success, Failure>)
+}
+extension PayWingsKycSDK.DownloadResponse : Swift.CustomStringConvertible, Swift.CustomDebugStringConvertible {
+  public var description: Swift.String {
+    get
+  }
+  public var debugDescription: Swift.String {
+    get
+  }
+}
+extension PayWingsKycSDK.DownloadResponse {
+  public func map<NewSuccess>(_ transform: (Success) -> NewSuccess) -> PayWingsKycSDK.DownloadResponse<NewSuccess, Failure>
+  public func tryMap<NewSuccess>(_ transform: (Success) throws -> NewSuccess) -> PayWingsKycSDK.DownloadResponse<NewSuccess, Swift.Error>
+  public func mapError<NewFailure>(_ transform: (Failure) -> NewFailure) -> PayWingsKycSDK.DownloadResponse<Success, NewFailure> where NewFailure : Swift.Error
+  public func tryMapError<NewFailure>(_ transform: (Failure) throws -> NewFailure) -> PayWingsKycSDK.DownloadResponse<Success, Swift.Error> where NewFailure : Swift.Error
+}
+public let AF: PayWingsKycSDK.Session
+public protocol EventMonitor {
+  var queue: Dispatch.DispatchQueue { get }
+  func urlSession(_ session: Foundation.URLSession, didBecomeInvalidWithError error: Swift.Error?)
+  func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didReceive challenge: Foundation.URLAuthenticationChallenge)
+  func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didSendBodyData bytesSent: Swift.Int64, totalBytesSent: Swift.Int64, totalBytesExpectedToSend: Swift.Int64)
+  func urlSession(_ session: Foundation.URLSession, taskNeedsNewBodyStream task: Foundation.URLSessionTask)
+  func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, willPerformHTTPRedirection response: Foundation.HTTPURLResponse, newRequest request: Foundation.URLRequest)
+  func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didFinishCollecting metrics: Foundation.URLSessionTaskMetrics)
+  func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didCompleteWithError error: Swift.Error?)
+  func urlSession(_ session: Foundation.URLSession, taskIsWaitingForConnectivity task: Foundation.URLSessionTask)
+  func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive response: Foundation.URLResponse)
+  func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive data: Foundation.Data)
+  func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, willCacheResponse proposedResponse: Foundation.CachedURLResponse)
+  func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didResumeAtOffset fileOffset: Swift.Int64, expectedTotalBytes: Swift.Int64)
+  func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didWriteData bytesWritten: Swift.Int64, totalBytesWritten: Swift.Int64, totalBytesExpectedToWrite: Swift.Int64)
+  func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didFinishDownloadingTo location: Foundation.URL)
+  func request(_ request: PayWingsKycSDK.Request, didCreateInitialURLRequest urlRequest: Foundation.URLRequest)
+  func request(_ request: PayWingsKycSDK.Request, didFailToCreateURLRequestWithError error: PayWingsKycSDK.AFError)
+  func request(_ request: PayWingsKycSDK.Request, didAdaptInitialRequest initialRequest: Foundation.URLRequest, to adaptedRequest: Foundation.URLRequest)
+  func request(_ request: PayWingsKycSDK.Request, didFailToAdaptURLRequest initialRequest: Foundation.URLRequest, withError error: PayWingsKycSDK.AFError)
+  func request(_ request: PayWingsKycSDK.Request, didCreateURLRequest urlRequest: Foundation.URLRequest)
+  func request(_ request: PayWingsKycSDK.Request, didCreateTask task: Foundation.URLSessionTask)
+  func request(_ request: PayWingsKycSDK.Request, didGatherMetrics metrics: Foundation.URLSessionTaskMetrics)
+  func request(_ request: PayWingsKycSDK.Request, didFailTask task: Foundation.URLSessionTask, earlyWithError error: PayWingsKycSDK.AFError)
+  func request(_ request: PayWingsKycSDK.Request, didCompleteTask task: Foundation.URLSessionTask, with error: PayWingsKycSDK.AFError?)
+  func requestIsRetrying(_ request: PayWingsKycSDK.Request)
+  func requestDidFinish(_ request: PayWingsKycSDK.Request)
+  func requestDidResume(_ request: PayWingsKycSDK.Request)
+  func request(_ request: PayWingsKycSDK.Request, didResumeTask task: Foundation.URLSessionTask)
+  func requestDidSuspend(_ request: PayWingsKycSDK.Request)
+  func request(_ request: PayWingsKycSDK.Request, didSuspendTask task: Foundation.URLSessionTask)
+  func requestDidCancel(_ request: PayWingsKycSDK.Request)
+  func request(_ request: PayWingsKycSDK.Request, didCancelTask task: Foundation.URLSessionTask)
+  func request(_ request: PayWingsKycSDK.DataRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, data: Foundation.Data?, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  func request(_ request: PayWingsKycSDK.DataRequest, didParseResponse response: PayWingsKycSDK.DataResponse<Foundation.Data?, PayWingsKycSDK.AFError>)
+  func request<Value>(_ request: PayWingsKycSDK.DataRequest, didParseResponse response: PayWingsKycSDK.DataResponse<Value, PayWingsKycSDK.AFError>)
+  func request(_ request: PayWingsKycSDK.DataStreamRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  func request<Value>(_ request: PayWingsKycSDK.DataStreamRequest, didParseStream result: Swift.Result<Value, PayWingsKycSDK.AFError>)
+  func request(_ request: PayWingsKycSDK.UploadRequest, didCreateUploadable uploadable: PayWingsKycSDK.UploadRequest.Uploadable)
+  func request(_ request: PayWingsKycSDK.UploadRequest, didFailToCreateUploadableWithError error: PayWingsKycSDK.AFError)
+  func request(_ request: PayWingsKycSDK.UploadRequest, didProvideInputStream stream: Foundation.InputStream)
+  func request(_ request: PayWingsKycSDK.DownloadRequest, didFinishDownloadingUsing task: Foundation.URLSessionTask, with result: Swift.Result<Foundation.URL, PayWingsKycSDK.AFError>)
+  func request(_ request: PayWingsKycSDK.DownloadRequest, didCreateDestinationURL url: Foundation.URL)
+  func request(_ request: PayWingsKycSDK.DownloadRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, fileURL: Foundation.URL?, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  func request(_ request: PayWingsKycSDK.DownloadRequest, didParseResponse response: PayWingsKycSDK.DownloadResponse<Foundation.URL?, PayWingsKycSDK.AFError>)
+  func request<Value>(_ request: PayWingsKycSDK.DownloadRequest, didParseResponse response: PayWingsKycSDK.DownloadResponse<Value, PayWingsKycSDK.AFError>)
+}
+extension PayWingsKycSDK.EventMonitor {
+  public var queue: Dispatch.DispatchQueue {
+    get
+  }
+  public func urlSession(_ session: Foundation.URLSession, didBecomeInvalidWithError error: Swift.Error?)
+  public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didReceive challenge: Foundation.URLAuthenticationChallenge)
+  public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didSendBodyData bytesSent: Swift.Int64, totalBytesSent: Swift.Int64, totalBytesExpectedToSend: Swift.Int64)
+  public func urlSession(_ session: Foundation.URLSession, taskNeedsNewBodyStream task: Foundation.URLSessionTask)
+  public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, willPerformHTTPRedirection response: Foundation.HTTPURLResponse, newRequest request: Foundation.URLRequest)
+  public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didFinishCollecting metrics: Foundation.URLSessionTaskMetrics)
+  public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didCompleteWithError error: Swift.Error?)
+  public func urlSession(_ session: Foundation.URLSession, taskIsWaitingForConnectivity task: Foundation.URLSessionTask)
+  public func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive response: Foundation.URLResponse)
+  public func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive data: Foundation.Data)
+  public func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, willCacheResponse proposedResponse: Foundation.CachedURLResponse)
+  public func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didResumeAtOffset fileOffset: Swift.Int64, expectedTotalBytes: Swift.Int64)
+  public func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didWriteData bytesWritten: Swift.Int64, totalBytesWritten: Swift.Int64, totalBytesExpectedToWrite: Swift.Int64)
+  public func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didFinishDownloadingTo location: Foundation.URL)
+  public func request(_ request: PayWingsKycSDK.Request, didCreateInitialURLRequest urlRequest: Foundation.URLRequest)
+  public func request(_ request: PayWingsKycSDK.Request, didFailToCreateURLRequestWithError error: PayWingsKycSDK.AFError)
+  public func request(_ request: PayWingsKycSDK.Request, didAdaptInitialRequest initialRequest: Foundation.URLRequest, to adaptedRequest: Foundation.URLRequest)
+  public func request(_ request: PayWingsKycSDK.Request, didFailToAdaptURLRequest initialRequest: Foundation.URLRequest, withError error: PayWingsKycSDK.AFError)
+  public func request(_ request: PayWingsKycSDK.Request, didCreateURLRequest urlRequest: Foundation.URLRequest)
+  public func request(_ request: PayWingsKycSDK.Request, didCreateTask task: Foundation.URLSessionTask)
+  public func request(_ request: PayWingsKycSDK.Request, didGatherMetrics metrics: Foundation.URLSessionTaskMetrics)
+  public func request(_ request: PayWingsKycSDK.Request, didFailTask task: Foundation.URLSessionTask, earlyWithError error: PayWingsKycSDK.AFError)
+  public func request(_ request: PayWingsKycSDK.Request, didCompleteTask task: Foundation.URLSessionTask, with error: PayWingsKycSDK.AFError?)
+  public func requestIsRetrying(_ request: PayWingsKycSDK.Request)
+  public func requestDidFinish(_ request: PayWingsKycSDK.Request)
+  public func requestDidResume(_ request: PayWingsKycSDK.Request)
+  public func request(_ request: PayWingsKycSDK.Request, didResumeTask task: Foundation.URLSessionTask)
+  public func requestDidSuspend(_ request: PayWingsKycSDK.Request)
+  public func request(_ request: PayWingsKycSDK.Request, didSuspendTask task: Foundation.URLSessionTask)
+  public func requestDidCancel(_ request: PayWingsKycSDK.Request)
+  public func request(_ request: PayWingsKycSDK.Request, didCancelTask task: Foundation.URLSessionTask)
+  public func request(_ request: PayWingsKycSDK.DataRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, data: Foundation.Data?, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  public func request(_ request: PayWingsKycSDK.DataRequest, didParseResponse response: PayWingsKycSDK.DataResponse<Foundation.Data?, PayWingsKycSDK.AFError>)
+  public func request<Value>(_ request: PayWingsKycSDK.DataRequest, didParseResponse response: PayWingsKycSDK.DataResponse<Value, PayWingsKycSDK.AFError>)
+  public func request(_ request: PayWingsKycSDK.DataStreamRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  public func request<Value>(_ request: PayWingsKycSDK.DataStreamRequest, didParseStream result: Swift.Result<Value, PayWingsKycSDK.AFError>)
+  public func request(_ request: PayWingsKycSDK.UploadRequest, didCreateUploadable uploadable: PayWingsKycSDK.UploadRequest.Uploadable)
+  public func request(_ request: PayWingsKycSDK.UploadRequest, didFailToCreateUploadableWithError error: PayWingsKycSDK.AFError)
+  public func request(_ request: PayWingsKycSDK.UploadRequest, didProvideInputStream stream: Foundation.InputStream)
+  public func request(_ request: PayWingsKycSDK.DownloadRequest, didFinishDownloadingUsing task: Foundation.URLSessionTask, with result: Swift.Result<Foundation.URL, PayWingsKycSDK.AFError>)
+  public func request(_ request: PayWingsKycSDK.DownloadRequest, didCreateDestinationURL url: Foundation.URL)
+  public func request(_ request: PayWingsKycSDK.DownloadRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, fileURL: Foundation.URL?, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  public func request(_ request: PayWingsKycSDK.DownloadRequest, didParseResponse response: PayWingsKycSDK.DownloadResponse<Foundation.URL?, PayWingsKycSDK.AFError>)
+  public func request<Value>(_ request: PayWingsKycSDK.DownloadRequest, didParseResponse response: PayWingsKycSDK.DownloadResponse<Value, PayWingsKycSDK.AFError>)
+}
+@_hasMissingDesignatedInitializers final public class CompositeEventMonitor : PayWingsKycSDK.EventMonitor {
+  final public let queue: Dispatch.DispatchQueue
+  final public func urlSession(_ session: Foundation.URLSession, didBecomeInvalidWithError error: Swift.Error?)
+  final public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didReceive challenge: Foundation.URLAuthenticationChallenge)
+  final public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didSendBodyData bytesSent: Swift.Int64, totalBytesSent: Swift.Int64, totalBytesExpectedToSend: Swift.Int64)
+  final public func urlSession(_ session: Foundation.URLSession, taskNeedsNewBodyStream task: Foundation.URLSessionTask)
+  final public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, willPerformHTTPRedirection response: Foundation.HTTPURLResponse, newRequest request: Foundation.URLRequest)
+  final public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didFinishCollecting metrics: Foundation.URLSessionTaskMetrics)
+  final public func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didCompleteWithError error: Swift.Error?)
+  @available(macOS 10.13, iOS 11.0, tvOS 11.0, watchOS 4.0, *)
+  final public func urlSession(_ session: Foundation.URLSession, taskIsWaitingForConnectivity task: Foundation.URLSessionTask)
+  final public func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive response: Foundation.URLResponse)
+  final public func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive data: Foundation.Data)
+  final public func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, willCacheResponse proposedResponse: Foundation.CachedURLResponse)
+  final public func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didResumeAtOffset fileOffset: Swift.Int64, expectedTotalBytes: Swift.Int64)
+  final public func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didWriteData bytesWritten: Swift.Int64, totalBytesWritten: Swift.Int64, totalBytesExpectedToWrite: Swift.Int64)
+  final public func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didFinishDownloadingTo location: Foundation.URL)
+  final public func request(_ request: PayWingsKycSDK.Request, didCreateInitialURLRequest urlRequest: Foundation.URLRequest)
+  final public func request(_ request: PayWingsKycSDK.Request, didFailToCreateURLRequestWithError error: PayWingsKycSDK.AFError)
+  final public func request(_ request: PayWingsKycSDK.Request, didAdaptInitialRequest initialRequest: Foundation.URLRequest, to adaptedRequest: Foundation.URLRequest)
+  final public func request(_ request: PayWingsKycSDK.Request, didFailToAdaptURLRequest initialRequest: Foundation.URLRequest, withError error: PayWingsKycSDK.AFError)
+  final public func request(_ request: PayWingsKycSDK.Request, didCreateURLRequest urlRequest: Foundation.URLRequest)
+  final public func request(_ request: PayWingsKycSDK.Request, didCreateTask task: Foundation.URLSessionTask)
+  final public func request(_ request: PayWingsKycSDK.Request, didGatherMetrics metrics: Foundation.URLSessionTaskMetrics)
+  final public func request(_ request: PayWingsKycSDK.Request, didFailTask task: Foundation.URLSessionTask, earlyWithError error: PayWingsKycSDK.AFError)
+  final public func request(_ request: PayWingsKycSDK.Request, didCompleteTask task: Foundation.URLSessionTask, with error: PayWingsKycSDK.AFError?)
+  final public func requestIsRetrying(_ request: PayWingsKycSDK.Request)
+  final public func requestDidFinish(_ request: PayWingsKycSDK.Request)
+  final public func requestDidResume(_ request: PayWingsKycSDK.Request)
+  final public func request(_ request: PayWingsKycSDK.Request, didResumeTask task: Foundation.URLSessionTask)
+  final public func requestDidSuspend(_ request: PayWingsKycSDK.Request)
+  final public func request(_ request: PayWingsKycSDK.Request, didSuspendTask task: Foundation.URLSessionTask)
+  final public func requestDidCancel(_ request: PayWingsKycSDK.Request)
+  final public func request(_ request: PayWingsKycSDK.Request, didCancelTask task: Foundation.URLSessionTask)
+  final public func request(_ request: PayWingsKycSDK.DataRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, data: Foundation.Data?, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  final public func request(_ request: PayWingsKycSDK.DataRequest, didParseResponse response: PayWingsKycSDK.DataResponse<Foundation.Data?, PayWingsKycSDK.AFError>)
+  final public func request<Value>(_ request: PayWingsKycSDK.DataRequest, didParseResponse response: PayWingsKycSDK.DataResponse<Value, PayWingsKycSDK.AFError>)
+  final public func request(_ request: PayWingsKycSDK.DataStreamRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  final public func request<Value>(_ request: PayWingsKycSDK.DataStreamRequest, didParseStream result: Swift.Result<Value, PayWingsKycSDK.AFError>)
+  final public func request(_ request: PayWingsKycSDK.UploadRequest, didCreateUploadable uploadable: PayWingsKycSDK.UploadRequest.Uploadable)
+  final public func request(_ request: PayWingsKycSDK.UploadRequest, didFailToCreateUploadableWithError error: PayWingsKycSDK.AFError)
+  final public func request(_ request: PayWingsKycSDK.UploadRequest, didProvideInputStream stream: Foundation.InputStream)
+  final public func request(_ request: PayWingsKycSDK.DownloadRequest, didFinishDownloadingUsing task: Foundation.URLSessionTask, with result: Swift.Result<Foundation.URL, PayWingsKycSDK.AFError>)
+  final public func request(_ request: PayWingsKycSDK.DownloadRequest, didCreateDestinationURL url: Foundation.URL)
+  final public func request(_ request: PayWingsKycSDK.DownloadRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, fileURL: Foundation.URL?, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  final public func request(_ request: PayWingsKycSDK.DownloadRequest, didParseResponse response: PayWingsKycSDK.DownloadResponse<Foundation.URL?, PayWingsKycSDK.AFError>)
+  final public func request<Value>(_ request: PayWingsKycSDK.DownloadRequest, didParseResponse response: PayWingsKycSDK.DownloadResponse<Value, PayWingsKycSDK.AFError>)
+  @objc deinit
+}
+open class ClosureEventMonitor : PayWingsKycSDK.EventMonitor {
+  open var sessionDidBecomeInvalidWithError: ((Foundation.URLSession, Swift.Error?) -> Swift.Void)?
+  open var taskDidReceiveChallenge: ((Foundation.URLSession, Foundation.URLSessionTask, Foundation.URLAuthenticationChallenge) -> Swift.Void)?
+  open var taskDidSendBodyData: ((Foundation.URLSession, Foundation.URLSessionTask, Swift.Int64, Swift.Int64, Swift.Int64) -> Swift.Void)?
+  open var taskNeedNewBodyStream: ((Foundation.URLSession, Foundation.URLSessionTask) -> Swift.Void)?
+  open var taskWillPerformHTTPRedirection: ((Foundation.URLSession, Foundation.URLSessionTask, Foundation.HTTPURLResponse, Foundation.URLRequest) -> Swift.Void)?
+  open var taskDidFinishCollectingMetrics: ((Foundation.URLSession, Foundation.URLSessionTask, Foundation.URLSessionTaskMetrics) -> Swift.Void)?
+  open var taskDidComplete: ((Foundation.URLSession, Foundation.URLSessionTask, Swift.Error?) -> Swift.Void)?
+  open var taskIsWaitingForConnectivity: ((Foundation.URLSession, Foundation.URLSessionTask) -> Swift.Void)?
+  open var dataTaskDidReceiveResponse: ((Foundation.URLSession, Foundation.URLSessionDataTask, Foundation.URLResponse) -> Swift.Void)?
+  open var dataTaskDidReceiveData: ((Foundation.URLSession, Foundation.URLSessionDataTask, Foundation.Data) -> Swift.Void)?
+  open var dataTaskWillCacheResponse: ((Foundation.URLSession, Foundation.URLSessionDataTask, Foundation.CachedURLResponse) -> Swift.Void)?
+  open var downloadTaskDidFinishDownloadingToURL: ((Foundation.URLSession, Foundation.URLSessionDownloadTask, Foundation.URL) -> Swift.Void)?
+  open var downloadTaskDidWriteData: ((Foundation.URLSession, Foundation.URLSessionDownloadTask, Swift.Int64, Swift.Int64, Swift.Int64) -> Swift.Void)?
+  open var downloadTaskDidResumeAtOffset: ((Foundation.URLSession, Foundation.URLSessionDownloadTask, Swift.Int64, Swift.Int64) -> Swift.Void)?
+  open var requestDidCreateInitialURLRequest: ((PayWingsKycSDK.Request, Foundation.URLRequest) -> Swift.Void)?
+  open var requestDidFailToCreateURLRequestWithError: ((PayWingsKycSDK.Request, PayWingsKycSDK.AFError) -> Swift.Void)?
+  open var requestDidAdaptInitialRequestToAdaptedRequest: ((PayWingsKycSDK.Request, Foundation.URLRequest, Foundation.URLRequest) -> Swift.Void)?
+  open var requestDidFailToAdaptURLRequestWithError: ((PayWingsKycSDK.Request, Foundation.URLRequest, PayWingsKycSDK.AFError) -> Swift.Void)?
+  open var requestDidCreateURLRequest: ((PayWingsKycSDK.Request, Foundation.URLRequest) -> Swift.Void)?
+  open var requestDidCreateTask: ((PayWingsKycSDK.Request, Foundation.URLSessionTask) -> Swift.Void)?
+  open var requestDidGatherMetrics: ((PayWingsKycSDK.Request, Foundation.URLSessionTaskMetrics) -> Swift.Void)?
+  open var requestDidFailTaskEarlyWithError: ((PayWingsKycSDK.Request, Foundation.URLSessionTask, PayWingsKycSDK.AFError) -> Swift.Void)?
+  open var requestDidCompleteTaskWithError: ((PayWingsKycSDK.Request, Foundation.URLSessionTask, PayWingsKycSDK.AFError?) -> Swift.Void)?
+  open var requestIsRetrying: ((PayWingsKycSDK.Request) -> Swift.Void)?
+  open var requestDidFinish: ((PayWingsKycSDK.Request) -> Swift.Void)?
+  open var requestDidResume: ((PayWingsKycSDK.Request) -> Swift.Void)?
+  open var requestDidResumeTask: ((PayWingsKycSDK.Request, Foundation.URLSessionTask) -> Swift.Void)?
+  open var requestDidSuspend: ((PayWingsKycSDK.Request) -> Swift.Void)?
+  open var requestDidSuspendTask: ((PayWingsKycSDK.Request, Foundation.URLSessionTask) -> Swift.Void)?
+  open var requestDidCancel: ((PayWingsKycSDK.Request) -> Swift.Void)?
+  open var requestDidCancelTask: ((PayWingsKycSDK.Request, Foundation.URLSessionTask) -> Swift.Void)?
+  open var requestDidValidateRequestResponseDataWithResult: ((PayWingsKycSDK.DataRequest, Foundation.URLRequest?, Foundation.HTTPURLResponse, Foundation.Data?, PayWingsKycSDK.Request.ValidationResult) -> Swift.Void)?
+  open var requestDidParseResponse: ((PayWingsKycSDK.DataRequest, PayWingsKycSDK.DataResponse<Foundation.Data?, PayWingsKycSDK.AFError>) -> Swift.Void)?
+  open var requestDidValidateRequestResponseWithResult: ((PayWingsKycSDK.DataStreamRequest, Foundation.URLRequest?, Foundation.HTTPURLResponse, PayWingsKycSDK.Request.ValidationResult) -> Swift.Void)?
+  open var requestDidCreateUploadable: ((PayWingsKycSDK.UploadRequest, PayWingsKycSDK.UploadRequest.Uploadable) -> Swift.Void)?
+  open var requestDidFailToCreateUploadableWithError: ((PayWingsKycSDK.UploadRequest, PayWingsKycSDK.AFError) -> Swift.Void)?
+  open var requestDidProvideInputStream: ((PayWingsKycSDK.UploadRequest, Foundation.InputStream) -> Swift.Void)?
+  open var requestDidFinishDownloadingUsingTaskWithResult: ((PayWingsKycSDK.DownloadRequest, Foundation.URLSessionTask, Swift.Result<Foundation.URL, PayWingsKycSDK.AFError>) -> Swift.Void)?
+  open var requestDidCreateDestinationURL: ((PayWingsKycSDK.DownloadRequest, Foundation.URL) -> Swift.Void)?
+  open var requestDidValidateRequestResponseFileURLWithResult: ((PayWingsKycSDK.DownloadRequest, Foundation.URLRequest?, Foundation.HTTPURLResponse, Foundation.URL?, PayWingsKycSDK.Request.ValidationResult) -> Swift.Void)?
+  open var requestDidParseDownloadResponse: ((PayWingsKycSDK.DownloadRequest, PayWingsKycSDK.DownloadResponse<Foundation.URL?, PayWingsKycSDK.AFError>) -> Swift.Void)?
+  final public let queue: Dispatch.DispatchQueue
+  public init(queue: Dispatch.DispatchQueue = .main)
+  open func urlSession(_ session: Foundation.URLSession, didBecomeInvalidWithError error: Swift.Error?)
+  open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didReceive challenge: Foundation.URLAuthenticationChallenge)
+  open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didSendBodyData bytesSent: Swift.Int64, totalBytesSent: Swift.Int64, totalBytesExpectedToSend: Swift.Int64)
+  open func urlSession(_ session: Foundation.URLSession, taskNeedsNewBodyStream task: Foundation.URLSessionTask)
+  open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, willPerformHTTPRedirection response: Foundation.HTTPURLResponse, newRequest request: Foundation.URLRequest)
+  open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didFinishCollecting metrics: Foundation.URLSessionTaskMetrics)
+  open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didCompleteWithError error: Swift.Error?)
+  @available(macOS 10.13, iOS 11.0, tvOS 11.0, watchOS 4.0, *)
+  open func urlSession(_ session: Foundation.URLSession, taskIsWaitingForConnectivity task: Foundation.URLSessionTask)
+  open func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive response: Foundation.URLResponse)
+  open func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive data: Foundation.Data)
+  open func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, willCacheResponse proposedResponse: Foundation.CachedURLResponse)
+  open func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didResumeAtOffset fileOffset: Swift.Int64, expectedTotalBytes: Swift.Int64)
+  open func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didWriteData bytesWritten: Swift.Int64, totalBytesWritten: Swift.Int64, totalBytesExpectedToWrite: Swift.Int64)
+  open func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didFinishDownloadingTo location: Foundation.URL)
+  open func request(_ request: PayWingsKycSDK.Request, didCreateInitialURLRequest urlRequest: Foundation.URLRequest)
+  open func request(_ request: PayWingsKycSDK.Request, didFailToCreateURLRequestWithError error: PayWingsKycSDK.AFError)
+  open func request(_ request: PayWingsKycSDK.Request, didAdaptInitialRequest initialRequest: Foundation.URLRequest, to adaptedRequest: Foundation.URLRequest)
+  open func request(_ request: PayWingsKycSDK.Request, didFailToAdaptURLRequest initialRequest: Foundation.URLRequest, withError error: PayWingsKycSDK.AFError)
+  open func request(_ request: PayWingsKycSDK.Request, didCreateURLRequest urlRequest: Foundation.URLRequest)
+  open func request(_ request: PayWingsKycSDK.Request, didCreateTask task: Foundation.URLSessionTask)
+  open func request(_ request: PayWingsKycSDK.Request, didGatherMetrics metrics: Foundation.URLSessionTaskMetrics)
+  open func request(_ request: PayWingsKycSDK.Request, didFailTask task: Foundation.URLSessionTask, earlyWithError error: PayWingsKycSDK.AFError)
+  open func request(_ request: PayWingsKycSDK.Request, didCompleteTask task: Foundation.URLSessionTask, with error: PayWingsKycSDK.AFError?)
+  open func requestIsRetrying(_ request: PayWingsKycSDK.Request)
+  open func requestDidFinish(_ request: PayWingsKycSDK.Request)
+  open func requestDidResume(_ request: PayWingsKycSDK.Request)
+  public func request(_ request: PayWingsKycSDK.Request, didResumeTask task: Foundation.URLSessionTask)
+  open func requestDidSuspend(_ request: PayWingsKycSDK.Request)
+  public func request(_ request: PayWingsKycSDK.Request, didSuspendTask task: Foundation.URLSessionTask)
+  open func requestDidCancel(_ request: PayWingsKycSDK.Request)
+  public func request(_ request: PayWingsKycSDK.Request, didCancelTask task: Foundation.URLSessionTask)
+  open func request(_ request: PayWingsKycSDK.DataRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, data: Foundation.Data?, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  open func request(_ request: PayWingsKycSDK.DataRequest, didParseResponse response: PayWingsKycSDK.DataResponse<Foundation.Data?, PayWingsKycSDK.AFError>)
+  public func request(_ request: PayWingsKycSDK.DataStreamRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  open func request(_ request: PayWingsKycSDK.UploadRequest, didCreateUploadable uploadable: PayWingsKycSDK.UploadRequest.Uploadable)
+  open func request(_ request: PayWingsKycSDK.UploadRequest, didFailToCreateUploadableWithError error: PayWingsKycSDK.AFError)
+  open func request(_ request: PayWingsKycSDK.UploadRequest, didProvideInputStream stream: Foundation.InputStream)
+  open func request(_ request: PayWingsKycSDK.DownloadRequest, didFinishDownloadingUsing task: Foundation.URLSessionTask, with result: Swift.Result<Foundation.URL, PayWingsKycSDK.AFError>)
+  open func request(_ request: PayWingsKycSDK.DownloadRequest, didCreateDestinationURL url: Foundation.URL)
+  open func request(_ request: PayWingsKycSDK.DownloadRequest, didValidateRequest urlRequest: Foundation.URLRequest?, response: Foundation.HTTPURLResponse, fileURL: Foundation.URL?, withResult result: PayWingsKycSDK.Request.ValidationResult)
+  open func request(_ request: PayWingsKycSDK.DownloadRequest, didParseResponse response: PayWingsKycSDK.DownloadResponse<Foundation.URL?, PayWingsKycSDK.AFError>)
+  @objc deinit
+}
+public enum AFError : Swift.Error {
+  public enum MultipartEncodingFailureReason {
+    case bodyPartURLInvalid(url: Foundation.URL)
+    case bodyPartFilenameInvalid(in: Foundation.URL)
+    case bodyPartFileNotReachable(at: Foundation.URL)
+    case bodyPartFileNotReachableWithError(atURL: Foundation.URL, error: Swift.Error)
+    case bodyPartFileIsDirectory(at: Foundation.URL)
+    case bodyPartFileSizeNotAvailable(at: Foundation.URL)
+    case bodyPartFileSizeQueryFailedWithError(forURL: Foundation.URL, error: Swift.Error)
+    case bodyPartInputStreamCreationFailed(for: Foundation.URL)
+    case outputStreamCreationFailed(for: Foundation.URL)
+    case outputStreamFileAlreadyExists(at: Foundation.URL)
+    case outputStreamURLInvalid(url: Foundation.URL)
+    case outputStreamWriteFailed(error: Swift.Error)
+    case inputStreamReadFailed(error: Swift.Error)
+  }
+  public struct UnexpectedInputStreamLength : Swift.Error {
+    public var bytesExpected: Swift.UInt64
+    public var bytesRead: Swift.UInt64
+  }
+  public enum ParameterEncodingFailureReason {
+    case missingURL
+    case jsonEncodingFailed(error: Swift.Error)
+    case customEncodingFailed(error: Swift.Error)
+  }
+  public enum ParameterEncoderFailureReason {
+    public enum RequiredComponent {
+      case url
+      case httpMethod(rawValue: Swift.String)
+    }
+    case missingRequiredComponent(PayWingsKycSDK.AFError.ParameterEncoderFailureReason.RequiredComponent)
+    case encoderFailed(error: Swift.Error)
+  }
+  public enum ResponseValidationFailureReason {
+    case dataFileNil
+    case dataFileReadFailed(at: Foundation.URL)
+    case missingContentType(acceptableContentTypes: [Swift.String])
+    case unacceptableContentType(acceptableContentTypes: [Swift.String], responseContentType: Swift.String)
+    case unacceptableStatusCode(code: Swift.Int)
+    case customValidationFailed(error: Swift.Error)
+  }
+  public enum ResponseSerializationFailureReason {
+    case inputDataNilOrZeroLength
+    case inputFileNil
+    case inputFileReadFailed(at: Foundation.URL)
+    case stringSerializationFailed(encoding: Swift.String.Encoding)
+    case jsonSerializationFailed(error: Swift.Error)
+    case decodingFailed(error: Swift.Error)
+    case customSerializationFailed(error: Swift.Error)
+    case invalidEmptyResponse(type: Swift.String)
+  }
+  public enum ServerTrustFailureReason {
+    public struct Output {
+      public let host: Swift.String
+      public let trust: Security.SecTrust
+      public let status: Darwin.OSStatus
+      public let result: Security.SecTrustResultType
+    }
+    case noRequiredEvaluator(host: Swift.String)
+    case noCertificatesFound
+    case noPublicKeysFound
+    case policyApplicationFailed(trust: Security.SecTrust, policy: Security.SecPolicy, status: Darwin.OSStatus)
+    case settingAnchorCertificatesFailed(status: Darwin.OSStatus, certificates: [Security.SecCertificate])
+    case revocationPolicyCreationFailed
+    case trustEvaluationFailed(error: Swift.Error?)
+    case defaultEvaluationFailed(output: PayWingsKycSDK.AFError.ServerTrustFailureReason.Output)
+    case hostValidationFailed(output: PayWingsKycSDK.AFError.ServerTrustFailureReason.Output)
+    case revocationCheckFailed(output: PayWingsKycSDK.AFError.ServerTrustFailureReason.Output, options: PayWingsKycSDK.RevocationTrustEvaluator.Options)
+    case certificatePinningFailed(host: Swift.String, trust: Security.SecTrust, pinnedCertificates: [Security.SecCertificate], serverCertificates: [Security.SecCertificate])
+    case publicKeyPinningFailed(host: Swift.String, trust: Security.SecTrust, pinnedKeys: [Security.SecKey], serverKeys: [Security.SecKey])
+    case customEvaluationFailed(error: Swift.Error)
+  }
+  public enum URLRequestValidationFailureReason {
+    case bodyDataInGETRequest(Foundation.Data)
+  }
+  case createUploadableFailed(error: Swift.Error)
+  case createURLRequestFailed(error: Swift.Error)
+  case downloadedFileMoveFailed(error: Swift.Error, source: Foundation.URL, destination: Foundation.URL)
+  case explicitlyCancelled
+  case invalidURL(url: PayWingsKycSDK.URLConvertible)
+  case multipartEncodingFailed(reason: PayWingsKycSDK.AFError.MultipartEncodingFailureReason)
+  case parameterEncodingFailed(reason: PayWingsKycSDK.AFError.ParameterEncodingFailureReason)
+  case parameterEncoderFailed(reason: PayWingsKycSDK.AFError.ParameterEncoderFailureReason)
+  case requestAdaptationFailed(error: Swift.Error)
+  case requestRetryFailed(retryError: Swift.Error, originalError: Swift.Error)
+  case responseValidationFailed(reason: PayWingsKycSDK.AFError.ResponseValidationFailureReason)
+  case responseSerializationFailed(reason: PayWingsKycSDK.AFError.ResponseSerializationFailureReason)
+  case serverTrustEvaluationFailed(reason: PayWingsKycSDK.AFError.ServerTrustFailureReason)
+  case sessionDeinitialized
+  case sessionInvalidated(error: Swift.Error?)
+  case sessionTaskFailed(error: Swift.Error)
+  case urlRequestValidationFailed(reason: PayWingsKycSDK.AFError.URLRequestValidationFailureReason)
+}
+extension Swift.Error {
+  public var asAFError: PayWingsKycSDK.AFError? {
+    get
+  }
+  public func asAFError(orFailWith message: @autoclosure () -> Swift.String, file: Swift.StaticString = #file, line: Swift.UInt = #line) -> PayWingsKycSDK.AFError
+}
+extension PayWingsKycSDK.AFError {
+  public var isSessionDeinitializedError: Swift.Bool {
+    get
+  }
+  public var isSessionInvalidatedError: Swift.Bool {
+    get
+  }
+  public var isExplicitlyCancelledError: Swift.Bool {
+    get
+  }
+  public var isInvalidURLError: Swift.Bool {
+    get
+  }
+  public var isParameterEncodingError: Swift.Bool {
+    get
+  }
+  public var isParameterEncoderError: Swift.Bool {
+    get
+  }
+  public var isMultipartEncodingError: Swift.Bool {
+    get
+  }
+  public var isRequestAdaptationError: Swift.Bool {
+    get
+  }
+  public var isResponseValidationError: Swift.Bool {
+    get
+  }
+  public var isResponseSerializationError: Swift.Bool {
+    get
+  }
+  public var isServerTrustEvaluationError: Swift.Bool {
+    get
+  }
+  public var isRequestRetryError: Swift.Bool {
+    get
+  }
+  public var isCreateUploadableError: Swift.Bool {
+    get
+  }
+  public var isCreateURLRequestError: Swift.Bool {
+    get
+  }
+  public var isDownloadedFileMoveError: Swift.Bool {
+    get
+  }
+  public var isSessionTaskError: Swift.Bool {
+    get
+  }
+}
+extension PayWingsKycSDK.AFError {
+  public var urlConvertible: PayWingsKycSDK.URLConvertible? {
+    get
+  }
+  public var url: Foundation.URL? {
+    get
+  }
+  public var underlyingError: Swift.Error? {
+    get
+  }
+  public var acceptableContentTypes: [Swift.String]? {
+    get
+  }
+  public var responseContentType: Swift.String? {
+    get
+  }
+  public var responseCode: Swift.Int? {
+    get
+  }
+  public var failedStringEncoding: Swift.String.Encoding? {
+    get
+  }
+  public var sourceURL: Foundation.URL? {
+    get
+  }
+  public var destinationURL: Foundation.URL? {
+    get
+  }
+  public var downloadResumeData: Foundation.Data? {
+    get
+  }
+}
+extension PayWingsKycSDK.AFError : Foundation.LocalizedError {
+  public var errorDescription: Swift.String? {
+    get
+  }
+}
+public protocol URLConvertible {
+  func asURL() throws -> Foundation.URL
+}
+extension Swift.String : PayWingsKycSDK.URLConvertible {
+  public func asURL() throws -> Foundation.URL
+}
+extension Foundation.URL : PayWingsKycSDK.URLConvertible {
+  public func asURL() throws -> Foundation.URL
+}
+extension Foundation.URLComponents : PayWingsKycSDK.URLConvertible {
+  public func asURL() throws -> Foundation.URL
+}
+public protocol URLRequestConvertible {
+  func asURLRequest() throws -> Foundation.URLRequest
+}
+extension PayWingsKycSDK.URLRequestConvertible {
+  public var urlRequest: Foundation.URLRequest? {
+    get
+  }
+}
+extension Foundation.URLRequest : PayWingsKycSDK.URLRequestConvertible {
+  public func asURLRequest() throws -> Foundation.URLRequest
+}
+extension Foundation.URLRequest {
+  public init(url: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod, headers: PayWingsKycSDK.HTTPHeaders? = nil) throws
+}
+extension PayWingsKycSDK.Request {
+  public typealias ValidationResult = Swift.Result<Swift.Void, Swift.Error>
+}
+extension PayWingsKycSDK.DataRequest {
+  public typealias Validation = (Foundation.URLRequest?, Foundation.HTTPURLResponse, Foundation.Data?) -> PayWingsKycSDK.DataRequest.ValidationResult
+  @discardableResult
+  public func validate<S>(statusCode acceptableStatusCodes: S) -> Self where S : Swift.Sequence, S.Element == Swift.Int
+  @discardableResult
+  public func validate<S>(contentType acceptableContentTypes: @autoclosure @escaping () -> S) -> Self where S : Swift.Sequence, S.Element == Swift.String
+  @discardableResult
+  public func validate() -> Self
+}
+extension PayWingsKycSDK.DataStreamRequest {
+  public typealias Validation = (_ request: Foundation.URLRequest?, _ response: Foundation.HTTPURLResponse) -> PayWingsKycSDK.DataStreamRequest.ValidationResult
+  @discardableResult
+  final public func validate<S>(statusCode acceptableStatusCodes: S) -> Self where S : Swift.Sequence, S.Element == Swift.Int
+  @discardableResult
+  final public func validate<S>(contentType acceptableContentTypes: @autoclosure @escaping () -> S) -> Self where S : Swift.Sequence, S.Element == Swift.String
+  @discardableResult
+  final public func validate() -> Self
+}
+extension PayWingsKycSDK.DownloadRequest {
+  public typealias Validation = (_ request: Foundation.URLRequest?, _ response: Foundation.HTTPURLResponse, _ fileURL: Foundation.URL?) -> PayWingsKycSDK.DownloadRequest.ValidationResult
+  @discardableResult
+  public func validate<S>(statusCode acceptableStatusCodes: S) -> Self where S : Swift.Sequence, S.Element == Swift.Int
+  @discardableResult
+  public func validate<S>(contentType acceptableContentTypes: @autoclosure @escaping () -> S) -> Self where S : Swift.Sequence, S.Element == Swift.String
+  @discardableResult
+  public func validate() -> Self
+}
+extension PayWingsKycSDK.Request {
+  public static let didResumeNotification: Foundation.Notification.Name
+  public static let didSuspendNotification: Foundation.Notification.Name
+  public static let didCancelNotification: Foundation.Notification.Name
+  public static let didFinishNotification: Foundation.Notification.Name
+  public static let didResumeTaskNotification: Foundation.Notification.Name
+  public static let didSuspendTaskNotification: Foundation.Notification.Name
+  public static let didCancelTaskNotification: Foundation.Notification.Name
+  public static let didCompleteTaskNotification: Foundation.Notification.Name
+}
+extension Foundation.Notification {
+  public var request: PayWingsKycSDK.Request? {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers final public class AlamofireNotifications : PayWingsKycSDK.EventMonitor {
+  final public func requestDidResume(_ request: PayWingsKycSDK.Request)
+  final public func requestDidSuspend(_ request: PayWingsKycSDK.Request)
+  final public func requestDidCancel(_ request: PayWingsKycSDK.Request)
+  final public func requestDidFinish(_ request: PayWingsKycSDK.Request)
+  final public func request(_ request: PayWingsKycSDK.Request, didResumeTask task: Foundation.URLSessionTask)
+  final public func request(_ request: PayWingsKycSDK.Request, didSuspendTask task: Foundation.URLSessionTask)
+  final public func request(_ request: PayWingsKycSDK.Request, didCancelTask task: Foundation.URLSessionTask)
+  final public func request(_ request: PayWingsKycSDK.Request, didCompleteTask task: Foundation.URLSessionTask, with error: PayWingsKycSDK.AFError?)
+  @objc deinit
+}
+@objc open class SessionDelegate : ObjectiveC.NSObject {
+  public init(fileManager: Foundation.FileManager = .default)
+  @objc deinit
+}
+extension PayWingsKycSDK.SessionDelegate : Foundation.URLSessionDelegate {
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, didBecomeInvalidWithError error: Swift.Error?)
+}
+extension PayWingsKycSDK.SessionDelegate : Foundation.URLSessionTaskDelegate {
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didReceive challenge: Foundation.URLAuthenticationChallenge, completionHandler: @escaping (Foundation.URLSession.AuthChallengeDisposition, Foundation.URLCredential?) -> Swift.Void)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didSendBodyData bytesSent: Swift.Int64, totalBytesSent: Swift.Int64, totalBytesExpectedToSend: Swift.Int64)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, needNewBodyStream completionHandler: @escaping (Foundation.InputStream?) -> Swift.Void)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, willPerformHTTPRedirection response: Foundation.HTTPURLResponse, newRequest request: Foundation.URLRequest, completionHandler: @escaping (Foundation.URLRequest?) -> Swift.Void)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didFinishCollecting metrics: Foundation.URLSessionTaskMetrics)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, didCompleteWithError error: Swift.Error?)
+  @available(macOS 10.13, iOS 11.0, tvOS 11.0, watchOS 4.0, *)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, taskIsWaitingForConnectivity task: Foundation.URLSessionTask)
+}
+extension PayWingsKycSDK.SessionDelegate : Foundation.URLSessionDataDelegate {
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive response: Foundation.URLResponse, completionHandler: @escaping (Foundation.URLSession.ResponseDisposition) -> Swift.Void)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, didReceive data: Foundation.Data)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, dataTask: Foundation.URLSessionDataTask, willCacheResponse proposedResponse: Foundation.CachedURLResponse, completionHandler: @escaping (Foundation.CachedURLResponse?) -> Swift.Void)
+}
+extension PayWingsKycSDK.SessionDelegate : Foundation.URLSessionDownloadDelegate {
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didResumeAtOffset fileOffset: Swift.Int64, expectedTotalBytes: Swift.Int64)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didWriteData bytesWritten: Swift.Int64, totalBytesWritten: Swift.Int64, totalBytesExpectedToWrite: Swift.Int64)
+  @objc dynamic open func urlSession(_ session: Foundation.URLSession, downloadTask: Foundation.URLSessionDownloadTask, didFinishDownloadingTo location: Foundation.URL)
+}
+open class Session {
+  public static let `default`: PayWingsKycSDK.Session
+  final public let session: Foundation.URLSession
+  final public let delegate: PayWingsKycSDK.SessionDelegate
+  final public let rootQueue: Dispatch.DispatchQueue
+  final public let startRequestsImmediately: Swift.Bool
+  final public let requestQueue: Dispatch.DispatchQueue
+  final public let serializationQueue: Dispatch.DispatchQueue
+  final public let interceptor: PayWingsKycSDK.RequestInterceptor?
+  final public let serverTrustManager: PayWingsKycSDK.ServerTrustManager?
+  final public let redirectHandler: PayWingsKycSDK.RedirectHandler?
+  final public let cachedResponseHandler: PayWingsKycSDK.CachedResponseHandler?
+  final public let eventMonitor: PayWingsKycSDK.CompositeEventMonitor
+  final public let defaultEventMonitors: [PayWingsKycSDK.EventMonitor]
+  public init(session: Foundation.URLSession, delegate: PayWingsKycSDK.SessionDelegate, rootQueue: Dispatch.DispatchQueue, startRequestsImmediately: Swift.Bool = true, requestQueue: Dispatch.DispatchQueue? = nil, serializationQueue: Dispatch.DispatchQueue? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, serverTrustManager: PayWingsKycSDK.ServerTrustManager? = nil, redirectHandler: PayWingsKycSDK.RedirectHandler? = nil, cachedResponseHandler: PayWingsKycSDK.CachedResponseHandler? = nil, eventMonitors: [PayWingsKycSDK.EventMonitor] = [])
+  convenience public init(configuration: Foundation.URLSessionConfiguration = URLSessionConfiguration.af.default, delegate: PayWingsKycSDK.SessionDelegate = SessionDelegate(), rootQueue: Dispatch.DispatchQueue = DispatchQueue(label: "org.alamofire.session.rootQueue"), startRequestsImmediately: Swift.Bool = true, requestQueue: Dispatch.DispatchQueue? = nil, serializationQueue: Dispatch.DispatchQueue? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, serverTrustManager: PayWingsKycSDK.ServerTrustManager? = nil, redirectHandler: PayWingsKycSDK.RedirectHandler? = nil, cachedResponseHandler: PayWingsKycSDK.CachedResponseHandler? = nil, eventMonitors: [PayWingsKycSDK.EventMonitor] = [])
+  @objc deinit
+  public func withAllRequests(perform action: @escaping (Swift.Set<PayWingsKycSDK.Request>) -> Swift.Void)
+  public func cancelAllRequests(completingOnQueue queue: Dispatch.DispatchQueue = .main, completion: (() -> Swift.Void)? = nil)
+  public typealias RequestModifier = (inout Foundation.URLRequest) throws -> Swift.Void
+  open func request(_ convertible: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod = .get, parameters: PayWingsKycSDK.Parameters? = nil, encoding: PayWingsKycSDK.ParameterEncoding = URLEncoding.default, headers: PayWingsKycSDK.HTTPHeaders? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil) -> PayWingsKycSDK.DataRequest
+  open func request<Parameters>(_ convertible: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod = .get, parameters: Parameters? = nil, encoder: PayWingsKycSDK.ParameterEncoder = URLEncodedFormParameterEncoder.default, headers: PayWingsKycSDK.HTTPHeaders? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil) -> PayWingsKycSDK.DataRequest where Parameters : Swift.Encodable
+  open func request(_ convertible: PayWingsKycSDK.URLRequestConvertible, interceptor: PayWingsKycSDK.RequestInterceptor? = nil) -> PayWingsKycSDK.DataRequest
+  open func streamRequest<Parameters>(_ convertible: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod = .get, parameters: Parameters? = nil, encoder: PayWingsKycSDK.ParameterEncoder = URLEncodedFormParameterEncoder.default, headers: PayWingsKycSDK.HTTPHeaders? = nil, automaticallyCancelOnStreamError: Swift.Bool = false, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil) -> PayWingsKycSDK.DataStreamRequest where Parameters : Swift.Encodable
+  open func streamRequest(_ convertible: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod = .get, headers: PayWingsKycSDK.HTTPHeaders? = nil, automaticallyCancelOnStreamError: Swift.Bool = false, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil) -> PayWingsKycSDK.DataStreamRequest
+  open func streamRequest(_ convertible: PayWingsKycSDK.URLRequestConvertible, automaticallyCancelOnStreamError: Swift.Bool = false, interceptor: PayWingsKycSDK.RequestInterceptor? = nil) -> PayWingsKycSDK.DataStreamRequest
+  open func download(_ convertible: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod = .get, parameters: PayWingsKycSDK.Parameters? = nil, encoding: PayWingsKycSDK.ParameterEncoding = URLEncoding.default, headers: PayWingsKycSDK.HTTPHeaders? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil, to destination: PayWingsKycSDK.DownloadRequest.Destination? = nil) -> PayWingsKycSDK.DownloadRequest
+  open func download<Parameters>(_ convertible: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod = .get, parameters: Parameters? = nil, encoder: PayWingsKycSDK.ParameterEncoder = URLEncodedFormParameterEncoder.default, headers: PayWingsKycSDK.HTTPHeaders? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil, to destination: PayWingsKycSDK.DownloadRequest.Destination? = nil) -> PayWingsKycSDK.DownloadRequest where Parameters : Swift.Encodable
+  open func download(_ convertible: PayWingsKycSDK.URLRequestConvertible, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, to destination: PayWingsKycSDK.DownloadRequest.Destination? = nil) -> PayWingsKycSDK.DownloadRequest
+  open func download(resumingWith data: Foundation.Data, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, to destination: PayWingsKycSDK.DownloadRequest.Destination? = nil) -> PayWingsKycSDK.DownloadRequest
+  open func upload(_ data: Foundation.Data, to convertible: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod = .post, headers: PayWingsKycSDK.HTTPHeaders? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil) -> PayWingsKycSDK.UploadRequest
+  open func upload(_ data: Foundation.Data, with convertible: PayWingsKycSDK.URLRequestConvertible, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default) -> PayWingsKycSDK.UploadRequest
+  open func upload(_ fileURL: Foundation.URL, to convertible: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod = .post, headers: PayWingsKycSDK.HTTPHeaders? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil) -> PayWingsKycSDK.UploadRequest
+  open func upload(_ fileURL: Foundation.URL, with convertible: PayWingsKycSDK.URLRequestConvertible, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default) -> PayWingsKycSDK.UploadRequest
+  open func upload(_ stream: Foundation.InputStream, to convertible: PayWingsKycSDK.URLConvertible, method: PayWingsKycSDK.HTTPMethod = .post, headers: PayWingsKycSDK.HTTPHeaders? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil) -> PayWingsKycSDK.UploadRequest
+  open func upload(_ stream: Foundation.InputStream, with convertible: PayWingsKycSDK.URLRequestConvertible, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default) -> PayWingsKycSDK.UploadRequest
+  open func upload(multipartFormData: @escaping (PayWingsKycSDK.MultipartFormData) -> Swift.Void, to url: PayWingsKycSDK.URLConvertible, usingThreshold encodingMemoryThreshold: Swift.UInt64 = MultipartFormData.encodingMemoryThreshold, method: PayWingsKycSDK.HTTPMethod = .post, headers: PayWingsKycSDK.HTTPHeaders? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil) -> PayWingsKycSDK.UploadRequest
+  open func upload(multipartFormData: @escaping (PayWingsKycSDK.MultipartFormData) -> Swift.Void, with request: PayWingsKycSDK.URLRequestConvertible, usingThreshold encodingMemoryThreshold: Swift.UInt64 = MultipartFormData.encodingMemoryThreshold, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default) -> PayWingsKycSDK.UploadRequest
+  open func upload(multipartFormData: PayWingsKycSDK.MultipartFormData, to url: PayWingsKycSDK.URLConvertible, usingThreshold encodingMemoryThreshold: Swift.UInt64 = MultipartFormData.encodingMemoryThreshold, method: PayWingsKycSDK.HTTPMethod = .post, headers: PayWingsKycSDK.HTTPHeaders? = nil, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default, requestModifier: PayWingsKycSDK.Session.RequestModifier? = nil) -> PayWingsKycSDK.UploadRequest
+  open func upload(multipartFormData: PayWingsKycSDK.MultipartFormData, with request: PayWingsKycSDK.URLRequestConvertible, usingThreshold encodingMemoryThreshold: Swift.UInt64 = MultipartFormData.encodingMemoryThreshold, interceptor: PayWingsKycSDK.RequestInterceptor? = nil, fileManager: Foundation.FileManager = .default) -> PayWingsKycSDK.UploadRequest
+}
+extension PayWingsKycSDK.Session : PayWingsKycSDK.RequestDelegate {
+  public var sessionConfiguration: Foundation.URLSessionConfiguration {
+    get
+  }
+  public var startImmediately: Swift.Bool {
+    get
+  }
+  public func cleanup(after request: PayWingsKycSDK.Request)
+  public func retryResult(for request: PayWingsKycSDK.Request, dueTo error: PayWingsKycSDK.AFError, completion: @escaping (PayWingsKycSDK.RetryResult) -> Swift.Void)
+  public func retryRequest(_ request: PayWingsKycSDK.Request, withDelay timeDelay: Foundation.TimeInterval?)
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers public class SumSubTheme : IdensicMobileSDK.SNSTheme {
+  @objc deinit
+}
+public struct Style {
+  public static var VideoTheme: PayWingsKycSDK.SumSubTheme
+}
+extension PayWingsKycSDK.URLEncoding.Destination : Swift.Equatable {}
+extension PayWingsKycSDK.URLEncoding.Destination : Swift.Hashable {}
+extension PayWingsKycSDK.URLEncoding.BoolEncoding : Swift.Equatable {}
+extension PayWingsKycSDK.URLEncoding.BoolEncoding : Swift.Hashable {}
+extension PayWingsKycSDK.JSONEncoding.Error : Swift.Equatable {}
+extension PayWingsKycSDK.JSONEncoding.Error : Swift.Hashable {}
+extension PayWingsKycSDK.URLEncodedFormEncoder.BoolEncoding : Swift.Equatable {}
+extension PayWingsKycSDK.URLEncodedFormEncoder.BoolEncoding : Swift.Hashable {}
+extension PayWingsKycSDK.URLEncodedFormEncoder.SpaceEncoding : Swift.Equatable {}
+extension PayWingsKycSDK.URLEncodedFormEncoder.SpaceEncoding : Swift.Hashable {}
+extension PayWingsKycSDK.HttpRequestMethod : Swift.Equatable {}
+extension PayWingsKycSDK.HttpRequestMethod : Swift.Hashable {}
+extension PayWingsKycSDK.HttpRequestMethod : Swift.RawRepresentable {}
+extension PayWingsKycSDK.KycErrorCode : Swift.Equatable {}
+extension PayWingsKycSDK.KycErrorCode : Swift.Hashable {}
+extension PayWingsKycSDK.KycErrorCode : Swift.RawRepresentable {}
+extension PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus.ConnectionType : Swift.Equatable {}
+extension PayWingsKycSDK.NetworkReachabilityManager.NetworkReachabilityStatus.ConnectionType : Swift.Hashable {}
+extension PayWingsKycSDK.URLEncodedFormParameterEncoder.Destination : Swift.Equatable {}
+extension PayWingsKycSDK.URLEncodedFormParameterEncoder.Destination : Swift.Hashable {}
+extension PayWingsKycSDK.Request.State : Swift.Equatable {}
+extension PayWingsKycSDK.Request.State : Swift.Hashable {}
+extension PayWingsKycSDK.Request.ResponseDisposition : Swift.Equatable {}
+extension PayWingsKycSDK.Request.ResponseDisposition : Swift.Hashable {}
+extension PayWingsKycSDK.AuthenticationError : Swift.Equatable {}
+extension PayWingsKycSDK.AuthenticationError : Swift.Hashable {}
+extension PayWingsKycSDK.SwiftyJSONError : Swift.Equatable {}
+extension PayWingsKycSDK.SwiftyJSONError : Swift.Hashable {}
+extension PayWingsKycSDK.SwiftyJSONError : Swift.RawRepresentable {}
+extension PayWingsKycSDK.`Type` : Swift.Equatable {}
+extension PayWingsKycSDK.`Type` : Swift.Hashable {}
+extension PayWingsKycSDK.`Type` : Swift.RawRepresentable {}
+extension PayWingsKycSDK.writingOptionsKeys : Swift.Equatable {}
+extension PayWingsKycSDK.writingOptionsKeys : Swift.Hashable {}

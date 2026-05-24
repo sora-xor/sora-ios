@@ -30,7 +30,7 @@
 
 import SSFUtils
 import Foundation
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 struct AssetInfoDto: ScaleCodable {
     let symbol: String

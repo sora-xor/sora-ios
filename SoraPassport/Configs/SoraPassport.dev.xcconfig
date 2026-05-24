@@ -1,5 +1,3 @@
-#include "../../Pods/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.dev.xcconfig"
-
 OTHER_SWIFT_FLAGS = $(inherited) "-DF_DEV"
 
 SORA_APPLICATION_CONFIG = Dev

@@ -1,0 +1,7 @@
+framework module IdensicMobileSDK {
+  umbrella header "IdensicMobileSDK.h"
+
+  export *
+  module * { export * }
+}
+

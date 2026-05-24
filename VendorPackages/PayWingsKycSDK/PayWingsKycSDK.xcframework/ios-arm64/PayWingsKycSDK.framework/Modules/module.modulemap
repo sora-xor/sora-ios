@@ -1,0 +1,11 @@
+framework module PayWingsKycSDK {
+  umbrella header "PayWingsKycSDK.h"
+
+  export *
+  module * { export * }
+}
+
+module PayWingsKycSDK.Swift {
+  header "PayWingsKycSDK-Swift.h"
+  requires objc
+}

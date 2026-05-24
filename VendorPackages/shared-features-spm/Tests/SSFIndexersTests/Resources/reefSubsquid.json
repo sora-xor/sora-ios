@@ -1,0 +1,320 @@
+{
+  "data": {
+    "transfersConnection": {
+      "edges": [
+        {
+          "node": {
+            "amount": "1000000000000000000",
+            "timestamp": "2024-02-13T05:52:10.000000Z",
+            "success": true,
+            "extrinsicHash": "0x69b14eaeb3dd30c086af79648865f58a3641f1d6863b20c25cc4f07e891b8181",
+            "to": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "from": {
+              "id": "5DNtE6FVvQfHzaH8tDMQaQv9YQj3dtaFEjNvkq9PewHsUPSU"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1491000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1490000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "1577832"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "5000000000000000000",
+            "timestamp": "2024-01-31T19:34:20.001000Z",
+            "success": true,
+            "extrinsicHash": "0x1f56befaa63d9e4fa240093a40a5984fdee0e9b046c4a733b73e0c9f51139d85",
+            "to": {
+              "id": "5GC36Tmo4DwnMchg8GG1DtX7sLWrxNfvahnSrREipFLjLxDf"
+            },
+            "from": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1491000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1490000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "1577832"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "30000000000000000000",
+            "timestamp": "2024-01-24T05:47:40.000000Z",
+            "success": true,
+            "extrinsicHash": "0xa3656bc99c6c7acfa78e3781566eeed9eb093a99dd015f9cbfce984e48ba2384",
+            "to": {
+              "id": "5Dy3wsMXcgR44F9JQ8BjqufWbDQFv8UZKL4BXRixazNSQPjw"
+            },
+            "from": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1491000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1490000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "1577832"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "1000000000000000000",
+            "timestamp": "2023-12-22T10:49:50.000000Z",
+            "success": true,
+            "extrinsicHash": "0x2caebca1915246b77ff0f1b92797dee884ea7a5960355d558a394f06437707f8",
+            "to": {
+              "id": "5E4t3nSJm16UQ7qMpzJehNwY9vwYpXDBVVy89wYbWg5P781k"
+            },
+            "from": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1491000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1490000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "2248911"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "1000000000000000000",
+            "timestamp": "2023-12-21T06:46:10.001000Z",
+            "success": true,
+            "extrinsicHash": "0xadbc15920e8377e31164005bdd40bf074ec8423960cdb3766d3c3b564bd9315a",
+            "to": {
+              "id": "5E4t3nSJm16UQ7qMpzJehNwY9vwYpXDBVVy89wYbWg5P781k"
+            },
+            "from": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1491000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1490000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "2306414"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "10000000000000000000",
+            "timestamp": "2023-12-20T03:35:10.000000Z",
+            "success": true,
+            "extrinsicHash": "0x704f9b9d17b1bbd392768648868619f58aedf991a5a691a2d2f392b0bf0ffc86",
+            "to": {
+              "id": "5DNtE6FVvQfHzaH8tDMQaQv9YQj3dtaFEjNvkq9PewHsUPSU"
+            },
+            "from": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1491000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1490000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "2363518"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "60000000000000000000",
+            "timestamp": "2023-12-19T13:44:30.000000Z",
+            "success": true,
+            "extrinsicHash": "0xb216b9d43f50aa9aca2a2eabb3c55a879f67f97f9d43412623aa0a738a1b8fb6",
+            "to": {
+              "id": "5E4t3nSJm16UQ7qMpzJehNwY9vwYpXDBVVy89wYbWg5P781k"
+            },
+            "from": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1501000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1500000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "2393141"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "5000000000000000000",
+            "timestamp": "2023-12-18T11:28:00.000000Z",
+            "success": true,
+            "extrinsicHash": "0x12c153484457d1adcb804818d805e523634d543ddac173c4d8fd7b08cada2927",
+            "to": {
+              "id": "5GEj2PqbvV9T7nyXYhJSH87nUWAMPxjaPM7WkVqwsqmTFTfq"
+            },
+            "from": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1491000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1490000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "2450378"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "10000000000000000000",
+            "timestamp": "2023-12-15T07:39:40.000000Z",
+            "success": true,
+            "extrinsicHash": "0xc608dd6fb541994bffa2f670d7dfc9098be186ec94f89b938fb5b5717e28cf68",
+            "to": {
+              "id": "5GEj2PqbvV9T7nyXYhJSH87nUWAMPxjaPM7WkVqwsqmTFTfq"
+            },
+            "from": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1491000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1490000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "2623326"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "5000000000000000000",
+            "timestamp": "2023-12-15T07:38:20.001000Z",
+            "success": true,
+            "extrinsicHash": "0xbe96dfc3606fab0ad27029d0c030f5fca61c4290acb43fdcf5dbc09a78bcc19b",
+            "to": {
+              "id": "5GEj2PqbvV9T7nyXYhJSH87nUWAMPxjaPM7WkVqwsqmTFTfq"
+            },
+            "from": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1491000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1490000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "2623379"
+                }
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "amount": "254228982810000000000",
+            "timestamp": "2023-10-27T08:36:10.000000Z",
+            "success": true,
+            "extrinsicHash": "0x7a201c7faa9bfd71d0ba2e1315f86c70c1adffe65f9f27d9194f1392c88a9e6c",
+            "to": {
+              "id": "5GecoStYi2bHzKz6LwE2LWa8MWJxaZYAGjx2WeH8r4RTnQ6e"
+            },
+            "from": {
+              "id": "5HbXgVFzGJMmt927M8ELem9nVzQxggMD78o6mTjyJaW31opo"
+            },
+            "signedData": {
+              "fee": {
+                "class": "normal",
+                "weight": 197229000,
+                "partialFee": "1511000000000000000"
+              },
+              "feeDetails": {
+                "inclusionFee": {
+                  "lenFee": "1510000000000000000",
+                  "baseFee": "1000000000000000",
+                  "adjustedWeightFee": "7548554"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "pageInfo": {
+        "endCursor": "11",
+        "hasNextPage": false
+      }
+    }
+  }
+}
