@@ -10,7 +10,7 @@ final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFac
     }
     
     func accountPools(accountId: Data) throws -> JSONRPCListOperation<JSONScaleDecodable<AccountPools>> {
-        .init(engine: WebSocketEngine(url: .init(string: "")!, logger: Logger.shared), method: "")
+        .init(engine: WebSocketEngine(connectionName: nil, url: .init(string: "")!, logger: Logger.shared), method: "")
     }
 
     var balanceClosure: (([String]) -> CompoundOperationWrapper<[BalanceData]?>)?

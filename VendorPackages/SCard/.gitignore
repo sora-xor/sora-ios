@@ -1,0 +1,5 @@
+*.dSYM
+**/.DS_Store
+Pods/
+*.xcuserstate
+*.xcbkptlist

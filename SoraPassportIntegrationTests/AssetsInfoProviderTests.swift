@@ -7,9 +7,9 @@ final class AssetsInfoProviderTests: XCTestCase {
     var provider: AssetsInfoProvider!
 
     override func setUpWithError() throws {
-        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+        let url: URL = URL(string: "wss://mof2.sora.org")!
         let logger = Logger.shared
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
 
         provider = AssetsInfoProvider(engine: engine, storageKeyFactory: StorageKeyFactory())
     }
@@ -18,7 +18,7 @@ final class AssetsInfoProviderTests: XCTestCase {
         //given
 
         //when
-        provider.loadAssetsInfoKeys()
+        provider.loadAssetsInfoKeys {}
 
         //then
         print("asset info keys = \(provider.keys)")
@@ -41,10 +41,10 @@ final class AssetsInfoProviderTests: XCTestCase {
     }
 
     func testLoadAssetInfoByKey() {
-        let url: URL = URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp/")!
+        let url: URL = URL(string: "wss://mof2.sora.org")!
         let logger = Logger.shared
         let operationQueue = OperationQueue()
-        let engine = WebSocketEngine(url: url, logger: logger)
+        let engine = WebSocketEngine(connectionName: nil, url: url, logger: logger)
         let xorKey = "0x682a59d51ab9e48a8c8cc418ff9708d2f5b4fc54f4471c9a65803b7767ecc9ff123c6b93355876da0200000000000000000000000000000000000000000000000000000000000000"
         let operation = JSONRPCOperation<[String], JSONScaleDecodable<AssetInfoDto>>(
             engine: engine,

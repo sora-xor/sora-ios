@@ -29,7 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
-import Firebase
+import FirebaseCore
 import SCard
 import GoogleSignIn
 import SoraUIKit
@@ -110,31 +110,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         }
 
-        guard let url = Bundle.main.url(forResource: "/Podfile", withExtension: "lock") else { return }
-        let data = try? String(contentsOf: url, encoding: .utf8)
-
-        let scardInfo = data?.groups(for: "SCard:\n\\s*:[a-z]*:.*\n\\s*:[a-z]*:.*")
-        let commit = scardInfo?[safe: 1]?[safe: 0]?.groups(for: ":commit: (.*)")[safe: 0]?[safe: 1]?.prefix(10) ?? "-"
-        let scardInfoMessage = scardInfo?.flatMap{ $0 }.joined()
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard commit:\(commit)") { tableViewController in
-
-            let title = "SCard pod version"
-            let alertController = UIAlertController(title: title, message: scardInfoMessage, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
         FLEXManager.shared.registerGlobalEntry(withName: "SCard Config") { tableViewController in
 
             let title = "SCard Config"
@@ -142,7 +117,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             let alertController = UIAlertController(title: title, message: SCard.shared?.configuration, preferredStyle: .alert)
 
             let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
+                UIPasteboard.general.string = SCard.shared?.configuration
             }
             let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
 
@@ -161,7 +136,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             let alertController = UIAlertController(title: title, message: SCard.currentSDKVersion, preferredStyle: .alert)
 
             let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = data
+                UIPasteboard.general.string = SCard.currentSDKVersion
             }
             let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
 

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00A78C8887DF45D49FEA5A20 /* SSFCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 49D0F24C9E3077A7AC8636D3 /* SSFCrypto */; };
 		0200346521C77E3C001A6A53 /* NotificationEnablePermissionMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200346421C77E3C001A6A53 /* NotificationEnablePermissionMock.swift */; };
 		0200347A21C8DA77001A6A53 /* ReachabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0200347921C8DA77001A6A53 /* ReachabilityManager.swift */; };
 		0208CEBC217E5DC20043FCD7 /* DummyNetworkMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0208CEBB217E5DC20043FCD7 /* DummyNetworkMock.swift */; };
@@ -159,8 +160,13 @@
 		02E319A221D2B16A00B33B66 /* DecentralizedDocumentRequestError+TextConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E319A121D2B16A00B33B66 /* DecentralizedDocumentRequestError+TextConvertible.swift */; };
 		02E319A521D39FE700B33B66 /* TextSharingSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E319A421D39FE700B33B66 /* TextSharingSource.swift */; };
 		02E319B121D4BAFA00B33B66 /* R.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E319B021D4BAFA00B33B66 /* R.generated.swift */; };
+		033E33E64EC2D97F6E9D5849 /* SSFQRService in Frameworks */ = {isa = PBXBuildFile; productRef = 74E247FA60FD5E8357238C87 /* SSFQRService */; };
+		044C3A62A45E13AFCF8E0584 /* JOSESwift in Frameworks */ = {isa = PBXBuildFile; productRef = D7E614EC2909103ED5F9FAEF /* JOSESwift */; };
 		0C6A1BDA3B0081446A36AFD0 /* ParliamentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C421992CF81E68B180FF624 /* ParliamentTests.swift */; };
-		0FA944832A1CE8AA0E16FE48 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB4BEE3DC6E1CEBBFAE2240A /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */; };
+		0E1621565F3F8D5E4773AB4F /* SSFStorageQueryKitFixed in Frameworks */ = {isa = PBXBuildFile; productRef = 60D0DED23E9C7DEA3120BFFF /* SSFStorageQueryKitFixed */; };
+		0E1C30DB858CF3BCC4BC7E72 /* SSFCloudStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 25FA0D7B279C7DEEA82F6362 /* SSFCloudStorage */; };
+		0EA8D69B5458BA590984FFB6 /* SCard in Frameworks */ = {isa = PBXBuildFile; productRef = 1D984CBFACB724D22C810DB0 /* SCard */; };
+		0F8D8152410B90CFAB8DB27F /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 89B9475E781BC5404652C2CB /* GoogleSignIn */; };
 		103CCD1925643D670028345D /* PullUpController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103CCD1825643D670028345D /* PullUpController.swift */; };
 		104BD29F25694381007719DF /* Localizable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104BD29E25694381007719DF /* Localizable.swift */; };
 		105599112536D7A400A6E891 /* LinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105599102536D7A400A6E891 /* LinkView.swift */; };
@@ -171,9 +177,24 @@
 		10EB777D25418CB1000123B9 /* UINavigationBar+Shadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EB777925418CB0000123B9 /* UINavigationBar+Shadow.swift */; };
 		10EB77992541A369000123B9 /* ExtensibleBarNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EB77972541A368000123B9 /* ExtensibleBarNavigationController.swift */; };
 		10F6D03025344EFD00EB64CD /* LinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */; };
+		124B1F14F5D7B0D2DC0470F7 /* RobinHood in Frameworks */ = {isa = PBXBuildFile; productRef = 22919EC5908831C3C880BD6F /* RobinHood */; };
+		145EAFA01DFB275E62E4799B /* SoraKeystore in Frameworks */ = {isa = PBXBuildFile; productRef = 43F82063AB723E90A9CC0DCE /* SoraKeystore */; };
+		14D93B1A483E7CBA88098BF9 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 02C1E5BCE01E9F8CE6DC8BC5 /* GoogleSignIn */; };
+		15BA46C1ABF34DDE094A2C63 /* JOSESwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1C038DC302A0C6A802F75CDA /* JOSESwift */; };
+		16E76BA08804A88456CCE452 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9A099EF5C37C027FFB73219A /* SnapKit */; };
+		17610AEEE4851E3AC5E7D167 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 7B5415C2980B8EE3EB8C0F71 /* FirebaseMessaging */; };
+		1BA7D0B0F6925B3E0F3063FA /* SoraDocuments in Frameworks */ = {isa = PBXBuildFile; productRef = C488534D07E93E81303C9668 /* SoraDocuments */; };
 		1C881931464751B44D4BB3D5 /* AccountOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D7E66187F1DD32A4C4222E /* AccountOptionsTests.swift */; };
-		20D9ACBA22DBBB68D16C8674 /* (null) in Sources */ = {isa = PBXBuildFile; };
+		1ECACF3C9324AA37D39C62F0 /* SVGKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2096029EBBAD688888EC81CE /* SVGKit */; };
+		201D6C509CF1EC4B49A6E03F /* SoraFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 69B75EFD6F72B3626E4BA50D /* SoraFoundation */; };
+		20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */ = {isa = PBXBuildFile; };
+		2402C8744B11AE0D4F354E72 /* SoraFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = F9F269813A258E0CB1A4000F /* SoraFoundation */; };
 		253663B5C127B5B99C84BDA3 /* MainTabBarInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05611DCC8258FCF79CB7401F /* MainTabBarInteractorTests.swift */; };
+		268900763C25B193781824DE /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 22F04EAB41AEFA0ADCA96C33 /* Kingfisher */; };
+		2750F667A67AF4284BEAD468 /* GoogleAPIClientForREST_Drive in Frameworks */ = {isa = PBXBuildFile; productRef = 41F2E75D83DEC879AFEC5981 /* GoogleAPIClientForREST_Drive */; };
+		30078C26745F1B431F6D0132 /* SoraKeystore in Frameworks */ = {isa = PBXBuildFile; productRef = C31CD26D42B50D9624BD26E7 /* SoraKeystore */; };
+		3197D73D8E04AE13D8A67B84 /* Reachability in Frameworks */ = {isa = PBXBuildFile; productRef = BA7BE8650BE6E7E69BA08A1C /* Reachability */; };
+		32076F83B05451F842290FE9 /* IrohaCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = D083260D0CF6AC00E21F7D03 /* IrohaCrypto */; };
 		3213A3092237DAB4001BE041 /* VerificationCodeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3213A3082237DAB4001BE041 /* VerificationCodeData.swift */; };
 		3213A30B2237ED04001BE041 /* sendSmsCodeSuccessResponse.json in Resources */ = {isa = PBXBuildFile; fileRef = 3213A30A2237ED04001BE041 /* sendSmsCodeSuccessResponse.json */; };
 		3213A30D2237ED5E001BE041 /* sendSmsCodeTooFreqResponse.json in Resources */ = {isa = PBXBuildFile; fileRef = 3213A30C2237ED5E001BE041 /* sendSmsCodeTooFreqResponse.json */; };
@@ -187,6 +208,7 @@
 		32C61620222EA77C0092BB86 /* finishedProjectsResponse.json in Resources */ = {isa = PBXBuildFile; fileRef = 32C6161F222EA77C0092BB86 /* finishedProjectsResponse.json */; };
 		32C61622222EA7DD0092BB86 /* ProjectsFinishedFetchMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32C61621222EA7DD0092BB86 /* ProjectsFinishedFetchMock.swift */; };
 		32F7929F22286BA9009EFC8B /* ActivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F7929E22286BA9009EFC8B /* ActivityData.swift */; };
+		34F9F3FAA0B4D27A66C87221 /* SVGKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6FB8BC3264ABE2E3BAC9A1BB /* SVGKit */; };
 		3603A3942917E1FD00DF6EFE /* PoolViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3603A3902917E1FD00DF6EFE /* PoolViewModel.swift */; };
 		3603A3952917E1FD00DF6EFE /* PoolsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3603A3912917E1FD00DF6EFE /* PoolsCell.swift */; };
 		3603A3962917E1FD00DF6EFE /* PoolsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3603A3922917E1FD00DF6EFE /* PoolsItem.swift */; };
@@ -489,7 +511,7 @@
 		367A32282B455CBA001AFA90 /* ExploreSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367A32272B455CBA001AFA90 /* ExploreSectionHeader.swift */; };
 		367C53302C189D7E00C07F56 /* libswiftCoreGraphics.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 367C532F2C189CF500C07F56 /* libswiftCoreGraphics.tbd */; };
 		367C55A328FCA631008FC55F /* AssetViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367C55A228FCA631008FC55F /* AssetViewModelFactory.swift */; };
-		367DEEDA2BDFB45300543BB4 /* SSFStorageQueryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 367DEED92BDFB45300543BB4 /* SSFStorageQueryKit */; };
+		367DEEDA2BDFB45300543BB4 /* SSFStorageQueryKitFixed in Frameworks */ = {isa = PBXBuildFile; productRef = 367DEED92BDFB45300543BB4 /* SSFStorageQueryKitFixed */; };
 		3688A43D280F591900C1D16F /* SourceType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3688A43C280F591900C1D16F /* SourceType.swift */; };
 		368CCC582BDFCEB4003C354F /* CDCWSingleValue+CoreDataCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368CCC572BDFCEB4003C354F /* CDCWSingleValue+CoreDataCodable.swift */; };
 		368E2CA528F2FCA00071A324 /* BalanceProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E2CA428F2FCA00071A324 /* BalanceProviderFactory.swift */; };
@@ -672,12 +694,24 @@
 		36FE0FE42955B52100117E82 /* RecipientAddressCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FE22955B52100117E82 /* RecipientAddressCell.swift */; };
 		36FE0FE72955B68700117E82 /* SendAssetItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FE52955B68700117E82 /* SendAssetItem.swift */; };
 		36FE0FE82955B68700117E82 /* SendAssetCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36FE0FE62955B68700117E82 /* SendAssetCell.swift */; };
+		3704894F4B45AE9C21A820FC /* FLEX in Frameworks */ = {isa = PBXBuildFile; productRef = 7579AE6FC35C3E2F4D7838B8 /* FLEX */; };
+		39B1CAF12158A54530FB15E8 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9008BF86CE98BAB7EA0488EF /* FirebaseCrashlytics */; };
 		3AA88A226F1F362D26B93CC5 /* MainTabBarWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB489F2B62CE0CF494AA92E9 /* MainTabBarWireframe.swift */; };
 		3B5E739B0B8F955CE5436410 /* FriendsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4500E3C38424775159499D0D /* FriendsViewFactory.swift */; };
+		3D00B806416B8624748CB563 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 013F0A55657CA981B8F3B20B /* FirebaseMessaging */; };
+		40ED20F7B32EBF0579EDA177 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = D5A3D4E660E09939EAA99FE7 /* Lottie */; };
+		4370ACFF59741FC5EC0660FB /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = E19BA4E663507E7197AD870C /* SnapKit */; };
 		44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED9AC8B83C51156EBCCDA26 /* StakingTests.swift */; };
 		44760E61E2D1A898A823C30E /* MainTabBarInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */; };
 		464462C2FF9EBDE318B76CD5 /* ActivityFeedInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1850BD8AB0EC103EB91B5BB0 /* ActivityFeedInteractorTests.swift */; };
+		470917B9C7D57A9EED0D51C5 /* Nantes in Frameworks */ = {isa = PBXBuildFile; productRef = 58883BAD0A6BB57B3A19164E /* Nantes */; };
+		49BB62E0ECDC44AF92C9DDA8 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 83FC0B70391DD73EF5A3289E /* FirebaseCrashlytics */; };
+		504F679E7B5F0177CC980E96 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 476C7F47A1A9CFAB82FED522 /* FirebaseCrashlytics */; };
 		50C0AFBF658C7B1627B6482C /* MainTabBarViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93838B610A2628390A37C56 /* MainTabBarViewController.swift */; };
+		5113376A6E60BA238ACD791D /* SCard in Frameworks */ = {isa = PBXBuildFile; productRef = 43E7CE017DA54BCA76F28A03 /* SCard */; };
+		5219459308F0A06350563666 /* SoraUIKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2B8FD960E9165D983667E03C /* SoraUIKit */; };
+		52398F285F57DF830A2150E6 /* Anchorage in Frameworks */ = {isa = PBXBuildFile; productRef = BDA2CE70451FE885709262CD /* Anchorage */; };
+		5370ADB9CDC8ECB476A58BB6 /* Rswift in Frameworks */ = {isa = PBXBuildFile; productRef = 324F8B6E84FBAD847E5D46FD /* Rswift */; };
 		54D2F0C58ABF083FBD57CF91 /* ChangeAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C39A0F563B3CAC78C4D9887 /* ChangeAccountTests.swift */; };
 		55063DB128F96B8A008782E1 /* GenesisProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55063DB028F96B8A008782E1 /* GenesisProvider.swift */; };
 		55063DB328FF3CC8008782E1 /* MoreMenuViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55063DB228FF3CC8008782E1 /* MoreMenuViewController.swift */; };
@@ -716,6 +750,8 @@
 		55C71BC528F4A59300D2C424 /* AssetsInfoProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55C71BC328F4A58E00D2C424 /* AssetsInfoProvider.swift */; };
 		55D06AD028BFEBFD00256B98 /* SwapMarketSourcerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D06ACF28BFEBFC00256B98 /* SwapMarketSourcerProtocol.swift */; };
 		55D06B5A28C7897F00256B98 /* SwapQuoteAmountsFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D06B5928C7897E00256B98 /* SwapQuoteAmountsFactory.swift */; };
+		56BD8DA71FC0AE944CCC4251 /* Reachability in Frameworks */ = {isa = PBXBuildFile; productRef = 68CD823ED020DFB7E8B72D00 /* Reachability */; };
+		5A8C3F6FEFC67A769B787683 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 8BA8297A2896CE5962B777B2 /* FirebaseMessaging */; };
 		5C0A80D5F523B98303F50FEC /* NetworkAvailabilityLayerProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = F654FC832472135F94052F7E /* NetworkAvailabilityLayerProtocols.swift */; };
 		5E023F532823E1A40070304B /* PairRegisterCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E023F522823E1A40070304B /* PairRegisterCall.swift */; };
 		5E138FEF2830201C0010AB54 /* InitializePoolCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E138FEE2830201C0010AB54 /* InitializePoolCall.swift */; };
@@ -745,7 +781,6 @@
 		5E9774F62A31AE040047BCA2 /* AccountExportRawSeedPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774EB2A31AE040047BCA2 /* AccountExportRawSeedPresenter.swift */; };
 		5E9774F72A31AE040047BCA2 /* AccountExportRawSeedViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774EC2A31AE040047BCA2 /* AccountExportRawSeedViewFactory.swift */; };
 		5E9774F82A31AE040047BCA2 /* AccountExportRawSeedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9774ED2A31AE040047BCA2 /* AccountExportRawSeedViewController.swift */; };
-		5EC672362A20B1900059E6AA /* Podfile.lock in Resources */ = {isa = PBXBuildFile; fileRef = 5EC672352A20B1900059E6AA /* Podfile.lock */; };
 		5ED216D7294886AA0052C740 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216A7294886A90052C740 /* Localizable.strings */; };
 		5ED216D9294886AA0052C740 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216AB294886A90052C740 /* Localizable.stringsdict */; };
 		5ED216DE294888090052C740 /* runtime-sora.json in Resources */ = {isa = PBXBuildFile; fileRef = 5ED216DA294888090052C740 /* runtime-sora.json */; };
@@ -756,13 +791,26 @@
 		5ED988AB2A8E96ED00EF81A3 /* WalletViewModel+SCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ED988AA2A8E96ED00EF81A3 /* WalletViewModel+SCard.swift */; };
 		605AA52F26FE601000E7FD12 /* NeumorphismButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605AA52E26FE600D00E7FD12 /* NeumorphismButton.swift */; };
 		605AA53126FE72DA00E7FD12 /* NeomorphismButton.xib in Resources */ = {isa = PBXBuildFile; fileRef = 605AA53026FE72D800E7FD12 /* NeomorphismButton.xib */; };
+		606A900DCDFA8BDCB03C28BB /* Reachability in Frameworks */ = {isa = PBXBuildFile; productRef = BF5804908577C1E7FE1982DB /* Reachability */; };
+		60A8E95F793B09B9B0926B4F /* Cuckoo in Frameworks */ = {isa = PBXBuildFile; productRef = AD598849D4B70320914B8CF0 /* Cuckoo */; };
 		60AAFDC9270EEEDB00916408 /* InconsistentStateMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */; };
 		60AAFDCA270EEEDB00916408 /* Migrating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60AAFDC6270EEEDB00916408 /* Migrating.swift */; };
+		6391A5072615F2678C38E89B /* SoraUI in Frameworks */ = {isa = PBXBuildFile; productRef = 3378F328B363187D05EEBD46 /* SoraUI */; };
+		673F20C75AC8C6B8EC59BCFA /* Then in Frameworks */ = {isa = PBXBuildFile; productRef = 7D3D21B67075A6A98780D210 /* Then */; };
+		67788A511B4091B058274CBF /* RobinHood in Frameworks */ = {isa = PBXBuildFile; productRef = C927DC965CDB9EF63B212E97 /* RobinHood */; };
+		6908D8878403DBE7A2632058 /* Starscream in Frameworks */ = {isa = PBXBuildFile; productRef = E8858BBEAB92EECD0E628B34 /* Starscream */; };
+		6A194951E0A5CB3FF0EF97C3 /* Anchorage in Frameworks */ = {isa = PBXBuildFile; productRef = CE1731A518C473841A363BA5 /* Anchorage */; };
+		6D4410D0EBE94FCEA7A96D0B /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 54BA0DBCE3A409412662B5A3 /* FirebaseAnalytics */; };
 		71C674AA5856E4777FD7514E /* FriendsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */; };
+		724689528E0854696FB6663B /* SSFSingleValueCache in Frameworks */ = {isa = PBXBuildFile; productRef = 73701839B8A34ED80921D042 /* SSFSingleValueCache */; };
+		741FC16885BB1E041DEE119E /* GoogleAPIClientForREST_Drive in Frameworks */ = {isa = PBXBuildFile; productRef = 0E88FECEB9AA35203BCC4A82 /* GoogleAPIClientForREST_Drive */; };
 		7798D61427F5054000BEA4C9 /* LiquiditySlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */; };
-		779BC4BEFD1E01402E80DF90 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D723E225AF4693AF14E42D10 /* Pods_SoraPassportAll_SoraPassport.framework */; };
-		80D4F827F42F732617CCE4E6 /* Pods_SoraPassportTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AC18009B6FA36891A9C165C8 /* Pods_SoraPassportTests.framework */; };
-		82933CD8A0C33141410DBBB2 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		7DDB004A775B4D91C6ED5C9E /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 6E975363C1414BCA91AA285F /* FirebaseAnalytics */; };
+		7F8F3B65AFBE6A71C6A85888 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5E6544BD9208F55F5AFA2ACE /* FirebaseCore */; };
+		80D5B0BD68FC8037D3A08461 /* FLEX in Frameworks */ = {isa = PBXBuildFile; productRef = 6C40AD6DCB72276917883DCC /* FLEX */; };
+		811FB7F259864D7506111FF3 /* SSFSingleValueCache in Frameworks */ = {isa = PBXBuildFile; productRef = AB544FAA04689F7C535B04D0 /* SSFSingleValueCache */; };
+		81A129F8281D295646675A63 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = B739C10CAE494784AD8E7F35 /* Kingfisher */; };
+		82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		84014FA92243C1FB00C35EFD /* BaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84014FA82243C1FB00C35EFD /* BaseService.swift */; };
 		84014FCF2244B5A000C35EFD /* Entities.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 84014FCD2244B5A000C35EFD /* Entities.xcdatamodeld */; };
 		840931E3233DE61B0013C871 /* ReputationDetailsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840931E2233DE61B0013C871 /* ReputationDetailsData.swift */; };
@@ -945,6 +993,7 @@
 		84FA00A4226A1D57005DA950 /* sora-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 84FA00A0226A1D57005DA950 /* sora-Regular.otf */; };
 		86B2484C00C8F13C86614842 /* FriendsPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B8D00970071364A04264BD /* FriendsPresenter.swift */; };
 		8833C424E38CA626D0DC023E /* MainTabBarPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC14252909B919A70DA9DB9 /* MainTabBarPresenter.swift */; };
+		8A56AAB6E1BDCD3CDB0AD29F /* SVGKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7CD916CA17C1346CF2CEE2A6 /* SVGKit */; };
 		8AA0F74BD48BE217591B909A /* AccountOptionsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CD48707B756D7A8ACFF3ACA /* AccountOptionsViewController.swift */; };
 		8B09F8DD298D25AE00A4F8E8 /* UIViewController+CloseButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B09F8DC298D25AE00A4F8E8 /* UIViewController+CloseButton.swift */; };
 		8B1BC3B529FBDA41006C87E4 /* SettingsInformationCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B1BC3B429FBDA41006C87E4 /* SettingsInformationCell.swift */; };
@@ -953,6 +1002,7 @@
 		8B362603296F1B53007B9525 /* ChangeAccountProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B362602296F1B53007B9525 /* ChangeAccountProtocols.swift */; };
 		8B362609296F1FA8007B9525 /* ChangeAccountPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B362608296F1FA8007B9525 /* ChangeAccountPresenter.swift */; };
 		8B36260C296F220B007B9525 /* ChangeAccountWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B36260B296F220B007B9525 /* ChangeAccountWireframe.swift */; };
+		8B9CDE7A6647637EAB1A8E2C /* SoraUIKit in Frameworks */ = {isa = PBXBuildFile; productRef = D70A19141DEC4CC73943E383 /* SoraUIKit */; };
 		8BD084B429411F9B00EEAE0D /* InformationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BD084B329411F9B00EEAE0D /* InformationItem.swift */; };
 		8BD084BA294120E600EEAE0D /* InformationItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BD084B9294120E600EEAE0D /* InformationItemView.swift */; };
 		8BD084BB2941F9CE00EEAE0D /* RedesignWalletViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDDA828EC7FC90080A41C /* RedesignWalletViewController.swift */; };
@@ -968,6 +1018,8 @@
 		8BF428792940A66E00590F92 /* LanguageItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF428782940A66E00590F92 /* LanguageItem.swift */; };
 		8BF4287B2940A6F800590F92 /* LanguageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF4287A2940A6F800590F92 /* LanguageCell.swift */; };
 		8BF4287D2940B1E600590F92 /* LanguageItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF4287C2940B1E600590F92 /* LanguageItemView.swift */; };
+		8CD4C7183C0CDF1E8FA929FF /* SoraWalletBinary in Frameworks */ = {isa = PBXBuildFile; productRef = 2C877621A475E56151EF58FF /* SoraWalletBinary */; };
+		8E20360FD2391202C127E1DD /* Then in Frameworks */ = {isa = PBXBuildFile; productRef = 7C5B6902B522C2F32E92466E /* Then */; };
 		91D7B04B7F0479B242327146 /* FriendsInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */; };
 		9406839C267908E1005F520D /* EventCodingPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9406839B267908E1005F520D /* EventCodingPath.swift */; };
 		940683A226790B44005F520D /* OperationCombiningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940683A126790B44005F520D /* OperationCombiningService.swift */; };
@@ -1318,11 +1370,16 @@
 		94DA85AA270F0B6000CBC15E /* soraSplash.json in Resources */ = {isa = PBXBuildFile; fileRef = 94DA85A9270F0B5F00CBC15E /* soraSplash.json */; };
 		94F68B11277473CB00226F20 /* UISearchBar+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F68B10277473CB00226F20 /* UISearchBar+Style.swift */; };
 		A1B644C63C38805297450DC7 /* FriendsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D10B6F46781199B35B755C /* FriendsWireframe.swift */; };
+		A2B805F2FE48A6B25C5F0BF5 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = E8D2B50532E8E2EBDBC77136 /* Lottie */; };
+		A63E5D476E1EE588051E7E1D /* SoraUI in Frameworks */ = {isa = PBXBuildFile; productRef = D1BC8F8407431D12D954E72A /* SoraUI */; };
+		A655E14B622C4052E471DD4A /* SoraDocuments in Frameworks */ = {isa = PBXBuildFile; productRef = 707D926BFB6D52154D31EC44 /* SoraDocuments */; };
+		A74F585A8B554F91859751D9 /* SwiftyBeaver in Frameworks */ = {isa = PBXBuildFile; productRef = 8E1BC7ACE03CA75FF0557D79 /* SwiftyBeaver */; };
 		A849A67F47A83F55BFA8124E /* ProjectsInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */; };
 		A9A0F171348707CF04DAFE37 /* AccountOptionsProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */; };
+		A9E24969D5F18704E7C43A4D /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = 95BF0507DF2A639FB3BC813D /* SnapKit */; };
 		AD7EAB4CC39BA3CBD8892075 /* AccountOptionsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */; };
-		B1F6AFA9C332AF323B3D7A0A /* Pods_SoraPassportUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5AD0B6452EF7F819B8E83D93 /* Pods_SoraPassportUITests.framework */; };
 		B20C77862AB1E3170009E2AC /* LanguageChanged.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20C77852AB1E3170009E2AC /* LanguageChanged.swift */; };
+		B2529EAAA154E93E35B4F549 /* SSFStorageQueryKitFixed in Frameworks */ = {isa = PBXBuildFile; productRef = 6780E17402514A5AFCE81B32 /* SSFStorageQueryKitFixed */; };
 		B261D91C2ACD809200B434EE /* BackupCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B261D91B2ACD809200B434EE /* BackupCell.swift */; };
 		B261D91E2ACD80A000B434EE /* BackupItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B261D91D2ACD80A000B434EE /* BackupItem.swift */; };
 		B267AA9E2A7A2F7200EF9CF0 /* EditViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B267AA9C2A7A2F7100EF9CF0 /* EditViewCell.swift */; };
@@ -1349,9 +1406,11 @@
 		B2CD5DB02A7A5A1800B16F8A /* EnabledItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA82A7A5A1800B16F8A /* EnabledItem.swift */; };
 		B2CD5DB12A7A5A1800B16F8A /* EnabledViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DA92A7A5A1800B16F8A /* EnabledViewModel.swift */; };
 		B2CD5DB22A7A5A1800B16F8A /* EditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CD5DAA2A7A5A1800B16F8A /* EditViewModel.swift */; };
+		B2D6F0462D43D35208C36904 /* SSFCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 6C9140CE8EF47C374E2AED69 /* SSFCrypto */; };
 		B2E133802A863BD9008A46E0 /* EnabledSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E1337F2A863BD9008A46E0 /* EnabledSection.swift */; };
 		B2E133822A863DA1008A46E0 /* EditViewProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E133812A863DA1008A46E0 /* EditViewProtocol.swift */; };
 		B2FEEA9A2A8A3E030014EC32 /* CIKeys.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2FEEA992A8A3E030014EC32 /* CIKeys.generated.swift */; };
+		B356613D26B5AA1FAD8F1A62 /* Starscream in Frameworks */ = {isa = PBXBuildFile; productRef = 11A72198A6A877678A68CF40 /* Starscream */; };
 		B43BBB8D30B71B622B935779 /* AccountOptionsViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */; };
 		B723EBB02B2AF96400FB055C /* FarmDetailsWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBAF2B2AF96400FB055C /* FarmDetailsWireframe.swift */; };
 		B723EBB32B2B146E00FB055C /* EditFarmViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B723EBB22B2B146E00FB055C /* EditFarmViewController.swift */; };
@@ -1382,13 +1441,47 @@
 		B78D623C2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78D623B2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift */; };
 		B7FC09A62B074ECC009EE437 /* PoolDetailsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FC09A52B074ECC009EE437 /* PoolDetailsSection.swift */; };
 		B7FC09A82B074FCE009EE437 /* PoolDetailsViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FC09A72B074FCE009EE437 /* PoolDetailsViewModelProtocol.swift */; };
+		B9D49A1203EC91E206C48A9B /* JOSESwift in Frameworks */ = {isa = PBXBuildFile; productRef = 629B3C2CF82421BD5E24D152 /* JOSESwift */; };
+		BB4DFDA7176F5FD522C57024 /* RobinHood in Frameworks */ = {isa = PBXBuildFile; productRef = C5E18E54974CCC09AD1EF014 /* RobinHood */; };
+		BBC8978B4D79243BF08CE8AF /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = D2013D053EA70DB1E75C8B21 /* FirebaseAnalytics */; };
+		BC67C8889AAFCD4BD6A8C9FE /* Then in Frameworks */ = {isa = PBXBuildFile; productRef = C0002C51E601E713E29DBAFD /* Then */; };
 		BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */; };
+		BDC22AD938BE9E5863055911 /* SoraUIKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0F6C390A2C622B03E23B92D2 /* SoraUIKit */; };
+		BFD86C4FA9262A5F62E545AF /* SoraUI in Frameworks */ = {isa = PBXBuildFile; productRef = F13CDA4F8EB7F38B40602FBF /* SoraUI */; };
+		C263269147BF8E8F931E825E /* FireMock in Frameworks */ = {isa = PBXBuildFile; productRef = 4A2FE42A560700DD7E11FCF3 /* FireMock */; };
+		C2A484955EE9D9A1D4C96D3A /* FireMock in Frameworks */ = {isa = PBXBuildFile; productRef = C567D7480F7328C6C8645E1B /* FireMock */; };
+		C31116B773BF37F53039E740 /* SoraWalletBinary in Frameworks */ = {isa = PBXBuildFile; productRef = 3DFB24F1E22AB522B51E6499 /* SoraWalletBinary */; };
+		C482E22AAE232AA17EDA86E2 /* SoraWalletBinary in Frameworks */ = {isa = PBXBuildFile; productRef = 46F7535B344735B7A0194568 /* SoraWalletBinary */; };
+		C626651ED17EECE2FDAF0DE5 /* Rswift in Frameworks */ = {isa = PBXBuildFile; productRef = 3192E5B7B594233B555187CB /* Rswift */; };
+		C7706105D9D415BF3229944F /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 99181BC773FED5D7FC25B230 /* GoogleSignIn */; };
+		C8D9AC138F4498C0C66DC742 /* IrohaCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = E7C44364DFDAA650B77611FE /* IrohaCrypto */; };
+		C9949DF03A87AA10107B2CAE /* SSFQRService in Frameworks */ = {isa = PBXBuildFile; productRef = 0DBCB128430F318403A44E86 /* SSFQRService */; };
+		CA1A3737D6E15BD60FB44160 /* Nantes in Frameworks */ = {isa = PBXBuildFile; productRef = BFFCD3891E50ACFF2D3BAD85 /* Nantes */; };
+		CD62447E657825F28A3528A1 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = ED467EA3F5597C9AC25A4C1A /* Lottie */; };
+		CF1791B7B0ADC0E3D6A62C60 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = EA386BC421A1B4C2FA0C7B8C /* FirebaseCore */; };
+		D5C065EFD9855642646B46B3 /* SSFCloudStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 11ECB54AC166C12F312FE794 /* SSFCloudStorage */; };
+		D6372A423379BEBB171F7871 /* FireMock in Frameworks */ = {isa = PBXBuildFile; productRef = 45FFB295C41D6050AAAA29EC /* FireMock */; };
+		D7276A6ABCE7784077FA94C1 /* SSFSingleValueCache in Frameworks */ = {isa = PBXBuildFile; productRef = EE4803001A8597D8059DB25F /* SSFSingleValueCache */; };
 		D794F1F4CCDD89D21FFA685B /* ProfileInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */; };
 		DA3C8273D7F73172782EAA94 /* VotesHistoryInteractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F039024F008EE356D1BDFCBF /* VotesHistoryInteractorTests.swift */; };
 		DAC1A7E82AB4629FBF7E1730 /* AccountOptionsPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229C8B5EC9E3EAD365ACBB9F /* AccountOptionsPresenter.swift */; };
 		DAC888F2250A88D684CB4213 /* NetworkAvailabilityLayerInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D87EE84EFA7C7EDF293C6058 /* NetworkAvailabilityLayerInteractor.swift */; };
 		DB806A2B9031562D790C9435 /* MainTabBarProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265097D4636C933C8E8FEBAB /* MainTabBarProtocol.swift */; };
+		DC89154889711C99A19790CB /* Rswift in Frameworks */ = {isa = PBXBuildFile; productRef = 087F34FBC8179DCE37FCF6CC /* Rswift */; };
+		DE161B8757C1B71119E09E84 /* Starscream in Frameworks */ = {isa = PBXBuildFile; productRef = 614A9425263D85BD29F57F8B /* Starscream */; };
+		E1AC50C4EAEE1DC1766BFDB0 /* SoraDocuments in Frameworks */ = {isa = PBXBuildFile; productRef = 840DB2082A430816594E74BE /* SoraDocuments */; };
+		E2EDBC7FACC47CC840F67223 /* SCard in Frameworks */ = {isa = PBXBuildFile; productRef = E77E7FA10D0342C67456D9A2 /* SCard */; };
+		E523748B1701C2EFEEF057CA /* GoogleAPIClientForREST_Drive in Frameworks */ = {isa = PBXBuildFile; productRef = D566C8B00A9C50C0383121F7 /* GoogleAPIClientForREST_Drive */; };
+		E89EFA94833EA8604626D838 /* SwiftyBeaver in Frameworks */ = {isa = PBXBuildFile; productRef = 6D69ACB3F9FCD7DFCA20A244 /* SwiftyBeaver */; };
+		EE37A1A24019F9B8364FF90E /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3B7A62042C6C75B3BCBEB91B /* FirebaseCore */; };
 		F4B80632FCC6A80CEAD886E5 /* NetworkAvailabilityLayerPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E589AB74AC57E665444842DB /* NetworkAvailabilityLayerPresenter.swift */; };
+		F88A44E69830111F8DDDCB56 /* SoraFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = B7A3C1B278B6838E0ACBCF0D /* SoraFoundation */; };
+		F930FA4C8E740B71947E201E /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = E43085CA7AF9EB5009196598 /* Kingfisher */; };
+		FB2D9C35FA6B03364A557B18 /* SwiftyBeaver in Frameworks */ = {isa = PBXBuildFile; productRef = DB2E54768CEB5CD794CA198C /* SwiftyBeaver */; };
+		FDAFC4EA77B84E310F357004 /* Nantes in Frameworks */ = {isa = PBXBuildFile; productRef = 7D7A33DC65DACD4091BDCCC4 /* Nantes */; };
+		FE2512DFFC423D5994996366 /* Anchorage in Frameworks */ = {isa = PBXBuildFile; productRef = 10B2BF606E8721DE091C73FD /* Anchorage */; };
+		FE80F1C394A9727F8CFA2708 /* SoraKeystore in Frameworks */ = {isa = PBXBuildFile; productRef = 2FFFD6AF43210B79AE7D802B /* SoraKeystore */; };
+		FE8C7283969E9F44AE0590AA /* FLEX in Frameworks */ = {isa = PBXBuildFile; productRef = 599830D751DE7A57566DB302 /* FLEX */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1588,7 +1681,6 @@
 		103CCD1825643D670028345D /* PullUpController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PullUpController.swift; sourceTree = "<group>"; };
 		104BD29E25694381007719DF /* Localizable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localizable.swift; sourceTree = "<group>"; };
 		105599102536D7A400A6E891 /* LinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkView.swift; sourceTree = "<group>"; };
-		1059418FE7EF06308A6C4A07 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig"; sourceTree = "<group>"; };
 		108A04FF254994A5007F992D /* UIView+Empty.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Empty.swift"; sourceTree = "<group>"; };
 		108A26C22533315900B25D87 /* UIColor+Hex.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UIColor+Hex.swift"; sourceTree = "<group>"; };
 		10929507254D7134003AAA64 /* SoraTextStyle.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SoraTextStyle.swift; sourceTree = "<group>"; };
@@ -1598,7 +1690,6 @@
 		10F6D02F25344EFD00EB64CD /* LinkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkViewModel.swift; sourceTree = "<group>"; };
 		1850BD8AB0EC103EB91B5BB0 /* ActivityFeedInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityFeedInteractorTests.swift; sourceTree = "<group>"; };
 		1C39A0F563B3CAC78C4D9887 /* ChangeAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChangeAccountTests.swift; sourceTree = "<group>"; };
-		1C539F5C788C7922A064915F /* Pods-SoraPassportUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.release.xcconfig"; sourceTree = "<group>"; };
 		229C8B5EC9E3EAD365ACBB9F /* AccountOptionsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsPresenter.swift; sourceTree = "<group>"; };
 		265097D4636C933C8E8FEBAB /* MainTabBarProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarProtocol.swift; sourceTree = "<group>"; };
 		2C421992CF81E68B180FF624 /* ParliamentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParliamentTests.swift; sourceTree = "<group>"; };
@@ -1610,7 +1701,6 @@
 		32384B8522364CEF00346C90 /* AnimatableCollectionViewCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatableCollectionViewCell.swift; sourceTree = "<group>"; };
 		32384B88223656C000346C90 /* TransformAnimator+Common.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TransformAnimator+Common.swift"; sourceTree = "<group>"; };
 		32384B8A2236865D00346C90 /* reputationNullResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = reputationNullResponse.json; sourceTree = "<group>"; };
-		326CAAA6CCA2D45DC07C88BB /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.release.xcconfig"; sourceTree = "<group>"; };
 		32C6161D222E94B00092BB86 /* DateFormatter+Common.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DateFormatter+Common.swift"; sourceTree = "<group>"; };
 		32C6161F222EA77C0092BB86 /* finishedProjectsResponse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = finishedProjectsResponse.json; sourceTree = "<group>"; };
 		32C61621222EA7DD0092BB86 /* ProjectsFinishedFetchMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsFinishedFetchMock.swift; sourceTree = "<group>"; };
@@ -2136,7 +2226,6 @@
 		36FE0FE62955B68700117E82 /* SendAssetCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SendAssetCell.swift; sourceTree = "<group>"; };
 		3ED9AC8B83C51156EBCCDA26 /* StakingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StakingTests.swift; sourceTree = "<group>"; };
 		4500E3C38424775159499D0D /* FriendsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsViewFactory.swift; sourceTree = "<group>"; };
-		53152DC93291F0E39D8D8C6D /* Pods-SoraPassportTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.release.xcconfig"; sourceTree = "<group>"; };
 		55063DB028F96B8A008782E1 /* GenesisProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenesisProvider.swift; sourceTree = "<group>"; };
 		55063DB228FF3CC8008782E1 /* MoreMenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreMenuViewController.swift; sourceTree = "<group>"; };
 		55063DB52901411E008782E1 /* CategoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryItem.swift; sourceTree = "<group>"; };
@@ -2173,8 +2262,6 @@
 		55D06B5928C7897E00256B98 /* SwapQuoteAmountsFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwapQuoteAmountsFactory.swift; sourceTree = "<group>"; };
 		55F1610F28C89E7B00EF6FF3 /* SwapQuoteAmountsFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwapQuoteAmountsFactoryTests.swift; sourceTree = "<group>"; };
 		55F1611128C89EFB00EF6FF3 /* Mocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mocks.swift; sourceTree = "<group>"; };
-		56242D514BE4103CB8D454A4 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.staging.xcconfig"; sourceTree = "<group>"; };
-		5AD0B6452EF7F819B8E83D93 /* Pods_SoraPassportUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CA063C1A2293FCE9E330D22 /* AccountOptionsWireframe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsWireframe.swift; sourceTree = "<group>"; };
 		5E023F522823E1A40070304B /* PairRegisterCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairRegisterCall.swift; sourceTree = "<group>"; };
 		5E138FEE2830201C0010AB54 /* InitializePoolCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InitializePoolCall.swift; sourceTree = "<group>"; };
@@ -2205,7 +2292,6 @@
 		5E9774EC2A31AE040047BCA2 /* AccountExportRawSeedViewFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountExportRawSeedViewFactory.swift; sourceTree = "<group>"; };
 		5E9774ED2A31AE040047BCA2 /* AccountExportRawSeedViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AccountExportRawSeedViewController.swift; sourceTree = "<group>"; };
 		5EBF9E542801AF920071E83D /* JSONRPCPoolXYKTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPCPoolXYKTests.swift; sourceTree = "<group>"; };
-		5EC672352A20B1900059E6AA /* Podfile.lock */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Podfile.lock; sourceTree = "<group>"; };
 		5ED216A8294886A90052C740 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		5ED216AC294886A90052C740 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.stringsdict"; sourceTree = "<group>"; };
 		5ED216AD294886A90052C740 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -2261,10 +2347,7 @@
 		60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InconsistentStateMigrator.swift; sourceTree = "<group>"; };
 		60AAFDC6270EEEDB00916408 /* Migrating.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Migrating.swift; sourceTree = "<group>"; };
 		6CD48707B756D7A8ACFF3ACA /* AccountOptionsViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewController.swift; sourceTree = "<group>"; };
-		73CFDA44A792043793A40D3A /* Pods-SoraPassportTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.staging.xcconfig"; sourceTree = "<group>"; };
-		76255EE34F34EDAEC46D07B3 /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.test.xcconfig"; sourceTree = "<group>"; };
 		7798D61327F5054000BEA4C9 /* LiquiditySlider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiquiditySlider.swift; sourceTree = "<group>"; };
-		811182E20860E40776A5D11B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig"; sourceTree = "<group>"; };
 		81E44F911EE9113FACEA3CB0 /* FriendsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsProtocols.swift; sourceTree = "<group>"; };
 		84014FA82243C1FB00C35EFD /* BaseService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BaseService.swift; sourceTree = "<group>"; };
 		84014FCE2244B5A000C35EFD /* Entities.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = Entities.xcdatamodel; sourceTree = "<group>"; };
@@ -2468,9 +2551,6 @@
 		8BF428782940A66E00590F92 /* LanguageItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageItem.swift; sourceTree = "<group>"; };
 		8BF4287A2940A6F800590F92 /* LanguageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageCell.swift; sourceTree = "<group>"; };
 		8BF4287C2940B1E600590F92 /* LanguageItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageItemView.swift; sourceTree = "<group>"; };
-		8EBE2C39312BAE5628ABF78C /* Pods-SoraPassportTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.debug.xcconfig"; sourceTree = "<group>"; };
-		8FD48888E2043892DB783325 /* Pods-SoraPassportUITests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.test.xcconfig"; sourceTree = "<group>"; };
-		91202B4DAE1D0BA2D1688FB7 /* Pods-SoraPassportUITests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.dev.xcconfig"; sourceTree = "<group>"; };
 		9406839B267908E1005F520D /* EventCodingPath.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EventCodingPath.swift; sourceTree = "<group>"; };
 		940683A126790B44005F520D /* OperationCombiningService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OperationCombiningService.swift; sourceTree = "<group>"; };
 		940683A826790C55005F520D /* Longrun.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Longrun.swift; sourceTree = "<group>"; };
@@ -2820,10 +2900,7 @@
 		94DA85A9270F0B5F00CBC15E /* soraSplash.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = soraSplash.json; sourceTree = "<group>"; };
 		94F68B10277473CB00226F20 /* UISearchBar+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UISearchBar+Style.swift"; sourceTree = "<group>"; };
 		9DCBC906343F060484760364 /* AccountOptionsProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsProtocols.swift; sourceTree = "<group>"; };
-		A41273F3C53DCE01366EF64C /* Pods-SoraPassportTests.test.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.test.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.test.xcconfig"; sourceTree = "<group>"; };
 		A6A9D15582E943505D261C8C /* MainTabBarInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarInteractor.swift; sourceTree = "<group>"; };
-		A8E21DA37E98BA314D5FC337 /* Pods-SoraPassportUITests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.staging.xcconfig"; sourceTree = "<group>"; };
-		AC18009B6FA36891A9C165C8 /* Pods_SoraPassportTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AD86961CCFC0C1D23836DDF9 /* AboutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AboutTests.swift; sourceTree = "<group>"; };
 		B20C77852AB1E3170009E2AC /* LanguageChanged.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageChanged.swift; sourceTree = "<group>"; };
 		B261D91B2ACD809200B434EE /* BackupCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupCell.swift; sourceTree = "<group>"; };
@@ -2884,23 +2961,14 @@
 		B78D623B2B0B39D300450DA9 /* SetupNameCreateAccountPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupNameCreateAccountPresenter.swift; sourceTree = "<group>"; };
 		B7FC09A52B074ECC009EE437 /* PoolDetailsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailsSection.swift; sourceTree = "<group>"; };
 		B7FC09A72B074FCE009EE437 /* PoolDetailsViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoolDetailsViewModelProtocol.swift; sourceTree = "<group>"; };
-		C32421D43B3C57F14CE5B720 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.dev.xcconfig"; sourceTree = "<group>"; };
 		C48A145702A9603B4999DCB5 /* FriendsInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsInteractor.swift; sourceTree = "<group>"; };
 		C5DBDA3AF99AF3617ABB1996 /* ProjectsInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProjectsInteractorTests.swift; sourceTree = "<group>"; };
-		C7C79E2DEAC477BA8CC8027E /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig"; sourceTree = "<group>"; };
-		C97C1BD24EE151F7C35C3C5E /* Pods-SoraPassportTests.dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportTests.dev.xcconfig"; path = "Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests.dev.xcconfig"; sourceTree = "<group>"; };
-		CB4BEE3DC6E1CEBBFAE2240A /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassportIntegrationTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2B8D00970071364A04264BD /* FriendsPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FriendsPresenter.swift; sourceTree = "<group>"; };
 		D368DCDCA1EB0A4CE2FA23DA /* ProfileInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileInteractorTests.swift; sourceTree = "<group>"; };
 		D3B5C5ABB0BDBD75124933C2 /* MainTabBarViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarViewFactory.swift; sourceTree = "<group>"; };
-		D57AB6D2A692B0B0D290E605 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig"; sourceTree = "<group>"; };
-		D723E225AF4693AF14E42D10 /* Pods_SoraPassportAll_SoraPassport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SoraPassportAll_SoraPassport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		D87CCDFA45325A0E0541DD75 /* Pods-SoraPassportUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportUITests.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportUITests/Pods-SoraPassportUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		D87EE84EFA7C7EDF293C6058 /* NetworkAvailabilityLayerInteractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerInteractor.swift; sourceTree = "<group>"; };
 		DB489F2B62CE0CF494AA92E9 /* MainTabBarWireframe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarWireframe.swift; sourceTree = "<group>"; };
-		DBE8FE6397232356C2D0F849 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig"; sourceTree = "<group>"; };
 		E589AB74AC57E665444842DB /* NetworkAvailabilityLayerPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityLayerPresenter.swift; sourceTree = "<group>"; };
-		E7F98DD65299E6A150CC9027 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; path = "Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport.debug.xcconfig"; sourceTree = "<group>"; };
 		E93838B610A2628390A37C56 /* MainTabBarViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabBarViewController.swift; sourceTree = "<group>"; };
 		F039024F008EE356D1BDFCBF /* VotesHistoryInteractorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VotesHistoryInteractorTests.swift; sourceTree = "<group>"; };
 		F32A0F6FCB2C6D156F32B42A /* AccountOptionsViewFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountOptionsViewFactory.swift; sourceTree = "<group>"; };
@@ -2916,9 +2984,37 @@
 				369E10BB2B91DAEC0097DB61 /* IrohaCrypto in Frameworks */,
 				36CEAD7B2B9471DD00D532E0 /* SSFCloudStorage in Frameworks */,
 				367C53302C189D7E00C07F56 /* libswiftCoreGraphics.tbd in Frameworks */,
-				367DEEDA2BDFB45300543BB4 /* SSFStorageQueryKit in Frameworks */,
+				367DEEDA2BDFB45300543BB4 /* SSFStorageQueryKitFixed in Frameworks */,
 				36CEAD7D2B94734200D532E0 /* SSFCrypto in Frameworks */,
-				779BC4BEFD1E01402E80DF90 /* Pods_SoraPassportAll_SoraPassport.framework in Frameworks */,
+				FE80F1C394A9727F8CFA2708 /* SoraKeystore in Frameworks */,
+				201D6C509CF1EC4B49A6E03F /* SoraFoundation in Frameworks */,
+				BFD86C4FA9262A5F62E545AF /* SoraUI in Frameworks */,
+				A655E14B622C4052E471DD4A /* SoraDocuments in Frameworks */,
+				67788A511B4091B058274CBF /* RobinHood in Frameworks */,
+				D6372A423379BEBB171F7871 /* FireMock in Frameworks */,
+				5219459308F0A06350563666 /* SoraUIKit in Frameworks */,
+				E2EDBC7FACC47CC840F67223 /* SCard in Frameworks */,
+				C31116B773BF37F53039E740 /* SoraWalletBinary in Frameworks */,
+				FE2512DFFC423D5994996366 /* Anchorage in Frameworks */,
+				F930FA4C8E740B71947E201E /* Kingfisher in Frameworks */,
+				34F9F3FAA0B4D27A66C87221 /* SVGKit in Frameworks */,
+				EE37A1A24019F9B8364FF90E /* FirebaseCore in Frameworks */,
+				BBC8978B4D79243BF08CE8AF /* FirebaseAnalytics in Frameworks */,
+				39B1CAF12158A54530FB15E8 /* FirebaseCrashlytics in Frameworks */,
+				17610AEEE4851E3AC5E7D167 /* FirebaseMessaging in Frameworks */,
+				56BD8DA71FC0AE944CCC4251 /* Reachability in Frameworks */,
+				6908D8878403DBE7A2632058 /* Starscream in Frameworks */,
+				FB2D9C35FA6B03364A557B18 /* SwiftyBeaver in Frameworks */,
+				BC67C8889AAFCD4BD6A8C9FE /* Then in Frameworks */,
+				A2B805F2FE48A6B25C5F0BF5 /* Lottie in Frameworks */,
+				470917B9C7D57A9EED0D51C5 /* Nantes in Frameworks */,
+				16E76BA08804A88456CCE452 /* SnapKit in Frameworks */,
+				80D5B0BD68FC8037D3A08461 /* FLEX in Frameworks */,
+				5370ADB9CDC8ECB476A58BB6 /* Rswift in Frameworks */,
+				D7276A6ABCE7784077FA94C1 /* SSFSingleValueCache in Frameworks */,
+				14D93B1A483E7CBA88098BF9 /* GoogleSignIn in Frameworks */,
+				741FC16885BB1E041DEE119E /* GoogleAPIClientForREST_Drive in Frameworks */,
+				B9D49A1203EC91E206C48A9B /* JOSESwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2926,7 +3022,41 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				80D4F827F42F732617CCE4E6 /* Pods_SoraPassportTests.framework in Frameworks */,
+				32076F83B05451F842290FE9 /* IrohaCrypto in Frameworks */,
+				D5C065EFD9855642646B46B3 /* SSFCloudStorage in Frameworks */,
+				B2D6F0462D43D35208C36904 /* SSFCrypto in Frameworks */,
+				033E33E64EC2D97F6E9D5849 /* SSFQRService in Frameworks */,
+				B2529EAAA154E93E35B4F549 /* SSFStorageQueryKitFixed in Frameworks */,
+				30078C26745F1B431F6D0132 /* SoraKeystore in Frameworks */,
+				F88A44E69830111F8DDDCB56 /* SoraFoundation in Frameworks */,
+				A63E5D476E1EE588051E7E1D /* SoraUI in Frameworks */,
+				E1AC50C4EAEE1DC1766BFDB0 /* SoraDocuments in Frameworks */,
+				124B1F14F5D7B0D2DC0470F7 /* RobinHood in Frameworks */,
+				C2A484955EE9D9A1D4C96D3A /* FireMock in Frameworks */,
+				BDC22AD938BE9E5863055911 /* SoraUIKit in Frameworks */,
+				5113376A6E60BA238ACD791D /* SCard in Frameworks */,
+				C482E22AAE232AA17EDA86E2 /* SoraWalletBinary in Frameworks */,
+				6A194951E0A5CB3FF0EF97C3 /* Anchorage in Frameworks */,
+				268900763C25B193781824DE /* Kingfisher in Frameworks */,
+				1ECACF3C9324AA37D39C62F0 /* SVGKit in Frameworks */,
+				7F8F3B65AFBE6A71C6A85888 /* FirebaseCore in Frameworks */,
+				7DDB004A775B4D91C6ED5C9E /* FirebaseAnalytics in Frameworks */,
+				49BB62E0ECDC44AF92C9DDA8 /* FirebaseCrashlytics in Frameworks */,
+				3D00B806416B8624748CB563 /* FirebaseMessaging in Frameworks */,
+				3197D73D8E04AE13D8A67B84 /* Reachability in Frameworks */,
+				B356613D26B5AA1FAD8F1A62 /* Starscream in Frameworks */,
+				A74F585A8B554F91859751D9 /* SwiftyBeaver in Frameworks */,
+				8E20360FD2391202C127E1DD /* Then in Frameworks */,
+				CD62447E657825F28A3528A1 /* Lottie in Frameworks */,
+				FDAFC4EA77B84E310F357004 /* Nantes in Frameworks */,
+				A9E24969D5F18704E7C43A4D /* SnapKit in Frameworks */,
+				3704894F4B45AE9C21A820FC /* FLEX in Frameworks */,
+				C626651ED17EECE2FDAF0DE5 /* Rswift in Frameworks */,
+				60A8E95F793B09B9B0926B4F /* Cuckoo in Frameworks */,
+				724689528E0854696FB6663B /* SSFSingleValueCache in Frameworks */,
+				C7706105D9D415BF3229944F /* GoogleSignIn in Frameworks */,
+				2750F667A67AF4284BEAD468 /* GoogleAPIClientForREST_Drive in Frameworks */,
+				044C3A62A45E13AFCF8E0584 /* JOSESwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2934,8 +3064,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82933CD8A0C33141410DBBB2 /* (null) in Frameworks */,
-				B1F6AFA9C332AF323B3D7A0A /* Pods_SoraPassportUITests.framework in Frameworks */,
+				82933CD8A0C33141410DBBB2 /* BuildFile in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2943,7 +3072,40 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0FA944832A1CE8AA0E16FE48 /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework in Frameworks */,
+				C8D9AC138F4498C0C66DC742 /* IrohaCrypto in Frameworks */,
+				0E1C30DB858CF3BCC4BC7E72 /* SSFCloudStorage in Frameworks */,
+				00A78C8887DF45D49FEA5A20 /* SSFCrypto in Frameworks */,
+				C9949DF03A87AA10107B2CAE /* SSFQRService in Frameworks */,
+				0E1621565F3F8D5E4773AB4F /* SSFStorageQueryKitFixed in Frameworks */,
+				145EAFA01DFB275E62E4799B /* SoraKeystore in Frameworks */,
+				2402C8744B11AE0D4F354E72 /* SoraFoundation in Frameworks */,
+				6391A5072615F2678C38E89B /* SoraUI in Frameworks */,
+				1BA7D0B0F6925B3E0F3063FA /* SoraDocuments in Frameworks */,
+				BB4DFDA7176F5FD522C57024 /* RobinHood in Frameworks */,
+				C263269147BF8E8F931E825E /* FireMock in Frameworks */,
+				8B9CDE7A6647637EAB1A8E2C /* SoraUIKit in Frameworks */,
+				0EA8D69B5458BA590984FFB6 /* SCard in Frameworks */,
+				8CD4C7183C0CDF1E8FA929FF /* SoraWalletBinary in Frameworks */,
+				52398F285F57DF830A2150E6 /* Anchorage in Frameworks */,
+				81A129F8281D295646675A63 /* Kingfisher in Frameworks */,
+				8A56AAB6E1BDCD3CDB0AD29F /* SVGKit in Frameworks */,
+				CF1791B7B0ADC0E3D6A62C60 /* FirebaseCore in Frameworks */,
+				6D4410D0EBE94FCEA7A96D0B /* FirebaseAnalytics in Frameworks */,
+				504F679E7B5F0177CC980E96 /* FirebaseCrashlytics in Frameworks */,
+				5A8C3F6FEFC67A769B787683 /* FirebaseMessaging in Frameworks */,
+				606A900DCDFA8BDCB03C28BB /* Reachability in Frameworks */,
+				DE161B8757C1B71119E09E84 /* Starscream in Frameworks */,
+				E89EFA94833EA8604626D838 /* SwiftyBeaver in Frameworks */,
+				673F20C75AC8C6B8EC59BCFA /* Then in Frameworks */,
+				40ED20F7B32EBF0579EDA177 /* Lottie in Frameworks */,
+				CA1A3737D6E15BD60FB44160 /* Nantes in Frameworks */,
+				4370ACFF59741FC5EC0660FB /* SnapKit in Frameworks */,
+				FE8C7283969E9F44AE0590AA /* FLEX in Frameworks */,
+				DC89154889711C99A19790CB /* Rswift in Frameworks */,
+				811FB7F259864D7506111FF3 /* SSFSingleValueCache in Frameworks */,
+				0F8D8152410B90CFAB8DB27F /* GoogleSignIn in Frameworks */,
+				E523748B1701C2EFEEF057CA /* GoogleAPIClientForREST_Drive in Frameworks */,
+				15BA46C1ABF34DDE094A2C63 /* JOSESwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3251,13 +3413,11 @@
 		02623EAC2178C0910011250E = {
 			isa = PBXGroup;
 			children = (
-				5EC672352A20B1900059E6AA /* Podfile.lock */,
 				02623EB72178C0910011250E /* SoraPassport */,
 				02623ECC2178C0930011250E /* SoraPassportTests */,
 				02623ED72178C0930011250E /* SoraPassportUITests */,
 				84324BCC2411446000CA339A /* SoraPassportIntegrationTests */,
 				02623EB62178C0910011250E /* Products */,
-				BEF38E71B6415481628D3783 /* Pods */,
 				4156DE4E00DC930B3847D3C8 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -5231,10 +5391,6 @@
 			isa = PBXGroup;
 			children = (
 				367C532F2C189CF500C07F56 /* libswiftCoreGraphics.tbd */,
-				D723E225AF4693AF14E42D10 /* Pods_SoraPassportAll_SoraPassport.framework */,
-				CB4BEE3DC6E1CEBBFAE2240A /* Pods_SoraPassportAll_SoraPassportIntegrationTests.framework */,
-				AC18009B6FA36891A9C165C8 /* Pods_SoraPassportTests.framework */,
-				5AD0B6452EF7F819B8E83D93 /* Pods_SoraPassportUITests.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -6587,33 +6743,6 @@
 			path = ChangeAccount;
 			sourceTree = "<group>";
 		};
-		BEF38E71B6415481628D3783 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				E7F98DD65299E6A150CC9027 /* Pods-SoraPassportAll-SoraPassport.debug.xcconfig */,
-				326CAAA6CCA2D45DC07C88BB /* Pods-SoraPassportAll-SoraPassport.release.xcconfig */,
-				76255EE34F34EDAEC46D07B3 /* Pods-SoraPassportAll-SoraPassport.test.xcconfig */,
-				56242D514BE4103CB8D454A4 /* Pods-SoraPassportAll-SoraPassport.staging.xcconfig */,
-				C32421D43B3C57F14CE5B720 /* Pods-SoraPassportAll-SoraPassport.dev.xcconfig */,
-				1059418FE7EF06308A6C4A07 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */,
-				DBE8FE6397232356C2D0F849 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */,
-				811182E20860E40776A5D11B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */,
-				D57AB6D2A692B0B0D290E605 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */,
-				C7C79E2DEAC477BA8CC8027E /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */,
-				8EBE2C39312BAE5628ABF78C /* Pods-SoraPassportTests.debug.xcconfig */,
-				53152DC93291F0E39D8D8C6D /* Pods-SoraPassportTests.release.xcconfig */,
-				A41273F3C53DCE01366EF64C /* Pods-SoraPassportTests.test.xcconfig */,
-				73CFDA44A792043793A40D3A /* Pods-SoraPassportTests.staging.xcconfig */,
-				C97C1BD24EE151F7C35C3C5E /* Pods-SoraPassportTests.dev.xcconfig */,
-				D87CCDFA45325A0E0541DD75 /* Pods-SoraPassportUITests.debug.xcconfig */,
-				1C539F5C788C7922A064915F /* Pods-SoraPassportUITests.release.xcconfig */,
-				8FD48888E2043892DB783325 /* Pods-SoraPassportUITests.test.xcconfig */,
-				A8E21DA37E98BA314D5FC337 /* Pods-SoraPassportUITests.staging.xcconfig */,
-				91202B4DAE1D0BA2D1688FB7 /* Pods-SoraPassportUITests.dev.xcconfig */,
-			);
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		D0C1FE5C90B97BF44622D035 /* MainTabBar */ = {
 			isa = PBXGroup;
 			children = (
@@ -6642,7 +6771,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EDD2178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassport" */;
 			buildPhases = (
-				4144A9CC49BBA175374951B0 /* [CP] Check Pods Manifest.lock */,
 				364EA8442A094205001A0FD4 /* Inject Secrets */,
 				02623F072179DCD20011250E /* R.swift */,
 				02623EB12178C0910011250E /* Sources */,
@@ -6650,7 +6778,6 @@
 				02E319AF21D4AFF500B33B66 /* Setup Firebase Enviroment GoogleService-Info.plist */,
 				02623EB32178C0910011250E /* Resources */,
 				0292033321977A4400D9BACD /* Crashlytics */,
-				4C4BF86A0358C4A7AC3A5106 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6662,7 +6789,36 @@
 				36CEAD7A2B9471DD00D532E0 /* SSFCloudStorage */,
 				36CEAD7C2B94734200D532E0 /* SSFCrypto */,
 				36CEAD822B948A0B00D532E0 /* SSFQRService */,
-				367DEED92BDFB45300543BB4 /* SSFStorageQueryKit */,
+				367DEED92BDFB45300543BB4 /* SSFStorageQueryKitFixed */,
+				2FFFD6AF43210B79AE7D802B /* SoraKeystore */,
+				69B75EFD6F72B3626E4BA50D /* SoraFoundation */,
+				F13CDA4F8EB7F38B40602FBF /* SoraUI */,
+				707D926BFB6D52154D31EC44 /* SoraDocuments */,
+				C927DC965CDB9EF63B212E97 /* RobinHood */,
+				45FFB295C41D6050AAAA29EC /* FireMock */,
+				2B8FD960E9165D983667E03C /* SoraUIKit */,
+				E77E7FA10D0342C67456D9A2 /* SCard */,
+				3DFB24F1E22AB522B51E6499 /* SoraWalletBinary */,
+				10B2BF606E8721DE091C73FD /* Anchorage */,
+				E43085CA7AF9EB5009196598 /* Kingfisher */,
+				6FB8BC3264ABE2E3BAC9A1BB /* SVGKit */,
+				3B7A62042C6C75B3BCBEB91B /* FirebaseCore */,
+				D2013D053EA70DB1E75C8B21 /* FirebaseAnalytics */,
+				9008BF86CE98BAB7EA0488EF /* FirebaseCrashlytics */,
+				7B5415C2980B8EE3EB8C0F71 /* FirebaseMessaging */,
+				68CD823ED020DFB7E8B72D00 /* Reachability */,
+				E8858BBEAB92EECD0E628B34 /* Starscream */,
+				DB2E54768CEB5CD794CA198C /* SwiftyBeaver */,
+				C0002C51E601E713E29DBAFD /* Then */,
+				E8D2B50532E8E2EBDBC77136 /* Lottie */,
+				58883BAD0A6BB57B3A19164E /* Nantes */,
+				9A099EF5C37C027FFB73219A /* SnapKit */,
+				6C40AD6DCB72276917883DCC /* FLEX */,
+				324F8B6E84FBAD847E5D46FD /* Rswift */,
+				EE4803001A8597D8059DB25F /* SSFSingleValueCache */,
+				02C1E5BCE01E9F8CE6DC8BC5 /* GoogleSignIn */,
+				0E88FECEB9AA35203BCC4A82 /* GoogleAPIClientForREST_Drive */,
+				629B3C2CF82421BD5E24D152 /* JOSESwift */,
 			);
 			productName = SoraPassport;
 			productReference = 02623EB52178C0910011250E /* SoraPassport.app */;
@@ -6672,13 +6828,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EE02178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassportTests" */;
 			buildPhases = (
-				083DA2F82C057D6967C279F7 /* [CP] Check Pods Manifest.lock */,
-				02623F0A2179F1C50011250E /* ModuleMocks */,
-				026AEA5221B4FFF0002EEB67 /* CommonMocks */,
 				02623EC52178C0930011250E /* Sources */,
 				02623EC62178C0930011250E /* Frameworks */,
 				02623EC72178C0930011250E /* Resources */,
-				D40E434244BC138C7300251A /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6686,6 +6838,43 @@
 				02623ECB2178C0930011250E /* PBXTargetDependency */,
 			);
 			name = SoraPassportTests;
+			packageProductDependencies = (
+				D083260D0CF6AC00E21F7D03 /* IrohaCrypto */,
+				11ECB54AC166C12F312FE794 /* SSFCloudStorage */,
+				6C9140CE8EF47C374E2AED69 /* SSFCrypto */,
+				74E247FA60FD5E8357238C87 /* SSFQRService */,
+				6780E17402514A5AFCE81B32 /* SSFStorageQueryKitFixed */,
+				C31CD26D42B50D9624BD26E7 /* SoraKeystore */,
+				B7A3C1B278B6838E0ACBCF0D /* SoraFoundation */,
+				D1BC8F8407431D12D954E72A /* SoraUI */,
+				840DB2082A430816594E74BE /* SoraDocuments */,
+				22919EC5908831C3C880BD6F /* RobinHood */,
+				C567D7480F7328C6C8645E1B /* FireMock */,
+				0F6C390A2C622B03E23B92D2 /* SoraUIKit */,
+				43E7CE017DA54BCA76F28A03 /* SCard */,
+				46F7535B344735B7A0194568 /* SoraWalletBinary */,
+				CE1731A518C473841A363BA5 /* Anchorage */,
+				22F04EAB41AEFA0ADCA96C33 /* Kingfisher */,
+				2096029EBBAD688888EC81CE /* SVGKit */,
+				5E6544BD9208F55F5AFA2ACE /* FirebaseCore */,
+				6E975363C1414BCA91AA285F /* FirebaseAnalytics */,
+				83FC0B70391DD73EF5A3289E /* FirebaseCrashlytics */,
+				013F0A55657CA981B8F3B20B /* FirebaseMessaging */,
+				BA7BE8650BE6E7E69BA08A1C /* Reachability */,
+				11A72198A6A877678A68CF40 /* Starscream */,
+				8E1BC7ACE03CA75FF0557D79 /* SwiftyBeaver */,
+				7C5B6902B522C2F32E92466E /* Then */,
+				ED467EA3F5597C9AC25A4C1A /* Lottie */,
+				7D7A33DC65DACD4091BDCCC4 /* Nantes */,
+				95BF0507DF2A639FB3BC813D /* SnapKit */,
+				7579AE6FC35C3E2F4D7838B8 /* FLEX */,
+				3192E5B7B594233B555187CB /* Rswift */,
+				AD598849D4B70320914B8CF0 /* Cuckoo */,
+				73701839B8A34ED80921D042 /* SSFSingleValueCache */,
+				99181BC773FED5D7FC25B230 /* GoogleSignIn */,
+				41F2E75D83DEC879AFEC5981 /* GoogleAPIClientForREST_Drive */,
+				D7E614EC2909103ED5F9FAEF /* JOSESwift */,
+			);
 			productName = SoraPassportTests;
 			productReference = 02623EC92178C0930011250E /* SoraPassportTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -6694,7 +6883,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EE32178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassportUITests" */;
 			buildPhases = (
-				8BBB7AF296B6151CD74733D4 /* [CP] Check Pods Manifest.lock */,
 				02623ED02178C0930011250E /* Sources */,
 				02623ED12178C0930011250E /* Frameworks */,
 				02623ED22178C0930011250E /* Resources */,
@@ -6713,11 +6901,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 84324BD22411446000CA339A /* Build configuration list for PBXNativeTarget "SoraPassportIntegrationTests" */;
 			buildPhases = (
-				C1C68D4BB940B97420F58218 /* [CP] Check Pods Manifest.lock */,
 				84324BC72411446000CA339A /* Sources */,
 				84324BC82411446000CA339A /* Frameworks */,
 				84324BC92411446000CA339A /* Resources */,
-				164B29583457DEEB4D1BEDA6 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -6725,6 +6911,42 @@
 				84324BD12411446000CA339A /* PBXTargetDependency */,
 			);
 			name = SoraPassportIntegrationTests;
+			packageProductDependencies = (
+				E7C44364DFDAA650B77611FE /* IrohaCrypto */,
+				25FA0D7B279C7DEEA82F6362 /* SSFCloudStorage */,
+				49D0F24C9E3077A7AC8636D3 /* SSFCrypto */,
+				0DBCB128430F318403A44E86 /* SSFQRService */,
+				60D0DED23E9C7DEA3120BFFF /* SSFStorageQueryKitFixed */,
+				43F82063AB723E90A9CC0DCE /* SoraKeystore */,
+				F9F269813A258E0CB1A4000F /* SoraFoundation */,
+				3378F328B363187D05EEBD46 /* SoraUI */,
+				C488534D07E93E81303C9668 /* SoraDocuments */,
+				C5E18E54974CCC09AD1EF014 /* RobinHood */,
+				4A2FE42A560700DD7E11FCF3 /* FireMock */,
+				D70A19141DEC4CC73943E383 /* SoraUIKit */,
+				1D984CBFACB724D22C810DB0 /* SCard */,
+				2C877621A475E56151EF58FF /* SoraWalletBinary */,
+				BDA2CE70451FE885709262CD /* Anchorage */,
+				B739C10CAE494784AD8E7F35 /* Kingfisher */,
+				7CD916CA17C1346CF2CEE2A6 /* SVGKit */,
+				EA386BC421A1B4C2FA0C7B8C /* FirebaseCore */,
+				54BA0DBCE3A409412662B5A3 /* FirebaseAnalytics */,
+				476C7F47A1A9CFAB82FED522 /* FirebaseCrashlytics */,
+				8BA8297A2896CE5962B777B2 /* FirebaseMessaging */,
+				BF5804908577C1E7FE1982DB /* Reachability */,
+				614A9425263D85BD29F57F8B /* Starscream */,
+				6D69ACB3F9FCD7DFCA20A244 /* SwiftyBeaver */,
+				7D3D21B67075A6A98780D210 /* Then */,
+				D5A3D4E660E09939EAA99FE7 /* Lottie */,
+				BFFCD3891E50ACFF2D3BAD85 /* Nantes */,
+				E19BA4E663507E7197AD870C /* SnapKit */,
+				599830D751DE7A57566DB302 /* FLEX */,
+				087F34FBC8179DCE37FCF6CC /* Rswift */,
+				AB544FAA04689F7C535B04D0 /* SSFSingleValueCache */,
+				89B9475E781BC5404652C2CB /* GoogleSignIn */,
+				D566C8B00A9C50C0383121F7 /* GoogleAPIClientForREST_Drive */,
+				1C038DC302A0C6A802F75CDA /* JOSESwift */,
+			);
 			productName = SoraPassportIntegrationTests;
 			productReference = 84324BCB2411446000CA339A /* SoraPassportIntegrationTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -6811,7 +7033,32 @@
 			);
 			mainGroup = 02623EAC2178C0910011250E;
 			packageReferences = (
-				369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */,
+				5FDAF7C5BD3FA665FAD6EBEC /* XCLocalSwiftPackageReference "SoraFoundation" */,
+				3A87DFA02CC58C9D4033F1D5 /* XCLocalSwiftPackageReference "SoraUI" */,
+				610B2592625C191BFCCC9C60 /* XCLocalSwiftPackageReference "SoraDocuments" */,
+				5BEB68CD25C9ECB2F9FEEC52 /* XCLocalSwiftPackageReference "FireMock" */,
+				5839749B2E77D80750D70109 /* XCLocalSwiftPackageReference "SoraUIKit" */,
+				ED2AFF3DEA54C37A1C1E2BD5 /* XCLocalSwiftPackageReference "SCard" */,
+				2C99FBD08CC91F20EA5A02DB /* XCRemoteSwiftPackageReference "Anchorage" */,
+				A8BA557EDEA0F1631EEADCA5 /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				64329616BA308EBC2612D242 /* XCRemoteSwiftPackageReference "SVGKit" */,
+				25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				ECCF9F0190BEFF028BFBEDC5 /* XCRemoteSwiftPackageReference "Reachability.swift" */,
+				3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */,
+				6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */,
+				8DB9CFBE23A428AD08D9B430 /* XCRemoteSwiftPackageReference "Then" */,
+				AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */,
+				52A0155256AFC2CA527689B6 /* XCRemoteSwiftPackageReference "Nantes" */,
+				5042D9A859C7F367351B3D59 /* XCRemoteSwiftPackageReference "SnapKit" */,
+				B78E6CE55B4DCDD6AE3EDE86 /* XCRemoteSwiftPackageReference "FLEX" */,
+				BBA70B8F121D2450141B19F4 /* XCRemoteSwiftPackageReference "Cuckoo" */,
+				A1F02371B1A71698FE615DC3 /* XCRemoteSwiftPackageReference "R.swift.Library" */,
+				3A11E8A01A959DA266936BB4 /* XCLocalSwiftPackageReference "SoraWalletBinary" */,
+				1E330CC22657E2C8FC872577 /* XCLocalSwiftPackageReference "SSFStorageQueryKit" */,
+				C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */,
+				AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */,
+				14D2D31BA68E53309B71377E /* XCLocalSwiftPackageReference "google-api-objectivec-client-for-rest" */,
+				0121BF625ECBF89177D3E433 /* XCLocalSwiftPackageReference "JOSESwift" */,
 			);
 			productRefGroup = 02623EB62178C0910011250E /* Products */;
 			projectDirPath = "";
@@ -6885,7 +7132,6 @@
 				84F0100122C60615001927A1 /* countryResponse.json in Resources */,
 				5ED216E0294888090052C740 /* runtime-polkadot.json in Resources */,
 				943BC333258BA4B000F20FD9 /* ethConfigResponse.json in Resources */,
-				5EC672362A20B1900059E6AA /* Podfile.lock in Resources */,
 				0208CEDC217F04D80043FCD7 /* appConfig.plist in Resources */,
 				3213A30D2237ED5E001BE041 /* sendSmsCodeTooFreqResponse.json in Resources */,
 				84639D1122CA1E0A009D847C /* userExistsResponse.json in Resources */,
@@ -6941,7 +7187,6 @@
 			files = (
 			);
 			inputPaths = (
-				"$TEMP_DIR/rswift-lastrun",
 			);
 			name = R.swift;
 			outputPaths = (
@@ -6949,35 +7194,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PODS_ROOT/R.swift/rswift\" generate \"$PROJECT_DIR/R.generated.swift\"\n";
-		};
-		02623F0A2179F1C50011250E /* ModuleMocks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = ModuleMocks;
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "#! /bin/sh\nif [ $ACTION == \"indexbuild\" ]; then\n  echo \"Not running Cuckoo generator during indexing.\"\n  exit 0 \nfi\n\n# Skip for preview builds\nif [ \"${ENABLE_PREVIEWS}\" = \"YES\" ]; then\n  echo \"Not running Cuckoo generator during preview builds.\"\n  exit 0\nfi\n\n# Define output file. Change \"$PROJECT_DIR/${PROJECT_NAME}Tests\" to your test's root source folder, if it's not the default name.\nOUTPUT_FILE=\"${PROJECT_NAME}Tests/Mocks/ModuleMocks.swift\"\necho \"Generated Mocks File = $OUTPUT_FILE\"\n\n# Define input directory. Change \"${PROJECT_DIR}/${PROJECT_NAME}\" to your project's root source folder, if it's not the default name.\nINPUT_DIR=\"${PROJECT_NAME}\"\necho \"Mocks Input Directory = $INPUT_DIR\"\n\n# Generate mock files, include as many input files as you'd like to create mocks for.\n\"Pods/Cuckoo/run\" --clean generate --no-header --testable \"${PROJECT_NAME}\" \\\n--exclude \"RootPresenterFactoryProtocol, OnboardingMainViewFactoryProtocol, MainViewFactoryProtocol, PersonalInfoViewFactoryProtocol, AccountCreateViewFactoryProtocol, AccountImportViewFactoryProtocol, AccountConfirmViewFactoryProtocol, AccessBackupViewFactoryProtocol, StartupViewFactoryProtocol, NotificationsInteractorFactoryProtocol, MainTabBarViewFactoryProtocol, ProjectsViewFactoryProtocol, ProjectDetailsViewFactoryProtocol, ProfileViewFactoryProtocol, ReputationViewFactoryProtocol, VotesHistoryViewFactoryProtocol, PersonalUpdateViewFactoryProtocol, ActivityFeedViewFactoryProtocol, PhoneVerificationViewFactoryProtocol, HelpViewFactoryProtocol, CurrencyViewFactoryProtocol, UnsupportedVersionViewFactoryProtocol, SelectCountryViewFactoryProtocol, PhoneRegistrationViewFactoryProtocol, AboutViewFactoryProtocol, InvitationHandlePresenterFactoryProtocol, InvitationViewFactoryProtocol, PinViewFactoryProtocol, LanguageSelectionViewFactoryProtocol, ReferendumDetailsViewFactoryProtocol, FriendsViewFactoryProtocol\" \\\n--output \"${OUTPUT_FILE}\" \\\n\"$INPUT_DIR/Common/Protocols/LoadableViewProtocol.swift\" \\\n\"$INPUT_DIR/Common/Protocols/ControllerBackedProtocol.swift\" \\\n\"$INPUT_DIR/Common/Protocols/ErrorPresentable.swift\" \\\n\"$INPUT_DIR/Common/Protocols/AlertPresentable.swift\" \\\n\"$INPUT_DIR/Common/Protocols/WebPresentable.swift\" \\\n\"$INPUT_DIR/Common/Protocols/StatusPresentable.swift\" \\\n\"$INPUT_DIR/Common/Protocols/SharingPresentable.swift\" \\\n\"$INPUT_DIR/Common/Protocols/InputFieldPresentable.swift\" \\\n\"$INPUT_DIR/Common/EventCenter/EventProtocols.swift\" \\\n\"$INPUT_DIR/Common/EventCenter/EventVisitor.swift\" \\\n\"$INPUT_DIR/Common/DeepLink/DeepLinkNavigation.swift\" \\\n\"$INPUT_DIR/Common/DeepLink/DeepLinkService.swift\" \\\n\"$INPUT_DIR/Common/DeepLink/InvitationLinkService.swift\" \\\n\"$INPUT_DIR/Common/LocalAuthentication/BiometryAuth.swift\" \\\n\"$INPUT_DIR/Common/Protocols/UnsupportedVersionPresentable.swift\" \\\n\"${PODS_ROOT}/SoraUI/SoraUI/Classes/EmptyState/EmptyStateViewProtocols.swift\" \\\n\"$INPUT_DIR/Common/ViewController/SelectionListViewController/SelectionListProtocols.swift\" \\\n\"$INPUT_DIR/Modules/Root/RootProtocol.swift\" \\\n\"$INPUT_DIR/Modules/OnbordingMain/OnboardingMainProtocol.swift\" \\\n\"$INPUT_DIR/Modules/AccountCreate/AccountCreateProtocols.swift\" \\\n\"$INPUT_DIR/Modules/AccountImport/AccountImportProtocols.swift\" \\\n\"$INPUT_DIR/Modules/AccountConfirm/AccountConfirmProtocols.swift\" \\\n\"$INPUT_DIR/Modules/MainTabBar/MainTabBarProtocol.swift\" \\\n\"$INPUT_DIR/Modules/MainTabBar/Child/ChildPresenter.swift\" \\\n\"$INPUT_DIR/Modules/MainTabBar/Child/InvitationHandle/InvitationHandleProtocols.swift\" \\\n\"$INPUT_DIR/Modules/Profile/ProfileProtocol.swift\" \\\n\"$INPUT_DIR/Modules/PersonalUpdate/PersonalUpdateProtocol.swift\" \\\n\"$INPUT_DIR/Modules/SecurityLayer/SecurityLayerProtocols.swift\" \\\n\"$INPUT_DIR/Modules/NetworkAvailabilityLayer/NetworkAvailabilityLayerProtocols.swift\" \\\n\"$INPUT_DIR/Modules/UnsupportedVersion/UnsupportedVersionProtocols.swift\" \\\n\"$INPUT_DIR/Modules/About/AboutProtocols.swift\" \\\n\"$INPUT_DIR/Modules/Pincode/PinSetup/PinSetupProtocol.swift\" \\\n\"$INPUT_DIR/Common/ViewController/WebPresenting/WebPresentingProtocols.swift\" \\\n\"$INPUT_DIR/Modules/LanguageSelection/LanguageSelectionProtocols.swift\" \\\n\"$INPUT_DIR/Modules/Friends/FriendsProtocols.swift\" \n";
-		};
-		026AEA5221B4FFF0002EEB67 /* CommonMocks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = CommonMocks;
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "#! /bin/sh\n# Define output file. Change \"$PROJECT_DIR/${PROJECT_NAME}Tests\" to your test's root source folder, if it's not the default name.\nOUTPUT_FILE=\"${PROJECT_NAME}Tests/Mocks/CommonMocks.swift\"\necho \"Generated Mocks File = $OUTPUT_FILE\"\n\n# Define input directory. Change \"${PROJECT_DIR}/${PROJECT_NAME}\" to your project's root source folder, if it's not the default name.\nINPUT_DIR=\"${PROJECT_NAME}\"\necho \"Mocks Input Directory = $INPUT_DIR\"\n\n# Generate mock files, include as many input files as you'd like to create mocks for.\n\"Pods/Cuckoo/run\" generate --no-header --testable \"${PROJECT_NAME},SoraFoundation\" \\\n--exclude \"DecentralizedResolverOperationFactory, ProjectOperationFactory, ReachabilityManager, ApplicationConfig, CountdownTimer, ApplicationHandler, EthereumServiceProtocol\" \\\n--output \"${OUTPUT_FILE}\" \\\n\"$INPUT_DIR/Common/Network/DecentralizedResolver/DecentralizedResolverOperationFactory.swift\" \\\n\"$INPUT_DIR/Common/Network/ProjectUnit/ProjectOperationFactoryProtocol.swift\" \\\n\"$INPUT_DIR/Common/DataStream/DataStreamService.swift\" \\\n\"$INPUT_DIR/Common/Reachability/ReachabilityManager.swift\" \\\n\"$INPUT_DIR/Common/Configs/ApplicationConfigs.swift\" \\\n\"$INPUT_DIR/Common/UserApplicationService/UserApplicationService.swift\" \\\n\"$INPUT_DIR/Common/DataStream/DataStreamHandling.swift\" \\\n\"$INPUT_DIR/Common/Network/Ethereum/EthereumServiceProtocol.swift\" \\\n\"$INPUT_DIR/../Pods/SoraFoundation/SoraFoundation/Classes/NotificationHandlers/ApplicationHandler.swift\" \\\n\"$INPUT_DIR/../Pods/SoraFoundation/SoraFoundation/Classes/Timer/CountdownTimer.swift\" \\\n\"$INPUT_DIR/../Pods/SoraFoundation/SoraFoundation/Classes/DateProcessing/DayChangeHandler.swift\" \n";
+			shellScript = "if [ \"$ACTION\" = \"indexbuild\" ]; then\n  echo \"Not running R.swift during indexing.\"\n  exit 0\nfi\n\nif [ \"${ENABLE_PREVIEWS}\" = \"YES\" ]; then\n  echo \"Not running R.swift during preview builds.\"\n  exit 0\nfi\n\nxcrun --sdk macosx swift run --package-path \"$PROJECT_DIR/VendorPackages/Rswift\" --scratch-path \"$DERIVED_FILE_DIR/RswiftBuild\" --configuration release rswift generate \"$PROJECT_DIR/R.generated.swift\"\n";
 		};
 		0292033321977A4400D9BACD /* Crashlytics */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -6992,7 +7209,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/FirebaseCrashlytics/run\"\n";
+			shellScript = "\"$BUILD_DIR/../../SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\n";
 		};
 		02E319AF21D4AFF500B33B66 /* Setup Firebase Enviroment GoogleService-Info.plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -7007,124 +7224,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Name of the resource we're selectively copying\nGOOGLESERVICE_INFO_PLIST=GoogleService-Info.plist\n\n# Get references to a version of the GoogleService-Info.plist based on config\nGOOGLESERVICE_INFO_CONFIG=${PROJECT_DIR}/${TARGET_NAME}/Configs/${FIREBASE_CONFIG}\n\n# Make sure that plist exists\necho \"Looking for ${GOOGLESERVICE_INFO_CONFIG}\"\nif [ ! -f $GOOGLESERVICE_INFO_CONFIG ]\nthen\necho \"No ${FIREBASE_CONFIG} found. Please ensure it's in the proper directory.\"\nexit 1\nfi\n\n# Get a reference to the destination location for the GoogleService-Info.plist\nPLIST_DESTINATION=${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/${GOOGLESERVICE_INFO_PLIST}\necho \"Will copy ${GOOGLESERVICE_INFO_PLIST} to final destination: ${PLIST_DESTINATION}\"\n\n# Copy GoogleService-Info.plist\necho \"Using ${FIREBASE_CONFIG}\"\ncp \"${GOOGLESERVICE_INFO_CONFIG}\" \"${PLIST_DESTINATION}\"\n";
-		};
-		083DA2F82C057D6967C279F7 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportTests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		164B29583457DEEB4D1BEDA6 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh",
-				"${BUILT_PRODUCTS_DIR}/Anchorage/Anchorage.framework",
-				"${BUILT_PRODUCTS_DIR}/CocoaLumberjack/CocoaLumberjack.framework",
-				"${BUILT_PRODUCTS_DIR}/FLEX/FLEX.framework",
-				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCore/FirebaseCore.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCoreExtension/FirebaseCoreExtension.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCoreInternal/FirebaseCoreInternal.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCrashlytics/FirebaseCrashlytics.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseInstallations/FirebaseInstallations.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseMessaging/FirebaseMessaging.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseRemoteConfigInterop/FirebaseRemoteConfigInterop.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseSessions/FirebaseSessions.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleDataTransport/GoogleDataTransport.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleUtilities/GoogleUtilities.framework",
-				"${BUILT_PRODUCTS_DIR}/JOSESwift/JOSESwift.framework",
-				"${BUILT_PRODUCTS_DIR}/Kingfisher/Kingfisher.framework",
-				"${BUILT_PRODUCTS_DIR}/Nantes/Nantes.framework",
-				"${BUILT_PRODUCTS_DIR}/PromisesObjC/FBLPromises.framework",
-				"${BUILT_PRODUCTS_DIR}/PromisesSwift/Promises.framework",
-				"${BUILT_PRODUCTS_DIR}/R.swift.Library/Rswift.framework",
-				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
-				"${BUILT_PRODUCTS_DIR}/RecaptchaInterop/RecaptchaInterop.framework",
-				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
-				"${BUILT_PRODUCTS_DIR}/SCard/SCard.framework",
-				"${BUILT_PRODUCTS_DIR}/SVGKit/SVGKit.framework",
-				"${BUILT_PRODUCTS_DIR}/SnapKit/SnapKit.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUIKit/SoraUIKit.framework",
-				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
-				"${BUILT_PRODUCTS_DIR}/SwiftyBeaver/SwiftyBeaver.framework",
-				"${BUILT_PRODUCTS_DIR}/Then/Then.framework",
-				"${BUILT_PRODUCTS_DIR}/lottie-ios/Lottie.framework",
-				"${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/IdensicMobileSDK/IdensicMobileSDK.framework/IdensicMobileSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsKycSDK/PayWingsKycSDK.framework/PayWingsKycSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOAuthSDK/PayWingsOAuthSDK.framework/PayWingsOAuthSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/sorawallet/sorawallet.framework/sorawallet",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Anchorage.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CocoaLumberjack.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FLEX.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreExtension.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreInternal.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCrashlytics.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseInstallations.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseMessaging.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseRemoteConfigInterop.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseSessions.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleDataTransport.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleUtilities.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/JOSESwift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Kingfisher.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Nantes.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBLPromises.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Promises.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Rswift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RecaptchaInterop.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SCard.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SVGKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SnapKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUIKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SwiftyBeaver.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Then.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Lottie.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/nanopb.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IdensicMobileSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsKycSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOAuthSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/sorawallet.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassportIntegrationTests/Pods-SoraPassportAll-SoraPassportIntegrationTests-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
 		};
 		364EA8442A094205001A0FD4 /* Inject Secrets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -7143,207 +7242,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#check if env-vars.sh exists\nif [ -f $PROJECT_DIR/SoraPassport/env-vars.sh ]\nthen\nsource $PROJECT_DIR/SoraPassport/env-vars.sh\nfi\n#no `else` case needed if the CI works as expected\n\nWORK_DIR=\"$PROJECT_DIR/SoraPassport\"\necho \"Sourcery Work Directory = $WORK_DIR\"\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Sourcery Output File = $OUT_FILE\"\n\n\"$PODS_ROOT/Sourcery/bin/sourcery\" --templates \"$WORK_DIR\" --sources \"$WORK_DIR\" --output \"$OUT_FILE\" --args soraCardAPIKeyTest=$SORA_CARD_API_KEY_TEST,soraCardAPIKeyProd=$SORA_CARD_API_KEY_PROD,soraCardAppPlatformIdDev=$SORA_CARD_APP_PLATFORM_ID_DEV,soraCardAppPlatformIdTest=$SORA_CARD_APP_PLATFORM_ID_TEST,soraCardAppPlatformIdProd=$SORA_CARD_APP_PLATFORM_ID_PROD,soraCardRecaptchaKeyDev=$SORA_CARD_RECAPTCHA_KEY_DEV,soraCardRecaptchaKeyTest=$SORA_CARD_RECAPTCHA_KEY_TEST,soraCardRecaptchaKeyProd=$SORA_CARD_RECAPTCHA_KEY_PROD,soraCardDomainTest=$SORA_CARD_DOMAIN_TEST,soraCardDomainProd=$SORA_CARD_DOMAIN_PROD,soraCardKYCEndpointUrlTest=$SORA_CARD_KYC_ENDPOINT_URL_TEST,,soraCardKYCEndpointUrlProd=$SORA_CARD_KYC_ENDPOINT_URL_PROD,soraCardKycUsernameTest=$SORA_CARD_KYC_USERNAME_TEST,soraCardKycUsernameProd=$SORA_CARD_KYC_USERNAME_PROD,soraCardKycPasswordTest=$SORA_CARD_KYC_PASSWORD_TEST,soraCardKycPasswordProd=$SORA_CARD_KYC_PASSWORD_PROD,soraCardBackendTestUrl=$SORA_BACKEND_DEBUG,soraCardBackendProdUrl=$SORA_BACKEND_RELEASE,soraCardXOneEndpointTest=$X1_ENDPOINT_URL_DEBUG,soraCardXOneEndpointProd=$X1_ENDPOINT_URL_RELEASE,soraCardXOneIdTest=$X1_WIDGET_ID_DEBUG,soraCardXOneIdProd=$X1_WIDGET_ID_RELEASE,paywingsRepositoryUrl=$PAY_WINGS_REPOSITORY_URL,paywingsUsername=$PAY_WINGS_USERNAME,paywingsPassword=$PAY_WINGS_PASSWORD,soraGoogleUrlScheme=$SORA_GOOGLE_URL_SCHEME_DEV,soraGoogleToken=$SORA_GOOGLE_TOKEN_DEV\n#add params to the xcconfig files\nvariableNames=(\"SORA_GOOGLE_TOKEN_DEV\" \"SORA_GOOGLE_URL_SCHEME_DEV\")\n\n# Iterate over the array\nfor variableName in \"${variableNames[@]}\"; do\n    for file in \"$PROJECT_DIR\"/SoraPassport/Configs/*.xcconfig; do\n        if ! grep -q \"^$variableName = ${!variableName}$\" \"$file\"; then\n            echo \"$variableName = ${!variableName}\" >> \"$file\"\n        fi\n        # Remove lines without values\n        sed -i '' -e \"/^$variableName = $/d\" \"$file\"\n    done\ndone\n\nif [ -n \"$JENKINS_URL\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $SORA_GOOGLE_URL_SCHEME_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\n    /usr/libexec/PlistBuddy -c \"Set :GIDClientID $SORA_GOOGLE_TOKEN_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\nfi\n\n";
-		};
-		4144A9CC49BBA175374951B0 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportAll-SoraPassport-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		4C4BF86A0358C4A7AC3A5106 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport-frameworks.sh",
-				"${BUILT_PRODUCTS_DIR}/Anchorage/Anchorage.framework",
-				"${BUILT_PRODUCTS_DIR}/CocoaLumberjack/CocoaLumberjack.framework",
-				"${BUILT_PRODUCTS_DIR}/FLEX/FLEX.framework",
-				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCore/FirebaseCore.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCoreExtension/FirebaseCoreExtension.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCoreInternal/FirebaseCoreInternal.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseCrashlytics/FirebaseCrashlytics.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseInstallations/FirebaseInstallations.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseMessaging/FirebaseMessaging.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseRemoteConfigInterop/FirebaseRemoteConfigInterop.framework",
-				"${BUILT_PRODUCTS_DIR}/FirebaseSessions/FirebaseSessions.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleDataTransport/GoogleDataTransport.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleUtilities/GoogleUtilities.framework",
-				"${BUILT_PRODUCTS_DIR}/JOSESwift/JOSESwift.framework",
-				"${BUILT_PRODUCTS_DIR}/Kingfisher/Kingfisher.framework",
-				"${BUILT_PRODUCTS_DIR}/Nantes/Nantes.framework",
-				"${BUILT_PRODUCTS_DIR}/PromisesObjC/FBLPromises.framework",
-				"${BUILT_PRODUCTS_DIR}/PromisesSwift/Promises.framework",
-				"${BUILT_PRODUCTS_DIR}/R.swift.Library/Rswift.framework",
-				"${BUILT_PRODUCTS_DIR}/ReachabilitySwift/Reachability.framework",
-				"${BUILT_PRODUCTS_DIR}/RecaptchaInterop/RecaptchaInterop.framework",
-				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
-				"${BUILT_PRODUCTS_DIR}/SCard/SCard.framework",
-				"${BUILT_PRODUCTS_DIR}/SVGKit/SVGKit.framework",
-				"${BUILT_PRODUCTS_DIR}/SnapKit/SnapKit.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUIKit/SoraUIKit.framework",
-				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
-				"${BUILT_PRODUCTS_DIR}/SwiftyBeaver/SwiftyBeaver.framework",
-				"${BUILT_PRODUCTS_DIR}/Then/Then.framework",
-				"${BUILT_PRODUCTS_DIR}/lottie-ios/Lottie.framework",
-				"${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/IdensicMobileSDK/IdensicMobileSDK.framework/IdensicMobileSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsKycSDK/PayWingsKycSDK.framework/PayWingsKycSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/PayWingsOAuthSDK/PayWingsOAuthSDK.framework/PayWingsOAuthSDK",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/sorawallet/sorawallet.framework/sorawallet",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Anchorage.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CocoaLumberjack.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FLEX.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreExtension.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCoreInternal.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseCrashlytics.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseInstallations.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseMessaging.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseRemoteConfigInterop.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FirebaseSessions.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleDataTransport.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleUtilities.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/JOSESwift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Kingfisher.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Nantes.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FBLPromises.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Promises.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Rswift.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Reachability.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RecaptchaInterop.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SCard.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SVGKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SnapKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUIKit.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SwiftyBeaver.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Then.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Lottie.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/nanopb.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/IdensicMobileSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsKycSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/PayWingsOAuthSDK.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/sorawallet.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportAll-SoraPassport/Pods-SoraPassportAll-SoraPassport-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		8BBB7AF296B6151CD74733D4 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportUITests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		C1C68D4BB940B97420F58218 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-SoraPassportAll-SoraPassportIntegrationTests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		D40E434244BC138C7300251A /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh",
-				"${BUILT_PRODUCTS_DIR}/FireMock/FireMock.framework",
-				"${BUILT_PRODUCTS_DIR}/RobinHood/RobinHood.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraDocuments/SoraDocuments.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraFoundation/SoraFoundation.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraKeystore/SoraKeystore.framework",
-				"${BUILT_PRODUCTS_DIR}/SoraUI/SoraUI.framework",
-				"${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework",
-				"${BUILT_PRODUCTS_DIR}/Cuckoo/Cuckoo.framework",
-				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
-				"${BUILT_PRODUCTS_DIR}/GoogleAPIClientForREST/GoogleAPIClientForREST.framework",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/sorawallet/sorawallet.framework/sorawallet",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/FireMock.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/RobinHood.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraDocuments.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraFoundation.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraKeystore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SoraUI.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Starscream.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Cuckoo.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GTMSessionFetcher.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GoogleAPIClientForREST.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/sorawallet.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-SoraPassportTests/Pods-SoraPassportTests-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
+			shellScript = "if [ -f \"$PROJECT_DIR/SoraPassport/env-vars.sh\" ]; then\n  source \"$PROJECT_DIR/SoraPassport/env-vars.sh\"\nfi\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Generating $OUT_FILE\"\n\nescape_swift_string() {\n  printf '%s' \"${1:-}\" | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g'\n}\n\ncat > \"$OUT_FILE\" <<EOF\nenum SoraCardCIKeys {\n    static var backendTestUrl: String = \"$(escape_swift_string \"$SORA_BACKEND_DEBUG\")\"\n    static var backendProdUrl: String = \"$(escape_swift_string \"$SORA_BACKEND_RELEASE\")\"\n    static var apiKeyTest: String = \"$(escape_swift_string \"$SORA_CARD_API_KEY_TEST\")\"\n    static var apiKeyProd: String = \"$(escape_swift_string \"$SORA_CARD_API_KEY_PROD\")\"\n    static var appPlatformIdDev: String = \"$(escape_swift_string \"$SORA_CARD_APP_PLATFORM_ID_DEV\")\"\n    static var appPlatformIdTest: String = \"$(escape_swift_string \"$SORA_CARD_APP_PLATFORM_ID_TEST\")\"\n    static var appPlatformIdProd: String = \"$(escape_swift_string \"$SORA_CARD_APP_PLATFORM_ID_PROD\")\"\n    static var recaptchaKeyDev: String = \"$(escape_swift_string \"$SORA_CARD_RECAPTCHA_KEY_DEV\")\"\n    static var recaptchaKeyTest: String = \"$(escape_swift_string \"$SORA_CARD_RECAPTCHA_KEY_TEST\")\"\n    static var recaptchaKeyProd: String = \"$(escape_swift_string \"$SORA_CARD_RECAPTCHA_KEY_PROD\")\"\n    static var domainTest: String = \"$(escape_swift_string \"$SORA_CARD_DOMAIN_TEST\")\"\n    static var domainProd: String = \"$(escape_swift_string \"$SORA_CARD_DOMAIN_PROD\")\"\n    static var kycEndpointUrlTest: String = \"$(escape_swift_string \"$SORA_CARD_KYC_ENDPOINT_URL_TEST\")\"\n    static var kycEndpointUrlProd: String = \"$(escape_swift_string \"$SORA_CARD_KYC_ENDPOINT_URL_PROD\")\"\n    static var kycUsernameTest: String = \"$(escape_swift_string \"$SORA_CARD_KYC_USERNAME_TEST\")\"\n    static var kycUsernameProd: String = \"$(escape_swift_string \"$SORA_CARD_KYC_USERNAME_PROD\")\"\n    static var kycPasswordTest: String = \"$(escape_swift_string \"$SORA_CARD_KYC_PASSWORD_TEST\")\"\n    static var kycPasswordProd: String = \"$(escape_swift_string \"$SORA_CARD_KYC_PASSWORD_PROD\")\"\n    static var xOneEndpointTest: String = \"$(escape_swift_string \"$X1_ENDPOINT_URL_DEBUG\")\"\n    static var xOneEndpointProd: String = \"$(escape_swift_string \"$X1_ENDPOINT_URL_RELEASE\")\"\n    static var xOneIdTest: String = \"$(escape_swift_string \"$X1_WIDGET_ID_DEBUG\")\"\n    static var xOneIdProd: String = \"$(escape_swift_string \"$X1_WIDGET_ID_RELEASE\")\"\n}\n\nenum PayWingsCIKeys {\n    static var paywingsRepositoryUrl: String = \"$(escape_swift_string \"$PAY_WINGS_REPOSITORY_URL\")\"\n    static var paywingsUsername: String = \"$(escape_swift_string \"$PAY_WINGS_USERNAME\")\"\n    static var paywingsPassword: String = \"$(escape_swift_string \"$PAY_WINGS_PASSWORD\")\"\n}\nEOF\n\nif [ -n \"$JENKINS_URL\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $SORA_GOOGLE_URL_SCHEME_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\n    /usr/libexec/PlistBuddy -c \"Set :GIDClientID $SORA_GOOGLE_TOKEN_DEV\" \"$PROJECT_DIR\"/SoraPassport/Info.plist\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -8635,7 +8534,7 @@
 				945A578325DE8B06003E4023 /* ExtrinsicEraTests.swift in Sources */,
 				8409323823414FEE0013C871 /* WalletContextMock.swift in Sources */,
 				BD19B478DAD9A5F1E97DA0C4 /* AboutTests.swift in Sources */,
-				20D9ACBA22DBBB68D16C8674 /* (null) in Sources */,
+				20D9ACBA22DBBB68D16C8674 /* BuildFile in Sources */,
 				945A574A25DE8495003E4023 /* RuntimeMetadataCreationHelper.swift in Sources */,
 				44349E2AA7B537FA2794A222 /* StakingTests.swift in Sources */,
 				36A12693289143D7009117B9 /* WalletNetworkOperationFactoryProtocolMock.swift in Sources */,
@@ -8846,7 +8745,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -8869,7 +8768,7 @@
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -8881,7 +8780,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -8891,20 +8789,16 @@
 		};
 		0220858421B6C4FD00A5BC4C /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = A41273F3C53DCE01366EF64C /* Pods-SoraPassportTests.test.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"${PODS_ROOT}/Firebase/CoreOnly/Sources",
-				);
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				HEADER_SEARCH_PATHS = "$(inherited)";
 				INFOPLIST_FILE = SoraPassportTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -8921,14 +8815,13 @@
 		};
 		0220858521B6C4FD00A5BC4C /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8FD48888E2043892DB783325 /* Pods-SoraPassportUITests.test.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				INFOPLIST_FILE = SoraPassportUITests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -8990,7 +8883,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -9012,7 +8905,7 @@
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9024,7 +8917,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -9034,19 +8926,15 @@
 		};
 		022C4549220DBE67005B6FEC /* Dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C97C1BD24EE151F7C35C3C5E /* Pods-SoraPassportTests.dev.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"${PODS_ROOT}/Firebase/CoreOnly/Sources",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited)";
 				INFOPLIST_FILE = SoraPassportTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9063,13 +8951,12 @@
 		};
 		022C454A220DBE67005B6FEC /* Dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 91202B4DAE1D0BA2D1688FB7 /* Pods-SoraPassportUITests.dev.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				INFOPLIST_FILE = SoraPassportUITests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9137,7 +9024,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -9194,7 +9081,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -9218,7 +9105,7 @@
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9230,7 +9117,6 @@
 				OTHER_SWIFT_FLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -9250,7 +9136,7 @@
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9262,7 +9148,6 @@
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -9272,20 +9157,16 @@
 		};
 		02623EE12178C0930011250E /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8EBE2C39312BAE5628ABF78C /* Pods-SoraPassportTests.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"${PODS_ROOT}/Firebase/CoreOnly/Sources",
-				);
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				HEADER_SEARCH_PATHS = "$(inherited)";
 				INFOPLIST_FILE = SoraPassportTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9302,19 +9183,15 @@
 		};
 		02623EE22178C0930011250E /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 53152DC93291F0E39D8D8C6D /* Pods-SoraPassportTests.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"${PODS_ROOT}/Firebase/CoreOnly/Sources",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited)";
 				INFOPLIST_FILE = SoraPassportTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9330,14 +9207,13 @@
 		};
 		02623EE42178C0930011250E /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D87CCDFA45325A0E0541DD75 /* Pods-SoraPassportUITests.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				INFOPLIST_FILE = SoraPassportUITests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9353,13 +9229,12 @@
 		};
 		02623EE52178C0930011250E /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 1C539F5C788C7922A064915F /* Pods-SoraPassportUITests.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				INFOPLIST_FILE = SoraPassportUITests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9375,15 +9250,14 @@
 		};
 		84324BD32411446000CA339A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 1059418FE7EF06308A6C4A07 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				INFOPLIST_FILE = SoraPassportIntegrationTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9400,14 +9274,13 @@
 		};
 		84324BD42411446000CA339A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = DBE8FE6397232356C2D0F849 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				INFOPLIST_FILE = SoraPassportIntegrationTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9423,15 +9296,14 @@
 		};
 		84324BD52411446000CA339A /* Test */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 811182E20860E40776A5D11B /* Pods-SoraPassportAll-SoraPassportIntegrationTests.test.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				INFOPLIST_FILE = SoraPassportIntegrationTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9448,14 +9320,13 @@
 		};
 		84324BD62411446000CA339A /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D57AB6D2A692B0B0D290E605 /* Pods-SoraPassportAll-SoraPassportIntegrationTests.staging.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				INFOPLIST_FILE = SoraPassportIntegrationTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9472,14 +9343,13 @@
 		};
 		84324BD72411446000CA339A /* Dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C7C79E2DEAC477BA8CC8027E /* Pods-SoraPassportAll-SoraPassportIntegrationTests.dev.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				INFOPLIST_FILE = SoraPassportIntegrationTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9541,7 +9411,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -9563,7 +9433,7 @@
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = SoraPassport/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9575,7 +9445,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -9585,19 +9454,15 @@
 		};
 		84476204224BA293009ADC0E /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 73CFDA44A792043793A40D3A /* Pods-SoraPassportTests.staging.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"${PODS_ROOT}/Firebase/CoreOnly/Sources",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited)";
 				INFOPLIST_FILE = SoraPassportTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9614,13 +9479,12 @@
 		};
 		84476205224BA293009ADC0E /* Staging */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = A8E21DA37E98BA314D5FC337 /* Pods-SoraPassportUITests.staging.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YLWWUD25VZ;
 				INFOPLIST_FILE = SoraPassportUITests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -9700,42 +9564,687 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		14D2D31BA68E53309B71377E /* XCLocalSwiftPackageReference "google-api-objectivec-client-for-rest" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "VendorPackages/google-api-objectivec-client-for-rest";
+		};
+		1E330CC22657E2C8FC872577 /* XCLocalSwiftPackageReference "SSFStorageQueryKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/SSFStorageQueryKit;
+		};
+		3A11E8A01A959DA266936BB4 /* XCLocalSwiftPackageReference "SoraWalletBinary" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/SoraWalletBinary;
+		};
+		3A87DFA02CC58C9D4033F1D5 /* XCLocalSwiftPackageReference "SoraUI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/SoraUI;
+		};
+		5839749B2E77D80750D70109 /* XCLocalSwiftPackageReference "SoraUIKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/SoraUIKit;
+		};
+		5BEB68CD25C9ECB2F9FEEC52 /* XCLocalSwiftPackageReference "FireMock" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/FireMock;
+		};
+		5FDAF7C5BD3FA665FAD6EBEC /* XCLocalSwiftPackageReference "SoraFoundation" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/SoraFoundation;
+		};
+		610B2592625C191BFCCC9C60 /* XCLocalSwiftPackageReference "SoraDocuments" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/SoraDocuments;
+		};
+		AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "VendorPackages/GoogleSignIn-iOS";
+		};
+		C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "VendorPackages/shared-features-spm";
+		};
+		ED2AFF3DEA54C37A1C1E2BD5 /* XCLocalSwiftPackageReference "SCard" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/SCard;
+		};
+		0121BF625ECBF89177D3E433 /* XCLocalSwiftPackageReference "JOSESwift" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VendorPackages/JOSESwift;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
-		369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */ = {
+		25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/soramitsu/shared-features-spm";
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
 			requirement = {
-				branch = develop;
-				kind = branch;
+				kind = exactVersion;
+				version = 12.13.0;
+			};
+		};
+		2C99FBD08CC91F20EA5A02DB /* XCRemoteSwiftPackageReference "Anchorage" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Rightpoint/Anchorage.git";
+			requirement = {
+				kind = exactVersion;
+				version = 4.5.0;
+			};
+		};
+		3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/soramitsu/fearless-starscream.git";
+			requirement = {
+				kind = exactVersion;
+				version = 4.0.12;
+			};
+		};
+		5042D9A859C7F367351B3D59 /* XCRemoteSwiftPackageReference "SnapKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SnapKit/SnapKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 5.7.1;
+			};
+		};
+		52A0155256AFC2CA527689B6 /* XCRemoteSwiftPackageReference "Nantes" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/instacart/Nantes.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.1.2;
+			};
+		};
+		64329616BA308EBC2612D242 /* XCRemoteSwiftPackageReference "SVGKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SVGKit/SVGKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 3.0.0;
+			};
+		};
+		6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SwiftyBeaver/SwiftyBeaver.git";
+			requirement = {
+				kind = exactVersion;
+				version = 2.1.1;
+			};
+		};
+		8DB9CFBE23A428AD08D9B430 /* XCRemoteSwiftPackageReference "Then" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/devxoul/Then.git";
+			requirement = {
+				kind = exactVersion;
+				version = 3.0.0;
+			};
+		};
+		A1F02371B1A71698FE615DC3 /* XCRemoteSwiftPackageReference "R.swift.Library" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mac-cain13/R.swift.Library.git";
+			requirement = {
+				kind = exactVersion;
+				version = 5.3.0;
+			};
+		};
+		A8BA557EDEA0F1631EEADCA5 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
+			requirement = {
+				kind = exactVersion;
+				version = 6.3.1;
+			};
+		};
+		AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios.git";
+			requirement = {
+				kind = exactVersion;
+				version = 4.4.3;
+			};
+		};
+		B78E6CE55B4DCDD6AE3EDE86 /* XCRemoteSwiftPackageReference "FLEX" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/FLEXTool/FLEX.git";
+			requirement = {
+				kind = exactVersion;
+				version = 5.22.10;
+			};
+		};
+		BBA70B8F121D2450141B19F4 /* XCRemoteSwiftPackageReference "Cuckoo" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Brightify/Cuckoo.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.9.1;
+			};
+		};
+		ECCF9F0190BEFF028BFBEDC5 /* XCRemoteSwiftPackageReference "Reachability.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ashleymills/Reachability.swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 5.2.3;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		367DEED92BDFB45300543BB4 /* SSFStorageQueryKit */ = {
+		013F0A55657CA981B8F3B20B /* FirebaseMessaging */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */;
-			productName = SSFStorageQueryKit;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		02C1E5BCE01E9F8CE6DC8BC5 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		087F34FBC8179DCE37FCF6CC /* Rswift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1F02371B1A71698FE615DC3 /* XCRemoteSwiftPackageReference "R.swift.Library" */;
+			productName = Rswift;
+		};
+		0DBCB128430F318403A44E86 /* SSFQRService */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SSFQRService;
+		};
+		0E88FECEB9AA35203BCC4A82 /* GoogleAPIClientForREST_Drive */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 14D2D31BA68E53309B71377E /* XCLocalSwiftPackageReference "google-api-objectivec-client-for-rest" */;
+			productName = GoogleAPIClientForREST_Drive;
+		};
+		0F6C390A2C622B03E23B92D2 /* SoraUIKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5839749B2E77D80750D70109 /* XCLocalSwiftPackageReference "SoraUIKit" */;
+			productName = SoraUIKit;
+		};
+		10B2BF606E8721DE091C73FD /* Anchorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2C99FBD08CC91F20EA5A02DB /* XCRemoteSwiftPackageReference "Anchorage" */;
+			productName = Anchorage;
+		};
+		11A72198A6A877678A68CF40 /* Starscream */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */;
+			productName = Starscream;
+		};
+		11ECB54AC166C12F312FE794 /* SSFCloudStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SSFCloudStorage;
+		};
+		1C038DC302A0C6A802F75CDA /* JOSESwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0121BF625ECBF89177D3E433 /* XCRemoteSwiftPackageReference "JOSESwift" */;
+			productName = JOSESwift;
+		};
+		1D984CBFACB724D22C810DB0 /* SCard */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ED2AFF3DEA54C37A1C1E2BD5 /* XCLocalSwiftPackageReference "SCard" */;
+			productName = SCard;
+		};
+		2096029EBBAD688888EC81CE /* SVGKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 64329616BA308EBC2612D242 /* XCRemoteSwiftPackageReference "SVGKit" */;
+			productName = SVGKit;
+		};
+		22919EC5908831C3C880BD6F /* RobinHood */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = RobinHood;
+		};
+		22F04EAB41AEFA0ADCA96C33 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A8BA557EDEA0F1631EEADCA5 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+		25FA0D7B279C7DEEA82F6362 /* SSFCloudStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SSFCloudStorage;
+		};
+		2B8FD960E9165D983667E03C /* SoraUIKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5839749B2E77D80750D70109 /* XCLocalSwiftPackageReference "SoraUIKit" */;
+			productName = SoraUIKit;
+		};
+		2C877621A475E56151EF58FF /* SoraWalletBinary */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A11E8A01A959DA266936BB4 /* XCLocalSwiftPackageReference "SoraWalletBinary" */;
+			productName = SoraWalletBinary;
+		};
+		2FFFD6AF43210B79AE7D802B /* SoraKeystore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SoraKeystore;
+		};
+		3192E5B7B594233B555187CB /* Rswift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1F02371B1A71698FE615DC3 /* XCRemoteSwiftPackageReference "R.swift.Library" */;
+			productName = Rswift;
+		};
+		324F8B6E84FBAD847E5D46FD /* Rswift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1F02371B1A71698FE615DC3 /* XCRemoteSwiftPackageReference "R.swift.Library" */;
+			productName = Rswift;
+		};
+		3378F328B363187D05EEBD46 /* SoraUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A87DFA02CC58C9D4033F1D5 /* XCLocalSwiftPackageReference "SoraUI" */;
+			productName = SoraUI;
+		};
+		367DEED92BDFB45300543BB4 /* SSFStorageQueryKitFixed */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1E330CC22657E2C8FC872577 /* XCLocalSwiftPackageReference "SSFStorageQueryKit" */;
+			productName = SSFStorageQueryKitFixed;
 		};
 		369E10BA2B91DAEC0097DB61 /* IrohaCrypto */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
 			productName = IrohaCrypto;
 		};
 		36CEAD7A2B9471DD00D532E0 /* SSFCloudStorage */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
 			productName = SSFCloudStorage;
 		};
 		36CEAD7C2B94734200D532E0 /* SSFCrypto */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
 			productName = SSFCrypto;
 		};
 		36CEAD822B948A0B00D532E0 /* SSFQRService */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 369E10B92B91DAEC0097DB61 /* XCRemoteSwiftPackageReference "shared-features-spm" */;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
 			productName = SSFQRService;
+		};
+		3B7A62042C6C75B3BCBEB91B /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		3DFB24F1E22AB522B51E6499 /* SoraWalletBinary */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A11E8A01A959DA266936BB4 /* XCLocalSwiftPackageReference "SoraWalletBinary" */;
+			productName = SoraWalletBinary;
+		};
+		41F2E75D83DEC879AFEC5981 /* GoogleAPIClientForREST_Drive */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 14D2D31BA68E53309B71377E /* XCLocalSwiftPackageReference "google-api-objectivec-client-for-rest" */;
+			productName = GoogleAPIClientForREST_Drive;
+		};
+		43E7CE017DA54BCA76F28A03 /* SCard */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ED2AFF3DEA54C37A1C1E2BD5 /* XCLocalSwiftPackageReference "SCard" */;
+			productName = SCard;
+		};
+		43F82063AB723E90A9CC0DCE /* SoraKeystore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SoraKeystore;
+		};
+		45FFB295C41D6050AAAA29EC /* FireMock */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5BEB68CD25C9ECB2F9FEEC52 /* XCLocalSwiftPackageReference "FireMock" */;
+			productName = FireMock;
+		};
+		46F7535B344735B7A0194568 /* SoraWalletBinary */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A11E8A01A959DA266936BB4 /* XCLocalSwiftPackageReference "SoraWalletBinary" */;
+			productName = SoraWalletBinary;
+		};
+		476C7F47A1A9CFAB82FED522 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
+		49D0F24C9E3077A7AC8636D3 /* SSFCrypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SSFCrypto;
+		};
+		4A2FE42A560700DD7E11FCF3 /* FireMock */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5BEB68CD25C9ECB2F9FEEC52 /* XCLocalSwiftPackageReference "FireMock" */;
+			productName = FireMock;
+		};
+		54BA0DBCE3A409412662B5A3 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		58883BAD0A6BB57B3A19164E /* Nantes */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 52A0155256AFC2CA527689B6 /* XCRemoteSwiftPackageReference "Nantes" */;
+			productName = Nantes;
+		};
+		599830D751DE7A57566DB302 /* FLEX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B78E6CE55B4DCDD6AE3EDE86 /* XCRemoteSwiftPackageReference "FLEX" */;
+			productName = FLEX;
+		};
+		5E6544BD9208F55F5AFA2ACE /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		60D0DED23E9C7DEA3120BFFF /* SSFStorageQueryKitFixed */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1E330CC22657E2C8FC872577 /* XCLocalSwiftPackageReference "SSFStorageQueryKit" */;
+			productName = SSFStorageQueryKitFixed;
+		};
+		614A9425263D85BD29F57F8B /* Starscream */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */;
+			productName = Starscream;
+		};
+		629B3C2CF82421BD5E24D152 /* JOSESwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0121BF625ECBF89177D3E433 /* XCRemoteSwiftPackageReference "JOSESwift" */;
+			productName = JOSESwift;
+		};
+		6780E17402514A5AFCE81B32 /* SSFStorageQueryKitFixed */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1E330CC22657E2C8FC872577 /* XCLocalSwiftPackageReference "SSFStorageQueryKit" */;
+			productName = SSFStorageQueryKitFixed;
+		};
+		68CD823ED020DFB7E8B72D00 /* Reachability */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ECCF9F0190BEFF028BFBEDC5 /* XCRemoteSwiftPackageReference "Reachability.swift" */;
+			productName = Reachability;
+		};
+		69B75EFD6F72B3626E4BA50D /* SoraFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5FDAF7C5BD3FA665FAD6EBEC /* XCLocalSwiftPackageReference "SoraFoundation" */;
+			productName = SoraFoundation;
+		};
+		6C40AD6DCB72276917883DCC /* FLEX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B78E6CE55B4DCDD6AE3EDE86 /* XCRemoteSwiftPackageReference "FLEX" */;
+			productName = FLEX;
+		};
+		6C9140CE8EF47C374E2AED69 /* SSFCrypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SSFCrypto;
+		};
+		6D69ACB3F9FCD7DFCA20A244 /* SwiftyBeaver */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */;
+			productName = SwiftyBeaver;
+		};
+		6E975363C1414BCA91AA285F /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		6FB8BC3264ABE2E3BAC9A1BB /* SVGKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 64329616BA308EBC2612D242 /* XCRemoteSwiftPackageReference "SVGKit" */;
+			productName = SVGKit;
+		};
+		707D926BFB6D52154D31EC44 /* SoraDocuments */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 610B2592625C191BFCCC9C60 /* XCLocalSwiftPackageReference "SoraDocuments" */;
+			productName = SoraDocuments;
+		};
+		73701839B8A34ED80921D042 /* SSFSingleValueCache */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SSFSingleValueCache;
+		};
+		74E247FA60FD5E8357238C87 /* SSFQRService */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SSFQRService;
+		};
+		7579AE6FC35C3E2F4D7838B8 /* FLEX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B78E6CE55B4DCDD6AE3EDE86 /* XCRemoteSwiftPackageReference "FLEX" */;
+			productName = FLEX;
+		};
+		7B5415C2980B8EE3EB8C0F71 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		7C5B6902B522C2F32E92466E /* Then */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8DB9CFBE23A428AD08D9B430 /* XCRemoteSwiftPackageReference "Then" */;
+			productName = Then;
+		};
+		7CD916CA17C1346CF2CEE2A6 /* SVGKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 64329616BA308EBC2612D242 /* XCRemoteSwiftPackageReference "SVGKit" */;
+			productName = SVGKit;
+		};
+		7D3D21B67075A6A98780D210 /* Then */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8DB9CFBE23A428AD08D9B430 /* XCRemoteSwiftPackageReference "Then" */;
+			productName = Then;
+		};
+		7D7A33DC65DACD4091BDCCC4 /* Nantes */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 52A0155256AFC2CA527689B6 /* XCRemoteSwiftPackageReference "Nantes" */;
+			productName = Nantes;
+		};
+		83FC0B70391DD73EF5A3289E /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
+		840DB2082A430816594E74BE /* SoraDocuments */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 610B2592625C191BFCCC9C60 /* XCLocalSwiftPackageReference "SoraDocuments" */;
+			productName = SoraDocuments;
+		};
+		89B9475E781BC5404652C2CB /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		8BA8297A2896CE5962B777B2 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		8E1BC7ACE03CA75FF0557D79 /* SwiftyBeaver */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */;
+			productName = SwiftyBeaver;
+		};
+		9008BF86CE98BAB7EA0488EF /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
+		95BF0507DF2A639FB3BC813D /* SnapKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5042D9A859C7F367351B3D59 /* XCRemoteSwiftPackageReference "SnapKit" */;
+			productName = SnapKit;
+		};
+		99181BC773FED5D7FC25B230 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF4C851C88F94411CE1683C5 /* XCLocalSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		9A099EF5C37C027FFB73219A /* SnapKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5042D9A859C7F367351B3D59 /* XCRemoteSwiftPackageReference "SnapKit" */;
+			productName = SnapKit;
+		};
+		AB544FAA04689F7C535B04D0 /* SSFSingleValueCache */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SSFSingleValueCache;
+		};
+		AD598849D4B70320914B8CF0 /* Cuckoo */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BBA70B8F121D2450141B19F4 /* XCRemoteSwiftPackageReference "Cuckoo" */;
+			productName = Cuckoo;
+		};
+		B739C10CAE494784AD8E7F35 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A8BA557EDEA0F1631EEADCA5 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+		B7A3C1B278B6838E0ACBCF0D /* SoraFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5FDAF7C5BD3FA665FAD6EBEC /* XCLocalSwiftPackageReference "SoraFoundation" */;
+			productName = SoraFoundation;
+		};
+		BA7BE8650BE6E7E69BA08A1C /* Reachability */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ECCF9F0190BEFF028BFBEDC5 /* XCRemoteSwiftPackageReference "Reachability.swift" */;
+			productName = Reachability;
+		};
+		BDA2CE70451FE885709262CD /* Anchorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2C99FBD08CC91F20EA5A02DB /* XCRemoteSwiftPackageReference "Anchorage" */;
+			productName = Anchorage;
+		};
+		BF5804908577C1E7FE1982DB /* Reachability */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ECCF9F0190BEFF028BFBEDC5 /* XCRemoteSwiftPackageReference "Reachability.swift" */;
+			productName = Reachability;
+		};
+		BFFCD3891E50ACFF2D3BAD85 /* Nantes */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 52A0155256AFC2CA527689B6 /* XCRemoteSwiftPackageReference "Nantes" */;
+			productName = Nantes;
+		};
+		C0002C51E601E713E29DBAFD /* Then */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8DB9CFBE23A428AD08D9B430 /* XCRemoteSwiftPackageReference "Then" */;
+			productName = Then;
+		};
+		C31CD26D42B50D9624BD26E7 /* SoraKeystore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SoraKeystore;
+		};
+		C488534D07E93E81303C9668 /* SoraDocuments */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 610B2592625C191BFCCC9C60 /* XCLocalSwiftPackageReference "SoraDocuments" */;
+			productName = SoraDocuments;
+		};
+		C567D7480F7328C6C8645E1B /* FireMock */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5BEB68CD25C9ECB2F9FEEC52 /* XCLocalSwiftPackageReference "FireMock" */;
+			productName = FireMock;
+		};
+		C5E18E54974CCC09AD1EF014 /* RobinHood */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = RobinHood;
+		};
+		C927DC965CDB9EF63B212E97 /* RobinHood */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = RobinHood;
+		};
+		CE1731A518C473841A363BA5 /* Anchorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2C99FBD08CC91F20EA5A02DB /* XCRemoteSwiftPackageReference "Anchorage" */;
+			productName = Anchorage;
+		};
+		D083260D0CF6AC00E21F7D03 /* IrohaCrypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = IrohaCrypto;
+		};
+		D1BC8F8407431D12D954E72A /* SoraUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A87DFA02CC58C9D4033F1D5 /* XCLocalSwiftPackageReference "SoraUI" */;
+			productName = SoraUI;
+		};
+		D2013D053EA70DB1E75C8B21 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		D566C8B00A9C50C0383121F7 /* GoogleAPIClientForREST_Drive */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 14D2D31BA68E53309B71377E /* XCLocalSwiftPackageReference "google-api-objectivec-client-for-rest" */;
+			productName = GoogleAPIClientForREST_Drive;
+		};
+		D5A3D4E660E09939EAA99FE7 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		D70A19141DEC4CC73943E383 /* SoraUIKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5839749B2E77D80750D70109 /* XCLocalSwiftPackageReference "SoraUIKit" */;
+			productName = SoraUIKit;
+		};
+		D7E614EC2909103ED5F9FAEF /* JOSESwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0121BF625ECBF89177D3E433 /* XCRemoteSwiftPackageReference "JOSESwift" */;
+			productName = JOSESwift;
+		};
+		DB2E54768CEB5CD794CA198C /* SwiftyBeaver */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6BC235F778D917FA997250D0 /* XCRemoteSwiftPackageReference "SwiftyBeaver" */;
+			productName = SwiftyBeaver;
+		};
+		E19BA4E663507E7197AD870C /* SnapKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5042D9A859C7F367351B3D59 /* XCRemoteSwiftPackageReference "SnapKit" */;
+			productName = SnapKit;
+		};
+		E43085CA7AF9EB5009196598 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A8BA557EDEA0F1631EEADCA5 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+		E77E7FA10D0342C67456D9A2 /* SCard */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ED2AFF3DEA54C37A1C1E2BD5 /* XCLocalSwiftPackageReference "SCard" */;
+			productName = SCard;
+		};
+		E7C44364DFDAA650B77611FE /* IrohaCrypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = IrohaCrypto;
+		};
+		E8858BBEAB92EECD0E628B34 /* Starscream */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A88E0425D19F5A82627748F /* XCRemoteSwiftPackageReference "fearless-starscream" */;
+			productName = Starscream;
+		};
+		E8D2B50532E8E2EBDBC77136 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		EA386BC421A1B4C2FA0C7B8C /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		ED467EA3F5597C9AC25A4C1A /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		EE4803001A8597D8059DB25F /* SSFSingleValueCache */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
+			productName = SSFSingleValueCache;
+		};
+		F13CDA4F8EB7F38B40602FBF /* SoraUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A87DFA02CC58C9D4033F1D5 /* XCLocalSwiftPackageReference "SoraUI" */;
+			productName = SoraUI;
+		};
+		F9F269813A258E0CB1A4000F /* SoraFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5FDAF7C5BD3FA665FAD6EBEC /* XCLocalSwiftPackageReference "SoraFoundation" */;
+			productName = SoraFoundation;
 		};
 /* End XCSwiftPackageProductDependency section */
 

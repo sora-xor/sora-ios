@@ -63,6 +63,7 @@ protocol ApplicationConfigProtocol {
     var parliamentURL: URL { get }
     var phishingListURL: URL { get }
     var shareURL: URL { get }
+    var polkaswapIndexerURL: URL { get }
     var subqueryUrl: URL { get }
     var addressType: SNAddressType { get }
     var defaultChainNodes: Set<ChainNodeModel> { get }
@@ -299,37 +300,27 @@ extension ApplicationConfig: ApplicationConfigProtocol {
     var defaultChainNodes: Set<ChainNodeModel> {
     #if F_RELEASE
         return [
-            ChainNodeModel(url: URL(string: "wss://ws.mof.sora.org")!, name: "Sora", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.mof2.sora.org")!, name: "Sora", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.mof3.sora.org")!, name: "Sora", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://sora.api.onfinality.io/public-ws")!, name: "Sora onFinality", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
         ]
 
     #elseif F_STAGING || F_TEST
         return [
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-1.s1.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-2.s1.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-3.s2.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-4.s2.stg1.sora2.soramitsu.co.jp")!, name: "Soralution", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
         ]
     #else
         return [
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-1.r0.dev.sora2.soramitsu.co.jp")!, name: "framenode-1.r0.dev", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-2.r0.dev.sora2.soramitsu.co.jp")!, name: "framenode-2.r0.dev", apikey: nil),
-            ChainNodeModel(url: URL(string: "wss://ws.framenode-3.r0.dev.sora2.soramitsu.co.jp")!, name: "framenode-3.r0.dev", apikey: nil),
+            ChainNodeModel(url: URL(string: "wss://mof2.sora.org")!, name: "Sora", apikey: nil),
         ]
 
     #endif
     }
 
+    var polkaswapIndexerURL: URL {
+        return URL(string: "https://pi.soramitsu.io/graphql")!
+    }
+
     var subqueryUrl: URL {
-        #if F_RELEASE
-            return URL(string: "https://subquery.q1.sora2.soramitsu.co.jp")!
-        #elseif F_STAGING || F_TEST
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-staging__c29yY")!
-        #else
-            return URL(string: "https://api.subquery.network/sq/sora-xor/sora-dev")!
-        #endif
+        return polkaswapIndexerURL
     }
     
     var isDisclamerShown: Bool {
@@ -462,4 +453,3 @@ private enum GitHubUrl {
         baseUrl?.appendingPathComponent(branch).appendingPathComponent(suffix)
     }
 }
-

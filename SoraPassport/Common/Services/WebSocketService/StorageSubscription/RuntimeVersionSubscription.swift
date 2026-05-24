@@ -34,7 +34,7 @@ import SSFUtils
 import SoraKeystore
 import Rswift
 import SSFModels
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 enum RuntimeVersionSubscriptionError: Error {
     case skipUnchangedVersion

@@ -31,7 +31,7 @@
 import Foundation
 import SSFUtils
 import SSFModels
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 protocol SpecVersionSubscriptionProtocol: AnyObject {
     func subscribe()

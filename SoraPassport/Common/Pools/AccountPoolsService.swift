@@ -31,7 +31,7 @@
 import SSFUtils
 import RobinHood
 import sorawallet
-import SSFStorageQueryKit
+import SSFStorageQueryKitFixed
 
 protocol PoolsServiceInputProtocol: AnyObject {
     func loadAccountPools()
@@ -179,7 +179,7 @@ final class AccountPoolsService {
     func subscribePoolReserves(baseAsset: String, targetAsset: String) {
         do {
             let storageKey = try StorageKeyFactory()
-                .poolReservesKey(baseAssetId: Data(hex: baseAsset), targetAssetId: Data(hex: targetAsset))
+                .poolReservesKey(baseAssetId: Data.sora(hex: baseAsset), targetAssetId: Data.sora(hex: targetAsset))
                 .toHex(includePrefix: true)
             
             let updateClosure: (JSONRPCSubscriptionUpdate<StorageUpdate>) -> Void = { [weak self] update in
