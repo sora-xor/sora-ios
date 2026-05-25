@@ -34,7 +34,7 @@ import SCard
 import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
-#if F_DEV
+#if F_DEV && canImport(FLEX)
 import FLEX
 #endif
 
@@ -85,7 +85,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     private func initFlex() {
-        #if F_DEV
+        #if F_DEV && canImport(FLEX)
 
         FLEXManager.shared.registerGlobalEntry(withName: "Reset SORA Card Token") { tableViewController in
             let isUserSignIn = SCard.shared?.isUserSignIn ?? false

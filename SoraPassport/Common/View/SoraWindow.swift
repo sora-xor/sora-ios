@@ -30,7 +30,7 @@
 
 import UIKit
 import SoraUI
-#if F_DEV
+#if F_DEV && canImport(FLEX)
 import FLEX
 #endif
 
@@ -57,7 +57,7 @@ final class SoraWindow: UIWindow {
     }
     
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        #if F_DEV
+        #if F_DEV && canImport(FLEX)
         if motion == .motionShake {
             FLEXManager.shared.showExplorer()
         }
