@@ -78,7 +78,7 @@ final class DemeterFarmingOperationFactory {
         
         return JSONRPCOperation<[JSONAny], [String]>(
             engine: engine,
-            method: SoraPassport.RPCMethod.getStorageKeysPaged,
+            method: RPCMethod.getStorageKeysPaged,
             parameters: paramsArray)
     }
     
@@ -120,7 +120,7 @@ final class DemeterFarmingOperationFactory {
         
         return JSONRPCOperation<[JSONAny], [String]>(
             engine: engine,
-            method: SoraPassport.RPCMethod.getStorageKeysPaged,
+            method: RPCMethod.getStorageKeysPaged,
             parameters: paramsArray)
     }
     
