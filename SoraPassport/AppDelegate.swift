@@ -29,7 +29,9 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
+#if !NO_FIREBASE
 import FirebaseCore
+#endif
 import SCard
 import GoogleSignIn
 import SoraUIKit
@@ -50,7 +52,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         if !isUnitTesting {
+            #if !NO_FIREBASE
             FirebaseApp.configure()
+            #endif
 
             initFlex()
             setupLanguage()

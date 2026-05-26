@@ -119,7 +119,7 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
 
         return JSONRPCOperation<[JSONAny], [String]>(
             engine: engine,
-            method: SoraPassport.RPCMethod.getStorageKeysPaged,
+            method: RPCMethod.getStorageKeysPaged,
             parameters: paramsArray)
     }
 
@@ -146,7 +146,7 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     func loadAssetsInfo() {
         let operation = JSONRPCOperation<[[String]], [StorageUpdate]>(
             engine: engine,
-            method: SoraPassport.RPCMethod.queryStorageAt,
+            method: RPCMethod.queryStorageAt,
             parameters: [keys],
             timeout: 100
         )

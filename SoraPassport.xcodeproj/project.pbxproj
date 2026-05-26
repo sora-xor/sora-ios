@@ -842,7 +842,6 @@
 		3694D45B2971F5450045A295 /* ActivityErrorItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3694D4592971F5450045A295 /* ActivityErrorItem.swift */; };
 		3694D45C2971F5450045A295 /* ActivityErrorCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3694D45A2971F5450045A295 /* ActivityErrorCell.swift */; };
 		36982465290EA54100F5E3D4 /* ActivityViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36982464290EA54100F5E3D4 /* ActivityViewModelFactory.swift */; };
-		369B265FBA4BF96A877F09FE /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = EEF7D38A9754B3FBEE3AEB0F /* FirebaseAnalytics */; };
 		369E10BB2B91DAEC0097DB61 /* IrohaCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 369E10BA2B91DAEC0097DB61 /* IrohaCrypto */; };
 		369E10C32B91DF3D0097DB61 /* PolkadotIconGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 369E10C22B91DF3D0097DB61 /* PolkadotIconGenerator.swift */; };
 		36A0CE232B1D86A900187E3C /* ExtrinsicBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A0CE222B1D86A900187E3C /* ExtrinsicBuilder.swift */; };
@@ -2468,7 +2467,6 @@
 		C05BB3BD29CDD3F64F116605 /* WalletNetworkFacade+Price.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F88925C957C000775559 /* WalletNetworkFacade+Price.swift */; };
 		C0D826B1BFCC4DE98FAD1B2B /* ExploreFarmCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364E6E872B1C88F600002EE3 /* ExploreFarmCell.swift */; };
 		C0FF4908225204077B512F5C /* BalanceDetailsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D61CD2993DAA5004938FA /* BalanceDetailsViewController.swift */; };
-		C1C0149762F4A97EFC3B22A3 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = B97C76E51518749545E4CBAD /* FirebaseCore */; };
 		C1E68DAE704BB0288B839B2E /* Sequence+Async.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D64C22A96191400072106 /* Sequence+Async.swift */; };
 		C20C3A095A8E654798F8A70B /* ExplorePoolCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364BF2282B1C77B700758323 /* ExplorePoolCell.swift */; };
 		C263269147BF8E8F931E825E /* FireMock in Frameworks */ = {isa = PBXBuildFile; productRef = 4A2FE42A560700DD7E11FCF3 /* FireMock */; };
@@ -2641,7 +2639,6 @@
 		DFB2822DF6147D6A1ADA4DD3 /* countryResponse.json in Resources */ = {isa = PBXBuildFile; fileRef = 84F0100022C60615001927A1 /* countryResponse.json */; };
 		E042C69CCDF56A88D713CA33 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = B88630892113C9A3AB888D8A /* Lottie */; };
 		E08618AE52F6CF9A696BE448 /* AppEventService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D61BC29929AE0004938FA /* AppEventService.swift */; };
-		E08C7A30D14AF4B867C6FE55 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4A2ED617664C61F418E9F1 /* FirebaseCrashlytics */; };
 		E142753AF71998FD12EE06B9 /* AssetInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9440709826DCDB3C00666306 /* AssetInfo.swift */; };
 		E16A63786541B8296E5D1ADD /* CDChainStorageItem+CoreDataDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9C625C9815E00775559 /* CDChainStorageItem+CoreDataDecodable.swift */; };
 		E1780544073F8CA8B3876AA5 /* AccountConfirmProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441FB0F25CAE32700775559 /* AccountConfirmProtocols.swift */; };
@@ -2697,13 +2694,11 @@
 		EA14DCA5C3BAA9F55FA7266F /* WithdrawInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E34FA22BA057B0005A44BC /* WithdrawInfo.swift */; };
 		EA89B97FA5EF34B5C31B901E /* SelectedWalletSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D4B65828BF6FCF007F98EB /* SelectedWalletSettings.swift */; };
 		EAA1D7DE4F8FD1415F12EA2A /* UIViewController+ChildViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361EF57F291170CC00D0DCCF /* UIViewController+ChildViewController.swift */; };
-		EAAB746C78DA95616C4E8852 /* GoogleService-Info-Staging.plist in Resources */ = {isa = PBXBuildFile; fileRef = 84476206224BA9D0009ADC0E /* GoogleService-Info-Staging.plist */; };
 		EAE0B7D614AD312DD4BCE985 /* LocalAuthInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362DAD8229F53282005562B0 /* LocalAuthInteractor.swift */; };
 		EAE7AFE3CD00E532A28BF081 /* AssetActionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666CBD329059A000098F4AC /* AssetActionView.swift */; };
 		EB7BB9F181B0E858682C0466 /* CreateAccountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3652E10B2A6A918D0073AFBA /* CreateAccountService.swift */; };
 		EB90734626647992FDB0D903 /* Chain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F8C125C9697700775559 /* Chain.swift */; };
 		EBD4BFA74D2E16F4A7C05DDA /* StorageFacadeProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9441F9A725C9801100775559 /* StorageFacadeProtocol.swift */; };
-		EBD56AC07B0D1E42B93A2272 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = C7E64CEE731E3F516AC2DA82 /* FirebaseMessaging */; };
 		EC0DBCADC84351A70566C913 /* AssetsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDDAD28EC8A140080A41C /* AssetsItem.swift */; };
 		EC68E0D281AF71B2B656D727 /* StakingLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94497DBB25EF898D00FD4F14 /* StakingLedger.swift */; };
 		EC8DF49B881C3439C3A9CE2E /* TotalRewardsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3661C9D42850BF2500660434 /* TotalRewardsCell.swift */; };
@@ -4414,10 +4409,6 @@
 				6696FD58E20D43325A08641B /* Anchorage in Frameworks */,
 				443B6399642147268C40CC76 /* Kingfisher in Frameworks */,
 				61C50AFBAFA5D68AF6574B45 /* SVGKit in Frameworks */,
-				C1C0149762F4A97EFC3B22A3 /* FirebaseCore in Frameworks */,
-				369B265FBA4BF96A877F09FE /* FirebaseAnalytics in Frameworks */,
-				E08C7A30D14AF4B867C6FE55 /* FirebaseCrashlytics in Frameworks */,
-				EBD56AC07B0D1E42B93A2272 /* FirebaseMessaging in Frameworks */,
 				590A64FF1EEE09D93D5622B0 /* Reachability in Frameworks */,
 				327D1B03890056E45292F348 /* Starscream in Frameworks */,
 				7337E04ED1C194C43025C727 /* SwiftyBeaver in Frameworks */,
@@ -8332,10 +8323,8 @@
 				5F91C0BC049A27D6337875B7 /* R.swift */,
 				8B57AD25632A35C3CE446E7C /* Sources */,
 				71EEB59B262183D4175AFDEC /* Frameworks */,
-				A9C881FEBE23B3ECD7212C6D /* Setup Firebase Enviroment GoogleService-Info.plist */,
 				E196EC41917F99F900B37BBD /* Resources */,
 				C3B63270DEA7A9BCBC6D60A0 /* Inject Google Sign-In Info.plist */,
-				14C9AB3470909DC2F67E3845 /* Crashlytics */,
 			);
 			buildRules = (
 			);
@@ -8360,10 +8349,6 @@
 				3695A5AC92E3BD9F5E6784CF /* Anchorage */,
 				711E777287F7D68AC9F4529E /* Kingfisher */,
 				E3AD5BCD0953766E8AD892A3 /* SVGKit */,
-				B97C76E51518749545E4CBAD /* FirebaseCore */,
-				EEF7D38A9754B3FBEE3AEB0F /* FirebaseAnalytics */,
-				EF4A2ED617664C61F418E9F1 /* FirebaseCrashlytics */,
-				C7E64CEE731E3F516AC2DA82 /* FirebaseMessaging */,
 				8C2FBB9A62FABBCD386434A5 /* Reachability */,
 				65D72B5BCB0A03340F9A4A7E /* Starscream */,
 				3FE2187DADE60349516C6774 /* SwiftyBeaver */,
@@ -8663,7 +8648,6 @@
 				DC176E4BAD5C4AB7D7E564F9 /* openReferendumsResponse.json in Resources */,
 				14261DB3AEBA5BD92AF42080 /* Localizable.strings in Resources */,
 				40311262DA2A7CC9944B3FFE /* activityFeedEmptyResponse.json in Resources */,
-				EAAB746C78DA95616C4E8852 /* GoogleService-Info-Staging.plist in Resources */,
 				60D77A76C94C58EBB9289DD8 /* referendumDetailsResponse.json in Resources */,
 				D3E04085C1B31B0CDB3ECCBB /* currencyResponse.json in Resources */,
 				06F3E27003509DA17DBF666F /* completedReferendumsResponse.json in Resources */,
@@ -8748,21 +8732,6 @@
 			shellPath = /bin/sh;
 			shellScript = "# Name of the resource we're selectively copying\nGOOGLESERVICE_INFO_PLIST=GoogleService-Info.plist\n\n# Get references to a version of the GoogleService-Info.plist based on config\nGOOGLESERVICE_INFO_CONFIG=${PROJECT_DIR}/${TARGET_NAME}/Configs/${FIREBASE_CONFIG}\n\n# Make sure that plist exists\necho \"Looking for ${GOOGLESERVICE_INFO_CONFIG}\"\nif [ ! -f $GOOGLESERVICE_INFO_CONFIG ]\nthen\necho \"No ${FIREBASE_CONFIG} found. Please ensure it's in the proper directory.\"\nexit 1\nfi\n\n# Get a reference to the destination location for the GoogleService-Info.plist\nPLIST_DESTINATION=${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/${GOOGLESERVICE_INFO_PLIST}\necho \"Will copy ${GOOGLESERVICE_INFO_PLIST} to final destination: ${PLIST_DESTINATION}\"\n\n# Copy GoogleService-Info.plist\necho \"Using ${FIREBASE_CONFIG}\"\ncp \"${GOOGLESERVICE_INFO_CONFIG}\" \"${PLIST_DESTINATION}\"\n";
 		};
-		14C9AB3470909DC2F67E3845 /* Crashlytics */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${TARGET_NAME}",
-			);
-			name = Crashlytics;
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"$BUILD_DIR/../../SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\n";
-		};
 		364EA8442A094205001A0FD4 /* Inject Secrets */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -8833,20 +8802,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [ -f \"$PROJECT_DIR/SoraPassport/env-vars.sh\" ]; then\n  source \"$PROJECT_DIR/SoraPassport/env-vars.sh\"\nfi\n\nOUT_FILE=\"$PROJECT_DIR/SoraPassport/CIKeys.generated.swift\"\necho \"Generating $OUT_FILE\"\n\nescape_swift_string() {\n  printf '%s' \"${1:-}\" | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g'\n}\n\ncat > \"$OUT_FILE\" <<EOF\nenum SoraCardCIKeys {\n    static var backendTestUrl: String = \"$(escape_swift_string \"$SORA_BACKEND_DEBUG\")\"\n    static var backendProdUrl: String = \"$(escape_swift_string \"$SORA_BACKEND_RELEASE\")\"\n    static var apiKeyTest: String = \"$(escape_swift_string \"$SORA_CARD_API_KEY_TEST\")\"\n    static var apiKeyProd: String = \"$(escape_swift_string \"$SORA_CARD_API_KEY_PROD\")\"\n    static var appPlatformIdDev: String = \"$(escape_swift_string \"$SORA_CARD_APP_PLATFORM_ID_DEV\")\"\n    static var appPlatformIdTest: String = \"$(escape_swift_string \"$SORA_CARD_APP_PLATFORM_ID_TEST\")\"\n    static var appPlatformIdProd: String = \"$(escape_swift_string \"$SORA_CARD_APP_PLATFORM_ID_PROD\")\"\n    static var recaptchaKeyDev: String = \"$(escape_swift_string \"$SORA_CARD_RECAPTCHA_KEY_DEV\")\"\n    static var recaptchaKeyTest: String = \"$(escape_swift_string \"$SORA_CARD_RECAPTCHA_KEY_TEST\")\"\n    static var recaptchaKeyProd: String = \"$(escape_swift_string \"$SORA_CARD_RECAPTCHA_KEY_PROD\")\"\n    static var domainTest: String = \"$(escape_swift_string \"$SORA_CARD_DOMAIN_TEST\")\"\n    static var domainProd: String = \"$(escape_swift_string \"$SORA_CARD_DOMAIN_PROD\")\"\n    static var kycEndpointUrlTest: String = \"$(escape_swift_string \"$SORA_CARD_KYC_ENDPOINT_URL_TEST\")\"\n    static var kycEndpointUrlProd: String = \"$(escape_swift_string \"$SORA_CARD_KYC_ENDPOINT_URL_PROD\")\"\n    static var kycUsernameTest: String = \"$(escape_swift_string \"$SORA_CARD_KYC_USERNAME_TEST\")\"\n    static var kycUsernameProd: String = \"$(escape_swift_string \"$SORA_CARD_KYC_USERNAME_PROD\")\"\n    static var kycPasswordTest: String = \"$(escape_swift_string \"$SORA_CARD_KYC_PASSWORD_TEST\")\"\n    static var kycPasswordProd: String = \"$(escape_swift_string \"$SORA_CARD_KYC_PASSWORD_PROD\")\"\n    static var xOneEndpointTest: String = \"$(escape_swift_string \"$X1_ENDPOINT_URL_DEBUG\")\"\n    static var xOneEndpointProd: String = \"$(escape_swift_string \"$X1_ENDPOINT_URL_RELEASE\")\"\n    static var xOneIdTest: String = \"$(escape_swift_string \"$X1_WIDGET_ID_DEBUG\")\"\n    static var xOneIdProd: String = \"$(escape_swift_string \"$X1_WIDGET_ID_RELEASE\")\"\n}\n\nenum PayWingsCIKeys {\n    static var paywingsRepositoryUrl: String = \"$(escape_swift_string \"$PAY_WINGS_REPOSITORY_URL\")\"\n    static var paywingsUsername: String = \"$(escape_swift_string \"$PAY_WINGS_USERNAME\")\"\n    static var paywingsPassword: String = \"$(escape_swift_string \"$PAY_WINGS_PASSWORD\")\"\n}\nEOF\n\n";
-		};
-		A9C881FEBE23B3ECD7212C6D /* Setup Firebase Enviroment GoogleService-Info.plist */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Setup Firebase Enviroment GoogleService-Info.plist";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Name of the resource we're selectively copying\nGOOGLESERVICE_INFO_PLIST=GoogleService-Info.plist\n\n# Get references to a version of the GoogleService-Info.plist based on config\nGOOGLESERVICE_INFO_CONFIG=${PROJECT_DIR}/${TARGET_NAME}/Configs/${FIREBASE_CONFIG}\n\n# Make sure that plist exists\necho \"Looking for ${GOOGLESERVICE_INFO_CONFIG}\"\nif [ ! -f $GOOGLESERVICE_INFO_CONFIG ]\nthen\necho \"No ${FIREBASE_CONFIG} found. Please ensure it's in the proper directory.\"\nexit 1\nfi\n\n# Get a reference to the destination location for the GoogleService-Info.plist\nPLIST_DESTINATION=${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/${GOOGLESERVICE_INFO_PLIST}\necho \"Will copy ${GOOGLESERVICE_INFO_PLIST} to final destination: ${PLIST_DESTINATION}\"\n\n# Copy GoogleService-Info.plist\necho \"Using ${FIREBASE_CONFIG}\"\ncp \"${GOOGLESERVICE_INFO_CONFIG}\" \"${PLIST_DESTINATION}\"\n";
 		};
 		C3B63270DEA7A9BCBC6D60A0 /* Inject Google Sign-In Info.plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -11572,6 +11527,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -12153,6 +12109,7 @@
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -12184,6 +12141,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -12217,6 +12175,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -12249,6 +12208,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = co.jp.soramitsu.sora.dev.flex;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) NO_FIREBASE";
 				SWIFT_STRICT_CONCURRENCY = minimal;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -13211,11 +13171,6 @@
 			package = AA51D3C3DC91ABD865C15B0F /* XCRemoteSwiftPackageReference "lottie-ios" */;
 			productName = Lottie;
 		};
-		B97C76E51518749545E4CBAD /* FirebaseCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCore;
-		};
 		BA7BE8650BE6E7E69BA08A1C /* Reachability */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = ECCF9F0190BEFF028BFBEDC5 /* XCRemoteSwiftPackageReference "Reachability.swift" */;
@@ -13270,11 +13225,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
 			productName = RobinHood;
-		};
-		C7E64CEE731E3F516AC2DA82 /* FirebaseMessaging */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseMessaging;
 		};
 		C927DC965CDB9EF63B212E97 /* RobinHood */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -13385,16 +13335,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0E95AA8A5B50C322AFE95DA /* XCLocalSwiftPackageReference "shared-features-spm" */;
 			productName = SSFSingleValueCache;
-		};
-		EEF7D38A9754B3FBEE3AEB0F /* FirebaseAnalytics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAnalytics;
-		};
-		EF4A2ED617664C61F418E9F1 /* FirebaseCrashlytics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 25C93FCBB8B3FC1DC30DCE59 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCrashlytics;
 		};
 		F13CDA4F8EB7F38B40602FBF /* SoraUI */ = {
 			isa = XCSwiftPackageProductDependency;
