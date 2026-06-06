@@ -238,10 +238,14 @@ final class FeeProvider: FeeProviderProtocol {
             extrinsicService.estimateFee(builderClosure, runningIn: .main, completion: { result in
                 switch result {
                 case let .success(info):
-                    guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else { return }
+                    guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else {
+                        continuation.resume(returning: .zero)
+                        return
+                    }
                     continuation.resume(returning: decimalFee)
                 case let .failure(error):
                     print("fee error: \(error)")
+                    continuation.resume(returning: .zero)
                 }
             })
         }
@@ -268,11 +272,15 @@ final class FeeProvider: FeeProviderProtocol {
                 extrinsicService.estimateFee(builderClosure, runningIn: queue, completion: { [weak self] result in
                     switch result {
                     case let .success(info):
-                        guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else { return }
+                        guard let fee = BigUInt(info), let decimalFee = Decimal.fromSubstrateAmount(fee, precision: 18) else {
+                            continuation.resume(returning: .zero)
+                            return
+                        }
                         self?.feeStore[type] = decimalFee
                         continuation.resume(returning: decimalFee)
                     case let .failure(error):
                         print("fee error: \(error)")
+                        continuation.resume(returning: .zero)
                     }
                 })
             }

@@ -34,7 +34,6 @@ import SoraFoundation
 
 import SoraUIKit
 import RobinHood
-import SCard
 
 final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentable, CustomPresentable {
 
@@ -78,11 +77,6 @@ final class MoreMenuWireframe: MoreMenuWireframeProtocol, AuthorizationPresentab
         }
         
         present(blurred: changeAccountView.controller, on: presentingVC)
-    }
-    
-    func showSoraCard(from view: MoreMenuViewProtocol?) {
-        guard let view = view else { return }
-        SCard.shared?.start(in: view.controller)
     }
     
     @MainActor

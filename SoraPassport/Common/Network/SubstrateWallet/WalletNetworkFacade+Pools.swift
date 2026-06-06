@@ -75,11 +75,15 @@ extension WalletNetworkFacade {
     fileprivate func loadPoolsDetails(accountPools: [String: [String]]) async throws -> [PoolDetails] {
         return try await withCheckedThrowingContinuation({ continuetion in
             Task {
-                async let poolsDetails = collectPools(accountPools: accountPools).concurrentMap { pool in
-                    return try await self.getPoolDetails(baseAsset: pool.baseAsset, targetAsset: pool.targetAsset)
+                do {
+                    async let poolsDetails = collectPools(accountPools: accountPools).concurrentMap { pool in
+                        return try await self.getPoolDetails(baseAsset: pool.baseAsset, targetAsset: pool.targetAsset)
+                    }
+
+                    continuetion.resume(returning: try await poolsDetails)
+                } catch {
+                    continuetion.resume(throwing: error)
                 }
-                
-                continuetion.resume(returning: try await poolsDetails)
             }
         })
     }
@@ -108,13 +112,13 @@ extension WalletNetworkFacade {
         guard let operation = try? polkaswapNetworkOperationFactory.accountPools(accountId: address.accountId!, baseAssetId: baseAssetIdData) else {
             return nil
         }
-        operationQueue.addOperation(operation)
         
         return try? await withCheckedThrowingContinuation({ continuetion in
             operation.completionBlock = {
                 let assetIds = (try? operation.extractResultData()?.underlyingValue?.assetIds) ?? []
                 continuetion.resume(returning: (baseAssetId, assetIds))
             }
+            operationQueue.addOperation(operation)
         })
     }
     

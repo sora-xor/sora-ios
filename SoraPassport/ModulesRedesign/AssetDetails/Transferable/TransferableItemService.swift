@@ -77,21 +77,25 @@ final class TransferableItemService {
     
     func getReferralBalance() async -> Decimal? {
         return await withCheckedContinuation { continuation in
-            guard let operation = referralFactory.createReferrerBalancesOperation() else { return }
-            OperationManagerFacade.sharedManager.enqueue(operations: [operation], in: .transient)
+            guard let operation = referralFactory.createReferrerBalancesOperation() else {
+                continuation.resume(returning: nil)
+                return
+            }
             
             operation.completionBlock = {
                 do {
                     guard let data = try operation.extractResultData()?.underlyingValue else {
-                        continuation.resume(with: .success(nil))
+                        continuation.resume(returning: nil)
                         return
                     }
                     let referralBalance = Decimal.fromSubstrateAmount(data.value, precision: 18) ?? Decimal(0)
-                    continuation.resume(with: .success(referralBalance))
+                    continuation.resume(returning: referralBalance)
                 } catch {
                     Logger.shared.error("Request unsuccessful")
+                    continuation.resume(returning: nil)
                 }
             }
+            OperationManagerFacade.sharedManager.enqueue(operations: [operation], in: .transient)
         }
     }
 }

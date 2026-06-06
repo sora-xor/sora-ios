@@ -114,10 +114,14 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
     
     private func createExplorePool(poolTuple: (baseAssetId: String, targetAssetId: String), fiatData: [FiatData]) async -> ExplorePool? {
         return await withCheckedContinuation { continuation in
-            let operation = try? polkaswapOperationFactory?.poolReserves(baseAsset: poolTuple.baseAssetId, targetAsset: poolTuple.targetAssetId)
-            operation?.completionBlock = { [weak self] in
+            guard let operation = try? polkaswapOperationFactory?.poolReserves(baseAsset: poolTuple.baseAssetId, targetAsset: poolTuple.targetAssetId) else {
+                continuation.resume(returning: nil)
+                return
+            }
+
+            operation.completionBlock = { [weak self] in
                 
-                guard let reserves = try? operation?.extractResultData()?.underlyingValue?.reserves else { 
+                guard let reserves = try? operation.extractResultData()?.underlyingValue?.reserves else {
                     continuation.resume(returning: nil)
                     return
                 }
@@ -138,9 +142,7 @@ extension ExplorePoolsService: ExplorePoolsServiceInputProtocol {
                                                            targetAssetId: poolTuple.targetAssetId,
                                                            tvl: priceUsd * reservesDecimal * 2))
             }
-            if let operation {
-                operationManager.enqueue(operations: [operation], in: .transient)
-            }
+            operationManager.enqueue(operations: [operation], in: .transient)
         }
     }
 }

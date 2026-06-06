@@ -30,7 +30,6 @@
 
 import SoraFoundation
 import SoraUIKit
-import SCard
 
 
 class MoreMenuSection {
@@ -89,44 +88,6 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                                     onTap: { self.showAccounts() })
         items.append(accounts)
         
-        if ConfigService.shared.config.isSoraCardEnabled,
-           let scard = SCard.shared
-        {
-            let languages = self.languages
-            let subtitleStream: AsyncStream<String?> = scard.userStatusStream.map { userState in
-                switch userState {
-                case .none, .notStarted, .pending, .rejected, .userCanceled:
-                    userState.text
-                case .successful:
-                    R.string.localizable.moreMenuSoraCardSubtitle(preferredLanguages: languages)
-                }
-            }
-
-            let circleColorStream = scard.userStatusStream.map { userState in
-                var circleColor: SoramitsuColor?
-                switch userState {
-                case .none, .notStarted, .successful, .userCanceled:
-                    circleColor = nil
-                case .pending:
-                    circleColor = .statusWarning
-                case .rejected:
-                    circleColor = .statusError
-                }
-                return circleColor
-            }
-
-            let soraCard = MoreMenuItem(
-                title: R.string.localizable.moreMenuSoraCardTitle(preferredLanguages: languages),
-                subtitle: scard.currentUserState.text,
-                subtitleStream: subtitleStream,
-                picture: .icon(image: R.image.iconCard()!, color: .accentTertiary),
-                circleColorStream: circleColorStream,
-                onTap: { self.showSoraCard() }
-            )
-
-            items.append(soraCard)
-        }
-
         return MoreMenuSection(items: items)
     }
 
@@ -191,10 +152,6 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     func showAccounts() {
         wireframe.showChangeAccountView(from: view)
-    }
-
-    func showSoraCard() {
-        wireframe.showSoraCard(from: view)
     }
 
     func showNodes() {

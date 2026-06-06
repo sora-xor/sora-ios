@@ -33,7 +33,6 @@ import RobinHood
 
 import SoraUIKit
 import SoraFoundation
-import SCard
 import IrohaCrypto
 
 protocol WalletItemFactoryProtocol: AnyObject {
@@ -52,11 +51,6 @@ protocol WalletItemFactoryProtocol: AnyObject {
                            accountRepository: AnyDataProviderRepository<AccountItem>,
                            marketCapService: MarketCapServiceProtocol,
                            reloadItem: (([SoramitsuTableViewItemProtocol]) -> Void)?) -> SoramitsuTableViewItemProtocol
-
-    func createSoraCardItem(with walletViewModel: RedesignWalletViewModelProtocol,
-                            service: SCard) -> SoramitsuTableViewItemProtocol
-
-    func createSoraCardExchangeItem(with walletViewModel: RedesignWalletViewModelProtocol) -> SoramitsuTableViewItemProtocol
 
     func createAssetsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                           assetManager: AssetManagerProtocol,
@@ -165,43 +159,6 @@ final class WalletItemFactory: WalletItemFactoryProtocol {
         return accountItem
     }
     
-    func createSoraCardItem(with walletViewModel: RedesignWalletViewModelProtocol,
-                            service: SCard) -> SoramitsuTableViewItemProtocol {
-        let soraCardItem = SCCardItem(
-            service: service
-        ) { [weak walletViewModel] in
-                guard let walletViewModel = walletViewModel else { return }
-                walletViewModel.closeSC()
-                walletViewModel.updateItems()
-        } onCard: { [weak walletViewModel] in
-            guard let walletViewModel = walletViewModel else { return }
-            if let isReachable = ReachabilityManager.shared?.isReachable, isReachable {
-                walletViewModel.showSoraCardDetails()
-            } else {
-                walletViewModel.showInternerConnectionAlert()
-            }
-        }
-
-        return soraCardItem
-    }
-
-    func createSoraCardExchangeItem(with walletViewModel: RedesignWalletViewModelProtocol) -> SoramitsuTableViewItemProtocol {
-        let soraCardItem = SCBuyXorItem() { [weak walletViewModel] in
-                guard let walletViewModel = walletViewModel else { return }
-                walletViewModel.closeSCExchange()
-                walletViewModel.updateItems()
-        } onTap: { [weak walletViewModel] in
-            guard let walletViewModel = walletViewModel else { return }
-            if let isReachable = ReachabilityManager.shared?.isReachable, isReachable {
-                walletViewModel.showSoraCardExchange()
-            } else {
-                walletViewModel.showInternerConnectionAlert()
-            }
-        }
-
-        return soraCardItem
-    }
-
     func createInviteFriendsItem(with walletViewModel: RedesignWalletViewModelProtocol,
                                  assetManager: AssetManagerProtocol) -> SoramitsuTableViewItemProtocol {
 

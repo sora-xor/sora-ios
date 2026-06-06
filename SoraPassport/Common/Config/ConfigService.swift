@@ -42,16 +42,13 @@ struct RemoteConfig {
     var subqueryURL: URL { polkaswapIndexerURL }
     var defaultNodes: Set<ChainNodeModel>
     var typesURL: URL?
-    var isSoraCardEnabled: Bool
     
     init(polkaswapIndexerUrlString: String = ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
          typesUrlString: String? = ApplicationConfig.shared.commonTypesURL?.absoluteString,
-         defaultNodes: Set<ChainNodeModel> = ApplicationConfig.shared.defaultChainNodes,
-         isSoraCardEnabled: Bool = false) {
+         defaultNodes: Set<ChainNodeModel> = ApplicationConfig.shared.defaultChainNodes) {
         self.polkaswapIndexerURL = Self.validHTTPURL(from: polkaswapIndexerUrlString) ?? ApplicationConfig.shared.polkaswapIndexerURL
         self.typesURL = typesUrlString.flatMap(Self.validHTTPURL)
         self.defaultNodes = defaultNodes
-        self.isSoraCardEnabled = isSoraCardEnabled
     }
 
     private static func validHTTPURL(from string: String) -> URL? {
@@ -88,8 +85,7 @@ extension ConfigService: ConfigServiceProtocol {
             }))
             self.config = RemoteConfig(polkaswapIndexerUrlString: ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
                                        typesUrlString: response.substrateTypesUrl,
-                                       defaultNodes: nodes,
-                                       isSoraCardEnabled: response.soracard)
+                                       defaultNodes: nodes)
             completion()
         }
         

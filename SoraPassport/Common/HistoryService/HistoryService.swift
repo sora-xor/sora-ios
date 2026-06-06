@@ -127,15 +127,17 @@ extension HistoryService: HistoryServiceProtocol {
                                                                                       count: count,
                                                                                       page: 1,
                                                                                       filter: filter1)
-        operationManager.enqueue(operations: [queryOperation], in: .transient)
         
         return try await withCheckedThrowingContinuation { continuation in
             queryOperation.completionBlock = { [weak self] in
                 do {
-                    guard let self1 = self, let address = SelectedWalletSettings.shared.currentAccount?.address else { return }
+                    guard let self else {
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
                     let response = try queryOperation.extractNoCancellableResultData()
-                    let remoteTransactions: [Transaction] = try self1.historyMapper.map(items: response.items as? [TxHistoryItem] ?? []).compactMap { $0 }
-                    let localTransaction = self1.localStorage.transactions[address] ?? []
+                    let remoteTransactions: [Transaction] = try self.historyMapper.map(items: response.items as? [TxHistoryItem] ?? []).compactMap { $0 }
+                    let localTransaction = self.localStorage.transactions[self.address] ?? []
                     
                     let existingHashes = Set(remoteTransactions.map { $0.base.txHash })
                     
@@ -156,14 +158,15 @@ extension HistoryService: HistoryServiceProtocol {
                     continuation.resume(with: .success(transactionsItems))
                     
                     transactionsItems.forEach { transaction in
-                        if !self1.transactions.map({ $0.base.txHash }).contains(transaction.base.txHash) {
-                            self1.transactions.append(transaction)
+                        if !self.transactions.map({ $0.base.txHash }).contains(transaction.base.txHash) {
+                            self.transactions.append(transaction)
                         }
                     }
                 } catch let error {
                     continuation.resume(with: .failure(error))
                 }
             }
+            operationManager.enqueue(operations: [queryOperation], in: .transient)
         }
     }
     
@@ -230,10 +233,13 @@ extension HistoryService: HistoryServiceProtocol {
         return try await withCheckedThrowingContinuation { continuation in
             queryOperation.completionBlock = { [weak self] in
                 do {
-                    guard let self, let address = SelectedWalletSettings.shared.currentAccount?.address else { return }
+                    guard let self else {
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
                     let response = try queryOperation.extractNoCancellableResultData()
                     let remoteTransactions: [Transaction] = try self.historyMapper.map(items: response.items as? [TxHistoryItem] ?? []).compactMap { $0 }
-                    let localTransaction = page == 1 ? (self.localStorage.transactions[address] ?? []) : []
+                    let localTransaction = page == 1 ? (self.localStorage.transactions[self.address] ?? []) : []
                     let existingHashes = Set(remoteTransactions.map { $0.base.txHash })
                     
                     let hashesToRemove: [String] = localTransaction.compactMap { item in

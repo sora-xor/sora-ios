@@ -111,15 +111,24 @@ class MigrationService: MigrationServiceProtocol {
     func requestMigration(completion completionClosure: @escaping MigrationResultClosure) {
         guard let account = SelectedWalletSettings.shared.currentAccount else {
             logger.error("Migration account not found")
+            completionClosure(.failure(MigrationServiceError.startMigrationFail))
             return
         }
         guard let engine = engine else {
             logger.error("Migration connection not found")
+            completionClosure(.failure(MigrationServiceError.startMigrationFail))
             return
         }
 
         guard let irohaKeyPair = irohaKeyPair else {
             logger.error("IrohaKeyPair failed")
+            completionClosure(.failure(MigrationServiceError.startMigrationFail))
+            return
+        }
+
+        guard let runtimeRegistry = runtimeRegistry else {
+            logger.error("Migration runtime registry not found")
+            completionClosure(.failure(MigrationServiceError.startMigrationFail))
             return
         }
 
@@ -128,18 +137,23 @@ class MigrationService: MigrationServiceProtocol {
 
         let extrinsicService = ExtrinsicService(address: account.address,
                                                 cryptoType: account.cryptoType,
-                                                runtimeRegistry: runtimeRegistry!,
+                                                runtimeRegistry: runtimeRegistry,
                                                 engine: engine,
                                                 operationManager: operationManager)
 
-        let accountId = try? SS58AddressFactory().accountId(from: account.address).toHex(includePrefix: true)
-        let extrinsicProcessor = ExtrinsicProcessor(accountId: accountId!)
+        guard let accountId = try? SS58AddressFactory().accountId(from: account.address).toHex(includePrefix: true) else {
+            logger.error("Migration account id failed")
+            completionClosure(.failure(MigrationServiceError.startMigrationFail))
+            return
+        }
+        let extrinsicProcessor = ExtrinsicProcessor(accountId: accountId)
 
         let irohaKey = irohaKeyPair.publicKey().rawData().toHex()
-        let message = (self.did + irohaKey).data(using: .utf8)
-        let data = try? NSData.init(data: message!).sha3(IRSha3Variant.variant256) //sha3 per backend request
-        guard let signature = try? irohaSigner.sign(data!, privateKey: irohaKeyPair.privateKey()) else {
+        guard let message = (self.did + irohaKey).data(using: .utf8),
+              let data = try? NSData(data: message).sha3(IRSha3Variant.variant256), //sha3 per backend request
+              let signature = try? irohaSigner.sign(data, privateKey: irohaKeyPair.privateKey()) else {
             logger.error("Migration signing fail")
+            completionClosure(.failure(MigrationServiceError.startMigrationFail))
             return
         }
 
@@ -151,7 +165,10 @@ class MigrationService: MigrationServiceProtocol {
             return try builder.adding(call: migrateCall)
         }
         extrinsicService.submit(closure, signer: signer, watch: true, runningIn: .main) { [weak self] result, extrinsicHash, extrinsic in
-            guard let extrinsic = extrinsic else { return }
+            guard let extrinsic = extrinsic else {
+                completionClosure(.failure(MigrationServiceError.startMigrationFail))
+                return
+            }
             
             switch result {
             case .success(let hash):
@@ -172,7 +189,7 @@ class MigrationService: MigrationServiceProtocol {
                                                     extrinsic: extrinsic,
                                                     extrinsicProcessor: extrinsicProcessor,
                                                     engine: engine,
-                                                    coderOperation: self.runtimeRegistry!.fetchCoderFactoryOperation(),
+                                                    coderOperation: runtimeRegistry.fetchCoderFactoryOperation(),
                                                     completion: completionClosure)
                             }
                         }
