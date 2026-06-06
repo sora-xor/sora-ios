@@ -71,9 +71,12 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
         
         let poolsKeys = (try? await getPoolKeys()) ?? []
         
-        async let farmList = poolsKeys.concurrentMap { [weak self] key in
+        async let farmList = poolsKeys.concurrentMap { [weak self] key -> [FarmedPool]? in
             let data = String(key.dropFirst(2))
             let assetId = data.components(withMaxLength: 64)
+            guard assetId.count > 2 else {
+                return nil
+            }
             let pools = try? await self?.getPools(poolAssetId: "0x\(assetId[1])", rewardAssetId: "0x\(assetId[2])")
             return pools
         }
@@ -176,13 +179,16 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     
     func getPoolKeys() async throws -> [String] {
         guard let keysOperation = try? operationFactory.poolsKeysPagedOperation() else { return [] }
-        operationManager.enqueue(operations: [keysOperation], in: .transient)
-        
+
         return await withCheckedContinuation { continuation in
             keysOperation.completionBlock = {
-                guard let pools = try? keysOperation.extractResultData() else { return }
+                guard let pools = try? keysOperation.extractResultData() else {
+                    continuation.resume(returning: [])
+                    return
+                }
                 continuation.resume(returning: pools)
             }
+            operationManager.enqueue(operations: [keysOperation], in: .transient)
         }
     }
     
@@ -195,12 +201,11 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             return []
         }
 
-        operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
-        
         return await withCheckedContinuation { continuation in
             poolsOperation.targetOperation.completionBlock = {
                 do {
                     guard let allFarmInfos = try poolsOperation.targetOperation.extractResultData()?.filter({ $0.isFarm && !$0.isRemoved }) else {
+                        continuation.resume(returning: [])
                         return
                     }
                     
@@ -225,18 +230,22 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                     continuation.resume(returning: [])
                 }
             }
+            operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
         }
     }
     
     func getTokenInfosKeys() async throws -> [String] {
         guard let keysOperation = try? operationFactory.tokenInfosKeysPagedOperation() else { return [] }
-        operationManager.enqueue(operations: [keysOperation], in: .transient)
-        
+
         return await withCheckedContinuation { continuation in
             keysOperation.completionBlock = {
-                guard let pools = try? keysOperation.extractResultData() else { return }
+                guard let pools = try? keysOperation.extractResultData() else {
+                    continuation.resume(returning: [])
+                    return
+                }
                 continuation.resume(returning: pools)
             }
+            operationManager.enqueue(operations: [keysOperation], in: .transient)
         }
     }
     
@@ -247,12 +256,13 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
             return nil
         }
 
-        operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
-        
         return await withCheckedContinuation { continuation in
             poolsOperation.targetOperation.completionBlock = {
                 do {
-                    guard let assetInfo = try poolsOperation.targetOperation.extractResultData(), let assetInfo = assetInfo else { return }
+                    guard let assetInfo = try poolsOperation.targetOperation.extractResultData(), let assetInfo = assetInfo else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
                     
                     let rewardAssetInfo = FarmedRewardTokenInfo(
                         assetId: assetId,
@@ -264,8 +274,11 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                     )
 
                     continuation.resume(returning: rewardAssetInfo)
-                } catch { }
+                } catch {
+                    continuation.resume(returning: nil)
+                }
             }
+            operationManager.enqueue(operations: poolsOperation.allOperations, in: .transient)
         }
     }
 
@@ -280,11 +293,12 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
               ) else {
             return []
         }
-        operationManager.enqueue(operations: farmedPoolsOperation.allOperations, in: .transient)
-        
         return await withCheckedContinuation { continuation in
             farmedPoolsOperation.targetOperation.completionBlock = {
-                guard let userFarms = try? farmedPoolsOperation.targetOperation.extractResultData() else { return }
+                guard let userFarms = try? farmedPoolsOperation.targetOperation.extractResultData() else {
+                    continuation.resume(returning: [])
+                    return
+                }
                 let filtredUserFarms = userFarms.filter { baseAssetId == $0.baseAsset.value && targetAssetId == $0.poolAsset.value && $0.isFarm }
                 let farms = filtredUserFarms.map {
                     UserFarm(
@@ -299,6 +313,7 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                 }
                 continuation.resume(returning: farms)
             }
+            operationManager.enqueue(operations: farmedPoolsOperation.allOperations, in: .transient)
         }
     }
 
@@ -311,11 +326,15 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
                 runtimeOperation: runtimeService.fetchCoderFactoryOperation()
               )
         else {
+            completion([])
             return
         }
 
         farmedPoolsOperation.targetOperation.completionBlock = {
-            guard let pools = try? farmedPoolsOperation.targetOperation.extractResultData() else { return }
+            guard let pools = try? farmedPoolsOperation.targetOperation.extractResultData() else {
+                completion([])
+                return
+            }
             let xorId = WalletAssetId.xor.rawValue
             let filtredPools = pools.filter { $0.poolAsset.value == xorId && !($0.isFarm) }
             completion(filtredPools)

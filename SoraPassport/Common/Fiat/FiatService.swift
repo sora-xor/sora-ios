@@ -66,7 +66,6 @@ final class FiatService {
     
     private func updateFiatDataAwait() async -> [FiatData] {
         let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
-        operationManager.enqueue(operations: [queryOperation], in: .transient)
 
         return await withCheckedContinuation { continuation in
             queryOperation.completionBlock = {
@@ -76,6 +75,7 @@ final class FiatService {
                 }
                 continuation.resume(returning: response)
             }
+            operationManager.enqueue(operations: [queryOperation], in: .transient)
         }
     }
     

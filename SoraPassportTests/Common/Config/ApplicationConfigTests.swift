@@ -39,15 +39,13 @@ class ApplicationConfigTests: XCTestCase {
         let config = RemoteConfig(
             polkaswapIndexerUrlString: "://not-a-valid-url",
             typesUrlString: "://not-a-valid-types-url",
-            defaultNodes: [],
-            isSoraCardEnabled: true
+            defaultNodes: []
         )
 
         XCTAssertEqual(config.polkaswapIndexerURL, fallback)
         XCTAssertEqual(config.subqueryURL, fallback)
         XCTAssertNil(config.typesURL)
-        XCTAssertEqual(config.defaultNodes, [])
-        XCTAssertTrue(config.isSoraCardEnabled)
+        XCTAssertTrue(config.defaultNodes.isEmpty)
     }
 
     func testAppConfigExplorerURLsUseSorametrics() throws {

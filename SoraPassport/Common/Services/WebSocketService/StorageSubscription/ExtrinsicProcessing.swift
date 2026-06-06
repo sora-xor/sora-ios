@@ -59,9 +59,11 @@ protocol ExtrinsicProcessing {
 
 final class ExtrinsicProcessor {
     let accountId: AccountAddress
-    var account: MultiAddress {
-        // swiftlint:disable:next force_try
-        MultiAddress.accoundId(try! Data(hexStringSSF: accountId))
+    var account: MultiAddress? {
+        guard let data = try? Data(hexStringSSF: accountId) else {
+            return nil
+        }
+        return MultiAddress.accoundId(data)
         //probably should be address32
     }
 
@@ -119,7 +121,12 @@ final class ExtrinsicProcessor {
         let calls = batch?.args.calls ?? []
         for call in calls {
             let innerExtrinsic = Extrinsic(signature: extrinsic.signature, call: call)
-            process(extrinsicIndex: extrinsicIndex, extrinsic: innerExtrinsic, eventRecords: eventRecords, metadata: metadata)
+            if let result = process(extrinsicIndex: extrinsicIndex,
+                                    extrinsic: innerExtrinsic,
+                                    eventRecords: eventRecords,
+                                    metadata: metadata) {
+                return result
+            }
         }
         return nil
     }
@@ -133,6 +140,9 @@ final class ExtrinsicProcessor {
         do {
             let sender = try extrinsic.signature?.address.map(to: MultiAddress.self)
             let accData = try? SS58AddressFactory().accountId(fromAddress: accountId, type: 69)
+            guard let account = account else {
+                return nil
+            }
 
             let call = try extrinsic.call.map(to: RuntimeCall<SoraTransferCall>.self)
             let callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
@@ -178,6 +188,9 @@ final class ExtrinsicProcessor {
     ) -> ExtrinsicProcessingResult? {
         do {
             let sender = try extrinsic.signature?.address.map(to: MultiAddress.self)
+            guard let account = account else {
+                return nil
+            }
             let call = try extrinsic.call.map(to: RuntimeCall<MigrateCall>.self)
             let callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
             let isAccountMatched = account == sender
@@ -213,6 +226,9 @@ final class ExtrinsicProcessor {
     ) -> ExtrinsicProcessingResult? {
         do {
             let sender = try extrinsic.signature?.address.map(to: MultiAddress.self)
+            guard let account = account else {
+                return nil
+            }
             let call = try extrinsic.call.map(to: RuntimeCall<NoRuntimeArgs>.self)
             let callPath = CallCodingPath(moduleName: call.moduleName, callName: call.callName)
             let isAccountMatched = account == sender
@@ -293,7 +309,7 @@ extension ExtrinsicProcessor: ExtrinsicProcessing {
             eventRecords: eventRecords,
             metadata: metadata
         ) {
-            return nil
+            return result
         }
 
         if let processingResult = matchTransfer(

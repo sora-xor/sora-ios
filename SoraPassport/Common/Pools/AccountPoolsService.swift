@@ -157,8 +157,6 @@ final class AccountPoolsService {
                 decodingOperation.result = .failure(error)
             }
         }
-        operationManager.enqueue(operations: [fetchCoderFactoryOperation, decodingOperation], in: .transient)
-        
         return try await withCheckedThrowingContinuation { continuetion in
             decodingOperation.completionBlock = {
                 do {
@@ -171,8 +169,10 @@ final class AccountPoolsService {
                     continuetion.resume(returning: assetIds)
                 } catch {
                     print("Decoding error \(error)")
+                    continuetion.resume(throwing: error)
                 }
             }
+            operationManager.enqueue(operations: [fetchCoderFactoryOperation, decodingOperation], in: .transient)
         }
     }
     
@@ -411,7 +411,10 @@ extension AccountPoolsService: PoolsServiceInputProtocol {
             let operationQueue = OperationQueue()
             operationQueue.qualityOfService = .utility
             
-            guard let operation = try? polkaswapOperationFactory.poolReserves(baseAsset: baseAssetId, targetAsset: targetAssetId) else { return }
+            guard let operation = try? polkaswapOperationFactory.poolReserves(baseAsset: baseAssetId, targetAsset: targetAssetId) else {
+                completion(false)
+                return
+            }
             operation.completionBlock = {
                 DispatchQueue.main.async {
                     let reserves = try? operation.extractResultData()

@@ -133,7 +133,7 @@ extension ActivityDetailsViewModel: EventVisitorProtocol {
             var updatedModel = model
             updatedModel.base.status = transaction.processingResult.isSuccess ? .success : .failed
             if let headerItem = createHeaderActivityDetailsViewModel(with: updatedModel) {
-                (self.items[0] as? HeaderActivityDetailsItem)?.details = headerItem.details
+                (self.items.first as? HeaderActivityDetailsItem)?.details = headerItem.details
             }
             
             self.view?.update(items: self.items)

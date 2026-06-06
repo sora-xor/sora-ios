@@ -106,8 +106,6 @@ extension UserFarmsService: UserFarmsServiceProtocol {
                 decodingOperation.result = .failure(error)
             }
         }
-        operationManager.enqueue(operations: [fetchCoderFactoryOperation, decodingOperation], in: .transient)
-        
         return try await withCheckedThrowingContinuation { continuetion in
             decodingOperation.completionBlock = {
                 do {
@@ -125,8 +123,10 @@ extension UserFarmsService: UserFarmsServiceProtocol {
                     }
                     continuetion.resume(returning: farms ?? [])
                 } catch {
+                    continuetion.resume(throwing: error)
                 }
             }
+            operationManager.enqueue(operations: [fetchCoderFactoryOperation, decodingOperation], in: .transient)
         }
     }
 }

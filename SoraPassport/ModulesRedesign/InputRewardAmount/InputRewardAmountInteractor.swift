@@ -31,6 +31,7 @@
 import Foundation
 
 import BigInt
+import RobinHood
 
 protocol InputRewardAmountInteractorInputProtocol: AnyObject {
     func getBalance()
@@ -81,7 +82,10 @@ extension InputRewardAmountInteractor: InputRewardAmountInteractorInputProtocol 
         }
 
         operation.completionBlock = { [weak self] in
-            guard let result = operation.result else { return }
+            guard let result = operation.result else {
+                self?.presenter?.referralBalanceOperationReceived(with: .failure(BaseOperationError.parentOperationCancelled))
+                return
+            }
             self?.presenter?.referralBalanceOperationReceived(with: result)
         }
 

@@ -32,8 +32,6 @@ import SoraUIKit
 import sorawallet
 import SoraFoundation
 
-import SCard
-
 final class AssetDetailsItemFactory {
     
     private weak var assetsProvider: AssetProviderProtocol?
@@ -113,10 +111,6 @@ final class AssetDetailsItemFactory {
                 self?.wireframe.showReceive()
             case .swap:
                 self?.wireframe.showSwap()
-// TODO: Temporary Removal of X1
-//            case .buy:
-//                guard let scard = SCard.shared else { return }
-//                self?.wireframe.showXOne(service: scard)
             }
         }
     

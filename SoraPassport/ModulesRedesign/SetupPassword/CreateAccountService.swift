@@ -94,6 +94,7 @@ final class CreateAccountService: CreateAccountServiceProtocol {
                 case .none:
                     let error = BaseOperationError.parentOperationCancelled
                     completion(.failure(error))
+                    return
                 case .some(.failure(_)):
                     break
                 }
@@ -105,5 +106,4 @@ final class CreateAccountService: CreateAccountServiceProtocol {
         operationManager.enqueue(operations: [operation, persistentOperation, connectionOperation], in: .sync)
     }
 }
-
 

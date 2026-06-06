@@ -30,7 +30,6 @@
 
 import SoraUIKit
 import SoraFoundation
-import SCard
 
 final class LanguagePresenter {
     weak var view: LanguageViewProtocol?

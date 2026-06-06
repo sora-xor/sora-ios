@@ -90,9 +90,7 @@ extension MarketCapService: MarketCapServiceProtocol {
             let findAssetIds = result.map { $0.assetId }
             
             let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: findAssetIds)
-            
-            operationManager.enqueue(operations: [queryOperation], in: .transient)
-            
+
             queryOperation.completionBlock = { [weak self] in
                 guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
                     continuation.resume(returning: [])
@@ -113,6 +111,8 @@ extension MarketCapService: MarketCapServiceProtocol {
                     await continuation.resume(returning: self.marketCapInfos)
                 }
             }
+
+            operationManager.enqueue(operations: [queryOperation], in: .transient)
         }
     }
 }

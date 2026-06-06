@@ -32,13 +32,9 @@ import UIKit
 #if !NO_FIREBASE
 import FirebaseCore
 #endif
-import SCard
 import GoogleSignIn
 import SoraUIKit
 import SoraFoundation
-#if F_DEV && canImport(FLEX)
-import FLEX
-#endif
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -56,7 +52,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             FirebaseApp.configure()
             #endif
 
-            initFlex()
             setupLanguage()
             
             let rootWindow = SoraWindow()
@@ -88,73 +83,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
-    private func initFlex() {
-        #if F_DEV && canImport(FLEX)
-
-        FLEXManager.shared.registerGlobalEntry(withName: "Reset SORA Card Token") { tableViewController in
-            let isUserSignIn = SCard.shared?.isUserSignIn ?? false
-            let message = "User is signed in: \(isUserSignIn)"
-            let title = "Reset SORA Card Token"
-            let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = message
-            }
-            let removeAction = UIAlertAction(title: "Logout",  style: .destructive) { _ in
-                SCard.shared?.logout()
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-            alertController.addAction(removeAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard Config") { tableViewController in
-
-            let title = "SCard Config"
-
-            let alertController = UIAlertController(title: title, message: SCard.shared?.configuration, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = SCard.shared?.configuration
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        FLEXManager.shared.registerGlobalEntry(withName: "SCard update version") { tableViewController in
-
-            let title = "SCard update version"
-
-            let alertController = UIAlertController(title: title, message: SCard.currentSDKVersion, preferredStyle: .alert)
-
-            let copyAction = UIAlertAction(title: "Copy",  style: .default) { _ in
-                UIPasteboard.general.string = SCard.currentSDKVersion
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
-
-            alertController.addAction(cancelAction)
-            alertController.addAction(copyAction)
-
-            DispatchQueue.main.async {
-                tableViewController.present(alertController, animated: true)
-            }
-        }
-
-        #endif
-    }
-    
     func setupLanguage() {
         let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         UIView.appearance().semanticContentAttribute = semanticContentAttribute
@@ -190,23 +118,5 @@ fileprivate extension Array {
             return nil
         }
         return self[index]
-    }
-}
-
-
-extension SCard.Config: CustomDebugStringConvertible {
-    public var debugDescription: String {
-
-        """
-        SCard.Config
-        backendUrl: \(backendUrl)
-        pwAuthDomain: \(pwAuthDomain)
-        pwApiKey: \(pwApiKey)
-        kycUrl: \(kycUrl)
-        kycUsername: \(kycUsername)
-        kycPassword: \(kycPassword)
-        environmentType: \(environmentType)
-        themeMode: \(themeMode)
-        """
     }
 }
