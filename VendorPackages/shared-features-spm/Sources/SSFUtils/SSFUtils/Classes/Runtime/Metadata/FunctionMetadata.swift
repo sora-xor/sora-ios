@@ -7,6 +7,13 @@ public protocol RuntimeFunctionMetadata {
     var name: String { get }
     var arguments: [RuntimeFunctionArgumentMetadata] { get }
     var documentation: [String] { get }
+    /// Explicit SCALE enum discriminant from metadata v14+. Older metadata
+    /// versions encode calls by declaration position and return nil.
+    var index: UInt8? { get }
+}
+
+public extension RuntimeFunctionMetadata {
+    var index: UInt8? { nil }
 }
 
 // MARK: - V1
@@ -43,12 +50,14 @@ public extension RuntimeMetadataV1 {
 public extension RuntimeMetadataV14 {
     struct FunctionMetadata: RuntimeFunctionMetadata {
         public let name: String
+        public let index: UInt8?
         private let _arguments: [FunctionArgumentMetadata]
         public var arguments: [RuntimeFunctionArgumentMetadata] { _arguments }
         public let documentation: [String]
 
         public init(item: TypeMetadata.Def.Variant.Item, schemaResolver: Schema.Resolver) throws {
             name = item.name
+            index = item.index
             _arguments = try item.fields.map {
                 guard let name = $0.name else {
                     throw Schema.Resolver.Error.wrongData

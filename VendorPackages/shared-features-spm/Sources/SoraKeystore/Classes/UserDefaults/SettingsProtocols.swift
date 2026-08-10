@@ -18,6 +18,7 @@ public protocol SettingsManagerProtocol: AnyObject {
     func string(for key: String) -> String?
     func data(for key: String) -> Data?
     func anyValue(for key: String) -> Any?
+    func allKeys() -> [String]
     func removeValue(for key: String)
     func removeAll()
 }

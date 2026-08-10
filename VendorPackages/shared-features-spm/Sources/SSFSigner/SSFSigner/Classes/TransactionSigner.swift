@@ -25,14 +25,7 @@ public extension TransactionSignerProtocol {
         _ originalData: Data,
         secretKey: Data
     ) throws -> IRSignatureProtocol {
-        let keypairFactory = Ed25519KeypairFactory()
-        let privateKey = try keypairFactory
-            .createKeypairFromSeed(secretKey.miniSeed, chaincodeList: [])
-            .privateKey()
-
-        let signer = EDSigner(privateKey: privateKey)
-
-        return try signer.sign(originalData)
+        try EDSeedSigner(seed: secretKey.miniSeed).sign(originalData)
     }
 
     func signEcdsa(

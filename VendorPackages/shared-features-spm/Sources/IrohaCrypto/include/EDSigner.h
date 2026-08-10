@@ -11,6 +11,7 @@
 
 @interface EDSigner : NSObject<IRSignatureCreatorProtocol>
 
-- (nonnull instancetype)initWithPrivateKey:(id<IRPrivateKeyProtocol> _Nonnull)privateKey;
+- (nonnull instancetype)initWithPrivateKey:(id<IRPrivateKeyProtocol> _Nonnull)privateKey
+    __attribute__((deprecated("Use EDSeedSigner with the original 32-byte seed")));
 
 @end

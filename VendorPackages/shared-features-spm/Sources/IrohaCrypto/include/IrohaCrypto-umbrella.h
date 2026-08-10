@@ -32,6 +32,7 @@
 #import "EDPublicKey.h"
 #import "EDSignature.h"
 #import "EDSignatureVerifier.h"
+#import "EDSeedSigner.h"
 #import "EDSigner.h"
 #import "SECKeyFactory.h"
 #import "SECPrivateKey.h"
@@ -54,4 +55,3 @@
 
 FOUNDATION_EXPORT double IrohaCryptoVersionNumber;
 FOUNDATION_EXPORT const unsigned char IrohaCryptoVersionString[];
-

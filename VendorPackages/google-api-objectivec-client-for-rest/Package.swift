@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.6
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 import PackageDescription
 
@@ -1164,7 +1164,7 @@ let package = Package(
         // End of products.
     ],
     dependencies: [
-        .package(url: "https://github.com/google/gtm-session-fetcher.git", "1.6.1" ..< "4.0.0"),
+        .package(url: "https://github.com/google/gtm-session-fetcher.git", exact: "3.5.0"),
     ],
     targets: [
         .target(

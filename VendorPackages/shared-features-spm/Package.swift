@@ -53,16 +53,16 @@ let package = Package(
         .library(name: "SSFTransactionHistory", targets: ["SSFTransactionHistory"])
     ],
     dependencies: [
-        .package(url: "https://github.com/Boilertalk/secp256k1.swift.git", from: "0.1.7"),
-        .package(url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap", from: "1.1.0"),
-        .package(url: "https://github.com/ashleymills/Reachability.swift", from: "5.0.0"),
-        .package(url: "https://github.com/soramitsu/fearless-starscream", from: "4.0.8"),
+        .package(url: "https://github.com/Boilertalk/secp256k1.swift.git", exact: "0.1.7"),
+        .package(url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap", exact: "1.1.0"),
+        .package(url: "https://github.com/ashleymills/Reachability.swift", exact: "5.2.3"),
+        .package(url: "https://github.com/soramitsu/fearless-starscream", exact: "4.0.12"),
         .package(path: "../GoogleSignIn-iOS"),
         .package(path: "../google-api-objectivec-client-for-rest"),
-        .package(url: "https://github.com/attaswift/BigInt.git", from: "5.3.0"),
-        .package(url: "https://github.com/daisuke-t-jp/xxHash-Swift", from: "1.1.1"),
-        .package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", .upToNextMajor(from: "2.0.0")),
-        .package(url: "https://github.com/nicklockwood/SwiftFormat", from: "0.50.4"),
+        .package(url: "https://github.com/attaswift/BigInt.git", exact: "5.7.0"),
+        .package(url: "https://github.com/daisuke-t-jp/xxHash-Swift", exact: "1.1.1"),
+        .package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", exact: "2.1.1"),
+        .package(url: "https://github.com/nicklockwood/SwiftFormat", exact: "0.50.4"),
         .package(url: "https://github.com/soramitsu/web3-swift", exact: "7.7.7")
     ],
     targets: [
@@ -72,10 +72,10 @@ let package = Package(
         .binaryTarget(name: "sorawallet", path: "Binaries/sorawallet.xcframework"),
         .binaryTarget(name: "MPQRCoreSDK", path: "Binaries/MPQRCoreSDK.xcframework"),
         .binaryTarget(
-                    name: "XNetworking",
-                    url: "https://nexus.iroha.tech/repository/maven-soramitsu/jp/co/soramitsu/xnetworking/lib-IOS/1.0.10/lib-IOS-1.0.10.zip",
-                    checksum: "651cd3955842fcd4817f22457c8bb3f93e5081959ef651894093b522117143ab"
-                ),
+            name: "XNetworking",
+            url: "https://github.com/soramitsu/x-networking/releases/download/ios-xcframework-1.0.10-rebuild.1/XNetworking-1.0.10.xcframework.zip",
+            checksum: "43319ac6f215e95edc215366116264205902a18d480b87aa4a8c40d381a3b61a"
+        ),
         .target(
             name: "scrypt",
             sources: [

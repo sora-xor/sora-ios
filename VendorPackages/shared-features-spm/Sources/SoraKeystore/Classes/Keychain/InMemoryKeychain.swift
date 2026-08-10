@@ -30,6 +30,10 @@ public final class InMemoryKeychain: KeystoreProtocol {
         keystore[identifier] != nil
     }
 
+    public func allKeyIdentifiers() throws -> [String] {
+        keystore.keys.sorted()
+    }
+
     public func deleteKey(for identifier: String) throws {
         if try checkKey(for: identifier) {
             keystore[identifier] = nil
