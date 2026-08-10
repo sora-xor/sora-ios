@@ -16,7 +16,7 @@ export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-opti
 source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-contract.py"
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="60c4057460be62437675d046737183fca7b8b17d"
+reviewed_base_revision="f1a2cab5debfa6213adfe087972dfc70d4d8688e"
 reviewed_upstream="origin/modernize"
 reviewed_build_number="2026081002"
 reviewed_lower_bound="2026081001"
@@ -28,6 +28,11 @@ reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"
 reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"
 reviewed_profile_uuid="7ae520bc-599b-48ae-abfa-627eef530f0c"
 reviewed_profile_sha256="19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93"
+reviewed_archive_signing_identity="Apple Development: Makoto Takemiya (6A4BK72ZFV)"
+reviewed_archive_signing_certificate_sha1="1F57A04EB10B3665696663CDA0DBD893CF7FE886"
+reviewed_archive_signing_certificate_sha256="b479b9064f19cf90085926479768088416407c9e99e1537662014ba6805c179d"
+reviewed_archive_profile_uuid="908dc5a8-2b34-4617-94bb-f4a58ed5f4da"
+reviewed_archive_profile_sha256="ede945565f09b23b4d92eca0752cb6ad52fe47b8a6ebb0e38f424ce64de79235"
 
 fail() {
     /usr/bin/printf 'error: %s\n' "$1" >&2
@@ -181,6 +186,7 @@ parent_revision="$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" ||
     fail "internal TestFlight source history is not the reviewed single commit"
 reviewed_successor_paths='SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
+SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh'
 observed_successor_paths="$(/usr/bin/git -C "${root}" diff --name-only --no-renames "${reviewed_base_revision}..${source_revision}")"
 [ "${observed_successor_paths}" = "${reviewed_successor_paths}" ] ||
@@ -202,14 +208,21 @@ export_options_snapshot="${control_path}/export-options.plist"
 manifest_path="${control_path}/internal-testflight-upload.json"
 delivery_receipt_path="${control_path}/apple-upload-receipt.json"
 reviewed_profile_path="${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles/${reviewed_profile_uuid}.mobileprovision"
+reviewed_archive_profile_path="${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles/${reviewed_archive_profile_uuid}.mobileprovision"
 [ -f "${reviewed_profile_path}" ] && [ ! -L "${reviewed_profile_path}" ] ||
     fail "reviewed App Store provisioning profile is unavailable"
 [ "$(sha256_file "${reviewed_profile_path}")" = "${reviewed_profile_sha256}" ] ||
     fail "reviewed App Store provisioning profile bytes drifted"
+[ -f "${reviewed_archive_profile_path}" ] && [ ! -L "${reviewed_archive_profile_path}" ] ||
+    fail "reviewed archive provisioning profile is unavailable"
+[ "$(sha256_file "${reviewed_archive_profile_path}")" = "${reviewed_archive_profile_sha256}" ] ||
+    fail "reviewed archive provisioning profile bytes drifted"
 /usr/bin/security find-identity -v -p codesigning >"${control_path}/codesigning-identities.txt" 2>&1 ||
     fail "code-signing identities cannot be inspected"
 [ "$(/usr/bin/grep -Fci "${reviewed_signing_certificate_sha1} \"${reviewed_signing_identity}\"" "${control_path}/codesigning-identities.txt")" = "1" ] ||
     fail "the exact reviewed Apple Distribution private identity is unavailable or ambiguous"
+[ "$(/usr/bin/grep -Fci "${reviewed_archive_signing_certificate_sha1} \"${reviewed_archive_signing_identity}\"" "${control_path}/codesigning-identities.txt")" = "1" ] ||
+    fail "the exact reviewed Apple Development private identity is unavailable or ambiguous"
 /bin/cp -p "${export_options}" "${export_options_snapshot}" || fail "export options cannot be snapshotted"
 /bin/chmod 400 "${export_options_snapshot}" || fail "export options snapshot cannot be made read-only"
 export_options_sha="$(sha256_file "${export_options_snapshot}")"
@@ -230,9 +243,6 @@ if ! /usr/bin/xcodebuild \
     -archivePath "${archive_path}" \
     -allowProvisioningUpdates \
     "CURRENT_PROJECT_VERSION=${build_number}" \
-    "CODE_SIGN_STYLE=Automatic" \
-    "CODE_SIGN_IDENTITY=${reviewed_signing_certificate_sha1}" \
-    "DEVELOPMENT_TEAM=${reviewed_team_id}" \
     "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE=${mode}" \
     SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION=archive \
     "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER=${build_number}" \
@@ -266,15 +276,15 @@ profile_path="${archived_app}/embedded.mobileprovision"
 /usr/bin/codesign --verify --deep --strict "${archived_app}" >/dev/null 2>&1 || fail "archived application code signature is invalid"
 /usr/bin/codesign -dvv "${archived_app}" >"${control_path}/codesign.txt" 2>&1 || fail "archived signing identity cannot be inspected"
 /usr/bin/grep -Fq "TeamIdentifier=${reviewed_team_id}" "${control_path}/codesign.txt" || fail "archived signing team drifted"
-/usr/bin/grep -Fq "Authority=${reviewed_signing_identity}" "${control_path}/codesign.txt" || fail "archive is not signed by the reviewed Apple Distribution identity"
+/usr/bin/grep -Fq "Authority=${reviewed_archive_signing_identity}" "${control_path}/codesign.txt" || fail "archive is not signed by the reviewed Apple Development identity"
 /usr/bin/codesign -d --extract-certificates="${control_path}/codesign-cert" "${archived_app}" >/dev/null 2>&1 ||
     fail "archived signing certificate chain cannot be extracted"
 [ -f "${control_path}/codesign-cert0" ] && [ ! -L "${control_path}/codesign-cert0" ] ||
     fail "archived signing leaf certificate is missing"
 signed_certificate_sha1="$(/usr/bin/shasum -a 1 "${control_path}/codesign-cert0" | /usr/bin/awk '{print toupper($1)}')"
 signed_certificate_sha256="$(sha256_file "${control_path}/codesign-cert0")"
-[ "${signed_certificate_sha1}" = "${reviewed_signing_certificate_sha1}" ] &&
-    [ "${signed_certificate_sha256}" = "${reviewed_signing_certificate_sha256}" ] ||
+[ "${signed_certificate_sha1}" = "${reviewed_archive_signing_certificate_sha1}" ] &&
+    [ "${signed_certificate_sha256}" = "${reviewed_archive_signing_certificate_sha256}" ] ||
     fail "archived signing leaf certificate is not the reviewed identity"
 /usr/bin/codesign -d --entitlements=- --xml "${archived_app}" \
     >"${control_path}/signed-entitlements.plist" \
@@ -288,15 +298,14 @@ from pathlib import Path
 entitlements = plistlib.loads(Path(sys.argv[1]).read_bytes())
 if entitlements != {
     "application-identifier": "YLWWUD25VZ.co.jp.soramitsu.sora",
-    "beta-reports-active": True,
     "com.apple.developer.team-identifier": "YLWWUD25VZ",
-    "get-task-allow": False,
+    "get-task-allow": True,
 }:
     raise SystemExit(1)
 PY
 /usr/bin/security cms -D -i "${profile_path}" -o "${control_path}/profile.plist" >/dev/null 2>&1 || fail "embedded profile cannot be decoded"
-[ "$(sha256_file "${profile_path}")" = "${reviewed_profile_sha256}" ] ||
-    fail "embedded App Store profile bytes drifted"
+[ "$(sha256_file "${profile_path}")" = "${reviewed_archive_profile_sha256}" ] ||
+    fail "embedded archive profile bytes drifted"
 /usr/bin/python3 -I -S - "${control_path}/profile.plist" <<'PY' || fail "embedded App Store profile is invalid"
 import datetime
 import hashlib
@@ -308,9 +317,9 @@ profile = plistlib.loads(Path(sys.argv[1]).read_bytes())
 entitlements = profile.get("Entitlements")
 if not isinstance(entitlements, dict):
     raise SystemExit(1)
-if profile.get("UUID") != "7ae520bc-599b-48ae-abfa-627eef530f0c":
+if profile.get("UUID") != "908dc5a8-2b34-4617-94bb-f4a58ed5f4da":
     raise SystemExit(1)
-if profile.get("Name") != "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora":
+if profile.get("Name") != "iOS Team Provisioning Profile: co.jp.soramitsu.sora":
     raise SystemExit(1)
 if profile.get("TeamIdentifier") != ["YLWWUD25VZ"]:
     raise SystemExit(1)
@@ -318,17 +327,23 @@ if entitlements.get("application-identifier") != "YLWWUD25VZ.co.jp.soramitsu.sor
     raise SystemExit(1)
 if entitlements.get("com.apple.developer.team-identifier") != "YLWWUD25VZ":
     raise SystemExit(1)
-if entitlements.get("get-task-allow") is not False:
+if entitlements.get("get-task-allow") is not True:
     raise SystemExit(1)
-if entitlements.get("beta-reports-active") is not True:
+if "beta-reports-active" in entitlements:
     raise SystemExit(1)
-if "ProvisionedDevices" in profile or profile.get("ProvisionsAllDevices") is True:
+if not isinstance(profile.get("ProvisionedDevices"), list) or len(profile["ProvisionedDevices"]) != 17:
+    raise SystemExit(1)
+if profile.get("ProvisionsAllDevices") is True:
     raise SystemExit(1)
 certificates = profile.get("DeveloperCertificates")
 if not isinstance(certificates, list) or [hashlib.sha256(item).hexdigest() for item in certificates] != [
-    "bb62a695f45ef159ab28e2ed224bb8b5fe71fad68f1c58fdda897064898fb505",
-    "d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb",
-    "09e36070bac48cf47c125d2237692475db7b64454ff45a17b889380f31510c93",
+    "838ad686faf6b019d66b5a0fca25aff1b9e6956e92c353a453a9d739b67bdc52",
+    "b479b9064f19cf90085926479768088416407c9e99e1537662014ba6805c179d",
+    "7cd9c5bca8c27d4b504d847fb5d84c6a1c2cb8899779a44f040c7d89b3463006",
+    "9173a31c6f3080a549d8ba443ab425fc46d79822ecf9d485316d83451d710328",
+    "582df4037fb85e0eda3220ed45ace7f050094f9de7752b843bd041100880d1a1",
+    "1fa3b9dffd3699466da99cc90d8ca9db554db36d17534ebf92a45385610d7a66",
+    "f24e778e55737cf00423985d11e8664ffdc5047fc37e9d92a960ca4e5df5d742",
 ]:
     raise SystemExit(1)
 expires = profile.get("ExpirationDate")
@@ -414,10 +429,14 @@ manifest = {
     "exportOptionsSha256": export_options,
     "archivedExecutableSha256": executable,
     "embeddedProfileSha256": profile,
-    "embeddedProfileUuid": "7ae520bc-599b-48ae-abfa-627eef530f0c",
-    "embeddedProfileName": "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora",
-    "signedLeafCertificateSha1": certificate_sha1,
-    "signedLeafCertificateSha256": certificate_sha256,
+    "embeddedProfileUuid": "908dc5a8-2b34-4617-94bb-f4a58ed5f4da",
+    "embeddedProfileName": "iOS Team Provisioning Profile: co.jp.soramitsu.sora",
+    "archivedLeafCertificateSha1": certificate_sha1,
+    "archivedLeafCertificateSha256": certificate_sha256,
+    "uploadProvisioningProfileUuid": "7ae520bc-599b-48ae-abfa-627eef530f0c",
+    "uploadProvisioningProfileName": "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora",
+    "uploadProvisioningProfileSha256": "19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93",
+    "uploadSigningCertificateSha1": "84AB95335BE14CAE9B050A353910F86FF2F9539B",
     "appleAdamId": "1457566711",
     "appleProviderId": "69a6de8e-8bb9-47e3-e053-5b8c7c11a4d1",
     "appleDeliveryId": delivery_id,
