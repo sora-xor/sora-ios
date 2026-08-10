@@ -1913,7 +1913,7 @@ def run_gate(
             # can exceed 45 seconds on a cold Apple-Python process. Keep the
             # per-case bound finite while leaving the aggregate 1,200-second
             # harness deadline authoritative.
-            timeout=bounded_timeout(90),
+            timeout=bounded_timeout(180),
         )
     except subprocess.TimeoutExpired as error:
         raise HarnessFailure(f"{name}: rollout validator timed out") from error

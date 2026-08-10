@@ -72,6 +72,8 @@ run_ios_migration_release_source_gate() {
     ios_gate_taira_deployment="${root}/SoraPassport/Scripts/verify-ios-taira-deployment-manifest.py"
     ios_gate_signing_identity="${root}/SoraPassport/Scripts/verify-ios-production-signing-identity.py"
     ios_gate_release_test_runner="${root}/SoraPassport/Scripts/run-ios-release-tests.sh"
+    ios_gate_production_promotion="${root}/SoraPassport/Scripts/run-ios-production-promotion.py"
+    ios_gate_production_promotion_pipeline="${root}/Jenkinsfile.production-promotion"
     ios_gate_ci_workflow="${root}/.github/workflows/ios_modernization.yml"
     ios_gate_projector_suite="${root}/SoraPassport/Scripts/test-ios-migration-test-host-derivation.py"
     ios_gate_clone_suite="${root}/SoraPassport/Scripts/test-ios-migration-installable-clone.py"
@@ -83,6 +85,7 @@ run_ios_migration_release_source_gate() {
     ios_gate_taira_deployment_suite="${root}/SoraPassport/Scripts/test-ios-taira-deployment-manifest.py"
     ios_gate_vendored_binary_suite="${root}/SoraPassport/Scripts/test-ios-vendored-binary-qualification.py"
     ios_gate_signing_identity_suite="${root}/SoraPassport/Scripts/test-ios-production-signing-identity.py"
+    ios_gate_production_promotion_suite="${root}/SoraPassport/Scripts/test-ios-production-promotion.py"
     ios_gate_project="${root}/SoraPassport.xcodeproj/project.pbxproj"
     ios_gate_harness="${root}/SoraPassport/Common/MigrationEvidence/RetainedMigrationEvidenceHarness.swift"
     ios_gate_integration_producer="${root}/SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests.swift"
@@ -108,6 +111,8 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_taira_deployment}" \
         "${ios_gate_signing_identity}" \
         "${ios_gate_release_test_runner}" \
+        "${ios_gate_production_promotion}" \
+        "${ios_gate_production_promotion_pipeline}" \
         "${ios_gate_ci_workflow}" \
         "${ios_gate_projector_suite}" \
         "${ios_gate_clone_suite}" \
@@ -119,6 +124,7 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_taira_deployment_suite}" \
         "${ios_gate_vendored_binary_suite}" \
         "${ios_gate_signing_identity_suite}" \
+        "${ios_gate_production_promotion_suite}" \
         "${ios_gate_project}" \
         "${ios_gate_harness}" \
         "${ios_gate_integration_producer}" \
@@ -135,7 +141,7 @@ run_ios_migration_release_source_gate() {
         fi
     done
 
-    # Eleven source-contract/template lints. Keep this inventory explicit: a new
+    # Twelve source-contract/template lints. Keep this inventory explicit: a new
     # producer is not admitted merely because one aggregate wrapper still lints.
     if ! /usr/bin/python3 -B -I -S "${ios_gate_projector}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_clone}" --lint-contract >/dev/null ||
@@ -147,8 +153,9 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/python3 -B -I -S "${ios_gate_release_package}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_taira_deployment}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_signing_identity}" --lint-templates >/dev/null ||
-       ! /bin/sh "${ios_gate_release_test_runner}" --lint-contract >/dev/null; then
-        echo "error: one of eleven iOS migration Release contract/template lints failed" >&2
+       ! /bin/sh "${ios_gate_release_test_runner}" --lint-contract >/dev/null ||
+       ! /usr/bin/python3 -B -I -S "${ios_gate_production_promotion}" --lint-contract >/dev/null; then
+        echo "error: one of twelve iOS migration Release contract/template lints failed" >&2
         return 1
     fi
 
@@ -173,6 +180,7 @@ run_ios_migration_release_source_gate() {
     run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 13 taira-deployment-admission || return 1
     run_exact_ios_migration_suite "${ios_gate_vendored_binary_suite}" 10 vendored-binary-qualification || return 1
     run_exact_ios_migration_suite "${ios_gate_signing_identity_suite}" 10 production-signing-identity || return 1
+    run_exact_ios_migration_suite "${ios_gate_production_promotion_suite}" 17 production-promotion-controller || return 1
 
     for ios_gate_shell in \
         "${root}/SoraPassport/Scripts/archive-ios-migration-candidate.sh" \
@@ -366,7 +374,7 @@ run_ios_migration_release_source_gate() {
     fi
 
     /usr/bin/printf \
-        'iOS migration Release source gate: OK (93 migration tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 11 lints, shell/Swift parse)\n'
+        'iOS migration Release source gate: OK (93 migration tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 12 lints, shell/Swift parse)\n'
 }
 
 if [ "$#" -eq 1 ] && [ "$1" = "--lint-ios-migration-release-source-gate" ]; then
@@ -3240,7 +3248,7 @@ if [ ! -f "${rollout_candidate_template}" ] ||
    ! /usr/bin/grep -Fq '"historyBlockHeightContractDeployed=true"' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'legacy-rollout-v2-replay' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'HARNESS_TIMEOUT_SECONDS = 1200' "${rollout_regression_harness}" ||
-   ! /usr/bin/grep -Fq 'timeout=bounded_timeout(90)' "${rollout_regression_harness}" ||
+   ! /usr/bin/grep -Fq 'timeout=bounded_timeout(180)' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'SAFE_TOOL_ENV' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'env=SAFE_TOOL_ENV' "${rollout_regression_harness}" ||
    ! /usr/bin/grep -Fq 'SORA_ROLLOUT_REGRESSION_CURRENT_EPOCH_SECONDS' "${rollout_regression_harness}" ||

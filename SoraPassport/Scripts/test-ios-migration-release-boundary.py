@@ -744,7 +744,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "--lint-ios-migration-release-source-gate", source
         )
         self.assertIn(
-            "iOS migration Release source gate: OK (93 migration tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 11 lints, shell/Swift parse)",
+            "iOS migration Release source gate: OK (93 migration tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 12 lints, shell/Swift parse)",
             source,
         )
         for suite, expected in (
@@ -754,6 +754,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             ("ios_gate_sanitizer_suite", 6),
             ("ios_gate_collector_suite", 15),
             ("ios_gate_boundary_suite", 15),
+            ("ios_gate_production_promotion_suite", 17),
         ):
             self.assertIn(
                 f'run_exact_ios_migration_suite "${{{suite}}}" {expected}',
@@ -942,6 +943,8 @@ fi
         paths = manifest["paths"]
         for relative in (
             ".github/workflows/ios_modernization.yml",
+            "Jenkinsfile.production-promotion",
+            "Fixtures/Modernization/ios-production-promotion-README.md",
             "SoraPassport/Scripts/build-ios-migration-evidence-candidate.sh",
             "SoraPassport/Scripts/archive-ios-migration-candidate.sh",
             "SoraPassport/Scripts/create-ios-migration-candidate-handoff.py",
@@ -950,9 +953,11 @@ fi
             "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.py",
             "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.sh",
             "SoraPassport/Scripts/run-ios-release-tests.sh",
+            "SoraPassport/Scripts/run-ios-production-promotion.py",
             "SoraPassport/Scripts/sanitize-ios-migration-xctestrun.py",
             "SoraPassport/Scripts/test-ios-migration-exact-ipa-evidence.py",
             "SoraPassport/Scripts/test-ios-migration-release-boundary.py",
+            "SoraPassport/Scripts/test-ios-production-promotion.py",
             "SoraPassport/Scripts/test-ios-release-reproducibility-package.py",
             "SoraPassport/Scripts/test-ios-migration-test-host-derivation.py",
             "SoraPassport/Scripts/test-ios-migration-xctestrun-sanitizer.py",

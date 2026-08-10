@@ -1231,7 +1231,7 @@ extension PolkamarktViewController: UISearchResultsUpdating {
     }
 }
 
-extension PolkamarktViewController: @MainActor Localizable {
+extension PolkamarktViewController: Localizable {
     func applyLocalization() {
         title = PolkamarktL10n.pageTitle(
             localizationManager?.preferredLocalizations
@@ -1742,12 +1742,17 @@ private final class PolkamarktMarketViewController: UITableViewController {
                 : "Finalized DPM state · \(PolkamarktL10n.outcome(.yes)) / \(PolkamarktL10n.outcome(.no))"
             chart.values = points.map { $0.yesQuote }
             chart.secondaryValues = points.map { $0.noQuote }
-            chart.markerFraction = state.map {
-                Double($0.impliedYesProbabilityBps) / 10_000
-            } ?? market.marginalYesPriceBps.map {
-                Double($0) / 10_000
-            } ?? market.priceYes?.unitIntervalDoubleForRendering
-                ?? market.probability?.percentageFractionForRendering
+            if let state {
+                chart.markerFraction =
+                    Double(state.impliedYesProbabilityBps) / 10_000.0
+            } else if let marginalYesPriceBps = market.marginalYesPriceBps {
+                chart.markerFraction = Double(marginalYesPriceBps) / 10_000.0
+            } else if let priceYes = market.priceYes {
+                chart.markerFraction = priceYes.unitIntervalDoubleForRendering
+            } else {
+                chart.markerFraction =
+                    market.probability?.percentageFractionForRendering
+            }
         } else {
             chart.caption = snapshotLoadError ??
                 "\(PolkamarktL10n.outcome(.yes)) probability history"
@@ -2505,7 +2510,7 @@ private final class PolkamarktMarketViewController: UITableViewController {
     }
 }
 
-extension PolkamarktMarketViewController: @MainActor Localizable {
+extension PolkamarktMarketViewController: Localizable {
     func applyLocalization() {
         if market.title == nil {
             title = PolkamarktL10n.pageTitle(
