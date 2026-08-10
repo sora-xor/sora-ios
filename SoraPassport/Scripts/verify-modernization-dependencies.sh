@@ -693,9 +693,9 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${PRODUCT_NAME:-}" != "SoraPassport" ] ||
        [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" != "co.jp.soramitsu.sora" ] ||
        [ "${DEVELOPMENT_TEAM:-}" != "YLWWUD25VZ" ] ||
-       [ "${CODE_SIGN_STYLE:-}" != "Manual" ] ||
+       [ "${CODE_SIGN_STYLE:-}" != "Automatic" ] ||
        [ "${CODE_SIGN_IDENTITY:-}" != "84AB95335BE14CAE9B050A353910F86FF2F9539B" ] ||
-       [ "${PROVISIONING_PROFILE_SPECIFIER:-}" != "7ae520bc-599b-48ae-abfa-627eef530f0c" ] ||
+       [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ] ||
        [ "${internal_testflight_build_number}" != "2026081002" ] ||
        [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
        [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
@@ -733,14 +733,10 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/modernize" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "bad71b872dc70e13a6666e8ba596e3abd89bc5ad" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-list --count "bad71b872dc70e13a6666e8ba596e3abd89bc5ad..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
-       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "bad71b872dc70e13a6666e8ba596e3abd89bc5ad..${internal_testflight_source_revision}" 2>/dev/null)" != 'Fixtures/Modernization/ios-migration-qualification-contract-v1.json
-SoraPassport/Configs/ios-internal-testflight-export-options.plist
-SoraPassport/Scripts/test-ios-internal-testflight-upload.py
-SoraPassport/Scripts/test-ios-migration-release-boundary.py
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "60c4057460be62437675d046737183fca7b8b17d" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "60c4057460be62437675d046737183fca7b8b17d..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "60c4057460be62437675d046737183fca7b8b17d..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
-SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh' ] ||
        [ -n "$(/usr/bin/git -C "${root}" status --porcelain=v1 --untracked-files=normal)" ]; then
         echo "error: iOS internal-only TestFlight source is not the exact clean pushed revision" >&2
@@ -2368,13 +2364,14 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    ! /usr/bin/grep -Fq '<string>84AB95335BE14CAE9B050A353910F86FF2F9539B</string>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq '<string>7ae520bc-599b-48ae-abfa-627eef530f0c</string>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="bad71b872dc70e13a6666e8ba596e3abd89bc5ad"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="60c4057460be62437675d046737183fca7b8b17d"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_upstream="origin/modernize"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_build_number="2026081002"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_profile_sha256="19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'CODE_SIGN_IDENTITY=${reviewed_signing_certificate_sha1}' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'PROVISIONING_PROFILE_SPECIFIER=${reviewed_profile_uuid}' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq '"CODE_SIGN_STYLE=Automatic"' "${internal_testflight_uploader}" ||
+   /usr/bin/grep -Fq '"PROVISIONING_PROFILE_SPECIFIER=' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq '/bin/chmod 400 "${export_options_snapshot}"' "${internal_testflight_uploader}" ||
    [ "$(/usr/bin/grep -Fc 'sha256_file "${export_options_snapshot}"' "${internal_testflight_uploader}")" -ne 3 ] ||
    [ "$(/usr/bin/grep -Fc 'SoraPassport/Configs/ios-internal-testflight-export-options.plist' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||

@@ -16,7 +16,7 @@ export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-opti
 source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-contract.py"
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="bad71b872dc70e13a6666e8ba596e3abd89bc5ad"
+reviewed_base_revision="60c4057460be62437675d046737183fca7b8b17d"
 reviewed_upstream="origin/modernize"
 reviewed_build_number="2026081002"
 reviewed_lower_bound="2026081001"
@@ -179,12 +179,8 @@ parent_revision="$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" ||
     fail "internal TestFlight source is not the reviewed single successor"
 [ "$(/usr/bin/git -C "${root}" rev-list --count "${reviewed_base_revision}..${source_revision}")" = "1" ] ||
     fail "internal TestFlight source history is not the reviewed single commit"
-reviewed_successor_paths='Fixtures/Modernization/ios-migration-qualification-contract-v1.json
-SoraPassport/Configs/ios-internal-testflight-export-options.plist
-SoraPassport/Scripts/test-ios-internal-testflight-upload.py
-SoraPassport/Scripts/test-ios-migration-release-boundary.py
+reviewed_successor_paths='SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
-SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh'
 observed_successor_paths="$(/usr/bin/git -C "${root}" diff --name-only --no-renames "${reviewed_base_revision}..${source_revision}")"
 [ "${observed_successor_paths}" = "${reviewed_successor_paths}" ] ||
@@ -234,10 +230,9 @@ if ! /usr/bin/xcodebuild \
     -archivePath "${archive_path}" \
     -allowProvisioningUpdates \
     "CURRENT_PROJECT_VERSION=${build_number}" \
-    "CODE_SIGN_STYLE=Manual" \
+    "CODE_SIGN_STYLE=Automatic" \
     "CODE_SIGN_IDENTITY=${reviewed_signing_certificate_sha1}" \
     "DEVELOPMENT_TEAM=${reviewed_team_id}" \
-    "PROVISIONING_PROFILE_SPECIFIER=${reviewed_profile_uuid}" \
     "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE=${mode}" \
     SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION=archive \
     "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER=${build_number}" \

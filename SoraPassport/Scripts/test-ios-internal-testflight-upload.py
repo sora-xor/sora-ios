@@ -68,9 +68,9 @@ def capability_environment() -> dict[str, str]:
             "PRODUCT_BUNDLE_IDENTIFIER": "co.jp.soramitsu.sora",
             "DEVELOPMENT_TEAM": "YLWWUD25VZ",
             "CODE_SIGN_IDENTITY": "84AB95335BE14CAE9B050A353910F86FF2F9539B",
-            "CODE_SIGN_STYLE": "Manual",
+            "CODE_SIGN_STYLE": "Automatic",
             "CURRENT_PROJECT_VERSION": "2026081002",
-            "PROVISIONING_PROFILE_SPECIFIER": "7ae520bc-599b-48ae-abfa-627eef530f0c",
+            "PROVISIONING_PROFILE_SPECIFIER": "",
             "CODE_SIGN_ENTITLEMENTS": "SoraPassport/SoraPassport.entitlements",
             "INFOPLIST_FILE": "SoraPassport/Info.plist",
             "SORA_APPLICATION_CONFIG": "Release",
@@ -122,7 +122,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'status --porcelain=v1 --untracked-files=normal',
             "rev-parse '@{upstream}'",
-            'reviewed_base_revision="bad71b872dc70e13a6666e8ba596e3abd89bc5ad"',
+            'reviewed_base_revision="60c4057460be62437675d046737183fca7b8b17d"',
             'reviewed_upstream="origin/modernize"',
             'reviewed_build_number="2026081002"',
             'reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"',
@@ -131,7 +131,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             '"embeddedProfileName": "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora"',
             'reviewed_profile_sha256="19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93"',
             '"CODE_SIGN_IDENTITY=${reviewed_signing_certificate_sha1}"',
-            '"PROVISIONING_PROFILE_SPECIFIER=${reviewed_profile_uuid}"',
+            '"CODE_SIGN_STYLE=Automatic"',
             '/bin/chmod 400 "${export_options_snapshot}"',
             'sha256_file "${export_options_snapshot}"',
             'delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"',
@@ -151,12 +151,13 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             self.assertIn(marker, source)
         self.assertNotIn("ITSAppUsesNonExemptEncryption", source)
         self.assertNotIn("ITSEncryptionExportComplianceCode", source)
+        self.assertNotIn('"PROVISIONING_PROFILE_SPECIFIER=', source)
         verifier = VERIFIER.read_text(encoding="utf-8")
         for marker in (
             'rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}"',
             "rev-parse '@{upstream}' 2>/dev/null",
             "origin/modernize",
-            "bad71b872dc70e13a6666e8ba596e3abd89bc5ad",
+            "60c4057460be62437675d046737183fca7b8b17d",
             "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER",
             "CURRENT_PROJECT_VERSION",
             "PROVISIONING_PROFILE_SPECIFIER",
