@@ -1,12 +1,54 @@
 import XCTest
 @testable import SoraPassport
-import SSFUtils
+@testable import SSFUtils
 import RobinHood
 import IrohaCrypto
 import BigInt
 import xxHash_Swift
 import SoraKeystore
 import SoraFoundation
+
+private final class ReachabilityConcurrencyFailureCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var failures: [String] = []
+
+    func append(_ error: Error) {
+        lock.lock()
+        failures.append(String(describing: error))
+        lock.unlock()
+    }
+
+    var values: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return failures
+    }
+}
+
+private final class ReachabilityConcurrencyListener: SSFUtils.ReachabilityListenerDelegate {
+    private let lock = NSLock()
+    private var notificationCount = 0
+    private let removesItself: Bool
+
+    init(removesItself: Bool = false) {
+        self.removesItself = removesItself
+    }
+
+    func didChangeReachability(by manager: SSFUtils.ReachabilityManagerProtocol) {
+        lock.lock()
+        notificationCount += 1
+        lock.unlock()
+        if removesItself {
+            manager.remove(listener: self)
+        }
+    }
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return notificationCount
+    }
+}
 //
 class JSONRPCTests: NetworkBaseTests {
 //    struct RpcInterface: Decodable {
@@ -264,6 +306,44 @@ class JSONRPCTests: NetworkBaseTests {
         "garlic job language carbon soul boost evidence pizza exit velvet solar coach clerk journey front",
         "gospel render later wing orbit sheriff home leisure garlic crowd print fever quick tiny amused"
     ]
+
+    func testReachabilityListenersAreSynchronizedAndCallbacksAreReentrant() throws {
+        let manager = try XCTUnwrap(SSFUtils.ReachabilityManager())
+        let listeners = (0..<64).map { _ in ReachabilityConcurrencyListener() }
+        let failures = ReachabilityConcurrencyFailureCollector()
+        let workerQueue = DispatchQueue(
+            label: "co.jp.soramitsu.tests.reachability-listeners",
+            attributes: .concurrent
+        )
+        let workers = DispatchGroup()
+
+        for listener in listeners {
+            workers.enter()
+            workerQueue.async {
+                defer { workers.leave() }
+                do {
+                    try manager.add(listener: listener)
+                    manager.notifyListeners()
+                    manager.remove(listener: listener)
+                } catch {
+                    failures.append(error)
+                }
+            }
+        }
+
+        XCTAssertEqual(workers.wait(timeout: .now() + 10), .success)
+        XCTAssertTrue(failures.values.isEmpty, failures.values.joined(separator: ", "))
+
+        let selfRemovingListener = ReachabilityConcurrencyListener(removesItself: true)
+        try manager.add(listener: selfRemovingListener)
+        manager.notifyListeners()
+        let countAfterSelfRemoval = selfRemovingListener.count
+        manager.notifyListeners()
+        XCTAssertGreaterThanOrEqual(countAfterSelfRemoval, 1)
+        XCTAssertEqual(selfRemovingListener.count, countAfterSelfRemoval)
+        manager.remove(listener: selfRemovingListener)
+    }
+
     func testNeedsMigration() throws{
         for mnem in mlem {
           try performMigrationTest(mnemonic: mnem)
@@ -310,7 +390,12 @@ class JSONRPCTests: NetworkBaseTests {
             // Recovery phrases are never diagnostic material, including in CI
             // and integration-test logs. Record only the operation outcome
             // class; the test assertions already retain the Boolean result.
-            logger.debug("Migration eligibility response received")
+            logger.debug(
+                message: "Migration eligibility response received",
+                file: #file,
+                function: #function,
+                line: #line
+            )
             if(result == true) {
 //                try testMigrationService(mnemonic)
             }
