@@ -28,6 +28,7 @@ CLONE_WRAPPER = SCRIPTS / "create-ios-migration-installable-clone.sh"
 EXACT_IPA_WRAPPER = SCRIPTS / "run-ios-migration-exact-ipa-evidence.sh"
 COLLECTOR_WRAPPER = SCRIPTS / "collect-ios-migration-evidence.sh"
 COLLECTION_RUNNER = SCRIPTS / "run-ios-migration-evidence-collection.sh"
+RELEASE_TEST_RUNNER = SCRIPTS / "run-ios-release-tests.sh"
 QUALIFICATION_WRAPPER = SCRIPTS / "verify-ios-migration-qualification.sh"
 PROJECTOR = SCRIPTS / "derive-ios-migration-test-host.py"
 PROJECTOR_HARNESS = SCRIPTS / "test-ios-migration-test-host-derivation.py"
@@ -101,6 +102,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             EXACT_IPA_WRAPPER,
             COLLECTOR_WRAPPER,
             COLLECTION_RUNNER,
+            RELEASE_TEST_RUNNER,
             QUALIFICATION_WRAPPER,
             PROMOTION,
             DEPENDENCIES,
@@ -555,6 +557,103 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
                         current_id,
                     )
 
+    def test_nonpromoting_release_simulator_runner_is_exact_and_non_authorizing(
+        self,
+    ) -> None:
+        lint = run("/bin/sh", str(RELEASE_TEST_RUNNER), "--lint-contract")
+        self.assertEqual(lint.returncode, 0, lint.stderr)
+        self.assertEqual(
+            lint.stdout,
+            "iOS non-promoting Release simulator test contract: OK\n",
+        )
+
+        runner = RELEASE_TEST_RUNNER.read_text(encoding="utf-8")
+        action = runner.split("exec /usr/bin/xcodebuild", 1)[1]
+        for required in (
+            "\n    test \\",
+            "\n    -project \"${project}\" \\",
+            "\n    -scheme SoraPassport \\",
+            "\n    -configuration Release \\",
+            "\n    -destination \"${destination}\" \\",
+            "\n    -derivedDataPath \"${derived_data_path}\" \\",
+            "\n    -resultBundlePath \"${result_bundle_path}\" \\",
+            "SORA_IOS_NONPROMOTING_RELEASE_TEST_MODE=sora-ios-nonpromoting-release-simulator-test-v1",
+            "SORA_IOS_NONPROMOTING_RELEASE_TEST_ACTION=test",
+            "CODE_SIGNING_ALLOWED=NO",
+            "CODE_SIGNING_REQUIRED=NO",
+            "ENABLE_TESTABILITY=YES",
+            "ONLY_ACTIVE_ARCH=YES",
+            "ARCHS=arm64",
+            "EXCLUDED_ARCHS=x86_64",
+        ):
+            self.assertIn(required, action)
+        for forbidden in (
+            " archive ",
+            "-exportArchive",
+            "-exportOptionsPlist",
+            "upload",
+            "allowProvisioningUpdates",
+        ):
+            self.assertNotIn(forbidden, action)
+        self.assertIn("must be a fresh path", runner)
+        self.assertIn("parent must have mode 0700", runner)
+        self.assertIn("must stay outside the repository", runner)
+        self.assertIn("result-bundle path must end in .xcresult", runner)
+
+        source = DEPENDENCIES.read_text(encoding="utf-8")
+        branch = source.index('if [ -n "${release_test_mode}" ]; then')
+        self.assertLess(branch, source.index("# Every configuration executes"))
+        self.assertEqual(source.count('[ -n "${release_test_mode}" ] ||'), 2)
+        for required in (
+            '[ "${release_test_mode}" != "sora-ios-nonpromoting-release-simulator-test-v1" ]',
+            '[ "${release_test_action}" != "test" ]',
+            '[ "${ACTION:-}" != "build" ]',
+            '[ "${CONFIGURATION:-}" != "Release" ]',
+            '[ "${PLATFORM_NAME:-}" != "iphonesimulator" ]',
+            '[ "${EFFECTIVE_PLATFORM_NAME:-}" != "-iphonesimulator" ]',
+            '[ "${DEPLOYMENT_LOCATION:-NO}" != "NO" ]',
+            '[ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" ]',
+            '[ "${CODE_SIGNING_REQUIRED:-YES}" != "NO" ]',
+            '[ "${ENABLE_TESTABILITY:-NO}" != "YES" ]',
+            '[ "${ONLY_ACTIVE_ARCH:-NO}" != "YES" ]',
+            '[ "${ARCHS:-}" != "arm64" ]',
+            '[ "${EXCLUDED_ARCHS:-}" != "x86_64" ]',
+            "optimized simulator XCTest build is non-authorizing",
+        ):
+            self.assertIn(required, source)
+
+        physical = run(
+            "/bin/sh",
+            str(RELEASE_TEST_RUNNER),
+            "--test",
+            "--destination",
+            "platform=iOS,id=physical-device,arch=arm64",
+            "--derived-data-path",
+            "/private/tmp/sora-release-test-derived",
+            "--result-bundle-path",
+            "/private/tmp/sora-release-test.xcresult",
+        )
+        self.assertNotEqual(physical.returncode, 0)
+        self.assertIn("require an iOS Simulator destination", physical.stderr)
+
+        with tempfile.TemporaryDirectory(
+            prefix=".sora-release-test-boundary.", dir=ROOT
+        ) as repository_output:
+            os.chmod(repository_output, stat.S_IRWXU)
+            rejected = run(
+                "/bin/sh",
+                str(RELEASE_TEST_RUNNER),
+                "--test",
+                "--destination",
+                "platform=iOS Simulator,name=iPhone 16 Pro,OS=18.4,arch=arm64",
+                "--derived-data-path",
+                str(Path(repository_output) / "DerivedData"),
+                "--result-bundle-path",
+                str(Path(repository_output) / "Release.xcresult"),
+            )
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("must stay outside the repository", rejected.stderr)
+
     def test_release_build_exception_is_exact_and_observed_only(self) -> None:
         source = DEPENDENCIES.read_text(encoding="utf-8")
         archive_source = ARCHIVER.read_text(encoding="utf-8")
@@ -588,7 +687,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "--lint-ios-migration-release-source-gate", source
         )
         self.assertIn(
-            "iOS migration Release source gate: OK (92 migration tests + 16 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 10 lints, shell/Swift parse)",
+            "iOS migration Release source gate: OK (93 migration tests + 16 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 11 lints, shell/Swift parse)",
             source,
         )
         for suite, expected in (
@@ -597,13 +696,13 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             ("ios_gate_controller_suite", 24),
             ("ios_gate_sanitizer_suite", 6),
             ("ios_gate_collector_suite", 15),
-            ("ios_gate_boundary_suite", 14),
+            ("ios_gate_boundary_suite", 15),
         ):
             self.assertIn(
                 f'run_exact_ios_migration_suite "${{{suite}}}" {expected}',
                 source,
             )
-        self.assertIn('[ "${ios_gate_test_total}" -eq 92 ]', source)
+        self.assertIn('[ "${ios_gate_test_total}" -eq 93 ]', source)
         self.assertIn(
             'run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 16 release-reproducibility-package',
             source,
@@ -776,6 +875,7 @@ fi
             "SoraPassport/Scripts/derive-ios-migration-test-host.sh",
             "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.py",
             "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.sh",
+            "SoraPassport/Scripts/run-ios-release-tests.sh",
             "SoraPassport/Scripts/sanitize-ios-migration-xctestrun.py",
             "SoraPassport/Scripts/test-ios-migration-exact-ipa-evidence.py",
             "SoraPassport/Scripts/test-ios-migration-release-boundary.py",

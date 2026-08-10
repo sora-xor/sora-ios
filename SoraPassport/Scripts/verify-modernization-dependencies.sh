@@ -71,6 +71,7 @@ run_ios_migration_release_source_gate() {
     ios_gate_release_package="${root}/SoraPassport/Scripts/verify-ios-release-reproducibility-package.py"
     ios_gate_taira_deployment="${root}/SoraPassport/Scripts/verify-ios-taira-deployment-manifest.py"
     ios_gate_signing_identity="${root}/SoraPassport/Scripts/verify-ios-production-signing-identity.py"
+    ios_gate_release_test_runner="${root}/SoraPassport/Scripts/run-ios-release-tests.sh"
     ios_gate_projector_suite="${root}/SoraPassport/Scripts/test-ios-migration-test-host-derivation.py"
     ios_gate_clone_suite="${root}/SoraPassport/Scripts/test-ios-migration-installable-clone.py"
     ios_gate_controller_suite="${root}/SoraPassport/Scripts/test-ios-migration-exact-ipa-evidence.py"
@@ -102,6 +103,7 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_release_package}" \
         "${ios_gate_taira_deployment}" \
         "${ios_gate_signing_identity}" \
+        "${ios_gate_release_test_runner}" \
         "${ios_gate_projector_suite}" \
         "${ios_gate_clone_suite}" \
         "${ios_gate_controller_suite}" \
@@ -125,7 +127,7 @@ run_ios_migration_release_source_gate() {
         fi
     done
 
-    # Ten source-contract/template lints. Keep this inventory explicit: a new
+    # Eleven source-contract/template lints. Keep this inventory explicit: a new
     # producer is not admitted merely because one aggregate wrapper still lints.
     if ! /usr/bin/python3 -B -I -S "${ios_gate_projector}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_clone}" --lint-contract >/dev/null ||
@@ -136,8 +138,9 @@ run_ios_migration_release_source_gate() {
        ! /bin/sh "${ios_gate_builder}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_release_package}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_taira_deployment}" --lint-contract >/dev/null ||
-       ! /usr/bin/python3 -B -I -S "${ios_gate_signing_identity}" --lint-templates >/dev/null; then
-        echo "error: one of ten iOS migration Release contract/template lints failed" >&2
+       ! /usr/bin/python3 -B -I -S "${ios_gate_signing_identity}" --lint-templates >/dev/null ||
+       ! /bin/sh "${ios_gate_release_test_runner}" --lint-contract >/dev/null; then
+        echo "error: one of eleven iOS migration Release contract/template lints failed" >&2
         return 1
     fi
 
@@ -152,10 +155,10 @@ run_ios_migration_release_source_gate() {
     ios_gate_test_total=$((ios_gate_test_total + 6))
     run_exact_ios_migration_suite "${ios_gate_collector_suite}" 15 collector || return 1
     ios_gate_test_total=$((ios_gate_test_total + 15))
-    run_exact_ios_migration_suite "${ios_gate_boundary_suite}" 14 release-boundary || return 1
-    ios_gate_test_total=$((ios_gate_test_total + 14))
-    [ "${ios_gate_test_total}" -eq 92 ] || {
-        echo "error: iOS migration Release source suite inventory is not exactly 92 tests" >&2
+    run_exact_ios_migration_suite "${ios_gate_boundary_suite}" 15 release-boundary || return 1
+    ios_gate_test_total=$((ios_gate_test_total + 15))
+    [ "${ios_gate_test_total}" -eq 93 ] || {
+        echo "error: iOS migration Release source suite inventory is not exactly 93 tests" >&2
         return 1
     }
     run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 16 release-reproducibility-package || return 1
@@ -171,6 +174,7 @@ run_ios_migration_release_source_gate() {
         "${root}/SoraPassport/Scripts/derive-ios-migration-test-host.sh" \
         "${root}/SoraPassport/Scripts/run-ios-migration-evidence-collection.sh" \
         "${root}/SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.sh" \
+        "${root}/SoraPassport/Scripts/run-ios-release-tests.sh" \
         "${root}/SoraPassport/Scripts/verify-ios-migration-qualification.sh" \
         "${root}/SoraPassport/Scripts/verify-ios-migration-promotion-ipa.sh" \
         "${root}/SoraPassport/Scripts/verify-ios-production-signing-identity.sh" \
@@ -200,6 +204,12 @@ run_ios_migration_release_source_gate() {
         fi
     done
 
+    ios_gate_release_test_action="$(
+        /usr/bin/awk '
+            /^exec \/usr\/bin\/xcodebuild/ { emit = 1 }
+            emit { print }
+        ' "${ios_gate_release_test_runner}"
+    )"
     ios_gate_authorization_key_count="$(
         /usr/bin/awk '
             /static let exactKeys: Set<String> = \[/ {
@@ -253,6 +263,18 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq '/bin/sh "${migration_promotion_admission}" --verify-qualified-ipa "${candidate_ipa}"' "${ios_gate_rollout}" ||
        ! /usr/bin/grep -Fq 'IOS_TAIRA_DEPLOYMENT_MANIFEST_PATH' "${ios_gate_archiver}" ||
        ! /usr/bin/grep -Fq 'SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256' "${ios_gate_archiver}" ||
+       ! /usr/bin/grep -Fq 'sora-ios-nonpromoting-release-simulator-test-v1' "${ios_gate_release_test_runner}" ||
+       ! /usr/bin/grep -Fq 'result-bundle path must end in .xcresult' "${ios_gate_release_test_runner}" ||
+       ! /usr/bin/grep -Fq 'must stay outside the repository' "${ios_gate_release_test_runner}" ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq 'exec /usr/bin/xcodebuild' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    test \' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    -configuration Release \' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    CODE_SIGNING_ALLOWED=NO \' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    CODE_SIGNING_REQUIRED=NO \' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    ENABLE_TESTABILITY=YES \' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    ARCHS=arm64 \' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    EXCLUDED_ARCHS=x86_64' ||
+       /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Eq '(^|[[:space:]])archive([[:space:]]|$)|-exportArchive|upload|allowProvisioningUpdates' ||
        ! /usr/bin/grep -Fq 'KNOWN_CHAIN_IDS' "${ios_gate_taira_deployment}" ||
        ! /usr/bin/grep -Fq 'quarantine-recovery-only' "${ios_gate_taira_deployment}" ||
        ! /usr/bin/grep -Fq 'CONVENIENCE_HOST = "taira.sora.org"' "${ios_gate_taira_deployment}"; then
@@ -297,7 +319,7 @@ run_ios_migration_release_source_gate() {
     fi
 
     /usr/bin/printf \
-        'iOS migration Release source gate: OK (92 migration tests + 16 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 10 lints, shell/Swift parse)\n'
+        'iOS migration Release source gate: OK (93 migration tests + 16 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 11 lints, shell/Swift parse)\n'
 }
 
 if [ "$#" -eq 1 ] && [ "$1" = "--lint-ios-migration-release-source-gate" ]; then
@@ -314,12 +336,19 @@ fi
 # the entire Release verifier; only the receipt-dependent migration section is
 # deferred because the exact exported IPA does not exist yet. The wrapper that
 # sets it has no upload or promotion action.
+release_test_mode="${SORA_IOS_NONPROMOTING_RELEASE_TEST_MODE:-}"
+release_test_action="${SORA_IOS_NONPROMOTING_RELEASE_TEST_ACTION:-}"
+if [ -z "${release_test_mode}" ] && [ -n "${release_test_action}" ]; then
+    echo "error: iOS non-promoting Release-test action lacks its exact capability" >&2
+    exit 1
+fi
 migration_candidate_archive_mode="${SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_MODE:-}"
 migration_candidate_archive_active=false
 if [ -n "${migration_candidate_archive_mode}" ]; then
     if [ "${migration_candidate_archive_mode}" != "sora-ios-migration-observed-only-candidate-archive-v1" ] ||
        [ "${SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_ACTION:-}" != "archive" ] ||
        [ -n "${SORA_IOS_MIGRATION_EVIDENCE_BUILD_MODE:-}" ] ||
+       [ -n "${release_test_mode}" ] ||
        [ "${ACTION:-}" != "install" ] ||
        [ "${CONFIGURATION:-}" != "Release" ] ||
        [ "${PLATFORM_NAME:-}" != "iphoneos" ] ||
@@ -356,6 +385,7 @@ migration_evidence_build_mode="${SORA_IOS_MIGRATION_EVIDENCE_BUILD_MODE:-}"
 if [ -n "${migration_evidence_build_mode}" ]; then
     if [ "${migration_evidence_build_mode}" != "sora-ios-migration-observed-only-build-v1" ] ||
        [ "${SORA_IOS_MIGRATION_EVIDENCE_BUILD_ACTION:-}" != "build-for-testing" ] ||
+       [ -n "${release_test_mode}" ] ||
        [ "${ACTION:-}" != "build" ] ||
        [ "${CONFIGURATION:-}" != "Release" ] ||
        [ "${PLATFORM_NAME:-}" != "iphoneos" ] ||
@@ -407,6 +437,70 @@ if [ -n "${migration_evidence_build_mode}" ]; then
     /bin/sh "${funded_canary_validator}" --lint-templates >/dev/null
     /bin/sh "${vendored_binary_qualification_validator}" --lint-templates >/dev/null
     /usr/bin/python3 -B -I -S "${rollout_regression_harness}" >/dev/null
+    exit 0
+fi
+
+# Release simulator tests need the optimized application binary, but an unsigned
+# simulator product is neither an archive nor migration/rollout evidence. Admit
+# only the exact wrapper capability and resolved main-target settings, run the
+# complete hermetic source contract, and exit before every protected production
+# identity, receipt, archive, funded-canary, or promotion branch below.
+if [ -n "${release_test_mode}" ]; then
+    if [ "${release_test_mode}" != "sora-ios-nonpromoting-release-simulator-test-v1" ] ||
+       [ "${release_test_action}" != "test" ] ||
+       [ -n "${migration_candidate_archive_mode}" ] ||
+       [ -n "${migration_evidence_build_mode}" ] ||
+       [ "${ACTION:-}" != "build" ] ||
+       [ "${CONFIGURATION:-}" != "Release" ] ||
+       [ "${PLATFORM_NAME:-}" != "iphonesimulator" ] ||
+       [ "${EFFECTIVE_PLATFORM_NAME:-}" != "-iphonesimulator" ] ||
+       [ "${DEPLOYMENT_LOCATION:-NO}" != "NO" ] ||
+       [ "${TARGET_NAME:-}" != "SoraPassport" ] ||
+       [ "${PRODUCT_NAME:-}" != "SoraPassport" ] ||
+       [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" != "co.jp.soramitsu.sora" ] ||
+       [ "${DEVELOPMENT_TEAM:-}" != "YLWWUD25VZ" ] ||
+       [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
+       [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
+       [ "${SORA_APPLICATION_CONFIG:-}" != "Release" ] ||
+       [ "${SORA_NAME:-}" != "SORA" ] ||
+       [ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" ] ||
+       [ "${CODE_SIGNING_REQUIRED:-YES}" != "NO" ] ||
+       [ "${ENABLE_TESTABILITY:-NO}" != "YES" ] ||
+       [ "${ONLY_ACTIVE_ARCH:-NO}" != "YES" ] ||
+       [ "${ARCHS:-}" != "arm64" ] ||
+       [ "${EXCLUDED_ARCHS:-}" != "x86_64" ]; then
+        echo "error: iOS non-promoting Release simulator test capability is invalid" >&2
+        exit 1
+    fi
+    case "${SDK_NAME:-}" in
+        iphonesimulator*) ;;
+        *)
+            echo "error: iOS non-promoting Release tests require the simulator SDK" >&2
+            exit 1
+            ;;
+    esac
+
+    rollout_validator="${root}/SoraPassport/Scripts/verify-production-rollout.sh"
+    rollout_regression_harness="${root}/SoraPassport/Scripts/test-production-rollout-contract.py"
+    funded_canary_validator="${root}/SoraPassport/Scripts/verify-funded-nexus-canary.sh"
+    vendored_binary_qualification_validator="${root}/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.sh"
+    for release_test_required in \
+        "${rollout_validator}" \
+        "${rollout_regression_harness}" \
+        "${funded_canary_validator}" \
+        "${vendored_binary_qualification_validator}"
+    do
+        if [ ! -f "${release_test_required}" ] || [ -L "${release_test_required}" ]; then
+            echo "error: iOS non-promoting Release-test source is missing or symbolic" >&2
+            exit 1
+        fi
+    done
+    run_ios_migration_release_source_gate
+    /bin/sh "${rollout_validator}" --lint-templates >/dev/null
+    /bin/sh "${funded_canary_validator}" --lint-templates >/dev/null
+    /bin/sh "${vendored_binary_qualification_validator}" --lint-templates >/dev/null
+    /usr/bin/python3 -B -I -S "${rollout_regression_harness}" >/dev/null
+    echo "warning: optimized simulator XCTest build is non-authorizing and cannot satisfy physical-device, signing, archive, migration, canary, or rollout admission" >&2
     exit 0
 fi
 
@@ -553,6 +647,7 @@ migration_test_host_projector_harness="${root}/SoraPassport/Scripts/test-ios-mig
 migration_candidate_export_options="${root}/SoraPassport/Configs/ios-migration-candidate-export-options.plist"
 migration_promotion_admission="${root}/SoraPassport/Scripts/verify-ios-migration-promotion-ipa.sh"
 migration_release_boundary_harness="${root}/SoraPassport/Scripts/test-ios-migration-release-boundary.py"
+release_test_runner="${root}/SoraPassport/Scripts/run-ios-release-tests.sh"
 migration_evidence_scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPassportMigrationEvidence.xcscheme"
 migration_evidence_tests="${root}/SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests.swift"
 user_data_model_v1="${root}/SoraPassport/Common/Storage/UserDataModel.xcdatamodeld/UserDataModel.xcdatamodel/contents"
@@ -1749,6 +1844,8 @@ if [ ! -f "${migration_collector_validator}" ] ||
    [ -L "${migration_promotion_admission}" ] ||
    [ ! -f "${migration_release_boundary_harness}" ] ||
    [ -L "${migration_release_boundary_harness}" ] ||
+   [ ! -f "${release_test_runner}" ] ||
+   [ -L "${release_test_runner}" ] ||
    [ ! -f "${migration_evidence_scheme}" ] ||
    [ -L "${migration_evidence_scheme}" ] ||
    [ ! -f "${migration_evidence_tests}" ] ||
@@ -1803,6 +1900,14 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    ! /usr/bin/grep -Fq 'verify_qualified_ipa' "${migration_qualification_json_validator}" ||
    ! /usr/bin/grep -Fq 'sora-ios-migration-observed-only-build-v1' "${dependency_verifier}" ||
    ! /usr/bin/grep -Fq '[ "${ACTION:-}" != "build" ]' "${dependency_verifier}" ||
+   ! /usr/bin/grep -Fq 'sora-ios-nonpromoting-release-simulator-test-v1' "${dependency_verifier}" ||
+   ! /usr/bin/grep -Fq '[ "${PLATFORM_NAME:-}" != "iphonesimulator" ]' "${dependency_verifier}" ||
+   ! /usr/bin/grep -Fq '[ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" ]' "${dependency_verifier}" ||
+   ! /usr/bin/grep -Fq '[ "${CODE_SIGNING_REQUIRED:-YES}" != "NO" ]' "${dependency_verifier}" ||
+   ! /usr/bin/grep -Fq '[ "${ARCHS:-}" != "arm64" ]' "${dependency_verifier}" ||
+   ! /usr/bin/grep -Fq 'optimized simulator XCTest build is non-authorizing' "${dependency_verifier}" ||
+   ! /bin/sh "${release_test_runner}" --lint-contract >/dev/null ||
+   [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/run-ios-release-tests.sh' "${project}")" -lt 2 ] ||
    ! /usr/bin/grep -Fq 'sora-ios-migration-observed-only-candidate-archive-v1' "${dependency_verifier}" ||
    ! /usr/bin/grep -Fq '[ "${ACTION:-}" != "install" ]' "${dependency_verifier}" ||
    ! /usr/bin/grep -Fq 'if [ "${migration_candidate_archive_active}" = "true" ]; then' "${dependency_verifier}" ||
