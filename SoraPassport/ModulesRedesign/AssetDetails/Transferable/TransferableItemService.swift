@@ -102,9 +102,7 @@ final class TransferableItemService {
 
 extension TransferableItemService: AssetProviderObserverProtocol {
     func processBalance(data: [BalanceData]) {
-        print("balancedata = \(data)")
         guard let assetBalance = data.first(where: { $0.identifier == assetInfo.assetId }) else { return }
-        print("balancedata = \(data)")
         setup(with: assetBalance)
     }
 }

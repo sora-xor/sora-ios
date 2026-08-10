@@ -49,8 +49,26 @@ final class EventCenter {
 
 extension EventCenter: EventCenterProtocol {
     func notify(with event: EventProtocol) {
+        enqueue(event: event, completionOnMain: nil)
+    }
+
+    func notify(
+        with event: EventProtocol,
+        completionOnMain: @escaping () -> Void
+    ) {
+        enqueue(
+            event: event,
+            completionOnMain: completionOnMain
+        )
+    }
+
+    private func enqueue(
+        event: EventProtocol,
+        completionOnMain: (() -> Void)?
+    ) {
         syncQueue.async {
             self.wrappers = self.wrappers.filter { $0.observer != nil }
+            let deliveryGroup = DispatchGroup()
 
             for wrapper in self.wrappers {
                 guard let observer = wrapper.observer else {
@@ -58,12 +76,21 @@ extension EventCenter: EventCenterProtocol {
                 }
 
                 if let queue = wrapper.dispatchQueue {
+                    deliveryGroup.enter()
                     queue.async {
+                        defer { deliveryGroup.leave() }
                         event.accept(visitor: observer)
                     }
                 } else {
                     event.accept(visitor: observer)
                 }
+            }
+
+            if let completionOnMain {
+                deliveryGroup.notify(
+                    queue: .main,
+                    execute: completionOnMain
+                )
             }
         }
     }

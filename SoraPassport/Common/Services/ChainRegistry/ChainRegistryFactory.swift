@@ -122,7 +122,8 @@ final class ChainRegistryFactory {
             filesOperationFactory: filesOperationFactory,
             dataOperationFactory: dataFetchOperationFactory,
             eventCenter: EventCenter.shared,
-            operationQueue: OperationManagerFacade.runtimeBuildingQueue
+            operationQueue: OperationManagerFacade.runtimeBuildingQueue,
+            usesReviewedSoraBundle: true
         )
 
         let snapshotHotBootBuilder = SnapshotHotBootBuilder(
@@ -179,8 +180,8 @@ final class ChainRegistryFactory {
         )
 
         chainObserver.start { error in
-            if let error = error {
-                Logger.shared.error("Chain database observer unexpectedly failed: \(error)")
+            if error != nil {
+                Logger.shared.error("Chain database observation failed")
             }
         }
 

@@ -53,9 +53,10 @@ final class HistoryTransactionMapper {
 extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
     func map(items: [TxHistoryItem]) throws -> [Transaction?] {
         return try items.compactMap { item in
+            let networkFee = try Self.validatedFee(item.networkFee)
             let transactionBase = TransactionBase(txHash: item.id,
                                                   blockHash: item.blockHash,
-                                                  fee: Amount(string: item.networkFee) ?? Amount(value: 0),
+                                                  fee: networkFee,
                                                   status: item.success ? TransactionBase.Status.success : TransactionBase.Status.failed,
                                                   timestamp: item.timestamp)
             let callPath = KmmCallCodingPath(moduleName: item.module, callName: item.method)
@@ -66,7 +67,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                 }
                 
                 return TransferTransaction(base: transactionBase,
-                                           amount: Amount(string: transferData.amount) ?? Amount(value: 0),
+                                           amount: try Self.validatedAmount(transferData.amount),
                                            peer: transferData.to == myAddress ? transferData.from : transferData.to,
                                            transferType: transferData.to == myAddress ? .incoming : .outcoming,
                                            tokenId: transferData.assetId)
@@ -78,7 +79,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                 }
                 
                 return ReferralBondTransaction(base: transactionBase,
-                                               amount: Amount(string: referralBondData.amount) ?? Amount(value: 0),
+                                               amount: try Self.validatedAmount(referralBondData.amount),
                                                tokenId: assets.first { $0.isFeeAsset }?.identifier ?? "",
                                                type: .bond)
             }
@@ -89,7 +90,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                 }
                 
                 return ReferralBondTransaction(base: transactionBase,
-                                               amount: Amount(string: referralBondData.amount) ?? Amount(value: 0),
+                                               amount: try Self.validatedAmount(referralBondData.amount),
                                                tokenId: assets.first { $0.isFeeAsset }?.identifier ?? "",
                                                type: .unbond)
             }
@@ -114,8 +115,8 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                 return Swap(base: transactionBase,
                             fromTokenId: swapData.baseTokenId,
                             toTokenId: swapData.targetTokenId,
-                            fromAmount: Amount(string: swapData.baseTokenAmount) ?? Amount(value: 0),
-                            toAmount: Amount(string: swapData.targetTokenAmount) ?? Amount(value: 0),
+                            fromAmount: try Self.validatedAmount(swapData.baseTokenAmount),
+                            toAmount: try Self.validatedAmount(swapData.targetTokenAmount),
                             market: market)
             }
             
@@ -127,8 +128,8 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                 return Liquidity(base: transactionBase,
                                  firstTokenId: liquidityData.baseTokenId,
                                  secondTokenId: liquidityData.targetTokenId,
-                                 firstAmount: Amount(string: liquidityData.baseTokenAmount) ?? Amount(value: 0),
-                                 secondAmount: Amount(string: liquidityData.targetTokenAmount) ?? Amount(value: 0),
+                                 firstAmount: try Self.validatedAmount(liquidityData.baseTokenAmount),
+                                 secondAmount: try Self.validatedAmount(liquidityData.targetTokenAmount),
                                  type: item.method == "depositLiquidity" ? .add : .withdraw)
             }
             
@@ -137,7 +138,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                     throw HistoryTransactionMapperError.unexpectedError
                 }
 
-                let amount = Amount(string: claimData.amount) ?? Amount(value: 0)
+                let amount = try Self.validatedAmount(claimData.amount)
                 return ClaimReward(base: transactionBase,
                                    amount: amount,
                                    peer: SelectedWalletSettings.shared.currentAccount?.address ?? "",
@@ -149,7 +150,7 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                     throw HistoryTransactionMapperError.unexpectedError
                 }
 
-                let amount = Amount(string: data.amount) ?? Amount(value: 0)
+                let amount = try Self.validatedAmount(data.amount)
                 return FarmLiquidity(base: transactionBase,
                                      firstTokenId: data.baseTokenAmount,
                                      secondTokenId: data.poolTokenAmount,
@@ -170,8 +171,8 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                     return Liquidity(base: transactionBase,
                                      firstTokenId: liquidityBatchData.baseTokenId,
                                      secondTokenId: liquidityBatchData.targetTokenId,
-                                     firstAmount: Amount(string: liquidityBatchData.baseTokenAmount) ?? Amount(value: 0),
-                                     secondAmount: Amount(string: liquidityBatchData.targetTokenAmount) ?? Amount(value: 0),
+                                     firstAmount: try Self.validatedAmount(liquidityBatchData.baseTokenAmount),
+                                     secondAmount: try Self.validatedAmount(liquidityBatchData.targetTokenAmount),
                                      type: .add)
                 }
                 
@@ -185,13 +186,64 @@ extension HistoryTransactionMapper: HistoryTransactionMapperProtocol {
                     return Liquidity(base: transactionBase,
                                      firstTokenId: liquidityBatchData.baseTokenId,
                                      secondTokenId: liquidityBatchData.targetTokenId,
-                                     firstAmount: Amount(string: liquidityBatchData.baseTokenAmount) ?? Amount(value: 0),
-                                     secondAmount: Amount(string: liquidityBatchData.targetTokenAmount) ?? Amount(value: 0),
+                                     firstAmount: try Self.validatedAmount(liquidityBatchData.baseTokenAmount),
+                                     secondAmount: try Self.validatedAmount(liquidityBatchData.targetTokenAmount),
                                      type: .withdraw)
                 }
             }
 
             return nil
         }
+    }
+
+    static func validatedAmount(_ rawValue: String) throws -> Amount {
+        guard
+            !rawValue.hasPrefix("-"),
+            rawValue.utf8.count <= PIQuantity.maximumWireBytes,
+            rawValue.range(
+                of: #"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$"#,
+                options: .regularExpression
+            ) != nil,
+            let parsed = Decimal(
+                string: rawValue,
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+        else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+        var decimalValue = parsed
+        let roundTrip = NSDecimalString(
+            &decimalValue,
+            Locale(identifier: "en_US_POSIX")
+        )
+        guard canonicalDecimal(roundTrip) == canonicalDecimal(rawValue) else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+        return Amount(value: parsed)
+    }
+
+    static func validatedFee(_ rawValue: String) throws -> Amount {
+        guard
+            rawValue.utf8.count <= PIQuantity.maximumWireBytes,
+            rawValue.range(
+                of: #"^(?:0|[1-9][0-9]*)$"#,
+                options: .regularExpression
+            ) != nil
+        else {
+            throw HistoryTransactionMapperError.unexpectedError
+        }
+        return try validatedAmount(rawValue)
+    }
+
+    private static func canonicalDecimal(_ rawValue: String) -> String {
+        guard let separator = rawValue.firstIndex(of: ".") else {
+            return rawValue
+        }
+        let integer = rawValue[..<separator]
+        var fraction = String(rawValue[rawValue.index(after: separator)...])
+        while fraction.last == "0" {
+            fraction.removeLast()
+        }
+        return fraction.isEmpty ? String(integer) : "\(integer).\(fraction)"
     }
 }

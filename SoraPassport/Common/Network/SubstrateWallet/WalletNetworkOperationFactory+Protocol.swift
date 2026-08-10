@@ -43,6 +43,8 @@ enum WalletNetworkOperationFactoryError: Error {
     case invalidChain
     case invalidReceiver
     case invalidContext
+    case invalidFee
+    case insufficientBalance
 }
 
 extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
@@ -125,260 +127,561 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     }
 
     func transferOperation(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        do {
+            try Sora2LegacyTransferAdmission.requirePreparedPath(for: info.type)
+        } catch {
+            return createCompoundOperation(result: .failure(error))
+        }
         switch info.type {
         case .swap:
             return swapOperationWrapper(info)
-        case .liquidityAdd:
-            return liquidityAddOperationWrapper(info)
-        case .liquidityAddNewPool:
-            return newLiquidityAddOperationWrapper(info)
-        case .liquidityAddToExistingPoolFirstTime:
-            return liquidityAddOperationWrapper(info)
-        case .liquidityRemoval:
-            return liquidityRemovalOperationWrapper(info)
+        case .liquidityAdd,
+             .liquidityAddNewPool,
+             .liquidityAddToExistingPoolFirstTime,
+             .liquidityRemoval:
+            return liquidityOperationWrapper(info)
         case .demeterClaimReward:
             return claimRewardDemeterOperationWrapper(info)
         case .demeterDeposit:
             return depositDemeterOperationWrapper(info)
         case .demeterWithdraw:
             return withdrawDemeterOperationWrapper(info)
-        case .outgoing, .incoming, .slash, .reward, .extrinsic, .referral, .migration:
+        case .outgoing:
+            return createCompoundOperation(
+                result: .failure(WalletNetworkOperationFactoryError.invalidContext)
+            )
+        case .incoming, .slash, .reward, .extrinsic, .referral, .migration:
             return transferOperationWrapper(info)
         }
     }
 
-    func liquidityAddOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
-
-        let assetA: String = info.source
-        let assetB: String = info.destination
-        let desiredA = AmountDecimal(string: info.context?[TransactionContextKeys.firstAssetAmount] ?? "0") ?? .init(value: 0)
-        let desiredB = AmountDecimal(string: info.context?[TransactionContextKeys.secondAssetAmount] ?? "0") ?? .init(value: 0)
-        let slippage = AmountDecimal(string: info.context?[TransactionContextKeys.slippage] ?? "0") ?? .init(value: 0)
-        let minA = desiredA.decimalValue * (Decimal(1) - slippage.decimalValue / 100)
-        let minB = desiredB.decimalValue * (Decimal(1) - slippage.decimalValue / 100)
-
-        guard
-            let assetA = accountSettings.assets.first(where: { $0.identifier == assetA }),
-            let assetB = accountSettings.assets.first(where: { $0.identifier == assetB })
-        else {
-            let error = WalletNetworkOperationFactoryError.invalidAsset
-            return createCompoundOperation(result: .failure(error))
+    func estimateTransferFee(for info: TransferInfo) async throws -> Decimal {
+        try Task.checkCancellation()
+        guard info.type == .outgoing else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        let closure = try exactTransferBuilderClosure(for: info)
+        let service = extrinsicService
+        let rawFee: String = try await withCheckedThrowingContinuation {
+            continuation in
+            service.estimateFee(closure, runningIn: .main) { result in
+                continuation.resume(with: result)
+            }
         }
 
-        guard let amountA = desiredA.decimalValue.toSubstrateAmount(precision: assetA.precision),
-              let amountB = desiredB.decimalValue.toSubstrateAmount(precision: assetB.precision),
-              let amountMinA = minA.toSubstrateAmount(precision: assetA.precision),
-              let amountMinB = minB.toSubstrateAmount(precision: assetB.precision),
-              let dexId = info.context?[TransactionContextKeys.dex]
-        else {
-            let error = WalletNetworkOperationFactoryError.invalidAmount
-            return createCompoundOperation(result: .failure(error))
+        try Task.checkCancellation()
+        let feeAssets = accountSettings.assets.filter {
+            $0.identifier == WalletAssetId.xor.rawValue && $0.isFeeAsset
         }
-
-        let closure: ExtrinsicBuilderClosure = { builder in
-            let callFactory = SubstrateCallFactory()
-
-            let depositCall = try callFactory.depositLiquidity(
-                dexId: dexId,
-                assetA: assetA.identifier,
-                assetB: assetB.identifier,
-                desiredA: amountA,
-                desiredB: amountB,
-                minA: amountMinA,
-                minB: amountMinB
-            )
-
-            return try builder
-                .adding(call: depositCall)
+        guard feeAssets.count == 1,
+              let feeAsset = feeAssets.first,
+              let feeValue = BigUInt(rawFee),
+              feeValue > 0,
+              let exactFee = Decimal.fromSubstrateAmount(
+                  feeValue,
+                  precision: feeAsset.precision
+              ),
+              exactFee > 0 else {
+            throw WalletNetworkOperationFactoryError.invalidFee
         }
-
-        let depositLiquidityOperation = createExtrinsicServiceOperation(closure: closure)
-
-        let mapOperation: ClosureOperation<Data> = ClosureOperation {
-            let hashString = try depositLiquidityOperation.extractResultData() ?? ""
-
-            return try Data(hexStringSSF: hashString)
-        }
-
-        mapOperation.addDependency(depositLiquidityOperation)
-
-        return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [depositLiquidityOperation])
+        return exactFee
     }
 
-    func newLiquidityAddOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
-
-        let assetA: String = info.source
-        let assetB: String = info.destination
-        let desiredA = AmountDecimal(string: info.context?[TransactionContextKeys.firstAssetAmount] ?? "0") ?? .init(value: 0)
-        let desiredB = AmountDecimal(string: info.context?[TransactionContextKeys.secondAssetAmount] ?? "0") ?? .init(value: 0)
-        let slippage = AmountDecimal(string: info.context?[TransactionContextKeys.slippage] ?? "0") ?? .init(value: 0)
-        let minA = desiredA.decimalValue * (Decimal(1) - slippage.decimalValue / 100)
-        let minB = desiredB.decimalValue * (Decimal(1) - slippage.decimalValue / 100)
-
-        guard
-            let assetA = accountSettings.assets.first(where: { $0.identifier == assetA }),
-            let assetB = accountSettings.assets.first(where: { $0.identifier == assetB })
-        else {
-            let error = WalletNetworkOperationFactoryError.invalidAsset
-            return createCompoundOperation(result: .failure(error))
+    func prepareTransferSubmission(
+        for info: TransferInfo,
+        preSigningValidation: @escaping () throws -> Void
+    ) async throws -> PreparedSora2TransferSubmission {
+        try Task.checkCancellation()
+        guard info.type == .outgoing else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        let closure = try exactTransferBuilderClosure(for: info)
+        let feeAssets = accountSettings.assets.filter {
+            $0.identifier == WalletAssetId.xor.rawValue && $0.isFeeAsset
+        }
+        guard feeAssets.count == 1, let feeAsset = feeAssets.first else {
+            throw WalletNetworkOperationFactoryError.invalidFee
         }
 
-        guard let amountA = desiredA.decimalValue.toSubstrateAmount(precision: assetA.precision),
-              let amountB = desiredB.decimalValue.toSubstrateAmount(precision: assetB.precision),
-              let amountMinA = minA.toSubstrateAmount(precision: assetA.precision),
-              let amountMinB = minB.toSubstrateAmount(precision: assetB.precision)
-        else {
-            let error = WalletNetworkOperationFactoryError.invalidAmount
-            return createCompoundOperation(result: .failure(error))
-        }
+        let service = extrinsicService
+        let signer = accountSigner
+        let cancellable = CancellableCallRelay()
+        let qualification: PreparedExtrinsicFeeQualification = try await
+            withTaskCancellationHandler(operation: {
+                try await withCheckedThrowingContinuation { continuation in
+                    let call = service.prepareAndEstimateFee(
+                        closure,
+                        signer: signer,
+                        preSigningValidation: preSigningValidation,
+                        runningIn: .main
+                    ) { result in
+                        continuation.resume(with: result)
+                    }
+                    cancellable.set(call)
+                }
+            }, onCancel: {
+                cancellable.cancel()
+            })
 
-        let closure: ExtrinsicBuilderClosure = { builder in
-            let callFactory = SubstrateCallFactory()
-
-            let dexId = info.context?[TransactionContextKeys.dex] ?? "0"
-            let registerCall = try callFactory.register(dexId: dexId,
-                                                        baseAssetId: assetA.identifier,
-                                                        targetAssetId: assetB.identifier)
-            let initializeCall = try callFactory.initializePool(dexId: dexId,
-                                                                baseAssetId: assetA.identifier,
-                                                                targetAssetId: assetB.identifier)
-
-            let depositCall = try callFactory.depositLiquidity(
-                dexId: dexId,
-                assetA: assetA.identifier,
-                assetB: assetB.identifier,
-                desiredA: amountA,
-                desiredB: amountB,
-                minA: amountMinA,
-                minB: amountMinB
+        do {
+            try Task.checkCancellation()
+            guard let feeValue = BigUInt(qualification.rawFee),
+                  feeValue > 0,
+                  let exactFee = Decimal.fromSubstrateAmount(
+                      feeValue,
+                      precision: feeAsset.precision
+                  ),
+                  exactFee > 0 else {
+                throw WalletNetworkOperationFactoryError.invalidFee
+            }
+            return PreparedSora2TransferSubmission(
+                fee: exactFee,
+                rawFee: qualification.rawFee,
+                preparedExtrinsic: qualification.prepared
             )
-
-            return try builder
-                .with(shouldUseAtomicBatch: true)
-                .adding(call: registerCall)
-                .adding(call: initializeCall)
-                .adding(call: depositCall)
+        } catch {
+            qualification.prepared.discard()
+            throw error
         }
-
-        let depositLiquidityOperation = createExtrinsicServiceOperation(closure: closure)
-
-        let mapOperation: ClosureOperation<Data> = ClosureOperation {
-            let hashString = try depositLiquidityOperation.extractResultData() ?? ""
-
-            return try Data(hexStringSSF: hashString)
-        }
-
-        mapOperation.addDependency(depositLiquidityOperation)
-
-        return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [depositLiquidityOperation])
     }
 
-    func liquidityRemovalOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
-
-        guard let context = info.context else {
-            let error = WalletNetworkOperationFactoryError.invalidContext
-            return createCompoundOperation(result: .failure(error))
+    func submitPreparedTransfer(
+        _ submission: PreparedSora2TransferSubmission,
+        info _: TransferInfo,
+        preTransportValidation: @escaping () throws -> Void
+    ) async throws -> Data {
+        do {
+            try Task.checkCancellation()
+        } catch {
+            submission.discard()
+            throw PreparedExtrinsicTransportError.failedBeforeTransport(error)
         }
-
-        let dexId: String = info.context?[TransactionContextKeys.dex] ?? "0"
-        let assetA: String = info.source
-        let assetB: String = info.destination
-        let desiredA = Decimal(string: context[TransactionContextKeys.firstAssetAmount] ?? "0") ?? .zero
-        let desiredB = Decimal(string: context[TransactionContextKeys.secondAssetAmount] ?? "0") ?? .zero
-
-        let firstReserves = Decimal(string: context[TransactionContextKeys.firstReserves] ?? "0") ?? .zero
-        let totalIssuances = Decimal(string: context[TransactionContextKeys.totalIssuances] ?? "0") ?? .zero
-
-        let assetDesired = (desiredA / firstReserves * totalIssuances) 
-
-        let slippage = Decimal(string: context[TransactionContextKeys.slippage] ?? "0") ?? .zero
-        
-        let minA = (desiredA - desiredA / Decimal(100) * slippage)
-        let minB = (desiredB - desiredB / Decimal(100) * slippage)
-
-        guard
-            let assetA = accountSettings.assets.first(where: { $0.identifier == assetA }),
-            let assetB = accountSettings.assets.first(where: { $0.identifier == assetB })
-        else {
-            let error = WalletNetworkOperationFactoryError.invalidAsset
-            return createCompoundOperation(result: .failure(error))
-        }
-
-        guard let assetDesired = assetDesired.toSubstrateAmount(precision: assetA.precision),
-              let amountMinA = minA.toSubstrateAmountRoundingDown(precision: assetA.precision),
-              let amountMinB = minB.toSubstrateAmountRoundingDown(precision: assetB.precision)
-        else {
-            let error = WalletNetworkOperationFactoryError.invalidAmount
-            return createCompoundOperation(result: .failure(error))
-        }
-
-        let closure: ExtrinsicBuilderClosure = { builder in
-            let callFactory = SubstrateCallFactory()
-
-            let withdrawCall = try callFactory.withdrawLiquidityCall(
-                dexId: dexId,
-                assetA: assetA.identifier,
-                assetB: assetB.identifier,
-                assetDesired: assetDesired,
-                minA: amountMinA,
-                minB: amountMinB
+        guard let signer = accountSigner as? LifecycleSigningWrapperProtocol else {
+            submission.discard()
+            throw PreparedExtrinsicTransportError.failedBeforeTransport(
+                ExtrinsicServiceError.lifecycleSignerRequired
             )
+        }
+        let boundAccount = signer.signingAccount
+        let service = extrinsicService
+        let cancellable = CancellableCallRelay()
+        let returnedHash: String = try await withTaskCancellationHandler(
+            operation: {
+                try await withCheckedThrowingContinuation {
+                    continuation in
+                    let call = service.submitPrepared(
+                        submission.preparedExtrinsic,
+                        retainingTransportWitness: false,
+                        expectedRawFee: submission.rawFee,
+                        preTransportValidation: {
+                            try preTransportValidation()
+                            guard
+                                let selected = SelectedWalletSettings.shared
+                                    .currentAccount,
+                                selected.isSelected,
+                                selected.address == boundAccount.address,
+                                selected.publicKeyData ==
+                                    boundAccount.publicKeyData,
+                                selected.cryptoType == boundAccount.cryptoType,
+                                selected.networkType == boundAccount.networkType
+                            else {
+                                throw SigningWrapperError
+                                    .missingSelectedAccount
+                            }
+                        },
+                        runningIn: .main
+                    ) { result in
+                        continuation.resume(with: result)
+                    }
+                    cancellable.set(call)
+                }
+            },
+            onCancel: {
+                cancellable.cancel()
+            }
+        )
+        guard
+            Sora2PendingSubmissionStore.normalizedHash(returnedHash) ==
+                Sora2PendingSubmissionStore.normalizedHash(
+                    submission.transactionHash
+                )
+        else {
+            throw PreparedExtrinsicTransportError.submissionUnknown(
+                localHash:
+                    Sora2PendingSubmissionStore.normalizedHash(
+                        submission.transactionHash
+                    ) ?? submission.transactionHash,
+                error: ExtrinsicServiceError.invalidLocalHash
+            )
+        }
+        return try Data(hexStringSSF: returnedHash)
+    }
 
-            return try builder
-                .adding(call: withdrawCall)
+    func estimateLiquidityFee(for info: TransferInfo) async throws -> Decimal {
+        try Task.checkCancellation()
+        let closure = try exactLiquidityBuilderClosure(for: info)
+        let service = extrinsicService
+        let rawFee: String = try await withCheckedThrowingContinuation { continuation in
+            service.estimateFee(closure, runningIn: .main) { result in
+                continuation.resume(with: result)
+            }
         }
 
-        let removeLiquidityOperation = createExtrinsicServiceOperation(closure: closure)
+        try Task.checkCancellation()
+        let feeAssets = accountSettings.assets.filter {
+            $0.identifier == WalletAssetId.xor.rawValue && $0.isFeeAsset
+        }
+        guard feeAssets.count == 1,
+              let feeAsset = feeAssets.first,
+              let feeValue = BigUInt(rawFee),
+              let exactFee = Decimal.fromSubstrateAmount(feeValue, precision: feeAsset.precision),
+              exactFee > 0 else {
+            throw WalletNetworkOperationFactoryError.invalidFee
+        }
+        return exactFee
+    }
 
-        let mapOperation: ClosureOperation<Data> = ClosureOperation {
-            let hashString = try removeLiquidityOperation.extractResultData() ?? ""
-
-            return try Data(hexStringSSF: hashString)
+    func prepareLiquiditySubmission(
+        for info: TransferInfo,
+        preSigningValidation: @escaping () throws -> Void
+    ) async throws -> PreparedLiquiditySubmission {
+        try Task.checkCancellation()
+        let closure = try exactLiquidityBuilderClosure(for: info)
+        let feeAssets = accountSettings.assets.filter {
+            $0.identifier == WalletAssetId.xor.rawValue && $0.isFeeAsset
+        }
+        guard feeAssets.count == 1, let feeAsset = feeAssets.first else {
+            throw WalletNetworkOperationFactoryError.invalidFee
         }
 
-        mapOperation.addDependency(removeLiquidityOperation)
+        let service = extrinsicService
+        let signer = accountSigner
+        let cancellable = CancellableCallRelay()
+        let qualification: PreparedExtrinsicFeeQualification = try await
+            withTaskCancellationHandler(operation: {
+                try await withCheckedThrowingContinuation { continuation in
+                    let call = service.prepareAndEstimateFee(
+                        closure,
+                        signer: signer,
+                        preSigningValidation: preSigningValidation,
+                        runningIn: .main
+                    ) { result in
+                        continuation.resume(with: result)
+                    }
+                    cancellable.set(call)
+                }
+            }, onCancel: {
+                cancellable.cancel()
+            })
 
-        return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [removeLiquidityOperation])
+        do {
+            try Task.checkCancellation()
+            guard let feeValue = BigUInt(qualification.rawFee),
+                  feeValue > 0,
+                  let exactFee = Decimal.fromSubstrateAmount(
+                    feeValue,
+                    precision: feeAsset.precision
+                  ),
+                  exactFee > 0 else {
+                throw WalletNetworkOperationFactoryError.invalidFee
+            }
+            return PreparedLiquiditySubmission(
+                fee: exactFee,
+                rawFee: qualification.rawFee,
+                preparedExtrinsic: qualification.prepared
+            )
+        } catch {
+            qualification.prepared.discard()
+            throw error
+        }
+    }
+
+    func submitPreparedLiquidity(
+        _ submission: PreparedLiquiditySubmission,
+        info _: TransferInfo,
+        preTransportValidation: @escaping () throws -> Void
+    ) async throws -> Data {
+        do {
+            try Task.checkCancellation()
+        } catch {
+            submission.discard()
+            throw PreparedExtrinsicTransportError.failedBeforeTransport(error)
+        }
+        guard let signer = accountSigner as? LifecycleSigningWrapperProtocol else {
+            submission.discard()
+            throw PreparedExtrinsicTransportError.failedBeforeTransport(
+                ExtrinsicServiceError.lifecycleSignerRequired
+            )
+        }
+        let boundAccount = signer.signingAccount
+        let service = extrinsicService
+        let cancellable = CancellableCallRelay()
+        let returnedHash: String = try await withTaskCancellationHandler(
+            operation: {
+                try await withCheckedThrowingContinuation {
+                    continuation in
+                    let call = service.submitPrepared(
+                        submission.preparedExtrinsic,
+                        retainingTransportWitness: false,
+                        expectedRawFee: submission.rawFee,
+                        preTransportValidation: {
+                            try preTransportValidation()
+                            guard
+                                let selected =
+                                    SelectedWalletSettings.shared
+                                        .currentAccount,
+                                selected.isSelected,
+                                selected.address == boundAccount.address,
+                                selected.publicKeyData ==
+                                    boundAccount.publicKeyData,
+                                selected.cryptoType == boundAccount.cryptoType,
+                                selected.networkType ==
+                                    boundAccount.networkType
+                            else {
+                                throw SigningWrapperError
+                                    .missingSelectedAccount
+                            }
+                        },
+                        runningIn: .main
+                    ) { result in
+                        continuation.resume(with: result)
+                    }
+                    cancellable.set(call)
+                }
+            },
+            onCancel: {
+                cancellable.cancel()
+            }
+        )
+        guard
+            Sora2PendingSubmissionStore.normalizedHash(returnedHash) ==
+                Sora2PendingSubmissionStore.normalizedHash(
+                    submission.transactionHash
+                )
+        else {
+            throw PreparedExtrinsicTransportError.submissionUnknown(
+                localHash:
+                    Sora2PendingSubmissionStore.normalizedHash(
+                        submission.transactionHash
+                    ) ?? submission.transactionHash,
+                error: ExtrinsicServiceError.invalidLocalHash
+            )
+        }
+        return try Data(hexStringSSF: returnedHash)
+    }
+
+    private func liquidityOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        do {
+            let closure = try exactLiquidityBuilderClosure(for: info)
+            let operation = createExtrinsicServiceOperation(closure: closure)
+            let mapOperation: ClosureOperation<Data> = ClosureOperation {
+                let hashString = try operation
+                    .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+                return try Data(hexStringSSF: hashString)
+            }
+            mapOperation.addDependency(operation)
+            return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [operation])
+        } catch {
+            return createCompoundOperation(result: .failure(error))
+        }
+    }
+
+    /// The sole liquidity call constructor used by both fee qualification and
+    /// submission. Keeping parsing, rounding, and batch order here prevents a
+    /// reviewed fee from describing a different extrinsic shape.
+    private func exactLiquidityBuilderClosure(for info: TransferInfo) throws -> ExtrinsicBuilderClosure {
+        guard info.source != info.destination,
+              let assetA = accountSettings.assets.first(where: { $0.identifier == info.source }),
+              let assetB = accountSettings.assets.first(where: { $0.identifier == info.destination }) else {
+            throw WalletNetworkOperationFactoryError.invalidAsset
+        }
+
+        switch info.type {
+        case .liquidityAdd, .liquidityAddToExistingPoolFirstTime, .liquidityAddNewPool:
+            guard let context = info.context,
+                  let rawDesiredA = context[TransactionContextKeys.firstAssetAmount],
+                  let rawDesiredB = context[TransactionContextKeys.secondAssetAmount],
+                  let desiredA = AmountDecimal(string: rawDesiredA)?.decimalValue,
+                  let desiredB = AmountDecimal(string: rawDesiredB)?.decimalValue,
+                  let rawSlippage = context[TransactionContextKeys.slippage],
+                  let slippage = PolkaswapSlippage(contextValue: rawSlippage),
+                  let dexId = context[TransactionContextKeys.dex] else {
+                throw WalletNetworkOperationFactoryError.invalidContext
+            }
+
+            let minA = slippage.minimumAmount(for: desiredA)
+            let minB = slippage.minimumAmount(for: desiredB)
+            guard desiredA > 0,
+                  desiredB > 0,
+                  let amountA = desiredA.toSubstrateAmount(precision: assetA.precision),
+                  let amountB = desiredB.toSubstrateAmount(precision: assetB.precision),
+                  let amountMinA = minA.toSubstrateAmountRoundingDown(precision: assetA.precision),
+                  let amountMinB = minB.toSubstrateAmountRoundingDown(precision: assetB.precision),
+                  amountA > 0,
+                  amountB > 0,
+                  amountMinA > 0,
+                  amountMinB > 0 else {
+                throw WalletNetworkOperationFactoryError.invalidAmount
+            }
+
+            let transactionType = info.type
+            return { builder in
+                let callFactory = SubstrateCallFactory()
+                let depositCall = try callFactory.depositLiquidity(
+                    dexId: dexId,
+                    assetA: assetA.identifier,
+                    assetB: assetB.identifier,
+                    desiredA: amountA,
+                    desiredB: amountB,
+                    minA: amountMinA,
+                    minB: amountMinB
+                )
+
+                switch transactionType {
+                case .liquidityAdd:
+                    return try builder.adding(call: depositCall)
+                case .liquidityAddToExistingPoolFirstTime:
+                    let initializeCall = try callFactory.initializePool(
+                        dexId: dexId,
+                        baseAssetId: assetA.identifier,
+                        targetAssetId: assetB.identifier
+                    )
+                    return try builder
+                        .with(shouldUseAtomicBatch: true)
+                        .adding(call: initializeCall)
+                        .adding(call: depositCall)
+                case .liquidityAddNewPool:
+                    let registerCall = try callFactory.register(
+                        dexId: dexId,
+                        baseAssetId: assetA.identifier,
+                        targetAssetId: assetB.identifier
+                    )
+                    let initializeCall = try callFactory.initializePool(
+                        dexId: dexId,
+                        baseAssetId: assetA.identifier,
+                        targetAssetId: assetB.identifier
+                    )
+                    return try builder
+                        .with(shouldUseAtomicBatch: true)
+                        .adding(call: registerCall)
+                        .adding(call: initializeCall)
+                        .adding(call: depositCall)
+                default:
+                    throw WalletNetworkOperationFactoryError.invalidContext
+                }
+            }
+
+        case .liquidityRemoval:
+            guard let context = info.context,
+                  let dexId = context[TransactionContextKeys.dex],
+                  let rawDesiredA = context[TransactionContextKeys.firstAssetAmount],
+                  let rawDesiredB = context[TransactionContextKeys.secondAssetAmount],
+                  let desiredA = Decimal(string: rawDesiredA, locale: Locale(identifier: "en_US_POSIX")),
+                  let desiredB = Decimal(string: rawDesiredB, locale: Locale(identifier: "en_US_POSIX")),
+                  let rawFirstReserves = context[TransactionContextKeys.firstReserves],
+                  let firstReserves = Decimal(
+                    string: rawFirstReserves,
+                    locale: Locale(identifier: "en_US_POSIX")
+                  ),
+                  let rawTotalIssuances = context[TransactionContextKeys.totalIssuances],
+                  let totalIssuances = Decimal(
+                    string: rawTotalIssuances,
+                    locale: Locale(identifier: "en_US_POSIX")
+                  ),
+                  let rawSlippage = context[TransactionContextKeys.slippage],
+                  let slippage = PolkaswapSlippage(contextValue: rawSlippage) else {
+                throw WalletNetworkOperationFactoryError.invalidContext
+            }
+
+            guard desiredA > 0,
+                  desiredB > 0,
+                  firstReserves > 0,
+                  totalIssuances > 0 else {
+                throw WalletNetworkOperationFactoryError.invalidAmount
+            }
+
+            let desiredPoolTokens = desiredA / firstReserves * totalIssuances
+            let minA = slippage.minimumAmount(for: desiredA)
+            let minB = slippage.minimumAmount(for: desiredB)
+            guard
+                  let assetDesired = desiredPoolTokens.toSubstrateAmount(precision: assetA.precision),
+                  let amountMinA = minA.toSubstrateAmountRoundingDown(precision: assetA.precision),
+                  let amountMinB = minB.toSubstrateAmountRoundingDown(precision: assetB.precision),
+                  assetDesired > 0,
+                  amountMinA > 0,
+                  amountMinB > 0 else {
+                throw WalletNetworkOperationFactoryError.invalidAmount
+            }
+
+            return { builder in
+                let call = try SubstrateCallFactory().withdrawLiquidityCall(
+                    dexId: dexId,
+                    assetA: assetA.identifier,
+                    assetB: assetB.identifier,
+                    assetDesired: assetDesired,
+                    minA: amountMinA,
+                    minB: amountMinB
+                )
+                return try builder.adding(call: call)
+            }
+
+        default:
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
     }
 
     private func transferOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
-        guard
-            let asset = accountSettings.assets.first(where: { $0.identifier == info.asset }) else {
-            let error = WalletNetworkOperationFactoryError.invalidAsset
+        do {
+            let closure = try exactTransferBuilderClosure(for: info)
+            let transferOperation = createExtrinsicServiceOperation(
+                closure: closure
+            )
+            let mapOperation: ClosureOperation<Data> = ClosureOperation {
+                let hashString = try Sora2LegacySubmissionProjection
+                    .transactionHash(from: transferOperation.result)
+                return try Data(hexStringSSF: hashString)
+            }
+            mapOperation.addDependency(transferOperation)
+            return CompoundOperationWrapper(
+                targetOperation: mapOperation,
+                dependencies: [transferOperation]
+            )
+        } catch {
             return createCompoundOperation(result: .failure(error))
         }
+    }
 
-        guard let amount = info.amount.decimalValue.toSubstrateAmount(precision: asset.precision) else {
-            let error = WalletNetworkOperationFactoryError.invalidAmount
-            return createCompoundOperation(result: .failure(error))
+    /// The only ordinary-transfer call constructor. Preview, exact signed fee
+    /// qualification, history projection, and transport all retain this shape.
+    private func exactTransferBuilderClosure(
+        for info: TransferInfo
+    ) throws -> ExtrinsicBuilderClosure {
+        guard !info.destination.isEmpty,
+              let asset = accountSettings.assets.first(where: {
+                  $0.identifier == info.asset
+              }) else {
+            throw WalletNetworkOperationFactoryError.invalidAsset
+        }
+        guard info.amount.decimalValue > 0,
+              let amount = info.amount.decimalValue.toSubstrateAmount(
+                  precision: asset.precision
+              ),
+              amount > 0 else {
+            throw WalletNetworkOperationFactoryError.invalidAmount
         }
 
-        let closure: ExtrinsicBuilderClosure = { builder in
-            let callFactory = SubstrateCallFactory()
-
-            let transferCall = try callFactory.transfer(to: info.destination, asset: asset.identifier, amount: amount)
-
-            return try builder
-                .adding(call: transferCall)
+        return { builder in
+            let transferCall = try SubstrateCallFactory().transfer(
+                to: info.destination,
+                asset: asset.identifier,
+                amount: amount
+            )
+            return try builder.adding(call: transferCall)
         }
-
-        let transferOperation = createExtrinsicServiceOperation(closure: closure)
-
-        let mapOperation: ClosureOperation<Data> = ClosureOperation {
-            let hashString = try transferOperation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-
-            return try Data(hexStringSSF: hashString)
-        }
-
-        mapOperation.addDependency(transferOperation)
-
-        return CompoundOperationWrapper(targetOperation: mapOperation,
-                                        dependencies: [transferOperation])
     }
 
     private func swapOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
-        guard
+        guard info.asset != info.destination,
             let asset = accountSettings.assets.first(where: { $0.identifier == info.asset }),
             accountSettings.assets.first(where: { $0.identifier == info.destination }) != nil
         else {
@@ -392,13 +695,15 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
         }
 
         guard let amountCall = info.amountCall else {
-            let error = WalletNetworkOperationFactoryError.invalidReceiver
+            let error = WalletNetworkOperationFactoryError.invalidContext
             return createCompoundOperation(result: .failure(error))
         }
 
-        let sourceType: String = context[TransactionContextKeys.marketType] ?? ""
-        let dexId: String = context[TransactionContextKeys.dex] ?? "0"
-        let marketType: LiquiditySourceType = LiquiditySourceType(rawValue: sourceType) ?? .smart
+        guard let sourceType = context[TransactionContextKeys.marketType],
+              let marketType = LiquiditySourceType(rawValue: sourceType),
+              let dexId = context[TransactionContextKeys.dex] else {
+            return createCompoundOperation(result: .failure(WalletNetworkOperationFactoryError.invalidContext))
+        }
         let marketCode = marketType.code
         let filter = marketType.filter
 
@@ -447,17 +752,18 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     }
     
     private func claimRewardDemeterOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
+        guard let demeterContext = validatedDemeterContext(info) else {
+            return createCompoundOperation(result: .failure(WalletNetworkOperationFactoryError.invalidContext))
+        }
+
         let closure: ExtrinsicBuilderClosure = { builder in
             let callFactory = SubstrateCallFactory()
-            
-            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
-            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
 
             let demeterCall = try callFactory.claimRewardFromDemeterFarmCall(
                 baseAssetId: info.source,
                 targetAssetId: info.destination,
-                rewardAssetId: rewardAsset,
-                isFarm: isFarm
+                rewardAssetId: demeterContext.rewardAsset,
+                isFarm: demeterContext.isFarm
             )
 
             return try builder.adding(call: demeterCall)
@@ -478,22 +784,25 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     }
     
     private func depositDemeterOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
-        guard let amount = info.amount.decimalValue.toSubstrateAmount(precision: 18) else {
+        guard info.amount.decimalValue > 0,
+              let amount = info.amount.decimalValue.toSubstrateAmount(precision: 18),
+              amount > 0 else {
             let error = WalletNetworkOperationFactoryError.invalidAmount
             return createCompoundOperation(result: .failure(error))
         }
 
+        guard let demeterContext = validatedDemeterContext(info) else {
+            return createCompoundOperation(result: .failure(WalletNetworkOperationFactoryError.invalidContext))
+        }
+
         let closure: ExtrinsicBuilderClosure = { builder in
             let callFactory = SubstrateCallFactory()
-            
-            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
-            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
 
             let demeterCall = try callFactory.depositLiquidityToDemeterFarmCall(
                 baseAssetId: info.source,
                 targetAssetId: info.destination,
-                rewardAssetId: rewardAsset,
-                isFarm: isFarm,
+                rewardAssetId: demeterContext.rewardAsset,
+                isFarm: demeterContext.isFarm,
                 amount: amount
             )
 
@@ -515,22 +824,25 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     }
     
     private func withdrawDemeterOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
-        guard let amount = info.amount.decimalValue.toSubstrateAmount(precision: 18) else {
+        guard info.amount.decimalValue > 0,
+              let amount = info.amount.decimalValue.toSubstrateAmount(precision: 18),
+              amount > 0 else {
             let error = WalletNetworkOperationFactoryError.invalidAmount
             return createCompoundOperation(result: .failure(error))
         }
 
+        guard let demeterContext = validatedDemeterContext(info) else {
+            return createCompoundOperation(result: .failure(WalletNetworkOperationFactoryError.invalidContext))
+        }
+
         let closure: ExtrinsicBuilderClosure = { builder in
             let callFactory = SubstrateCallFactory()
-            
-            let rewardAsset: String = info.context?[TransactionContextKeys.rewardAsset] ?? ""
-            let isFarm: Bool = info.context?[TransactionContextKeys.isFarm] == "1"
 
             let demeterCall = try callFactory.withdrawLiquidityFromDemeterFarmCall(
                 baseAssetId: info.source,
                 targetAssetId: info.destination,
-                rewardAssetId: rewardAsset,
-                isFarm: isFarm,
+                rewardAssetId: demeterContext.rewardAsset,
+                isFarm: demeterContext.isFarm,
                 amount: amount
             )
 
@@ -549,5 +861,20 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
         mapOperation.addDependency(transferOperation)
 
         return CompoundOperationWrapper(targetOperation: mapOperation, dependencies: [transferOperation])
+    }
+
+    private func validatedDemeterContext(
+        _ info: TransferInfo
+    ) -> (rewardAsset: String, isFarm: Bool)? {
+        guard !info.source.isEmpty,
+              !info.destination.isEmpty,
+              let context = info.context,
+              let rewardAsset = context[TransactionContextKeys.rewardAsset],
+              !rewardAsset.isEmpty,
+              let rawIsFarm = context[TransactionContextKeys.isFarm],
+              rawIsFarm == "0" || rawIsFarm == "1" else {
+            return nil
+        }
+        return (rewardAsset, rawIsFarm == "1")
     }
 }

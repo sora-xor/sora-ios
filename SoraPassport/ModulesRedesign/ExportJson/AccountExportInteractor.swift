@@ -69,7 +69,7 @@ extension AccountExportInteractor: AccountExportInteractorInputProtocol {
             let url = exportData.saveToFile(name: "\(account.address).json") ?? .init()
             return url
         } catch {
-            print("Error KeystoreExport to file: \(error.localizedDescription)")
+            // Keychain errors can contain an address-derived identifier.
             return nil
         }
     }
@@ -82,7 +82,7 @@ extension AccountExportInteractor: AccountExportInteractorInputProtocol {
             let url = exportData.saveToFile(name: "batch_exported_account_\(Date().timeIntervalSince1970).json") ?? .init()
             return url
         } catch {
-            print("Error KeystoreExport to file: \(error.localizedDescription)")
+            // Keychain errors can contain an address-derived identifier.
             return nil
         }
     }
@@ -96,7 +96,7 @@ extension Data {
             try self.write(to: URL(fileURLWithPath: filePath))
             return NSURL(fileURLWithPath: filePath)
         } catch {
-            print("Error writing the file: \(error.localizedDescription)")
+            // The destination path can contain the exported account address.
         }
         return nil
     }

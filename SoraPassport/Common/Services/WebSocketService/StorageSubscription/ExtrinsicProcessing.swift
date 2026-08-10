@@ -257,7 +257,7 @@ final class ExtrinsicProcessor {
                 isSuccess: isSuccess
             )
 
-        } catch let error {
+        } catch {
             return nil
         }
     }
@@ -278,8 +278,8 @@ extension ExtrinsicProcessor: ExtrinsicProcessing {
                            eventRecords: eventRecords,
                            metadata: coderFactory.metadata)
 
-        } catch let error {
-            print(error)
+        } catch {
+            print("Extrinsic event processing failed")
             return nil
         }
     }

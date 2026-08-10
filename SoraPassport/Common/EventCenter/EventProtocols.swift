@@ -36,6 +36,10 @@ protocol EventProtocol {
 
 protocol EventCenterProtocol {
     func notify(with event: EventProtocol)
+    func notify(
+        with event: EventProtocol,
+        completionOnMain: @escaping () -> Void
+    )
     func add(observer: EventVisitorProtocol, dispatchIn queue: DispatchQueue?)
     func remove(observer: EventVisitorProtocol)
 }
@@ -44,4 +48,5 @@ extension EventCenterProtocol {
     func add(observer: EventVisitorProtocol) {
         add(observer: observer, dispatchIn: nil)
     }
+
 }

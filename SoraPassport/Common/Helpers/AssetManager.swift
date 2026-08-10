@@ -48,7 +48,6 @@ protocol AssetManagerProtocol: AnyObject {
 final class AssetManager: AssetManagerProtocol {
     static var networkAssets: [AssetInfo] = [] //very dirty, bur we need to pass network assets into initialization of the chain.
 
-    private let accountRepository: AnyDataProviderRepository<AccountItem>
     private let storage: AnyDataProviderRepository<AssetInfo>
     private let operationManager: OperationManagerProtocol
     private let chainProvider: StreamableProvider<ChainModel>
@@ -73,19 +72,12 @@ final class AssetManager: AssetManagerProtocol {
         self.chainProvider = chainProvider
         self.chainId = chainId
 
-        self.accountRepository = AnyDataProviderRepository(
-            UserDataStorageFacade.shared
-            .createRepository(filter: nil,
-                              sortDescriptors: [],
-                              mapper: AnyCoreDataMapper(AccountItemMapper()))
-        )
-
         let updateClosure: ([DataProviderChange<ChainModel>]) -> Void = { [weak self] changes in
             self?.handle(changes: changes)
         }
 
-        let failureClosure: (Swift.Error) -> Void = { error in
-            Logger.shared.error("Unexpected error chains listener setup: \(error)")
+        let failureClosure: (Swift.Error) -> Void = { _ in
+            Logger.shared.error("Asset chain listener setup failed")
         }
 
         let options = StreamableProviderObserverOptions(
@@ -265,30 +257,14 @@ final class AssetManager: AssetManagerProtocol {
             return
         }
 
-        let updatedAccount = account.replacingSettings(updatedSettings)
-
-        let saveOperation = accountRepository.saveOperation {
-            [updatedAccount]
-        } _: {
-            []
-        }
-
-        saveOperation.completionBlock = { [weak self] in
-            self?.accountSettings?.performSave(value: updatedAccount) { result in
-                switch result {
-                case let .success(account):
-                    DispatchQueue.main.async {
-
-                    }
-                case .failure:
-                    break
-                }
+        accountSettings?.performUpdateAssetSettings(
+            account: account,
+            settings: updatedSettings
+        ) { result in
+            if case .failure = result {
+                Logger.shared.error("Unable to persist account asset settings")
             }
         }
-
-        let queue = OperationQueue()
-        queue.qualityOfService = .userInitiated
-        queue.addOperation(saveOperation)
     }
 
     func getAssetList() -> [AssetInfo]? {

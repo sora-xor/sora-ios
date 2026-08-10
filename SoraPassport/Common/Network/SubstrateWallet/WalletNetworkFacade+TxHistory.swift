@@ -37,6 +37,7 @@ extension WalletNetworkFacade {
     func createHistoryMergeOperation(
         dependingOn remoteOperation: BaseOperation<WalletRemoteHistoryData>?,
         localOperation: BaseOperation<[TransactionHistoryItem]>?,
+        pendingOperation: BaseOperation<[Sora2PendingSubmission]>?,
         feeAsset: WalletAsset,
         address: String
     ) -> BaseOperation<TransactionHistoryMergeResult> {
@@ -45,10 +46,13 @@ extension WalletNetworkFacade {
 
         return ClosureOperation {
             let remoteTransactions = try remoteOperation?.extractNoCancellableResultData().historyItems ?? []
+            let localTransactions = try localOperation?
+                .extractNoCancellableResultData()
+                .filter({ $0.sender == address || $0.receiver == address }) ?? []
+            let pendingSubmissions = try pendingOperation?
+                .extractNoCancellableResultData() ?? []
 
-            if let localTransactions = try localOperation?.extractNoCancellableResultData()
-                .filter({ $0.sender == address || $0.receiver == address }),
-               !localTransactions.isEmpty {
+            if !localTransactions.isEmpty || !pendingSubmissions.isEmpty {
                 let manager = TransactionHistoryMergeManager(
                     address: address,
                     networkType: currentNetworkType,
@@ -57,7 +61,8 @@ extension WalletNetworkFacade {
                 )
                 return manager.merge(
                     remoteItems: remoteTransactions,
-                    localItems: localTransactions
+                    localItems: localTransactions,
+                    pendingSubmissions: pendingSubmissions
                 )
             } else {
                 let transactions: [AssetTransactionData] = remoteTransactions.compactMap { item in

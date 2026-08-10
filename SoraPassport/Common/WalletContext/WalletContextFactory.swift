@@ -95,7 +95,7 @@ extension WalletContextFactory: WalletContextFactoryProtocol {
             throw WalletContextFactoryError.missingAccount
         }
 
-        logger.debug("Loading wallet account: \(selectedAccount.address)")
+        logger.debug("Loading selected wallet account")
 
         let networkType = selectedAccount.addressType
 

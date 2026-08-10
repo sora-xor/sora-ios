@@ -48,7 +48,7 @@ class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
     ) throws {
 
         guard let sourceAddress = accountItem.value(forKey: "identifier") as? AccountAddress else {
-            fatalError("Unexpected empty source address")
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
 
         let accountId = try addressFactory.accountId(from: sourceAddress)
@@ -68,29 +68,32 @@ class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
 
         privateKeysUsed.append(accountId)
 
-        if let lookup = SettingsManager.shared.value(of: [String: Int].self, for: SettingsKey.assetList.rawValue) {
-            let newOrder = lookup.keys.sorted(by: { key0, key1 in
-                return lookup[key0]! < lookup[key1]!
-            })
-
+        if let orderedAssetIds =
+            manager.userInfo?[UserStorageMigratorKeys.orderedAssetIds] as? [String] {
             let context = manager.destinationContext
             let settings = CDAccountSettings(entity: NSEntityDescription.entity(forEntityName: "CDAccountSettings", in: context)!, insertInto: context)
-            settings.orderedAssets = newOrder as NSArray
+            settings.orderedAssets = orderedAssetIds as NSArray
             metaAccount.setValue(settings, forKey: "settings")
         }
 
-        if let selectedAccount = SettingsManager.shared.value(of: AccountItem.self, for: SettingsKey.selectedAccount.rawValue) {
-            let isSelected = selectedAccount.identifier == sourceAddress
+        if let selectedAddress =
+            manager.userInfo?[UserStorageMigratorKeys.selectedAddress] as? String {
+            let isSelected = selectedAddress == sourceAddress
             metaAccount.setValue(isSelected, forKey: "isSelected")
         }
 
-        metaAccount.setValue(order, forKey: "order")
+        let retainedOrder =
+            (accountItem.value(forKey: "order") as? NSNumber)?.int32Value
+                ?? order
+        metaAccount.setValue(retainedOrder, forKey: "order")
         order += 1
 
     }
 
     override func end(_ mapping: NSEntityMapping, manager: NSMigrationManager) throws {
-        SettingsManager.shared.removeValue(for: SettingsKey.assetList.rawValue)
+        // This policy runs against a staging store. Mutating live preferences
+        // here would violate copy-on-write migration if a later validation
+        // fails, so the legacy preference remains for dual-read compatibility.
         try super.end(mapping, manager: manager)
     }
 }

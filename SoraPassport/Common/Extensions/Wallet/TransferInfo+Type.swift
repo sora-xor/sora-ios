@@ -49,16 +49,38 @@ extension TransferInfo {
            let estimated =  context[TransactionContextKeys.estimatedAmount],
            let estimatedAmount = AmountDecimal(string: estimated),
            let minMax = context[TransactionContextKeys.minMaxValue],
-           let minMaxAmount = AmountDecimal(string: minMax) {
+           let minMaxAmount = AmountDecimal(string: minMax),
+           let rawSlippage = context[TransactionContextKeys.slippage],
+           let slippage = PolkaswapSlippage(contextValue: rawSlippage) {
             let desired: BigUInt
             let slip: BigUInt
             switch desire {
             case .desiredInput:
-                desired = self.amount.decimalValue.toSubstrateAmount(precision: 18) ?? 0
-                slip = minMaxAmount.decimalValue.toSubstrateAmount(precision: 18) ?? 0
+                let expectedMinimum = slippage.minimumAmount(for: estimatedAmount.decimalValue)
+                guard self.amount.decimalValue > 0,
+                      minMaxAmount.decimalValue > 0,
+                      minMaxAmount.decimalValue == expectedMinimum,
+                      let desiredValue = self.amount.decimalValue.toSubstrateAmount(precision: 18),
+                      let slipValue = expectedMinimum.toSubstrateAmountRoundingDown(precision: 18),
+                      desiredValue > 0,
+                      slipValue > 0 else {
+                    return nil
+                }
+                desired = desiredValue
+                slip = slipValue
             case .desiredOutput:
-                desired = estimatedAmount.decimalValue.toSubstrateAmount(precision: 18) ?? 0
-                slip = self.amount.decimalValue.toSubstrateAmount(precision: 18) ?? 0
+                let expectedMaximum = slippage.maximumAmount(for: self.amount.decimalValue)
+                guard estimatedAmount.decimalValue > 0,
+                      minMaxAmount.decimalValue > 0,
+                      minMaxAmount.decimalValue == expectedMaximum,
+                      let desiredValue = estimatedAmount.decimalValue.toSubstrateAmount(precision: 18),
+                      let slipValue = expectedMaximum.toSubstrateAmountRoundingUp(precision: 18),
+                      desiredValue > 0,
+                      slipValue > 0 else {
+                    return nil
+                }
+                desired = desiredValue
+                slip = slipValue
             }
 
             return [desire: SwapAmount(type: desire, desired: desired, slip: slip)]

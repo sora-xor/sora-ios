@@ -36,7 +36,7 @@ final class EditFarmCell: SoramitsuTableViewCell {
     
     private let localizationManager = LocalizationManager.shared
     private var cancellables: Set<AnyCancellable> = []
-    private let input: PassthroughSubject<Float, Never> = .init()
+    private let input: PassthroughSubject<FarmShareSelection, Never> = .init()
     
     private var item: EditFarmItem? {
         didSet {
@@ -268,13 +268,15 @@ final class EditFarmCell: SoramitsuTableViewCell {
     }
     
     private func maxButtonTapped() {
-        sliderView.slider.value = 1
-        set(sliderValue: 1.0)
+        sliderView.slider.value = FarmShareSelection.maximum.sliderValue
+        input.send(.maximum)
     }
     
     private func set(sliderValue: Float) {
-        let sharePercentage = sliderValue * 100
-        input.send(sharePercentage)
+        guard let selection = FarmShareSelection(sliderValue: sliderValue) else {
+            return
+        }
+        input.send(selection)
     }
 }
 
@@ -287,8 +289,8 @@ extension EditFarmCell: CellProtocol {
         
         self.item = item
         
-        sliderView.slider.value = item.stakedValue
-        set(sliderValue: item.stakedValue)
+        sliderView.slider.value = item.stakedSelection.sliderValue
+        input.send(item.stakedSelection)
         
         let formattedText = NumberFormatter.percent.stringFromDecimal(item.sharePercentage) ?? ""
         let percentageText = localizationManager.isRightToLeft ? "%\(formattedText)" : "\(formattedText)%"

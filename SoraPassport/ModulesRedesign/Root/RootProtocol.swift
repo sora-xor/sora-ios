@@ -37,6 +37,10 @@ protocol RootPresenterProtocol: AnyObject {
 protocol RootWireframeProtocol: AnyObject {
     func showLocalAuthentication(on view: UIWindow)
     func showOnboarding(on view: UIWindow)
+    func showLegacyWalletUpgrade(
+        on view: UIWindow,
+        onConfirm: @escaping () -> Void
+    )
     func showBroken(on view: UIWindow)
     func showPincodeSetup(on view: UIWindow)
 }
@@ -44,10 +48,12 @@ protocol RootWireframeProtocol: AnyObject {
 protocol RootInteractorInputProtocol: AnyObject {
     func setup()
     func decideModuleSynchroniously()
+    func performLegacyWalletUpgrade()
 }
 
 protocol RootInteractorOutputProtocol: AnyObject {
     func didDecideOnboarding()
+    func didDecideLegacyWalletUpgrade()
     func didDecideLocalAuthentication()
     func didDecideBroken()
     func didDecidePincodeSetup()

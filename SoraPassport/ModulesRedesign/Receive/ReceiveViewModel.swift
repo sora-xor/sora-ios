@@ -56,7 +56,7 @@ final class ReceiveViewModel {
     private var currentImage: UIImage?
     private var amount: AmountDecimal?
     private var qrOperation: Operation?
-    private var fiatData: [FiatData] = []
+    private var fiatData: [PIExactFiatData] = []
     private weak var fiatService: FiatServiceProtocol?
     private weak var assetProvider: AssetProviderProtocol?
     private weak var assetManager: AssetManagerProtocol?
@@ -203,7 +203,7 @@ private extension ReceiveViewModel {
                                   svgString: selectedAsset.icon)
     }
     
-    func setupFullBalanceText(from balanceData: BalanceData, fiatData: [FiatData]) -> String {
+    func setupFullBalanceText(from balanceData: BalanceData, fiatData: [PIExactFiatData]) -> String {
         let balance = NumberFormatter.polkaswapBalance.stringFromDecimal(balanceData.balance.decimalValue) ?? ""
         var fiatBalanceText = ""
         
@@ -215,7 +215,7 @@ private extension ReceiveViewModel {
         return fiatBalanceText.isEmpty ? "\(balance)" : "\(balance) (\(fiatBalanceText))"
     }
     
-    func setupFiatText(from amount: Decimal, assetId: String, fiatData: [FiatData]) -> String {
+    func setupFiatText(from amount: Decimal, assetId: String, fiatData: [PIExactFiatData]) -> String {
         guard let asset = assetManager?.assetInfo(for: assetId) else { return "" }
         
         var fiatText = ""

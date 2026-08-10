@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Passphrase";
 "common.passphrase.save.or.send" = "Сачувајте или пошаљите";
 "common.passphrase.header" = "Приступна фраза је\n врста лозинке.";
-"common.passphrase.body" = "Приликом креирања новог налога у SORA сада добијате фразу од 12 речи. Ако већ имате фразу од 15 речи, можете да учитате свој налог са њом - он је компатибилан са системом и наставиће да ради.";
+"common.passphrase.body" = "Приликом креирања новог налога у SORA сада добијате фразу од 24 речи. Постојеће SORA фразе од 12 или 24 речи могу да се увезу и наставиће да раде.";
 "common.passphrase.your.passphrase" = "Ваша приступна фраза";
 "network.unavailable" = "Мрежна веза није доступна";
 "common.save" = "Сачувај";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Молимо вас, проверите интернет везу и покушајте поново касније.";
 "common.error.general.message" = "Трудимо се да решимо проблем. Покушајте поново касније.";
 "result.ambiguous.error.title" = "Двосмислен резултат";
-"access.restore.words.error.message" = "Приступна фраза мора да садржи 15 речи";
-"access.restore.phrase.error.message" = "Уверите се да се приступна фраза састоји од 12 или 15 речи и да су све тачне.";
+"access.restore.words.error.message" = "Приступна фраза мора да садржи 12 или 24 речи";
+"access.restore.phrase.error.message" = "Уверите се да се приступна фраза састоји од 12 или 24 речи и да су све тачне.";
 "wallet.search.query.error.message" = "Величина претраге мора бити између 3 и 64 знака";
 "user.create.phone.registered.error.message" = "Телефонски број који се већ користио током регистрације код овог или другог корисника";
 "common.error.invalid.parameters" = "Неважећи параметри";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Izvezte JSON";
 "export.protection.passphrase.title" = "Pristupna fraza";
 "export.protection.json.description" = "Na sledećem koraku ćete biti u mogućnosti da skinete JSON fajl koji će vam omogućiti da povratite svoje naloge.";
-"export.protection.passphrase.description" = "U sledećem koraku ćete videti vašu pristupnu frazu (12 reči) koja će vam omogućiti da povratite vaš nalog.";
+"export.protection.passphrase.description" = "U sledećem koraku ćete videti vašu pristupnu frazu (24 reči) koja će vam omogućiti da povratite vaš nalog.";
 "export.protection.seed.description" = "U sledećem koraku videćete Raw Seed (dugački heš) koji će vam omogućiti da povratite nalog.";
 "export.protection.json.1" = "Ako izgubim moj JSON, moja sredstva će biti izgubljena zauvek.";
 "export.protection.json.2" = "Ako otkrijem ili podelim sa nekim moj JSON, moja sredstva mogu biti ukradena.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

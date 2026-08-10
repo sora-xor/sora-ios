@@ -48,6 +48,8 @@ extension WalletAssetId {
             return 4
         case .tbcd:
             return 5
+        case .kusd:
+            return 6
         }
     }
 

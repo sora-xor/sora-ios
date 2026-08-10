@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Passphrase";
 "common.passphrase.save.or.send" = "Save or send";
 "common.passphrase.header" = "Passphrase is\na type of password.";
-"common.passphrase.body" = "When creating a new account in SORA, you now get a 12 word passphrase. If you already have a 15 word SORA passphrase, you can import your account with it - these are also compatible and will keep working.";
+"common.passphrase.body" = "When creating a new account in SORA, you now get a 24-word passphrase. Existing 12- and 24-word SORA passphrases can both be imported and keep their original wallet identity.";
 "common.passphrase.your.passphrase" = "Your passphrase";
 "network.unavailable" = "Network connection unavailable";
 "common.save" = "Save";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Please, check internet connection and try again later.";
 "common.error.general.message" = "We are working hard to fix the problem. Please, try again later.";
 "result.ambiguous.error.title" = "Ambiguous result";
-"access.restore.words.error.message" = "Passphrase must contain 15 words";
-"access.restore.phrase.error.message" = "Please, make sure that your passphrase consists of 12 or 15 words and they are all correct.";
+"access.restore.words.error.message" = "Passphrase must contain 12 or 24 words";
+"access.restore.phrase.error.message" = "Please make sure that your passphrase consists of 12 or 24 words and that every word is correct.";
 "wallet.search.query.error.message" = "Search size must be between 3 and 64 characters";
 "user.create.phone.registered.error.message" = "Phone number already used during registration with this or another user";
 "common.error.invalid.parameters" = "Invalid Parameters";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Export JSON";
 "export.protection.passphrase.title" = "Passphrase";
 "export.protection.json.description" = "In the next step you will be able to download a JSON file that allow you to recover your accounts.";
-"export.protection.passphrase.description" = "In the next step you will see Passphrase (12 words) that allow you to recover an account.";
+"export.protection.passphrase.description" = "In the next step you will see the 24-word passphrase that allows you to recover the account.";
 "export.protection.seed.description" = "In the next step you will see Raw Seed (a long hash) that allow you to recover an account.";
 "export.protection.json.1" = "If I lose my JSON, my funds will be lost forever.";
 "export.protection.json.2" = "If I expose or share my JSON to anybody, my funds can get stolen.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

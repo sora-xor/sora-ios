@@ -131,7 +131,7 @@
 "common.passphrase.title" = "पदबंध";
 "common.passphrase.save.or.send" = "सहेजें या भेजें";
 "common.passphrase.header" = "पदबंध एक प्रकार का पासवर्ड है।";
-"common.passphrase.body" = "इसका उपयोग खाता प्रवेश को पुनर्प्राप्त करने के लिए किया जाता है। इसे लिख लें, हम इसके बिना आपका खाता वापिस नहीं कर पाएंगे!";
+"common.passphrase.body" = "SORA में नया खाता बनाते समय अब आपको 24 शब्दों का पासफ़्रेज़ मिलता है। मौजूदा 12 या 24 शब्दों वाले SORA पासफ़्रेज़ आयात किए जा सकते हैं और काम करते रहेंगे।";
 "common.passphrase.your.passphrase" = "आपका पदबंध";
 "network.unavailable" = "नेटवर्क कनेक्शन अनुपलब्ध है";
 "common.save" = "सहेजें";
@@ -145,8 +145,8 @@
 "connection.error.message" = "कृपया, अंतराजाल कनेक्शन जांचें और बाद में पुनः प्रयास करें।";
 "common.error.general.message" = "हम समस्या को ठीक करने के लिए कड़ी मेहनत कर रहे हैं। बाद में पुन: प्रयास करें।";
 "result.ambiguous.error.title" = "अस्पष्ट परिणाम";
-"access.restore.words.error.message" = "पदबंध में 15 शब्द होने चाहिए";
-"access.restore.phrase.error.message" = "आपका पदबंध अमान्य है। कृपया, एक और कोशिश करें।";
+"access.restore.words.error.message" = "पदबंध में 12 या 24 शब्द होने चाहिए";
+"access.restore.phrase.error.message" = "कृपया सुनिश्चित करें कि आपका पासफ़्रेज़ 12 या 24 शब्दों का है और सभी शब्द सही हैं।";
 "wallet.search.query.error.message" = "खोज का आकार 3 से 64 वर्णों के बीच होना चाहिए";
 "user.create.phone.registered.error.message" = "फोन नंबर पहले से ही इस या किसी अन्य उपयोगकर्ता के साथ पंजीकरण के दौरान उपयोग किया हुआ है";
 "common.error.invalid.parameters" = "अमान्य मापदण्ड";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "JSON निर्यात करें";
 "export.protection.passphrase.title" = "पदबंध";
 "export.protection.json.description" = "अगले चरण में आप एक JSON फ़ाइल डाउनलोड करने में सक्षम होंगे जो आपको अपने खाते पुनर्प्राप्त करने की अनुमति देती है।";
-"export.protection.passphrase.description" = "अगले चरण में आप पासफ़्रेज़ (12 शब्द) देखेंगे जो आपको खाता पुनर्प्राप्त करने की अनुमति देता है।";
+"export.protection.passphrase.description" = "अगले चरण में आप पासफ़्रेज़ (24 शब्द) देखेंगे जो आपको खाता पुनर्प्राप्त करने की अनुमति देता है।";
 "export.protection.seed.description" = "अगले चरण में आपको Raw Seed (एक लंबा हैश) दिखाई देगा जो आपको खाता पुनर्प्राप्त करने की अनुमति देता है।";
 "export.protection.json.1" = "अगर मैं अपना JSON खो देता हूं, तो मेरे फंड हमेशा के लिए खो जाएंगे।";
 "export.protection.json.2" = "अगर मैं अपने JSON को किसी के सामने प्रकट या साझा करता हूं, तो मेरे फंड की चोरी हो सकती है।";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

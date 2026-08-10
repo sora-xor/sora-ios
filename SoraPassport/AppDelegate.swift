@@ -47,6 +47,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        let migrationEvidenceDecision =
+            RetainedMigrationEvidenceHarness.shared.bootstrap()
+        if migrationEvidenceDecision == .evidenceOnly {
+            let evidenceWindow = UIWindow(frame: UIScreen.main.bounds)
+            evidenceWindow.backgroundColor = .systemBackground
+            evidenceWindow.rootViewController =
+                RetainedMigrationEvidenceHarness.shared
+                    .makeEvidenceOnlyViewController()
+            window = evidenceWindow
+            RetainedMigrationEvidenceHarness.shared
+                .installStatusSurface(in: evidenceWindow)
+            evidenceWindow.makeKeyAndVisible()
+            return true
+        }
+
         if !isUnitTesting {
             #if !NO_FIREBASE
             FirebaseApp.configure()
@@ -60,10 +75,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
             SplashPresenterFactory.createSplashPresenter(with: rootWindow)
 
+            if migrationEvidenceDecision == .authorized {
+                RetainedMigrationEvidenceHarness.shared
+                    .installStatusSurface(in: rootWindow)
+            }
+
             rootWindow.makeKeyAndVisible()
         }
 
         return true
+    }
+
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        guard !isUnitTesting else {
+            return
+        }
+        resumePendingNexusTransactions()
     }
 
     func application(_ application: UIApplication,
@@ -87,6 +114,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let semanticContentAttribute: UISemanticContentAttribute = LocalizationManager.shared.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         UIView.appearance().semanticContentAttribute = semanticContentAttribute
     }
+
+    private func resumePendingNexusTransactions() {
+        Task { @MainActor in
+            // Reconcile every network journal entry regardless of selected
+            // wallet or Taira visibility. This path performs status lookups
+            // only and never retries, signs, or submits a transaction.
+            NexusTransactionRuntime.shared.resumePendingAfterProcessStart()
+            // Ordinary SORA2 ambiguity recovery is also status-only. Its
+            // runtime independently requires both verified wallet storage and
+            // a ready canonical SORA2 chain before doing any RPC work.
+            Sora2PendingSubmissionRecoveryRuntime.shared
+                .resumePendingAfterProcessStart()
+        }
+    }
 }
 
 fileprivate extension String {
@@ -105,8 +146,8 @@ fileprivate extension String {
                     return String(text[range])
                 }
             }
-        } catch let error {
-            print("invalid regex: \(error.localizedDescription)")
+        } catch {
+            print("Invalid application URL regex")
             return []
         }
     }

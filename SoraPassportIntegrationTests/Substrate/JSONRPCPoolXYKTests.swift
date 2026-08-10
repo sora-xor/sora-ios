@@ -43,10 +43,10 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
                 return
             }
 
-            Logger.shared.debug("balance: \(balances)")
+            Logger.shared.debug("Pool account balance response received")
 
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Pool account balance request failed")
         }
     }
 
@@ -79,10 +79,10 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
                 return
             }
 
-            Logger.shared.debug("balances: \(balances)")
+            Logger.shared.debug("Pool account balances response received")
 
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Pool account balances request failed")
         }
     }
 
@@ -114,10 +114,10 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
             }
 
             XCTAssertFalse(pools.assetIds.isEmpty)
-            Logger.shared.debug("Account pools: \(pools)")
+            Logger.shared.debug("Account pools response received")
 
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Account pools request failed")
         }
     }
 
@@ -148,10 +148,10 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
             }
 
             XCTAssertFalse(pools.assetIds.isEmpty)
-            Logger.shared.debug("Account pools: \(pools)")
+            Logger.shared.debug("Account pools response received")
 
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Account pools request failed")
         }
     }
 
@@ -229,10 +229,11 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
                 XCTFail("No PoolProperties")
                 return
             }
-            Logger.shared.debug("PoolProperties: \(poolProperties)")
-            Logger.shared.debug("reservesAccount address: \(poolProperties.reservesAccountId)")
+            Logger.shared.debug("Pool properties response received")
+            // Account identifiers are not diagnostic material, even in CI.
+            Logger.shared.debug("Pool reserves account resolved")
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Pool properties request failed")
         }
     }
 
@@ -268,9 +269,9 @@ class JSONRPCPoolXYKTests: NetworkBaseTests {
                 return
             }
 
-            Logger.shared.debug("poolReserves: \(poolReserves)")
+            Logger.shared.debug("Pool reserves response received")
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Pool reserves request failed")
         }
     }
 

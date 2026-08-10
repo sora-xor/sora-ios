@@ -33,8 +33,17 @@ import IrohaCrypto
 import RobinHood
 import SSFUtils
 
+enum DemeterFarmingServiceError: Error {
+    case unavailable
+}
+
 protocol DemeterFarmingServiceProtocol: AnyObject {
     func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?) async -> [UserFarm]
+    func loadUserFarmInfos(
+        baseAssetId: String?,
+        targetAssetId: String?,
+        accountId: Data
+    ) async throws -> [UserFarm]
     
     func getAllFarms() async throws -> [Farm]
     func getFarm(with id: String) -> Farm?
@@ -283,35 +292,71 @@ extension DemeterFarmingService: DemeterFarmingServiceProtocol {
     }
 
     func getUserFarmInfos(baseAssetId: String?, targetAssetId: String?) async -> [UserFarm] {
+        guard let account = SelectedWalletSettings.shared.currentAccount,
+              let accountId = try? SS58AddressFactory().accountId(
+                fromAddress: account.address,
+                type: account.networkType
+              ) else {
+            return []
+        }
+        return (try? await loadUserFarmInfos(
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId,
+            accountId: accountId
+        )) ?? []
+    }
+
+    func loadUserFarmInfos(
+        baseAssetId: String?,
+        targetAssetId: String?,
+        accountId: Data
+    ) async throws -> [UserFarm] {
         guard let baseAssetId, let targetAssetId,
-              let account = SelectedWalletSettings.shared.currentAccount,
-              let accountId = try? SS58AddressFactory().accountId(fromAddress: account.address, type: account.networkType),
+              !accountId.isEmpty,
               let runtimeService = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()),
               let farmedPoolsOperation = try? operationFactory.userInfo(
                 accountId: accountId,
                 runtimeOperation: runtimeService.fetchCoderFactoryOperation()
               ) else {
-            return []
+            throw DemeterFarmingServiceError.unavailable
         }
-        return await withCheckedContinuation { continuation in
+        return try await withCheckedThrowingContinuation { continuation in
             farmedPoolsOperation.targetOperation.completionBlock = {
-                guard let userFarms = try? farmedPoolsOperation.targetOperation.extractResultData() else {
-                    continuation.resume(returning: [])
-                    return
+                do {
+                    let userFarms = try farmedPoolsOperation.targetOperation
+                        .extractResultData(
+                            throwing: DemeterFarmingServiceError.unavailable
+                        )
+                    let filtredUserFarms = userFarms.filter {
+                        baseAssetId == $0.baseAsset.value
+                            && targetAssetId == $0.poolAsset.value
+                            && $0.isFarm
+                    }
+                    let farms = try filtredUserFarms.map {
+                        guard let pooledTokens = Decimal.fromSubstrateAmount(
+                            $0.pooledTokens,
+                            precision: 18
+                        ), let rewards = Decimal.fromSubstrateAmount(
+                            $0.rewards,
+                            precision: 18
+                        ) else {
+                            throw DemeterFarmingServiceError.unavailable
+                        }
+
+                        return UserFarm(
+                            id: "\($0.baseAsset.value)-\($0.poolAsset.value)-\($0.rewardAsset.value)",
+                            baseAssetId: $0.baseAsset.value,
+                            poolAssetId: $0.poolAsset.value,
+                            rewardAssetId: $0.rewardAsset.value,
+                            isFarm: $0.isFarm,
+                            pooledTokens: pooledTokens,
+                            rewards: rewards
+                        )
+                    }
+                    continuation.resume(returning: farms)
+                } catch {
+                    continuation.resume(throwing: error)
                 }
-                let filtredUserFarms = userFarms.filter { baseAssetId == $0.baseAsset.value && targetAssetId == $0.poolAsset.value && $0.isFarm }
-                let farms = filtredUserFarms.map {
-                    UserFarm(
-                        id: "\($0.baseAsset.value)-\($0.poolAsset.value)-\($0.rewardAsset.value)",
-                        baseAssetId: $0.baseAsset.value,
-                        poolAssetId: $0.poolAsset.value,
-                        rewardAssetId: $0.rewardAsset.value,
-                        isFarm: $0.isFarm,
-                        pooledTokens: Decimal.fromSubstrateAmount($0.pooledTokens, precision: 18) ?? .zero,
-                        rewards: Decimal.fromSubstrateAmount($0.rewards, precision: 18) ?? .zero
-                    )
-                }
-                continuation.resume(returning: farms)
             }
             operationManager.enqueue(operations: farmedPoolsOperation.allOperations, in: .transient)
         }

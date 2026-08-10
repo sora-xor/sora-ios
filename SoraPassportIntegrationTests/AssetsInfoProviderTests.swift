@@ -21,7 +21,7 @@ final class AssetsInfoProviderTests: XCTestCase {
         provider.loadAssetsInfoKeys {}
 
         //then
-        print("asset info keys = \(provider.keys)")
+        Logger.shared.debug("Asset info keys loaded")
         XCTAssert(provider.keys.count > 0)
     }
 
@@ -35,7 +35,7 @@ final class AssetsInfoProviderTests: XCTestCase {
         })
 
         //then
-        print("asset info = \(assetsInfo)")
+        Logger.shared.debug("Asset info catalog loaded")
         XCTAssert(assetsInfo.count > 0)
         XCTAssertEqual(assetsInfo.count, provider.keys.count)
     }
@@ -63,10 +63,10 @@ final class AssetsInfoProviderTests: XCTestCase {
             XCTAssertEqual(assetInfo.underlyingValue?.name, "SORA")
             XCTAssertEqual(assetInfo.underlyingValue?.precision, 18)
             XCTAssertEqual(assetInfo.underlyingValue?.isMintable, true)
-            Logger.shared.debug("assetInfo = \(assetInfo)")
+            Logger.shared.debug("Asset info response received")
 
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Asset info request failed")
         }
     }
 }

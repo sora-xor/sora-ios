@@ -48,7 +48,7 @@ final class PoolViewModelFactory {
 
 extension PoolViewModelFactory {
     
-    func createPoolViewModel(with pool: PoolInfo, fiatData: [FiatData], mode: WalletViewMode, priceTrend: Decimal? = nil) -> PoolViewModel? {
+    func createPoolViewModel(with pool: PoolInfo, fiatData: [PIExactFiatData], mode: WalletViewMode, priceTrend: Decimal? = nil) -> PoolViewModel? {
         guard let baseAsset = walletAssets.first(where: { $0.identifier == pool.baseAssetId  }) else { return nil }
         guard let targetAsset = walletAssets.first(where: { $0.identifier == pool.targetAssetId }) else { return nil }
         

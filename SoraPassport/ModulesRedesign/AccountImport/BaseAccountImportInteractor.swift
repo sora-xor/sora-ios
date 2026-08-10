@@ -52,6 +52,7 @@ class BaseAccountImportInteractor {
     let supportedNetworks: [Chain]
     let defaultNetwork: Chain
     let cloudStorage: CloudStorageServiceProtocol?
+    let allowedMnemonicWordCounts: Set<Int>
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -59,7 +60,15 @@ class BaseAccountImportInteractor {
          keystoreImportService: KeystoreImportServiceProtocol,
          supportedNetworks: [Chain],
          defaultNetwork: Chain,
-         cloudStorage: CloudStorageServiceProtocol?) {
+         cloudStorage: CloudStorageServiceProtocol?,
+         allowedMnemonicWordCounts: Set<Int> =
+             WalletMnemonicWordPolicy.userImportWordCounts) {
+        precondition(
+            !allowedMnemonicWordCounts.isEmpty &&
+                allowedMnemonicWordCounts.isSubset(
+                    of: WalletMnemonicWordPolicy.retainedSoraWordCounts
+                )
+        )
         self.accountOperationFactory = accountOperationFactory
         self.accountRepository = accountRepository
         self.operationManager = operationManager
@@ -67,6 +76,7 @@ class BaseAccountImportInteractor {
         self.supportedNetworks = supportedNetworks
         self.defaultNetwork = defaultNetwork
         self.cloudStorage = cloudStorage
+        self.allowedMnemonicWordCounts = allowedMnemonicWordCounts
     }
 
     private func setupKeystoreImportObserver() {
@@ -102,9 +112,15 @@ class BaseAccountImportInteractor {
         presenter.didReceiveAccountImport(metadata: metadata)
     }
 
-    func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {}
+    func importAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem, Swift.Error>?) -> Void)?
+    ) {}
     
-    func validateAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {}
+    func validateAccountUsingOperation(
+        _ importOperation: BaseOperation<PreparedAccount>,
+        completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?
+    ) {}
     
     private func importAccount(_ account: OpenBackupAccount, password: String) {
         let backupAccountTypes = account.backupAccountType ?? []
@@ -151,7 +167,12 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
     }
 
     func importAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
+        guard
+            let mnemonic = try? mnemonicCreator.mnemonic(
+                fromList: request.mnemonic
+            ),
+            allowedMnemonicWordCounts.contains(mnemonic.allWords().count)
+        else {
             presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
             return
         }
@@ -161,24 +182,34 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
                                                      derivationPath: request.derivationPath,
                                                      cryptoType: request.cryptoType)
 
-        let accountOperation = accountOperationFactory.newAccountOperation(request: creationRequest,
-                                                                           mnemonic: mnemonic)
+        let accountOperation =
+            accountOperationFactory.prepareAccountOperation(
+                request: creationRequest,
+                mnemonic: mnemonic
+            )
 
         importAccountUsingOperation(accountOperation, completion: completion)
     }
 
     func importAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         importAccountUsingOperation(operation, completion: completion)
     }
 
     func importAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?){
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         importAccountUsingOperation(operation, completion: completion)
     }
     
     func validateAccountWithMnemonic(request: AccountImportMnemonicRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        guard let mnemonic = try? mnemonicCreator.mnemonic(fromList: request.mnemonic) else {
+        guard
+            let mnemonic = try? mnemonicCreator.mnemonic(
+                fromList: request.mnemonic
+            ),
+            allowedMnemonicWordCounts.contains(mnemonic.allWords().count)
+        else {
             presenter.didReceiveAccountImport(error: AccountCreateError.invalidMnemonicFormat)
             return
         }
@@ -188,19 +219,24 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
                                                      derivationPath: request.derivationPath,
                                                      cryptoType: request.cryptoType)
         
-        let operation = accountOperationFactory.newAccountOperation(request: creationRequest,
-                                                                    mnemonic: mnemonic)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(
+                request: creationRequest,
+                mnemonic: mnemonic
+            )
         
         validateAccountUsingOperation(operation, completion: completion)
     }
     
     func validateAccountWithSeed(request: AccountImportSeedRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         validateAccountUsingOperation(operation, completion: completion)
     }
     
     func validateAccountWithKeystore(request: AccountImportKeystoreRequest, completion: ((Result<AccountItem?, Swift.Error>?) -> Void)?) {
-        let operation = accountOperationFactory.newAccountOperation(request: request)
+        let operation =
+            accountOperationFactory.prepareAccountOperation(request: request)
         validateAccountUsingOperation(operation, completion: completion)
     }
 

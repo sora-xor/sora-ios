@@ -80,8 +80,26 @@ struct TransactionHistoryContext {
 
 extension TransactionHistoryContext {
     init(context: [String: Any]) {
-        cursor = Int(context[Self.cursor] as? String ?? "1")
-        isComplete = context[Self.isComplete].map { Bool($0 as? String ?? "false") ?? false } ?? false
+        if let numericCursor = context[Self.cursor] as? Int,
+           numericCursor > 0 {
+            cursor = numericCursor
+        } else if
+            let stringCursor = context[Self.cursor] as? String,
+            let numericCursor = Int(stringCursor),
+            numericCursor > 0
+        {
+            cursor = numericCursor
+        } else {
+            cursor = 1
+        }
+
+        if let boolean = context[Self.isComplete] as? Bool {
+            isComplete = boolean
+        } else if let string = context[Self.isComplete] as? String {
+            isComplete = Bool(string) ?? false
+        } else {
+            isComplete = false
+        }
     }
 
     func toContext() -> [String: Any] {
