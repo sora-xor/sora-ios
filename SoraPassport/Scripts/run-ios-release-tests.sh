@@ -1,11 +1,13 @@
 #!/bin/sh
 set -eu
 
-# Execute the complete application XCTest action with Release optimization on
-# an arm64 simulator without creating, signing, exporting, uploading, or
-# promoting an iOS artifact. The main-target build phase admits this route only
-# through an exact non-promoting capability checked below and in
-# verify-modernization-dependencies.sh.
+# Execute every simulator-eligible application XCTest with Release optimization
+# on arm64 without creating, signing, exporting, uploading, or promoting an iOS
+# artifact. Four exact protected-evidence methods are excluded because they
+# require a registered physical device, an installable clone of the exact IPA,
+# and signed authorization. Their dedicated schemes and admission gates remain
+# mandatory. The main-target build phase admits this route only through an exact
+# non-promoting capability checked below and in verify-modernization-dependencies.sh.
 
 root="$(
     CDPATH= cd "$(/usr/bin/dirname "$0")/../.." && /bin/pwd -P
@@ -133,6 +135,10 @@ exec /usr/bin/xcodebuild \
     -destination "${destination}" \
     -derivedDataPath "${derived_data_path}" \
     -resultBundlePath "${result_bundle_path}" \
+    -skip-testing:SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedDeviceRunBinding \
+    -skip-testing:SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedDeviceScenarioEvidence \
+    -skip-testing:SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedKeychainCohortEvidence \
+    -skip-testing:SoraPassportUITests/RetainedMigrationEvidenceUITests/testExecuteAuthorizedRetainedMigrationCase \
     SORA_IOS_NONPROMOTING_RELEASE_TEST_MODE=sora-ios-nonpromoting-release-simulator-test-v1 \
     SORA_IOS_NONPROMOTING_RELEASE_TEST_ACTION=test \
     CODE_SIGNING_ALLOWED=NO \

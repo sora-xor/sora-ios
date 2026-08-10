@@ -60,7 +60,7 @@ final class AssetsInfoProviderTests: XCTestCase {
                 return
             }
             XCTAssertEqual(assetInfo.underlyingValue?.symbol, "XOR")
-            XCTAssertEqual(assetInfo.underlyingValue?.name, "SORA")
+            XCTAssertEqual(assetInfo.underlyingValue?.name, "XOR")
             XCTAssertEqual(assetInfo.underlyingValue?.precision, 18)
             XCTAssertEqual(assetInfo.underlyingValue?.isMintable, true)
             Logger.shared.debug("Asset info response received")
