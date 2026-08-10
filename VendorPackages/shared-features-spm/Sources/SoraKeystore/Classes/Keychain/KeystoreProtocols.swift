@@ -17,6 +17,8 @@ public protocol KeystoreProtocol: AnyObject {
     func updateKey(_ key: Data, with identifier: String) throws
     func fetchKey(for identifier: String) throws -> Data
     func checkKey(for identifier: String) throws -> Bool
+    /// Returns identifiers only. Secret values are never loaded or exposed.
+    func allKeyIdentifiers() throws -> [String]
     func deleteKey(for identifier: String) throws
 }
 

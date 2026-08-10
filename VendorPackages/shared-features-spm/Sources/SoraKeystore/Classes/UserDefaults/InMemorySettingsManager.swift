@@ -58,6 +58,10 @@ public final class InMemorySettingsManager: SettingsManagerProtocol {
         settings[key] = anyValue
     }
 
+    public func allKeys() -> [String] {
+        settings.keys.sorted()
+    }
+
     public func removeValue(for key: String) {
         settings[key] = nil
     }

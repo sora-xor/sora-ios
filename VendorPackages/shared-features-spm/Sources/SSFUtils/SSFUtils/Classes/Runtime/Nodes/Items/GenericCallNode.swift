@@ -83,13 +83,16 @@ public class GenericCallNode: Node {
             throw GenericCallNodeError.unexpectedCallModule(value: UInt64(moduleIndex))
         }
 
-        guard let calls = try module.calls(using: runtimeMetadata.schemaResolver),
-              callIndex < calls.count else
+        guard
+            let calls = try module.calls(using: runtimeMetadata.schemaResolver),
+            let call = calls.enumerated().first(where: { offset, function in
+                let encodedIndex = function.index ?? UInt8(exactly: offset)
+                return encodedIndex == UInt8(exactly: callIndex)
+            })?.element
+        else
         {
             throw GenericCallNodeError.unexpectedCallFunction(value: UInt64(callIndex))
         }
-
-        let call = calls[callIndex]
 
         let params = try call.arguments.reduce(into: [String: JSON]()) { result, item in
             let param = try decoder.read(type: item.type)

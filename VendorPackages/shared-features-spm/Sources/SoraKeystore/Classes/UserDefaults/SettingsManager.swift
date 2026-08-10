@@ -76,6 +76,16 @@ public class SettingsManager: SettingsManagerProtocol {
         UserDefaults.standard.value(forKey: key)
     }
 
+    public func allKeys() -> [String] {
+        guard let domain = Bundle.main.bundleIdentifier else {
+            return []
+        }
+        return UserDefaults.standard
+            .persistentDomain(forName: domain)?
+            .keys
+            .sorted() ?? []
+    }
+
     public func removeValue(for key: String) {
         UserDefaults.standard.removeObject(forKey: key)
         UserDefaults.standard.synchronize()

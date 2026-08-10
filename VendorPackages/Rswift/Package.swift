@@ -10,8 +10,9 @@ let package = Package(
     .executable(name: "rswift", targets: ["rswift"])
   ],
   dependencies: [
-    .package(url: "https://github.com/kylef/Commander.git", from: "0.8.0"),
-    .package(url: "https://github.com/tomlokhorst/XcodeEdit", from: "2.8.0")
+    // Keep the tools-version 5.0 build phase compatible while retaining exact pins.
+    .package(url: "https://github.com/kylef/Commander.git", .exact("0.9.2")),
+    .package(url: "https://github.com/tomlokhorst/XcodeEdit", .exact("2.8.0"))
   ],
   targets: [
     .target(name: "rswift", dependencies: ["RswiftCore"]),

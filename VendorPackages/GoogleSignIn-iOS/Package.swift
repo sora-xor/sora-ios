@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.6
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 // Copyright 2021 Google LLC
@@ -44,15 +44,15 @@ let package = Package(
     .package(
       name: "AppAuth",
       url: "https://github.com/openid/AppAuth-iOS.git",
-      from: "1.7.3"),
+      .exact("1.7.6")),
     .package(
       name: "GTMAppAuth",
       url: "https://github.com/google/GTMAppAuth.git",
-      from: "4.1.1"),
+      .exact("4.1.1")),
     .package(
       name: "GTMSessionFetcher",
       url: "https://github.com/google/gtm-session-fetcher.git",
-      from: "3.3.0"),
+      .exact("3.5.0")),
     .package(
       name: "OCMock",
       url: "https://github.com/firebase/ocmock.git",
@@ -60,7 +60,7 @@ let package = Package(
     .package(
       name: "GoogleUtilities",
       url: "https://github.com/google/GoogleUtilities.git",
-      from: "7.13.0"),
+      .exact("8.1.0")),
   ],
   targets: [
     .target(

@@ -48,15 +48,33 @@ public final class RuntimeMetadata {
     }
 
     public func getCallIndex(in moduleName: String, callName: String) throws -> UInt8? {
-        guard let index = try wrapped.modules
+        guard
+            let calls = try wrapped.modules
             .first(where: { $0.name.lowercased() == moduleName.lowercased() })?
-            .calls(using: schemaResolver)?
-            .firstIndex(where: { $0.name.lowercased() == callName.lowercased() }) else
+            .calls(using: schemaResolver)
+        else
         {
             return nil
         }
 
-        return UInt8(index)
+        return Self.resolveCallIndex(in: calls, callName: callName)
+    }
+
+    /// Resolves the byte written after the pallet index in a SCALE-encoded
+    /// call. Metadata v14 call variants may have non-contiguous explicit
+    /// discriminants, so declaration position is only valid for legacy
+    /// metadata that does not expose a variant index.
+    public static func resolveCallIndex(
+        in calls: [RuntimeFunctionMetadata],
+        callName: String
+    ) -> UInt8? {
+        guard let match = calls.enumerated().first(where: {
+            $0.element.name.lowercased() == callName.lowercased()
+        }) else {
+            return nil
+        }
+
+        return match.element.index ?? UInt8(exactly: match.offset)
     }
 
     public func getStorageMetadata(
