@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "platform": "ios",
+  "assessedAt": "2026-08-02",
+  "status": "blocked",
+  "releaseEnabled": false,
+  "bundleIdentifier": "co.jp.soramitsu.sora",
+  "developmentTeam": "YLWWUD25VZ",
+  "codeSignStyle": "Automatic",
+  "configuredCodeSignIdentity": "iPhone Developer",
+  "entitlementsPath": "SoraPassport/SoraPassport.entitlements",
+  "entitlementsSha256": "97704a8960b4facceef54397a08fb5d0a456247c3627359215aa2a27df22656c",
+  "productionDistributionCertificateSha256": null,
+  "productionProvisioningProfileUuid": null,
+  "productionProvisioningProfileName": null,
+  "archivedApplicationCertificateMatched": false,
+  "archivedProvisioningProfileMatched": false,
+  "archivedEntitlementsMatched": false,
+  "appStoreSigningContinuityReviewed": false,
+  "keychainAccessGroupsUnchanged": false,
+  "privateKeyOrCredentialRecorded": false,
+  "blocker": {
+    "code": "ios_production_signing_identity_not_qualified",
+    "reason": "The bundle identifier and development team are preserved, but the retained production distribution certificate and provisioning profile identities have not been supplied and matched against a qualified archive."
+  },
+  "exitCriteria": [
+    "obtain the retained production distribution certificate SHA-256 and provisioning profile public identity from the authorized release system",
+    "confirm the existing bundle identifier, team, entitlements, application identifier, and Keychain access groups are unchanged",
+    "archive with the authorized production signing environment",
+    "match the archived application certificate, provisioning profile, entitlements, and App Store signing continuity without recording private keys or credentials"
+  ]
+}

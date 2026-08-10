@@ -52,6 +52,9 @@ iOSInjectionProject/
 # Custom scripts
 SoraPassport/env-vars.sh
 *.generated.swift
+# Python qualification tooling
+__pycache__/
+*.py[cod]
 #
 # Generamba
 Templates/
