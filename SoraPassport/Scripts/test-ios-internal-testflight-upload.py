@@ -67,7 +67,7 @@ def capability_environment() -> dict[str, str]:
             "PRODUCT_NAME": "SoraPassport",
             "PRODUCT_BUNDLE_IDENTIFIER": "co.jp.soramitsu.sora",
             "DEVELOPMENT_TEAM": "YLWWUD25VZ",
-            "CODE_SIGN_IDENTITY": "84AB95335BE14CAE9B050A353910F86FF2F9539B",
+            "CODE_SIGN_IDENTITY": "iPhone Developer",
             "CODE_SIGN_STYLE": "Automatic",
             "CURRENT_PROJECT_VERSION": "2026081002",
             "PROVISIONING_PROFILE_SPECIFIER": "",
@@ -122,16 +122,18 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'status --porcelain=v1 --untracked-files=normal',
             "rev-parse '@{upstream}'",
-            'reviewed_base_revision="60c4057460be62437675d046737183fca7b8b17d"',
+            'reviewed_base_revision="f1a2cab5debfa6213adfe087972dfc70d4d8688e"',
             'reviewed_upstream="origin/modernize"',
             'reviewed_build_number="2026081002"',
             'reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"',
             'reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"',
+            'reviewed_archive_signing_certificate_sha1="1F57A04EB10B3665696663CDA0DBD893CF7FE886"',
+            'reviewed_archive_signing_certificate_sha256="b479b9064f19cf90085926479768088416407c9e99e1537662014ba6805c179d"',
             'reviewed_profile_uuid="7ae520bc-599b-48ae-abfa-627eef530f0c"',
-            '"embeddedProfileName": "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora"',
+            'reviewed_archive_profile_uuid="908dc5a8-2b34-4617-94bb-f4a58ed5f4da"',
+            '"embeddedProfileName": "iOS Team Provisioning Profile: co.jp.soramitsu.sora"',
             'reviewed_profile_sha256="19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93"',
-            '"CODE_SIGN_IDENTITY=${reviewed_signing_certificate_sha1}"',
-            '"CODE_SIGN_STYLE=Automatic"',
+            'reviewed_archive_profile_sha256="ede945565f09b23b4d92eca0752cb6ad52fe47b8a6ebb0e38f424ce64de79235"',
             '/bin/chmod 400 "${export_options_snapshot}"',
             'sha256_file "${export_options_snapshot}"',
             'delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"',
@@ -152,12 +154,14 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         self.assertNotIn("ITSAppUsesNonExemptEncryption", source)
         self.assertNotIn("ITSEncryptionExportComplianceCode", source)
         self.assertNotIn('"PROVISIONING_PROFILE_SPECIFIER=', source)
+        self.assertNotIn('"CODE_SIGN_IDENTITY=', source)
+        self.assertNotIn('"CODE_SIGN_STYLE=', source)
         verifier = VERIFIER.read_text(encoding="utf-8")
         for marker in (
             'rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}"',
             "rev-parse '@{upstream}' 2>/dev/null",
             "origin/modernize",
-            "60c4057460be62437675d046737183fca7b8b17d",
+            "f1a2cab5debfa6213adfe087972dfc70d4d8688e",
             "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER",
             "CURRENT_PROJECT_VERSION",
             "PROVISIONING_PROFILE_SPECIFIER",
@@ -190,7 +194,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
                 "CFBundleIdentifier": "co.jp.soramitsu.sora",
                 "CFBundleShortVersionString": "3.8.7",
                 "CFBundleVersion": "2026081002",
-                "SigningIdentity": "Apple Distribution: Soramitsu Co., Ltd. (YLWWUD25VZ)",
+                "SigningIdentity": "Apple Development: Makoto Takemiya (6A4BK72ZFV)",
                 "Team": "YLWWUD25VZ",
             },
             "ArchiveVersion": 2,
