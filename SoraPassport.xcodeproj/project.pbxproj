@@ -8839,6 +8839,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
 			);
 			name = "Inject Google Sign-In Info.plist";
 			outputFileListPaths = (
@@ -8872,6 +8873,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
 			);
 			name = "Inject Google Sign-In Info.plist";
 			outputFileListPaths = (

@@ -679,6 +679,55 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             source,
         )
 
+        info_plist_dependency = "$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"
+        project_source = PROJECT.read_text(encoding="utf-8")
+        self.assertEqual(project_source.count(f'"{info_plist_dependency}",'), 2)
+        canonical_dependency = run(
+            "/bin/sh",
+            str(DEPENDENCIES),
+            "--lint-ios-google-signin-phase-dependencies",
+            str(PROJECT),
+        )
+        self.assertEqual(canonical_dependency.returncode, 0, canonical_dependency.stderr)
+        self.assertIn(
+            'verify_google_signin_info_plist_phase_dependencies "${ios_gate_project}"',
+            source,
+        )
+
+        dependency_offsets = []
+        search_offset = 0
+        while True:
+            dependency_offset = project_source.find(
+                info_plist_dependency, search_offset
+            )
+            if dependency_offset < 0:
+                break
+            dependency_offsets.append(dependency_offset)
+            search_offset = dependency_offset + len(info_plist_dependency)
+        self.assertEqual(len(dependency_offsets), 2)
+        for mutation_index, dependency_offset in enumerate(dependency_offsets):
+            with self.subTest(mutation_index=mutation_index), tempfile.TemporaryDirectory(
+                prefix="sora-google-signin-phase-mutation."
+            ) as mutation_directory:
+                mutated_source = (
+                    project_source[:dependency_offset]
+                    + "$(TARGET_BUILD_DIR)/Wrong-Info.plist"
+                    + project_source[dependency_offset + len(info_plist_dependency) :]
+                )
+                mutated_project = Path(mutation_directory) / "project.pbxproj"
+                mutated_project.write_text(mutated_source, encoding="utf-8")
+                rejected = run(
+                    "/bin/sh",
+                    str(DEPENDENCIES),
+                    "--lint-ios-google-signin-phase-dependencies",
+                    str(mutated_project),
+                )
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertIn(
+                    "must declare the exact processed Info.plist input dependency",
+                    rejected.stderr,
+                )
+
         physical = run(
             "/bin/sh",
             str(RELEASE_TEST_RUNNER),

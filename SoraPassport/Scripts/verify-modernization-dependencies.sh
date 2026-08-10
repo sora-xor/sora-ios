@@ -57,6 +57,112 @@ run_exact_ios_migration_suite() {
     fi
 }
 
+verify_google_signin_info_plist_phase_dependencies() {
+    ios_google_signin_project="$1"
+    if [ ! -f "${ios_google_signin_project}" ] || [ -L "${ios_google_signin_project}" ]; then
+        echo "error: Google Sign-In phase Xcode project is absent, non-regular, or symbolic" >&2
+        return 1
+    fi
+    /usr/bin/python3 -I -S - "${ios_google_signin_project}" <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+
+def fail(message):
+    raise SystemExit(f"error: {message}")
+
+
+project_path = Path(sys.argv[1])
+converted = subprocess.run(
+    ["/usr/bin/plutil", "-convert", "json", "-o", "-", str(project_path)],
+    check=False,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+)
+if converted.returncode != 0:
+    diagnostic = converted.stderr.decode("utf-8", errors="replace").strip()
+    fail(f"Google Sign-In phase Xcode project cannot be parsed: {diagnostic or 'plutil failed'}")
+try:
+    document = json.loads(converted.stdout.decode("utf-8"))
+except (UnicodeError, json.JSONDecodeError) as error:
+    fail(f"Google Sign-In phase Xcode project JSON is invalid: {error}")
+objects = document.get("objects")
+if not isinstance(objects, dict):
+    fail("Google Sign-In phase Xcode project objects are malformed")
+
+
+def require_object(object_id, label):
+    if not isinstance(object_id, str) or re.fullmatch(r"[0-9A-F]{24}", object_id) is None:
+        fail(f"{label} is not a canonical Xcode object identifier")
+    value = objects.get(object_id)
+    if not isinstance(value, dict):
+        fail(f"{label} does not resolve to an Xcode object")
+    return value
+
+
+root = require_object(document.get("rootObject"), "PBXProject rootObject")
+target_ids = root.get("targets")
+if not isinstance(target_ids, list) or len(target_ids) != len(set(target_ids)):
+    fail("PBXProject target list is absent, malformed, or duplicated")
+
+expected_target_names = {"SoraPassport", "SoraPassportDev"}
+expected_input_paths = ["$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"]
+expected_script = '/bin/sh "$PROJECT_DIR/SoraPassport/Scripts/inject-google-signin-info-plist.sh"\n'
+observed = {}
+for target_id in target_ids:
+    target = require_object(target_id, "PBXProject target")
+    target_name = target.get("name")
+    if target_name not in expected_target_names:
+        continue
+    if (
+        target.get("isa") != "PBXNativeTarget"
+        or target.get("productType") != "com.apple.product-type.application"
+        or target_name in observed
+    ):
+        fail(f"{target_name} Google Sign-In phase target identity drifted")
+    phase_ids = target.get("buildPhases")
+    if not isinstance(phase_ids, list) or len(phase_ids) != len(set(phase_ids)):
+        fail(f"{target_name} build phase list is absent, malformed, or duplicated")
+    matches = []
+    for phase_id in phase_ids:
+        phase = require_object(phase_id, f"{target_name} build phase")
+        if phase.get("name") == "Inject Google Sign-In Info.plist":
+            matches.append((phase_id, phase))
+    if len(matches) != 1:
+        fail(f"{target_name} must contain exactly one Google Sign-In Info.plist phase")
+    phase_id, phase = matches[0]
+    if (
+        phase.get("isa") != "PBXShellScriptBuildPhase"
+        or phase.get("shellPath") != "/bin/sh"
+        or phase.get("shellScript") != expected_script
+        or phase.get("inputPaths") != expected_input_paths
+        or phase.get("inputFileListPaths") != []
+        or str(phase.get("buildActionMask")) != "2147483647"
+        or str(phase.get("runOnlyForDeploymentPostprocessing")) != "0"
+    ):
+        fail(
+            f"{target_name} Google Sign-In phase must declare the exact processed "
+            "Info.plist input dependency"
+        )
+    observed[target_name] = phase_id
+
+if set(observed) != expected_target_names:
+    fail("canonical Google Sign-In application targets are absent or ambiguous")
+named_phase_ids = {
+    object_id
+    for object_id, value in objects.items()
+    if isinstance(value, dict)
+    and value.get("isa") == "PBXShellScriptBuildPhase"
+    and value.get("name") == "Inject Google Sign-In Info.plist"
+}
+if named_phase_ids != set(observed.values()):
+    fail("Google Sign-In Info.plist phases are detached, duplicated, or unexpected")
+PY
+}
+
 run_ios_migration_release_source_gate() {
     ios_gate_projector="${root}/SoraPassport/Scripts/derive-ios-migration-test-host.py"
     ios_gate_clone="${root}/SoraPassport/Scripts/create-ios-migration-installable-clone.py"
@@ -140,6 +246,11 @@ run_ios_migration_release_source_gate() {
             return 1
         fi
     done
+
+    if ! verify_google_signin_info_plist_phase_dependencies "${ios_gate_project}"; then
+        echo "error: Google Sign-In Info.plist build-order dependency drifted" >&2
+        return 1
+    fi
 
     # Twelve source-contract/template lints. Keep this inventory explicit: a new
     # producer is not admitted merely because one aggregate wrapper still lints.
@@ -377,12 +488,16 @@ run_ios_migration_release_source_gate() {
         'iOS migration Release source gate: OK (93 migration tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 12 lints, shell/Swift parse)\n'
 }
 
+if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-google-signin-phase-dependencies" ]; then
+    verify_google_signin_info_plist_phase_dependencies "$2"
+    exit 0
+fi
 if [ "$#" -eq 1 ] && [ "$1" = "--lint-ios-migration-release-source-gate" ]; then
     run_ios_migration_release_source_gate
     exit 0
 fi
 if [ "$#" -ne 0 ]; then
-    echo "error: usage: verify-modernization-dependencies.sh [--lint-ios-migration-release-source-gate]" >&2
+    echo "error: usage: verify-modernization-dependencies.sh [--lint-ios-migration-release-source-gate | --lint-ios-google-signin-phase-dependencies PROJECT]" >&2
     exit 64
 fi
 
@@ -2042,6 +2157,10 @@ if ! /usr/bin/grep -Fq 'IOS_SIGNING_IDENTITY_CONTRACT_SHA256' "${ios_signing_qua
 fi
 if ! verify_main_release_source_identity; then
     echo "error: iOS main-target Release source identity drifted"
+    exit 1
+fi
+if ! verify_google_signin_info_plist_phase_dependencies "${project}"; then
+    echo "error: Google Sign-In Info.plist build-order dependency drifted"
     exit 1
 fi
 
