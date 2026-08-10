@@ -3021,7 +3021,6 @@ def lint_contract() -> None:
         )
         or INSTALLABLE_CLONE_CONTRACT_ID
         != "sora-ios-wallet-migration-installable-clone-v1"
-        or ROOT.name != "sora-ios"
         or not PROJECTOR_PATH.is_file()
         or not XCTESTRUN_SANITIZER_PATH.is_file()
         or not Path("/usr/bin/xcrun").is_file()

@@ -86,6 +86,9 @@ run_ios_migration_release_source_gate() {
     ios_gate_harness="${root}/SoraPassport/Common/MigrationEvidence/RetainedMigrationEvidenceHarness.swift"
     ios_gate_integration_producer="${root}/SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests.swift"
     ios_gate_ui_runner="${root}/SoraPassportUITests/RetainedMigrationEvidenceUITests.swift"
+    ios_gate_modernization_tests="${root}/SoraPassportTests/Common/Modernization/WalletModernizationTests.swift"
+    ios_gate_account_creation_helper="${root}/SoraPassportTests/Helpers/AccountCreationHelper.swift"
+    ios_gate_websocket_engine="${root}/VendorPackages/shared-features-spm/Sources/SSFUtils/SSFUtils/Classes/Network/WebSocketEngine.swift"
     ios_gate_evidence_scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPassportMigrationEvidence.xcscheme"
     ios_gate_ui_scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPassportMigrationEvidenceUI.xcscheme"
 
@@ -118,6 +121,9 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_harness}" \
         "${ios_gate_integration_producer}" \
         "${ios_gate_ui_runner}" \
+        "${ios_gate_modernization_tests}" \
+        "${ios_gate_account_creation_helper}" \
+        "${ios_gate_websocket_engine}" \
         "${ios_gate_evidence_scheme}" \
         "${ios_gate_ui_scheme}"
     do
@@ -196,7 +202,10 @@ run_ios_migration_release_source_gate() {
     for ios_gate_swift in \
         "${ios_gate_harness}" \
         "${ios_gate_integration_producer}" \
-        "${ios_gate_ui_runner}"
+        "${ios_gate_ui_runner}" \
+        "${ios_gate_modernization_tests}" \
+        "${ios_gate_account_creation_helper}" \
+        "${ios_gate_websocket_engine}"
     do
         if ! /usr/bin/xcrun swiftc -frontend -parse "${ios_gate_swift}"; then
             echo "error: iOS migration Release Swift source does not parse: ${ios_gate_swift}" >&2
@@ -247,6 +256,18 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq 'while launches < 8 {' "${ios_gate_ui_runner}" ||
        ! /usr/bin/grep -Fq 'application.terminate()' "${ios_gate_ui_runner}" ||
        ! /usr/bin/grep -Fq 'productionCanonicalProjectionSha256 == installedCanonicalProjectionSha256' "${ios_gate_integration_producer}" ||
+       [ "$(/usr/bin/grep -Fc 'recoveryGate: isolatedRecoveryGate(settings: settings)' "${ios_gate_account_creation_helper}")" -ne 3 ] ||
+       ! /usr/bin/grep -Fq 'settings: SettingsManagerProtocol &' "${ios_gate_account_creation_helper}" ||
+       ! /usr/bin/grep -Fq 'SelectedWalletSettingsProtocol' "${ios_gate_account_creation_helper}" ||
+       ! /usr/bin/grep -Fq 'settings.save(value: accountItem)' "${ios_gate_account_creation_helper}" ||
+       /usr/bin/grep -Fq 'SelectedWalletSettings.shared' "${ios_gate_account_creation_helper}" ||
+       ! /usr/bin/grep -Fq 'private func makeIsolatedRecoveryGate(' "${ios_gate_modernization_tests}" ||
+       ! /usr/bin/grep -Fq 'private func makeWalletNetworkStore(' "${ios_gate_modernization_tests}" ||
+       ! /usr/bin/grep -Fq 'private func makeLifecycleCoordinator()' "${ios_gate_modernization_tests}" ||
+       /usr/bin/grep -Fq 'WalletLifecycleCoordinator.shared' "${ios_gate_modernization_tests}" ||
+       ! /usr/bin/grep -Fq 'Task { [weak self] in' "${ios_gate_websocket_engine}" ||
+       ! /usr/bin/grep -Fq 'let previousState = oldValue' "${ios_gate_websocket_engine}" ||
+       ! /usr/bin/grep -Fq 'let currentState = state' "${ios_gate_websocket_engine}" ||
        [ "$(/usr/bin/grep -Fc 'COMPILER_FLAGS = "-warnings-as-errors";' "${ios_gate_project}")" -ne 3 ] ||
        /usr/bin/grep -Fq 'SWIFT_TREAT_WARNINGS_AS_ERRORS=YES' "${ios_gate_builder}" ||
        /usr/bin/grep -Fq 'GCC_TREAT_WARNINGS_AS_ERRORS=YES' "${ios_gate_builder}" ||
@@ -269,6 +290,11 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq 'exec /usr/bin/xcodebuild' ||
        ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    test \' ||
        ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    -configuration Release \' ||
+       [ "$(/usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fc -- '-skip-testing:')" -ne 4 ] ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq -- '-skip-testing:SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedDeviceRunBinding' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq -- '-skip-testing:SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedDeviceScenarioEvidence' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq -- '-skip-testing:SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedKeychainCohortEvidence' ||
+       ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq -- '-skip-testing:SoraPassportUITests/RetainedMigrationEvidenceUITests/testExecuteAuthorizedRetainedMigrationCase' ||
        ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    CODE_SIGNING_ALLOWED=NO \' ||
        ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    CODE_SIGNING_REQUIRED=NO \' ||
        ! /usr/bin/printf '%s\n' "${ios_gate_release_test_action}" | /usr/bin/grep -Fq '    ENABLE_TESTABILITY=YES \' ||

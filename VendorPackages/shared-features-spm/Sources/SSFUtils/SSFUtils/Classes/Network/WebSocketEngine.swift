@@ -40,16 +40,20 @@ public final class WebSocketEngine {
 
     public private(set) var state: State = .notConnected {
         didSet {
-            Task {
-                if let delegate = delegate {
-                    let oldState = oldValue
-                    let newState = state
-                    await delegate.webSocketDidChangeState(
-                        engine: self,
-                        from: oldState,
-                        to: newState
-                    )
+            let previousState = oldValue
+            let currentState = state
+            Task { [weak self] in
+                guard
+                    let self = self,
+                    let delegate = self.delegate
+                else {
+                    return
                 }
+                await delegate.webSocketDidChangeState(
+                    engine: self,
+                    from: previousState,
+                    to: currentState
+                )
             }
         }
     }

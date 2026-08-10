@@ -408,8 +408,7 @@ def lint_contract() -> None:
         "SoraPassportMigrationEvidenceUI.xcscheme"
     )
     if (
-        ROOT.name != "sora-ios"
-        or CONTRACT_ID != "sora-ios-wallet-migration-xctestrun-sanitizer-v1"
+        CONTRACT_ID != "sora-ios-wallet-migration-xctestrun-sanitizer-v1"
         or TARGET_NAME != "SoraPassportUITests"
         or not ui_source.is_file()
         or not ui_scheme.is_file()
