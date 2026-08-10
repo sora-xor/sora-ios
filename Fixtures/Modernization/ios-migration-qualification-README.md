@@ -230,6 +230,11 @@ and the Release build handoff that executes this repository's strict build phase
 dependency pin does not qualify migration evidence, signing material, canaries, rollout authority,
 or production mutations.
 
+The bound `.github/workflows/ios_modernization.yml` PR workflow independently runs the complete
+source-contract gate and every simulator-eligible Release XCTest, then retains the `.xcresult`.
+It has read-only repository permission and no protected release admission, signing, upload,
+funded-canary, or rollout authority; those stay in the separately reviewed production controller.
+
 `qualificationContractSha256` binds the ordered relative path and SHA-256 identity of every
 migration, recovery, lifecycle, deletion-preflight, pending-journal, project, test, checklist, and
 verifier input listed by the release verifier, including both shared test schemes, the Jenkins
@@ -335,9 +340,17 @@ production archive/export route:
 ```sh
 /bin/sh SoraPassport/Scripts/archive-ios-migration-candidate.sh \
   --archive-and-export \
+  --build-number 2026081002 \
   --archive-path /private/owner-only/new-candidate.xcarchive \
   --export-path /private/owner-only/new-candidate-export
 ```
+
+Set `IOS_APP_STORE_BUILD_NUMBER_LOWER_BOUND` from the controller's authenticated App Store query
+before invoking the wrapper (for this example, `2026081001`). The requested build number is one
+positive canonical decimal integer, must be strictly newer than that lower bound, and is passed as
+`CURRENT_PROJECT_VERSION` rather than inherited from the project default. The wrapper requires the
+same value in the archive Info.plist, exported IPA handoff, both build manifests, equivalence
+receipt, and sealed package before upload.
 
 Both parents must already be current-user-owned mode-0700 directories outside the repository and
 both output paths must be fresh. The wrapper creates a fresh mode-0700
@@ -368,7 +381,7 @@ through a stable descriptor, and exclusively writes
 executable equality after different signing is neither required nor accepted as a substitute for
 the canonical derivation proof.
 
-The five-argument archive form above remains an observed-only input route. A candidate cannot reach
+The seven-argument archive form above remains an observed-only input route. A candidate cannot reach
 post-export admission until the primary export and one independent reproduction have instead been
 created from two physically distinct, completely clean checkouts with distinct DerivedData,
 archive, and export inodes:
@@ -378,6 +391,7 @@ archive, and export inodes:
 /bin/sh SoraPassport/Scripts/archive-ios-migration-candidate.sh \
   --archive-and-export-reproducible \
   --role primary \
+  --build-number 2026081002 \
   --derived-data-path /private/release-a/primary-DerivedData \
   --archive-path /private/release-a/primary.xcarchive \
   --export-path /private/release-a/primary-export
@@ -386,6 +400,7 @@ archive, and export inodes:
 /bin/sh SoraPassport/Scripts/archive-ios-migration-candidate.sh \
   --archive-and-export-reproducible \
   --role reproduction \
+  --build-number 2026081002 \
   --derived-data-path /private/release-b/reproduction-DerivedData \
   --archive-path /private/release-b/reproduction.xcarchive \
   --export-path /private/release-b/reproduction-export
@@ -438,7 +453,7 @@ authenticated signing-continuity and vendored-binary receipts, and qualification
 ```
 
 The package is exclusively created mode 0600 beneath a current-user-owned mode-0700 parent. Its
-`sora-ios-qualified-ipa-package-v3` fixed ZIP inventory contains only mode-0600 regular members and
+`sora-ios-qualified-ipa-package-v4` fixed ZIP inventory contains only mode-0600 regular members and
 binds both `signingIdentityReceiptSha256` and `vendoredBinaryReceiptSha256`; symbolic links, hard links, unexpected
 members, changed logs/manifests, or a changed candidate fail closed. The download verifier streams
 and byte-compares the packaged candidate to the primary IPA. Post-archive migration admission

@@ -27,6 +27,8 @@ SPEC.loader.exec_module(release)
 
 REVISION = "1" * 40
 CONTRACT_SHA = "2" * 64
+BUILD_NUMBER = "2026081002"
+APP_STORE_BUILD_NUMBER_LOWER_BOUND = "2026081001"
 TAIRA_DEPLOYMENT = {
     "contractId": "sora-ios-taira-deployment-admission-v1",
     "manifestSha256": "c" * 64,
@@ -165,8 +167,11 @@ class Fixture:
             archived_app / "Info.plist",
             plistlib.dumps(
                 {
-                    info_names[key]: value
-                    for key, value in TAIRA_DEPLOYMENT.items()
+                    "CFBundleVersion": BUILD_NUMBER,
+                    **{
+                        info_names[key]: value
+                        for key, value in TAIRA_DEPLOYMENT.items()
+                    },
                 },
                 fmt=plistlib.FMT_BINARY,
                 sort_keys=True,
@@ -188,6 +193,9 @@ class Fixture:
             "cleanCheckout": True,
             "sourceRevision": REVISION,
             "qualificationContractSha256": CONTRACT_SHA,
+            "buildNumber": BUILD_NUMBER,
+            "appStoreBuildNumberLowerBound":
+                APP_STORE_BUILD_NUMBER_LOWER_BOUND,
             "tairaDeployment": dict(TAIRA_DEPLOYMENT),
             "checkoutIdentity": self._identity(repository),
             "derivedDataIdentity": self._identity(derived),
@@ -229,7 +237,10 @@ class Fixture:
             "canonicalProjection": {"contractId": "projection-v2", "recordSha256": "3" * 64},
             "canonicalExecutableSha256": "4" * 64,
             "canonicalExecutableByteCount": 123,
-            "canonicalInfo": {"CFBundleIdentifier": "co.jp.soramitsu.sora"},
+            "canonicalInfo": {
+                "CFBundleIdentifier": "co.jp.soramitsu.sora",
+                "buildVersion": BUILD_NUMBER,
+            },
             "entitlementProjection": [{"path": "SoraPassport", "sha256": "5" * 64}],
             "signedIdentity": {
                 "applicationIdentifier": "YLWWUD25VZ.co.jp.soramitsu.sora",
@@ -441,6 +452,35 @@ class ReleaseReproducibilityPackageTests(unittest.TestCase):
             write(fixture.primary["manifest_path"], release.canonical_json(stale))
             with self.assertRaisesRegex(release.ReleaseReproducibilityError, "stale, mixed"):
                 fixture.compare()
+
+    def test_build_number_is_newer_and_matches_both_signed_applications(self) -> None:
+        temporary, root = self.temporary()
+        with temporary:
+            fixture = Fixture(root)
+            stale = dict(fixture.primary["manifest"])
+            stale["appStoreBuildNumberLowerBound"] = BUILD_NUMBER
+            write(fixture.primary["manifest_path"], release.canonical_json(stale))
+            with self.assertRaisesRegex(
+                release.ReleaseReproducibilityError,
+                "not newer than its App Store lower bound",
+            ):
+                fixture.compare()
+
+        temporary, root = self.temporary()
+        with temporary:
+            fixture = Fixture(root)
+
+            def inspector(path: Path) -> dict[str, Any]:
+                value = fixture.inspection(path)
+                if path == fixture.reproduction["ipa"]:
+                    value["canonicalInfo"]["buildVersion"] = "2026081003"
+                return value
+
+            with self.assertRaisesRegex(
+                release.ReleaseReproducibilityError,
+                "signed IPA build number differs",
+            ):
+                fixture.compare(inspector)
 
     def test_same_checkout_or_derived_data_inode_is_rejected(self) -> None:
         temporary, root = self.temporary()

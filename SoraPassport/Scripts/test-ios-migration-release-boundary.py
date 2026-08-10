@@ -46,6 +46,7 @@ SCHEME = (
 )
 CONTRACT = ROOT / "Fixtures/Modernization/ios-migration-qualification-contract-v1.json"
 EXPORT_OPTIONS = ROOT / "SoraPassport/Configs/ios-migration-candidate-export-options.plist"
+CI_WORKFLOW = ROOT / ".github/workflows/ios_modernization.yml"
 
 
 def run(*arguments: str) -> subprocess.CompletedProcess[str]:
@@ -230,6 +231,15 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
         self.assertIn('--archive-and-export-reproducible', source)
         self.assertIn('-derivedDataPath "${derived_data_path}"', source)
         self.assertIn('--capture-build-manifest', source)
+        self.assertEqual(source.count('"CURRENT_PROJECT_VERSION=${build_number}"'), 2)
+        self.assertIn('IOS_APP_STORE_BUILD_NUMBER_LOWER_BOUND', source)
+        self.assertIn('--build-number "${build_number}"', source)
+        self.assertIn(
+            '--app-store-build-lower-bound "${app_store_build_number_lower_bound}"',
+            source,
+        )
+        self.assertIn('plutil -extract CFBundleVersion raw -expect string', source)
+        self.assertIn('plutil -extract ipa.buildVersion raw -expect string', source)
         self.assertIn('status --porcelain=v1 --untracked-files=normal', source)
         self.assertIn('IOS_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID', source)
         self.assertIn('IOS_MIGRATION_EVIDENCE_AUTHORIZATION_PUBLIC_KEY_X963_BASE64', source)
@@ -241,19 +251,57 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
         self.assertNotIn("notarytool", source)
         self.assertNotIn("verify-production-rollout", source)
 
-        repository_output = run(
-            "/bin/sh",
-            str(ARCHIVER),
-            "--archive-and-export",
-            "--archive-path",
-            str(ROOT / "forbidden.xcarchive"),
-            "--export-path",
-            str(ROOT / "forbidden-export"),
+        environment = dict(os.environ)
+        environment["IOS_APP_STORE_BUILD_NUMBER_LOWER_BOUND"] = "2026081001"
+        repository_output = subprocess.run(
+            [
+                "/bin/sh",
+                str(ARCHIVER),
+                "--archive-and-export",
+                "--build-number",
+                "2026081002",
+                "--archive-path",
+                str(ROOT / "forbidden.xcarchive"),
+                "--export-path",
+                str(ROOT / "forbidden-export"),
+            ],
+            cwd=ROOT,
+            env=environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=30,
         )
         self.assertNotEqual(repository_output.returncode, 0)
         self.assertIn("mode 0700", repository_output.stderr)
         self.assertFalse((ROOT / "forbidden.xcarchive").exists())
         self.assertFalse((ROOT / "forbidden-export").exists())
+
+        stale_environment = dict(os.environ)
+        stale_environment["IOS_APP_STORE_BUILD_NUMBER_LOWER_BOUND"] = "2026081002"
+        stale_build = subprocess.run(
+            [
+                "/bin/sh",
+                str(ARCHIVER),
+                "--archive-and-export",
+                "--build-number",
+                "2026081002",
+                "--archive-path",
+                "/private/tmp/never-created.xcarchive",
+                "--export-path",
+                "/private/tmp/never-created-export",
+            ],
+            cwd=ROOT,
+            env=stale_environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=30,
+        )
+        self.assertNotEqual(stale_build.returncode, 0)
+        self.assertIn("greater than the controller-provided App Store lower bound", stale_build.stderr)
 
     def test_candidate_archive_capability_rejects_action_config_and_platform_drift(self) -> None:
         for key, value in (
@@ -696,7 +744,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "--lint-ios-migration-release-source-gate", source
         )
         self.assertIn(
-            "iOS migration Release source gate: OK (93 migration tests + 16 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 11 lints, shell/Swift parse)",
+            "iOS migration Release source gate: OK (93 migration tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 11 lints, shell/Swift parse)",
             source,
         )
         for suite, expected in (
@@ -713,7 +761,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             )
         self.assertIn('[ "${ios_gate_test_total}" -eq 93 ]', source)
         self.assertIn(
-            'run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 16 release-reproducibility-package',
+            'run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 17 release-reproducibility-package',
             source,
         )
         self.assertIn(
@@ -893,6 +941,7 @@ fi
         manifest = json.loads(CONTRACT.read_text(encoding="utf-8"))
         paths = manifest["paths"]
         for relative in (
+            ".github/workflows/ios_modernization.yml",
             "SoraPassport/Scripts/build-ios-migration-evidence-candidate.sh",
             "SoraPassport/Scripts/archive-ios-migration-candidate.sh",
             "SoraPassport/Scripts/create-ios-migration-candidate-handoff.py",
@@ -920,6 +969,19 @@ fi
             "SoraPassportUITests/RetainedMigrationEvidenceUITests.swift",
         ):
             self.assertIn(relative, paths)
+        workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+        for marker in (
+            "pull_request:",
+            "contents: read",
+            "Modernization Source Contract",
+            "Full Release XCTest Closure",
+            "--lint-ios-migration-release-source-gate",
+            "run-ios-release-tests.sh",
+            "actions/upload-artifact@v4",
+            "if-no-files-found: error",
+        ):
+            self.assertIn(marker, workflow)
+        self.assertNotIn("pull_request_target:", workflow)
         qualifier = QUALIFIER.read_text(encoding="utf-8")
         self.assertIn("--verify-qualified-ipa", qualifier)
         self.assertIn("verify_qualified_ipa", qualifier)

@@ -16,6 +16,7 @@
     "Fixtures/Modernization/ios-production-signing-identity-qualification-trust.blocked.json",
     "Fixtures/Modernization/ios-production-signing-identity-qualification-README.md",
     "Fixtures/Modernization/production-rollout-README.md",
+    ".github/workflows/ios_modernization.yml",
     "Jenkinsfile",
     "Jenkinsfile.migration-evidence",
     "SoraPassport/Configs/ModernizationDependencies.conf",

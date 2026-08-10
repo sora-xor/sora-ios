@@ -56,9 +56,9 @@ DEPENDENCY_PATHS = (
     "Vendor/IrohaSwift/REVIEWED_CONTENTS.sha256",
     "Vendor/NoritoBridge.xcframework/REVIEWED_CONTENTS.sha256",
 )
-BUILD_FORMAT = "sora-ios-release-build-manifest-v3"
-EQUIVALENCE_FORMAT = "sora-ios-release-reproducibility-equivalence-v3"
-PACKAGE_FORMAT = "sora-ios-qualified-ipa-package-v3"
+BUILD_FORMAT = "sora-ios-release-build-manifest-v4"
+EQUIVALENCE_FORMAT = "sora-ios-release-reproducibility-equivalence-v4"
+PACKAGE_FORMAT = "sora-ios-qualified-ipa-package-v4"
 PACKAGE_MEMBERS = (
     "candidate.ipa",
     "equivalence-receipt.json",
@@ -81,6 +81,7 @@ PACKAGE_MEMBERS = (
 )
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
+BUILD_NUMBER_RE = re.compile(r"^[1-9][0-9]{0,17}$")
 SAFE_RELATIVE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,511}$")
 MAX_IPA_BYTES = 4 * 1024 * 1024 * 1024
 MAX_JSON_BYTES = 8 * 1024 * 1024
@@ -158,6 +159,12 @@ def require_sha256(value: Any, label: str, *, allow_zero: bool = False) -> str:
 def require_revision(value: Any, label: str) -> str:
     if type(value) is not str or REVISION_RE.fullmatch(value) is None or value == "0" * 40:
         fail(f"{label} is not an exact nonzero source revision")
+    return value
+
+
+def require_build_number(value: Any, label: str) -> str:
+    if type(value) is not str or BUILD_NUMBER_RE.fullmatch(value) is None:
+        fail(f"{label} is not one positive canonical decimal build number")
     return value
 
 
@@ -268,6 +275,21 @@ def archive_taira_deployment_projection(archive: Path, label: str) -> dict[str, 
     except plistlib.InvalidFileException as error:
         fail(f"{label} archived Info.plist is invalid: {error}")
     return parse_taira_deployment_projection(info, label)
+
+
+def archive_build_number(archive: Path, label: str) -> str:
+    applications = sorted((archive / "Products/Applications").glob("*.app"))
+    if len(applications) != 1 or applications[0].is_symlink():
+        fail(f"{label} archive does not contain exactly one non-symbolic application")
+    info_path = applications[0] / "Info.plist"
+    raw, _ = open_regular(info_path, MAX_JSON_BYTES, f"{label} archived Info.plist")
+    try:
+        info = plistlib.loads(raw)
+    except plistlib.InvalidFileException as error:
+        fail(f"{label} archived Info.plist is invalid: {error}")
+    if type(info) is not dict:
+        fail(f"{label} archived Info.plist is not a dictionary")
+    return require_build_number(info.get("CFBundleVersion"), f"{label} build number")
 
 
 def absolute_path(raw: str, label: str) -> Path:
@@ -905,6 +927,8 @@ def capture_build_manifest(
     qualification_contract_sha: str,
     signing_receipt_sha: str,
     vendored_receipt_sha: str,
+    build_number: str,
+    app_store_build_lower_bound: str,
     output: Path,
 ) -> dict[str, Any]:
     if role not in ("primary", "reproduction"):
@@ -917,6 +941,15 @@ def capture_build_manifest(
     require_sha256(qualification_contract_sha, "qualification source contract")
     require_sha256(signing_receipt_sha, "authenticated signing receipt")
     require_sha256(vendored_receipt_sha, "authenticated vendored-binary receipt")
+    require_build_number(build_number, "candidate build number")
+    require_build_number(
+        app_store_build_lower_bound,
+        "controller-provided App Store build-number lower bound",
+    )
+    if int(build_number) <= int(app_store_build_lower_bound):
+        fail("candidate build number is not newer than the App Store lower bound")
+    if archive_build_number(archive, f"{role} build") != build_number:
+        fail("archived application build number differs from the controller-authorized input")
     dependencies = []
     for relative in DEPENDENCY_PATHS:
         path = repository / relative
@@ -968,6 +1001,8 @@ def capture_build_manifest(
         "cleanCheckout": True,
         "sourceRevision": revision,
         "qualificationContractSha256": qualification_contract_sha,
+        "buildNumber": build_number,
+        "appStoreBuildNumberLowerBound": app_store_build_lower_bound,
         "tairaDeployment": archive_taira_deployment_projection(
             archive,
             f"{role} build",
@@ -1027,7 +1062,8 @@ def parse_build_manifest(raw: bytes, label: str) -> dict[str, Any]:
     require_exact_keys(
         value,
         {
-            "format", "role", "cleanCheckout", "sourceRevision", "qualificationContractSha256", "checkoutIdentity",
+            "format", "role", "cleanCheckout", "sourceRevision", "qualificationContractSha256",
+            "buildNumber", "appStoreBuildNumberLowerBound", "checkoutIdentity",
             "derivedDataIdentity", "archiveIdentity", "exportIdentity", "ipa",
             "archiveContentManifest", "exportContentManifest", "dependencyManifests",
             "signingIdentityReceipt", "vendoredBinaryReceipt", "logs",
@@ -1039,6 +1075,13 @@ def parse_build_manifest(raw: bytes, label: str) -> dict[str, Any]:
         fail(f"{label} is not a clean exact Release build manifest")
     require_revision(value["sourceRevision"], f"{label} source revision")
     require_sha256(value["qualificationContractSha256"], f"{label} qualification source contract")
+    require_build_number(value["buildNumber"], f"{label} build number")
+    require_build_number(
+        value["appStoreBuildNumberLowerBound"],
+        f"{label} App Store build-number lower bound",
+    )
+    if int(value["buildNumber"]) <= int(value["appStoreBuildNumberLowerBound"]):
+        fail(f"{label} build number is not newer than its App Store lower bound")
     parse_taira_deployment_projection(
         {
             {
@@ -1117,6 +1160,12 @@ def verify_manifest_files(manifest: dict[str, Any], label: str, ipa_path: Path) 
         )
         if current != retained:
             fail(f"{label} {kind} physical identity changed")
+    retained_archive = absolute_path(
+        manifest["archiveIdentity"]["path"],
+        f"{label} archive",
+    )
+    if archive_build_number(retained_archive, label) != manifest["buildNumber"]:
+        fail(f"{label} archived application build number changed")
     if manifest["ipa"]["path"] != str(ipa_path):
         fail(f"{label} IPA path differs from its build manifest")
     ipa_actual = checked_digest(ipa_path, MAX_IPA_BYTES, f"{label} IPA")
@@ -1207,7 +1256,8 @@ def compare_releases(
     ):
         distinct_physical(primary_manifest[key], reproduction_manifest[key], label)
     for key in (
-        "sourceRevision", "qualificationContractSha256",
+        "sourceRevision", "qualificationContractSha256", "buildNumber",
+        "appStoreBuildNumberLowerBound",
         "dependencyManifests", "tairaDeployment",
     ):
         if primary_manifest[key] != reproduction_manifest[key]:
@@ -1252,6 +1302,13 @@ def compare_releases(
     if primary["qualificationContractSha256"] != primary_manifest["qualificationContractSha256"] or reproduction["qualificationContractSha256"] != primary_manifest["qualificationContractSha256"]:
         fail("signed IPA qualification contract differs from the clean builds")
     if (
+        primary["canonicalInfo"].get("buildVersion")
+        != primary_manifest["buildNumber"]
+        or reproduction["canonicalInfo"].get("buildVersion")
+        != primary_manifest["buildNumber"]
+    ):
+        fail("signed IPA build number differs from the controller-authorized clean builds")
+    if (
         primary["tairaDeployment"] != primary_manifest["tairaDeployment"]
         or reproduction["tairaDeployment"]
         != reproduction_manifest["tairaDeployment"]
@@ -1284,6 +1341,9 @@ def compare_releases(
         "signedContainerNondeterminismObserved": not exact_bytes,
         "sourceRevision": primary_manifest["sourceRevision"],
         "qualificationContractSha256": primary["qualificationContractSha256"],
+        "buildNumber": primary_manifest["buildNumber"],
+        "appStoreBuildNumberLowerBound":
+            primary_manifest["appStoreBuildNumberLowerBound"],
         "tairaDeployment": primary["tairaDeployment"],
         "dependencyManifests": primary_manifest["dependencyManifests"],
         "signingIdentityReceipt": primary_manifest["signingIdentityReceipt"],
@@ -1342,7 +1402,8 @@ def parse_equivalence_receipt(raw: bytes) -> dict[str, Any]:
             "equivalencePolicy", "exactIpaByteEquality",
             "deterministicProductionExportDemonstrated",
             "signedContainerNondeterminismObserved", "sourceRevision",
-            "qualificationContractSha256", "dependencyManifests",
+            "qualificationContractSha256", "buildNumber",
+            "appStoreBuildNumberLowerBound", "dependencyManifests",
             "tairaDeployment",
             "signingIdentityReceipt", "vendoredBinaryReceipt",
             "primary", "reproduction",
@@ -1363,6 +1424,13 @@ def parse_equivalence_receipt(raw: bytes) -> dict[str, Any]:
         fail("equivalence receipt has an authorizing or invalid fixed contract")
     require_revision(value["sourceRevision"], "equivalence source revision")
     require_sha256(value["qualificationContractSha256"], "equivalence qualification contract")
+    require_build_number(value["buildNumber"], "equivalence build number")
+    require_build_number(
+        value["appStoreBuildNumberLowerBound"],
+        "equivalence App Store build-number lower bound",
+    )
+    if int(value["buildNumber"]) <= int(value["appStoreBuildNumberLowerBound"]):
+        fail("equivalence build number is not newer than its App Store lower bound")
     taira_projection = require_exact_keys(
         value["tairaDeployment"],
         {
@@ -1717,6 +1785,12 @@ def seal_package(
     reproduction_manifest = parse_build_manifest(reproduction_raw, "reproduction build manifest")
     if equivalence["primary"]["buildManifestSha256"] != primary_identity["sha256"] or equivalence["reproduction"]["buildManifestSha256"] != reproduction_identity["sha256"]:
         fail("equivalence receipt does not bind both build manifests")
+    for key in ("buildNumber", "appStoreBuildNumberLowerBound"):
+        if (
+            equivalence[key] != primary_manifest[key]
+            or equivalence[key] != reproduction_manifest[key]
+        ):
+            fail(f"equivalence receipt does not bind both build manifests' {key}")
     reproduction_ipa = absolute_path(
         reproduction_manifest["ipa"]["path"],
         "reproduction IPA",
@@ -1845,6 +1919,9 @@ def seal_package(
         "uploadAuthorized": False,
         "primaryCandidateImmutable": True,
         "sourceRevision": equivalence["sourceRevision"],
+        "buildNumber": equivalence["buildNumber"],
+        "appStoreBuildNumberLowerBound":
+            equivalence["appStoreBuildNumberLowerBound"],
         "qualificationReceiptSha256": qualification_identity["sha256"],
         "signingIdentityReceiptSha256": signing_identity["sha256"],
         "vendoredBinaryReceiptSha256": vendored_identity["sha256"],
@@ -1971,7 +2048,7 @@ def verify_package(package_path: Path, expected_ipa: Path, expected_qualificatio
                 fail("package manifest exceeds its fixed bound")
             manifest_raw = archive.read(manifest_info)
             manifest = parse_canonical_json(manifest_raw, "package manifest")
-            require_exact_keys(manifest, {"format", "status", "releaseAuthorized", "uploadAuthorized", "primaryCandidateImmutable", "sourceRevision", "qualificationReceiptSha256", "signingIdentityReceiptSha256", "vendoredBinaryReceiptSha256", "tairaDeploymentManifestSha256", "tairaDeploymentAdmissionSha256", "equivalencePolicy", "exactIpaByteEquality", "members"}, "package manifest")
+            require_exact_keys(manifest, {"format", "status", "releaseAuthorized", "uploadAuthorized", "primaryCandidateImmutable", "sourceRevision", "buildNumber", "appStoreBuildNumberLowerBound", "qualificationReceiptSha256", "signingIdentityReceiptSha256", "vendoredBinaryReceiptSha256", "tairaDeploymentManifestSha256", "tairaDeploymentAdmissionSha256", "equivalencePolicy", "exactIpaByteEquality", "members"}, "package manifest")
             if manifest["format"] != PACKAGE_FORMAT or manifest["status"] != "sealed-qualified-candidate" or manifest["releaseAuthorized"] is not False or manifest["uploadAuthorized"] is not False or manifest["primaryCandidateImmutable"] is not True:
                 fail("package manifest has an authorizing, stale, or incomplete contract")
             require_sha256(
@@ -1990,6 +2067,13 @@ def verify_package(package_path: Path, expected_ipa: Path, expected_qualificatio
                 manifest["vendoredBinaryReceiptSha256"],
                 "package vendored-binary receipt",
             )
+            require_build_number(manifest["buildNumber"], "package build number")
+            require_build_number(
+                manifest["appStoreBuildNumberLowerBound"],
+                "package App Store build-number lower bound",
+            )
+            if int(manifest["buildNumber"]) <= int(manifest["appStoreBuildNumberLowerBound"]):
+                fail("package build number is not newer than its App Store lower bound")
             members = manifest["members"]
             if type(members) is not dict or set(members) != set(PACKAGE_MEMBERS) - {"package-manifest.json"}:
                 fail("package manifest attachment inventory is not exact")
@@ -2030,6 +2114,9 @@ def verify_package(package_path: Path, expected_ipa: Path, expected_qualificatio
                 or equivalence["exactIpaByteEquality"]
                 is not manifest["exactIpaByteEquality"]
                 or equivalence["sourceRevision"] != manifest["sourceRevision"]
+                or equivalence["buildNumber"] != manifest["buildNumber"]
+                or equivalence["appStoreBuildNumberLowerBound"]
+                != manifest["appStoreBuildNumberLowerBound"]
                 or equivalence["primary"]["ipaSha256"]
                 != members["candidate.ipa"]["sha256"]
                 or equivalence["primary"]["ipaByteCount"]
@@ -2148,9 +2235,9 @@ def main(argv: list[str]) -> int:
             lint_contract()
             print("iOS Release reproduction/package contract: OK")
             return 0
-        if len(argv) == 25 and argv[0] == "--capture-build-manifest":
-            expected = ("--role", "--repository", "--derived-data", "--archive", "--export", "--ipa", "--archive-log", "--export-log", "--qualification-contract-sha", "--signing-receipt-sha", "--vendored-receipt-sha", "--output")
-            if tuple(argv[index] for index in range(1, 24, 2)) != expected:
+        if len(argv) == 29 and argv[0] == "--capture-build-manifest":
+            expected = ("--role", "--repository", "--derived-data", "--archive", "--export", "--ipa", "--archive-log", "--export-log", "--qualification-contract-sha", "--signing-receipt-sha", "--vendored-receipt-sha", "--build-number", "--app-store-build-lower-bound", "--output")
+            if tuple(argv[index] for index in range(1, 28, 2)) != expected:
                 fail("capture-build-manifest arguments are not exact")
             result = capture_build_manifest(
                 role=argv[2], repository=absolute_path(argv[4], "repository"),
@@ -2160,7 +2247,9 @@ def main(argv: list[str]) -> int:
                 qualification_contract_sha=argv[18],
                 signing_receipt_sha=argv[20],
                 vendored_receipt_sha=argv[22],
-                output=absolute_path(argv[24], "build manifest"),
+                build_number=argv[24],
+                app_store_build_lower_bound=argv[26],
+                output=absolute_path(argv[28], "build manifest"),
             )
             print(f"buildManifestSha256={sha256_bytes(canonical_json(result))}")
             return 0
