@@ -661,7 +661,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
         source = DEPENDENCIES.read_text(encoding="utf-8")
         branch = source.index('if [ -n "${release_test_mode}" ]; then')
         self.assertLess(branch, source.index("# Every configuration executes"))
-        self.assertEqual(source.count('[ -n "${release_test_mode}" ] ||'), 2)
+        self.assertEqual(source.count('[ -n "${release_test_mode}" ] ||'), 3)
         for required in (
             '[ "${release_test_mode}" != "sora-ios-nonpromoting-release-simulator-test-v1" ]',
             '[ "${release_test_action}" != "test" ]',
@@ -864,7 +864,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "--lint-ios-migration-release-source-gate", source
         )
         self.assertIn(
-            "iOS migration Release source gate: OK (93 migration tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 12 lints, shell/Swift parse)",
+            "iOS migration Release source gate: OK (93 migration tests + 7 internal-TestFlight tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 13 lints, shell/Swift parse)",
             source,
         )
         for suite, expected in (
