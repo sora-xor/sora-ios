@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 3,
+  "contractId": "sora-ios-wallet-migration-collection-receipt-v3",
+  "platform": "ios",
+  "status": "blocked-template",
+  "releaseAuthorized": false,
+  "runId": null,
+  "runChallengeSha256": null,
+  "sourceRevision": null,
+  "qualificationContractSha256": null,
+  "collectedAtEpochSeconds": 0,
+  "rawInputSet": {
+    "contractId": "sora-ios-wallet-migration-raw-input-set-v3",
+    "sha256": null,
+    "fileCount": 0,
+    "byteCount": 0
+  },
+  "identity": {
+    "productionIpaSha256": null,
+    "installedAppRawTreeSha256": null,
+    "installedAppRawTreeRecordByteCount": 0,
+    "installedExecutableSha256": null,
+    "installedExecutableByteCount": 0,
+    "productionCanonicalProjectionSha256": null,
+    "installedCanonicalProjectionSha256": null,
+    "canonicalProjectionReceiptSha256": null,
+    "canonicalProjectorSourceSha256": null,
+    "deviceClasses": [],
+    "operatingSystemBuilds": []
+  },
+  "testedApplication": {
+    "sha256": null,
+    "byteCount": 0,
+    "bundleIdentifier": null,
+    "shortVersion": null,
+    "buildVersion": null,
+    "executableSha256": null,
+    "executableByteCount": 0,
+    "productionCodeSignatureVerified": false,
+    "productionApplicationIdentifierVerified": false,
+    "productionTeamIdentifierVerified": false,
+    "productionKeychainAccessGroupVerified": false
+  },
+  "installedClone": {
+    "receiptSha256": null,
+    "rawTreeSha256": null,
+    "rawTreeRecordByteCount": 0,
+    "executableSha256": null,
+    "executableByteCount": 0,
+    "productionCanonicalProjectionSha256": null,
+    "installedCanonicalProjectionSha256": null,
+    "canonicalProjectionReceiptSha256": null,
+    "canonicalProjectorSourceSha256": null,
+    "codeSignatureDeepStrictVerified": false,
+    "installedAppLaunchVerified": false,
+    "installedRawTreeRecomputed": false,
+    "installedExecutableRecomputed": false,
+    "canonicalProjectionEqualToProduction": false
+  },
+  "privacy": {
+    "aggregateOnly": true,
+    "accountIdentifiersIncluded": false,
+    "addressesIncluded": false,
+    "deviceIdentifiersIncluded": false,
+    "phrasesOrSeedsIncluded": false,
+    "privateKeysIncluded": false,
+    "publicKeysIncluded": false,
+    "rawKeychainValuesIncluded": false,
+    "rawSignedPayloadsIncluded": false,
+    "perWalletRecordsIncluded": false
+  },
+  "toolchain": {
+    "xcodeBuildVersion": null,
+    "xcresultFormatVersion": null
+  },
+  "artifacts": {
+    "retainedReleaseSnapshotManifest": {
+      "relativePath": "Fixtures/Modernization/ios-migration-retained-snapshot-manifest.json",
+      "sha256": null,
+      "byteCount": 0
+    },
+    "testResultBundle": {
+      "relativePath": "Fixtures/Modernization/ios-migration-tests.xcresult.zip",
+      "sha256": null,
+      "byteCount": 0
+    },
+    "keychainEvidence": {
+      "relativePath": "Fixtures/Modernization/ios-migration-keychain-evidence.json",
+      "sha256": null,
+      "byteCount": 0
+    },
+    "deviceExecutionEvidence": {
+      "relativePath": "Fixtures/Modernization/ios-migration-device-execution-evidence.json",
+      "sha256": null,
+      "byteCount": 0
+    }
+  },
+  "checks": {
+    "allRawFilesRegular": false,
+    "allRawHashesVerified": false,
+    "testedProductionIpaOpened": false,
+    "signedProductionIdentityVerified": false,
+    "installableCloneReceiptVerified": false,
+    "installedCloneCodeSignatureVerified": false,
+    "installedCloneIdentityBound": false,
+    "canonicalProjectionReceiptVerified": false,
+    "canonicalProjectorSourceVerified": false,
+    "rawXcresultParsed": false,
+    "retainedStoresOpenedReadOnly": false,
+    "keychainObservationsBound": false,
+    "deviceScenarioAttachmentsBound": false,
+    "collectorNonAuthorizing": true
+  },
+  "blockingReasons": [
+    "Observed collection only: independent review, protected trust pins, detached signatures, append-only sequence admission, and a schema-8 qualification receipt are absent."
+  ]
+}
