@@ -126,7 +126,8 @@ extension KeystoreProtocol {
 
         return try fetchRetainedLegacyEntropyForAddress(
             address,
-            activeSnapshot: try WalletNetworkStore().load()
+            activeSnapshot: try WalletNetworkStore().load(),
+            recoveryGate: .shared
         )
     }
 
@@ -134,7 +135,8 @@ extension KeystoreProtocol {
     /// the exact active snapshot under a wallet lifecycle lease.
     func fetchEntropyForAddress(
         _ address: String,
-        activeSnapshot: WalletNetworkSnapshot
+        activeSnapshot: WalletNetworkSnapshot,
+        recoveryGate: WalletRecoveryCapabilityGate
     ) throws -> Data? {
         let tag = KeystoreTag.entropyTagForAddress(address)
         if let scoped = try loadIfKeyExists(tag) {
@@ -143,13 +145,15 @@ extension KeystoreProtocol {
 
         return try fetchRetainedLegacyEntropyForAddress(
             address,
-            activeSnapshot: activeSnapshot
+            activeSnapshot: activeSnapshot,
+            recoveryGate: recoveryGate
         )
     }
 
     private func fetchRetainedLegacyEntropyForAddress(
         _ address: String,
-        activeSnapshot snapshot: WalletNetworkSnapshot?
+        activeSnapshot snapshot: WalletNetworkSnapshot?,
+        recoveryGate: WalletRecoveryCapabilityGate
     ) throws -> Data? {
 
         // The oldest installations retained one unsuffixed entropy record.
@@ -209,7 +213,8 @@ extension KeystoreProtocol {
                 derivationPath: nil,
                 entropy: legacyEntropy,
                 rawSeed: nil,
-                secret: nil
+                secret: nil,
+                recoveryGate: recoveryGate
             )
             return legacyEntropy
         } catch {

@@ -52,7 +52,13 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
         
         sections.append(languageSection())
         sections.append(appearanceSection())
-        sections.append(networksSection())
+        let tairaAdmitted = NexusNetworkAdmissionPolicy
+            .current.isTairaAdmitted
+        if NexusPortfolioPresentationPolicy.exposesTairaSettings(
+            tairaAdmitted: tairaAdmitted
+        ) {
+            sections.append(networksSection())
+        }
         
         return AppSettingsModel(title: R.string.localizable.settingsHeaderApp(preferredLanguages: languages),
                                 sections: sections)

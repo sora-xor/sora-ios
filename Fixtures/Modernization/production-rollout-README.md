@@ -174,7 +174,7 @@ Polkamarkt full-extrinsic qualification deliberately has two source states. Befo
 qualification, `polkamarkt-runtime-v130.json` must have the exact blocked shape:
 `reviewedWebAndRuntimeReceiptQualified=false`, `reviewedReceipt=null`, and the exact nonempty
 blocker. After reviewed promotion, source tests require the exact v1 receipt shape rather than the
-blocked tuple. This keeps the ordinary 198-test modernization build runnable in either state
+blocked tuple. This keeps the ordinary 200-test modernization build runnable in either state
 without treating a promoted boolean as evidence. Release and post-export promotion remain hard
 gates: they require the v1 reviewed receipt, exact runtime-130 metadata/genesis identity, five ordered
 buy/sell/claim vectors, and reference/Android/iOS parity for full call bytes, signing prehash, valid

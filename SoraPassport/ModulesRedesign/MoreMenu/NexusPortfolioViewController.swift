@@ -43,27 +43,41 @@ enum NexusPortfolioPresentationPolicy {
         walletId == selectedWalletId
     }
 
+    static func portfolioSubtitle(tairaAdmitted: Bool) -> String {
+        tairaAdmitted
+            ? "SORA2 · Minamoto · Taira Testnet"
+            : "SORA2 · Minamoto"
+    }
+
+    static func exposesTairaSettings(tairaAdmitted: Bool) -> Bool {
+        tairaAdmitted
+    }
+
     static func networkDetailIsAvailable(
         networkId: NetworkId,
         nexusEnabled: Bool,
-        tairaEnabled: Bool
+        tairaEnabled: Bool,
+        tairaAdmitted: Bool
     ) -> Bool {
         guard nexusEnabled else {
             return false
         }
-        return networkId != .taira || tairaEnabled
+        return networkId != .taira ||
+            (tairaEnabled && tairaAdmitted)
     }
 
     static func networkDetailAccess(
         networkId: NetworkId,
         nexusEnabled: Bool,
         tairaEnabled: Bool,
+        tairaAdmitted: Bool,
         mutationCoordinatorAvailable: Bool
     ) -> NetworkDetailAccess {
         let readsAvailable = networkDetailIsAvailable(
             networkId: networkId,
             nexusEnabled: nexusEnabled,
-            tairaEnabled: tairaEnabled
+            tairaEnabled: tairaEnabled,
+            tairaAdmitted: tairaAdmitted
         )
         return NetworkDetailAccess(
             readsAvailable: readsAvailable,
@@ -231,7 +245,9 @@ final class NexusPortfolioViewController: UITableViewController {
                 NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
                     networkId: row.account.networkId,
                     nexusEnabled: settings.nexusEnabled,
-                    tairaEnabled: settings.isTairaEnabled
+                    tairaEnabled: settings.isTairaEnabled,
+                    tairaAdmitted: NexusNetworkAdmissionPolicy
+                        .current.isTairaAdmitted
                 )
         }
         if !NexusPortfolioPresentationPolicy.rowsMatchSelectedWallet(
@@ -263,7 +279,10 @@ final class NexusPortfolioViewController: UITableViewController {
                 var accounts = snapshot.accounts
                     .filter { $0.walletId == walletId }
                     .filter {
-                        $0.networkId != .taira || self.settings.isTairaEnabled
+                        $0.networkId != .taira ||
+                            (self.settings.isTairaEnabled &&
+                                NexusNetworkAdmissionPolicy
+                                    .current.isTairaAdmitted)
                     }
                     .sorted {
                         Self.order($0.networkId) < Self.order($1.networkId)
@@ -403,7 +422,9 @@ final class NexusPortfolioViewController: UITableViewController {
         return NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
             networkId: account.networkId,
             nexusEnabled: settings.nexusEnabled,
-            tairaEnabled: settings.isTairaEnabled
+            tairaEnabled: settings.isTairaEnabled,
+            tairaAdmitted: NexusNetworkAdmissionPolicy
+                .current.isTairaAdmitted
         )
     }
 
@@ -504,6 +525,8 @@ final class NexusPortfolioViewController: UITableViewController {
             networkId: row.account.networkId,
             nexusEnabled: settings.nexusEnabled,
             tairaEnabled: settings.isTairaEnabled,
+            tairaAdmitted: NexusNetworkAdmissionPolicy
+                .current.isTairaAdmitted,
             mutationCoordinatorAvailable: coordinator != nil
         )
         guard access.readsAvailable else {
@@ -654,6 +677,8 @@ private final class NexusNetworkDetailViewController: UITableViewController {
             networkId: account.networkId,
             nexusEnabled: SettingsManager.shared.nexusEnabled,
             tairaEnabled: SettingsManager.shared.isTairaEnabled,
+            tairaAdmitted: NexusNetworkAdmissionPolicy
+                .current.isTairaAdmitted,
             mutationCoordinatorAvailable: coordinator != nil
         )
         if access.mutationSurfaceAvailable {
@@ -684,7 +709,9 @@ private final class NexusNetworkDetailViewController: UITableViewController {
         ), NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
             networkId: account.networkId,
             nexusEnabled: SettingsManager.shared.nexusEnabled,
-            tairaEnabled: SettingsManager.shared.isTairaEnabled
+            tairaEnabled: SettingsManager.shared.isTairaEnabled,
+            tairaAdmitted: NexusNetworkAdmissionPolicy
+                .current.isTairaAdmitted
         )
         else {
             // This detail owns an immutable, network-qualified account. Once
@@ -835,7 +862,9 @@ private final class NexusNetworkDetailViewController: UITableViewController {
             NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
                 networkId: account.networkId,
                 nexusEnabled: SettingsManager.shared.nexusEnabled,
-                tairaEnabled: SettingsManager.shared.isTairaEnabled
+                tairaEnabled: SettingsManager.shared.isTairaEnabled,
+                tairaAdmitted: NexusNetworkAdmissionPolicy
+                    .current.isTairaAdmitted
             )
         else {
             refreshControl?.endRefreshing()

@@ -232,6 +232,7 @@ final class UserStorageMigrator {
     let settings: SettingsManagerProtocol
     let fileManager: FileManager
     let targetVersion: UserStorageVersion
+    private let recoveryGate: WalletRecoveryCapabilityGate
     private let availableCapacity: (URL) -> Int64?
     private let loadWalletNetworkSnapshot:
         () throws -> WalletNetworkSnapshot?
@@ -247,6 +248,7 @@ final class UserStorageMigrator {
         keystore: KeystoreProtocol,
         settings: SettingsManagerProtocol,
         fileManager: FileManager,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
         availableCapacity: @escaping (URL) -> Int64? = UserStorageMigrator
             .availableCapacityForMigration(at:),
         loadWalletNetworkSnapshot:
@@ -264,6 +266,7 @@ final class UserStorageMigrator {
         self.keystore = keystore
         self.settings = settings
         self.fileManager = fileManager
+        self.recoveryGate = recoveryGate
         self.availableCapacity = availableCapacity
         self.loadWalletNetworkSnapshot = loadWalletNetworkSnapshot
         self.afterLegacyStoreCopyBeforeVerification =
@@ -1449,9 +1452,7 @@ final class UserStorageMigrator {
                     var secret = try keystore.loadIfKeyExists(
                         KeystoreTag.secretKeyTagForAddress(address)
                     )
-                    var entropy = try keystore.fetchEntropyForAddress(
-                        address
-                    )
+                    var entropy = try fetchEntropyForAddress(address)
                     var seed = try keystore.loadIfKeyExists(
                         KeystoreTag.seedTagForAddress(address)
                     )
@@ -1506,7 +1507,8 @@ final class UserStorageMigrator {
                         derivationPath: derivation,
                         entropy: entropy,
                         rawSeed: seed,
-                        secret: secret
+                        secret: secret,
+                        recoveryGate: recoveryGate
                     )
 
                     let selectedPropertyExists = object.entity.propertiesByName["isSelected"] != nil
@@ -1637,9 +1639,7 @@ final class UserStorageMigrator {
                 }
             }
             if account.hasEntropy {
-                var entropy = try keystore.fetchEntropyForAddress(
-                    account.address
-                )
+                var entropy = try fetchEntropyForAddress(account.address)
                 defer { Self.wipeSensitive(&entropy) }
                 guard entropy?.isEmpty == false else {
                     throw UserStorageMigrationError.emptyWalletSecret(account.address)
@@ -1653,6 +1653,22 @@ final class UserStorageMigrator {
                 }
             }
         }
+    }
+
+    private func fetchEntropyForAddress(_ address: String) throws -> Data? {
+        if let scoped = try keystore.loadIfKeyExists(
+            KeystoreTag.entropyTagForAddress(address)
+        ) {
+            return scoped
+        }
+        guard let snapshot = try loadWalletNetworkSnapshot() else {
+            return nil
+        }
+        return try keystore.fetchEntropyForAddress(
+            address,
+            activeSnapshot: snapshot,
+            recoveryGate: recoveryGate
+        )
     }
 
     private func backupStoreBundle(at sourceURL: URL, to directory: URL) throws {

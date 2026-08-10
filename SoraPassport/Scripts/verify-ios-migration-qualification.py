@@ -3160,7 +3160,7 @@ def verify_qualified() -> str:
             "secretFailureCohortCount": 2,
             "currentSchemaSafetySnapshotCohortCount": 2,
             "interruptionPointCohortCount": 5,
-            "executedWalletModernizationTestCount": 198,
+            "executedWalletModernizationTestCount": 200,
             "executedRecoveryCapabilityGateTestCount": 11,
             "executedRecoveryExporterTestCount": 12,
             "executedRetainedDeviceEvidenceTestCount": 3,

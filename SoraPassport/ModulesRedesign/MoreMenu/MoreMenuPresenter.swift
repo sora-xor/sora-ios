@@ -95,9 +95,12 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
     private func secondSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
         if SettingsManager.shared.nexusEnabled {
+            let tairaAdmitted = NexusNetworkAdmissionPolicy
+                .current.isTairaAdmitted
             let portfolio = MoreMenuItem(
                 title: "SORA Portfolio",
-                subtitle: "SORA2 · Minamoto · Taira Testnet",
+                subtitle: NexusPortfolioPresentationPolicy
+                    .portfolioSubtitle(tairaAdmitted: tairaAdmitted),
                 picture: .icon(
                     image: R.image.iconStar2()!,
                     color: .accentTertiary

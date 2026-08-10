@@ -340,7 +340,8 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
                 try keystore.fetchDeriviationForAddress(account.address),
             entropy: entropy,
             rawSeed: rawSeed,
-            secret: secret
+            secret: secret,
+            recoveryGate: .shared
         )
         guard
             secret != nil ||

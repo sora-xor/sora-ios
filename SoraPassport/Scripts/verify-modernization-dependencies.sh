@@ -698,6 +698,8 @@ rollout_regression_harness="${root}/SoraPassport/Scripts/test-production-rollout
 application_info_plist="${root}/SoraPassport/Info.plist"
 nexus_service="${root}/SoraPassport/Common/Model/NexusWalletService.swift"
 nexus_ui="${root}/SoraPassport/ModulesRedesign/MoreMenu/NexusPortfolioViewController.swift"
+more_menu_presenter="${root}/SoraPassport/ModulesRedesign/MoreMenu/MoreMenuPresenter.swift"
+app_settings_presenter="${root}/SoraPassport/ModulesRedesign/AppSettings/AppSettingsPresenter.swift"
 app_delegate="${root}/SoraPassport/AppDelegate.swift"
 service_coordinator="${root}/SoraPassport/Common/Services/ServiceCoordinator.swift"
 splash_interactor="${root}/SoraPassport/ModulesRedesign/SplashScreen/SplashInteractor.swift"
@@ -3558,6 +3560,10 @@ if ! /usr/bin/grep -Fq "private static let lock = NSLock()" "${wallet_network_mo
    ! /usr/bin/grep -Fq "verifyAndCommitExplicitRemovalMetadata(" "${account_options}" ||
    ! /usr/bin/grep -Fq "WalletExplicitRemovalIdentityPolicy.verify(" "${account_options}" ||
    ! /usr/bin/grep -Fq "LegacySoraIdentityValidator.validate(" "${account_options}" ||
+   ! /usr/bin/grep -Fq "activeSnapshot: snapshot," "${account_options}" ||
+   ! /usr/bin/grep -Fq "activeSnapshot: current," "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "recoveryGate: WalletRecoveryCapabilityGate" "${keystore_extensions}" ||
+   ! /usr/bin/grep -Fq "recoveryGate: recoveryGate" "${keystore_extensions}" ||
    ! /usr/bin/grep -Fq "identityPreflightOperation.addDependency(" "${account_options}" ||
    ! /usr/bin/grep -Fq "removesRetainedLegacyEntropy" "${account_options}" ||
    ! /usr/bin/grep -Fq "MigrationAccountCompletionStore.remove(" "${account_options}" ||
@@ -4087,6 +4093,83 @@ if /usr/bin/grep -Fq "walletMigrationRecoveryRequired = false" "${storage_migrat
    /usr/bin/grep -Fq "walletMigrationRecoveryReason = nil" "${storage_migrator}" ||
    ! /usr/bin/grep -Fq "testSuccessfulCurrentSchemaSafetySnapshotDoesNotClearConcurrentRecoveryMarker" "${modernization_tests}"; then
     echo "error: a successful migration path can clear a concurrent sticky recovery latch"
+    exit 1
+fi
+
+if ! /usr/bin/grep -Fq "private let recoveryGate: WalletRecoveryCapabilityGate" "${storage_migrator}" ||
+   ! /usr/bin/grep -Fq "private func fetchEntropyForAddress(_ address: String)" "${storage_migrator}" ||
+   ! /usr/bin/grep -Fq "recoveryGate: recoveryGate ??" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "makeIsolatedRecoveryGate(settings: settings)" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "injectedBlockedSettings.walletMigrationRecoveryRequired = true" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "recoveryGate: blockedMigrationGate" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "blockedMigrator.performMigration()" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "recoveryMarkerReadCount" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "blockedStoreBytes" "${modernization_tests}" ||
+   ! /usr/bin/python3 -I -S - \
+        "${wallet_network_model}" \
+        "${keystore_extensions}" \
+        "${storage_migrator}" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+wallet_model, keystore, storage = [Path(value).read_text() for value in sys.argv[1:]]
+validator_marker = "enum LegacySoraIdentityValidator {"
+if validator_marker not in wallet_model:
+    raise SystemExit(1)
+validator_source = wallet_model.split(validator_marker, 1)[1]
+signature = re.search(
+    r"static func validate\((?P<body>.*?)\n\s*\) throws \{",
+    validator_source,
+    re.DOTALL,
+)
+if signature is None or "recoveryGate: WalletRecoveryCapabilityGate" not in signature.group("body"):
+    raise SystemExit(1)
+if "recoveryGate: WalletRecoveryCapabilityGate = .shared" in signature.group("body"):
+    raise SystemExit(1)
+
+def has_injected_validator_call(source: str) -> bool:
+    return re.search(
+        r"LegacySoraIdentityValidator\.validate\(.*?"
+        r"recoveryGate:\s*recoveryGate\s*\n\s*\)",
+        source,
+        re.DOTALL,
+    ) is not None
+
+if not has_injected_validator_call(keystore):
+    raise SystemExit(1)
+if not has_injected_validator_call(storage):
+    raise SystemExit(1)
+PY
+then
+    echo "error: retained entropy validation does not preserve the caller's recovery capability"
+    exit 1
+fi
+
+if /usr/bin/grep -Fq "Set(NetworkId.allCases)" "${root_interactor}" ||
+   /usr/bin/grep -Fq "Set(NetworkId.allCases)" "${modernization_tests}" ||
+   /usr/bin/grep -Fq "[.sora2, .minamoto, .taira]" "${wallet_network_model}" ||
+   /usr/bin/grep -Fq "[.minamoto, .taira]" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "struct NexusDerivationProfile" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "struct NexusNetworkAdmissionPolicy" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "persistedMnemonicNetworkIdsAreValid" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "verifyTopologyAdmission(" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "admissionPolicy.admittedDerivationProfiles" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "static var admittedWalletNetworkIds" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq ".admittedWalletNetworkIds" "${wallet_network_model}" ||
+   ! /usr/bin/grep -Fq "NexusNetworkConfiguration.admittedWalletNetworkIds" "${root_interactor}" ||
+   ! /usr/bin/grep -Fq "NexusNetworkConfiguration.admittedWalletNetworkIds" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "testNexusAdmissionPolicyHasIndependentExactTopologySets" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "testNexusTopologyAdmissionAppendsAndRetainsTairaRecovery" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "tairaAdmitted: Bool" "${nexus_ui}" ||
+   ! /usr/bin/grep -Fq ".current.isTairaAdmitted" "${nexus_ui}" ||
+   ! /usr/bin/grep -Fq "portfolioSubtitle(tairaAdmitted:" "${more_menu_presenter}" ||
+   ! /usr/bin/grep -Fq ".current.isTairaAdmitted" "${more_menu_presenter}" ||
+   ! /usr/bin/grep -Fq "exposesTairaSettings(" "${app_settings_presenter}" ||
+   ! /usr/bin/grep -Fq ".current.isTairaAdmitted" "${app_settings_presenter}" ||
+   ! /usr/bin/grep -Fq '"SORA2 · Minamoto"' "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq '"SORA2 · Minamoto · Taira Testnet"' "${modernization_tests}"; then
+    echo "error: retained-wallet migration and verification disagree on bundle-admitted Nexus networks"
     exit 1
 fi
 
@@ -5215,11 +5298,11 @@ if [ "${migration_candidate_archive_active}" = "true" ]; then
     retained_device_evidence_test_count="$(
         /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
     )"
-    if [ "${modernization_test_count}" != "198" ] ||
+    if [ "${modernization_test_count}" != "200" ] ||
        [ "${recovery_gate_test_count}" != "11" ] ||
        [ "${recovery_export_test_count}" != "12" ] ||
        [ "${retained_device_evidence_test_count}" != "3" ] ||
-       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 224 ] ||
+       [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 226 ] ||
        ! verify_qualification_contract_unchanged; then
         echo "error: observed-only candidate archive migration source contract is incomplete or unstable"
         exit 1
@@ -5412,15 +5495,15 @@ recovery_export_test_count="$(
 retained_device_evidence_test_count="$(
     /usr/bin/grep -Ec '^[[:space:]]+func test' "${migration_evidence_tests}"
 )"
-if [ "${modernization_test_count}" != "198" ]; then
-    echo "error: WalletModernizationTests source must contain exactly 198 test methods"
+if [ "${modernization_test_count}" != "200" ]; then
+    echo "error: WalletModernizationTests source must contain exactly 200 test methods"
     exit 1
 fi
 if [ "${recovery_gate_test_count}" != "11" ] ||
    [ "${recovery_export_test_count}" != "12" ] ||
    [ "${retained_device_evidence_test_count}" != "3" ] ||
-   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 224 ]; then
-    echo "error: retained iOS migration evidence source must contain the exact 224-test inventory"
+   [ "$((modernization_test_count + recovery_gate_test_count + recovery_export_test_count + retained_device_evidence_test_count))" -ne 226 ]; then
+    echo "error: retained iOS migration evidence source must contain the exact 226-test inventory"
     exit 1
 fi
 qualified_at_epoch_seconds="$(

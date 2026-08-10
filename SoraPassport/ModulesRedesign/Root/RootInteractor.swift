@@ -406,7 +406,7 @@ final class RootInteractor {
         let expectedNetworks: Set<NetworkId> =
             expectedSource == .legacyMnemonicEntropy
                 ? [.sora2]
-                : Set(NetworkId.allCases)
+                : NexusNetworkConfiguration.admittedWalletNetworkIds
         guard
             !retainedEntropy.isEmpty,
             Data(SHA256.hash(data: retainedEntropy)) ==
