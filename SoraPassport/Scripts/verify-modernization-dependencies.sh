@@ -163,6 +163,123 @@ if named_phase_ids != set(observed.values()):
 PY
 }
 
+verify_reachability_listener_synchronization() {
+    ios_reachability_manager="$1"
+    if [ ! -f "${ios_reachability_manager}" ] || [ -L "${ios_reachability_manager}" ]; then
+        echo "error: synchronized ReachabilityManager source is absent, non-regular, or symbolic" >&2
+        return 1
+    fi
+    /usr/bin/python3 -I -S - "${ios_reachability_manager}" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+
+def fail(message):
+    raise SystemExit(f"error: {message}")
+
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+
+
+def function_range(signature):
+    start = source.find(signature)
+    if start < 0 or source.find(signature, start + 1) >= 0:
+        fail(f"ReachabilityManager must contain exactly one {signature.strip()}")
+    opening = source.find("{", start + len(signature))
+    if opening < 0:
+        fail(f"ReachabilityManager {signature.strip()} has no body")
+    depth = 0
+    for offset in range(opening, len(source)):
+        character = source[offset]
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return start, offset + 1
+    fail(f"ReachabilityManager {signature.strip()} body is unbalanced")
+
+
+locked_signatures = (
+    "    private func addListenerIfNeeded(",
+    "    private func removeListener(",
+    "    private func hasLiveListeners()",
+    "    private func liveListenersSnapshot()",
+)
+locked_ranges = [function_range(signature) for signature in locked_signatures]
+lock_helper_range = function_range("    private func withListenersLock<T>(")
+notify_range = function_range("    func notifyListeners()")
+add_range = function_range("    public func add(listener:")
+remove_range = function_range("    public func remove(listener:")
+
+if source.count("    private var listeners: [ReachabilityListenerWrapper] = []") != 1:
+    fail("ReachabilityManager weak listener storage identity drifted")
+if source.count("    private let listenersLock = NSLock()") != 1:
+    fail("ReachabilityManager listener lock is absent or ambiguous")
+if source.count("    private let notifierLock = NSLock()") != 1:
+    fail("ReachabilityManager notifier lifecycle lock is absent or ambiguous")
+if source.count("    init?() {") != 1:
+    fail("ReachabilityManager isolated internal test initializer is absent or ambiguous")
+
+lock_helper = source[slice(*lock_helper_range)]
+if (
+    "listenersLock.lock()" not in lock_helper
+    or "defer { listenersLock.unlock() }" not in lock_helper
+    or lock_helper.index("listenersLock.lock()")
+    > lock_helper.index("defer { listenersLock.unlock() }")
+    or lock_helper.index("defer { listenersLock.unlock() }")
+    > lock_helper.index("return try body()")
+):
+    fail("ReachabilityManager listener lock helper is not fail-closed")
+
+for start, end in locked_ranges:
+    body = source[start:end]
+    if "withListenersLock {" not in body:
+        fail("ReachabilityManager weak listener access escaped the listener lock")
+
+declaration_offset = source.index(
+    "    private var listeners: [ReachabilityListenerWrapper] = []"
+)
+for match in re.finditer(r"\blisteners\b", source):
+    offset = match.start()
+    if offset == declaration_offset + len("    private var "):
+        continue
+    if not any(start <= offset < end for start, end in locked_ranges):
+        fail("ReachabilityManager contains weak listener storage access outside locked helpers")
+
+snapshot = source[slice(*locked_ranges[-1])]
+if (
+    "listeners = listeners.filter { $0.listener != nil }" not in snapshot
+    or "return listeners.compactMap { $0.listener }" not in snapshot
+    or snapshot.index("listeners = listeners.filter { $0.listener != nil }")
+    > snapshot.index("return listeners.compactMap { $0.listener }")
+):
+    fail("ReachabilityManager does not prune and strongly snapshot live listeners under lock")
+
+notify = source[slice(*notify_range)]
+if (
+    "let liveListeners = liveListenersSnapshot()" not in notify
+    or "liveListeners.forEach { $0.didChangeReachability(by: self) }" not in notify
+    or notify.index("let liveListeners = liveListenersSnapshot()")
+    > notify.index("liveListeners.forEach { $0.didChangeReachability(by: self) }")
+    or "withListenersLock" in notify
+    or "listenersLock" in notify
+):
+    fail("ReachabilityManager callbacks are not delivered from an unlocked strong snapshot")
+
+if source.count("self?.notifyListeners()") != 2:
+    fail("ReachabilityManager reachability callbacks bypass synchronized delivery")
+for operation_range in (add_range, remove_range):
+    operation = source[slice(*operation_range)]
+    if (
+        "notifierLock.lock()" not in operation
+        or "defer { notifierLock.unlock() }" not in operation
+    ):
+        fail("ReachabilityManager notifier lifecycle is not serialized")
+PY
+}
+
 run_ios_migration_release_source_gate() {
     ios_gate_projector="${root}/SoraPassport/Scripts/derive-ios-migration-test-host.py"
     ios_gate_clone="${root}/SoraPassport/Scripts/create-ios-migration-installable-clone.py"
@@ -198,7 +315,9 @@ run_ios_migration_release_source_gate() {
     ios_gate_ui_runner="${root}/SoraPassportUITests/RetainedMigrationEvidenceUITests.swift"
     ios_gate_modernization_tests="${root}/SoraPassportTests/Common/Modernization/WalletModernizationTests.swift"
     ios_gate_account_creation_helper="${root}/SoraPassportTests/Helpers/AccountCreationHelper.swift"
+    ios_gate_jsonrpc_tests="${root}/SoraPassportIntegrationTests/Substrate/JSONRPCTests.swift"
     ios_gate_websocket_engine="${root}/VendorPackages/shared-features-spm/Sources/SSFUtils/SSFUtils/Classes/Network/WebSocketEngine.swift"
+    ios_gate_reachability_manager="${root}/VendorPackages/shared-features-spm/Sources/SSFUtils/SSFUtils/Classes/Network/Reachability/ReachabilityManager.swift"
     ios_gate_evidence_scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPassportMigrationEvidence.xcscheme"
     ios_gate_ui_scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPassportMigrationEvidenceUI.xcscheme"
 
@@ -237,7 +356,9 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_ui_runner}" \
         "${ios_gate_modernization_tests}" \
         "${ios_gate_account_creation_helper}" \
+        "${ios_gate_jsonrpc_tests}" \
         "${ios_gate_websocket_engine}" \
+        "${ios_gate_reachability_manager}" \
         "${ios_gate_evidence_scheme}" \
         "${ios_gate_ui_scheme}"
     do
@@ -249,6 +370,10 @@ run_ios_migration_release_source_gate() {
 
     if ! verify_google_signin_info_plist_phase_dependencies "${ios_gate_project}"; then
         echo "error: Google Sign-In Info.plist build-order dependency drifted" >&2
+        return 1
+    fi
+    if ! verify_reachability_listener_synchronization "${ios_gate_reachability_manager}"; then
+        echo "error: ReachabilityManager weak listener synchronization drifted" >&2
         return 1
     fi
 
@@ -326,7 +451,9 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_ui_runner}" \
         "${ios_gate_modernization_tests}" \
         "${ios_gate_account_creation_helper}" \
-        "${ios_gate_websocket_engine}"
+        "${ios_gate_jsonrpc_tests}" \
+        "${ios_gate_websocket_engine}" \
+        "${ios_gate_reachability_manager}"
     do
         if ! /usr/bin/xcrun swiftc -frontend -parse "${ios_gate_swift}"; then
             echo "error: iOS migration Release Swift source does not parse: ${ios_gate_swift}" >&2
@@ -382,6 +509,12 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq 'SelectedWalletSettingsProtocol' "${ios_gate_account_creation_helper}" ||
        ! /usr/bin/grep -Fq 'settings.save(value: accountItem)' "${ios_gate_account_creation_helper}" ||
        /usr/bin/grep -Fq 'SelectedWalletSettings.shared' "${ios_gate_account_creation_helper}" ||
+       ! /usr/bin/grep -Fq '@testable import SSFUtils' "${ios_gate_jsonrpc_tests}" ||
+       ! /usr/bin/grep -Fq 'func testReachabilityListenersAreSynchronizedAndCallbacksAreReentrant() throws {' "${ios_gate_jsonrpc_tests}" ||
+       ! /usr/bin/grep -Fq 'let manager = try XCTUnwrap(SSFUtils.ReachabilityManager())' "${ios_gate_jsonrpc_tests}" ||
+       ! /usr/bin/grep -Fq 'attributes: .concurrent' "${ios_gate_jsonrpc_tests}" ||
+       [ "$(/usr/bin/grep -Fc 'manager.notifyListeners()' "${ios_gate_jsonrpc_tests}")" -ne 3 ] ||
+       ! /usr/bin/grep -Fq 'manager.remove(listener: self)' "${ios_gate_jsonrpc_tests}" ||
        ! /usr/bin/grep -Fq 'private func makeIsolatedRecoveryGate(' "${ios_gate_modernization_tests}" ||
        ! /usr/bin/grep -Fq 'private func makeWalletNetworkStore(' "${ios_gate_modernization_tests}" ||
        ! /usr/bin/grep -Fq 'private func makeLifecycleCoordinator()' "${ios_gate_modernization_tests}" ||
@@ -492,12 +625,16 @@ if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-google-signin-phase-dependencies" ]; t
     verify_google_signin_info_plist_phase_dependencies "$2"
     exit 0
 fi
+if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-reachability-listener-synchronization" ]; then
+    verify_reachability_listener_synchronization "$2"
+    exit 0
+fi
 if [ "$#" -eq 1 ] && [ "$1" = "--lint-ios-migration-release-source-gate" ]; then
     run_ios_migration_release_source_gate
     exit 0
 fi
 if [ "$#" -ne 0 ]; then
-    echo "error: usage: verify-modernization-dependencies.sh [--lint-ios-migration-release-source-gate | --lint-ios-google-signin-phase-dependencies PROJECT]" >&2
+    echo "error: usage: verify-modernization-dependencies.sh [--lint-ios-migration-release-source-gate | --lint-ios-google-signin-phase-dependencies PROJECT | --lint-ios-reachability-listener-synchronization SOURCE]" >&2
     exit 64
 fi
 
@@ -3491,7 +3628,7 @@ if ! /usr/bin/grep -Fq "var privacySafeOutcomeCode: String" "${storage_migrator}
     exit 1
 fi
 
-if ! /usr/bin/grep -Fq 'logger.debug("Migration eligibility response received")' "${json_rpc_integration_tests}" ||
+if ! /usr/bin/grep -Fq 'message: "Migration eligibility response received"' "${json_rpc_integration_tests}" ||
    /usr/bin/grep -Eq '(logger\.(debug|info|warning|error)|Logger\.shared\.(debug|info|warning|error)|print\(|NSLog\().*mnemonic|mnemonic.*(logger\.(debug|info|warning|error)|Logger\.shared\.(debug|info|warning|error)|print\(|NSLog\()' "${json_rpc_integration_tests}"; then
     echo "error: an iOS integration test can emit a wallet mnemonic"
     exit 1

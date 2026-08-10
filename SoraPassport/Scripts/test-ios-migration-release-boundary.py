@@ -47,6 +47,11 @@ SCHEME = (
 CONTRACT = ROOT / "Fixtures/Modernization/ios-migration-qualification-contract-v1.json"
 EXPORT_OPTIONS = ROOT / "SoraPassport/Configs/ios-migration-candidate-export-options.plist"
 CI_WORKFLOW = ROOT / ".github/workflows/ios_modernization.yml"
+REACHABILITY_MANAGER = (
+    ROOT
+    / "VendorPackages/shared-features-spm/Sources/SSFUtils/SSFUtils/Classes/Network"
+    / "Reachability/ReachabilityManager.swift"
+)
 
 
 def run(*arguments: str) -> subprocess.CompletedProcess[str]:
@@ -727,6 +732,72 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
                     "must declare the exact processed Info.plist input dependency",
                     rejected.stderr,
                 )
+
+        reachability_source = REACHABILITY_MANAGER.read_text(encoding="utf-8")
+        canonical_reachability = run(
+            "/bin/sh",
+            str(DEPENDENCIES),
+            "--lint-ios-reachability-listener-synchronization",
+            str(REACHABILITY_MANAGER),
+        )
+        self.assertEqual(
+            canonical_reachability.returncode,
+            0,
+            canonical_reachability.stderr,
+        )
+        self.assertIn(
+            'verify_reachability_listener_synchronization "${ios_gate_reachability_manager}"',
+            source,
+        )
+        reachability_mutations = (
+            (
+                "missing-lock",
+                reachability_source.replace(
+                    "        listenersLock.lock()",
+                    "        // listener lock removed by mutation",
+                    1,
+                ),
+            ),
+            (
+                "unpruned-snapshot",
+                reachability_source.replace(
+                    "            return listeners.compactMap { $0.listener }",
+                    "            return []",
+                    1,
+                ),
+            ),
+            (
+                "callback-under-lock",
+                reachability_source.replace(
+                    "        liveListeners.forEach { $0.didChangeReachability(by: self) }",
+                    "        withListenersLock { liveListeners.forEach { $0.didChangeReachability(by: self) } }",
+                    1,
+                ),
+            ),
+            (
+                "unserialized-notifier",
+                reachability_source.replace(
+                    "        notifierLock.lock()",
+                    "        // notifier lock removed by mutation",
+                    1,
+                ),
+            ),
+        )
+        for mutation_name, mutated_source in reachability_mutations:
+            with self.subTest(mutation_name=mutation_name), tempfile.TemporaryDirectory(
+                prefix="sora-reachability-listener-mutation."
+            ) as mutation_directory:
+                self.assertNotEqual(mutated_source, reachability_source)
+                mutated_manager = Path(mutation_directory) / "ReachabilityManager.swift"
+                mutated_manager.write_text(mutated_source, encoding="utf-8")
+                rejected = run(
+                    "/bin/sh",
+                    str(DEPENDENCIES),
+                    "--lint-ios-reachability-listener-synchronization",
+                    str(mutated_manager),
+                )
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertIn("ReachabilityManager", rejected.stderr)
 
         physical = run(
             "/bin/sh",

@@ -24,9 +24,11 @@ public final class ReachabilityManager {
     public static let shared: ReachabilityManager? = ReachabilityManager()
 
     private var listeners: [ReachabilityListenerWrapper] = []
+    private let listenersLock = NSLock()
+    private let notifierLock = NSLock()
     private var reachability: Reachability
 
-    private init?() {
+    init?() {
         guard let newReachability = try? Reachability() else {
             return nil
         }
@@ -34,16 +36,56 @@ public final class ReachabilityManager {
         reachability = newReachability
 
         reachability.whenReachable = { [weak self] _ in
-            if let strongSelf = self {
-                self?.listeners.forEach { $0.listener?.didChangeReachability(by: strongSelf) }
-            }
+            self?.notifyListeners()
         }
 
         reachability.whenUnreachable = { [weak self] _ in
-            if let strongSelf = self {
-                self?.listeners.forEach { $0.listener?.didChangeReachability(by: strongSelf) }
+            self?.notifyListeners()
+        }
+    }
+
+    private func withListenersLock<T>(_ body: () throws -> T) rethrows -> T {
+        listenersLock.lock()
+        defer { listenersLock.unlock() }
+        return try body()
+    }
+
+    private func addListenerIfNeeded(_ listener: ReachabilityListenerDelegate) -> Bool {
+        withListenersLock {
+            listeners = listeners.filter { $0.listener != nil }
+            guard !listeners.contains(where: { $0.listener === listener }) else {
+                return false
+            }
+            listeners.append(ReachabilityListenerWrapper(listener: listener))
+            return true
+        }
+    }
+
+    private func removeListener(_ listener: ReachabilityListenerDelegate) {
+        withListenersLock {
+            listeners = listeners.filter {
+                $0.listener != nil && $0.listener !== listener
             }
         }
+    }
+
+    private func hasLiveListeners() -> Bool {
+        withListenersLock {
+            listeners = listeners.filter { $0.listener != nil }
+            return !listeners.isEmpty
+        }
+    }
+
+    private func liveListenersSnapshot() -> [ReachabilityListenerDelegate] {
+        withListenersLock {
+            listeners = listeners.filter { $0.listener != nil }
+            return listeners.compactMap { $0.listener }
+        }
+    }
+
+    func notifyListeners() {
+        let liveListeners = liveListenersSnapshot()
+        liveListeners.forEach { $0.didChangeReachability(by: self) }
     }
 }
 
@@ -53,22 +95,29 @@ extension ReachabilityManager: ReachabilityManagerProtocol {
     }
 
     public func add(listener: ReachabilityListenerDelegate) throws {
-        if listeners.isEmpty {
-            try reachability.startNotifier()
+        let didAddListener = addListenerIfNeeded(listener)
+
+        notifierLock.lock()
+        defer { notifierLock.unlock() }
+        guard hasLiveListeners() else {
+            return
         }
-
-        listeners = listeners.filter { $0.listener != nil }
-
-        if !listeners.contains(where: { $0.listener === listener }) {
-            let wrapper = ReachabilityListenerWrapper(listener: listener)
-            listeners.append(wrapper)
+        do {
+            try reachability.startNotifier()
+        } catch {
+            if didAddListener {
+                removeListener(listener)
+            }
+            throw error
         }
     }
 
     public func remove(listener: ReachabilityListenerDelegate) {
-        listeners = listeners.filter { $0.listener != nil && $0.listener !== listener }
+        removeListener(listener)
 
-        if listeners.isEmpty {
+        notifierLock.lock()
+        defer { notifierLock.unlock() }
+        if !hasLiveListeners() {
             reachability.stopNotifier()
         }
     }
