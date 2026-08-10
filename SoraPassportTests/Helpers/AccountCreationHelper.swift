@@ -12,7 +12,8 @@ final class AccountCreationHelper {
                                           networkType: Chain = .sora,
                                           derivationPath: String = "",
                                           keychain: KeystoreProtocol,
-                                          settings: SettingsManagerProtocol) throws {
+                                          settings: SettingsManagerProtocol &
+                                              SelectedWalletSettingsProtocol) throws {
         let mnemonic: IRMnemonicProtocol
 
         if let mnemonicString = mnemonicString {
@@ -26,7 +27,10 @@ final class AccountCreationHelper {
                                              derivationPath: derivationPath,
                                              cryptoType: cryptoType)
 
-        let factory = AccountOperationFactory(keystore: keychain)
+        let factory = AccountOperationFactory(
+            keystore: keychain,
+            recoveryGate: isolatedRecoveryGate(settings: settings)
+        )
         let operation = factory.prepareAccountOperation(
             request: request,
             mnemonic: mnemonic
@@ -48,14 +52,18 @@ final class AccountCreationHelper {
                                       networkType: Chain = .sora,
                                       derivationPath: String = "",
                                       keychain: KeystoreProtocol,
-                                      settings: SettingsManagerProtocol) throws {
+                                      settings: SettingsManagerProtocol &
+                                          SelectedWalletSettingsProtocol) throws {
         let request = AccountImportSeedRequest(seed: seed,
                                                username: name,
                                                networkType: networkType,
                                                derivationPath: derivationPath,
                                                cryptoType: cryptoType)
 
-        let factory = AccountOperationFactory(keystore: keychain)
+        let factory = AccountOperationFactory(
+            keystore: keychain,
+            recoveryGate: isolatedRecoveryGate(settings: settings)
+        )
         let operation = factory.prepareAccountOperation(request: request)
 
         OperationQueue().addOperations([operation], waitUntilFinished: true)
@@ -72,7 +80,8 @@ final class AccountCreationHelper {
                                           password: String,
                                           username: String,
                                           keychain: KeystoreProtocol,
-                                          settings: SettingsManagerProtocol ) throws {
+                                          settings: SettingsManagerProtocol &
+                                              SelectedWalletSettingsProtocol) throws {
         guard let url = Bundle(for: AccountCreationHelper.self).url(forResource: filename, withExtension: "json") else {
             return
         }
@@ -95,7 +104,8 @@ final class AccountCreationHelper {
     static func createAccountFromKeystoreData(_ data: Data,
                                               password: String,
                                               keychain: KeystoreProtocol,
-                                              settings: SettingsManagerProtocol,
+                                              settings: SettingsManagerProtocol &
+                                                  SelectedWalletSettingsProtocol,
                                               networkType: Chain,
                                               cryptoType: SoraPassport.CryptoType,
                                               username: String) throws {
@@ -109,7 +119,10 @@ final class AccountCreationHelper {
                                                    networkType: networkType,
                                                    cryptoType: cryptoType)
 
-        let factory = AccountOperationFactory(keystore: keychain)
+        let factory = AccountOperationFactory(
+            keystore: keychain,
+            recoveryGate: isolatedRecoveryGate(settings: settings)
+        )
         let operation = factory.prepareAccountOperation(request: request)
 
         OperationQueue().addOperations([operation], waitUntilFinished: true)
@@ -122,13 +135,24 @@ final class AccountCreationHelper {
         try selectAccount(accountItem, settings: settings)
     }
 
-    static func selectAccount(_ accountItem: AccountItem, settings: SettingsManagerProtocol) throws {
-        let type = try SS58AddressFactory().type(fromAddress: accountItem.address)
+    static func selectAccount(
+        _ accountItem: AccountItem,
+        settings: SettingsManagerProtocol & SelectedWalletSettingsProtocol
+    ) throws {
+        _ = try SS58AddressFactory().type(fromAddress: accountItem.address)
 
-        var currentSettings = settings
-        currentSettings.set(value: accountItem, for: SettingsKey.selectedAccount.rawValue)
+        settings.set(value: accountItem, for: SettingsKey.selectedAccount.rawValue)
+        settings.save(value: accountItem)
+    }
 
-        SelectedWalletSettings.shared.save(value: accountItem)
+    private static func isolatedRecoveryGate(
+        settings: SettingsManagerProtocol
+    ) -> WalletRecoveryCapabilityGate {
+        WalletRecoveryCapabilityGate(
+            settings: settings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
     }
 }
 

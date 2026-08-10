@@ -291,7 +291,7 @@ fixed 26-key authorization, nonarchivable Release schemes, archive-derived clone
 An absent suite, changed test count, stale authorization shape, symbolic source, malformed script,
 or missing hook fails this gate closed.
 
-The complete application XCTest action can be executed with Release optimization on an arm64
+Every simulator-eligible application XCTest can be executed with Release optimization on an arm64
 simulator through the exact non-promoting wrapper:
 
 ```sh
@@ -309,6 +309,11 @@ SDK/platform, disabled signing, enabled testability, and active arm64 architectu
 protected signing, archive, migration-evidence, funded-canary, and rollout admission. Consequently,
 a passing simulator result is useful Release-regression evidence but cannot authorize a device build,
 IPA, TestFlight upload, migration receipt, or production promotion.
+
+The wrapper excludes exactly the three retained-device attachment methods and the one retained-device
+UI method. Those methods require the registered physical device, exact-IPA installable clone, fixed
+evidence environment, and signed authorization; they remain mandatory in the dedicated Release
+evidence schemes and cannot be satisfied, skipped, or replaced by this simulator run.
 
 The wrapper fixes the project, scheme, Release configuration, physical-device destination, and
 `build-for-testing` action, and enables Swift testability only for these non-archivable XCTest

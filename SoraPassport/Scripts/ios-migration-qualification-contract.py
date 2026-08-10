@@ -329,8 +329,12 @@ def load_manifest(
         PurePosixPath(
             "SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests.swift"
         ),
+        PurePosixPath("SoraPassportTests/Helpers/AccountCreationHelper.swift"),
         PurePosixPath(
             "SoraPassportUITests/RetainedMigrationEvidenceUITests.swift"
+        ),
+        PurePosixPath(
+            "VendorPackages/shared-features-spm/Sources/SSFUtils/SSFUtils/Classes/Network/WebSocketEngine.swift"
         ),
         PurePosixPath(
             "VendorPackages/shared-features-spm/Sources/SoraKeystore/Classes/Keychain/KeystoreProtocols.swift"

@@ -117,6 +117,79 @@ final class WalletModernizationTests: XCTestCase {
         second: "fc56984b-2be7-431d-840e-21514d1883f0"
     )
 
+    private func makeIsolatedRecoveryGate(
+        settings: SettingsManagerProtocol = InMemorySettingsManager()
+    ) -> WalletRecoveryCapabilityGate {
+        WalletRecoveryCapabilityGate(
+            settings: settings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+    }
+
+    private func makeWalletNetworkStore(
+        baseURL: URL
+    ) throws -> WalletNetworkStore {
+        try WalletNetworkStore(
+            baseURL: baseURL,
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+    }
+
+    private func makeLifecycleCoordinator() -> WalletLifecycleCoordinator {
+        WalletLifecycleCoordinator(
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
+    }
+
+    private func makeWalletNetworkMigrator(
+        keystore: KeystoreProtocol,
+        store: WalletNetworkStore,
+        settings: SettingsManagerProtocol
+    ) -> WalletNetworkModelMigrator {
+        let recoveryGate = makeIsolatedRecoveryGate(settings: settings)
+        return WalletNetworkModelMigrator(
+            keystore: keystore,
+            store: store,
+            settings: settings,
+            lifecycleCoordinator: WalletLifecycleCoordinator(
+                recoveryGate: recoveryGate
+            ),
+            recoveryGate: recoveryGate
+        )
+    }
+
+    private func makeUserStorageMigrator(
+        targetVersion: UserStorageVersion,
+        storeURL: URL,
+        modelDirectory: String,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        fileManager: FileManager,
+        availableCapacity: @escaping (URL) -> Int64? = { _ in Int64.max },
+        loadWalletNetworkSnapshot:
+            @escaping () throws -> WalletNetworkSnapshot? = { nil },
+        afterLegacyStoreCopyBeforeVerification:
+            ((URL) throws -> Void)? = nil,
+        beforeSafetyActivationVerification:
+            ((URL) throws -> Void)? = nil
+    ) -> UserStorageMigrator {
+        UserStorageMigrator(
+            targetVersion: targetVersion,
+            storeURL: storeURL,
+            modelDirectory: modelDirectory,
+            keystore: keystore,
+            settings: settings,
+            fileManager: fileManager,
+            availableCapacity: availableCapacity,
+            loadWalletNetworkSnapshot: loadWalletNetworkSnapshot,
+            afterLegacyStoreCopyBeforeVerification:
+                afterLegacyStoreCopyBeforeVerification,
+            beforeSafetyActivationVerification:
+                beforeSafetyActivationVerification
+        )
+    }
+
     private static func tairaAdmissionInfo(
         currentChainId: String = tairaUUIDs.second,
         currentDeploymentEpoch: String = "200",
@@ -547,7 +620,7 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     func testWalletLifecycleCoordinatorRequiresOneActiveLease() throws {
-        let coordinator = WalletLifecycleCoordinator.shared
+        let coordinator = makeLifecycleCoordinator()
         let first = try XCTUnwrap(coordinator.tryAcquire())
         defer { first.release() }
 
@@ -576,7 +649,7 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     func testWalletLifecycleReleaseWaitsForBorrowedCriticalSection() throws {
-        let coordinator = WalletLifecycleCoordinator.shared
+        let coordinator = makeLifecycleCoordinator()
         let lease = try XCTUnwrap(coordinator.tryAcquire())
         let entered = expectation(description: "borrow entered")
         let finished = expectation(description: "borrow finished")
@@ -605,7 +678,7 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     func testCancelledLifecycleAcquireOperationDoesNotLeakLease() throws {
-        let coordinator = WalletLifecycleCoordinator.shared
+        let coordinator = makeLifecycleCoordinator()
         let first = try XCTUnwrap(coordinator.tryAcquire())
         let acquisition = coordinator.makeAcquireOperation()
         let completed = expectation(description: "cancelled acquisition")
@@ -643,7 +716,7 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     func testLifecycleAcquisitionQueueDoesNotStarveSingleWorker() {
-        let coordinator = WalletLifecycleCoordinator.shared
+        let coordinator = makeLifecycleCoordinator()
         let worker = OperationQueue()
         worker.maxConcurrentOperationCount = 1
         let completed = expectation(
@@ -675,7 +748,10 @@ final class WalletModernizationTests: XCTestCase {
             Data([0x01]),
             with: "preexisting-wallet-marker"
         )
-        let factory = AccountOperationFactory(keystore: keychain)
+        let factory = AccountOperationFactory(
+            keystore: keychain,
+            recoveryGate: makeIsolatedRecoveryGate()
+        )
         let request = AccountImportSeedRequest(
             seed: String(repeating: "01", count: 32),
             username: "Pure validation",
@@ -739,7 +815,8 @@ final class WalletModernizationTests: XCTestCase {
                 secretKey: second.privateKey().rawData(),
                 entropy: nil,
                 seed: nil,
-                derivationPath: nil
+                derivationPath: nil,
+                recoveryGate: makeIsolatedRecoveryGate()
             )
         ) { error in
             guard
@@ -3322,7 +3399,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let account = NetworkAccount(
             walletId: "legacy-sora-address",
             networkId: .sora2,
@@ -3366,7 +3443,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let wallet = WalletIdentity(
             id: "retained-wallet",
             displayName: "Retained",
@@ -3477,7 +3554,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
 
         XCTAssertThrowsError(
             try store.recordExplicitRemoval(
@@ -3568,7 +3645,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let firstAccount = NetworkAccount(
             walletId: "first-wallet",
             networkId: .sora2,
@@ -3629,7 +3706,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let identity = WalletIdentity(
             id: "legacy-sora-address",
             displayName: "Existing",
@@ -3699,7 +3776,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let activePointer = directory
             .appendingPathComponent("SORA", isDirectory: true)
             .appendingPathComponent("WalletNetworks", isDirectory: true)
@@ -3718,7 +3795,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let walletDirectory = directory
             .appendingPathComponent("SORA", isDirectory: true)
             .appendingPathComponent("WalletNetworks", isDirectory: true)
@@ -3756,7 +3833,7 @@ final class WalletModernizationTests: XCTestCase {
             defer {
                 try? FileManager.default.removeItem(at: directory)
             }
-            let store = try WalletNetworkStore(baseURL: directory)
+            let store = try makeWalletNetworkStore(baseURL: directory)
             let walletDirectory = directory
                 .appendingPathComponent("SORA", isDirectory: true)
                 .appendingPathComponent(
@@ -3837,7 +3914,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let snapshot = WalletNetworkSnapshot(
             schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
             selectedWalletId: nil,
@@ -3883,7 +3960,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let snapshot = WalletNetworkSnapshot(
             schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
             selectedWalletId: nil,
@@ -3925,7 +4002,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let snapshot = WalletNetworkSnapshot(
             schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
             selectedWalletId: nil,
@@ -3983,7 +4060,7 @@ final class WalletModernizationTests: XCTestCase {
             order: 1,
             isSelected: false
         )
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         try store.stageAndActivate(
             WalletNetworkSnapshot(
                 schemaVersion:
@@ -5379,7 +5456,7 @@ final class WalletModernizationTests: XCTestCase {
             for: "wallet.watchOnly.\(account.address)"
         )
 
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -5497,7 +5574,7 @@ final class WalletModernizationTests: XCTestCase {
             for: "wallet.watchOnly.\(second.address)"
         )
 
-        try UserStorageMigrator(
+        try makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -5627,7 +5704,7 @@ final class WalletModernizationTests: XCTestCase {
             for: "wallet.watchOnly.\(account.address)"
         )
 
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -5782,7 +5859,7 @@ final class WalletModernizationTests: XCTestCase {
         )
         settings.set(value: true, for: "wallet.watchOnly.\(first.address)")
         settings.set(value: true, for: "wallet.watchOnly.\(second.address)")
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -5886,7 +5963,7 @@ final class WalletModernizationTests: XCTestCase {
             value: true,
             for: "wallet.watchOnly.\(account.address)"
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -5990,7 +6067,7 @@ final class WalletModernizationTests: XCTestCase {
             value: true,
             for: "wallet.watchOnly.\(account.address)"
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6067,7 +6144,7 @@ final class WalletModernizationTests: XCTestCase {
         )
         let recoveryReason =
             "A concurrent integrity check preserved another wallet artifact."
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6128,7 +6205,7 @@ final class WalletModernizationTests: XCTestCase {
             value: true,
             for: "wallet.watchOnly.\(account.address)"
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6234,7 +6311,7 @@ final class WalletModernizationTests: XCTestCase {
             value: true,
             for: "wallet.watchOnly.\(account.address)"
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6307,7 +6384,7 @@ final class WalletModernizationTests: XCTestCase {
             value: true,
             for: "wallet.watchOnly.\(account.address)"
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6364,7 +6441,7 @@ final class WalletModernizationTests: XCTestCase {
             value: account,
             for: SettingsKey.selectedAccount.rawValue
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6414,7 +6491,7 @@ final class WalletModernizationTests: XCTestCase {
             value: true,
             for: "wallet.watchOnly.\(account.address)"
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6475,7 +6552,7 @@ final class WalletModernizationTests: XCTestCase {
         let sidecarURL = URL(fileURLWithPath: storeURL.path + "-wal")
         let sidecarBefore = Data("retained SQLite wallet pages".utf8)
         try sidecarBefore.write(to: sidecarURL, options: .atomic)
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6514,7 +6591,7 @@ final class WalletModernizationTests: XCTestCase {
             at: storeURL,
             withDestinationURL: missingTarget
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6570,7 +6647,7 @@ final class WalletModernizationTests: XCTestCase {
             at: storeURL,
             withDestinationURL: targetURL
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6637,7 +6714,7 @@ final class WalletModernizationTests: XCTestCase {
             at: sidecarURL,
             withDestinationURL: externalSidecarTarget
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6691,7 +6768,7 @@ final class WalletModernizationTests: XCTestCase {
                 for: SettingsKey.selectedAccount.rawValue
             )
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6738,7 +6815,7 @@ final class WalletModernizationTests: XCTestCase {
             let keystore = InMemoryKeychain()
             try keystore.addKey(Data([0x01]), with: identifier)
             XCTAssertTrue(try keystore.hasRetainedWalletMaterial())
-            let migrator = UserStorageMigrator(
+            let migrator = makeUserStorageMigrator(
                 targetVersion: .version2,
                 storeURL: storeURL,
                 modelDirectory: UserStorageParams.modelDirectory,
@@ -6826,7 +6903,7 @@ final class WalletModernizationTests: XCTestCase {
             let identitySettings = InMemorySettingsManager()
             retainedIdentity.1(identitySettings)
             XCTAssertTrue(identitySettings.hasRetainedWalletSettings())
-            let identityMigrator = UserStorageMigrator(
+            let identityMigrator = makeUserStorageMigrator(
                 targetVersion: .version2,
                 storeURL: identityStoreURL,
                 modelDirectory: UserStorageParams.modelDirectory,
@@ -6849,7 +6926,7 @@ final class WalletModernizationTests: XCTestCase {
                 FileManager.default.fileExists(atPath: identityStoreURL.path)
             )
         }
-        let settingsOnlyMigrator = UserStorageMigrator(
+        let settingsOnlyMigrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: settingsOnlyStoreURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6891,7 +6968,7 @@ final class WalletModernizationTests: XCTestCase {
             Data([0x01]),
             with: KeystoreTag.pincode.rawValue
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6935,7 +7012,7 @@ final class WalletModernizationTests: XCTestCase {
             Data([0x01]),
             with: KeystoreTag.pincode.rawValue
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -6969,7 +7046,7 @@ final class WalletModernizationTests: XCTestCase {
             value: true,
             for: "wallet.watchOnly.orphaned-watch-only-wallet"
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -7003,7 +7080,7 @@ final class WalletModernizationTests: XCTestCase {
             value: Data([0xde, 0xad, 0xbe, 0xef]),
             for: "wallet.watchOnly.unreadable-watch-only-wallet"
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -7039,7 +7116,7 @@ final class WalletModernizationTests: XCTestCase {
             accounts: [],
             createdAt: Date()
         )
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -7077,7 +7154,7 @@ final class WalletModernizationTests: XCTestCase {
         let settings = InMemorySettingsManager()
         settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
         settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: storeURL,
             modelDirectory: UserStorageParams.modelDirectory,
@@ -7131,7 +7208,7 @@ final class WalletModernizationTests: XCTestCase {
             options: .atomic
         )
         let settings = InMemorySettingsManager()
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: directory.appendingPathComponent("UserDataModel.sqlite"),
             modelDirectory: UserStorageParams.modelDirectory,
@@ -7166,7 +7243,7 @@ final class WalletModernizationTests: XCTestCase {
                 withIntermediateDirectories: true
             )
         }
-        let migrator = UserStorageMigrator(
+        let migrator = makeUserStorageMigrator(
             targetVersion: .version2,
             storeURL: directory.appendingPathComponent(
                 "UserDataModel.sqlite"
@@ -7212,7 +7289,7 @@ final class WalletModernizationTests: XCTestCase {
                 ),
                 options: .atomic
             )
-            let migrator = UserStorageMigrator(
+            let migrator = makeUserStorageMigrator(
                 targetVersion: .version2,
                 storeURL: directory.appendingPathComponent(
                     "UserDataModel.sqlite"
@@ -7248,10 +7325,10 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let settings = InMemorySettingsManager()
         let account = makeLegacyAccount(address: "missing-secret")
-        let migrator = WalletNetworkModelMigrator(
+        let migrator = makeWalletNetworkMigrator(
             keystore: InMemoryKeychain(),
             store: store,
             settings: settings
@@ -7303,7 +7380,8 @@ final class WalletModernizationTests: XCTestCase {
                 derivationPath: nil,
                 entropy: entropy,
                 rawSeed: mismatchedSeed,
-                secret: keypair.privateKey().rawData()
+                secret: keypair.privateKey().rawData(),
+                recoveryGate: makeIsolatedRecoveryGate()
             )
         ) { error in
             guard
@@ -7321,14 +7399,14 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let settings = InMemorySettingsManager()
         let account = makeLegacyAccount(address: "watch-only")
         settings.set(
             value: true,
             for: "wallet.watchOnly.\(account.address)"
         )
-        let migrator = WalletNetworkModelMigrator(
+        let migrator = makeWalletNetworkMigrator(
             keystore: InMemoryKeychain(),
             store: store,
             settings: settings
@@ -7373,8 +7451,8 @@ final class WalletModernizationTests: XCTestCase {
             value: true,
             for: "wallet.watchOnly.\(tampered.address)"
         )
-        let store = try WalletNetworkStore(baseURL: directory)
-        let migrator = WalletNetworkModelMigrator(
+        let store = try makeWalletNetworkStore(baseURL: directory)
+        let migrator = makeWalletNetworkMigrator(
             keystore: InMemoryKeychain(),
             store: store,
             settings: settings
@@ -7413,10 +7491,10 @@ final class WalletModernizationTests: XCTestCase {
             Data(repeating: 0x11, count: 32),
             with: KeystoreTag.secretKeyTagForAddress(account.address)
         )
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
 
         XCTAssertThrowsError(
-            try WalletNetworkModelMigrator(
+            try makeWalletNetworkMigrator(
                 keystore: keystore,
                 store: store,
                 settings: settings
@@ -7447,10 +7525,10 @@ final class WalletModernizationTests: XCTestCase {
             value: Data([0xca, 0xfe]),
             for: "wallet.watchOnly.\(account.address)"
         )
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
 
         XCTAssertThrowsError(
-            try WalletNetworkModelMigrator(
+            try makeWalletNetworkMigrator(
                 keystore: InMemoryKeychain(),
                 store: store,
                 settings: settings
@@ -7475,14 +7553,14 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let settings = InMemorySettingsManager()
         let account = makeLegacyAccount(address: "selection-was-lost")
         settings.set(
             value: true,
             for: "wallet.watchOnly.\(account.address)"
         )
-        let migrator = WalletNetworkModelMigrator(
+        let migrator = makeWalletNetworkMigrator(
             keystore: InMemoryKeychain(),
             store: store,
             settings: settings
@@ -7511,7 +7589,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let account = makeLegacyAccount(address: "must-survive")
         let original = WalletNetworkSnapshot(
             schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
@@ -7536,7 +7614,7 @@ final class WalletModernizationTests: XCTestCase {
             createdAt: Date(timeIntervalSince1970: 1)
         )
         try store.stageAndActivate(original)
-        let migrator = WalletNetworkModelMigrator(
+        let migrator = makeWalletNetworkMigrator(
             keystore: InMemoryKeychain(),
             store: store,
             settings: InMemorySettingsManager()
@@ -7561,7 +7639,7 @@ final class WalletModernizationTests: XCTestCase {
         defer {
             try? FileManager.default.removeItem(at: directory)
         }
-        let store = try WalletNetworkStore(baseURL: directory)
+        let store = try makeWalletNetworkStore(baseURL: directory)
         let account = makeLegacyAccount(address: "recoverable-wallet")
         let snapshot = WalletNetworkSnapshot(
             schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,

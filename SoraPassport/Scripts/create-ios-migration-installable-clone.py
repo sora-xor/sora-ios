@@ -553,8 +553,7 @@ def create(
 def lint_contract() -> None:
     controller = load_controller()
     if (
-        ROOT.name != "sora-ios"
-        or not CONTROLLER_PATH.is_file()
+        not CONTROLLER_PATH.is_file()
         or not PROJECTOR_PATH.is_file()
         or CONTRACT_ID != "sora-ios-wallet-migration-installable-clone-v1"
         or controller.INSTALLABLE_CLONE_CONTRACT_ID != CONTRACT_ID

@@ -577,6 +577,10 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "\n    -destination \"${destination}\" \\",
             "\n    -derivedDataPath \"${derived_data_path}\" \\",
             "\n    -resultBundlePath \"${result_bundle_path}\" \\",
+            "-skip-testing:SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedDeviceRunBinding",
+            "-skip-testing:SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedDeviceScenarioEvidence",
+            "-skip-testing:SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedKeychainCohortEvidence",
+            "-skip-testing:SoraPassportUITests/RetainedMigrationEvidenceUITests/testExecuteAuthorizedRetainedMigrationCase",
             "SORA_IOS_NONPROMOTING_RELEASE_TEST_MODE=sora-ios-nonpromoting-release-simulator-test-v1",
             "SORA_IOS_NONPROMOTING_RELEASE_TEST_ACTION=test",
             "CODE_SIGNING_ALLOWED=NO",
@@ -587,6 +591,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "EXCLUDED_ARCHS=x86_64",
         ):
             self.assertIn(required, action)
+        self.assertEqual(action.count("-skip-testing:"), 4)
         for forbidden in (
             " archive ",
             "-exportArchive",
@@ -621,6 +626,10 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "optimized simulator XCTest build is non-authorizing",
         ):
             self.assertIn(required, source)
+        self.assertIn(
+            '[ "$(/usr/bin/printf \'%s\\n\' "${ios_gate_release_test_action}" | /usr/bin/grep -Fc -- \'-skip-testing:\')" -ne 4 ]',
+            source,
+        )
 
         physical = run(
             "/bin/sh",
@@ -721,6 +730,22 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
         )
         self.assertIn(
             '/usr/bin/xcrun swiftc -frontend -parse "${ios_gate_swift}"',
+            source,
+        )
+        self.assertIn(
+            'ios_gate_account_creation_helper="${root}/SoraPassportTests/Helpers/AccountCreationHelper.swift"',
+            source,
+        )
+        self.assertIn(
+            "'SelectedWalletSettings.shared' \"${ios_gate_account_creation_helper}\"",
+            source,
+        )
+        self.assertIn(
+            "'WalletLifecycleCoordinator.shared' \"${ios_gate_modernization_tests}\"",
+            source,
+        )
+        self.assertIn(
+            "'Task { [weak self] in' \"${ios_gate_websocket_engine}\"",
             source,
         )
         self.assertIn('ios_gate_authorization_key_count', source)
@@ -889,6 +914,8 @@ fi
             "SoraPassport/Configs/SoraPassport.release.xcconfig",
             "SoraPassport/Info.plist",
             "SoraPassport/Common/MigrationEvidence/RetainedMigrationEvidenceHarness.swift",
+            "SoraPassportTests/Helpers/AccountCreationHelper.swift",
+            "VendorPackages/shared-features-spm/Sources/SSFUtils/SSFUtils/Classes/Network/WebSocketEngine.swift",
             "SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPassportMigrationEvidenceUI.xcscheme",
             "SoraPassportUITests/RetainedMigrationEvidenceUITests.swift",
         ):
@@ -896,6 +923,15 @@ fi
         qualifier = QUALIFIER.read_text(encoding="utf-8")
         self.assertIn("--verify-qualified-ipa", qualifier)
         self.assertIn("verify_qualified_ipa", qualifier)
+        for checkout_portable_lint in (
+            "create-ios-migration-installable-clone.py",
+            "run-ios-migration-exact-ipa-evidence.py",
+            "sanitize-ios-migration-xctestrun.py",
+        ):
+            self.assertNotIn(
+                'ROOT.name != "sora-ios"',
+                (SCRIPTS / checkout_portable_lint).read_text(encoding="utf-8"),
+            )
         promotion = PROMOTION.read_text(encoding="utf-8")
         self.assertIn("IOS_RELEASE_QUALIFIED_IPA_PACKAGE_PATH", promotion)
         self.assertEqual(promotion.count("--verify-download"), 2)
