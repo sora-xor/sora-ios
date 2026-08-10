@@ -604,7 +604,8 @@ enum WalletExplicitRemovalIdentityPolicy {
         )
         var entropy = try keystore.fetchEntropyForAddress(
             target.address,
-            activeSnapshot: snapshot
+            activeSnapshot: snapshot,
+            recoveryGate: recoveryGate
         )
         var rawSeed = try keystore.fetchSeedForAddress(
             target.address

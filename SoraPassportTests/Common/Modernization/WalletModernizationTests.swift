@@ -63,6 +63,74 @@ private final class LockedInvocationFlag: @unchecked Sendable {
     }
 }
 
+private final class CountingSettingsManager: SettingsManagerProtocol {
+    private let backing = InMemorySettingsManager()
+    private(set) var recoveryMarkerReadCount = 0
+
+    func set(value: Bool, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(value: Int, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(value: Double, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(value: String, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(value: Data, for key: String) {
+        backing.set(value: value, for: key)
+    }
+
+    func set(anyValue: Any, for key: String) {
+        backing.set(anyValue: anyValue, for: key)
+    }
+
+    func bool(for key: String) -> Bool? {
+        if key == SettingsKey.walletMigrationRecoveryRequired.rawValue {
+            recoveryMarkerReadCount += 1
+        }
+        return backing.bool(for: key)
+    }
+
+    func integer(for key: String) -> Int? {
+        backing.integer(for: key)
+    }
+
+    func double(for key: String) -> Double? {
+        backing.double(for: key)
+    }
+
+    func string(for key: String) -> String? {
+        backing.string(for: key)
+    }
+
+    func data(for key: String) -> Data? {
+        backing.data(for: key)
+    }
+
+    func anyValue(for key: String) -> Any? {
+        backing.anyValue(for: key)
+    }
+
+    func allKeys() -> [String] {
+        backing.allKeys()
+    }
+
+    func removeValue(for key: String) {
+        backing.removeValue(for: key)
+    }
+
+    func removeAll() {
+        backing.removeAll()
+    }
+}
+
 private func makeLiquidityBatchWireFixture(
     assetA: String,
     assetB: String
@@ -128,11 +196,13 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     private func makeWalletNetworkStore(
-        baseURL: URL
+        baseURL: URL,
+        admissionPolicy: NexusNetworkAdmissionPolicy = .current
     ) throws -> WalletNetworkStore {
         try WalletNetworkStore(
             baseURL: baseURL,
-            recoveryGate: makeIsolatedRecoveryGate()
+            recoveryGate: makeIsolatedRecoveryGate(),
+            admissionPolicy: admissionPolicy
         )
     }
 
@@ -145,7 +215,8 @@ final class WalletModernizationTests: XCTestCase {
     private func makeWalletNetworkMigrator(
         keystore: KeystoreProtocol,
         store: WalletNetworkStore,
-        settings: SettingsManagerProtocol
+        settings: SettingsManagerProtocol,
+        admissionPolicy: NexusNetworkAdmissionPolicy = .current
     ) -> WalletNetworkModelMigrator {
         let recoveryGate = makeIsolatedRecoveryGate(settings: settings)
         return WalletNetworkModelMigrator(
@@ -155,7 +226,8 @@ final class WalletModernizationTests: XCTestCase {
             lifecycleCoordinator: WalletLifecycleCoordinator(
                 recoveryGate: recoveryGate
             ),
-            recoveryGate: recoveryGate
+            recoveryGate: recoveryGate,
+            admissionPolicy: admissionPolicy
         )
     }
 
@@ -166,6 +238,7 @@ final class WalletModernizationTests: XCTestCase {
         keystore: KeystoreProtocol,
         settings: SettingsManagerProtocol,
         fileManager: FileManager,
+        recoveryGate: WalletRecoveryCapabilityGate? = nil,
         availableCapacity: @escaping (URL) -> Int64? = { _ in Int64.max },
         loadWalletNetworkSnapshot:
             @escaping () throws -> WalletNetworkSnapshot? = { nil },
@@ -181,6 +254,8 @@ final class WalletModernizationTests: XCTestCase {
             keystore: keystore,
             settings: settings,
             fileManager: fileManager,
+            recoveryGate: recoveryGate ??
+                makeIsolatedRecoveryGate(settings: settings),
             availableCapacity: availableCapacity,
             loadWalletNetworkSnapshot: loadWalletNetworkSnapshot,
             afterLegacyStoreCopyBeforeVerification:
@@ -1129,6 +1204,63 @@ final class WalletModernizationTests: XCTestCase {
                 currentDeploymentEpoch: "9007199254740992"
             )
         ))
+    }
+
+    func testNexusAdmissionPolicyHasIndependentExactTopologySets() throws {
+        let unadmitted = NexusNetworkAdmissionPolicy(
+            tairaDeployment: nil
+        )
+        XCTAssertEqual(
+            unadmitted.admittedDerivationProfiles.map(\.networkId),
+            [.minamoto]
+        )
+        XCTAssertEqual(
+            unadmitted.admittedWalletNetworkIds,
+            [.sora2, .minamoto]
+        )
+        XCTAssertFalse(unadmitted.isTairaAdmitted)
+
+        let binding = try Self.admittedTairaBinding()
+        let admitted = NexusNetworkAdmissionPolicy(
+            tairaDeployment: binding
+        )
+        XCTAssertEqual(
+            admitted.admittedDerivationProfiles.map(\.networkId),
+            [.minamoto, .taira]
+        )
+        XCTAssertEqual(
+            admitted.admittedWalletNetworkIds,
+            [.sora2, .minamoto, .taira]
+        )
+        XCTAssertTrue(admitted.isTairaAdmitted)
+        XCTAssertEqual(
+            NexusNetworkConfiguration.admittedWalletNetworkIds(
+                deployment: nil
+            ),
+            [.sora2, .minamoto]
+        )
+        XCTAssertEqual(
+            NexusNetworkConfiguration.admittedWalletNetworkIds(
+                deployment: binding
+            ),
+            [.sora2, .minamoto, .taira]
+        )
+        XCTAssertTrue(
+            NexusNetworkAdmissionPolicy
+                .persistedMnemonicNetworkIdsAreValid(
+                    [.sora2, .minamoto]
+                )
+        )
+        XCTAssertTrue(
+            NexusNetworkAdmissionPolicy
+                .persistedMnemonicNetworkIdsAreValid(
+                    [.sora2, .minamoto, .taira]
+                )
+        )
+        XCTAssertFalse(
+            NexusNetworkAdmissionPolicy
+                .persistedMnemonicNetworkIdsAreValid([.sora2, .taira])
+        )
     }
 
     func testSameUUIDLegacyTairaPendingRowRemainsRecoveryOnlyAcrossBothMappings()
@@ -3435,6 +3567,197 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertNil(afterRemoval.selectedWalletId)
     }
 
+    func testNexusTopologyAdmissionAppendsAndRetainsTairaRecovery()
+        throws
+    {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        func namespaceBytes() throws -> [String: Data] {
+            let walletDirectory = directory
+                .appendingPathComponent("SORA", isDirectory: true)
+                .appendingPathComponent("WalletNetworks", isDirectory: true)
+            return try Dictionary(
+                uniqueKeysWithValues: FileManager.default
+                    .contentsOfDirectory(
+                        at: walletDirectory,
+                        includingPropertiesForKeys: nil
+                    )
+                    .map {
+                        ($0.lastPathComponent, try Data(contentsOf: $0))
+                    }
+            )
+        }
+
+        let entropy = Data(repeating: 0x2a, count: 16)
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy)
+        var seed = try SeedFactory()
+            .deriveSeed(from: mnemonic.toString(), password: "")
+            .seed
+            .miniSeed
+        defer {
+            seed.resetBytes(in: seed.startIndex ..< seed.endIndex)
+        }
+        let keypair = try SR25519KeypairFactory()
+            .createKeypairFromSeed(seed, chaincodeList: [])
+        let publicKey = keypair.publicKey().rawData()
+        let address = try SS58AddressFactory().address(
+            fromAccountId: publicKey,
+            type: Chain.sora.addressType()
+        )
+        let account = AccountItem(
+            address: address,
+            cryptoType: .sr25519,
+            networkType: Chain.sora.addressType(),
+            username: "Topology transition wallet",
+            publicKeyData: publicKey,
+            settings: AccountSettings(
+                visibleAssetIds: [],
+                orderedAssetIds: []
+            ),
+            order: 0,
+            isSelected: true
+        )
+        let keychain = InMemoryKeychain()
+        try keychain.addKey(
+            entropy,
+            with: KeystoreTag.entropyTagForAddress(address)
+        )
+        let settings = InMemorySettingsManager()
+        let recoveryGate = makeIsolatedRecoveryGate(settings: settings)
+        let lifecycle = WalletLifecycleCoordinator(
+            recoveryGate: recoveryGate
+        )
+        let unadmitted = NexusNetworkAdmissionPolicy(
+            tairaDeployment: nil
+        )
+        let unadmittedStore = try WalletNetworkStore(
+            baseURL: directory,
+            recoveryGate: recoveryGate,
+            admissionPolicy: unadmitted
+        )
+        try WalletNetworkModelMigrator(
+            keystore: keychain,
+            store: unadmittedStore,
+            settings: settings,
+            lifecycleCoordinator: lifecycle,
+            recoveryGate: recoveryGate,
+            admissionPolicy: unadmitted
+        ).migrate(accounts: [account], selectedAddress: address)
+        let minamotoOnly = try XCTUnwrap(unadmittedStore.load())
+        XCTAssertEqual(
+            Set(minamotoOnly.accounts.map(\.networkId)),
+            [.sora2, .minamoto]
+        )
+        let minamotoNamespace = try namespaceBytes()
+
+        let binding = try Self.admittedTairaBinding()
+        let admitted = NexusNetworkAdmissionPolicy(
+            tairaDeployment: binding
+        )
+        var expectedTaira = try NexusKeyDerivation.derive(
+            mnemonic: mnemonic.toString(),
+            profile: .taira
+        )
+        defer {
+            expectedTaira.privateKey.resetBytes(
+                in: expectedTaira.privateKey.startIndex ..<
+                    expectedTaira.privateKey.endIndex
+            )
+            expectedTaira.chainCode.resetBytes(
+                in: expectedTaira.chainCode.startIndex ..<
+                    expectedTaira.chainCode.endIndex
+            )
+        }
+        let expectedTairaAccount = NetworkAccount(
+            walletId: address,
+            networkId: .taira,
+            derivationVersion: 1,
+            publicKey: expectedTaira.publicKey,
+            address: expectedTaira.address
+        )
+        let unauthorizedAppend = WalletNetworkSnapshot(
+            schemaVersion: minamotoOnly.schemaVersion,
+            selectedWalletId: minamotoOnly.selectedWalletId,
+            wallets: minamotoOnly.wallets,
+            accounts: minamotoOnly.accounts + [expectedTairaAccount],
+            createdAt: Date(timeIntervalSince1970: 2)
+        )
+        XCTAssertThrowsError(
+            try unadmittedStore.stageAndActivate(unauthorizedAppend)
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .snapshotVerificationFailed = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(try namespaceBytes(), minamotoNamespace)
+
+        let admittedStore = try WalletNetworkStore(
+            baseURL: directory,
+            recoveryGate: recoveryGate,
+            admissionPolicy: admitted
+        )
+        try WalletNetworkModelMigrator(
+            keystore: keychain,
+            store: admittedStore,
+            settings: settings,
+            lifecycleCoordinator: lifecycle,
+            recoveryGate: recoveryGate,
+            admissionPolicy: admitted
+        ).migrate(accounts: [account], selectedAddress: address)
+        let withTaira = try XCTUnwrap(admittedStore.load())
+        XCTAssertEqual(
+            Set(withTaira.accounts.map(\.networkId)),
+            [.sora2, .minamoto, .taira]
+        )
+        XCTAssertEqual(
+            withTaira.accounts.first(where: { $0.networkId == .taira }),
+            expectedTairaAccount
+        )
+        for (name, bytes) in minamotoNamespace where
+            name.hasPrefix("wallet-network-") {
+            XCTAssertEqual(try namespaceBytes()[name], bytes)
+        }
+
+        let admittedNamespace = try namespaceBytes()
+        try WalletNetworkModelMigrator(
+            keystore: keychain,
+            store: admittedStore,
+            settings: settings,
+            lifecycleCoordinator: lifecycle,
+            recoveryGate: recoveryGate,
+            admissionPolicy: admitted
+        ).migrate(accounts: [account], selectedAddress: address)
+        XCTAssertEqual(try namespaceBytes(), admittedNamespace)
+
+        let recoveryOnlyStore = try WalletNetworkStore(
+            baseURL: directory,
+            recoveryGate: recoveryGate,
+            admissionPolicy: unadmitted
+        )
+        XCTAssertEqual(try recoveryOnlyStore.load(), withTaira)
+        try WalletNetworkModelMigrator(
+            keystore: keychain,
+            store: recoveryOnlyStore,
+            settings: settings,
+            lifecycleCoordinator: lifecycle,
+            recoveryGate: recoveryGate,
+            admissionPolicy: unadmitted
+        ).migrate(accounts: [account], selectedAddress: address)
+        XCTAssertEqual(try recoveryOnlyStore.load(), withTaira)
+        XCTAssertEqual(try namespaceBytes(), admittedNamespace)
+        XCTAssertEqual(
+            Set(try keychain.allKeyIdentifiers()),
+            [KeystoreTag.entropyTagForAddress(address)]
+        )
+    }
+
     func testWalletNetworkStoreGenericActivationCannotRemoveOrRewriteIdentity()
         throws
     {
@@ -4149,7 +4472,8 @@ final class WalletModernizationTests: XCTestCase {
             try? FileManager.default.removeItem(at: directory)
         }
         let store = try WalletAccountCommitJournalStore(
-            baseURL: directory
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
         )
         var journal = try store.begin(
             walletId: "new-wallet",
@@ -4219,7 +4543,8 @@ final class WalletModernizationTests: XCTestCase {
             try? FileManager.default.removeItem(at: directory)
         }
         let store = try WalletAccountCommitJournalStore(
-            baseURL: directory
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
         )
         let journalDirectory = directory
             .appendingPathComponent("SORA", isDirectory: true)
@@ -4274,7 +4599,8 @@ final class WalletModernizationTests: XCTestCase {
                 try? FileManager.default.removeItem(at: directory)
             }
             let store = try WalletAccountCommitJournalStore(
-                baseURL: directory
+                baseURL: directory,
+                recoveryGate: makeIsolatedRecoveryGate()
             )
             let journalDirectory = directory
                 .appendingPathComponent("SORA", isDirectory: true)
@@ -4324,7 +4650,8 @@ final class WalletModernizationTests: XCTestCase {
             try? FileManager.default.removeItem(at: directory)
         }
         let store = try WalletAccountCommitJournalStore(
-            baseURL: directory
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
         )
         let journal = try store.begin(
             walletId: "new-wallet",
@@ -4369,7 +4696,8 @@ final class WalletModernizationTests: XCTestCase {
             try? FileManager.default.removeItem(at: directory)
         }
         let store = try WalletAccountCommitJournalStore(
-            baseURL: directory
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
         )
         let prepared = try store.begin(
             walletId: "new-wallet",
@@ -4477,7 +4805,8 @@ final class WalletModernizationTests: XCTestCase {
             try? FileManager.default.removeItem(at: directory)
         }
         let store = try WalletAccountCommitJournalStore(
-            baseURL: directory
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
         )
         let journalDirectory = directory
             .appendingPathComponent("SORA", isDirectory: true)
@@ -4504,7 +4833,8 @@ final class WalletModernizationTests: XCTestCase {
             try? FileManager.default.removeItem(at: directory)
         }
         let store = try WalletAccountCommitJournalStore(
-            baseURL: directory
+            baseURL: directory,
+            recoveryGate: makeIsolatedRecoveryGate()
         )
         let journalDirectory = directory
             .appendingPathComponent("SORA", isDirectory: true)
@@ -4755,6 +5085,122 @@ final class WalletModernizationTests: XCTestCase {
                 ),
             ],
             createdAt: Date(timeIntervalSince1970: 1)
+        )
+        let injectedBlockedSettings = InMemorySettingsManager()
+        injectedBlockedSettings.walletMigrationRecoveryRequired = true
+        let injectedBlockedGate = WalletRecoveryCapabilityGate(
+            settings: injectedBlockedSettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        XCTAssertThrowsError(
+            try keychain.fetchEntropyForAddress(
+                expectedAddress,
+                activeSnapshot: retainedSnapshot,
+                recoveryGate: injectedBlockedGate
+            )
+        ) { error in
+            guard
+                case WalletNetworkMigrationError
+                    .walletRecoveryRequired = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(
+            try keychain.fetchKey(
+                for: KeystoreTag.legacyEntropy.rawValue
+            ),
+            legacyEntropy
+        )
+
+        // Exercise the complete storage-migrator path with a distinct sticky
+        // recovery capability. The installed store, unsuffixed entropy, and
+        // Keychain inventory must remain untouched when that injected gate is
+        // blocked, even though process-global settings are healthy.
+        let blockedMigrationDirectory = FileManager.default
+            .temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(
+                at: blockedMigrationDirectory
+            )
+        }
+        try FileManager.default.createDirectory(
+            at: blockedMigrationDirectory,
+            withIntermediateDirectories: true
+        )
+        let blockedStoreURL = blockedMigrationDirectory
+            .appendingPathComponent("UserDataModel.sqlite")
+        let versionOneModel = try userStorageModel(
+            named: UserStorageVersion.version1.rawValue
+        )
+        try writeAccount(
+            prepared.account,
+            to: blockedStoreURL,
+            model: versionOneModel,
+            includesSelection: false
+        )
+        let blockedStoreBytes = try Data(contentsOf: blockedStoreURL)
+        let blockedMigrationKeychain = InMemoryKeychain()
+        try blockedMigrationKeychain.addKey(
+            legacyEntropy,
+            with: KeystoreTag.legacyEntropy.rawValue
+        )
+        let blockedMigrationSettings = CountingSettingsManager()
+        blockedMigrationSettings.set(
+            value: prepared.account,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        blockedMigrationSettings.walletMigrationRecoveryRequired = true
+        let blockedMigrationGate = WalletRecoveryCapabilityGate(
+            settings: blockedMigrationSettings,
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let blockedMigrator = makeUserStorageMigrator(
+            targetVersion: .version2,
+            storeURL: blockedStoreURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: blockedMigrationKeychain,
+            settings: blockedMigrationSettings,
+            fileManager: .default,
+            recoveryGate: blockedMigrationGate,
+            loadWalletNetworkSnapshot: { retainedSnapshot }
+        )
+        XCTAssertThrowsError(try blockedMigrator.performMigration()) {
+            error in
+            guard
+                case WalletNetworkMigrationError
+                    .walletRecoveryRequired = error
+            else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(
+            blockedMigrationSettings.recoveryMarkerReadCount,
+            1
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: blockedStoreURL),
+            blockedStoreBytes
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: blockedMigrationDirectory
+                    .appendingPathComponent("WalletMigrationSafety")
+                    .path
+            )
+        )
+        XCTAssertEqual(
+            Set(try blockedMigrationKeychain.allKeyIdentifiers()),
+            [KeystoreTag.legacyEntropy.rawValue]
+        )
+        XCTAssertEqual(
+            try blockedMigrationKeychain.fetchKey(
+                for: KeystoreTag.legacyEntropy.rawValue
+            ),
+            legacyEntropy
         )
         XCTAssertTrue(
             try WalletExplicitRemovalIdentityPolicy.verify(
@@ -5175,7 +5621,7 @@ final class WalletModernizationTests: XCTestCase {
         )
         XCTAssertEqual(
             Set(mnemonicSnapshot.accounts.map(\.networkId)),
-            Set(NetworkId.allCases)
+            NexusNetworkConfiguration.admittedWalletNetworkIds
         )
 
         // Once a wallet source is active, neither missing protected material
@@ -10603,21 +11049,62 @@ final class WalletModernizationTests: XCTestCase {
             NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
                 networkId: .minamoto,
                 nexusEnabled: true,
-                tairaEnabled: false
+                tairaEnabled: false,
+                tairaAdmitted: false
             )
         )
         XCTAssertFalse(
             NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
                 networkId: .minamoto,
                 nexusEnabled: false,
-                tairaEnabled: true
+                tairaEnabled: true,
+                tairaAdmitted: true
             )
         )
         XCTAssertFalse(
             NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
                 networkId: .taira,
                 nexusEnabled: true,
-                tairaEnabled: false
+                tairaEnabled: false,
+                tairaAdmitted: true
+            )
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: .taira,
+                nexusEnabled: true,
+                tairaEnabled: true,
+                tairaAdmitted: false
+            )
+        )
+        XCTAssertTrue(
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: .taira,
+                nexusEnabled: true,
+                tairaEnabled: true,
+                tairaAdmitted: true
+            )
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.portfolioSubtitle(
+                tairaAdmitted: false
+            ),
+            "SORA2 · Minamoto"
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.portfolioSubtitle(
+                tairaAdmitted: true
+            ),
+            "SORA2 · Minamoto · Taira Testnet"
+        )
+        XCTAssertFalse(
+            NexusPortfolioPresentationPolicy.exposesTairaSettings(
+                tairaAdmitted: false
+            )
+        )
+        XCTAssertTrue(
+            NexusPortfolioPresentationPolicy.exposesTairaSettings(
+                tairaAdmitted: true
             )
         )
         let journalRecoveryAccess =
@@ -10625,6 +11112,7 @@ final class WalletModernizationTests: XCTestCase {
                 networkId: .minamoto,
                 nexusEnabled: true,
                 tairaEnabled: false,
+                tairaAdmitted: false,
                 mutationCoordinatorAvailable: false
             )
         XCTAssertTrue(journalRecoveryAccess.readsAvailable)
@@ -10634,6 +11122,7 @@ final class WalletModernizationTests: XCTestCase {
                 networkId: .minamoto,
                 nexusEnabled: true,
                 tairaEnabled: false,
+                tairaAdmitted: false,
                 mutationCoordinatorAvailable: true
             )
         XCTAssertTrue(qualifiedMutationAccess.readsAvailable)
@@ -15060,7 +15549,7 @@ final class WalletModernizationTests: XCTestCase {
             let expectedNetworks: Set<NetworkId> =
                 expectedSource == .legacyMnemonicEntropy
                     ? [.sora2]
-                    : Set(NetworkId.allCases)
+                    : NexusNetworkConfiguration.admittedWalletNetworkIds
             XCTAssertEqual(snapshot.selectedWalletId, expectedAddress)
             XCTAssertEqual(snapshot.wallets.count, 1)
             XCTAssertEqual(snapshot.wallets.first?.id, expectedAddress)

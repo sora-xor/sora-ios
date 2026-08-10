@@ -2244,6 +2244,71 @@ struct TairaDeploymentBinding: Equatable {
     }
 }
 
+struct NexusDerivationProfile: Equatable {
+    let networkId: NetworkId
+    let derivationPath: String
+    let i105Discriminant: Int
+
+    static let minamoto = NexusDerivationProfile(
+        networkId: .minamoto,
+        derivationPath: "m/44'/617'/0'/0'",
+        i105Discriminant: 753
+    )
+
+    static let taira = NexusDerivationProfile(
+        networkId: .taira,
+        derivationPath: "m/44'/617'/1'/0'",
+        i105Discriminant: 369
+    )
+
+    static func persisted(networkId: NetworkId) -> NexusDerivationProfile? {
+        switch networkId {
+        case .sora2:
+            return nil
+        case .minamoto:
+            return .minamoto
+        case .taira:
+            return .taira
+        }
+    }
+}
+
+/// Immutable, bundle-captured authority for creating new deterministic Nexus
+/// children and exposing their runtime surfaces. Durable snapshots may retain
+/// a previously admitted Taira child as recovery evidence, but this policy
+/// never treats that retained row as current transport admission.
+struct NexusNetworkAdmissionPolicy: Equatable {
+    let tairaDeployment: TairaDeploymentBinding?
+
+    static var current: NexusNetworkAdmissionPolicy {
+        NexusNetworkAdmissionPolicy(
+            tairaDeployment: TairaDeploymentBinding.admittedFromBundle
+        )
+    }
+
+    var admittedDerivationProfiles: [NexusDerivationProfile] {
+        [.minamoto] + (tairaDeployment == nil ? [] : [.taira])
+    }
+
+    var admittedWalletNetworkIds: Set<NetworkId> {
+        Set([NetworkId.sora2]).union(
+            admittedDerivationProfiles.map(\.networkId)
+        )
+    }
+
+    var isTairaAdmitted: Bool {
+        tairaDeployment != nil
+    }
+
+    static func persistedMnemonicNetworkIdsAreValid(
+        _ networkIds: Set<NetworkId>
+    ) -> Bool {
+        let required: Set<NetworkId> = [.sora2, .minamoto]
+        return networkIds == required ||
+            networkIds == required.union([.taira])
+    }
+}
+
 struct NexusNetworkConfiguration: Codable, Equatable {
     let networkId: NetworkId
     let displayName: String
@@ -2254,14 +2319,22 @@ struct NexusNetworkConfiguration: Codable, Equatable {
     let derivationPath: String
     let isTestnet: Bool
 
+    var derivationProfile: NexusDerivationProfile {
+        NexusDerivationProfile(
+            networkId: networkId,
+            derivationPath: derivationPath,
+            i105Discriminant: i105Discriminant
+        )
+    }
+
     static let minamoto = NexusNetworkConfiguration(
         networkId: .minamoto,
         displayName: "Minamoto",
         chainId: UUID(uuidString: "00000000-0000-0000-0000-000000000753")!,
-        i105Discriminant: 753,
+        i105Discriminant: NexusDerivationProfile.minamoto.i105Discriminant,
         toriiURL: URL(string: "https://minamoto.sora.org")!,
         explorerURL: URL(string: "https://minamoto-explorer.sora.org")!,
-        derivationPath: "m/44'/617'/0'/0'",
+        derivationPath: NexusDerivationProfile.minamoto.derivationPath,
         isTestnet: false
     )
 
@@ -2272,6 +2345,20 @@ struct NexusNetworkConfiguration: Codable, Equatable {
         return taira(deployment: deployment)
     }
 
+    static var admittedWalletNetworkIds: Set<NetworkId> {
+        admittedWalletNetworkIds(
+            deployment: TairaDeploymentBinding.admittedFromBundle
+        )
+    }
+
+    static func admittedWalletNetworkIds(
+        deployment: TairaDeploymentBinding?
+    ) -> Set<NetworkId> {
+        NexusNetworkAdmissionPolicy(
+            tairaDeployment: deployment
+        ).admittedWalletNetworkIds
+    }
+
     static func taira(
         deployment: TairaDeploymentBinding
     ) -> NexusNetworkConfiguration {
@@ -2279,10 +2366,10 @@ struct NexusNetworkConfiguration: Codable, Equatable {
             networkId: .taira,
             displayName: "Taira Testnet",
             chainId: deployment.currentChainId,
-            i105Discriminant: 369,
+            i105Discriminant: NexusDerivationProfile.taira.i105Discriminant,
             toriiURL: deployment.canonicalToriiBaseURL,
             explorerURL: URL(string: "https://taira-explorer.sora.org")!,
-            derivationPath: "m/44'/617'/1'/0'",
+            derivationPath: NexusDerivationProfile.taira.derivationPath,
             isTestnet: true
         )
     }
@@ -2299,10 +2386,10 @@ struct NexusNetworkConfiguration: Codable, Equatable {
             networkId: .taira,
             displayName: "Taira Recovery",
             chainId: chainId,
-            i105Discriminant: 369,
+            i105Discriminant: NexusDerivationProfile.taira.i105Discriminant,
             toriiURL: URL(string: "https://taira-recovery.invalid")!,
             explorerURL: URL(string: "https://taira-recovery.invalid")!,
-            derivationPath: "m/44'/617'/1'/0'",
+            derivationPath: NexusDerivationProfile.taira.derivationPath,
             isTestnet: true
         )
     }
@@ -3459,6 +3546,18 @@ enum NexusKeyDerivation {
         passphrase: String = "",
         configuration: NexusNetworkConfiguration
     ) throws -> NexusDerivedAccount {
+        try derive(
+            mnemonic: mnemonic,
+            passphrase: passphrase,
+            profile: configuration.derivationProfile
+        )
+    }
+
+    static func derive(
+        mnemonic: String,
+        passphrase: String = "",
+        profile: NexusDerivationProfile
+    ) throws -> NexusDerivedAccount {
         let words = mnemonic
             .split(whereSeparator: \.isWhitespace)
             .map(String.init)
@@ -3502,7 +3601,7 @@ enum NexusKeyDerivation {
         defer {
             seed.resetBytes(in: seed.startIndex ..< seed.endIndex)
         }
-        let components = try parse(configuration.derivationPath)
+        let components = try parse(profile.derivationPath)
 
         var digest = hmacSha512(key: ed25519SeedKey, data: seed)
         defer {
@@ -3555,11 +3654,11 @@ enum NexusKeyDerivation {
         let publicKeyHex = publicKey.map { String(format: "%02x", $0) }.joined()
         let address = try IrohaAddressCodec.encode(
             publicKeyHex: publicKeyHex,
-            chainDiscriminant: configuration.i105Discriminant
+            chainDiscriminant: profile.i105Discriminant
         )
 
         return NexusDerivedAccount(
-            derivationPath: configuration.derivationPath,
+            derivationPath: profile.derivationPath,
             privateKey: privateKey,
             chainCode: chainCode,
             publicKey: publicKey,
@@ -3662,6 +3761,7 @@ final class WalletNetworkStore {
     private let directoryURL: URL
     private let fileManager: FileManager
     private let recoveryGate: WalletRecoveryCapabilityGate
+    private let admissionPolicy: NexusNetworkAdmissionPolicy
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private static let retainedSnapshotCount = 8
@@ -3680,10 +3780,12 @@ final class WalletNetworkStore {
     init(
         fileManager: FileManager = .default,
         baseURL: URL? = nil,
-        recoveryGate: WalletRecoveryCapabilityGate = .shared
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        admissionPolicy: NexusNetworkAdmissionPolicy = .current
     ) throws {
         self.fileManager = fileManager
         self.recoveryGate = recoveryGate
+        self.admissionPolicy = admissionPolicy
         let applicationSupport: URL
         if let baseURL {
             applicationSupport = baseURL
@@ -3723,7 +3825,12 @@ final class WalletNetworkStore {
         defer { Self.lock.unlock() }
 
         try validate(snapshot)
-        if let current = try loadUnlocked() {
+        let current = try loadUnlocked()
+        try verifyTopologyAdmission(
+            current: current,
+            proposed: snapshot
+        )
+        if let current {
             try verifyMonotonicActivation(
                 current: current,
                 proposed: snapshot
@@ -4152,6 +4259,52 @@ final class WalletNetworkStore {
         }
     }
 
+    /// Historical deterministic children remain durable recovery evidence,
+    /// while only the current protected bundle admission may add a child to a
+    /// new or existing mnemonic wallet.
+    private func verifyTopologyAdmission(
+        current: WalletNetworkSnapshot?,
+        proposed: WalletNetworkSnapshot
+    ) throws {
+        let currentWallets = Dictionary(
+            grouping: current?.wallets ?? [],
+            by: \.id
+        )
+        let currentAccounts = Dictionary(
+            grouping: current?.accounts ?? [],
+            by: \.walletId
+        )
+        let proposedAccounts = Dictionary(
+            grouping: proposed.accounts,
+            by: \.walletId
+        )
+        for wallet in proposed.wallets {
+            let proposedNetworkIds = Set(
+                (proposedAccounts[wallet.id] ?? []).map(\.networkId)
+            )
+            guard wallet.secretSource == .mnemonicEntropy else {
+                guard proposedNetworkIds == [.sora2] else {
+                    throw WalletNetworkMigrationError
+                        .snapshotVerificationFailed
+                }
+                continue
+            }
+            let expectedNetworkIds: Set<NetworkId>
+            if currentWallets[wallet.id]?.count == 1 {
+                expectedNetworkIds = Set(
+                    (currentAccounts[wallet.id] ?? []).map(\.networkId)
+                ).union(admissionPolicy.admittedWalletNetworkIds)
+            } else {
+                expectedNetworkIds = admissionPolicy
+                    .admittedWalletNetworkIds
+            }
+            guard proposedNetworkIds == expectedNetworkIds else {
+                throw WalletNetworkMigrationError
+                    .snapshotVerificationFailed
+            }
+        }
+    }
+
     /// `.iso8601` normalizes sub-second precision. Compare the canonical
     /// encoded representation rather than an in-memory `Date` that may carry
     /// additional precision not present in the durable snapshot.
@@ -4421,13 +4574,13 @@ final class WalletNetworkStore {
             snapshot.wallets.allSatisfy({ wallet in
                 let walletAccounts = accountsByWallet[wallet.id] ?? []
                 let networkIds = Set(walletAccounts.map(\.networkId))
-                let expectedNetworkIds: Set<NetworkId> =
-                    wallet.secretSource == .mnemonicEntropy
-                        ? [.sora2, .minamoto, .taira]
-                        : [.sora2]
                 let hasExpectedAccountCount =
-                    walletAccounts.count == expectedNetworkIds.count
-                let hasExpectedNetworks = networkIds == expectedNetworkIds
+                    walletAccounts.count == networkIds.count
+                let hasExpectedNetworks =
+                    wallet.secretSource == .mnemonicEntropy
+                        ? NexusNetworkAdmissionPolicy
+                            .persistedMnemonicNetworkIdsAreValid(networkIds)
+                        : networkIds == [.sora2]
                 let preservesSoraAddress = walletAccounts.contains(where: {
                     account in
                     account.networkId == .sora2 &&
@@ -4444,13 +4597,12 @@ final class WalletNetworkStore {
 
         for account in snapshot.accounts where account.networkId != .sora2 {
             guard
-                let configuration =
-                    NexusNetworkConfiguration.configuration(
-                        for: account.networkId
-                    ),
+                let profile = NexusDerivationProfile.persisted(
+                    networkId: account.networkId
+                ),
                 let details = try? IrohaAddressCodec.parse(
                     account.address,
-                    expectedDiscriminant: configuration.i105Discriminant
+                    expectedDiscriminant: profile.i105Discriminant
                 ),
                 details.publicKeyHex == account.publicKey
                     .map({ String(format: "%02x", $0) })
@@ -4514,7 +4666,7 @@ enum LegacySoraIdentityValidator {
         entropy: Data?,
         rawSeed: Data?,
         secret: Data?,
-        recoveryGate: WalletRecoveryCapabilityGate = .shared
+        recoveryGate: WalletRecoveryCapabilityGate
     ) throws {
         try recoveryGate
             .requireAuthorizedLifecycleContinuation()
@@ -4706,19 +4858,22 @@ final class WalletNetworkModelMigrator {
     private let settings: SettingsManagerProtocol
     private let lifecycleCoordinator: WalletLifecycleCoordinator
     private let recoveryGate: WalletRecoveryCapabilityGate
+    private let admissionPolicy: NexusNetworkAdmissionPolicy
 
     init(
         keystore: KeystoreProtocol,
         store: WalletNetworkStore,
         settings: SettingsManagerProtocol,
         lifecycleCoordinator: WalletLifecycleCoordinator = .shared,
-        recoveryGate: WalletRecoveryCapabilityGate = .shared
+        recoveryGate: WalletRecoveryCapabilityGate = .shared,
+        admissionPolicy: NexusNetworkAdmissionPolicy = .current
     ) {
         self.keystore = keystore
         self.store = store
         self.settings = settings
         self.lifecycleCoordinator = lifecycleCoordinator
         self.recoveryGate = recoveryGate
+        self.admissionPolicy = admissionPolicy
     }
 
     func migrate(
@@ -4778,7 +4933,8 @@ final class WalletNetworkModelMigrator {
                 // entropy record through a separately loaded default store.
                 entropy = try keystore.fetchEntropyForAddress(
                     account.address,
-                    activeSnapshot: current
+                    activeSnapshot: current,
+                    recoveryGate: recoveryGate
                 )
             } else {
                 // Before activation only an exact address-scoped record may be
@@ -4926,13 +5082,36 @@ final class WalletNetworkModelMigrator {
                 .mnemonic(fromEntropy: derivationEntropy)
                 .toString()
             defer { phrase.removeAll(keepingCapacity: false) }
-            let nexusConfigurations =
-                [NexusNetworkConfiguration.minamoto] +
-                [NexusNetworkConfiguration.taira].compactMap { $0 }
-            for configuration in nexusConfigurations {
+            var derivationProfiles = admissionPolicy
+                .admittedDerivationProfiles
+            if let current {
+                let admittedNetworkIds = Set(
+                    derivationProfiles.map(\.networkId)
+                )
+                let retainedNetworkIds = Set(
+                    current.accounts.filter({
+                        $0.walletId == walletId &&
+                            $0.networkId != .sora2
+                    }).map(\.networkId)
+                )
+                for networkId in retainedNetworkIds
+                    .subtracting(admittedNetworkIds)
+                    .sorted(by: { $0.rawValue < $1.rawValue }) {
+                    guard
+                        let profile = NexusDerivationProfile.persisted(
+                            networkId: networkId
+                        )
+                    else {
+                        throw WalletNetworkMigrationError
+                            .snapshotVerificationFailed
+                    }
+                    derivationProfiles.append(profile)
+                }
+            }
+            for profile in derivationProfiles {
                 var child = try NexusKeyDerivation.derive(
                     mnemonic: phrase,
-                    configuration: configuration
+                    profile: profile
                 )
                 defer {
                     child.privateKey.resetBytes(
@@ -4947,7 +5126,7 @@ final class WalletNetworkModelMigrator {
                 networkAccounts.append(
                     NetworkAccount(
                         walletId: walletId,
-                        networkId: configuration.networkId,
+                        networkId: profile.networkId,
                         derivationVersion: 1,
                         publicKey: child.publicKey,
                         address: child.address
@@ -5120,19 +5299,24 @@ final class WalletNetworkModelMigrator {
             let derivedChildren = expected.accounts.filter {
                 $0.walletId == wallet.id && $0.networkId != .sora2
             }
+            let storedChildNetworkIds = Set(
+                storedChildren.map(\.networkId)
+            )
+            let expectedChildNetworkIds = storedChildNetworkIds.union(
+                admissionPolicy.admittedDerivationProfiles
+                    .map(\.networkId)
+            )
             guard
-                storedChildren.count == 2,
-                derivedChildren.count == 2,
-                Set(storedChildren.map(\.networkId)) == [.minamoto, .taira],
-                Set(derivedChildren.map(\.networkId)) == [.minamoto, .taira],
+                derivedChildren.count == expectedChildNetworkIds.count,
+                Set(derivedChildren.map(\.networkId)) ==
+                    expectedChildNetworkIds,
                 storedChildren.allSatisfy({ child in
                     expectedAccounts[child.id]?.first == child
                 })
             else {
-                // Once a mnemonic wallet has activated deterministic Nexus
-                // children, a later launch must re-derive the exact same keys
-                // and addresses. Never rewrite a mismatch into a seemingly
-                // healthy snapshot.
+                // Retained children must re-derive byte-for-byte. A newly
+                // admitted child may be appended, but admission withdrawal is
+                // never authority to delete historical recovery evidence.
                 throw WalletNetworkMigrationError.legacyIdentityMismatch(
                     wallet.existingSoraAddress
                 )
