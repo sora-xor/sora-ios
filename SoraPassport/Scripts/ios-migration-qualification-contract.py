@@ -277,6 +277,7 @@ def load_manifest(
         PurePosixPath(
             "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.py"
         ),
+        PurePosixPath("SoraPassport/Scripts/run-ios-release-tests.sh"),
         PurePosixPath(
             "SoraPassport/Scripts/sanitize-ios-migration-xctestrun.py"
         ),

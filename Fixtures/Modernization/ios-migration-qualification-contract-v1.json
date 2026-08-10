@@ -88,6 +88,7 @@
     "SoraPassport/Scripts/run-ios-migration-evidence-collection.sh",
     "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.py",
     "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.sh",
+    "SoraPassport/Scripts/run-ios-release-tests.sh",
     "SoraPassport/Scripts/sanitize-ios-migration-xctestrun.py",
     "SoraPassport/Scripts/test-ios-migration-exact-ipa-evidence.py",
     "SoraPassport/Scripts/test-ios-migration-evidence-collector.py",

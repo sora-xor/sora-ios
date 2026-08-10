@@ -279,16 +279,36 @@ The source-side Release closure can also be run without protected signing or dev
   --lint-ios-migration-release-source-gate
 ```
 
-That gate requires exactly 92 passing migration tests across the projector (30), installable clone
+That gate requires exactly 93 passing migration tests across the projector (30), installable clone
 (3), exact-IPA controller (24), `.xctestrun` sanitizer (6), collector (15), and Release boundary
-(14), plus 16 Release-reproduction/package mutation tests. It executes the ten
+(15), plus 16 Release-reproduction/package mutation tests. It executes the eleven
 projector/clone/controller/sanitizer/collector/qualification/build/reproduction-package
-contract or template lints, parses every qualification-bound shell entry point, parses the retained
+and non-promoting Release-test contract or template lints, parses every qualification-bound shell
+entry point, parses the retained
 harness, XCTest attachment producer, and UI runner with the Xcode Swift frontend, and checks the
 fixed 26-key authorization, nonarchivable Release schemes, archive-derived clone reinstall,
 `test-without-building`, deep-signature/provisioning inspection, and no-rebuilt-host invariants.
 An absent suite, changed test count, stale authorization shape, symbolic source, malformed script,
 or missing hook fails this gate closed.
+
+The complete application XCTest action can be executed with Release optimization on an arm64
+simulator through the exact non-promoting wrapper:
+
+```sh
+release_test_root="$(mktemp -d /private/tmp/sora-ios-release-tests.XXXXXX)"
+/bin/sh SoraPassport/Scripts/run-ios-release-tests.sh \
+  --test \
+  --destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.4,arch=arm64' \
+  --derived-data-path "${release_test_root}/DerivedData" \
+  --result-bundle-path "${release_test_root}/SoraPassport-Release.xcresult"
+```
+
+The wrapper accepts only fresh outputs beneath an existing current-user-owned mode-0700 directory
+outside the repository. Its build phase capability requires the exact Release main target, simulator
+SDK/platform, disabled signing, enabled testability, and active arm64 architecture. It exits before
+protected signing, archive, migration-evidence, funded-canary, and rollout admission. Consequently,
+a passing simulator result is useful Release-regression evidence but cannot authorize a device build,
+IPA, TestFlight upload, migration receipt, or production promotion.
 
 The wrapper fixes the project, scheme, Release configuration, physical-device destination, and
 `build-for-testing` action, and enables Swift testability only for these non-archivable XCTest
