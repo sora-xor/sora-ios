@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Phrase secrète";
 "common.passphrase.save.or.send" = "Enregistrer ou envoyer";
 "common.passphrase.header" = "La phrase secrète est \nun type de mot de passe.";
-"common.passphrase.body" = "Lorsque vous créez un nouveau compte sur SORA, vous obtenez une phrase secrète de 12 mots.  Si vous avez déjà une phrase secrète SORA de 15 mots, vous pouvez importer votre compte avec - ces phrases sont compatibles et fonctionneront correctement.";
+"common.passphrase.body" = "Lorsque vous créez un nouveau compte sur SORA, vous obtenez une phrase secrète de 24 mots. Les phrases secrètes SORA existantes de 12 ou 24 mots peuvent être importées et continueront de fonctionner.";
 "common.passphrase.your.passphrase" = "Votre phrase secrète";
 "network.unavailable" = "Connexion réseau indisponible";
 "common.save" = "Sauvegarder";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Veuillez vérifier votre connexion Internet et réessayer plus tard.";
 "common.error.general.message" = "Nous faisons tout notre possible pour résoudre ce problème. Merci de réessayer ultérieurement.";
 "result.ambiguous.error.title" = "Résultat ambigu";
-"access.restore.words.error.message" = "La phrase secrète doit contenir 15 mots";
-"access.restore.phrase.error.message" = "Veuillez vous assurer que votre phrase secrète contient 12 ou 15 mots et qu'ils sont tous corrects.";
+"access.restore.words.error.message" = "La phrase secrète doit contenir 12 ou 24 mots";
+"access.restore.phrase.error.message" = "Veuillez vous assurer que votre phrase secrète contient 12 ou 24 mots et qu'ils sont tous corrects.";
 "wallet.search.query.error.message" = "La taille de la recherche doit être comprise entre 3 et 64 caractères";
 "user.create.phone.registered.error.message" = "Numéro de téléphone déjà utilisé lors de l'inscription avec cet utilisateur ou avec un autre utilisateur";
 "common.error.invalid.parameters" = "Paramètres invalides";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Exporter en JSON";
 "export.protection.passphrase.title" = "Phrase secrète";
 "export.protection.json.description" = "À l'étape suivante, vous pourrez télécharger un fichier JSON qui vous permettra de récupérer vos comptes.";
-"export.protection.passphrase.description" = "À l'étape suivante, vous verrez Passphrase (12 mots) qui vous permet de récupérer un compte.";
+"export.protection.passphrase.description" = "À l'étape suivante, vous verrez Passphrase (24 mots) qui vous permet de récupérer un compte.";
 "export.protection.seed.description" = "À l'étape suivante, vous verrez le Raw Seed (un long hash) qui vous permettra de récupérer un compte.";
 "export.protection.json.1" = "Si je perds mon fichier JSON, mes fonds seront définitivement perdus.";
 "export.protection.json.2" = "Si j'expose ou partage mon JSON avec qui que ce soit, mes fonds peuvent être volés.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

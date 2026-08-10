@@ -28,59 +28,32 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import RobinHood
 import sorawallet
 import Foundation
 
-public final class SubqueryApyInfoOperation<ResultType>: BaseOperation<ResultType> {
+struct PIExactApyInfo: Equatable, Sendable {
+    let id: String
+    let sbApy: PIQuantity?
+}
 
-    private let httpProvider: SoramitsuHttpClientProviderImpl
-    private let soraNetworkClient: SoramitsuNetworkClient
-    private let subQueryClient: SoraWalletBlockExplorerInfo
-    private let baseUrl: URL
+public final class SubqueryApyInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
+    private let client: PIIndexerClient
 
     public init(baseUrl: URL) {
-        self.baseUrl = baseUrl
-        self.httpProvider = SoramitsuHttpClientProviderImpl()
-        self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
-        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
-                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
-                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
-        let configBuilder = provider.provide()
-
-        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, soraRemoteConfigBuilder: configBuilder)
-
+        client = PIIndexerClient(endpoint: baseUrl)
         super.init()
     }
 
-    override public func main() {
-        super.main()
-
-        if isCancelled {
-            return
+    override public func execute() async throws -> ResultType {
+        let values = try await client.allPoolXYKs().map { pool in
+            PIExactApyInfo(
+                id: pool.id,
+                sbApy: pool.strategicBonusApy
+            )
         }
-
-        if result != nil {
-            return
+        guard let result = values as? ResultType else {
+            throw PIIndexerError.invalidResponse
         }
-
-        let semaphore = DispatchSemaphore(value: 0)
-
-        var optionalCallResult: Result<ResultType, Swift.Error>?
-
-        DispatchQueue.main.async {
-            self.subQueryClient.getSpApy(completionHandler: { [self] requestResult, error in
-
-                if let data = requestResult as? ResultType {
-                    optionalCallResult = .success(data)
-                }
-
-                semaphore.signal()
-
-                result = optionalCallResult
-            })
-        }
-
-        semaphore.wait()
+        return result
     }
 }

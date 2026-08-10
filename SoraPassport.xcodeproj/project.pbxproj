@@ -7,6 +7,28 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000E00000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
+		A10000090000000000000001 /* NexusWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* NexusWalletService.swift */; };
+		A100000A0000000000000001 /* NexusWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* NexusWalletService.swift */; };
+		A100000B0000000000000001 /* PolkamarktRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000160000000000000001 /* PolkamarktRuntime.swift */; };
+		A100000C0000000000000001 /* PolkamarktRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000160000000000000001 /* PolkamarktRuntime.swift */; };
+		A100000D0000000000000001 /* NexusPortfolioViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000170000000000000001 /* NexusPortfolioViewController.swift */; };
+		A100000E0000000000000001 /* NexusPortfolioViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000170000000000000001 /* NexusPortfolioViewController.swift */; };
+		A100000F0000000000000001 /* PolkamarktViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000180000000000000001 /* PolkamarktViewController.swift */; };
+		A10000100000000000000001 /* PolkamarktViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000180000000000000001 /* PolkamarktViewController.swift */; };
+		A10000200000000000000001 /* WalletModernizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000210000000000000001 /* WalletModernizationTests.swift */; };
+		A10000400000000000000001 /* WalletRecoveryCapabilityGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */; };
+		A10000600000000000000001 /* WalletRecoveryExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000620000000000000001 /* WalletRecoveryExporter.swift */; };
+		A10000610000000000000001 /* WalletRecoveryExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000620000000000000001 /* WalletRecoveryExporter.swift */; };
+		A10000630000000000000001 /* WalletRecoveryExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000640000000000000001 /* WalletRecoveryExporterTests.swift */; };
+		A10000070000000000000001 /* PIAsyncOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000140000000000000001 /* PIAsyncOperation.swift */; };
+		A10000080000000000000001 /* PIAsyncOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000140000000000000001 /* PIAsyncOperation.swift */; };
+		A10000050000000000000001 /* PIIndexerClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000130000000000000001 /* PIIndexerClient.swift */; };
+		A10000060000000000000001 /* PIIndexerClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000130000000000000001 /* PIIndexerClient.swift */; };
+		A10000010000000000000001 /* IrohaAddressCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000001 /* IrohaAddressCodec.swift */; };
+		A10000020000000000000001 /* WalletNetworkModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000120000000000000001 /* WalletNetworkModel.swift */; };
+		A10000030000000000000001 /* IrohaAddressCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000001 /* IrohaAddressCodec.swift */; };
+		A10000040000000000000001 /* WalletNetworkModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000120000000000000001 /* WalletNetworkModel.swift */; };
 		003B71CE72FCC179E0D1CC84 /* ScanQRViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366D53CF2952B4A20094CE36 /* ScanQRViewController.swift */; };
 		00533E372C483FFE60B3796B /* LanguageItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF4287C2940B1E600590F92 /* LanguageItemView.swift */; };
 		00682CE5246CB2E60C6E22E7 /* AttributedStringDecorator+Terms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB19AD29EDDA9100B3E3BF /* AttributedStringDecorator+Terms.swift */; };
@@ -56,6 +78,8 @@
 		02623EB92178C0910011250E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EB82178C0910011250E /* AppDelegate.swift */; };
 		02623EC02178C0930011250E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02623EBF2178C0930011250E /* Assets.xcassets */; };
 		02623ED92178C0930011250E /* SoraPassportUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623ED82178C0930011250E /* SoraPassportUITests.swift */; };
+		E71D0A010000000000000003 /* RetainedMigrationEvidenceHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = E71D0A010000000000000002 /* RetainedMigrationEvidenceHarness.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
+		E71D0A010000000000000005 /* RetainedMigrationEvidenceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E71D0A010000000000000004 /* RetainedMigrationEvidenceUITests.swift */; settings = {COMPILER_FLAGS = "-warnings-as-errors"; }; };
 		02623EE92179AD390011250E /* RootInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EE82179AD390011250E /* RootInteractor.swift */; };
 		02623EEB2179AD440011250E /* RootPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EEA2179AD440011250E /* RootPresenter.swift */; };
 		02623EED2179AD4F0011250E /* RootWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02623EEC2179AD4F0011250E /* RootWireframe.swift */; };
@@ -1800,6 +1824,7 @@
 		9437130326C28DA800BBE2CD /* SplashInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9437130226C28DA800BBE2CD /* SplashInteractor.swift */; };
 		943BC333258BA4B000F20FD9 /* ethConfigResponse.json in Resources */ = {isa = PBXBuildFile; fileRef = 943BC332258BA4B000F20FD9 /* ethConfigResponse.json */; };
 		943EDF982600CD3700E9A3ED /* NetworkBaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945A575625DE852A003E4023 /* NetworkBaseTests.swift */; };
+		A10000650000000000000001 /* NetworkMockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945A575725DE852B003E4023 /* NetworkMockManager.swift */; };
 		9440709326DCDB2A00666306 /* AssetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9440709226DCDB2900666306 /* AssetManager.swift */; };
 		9440709926DCDB3C00666306 /* AssetInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9440709826DCDB3C00666306 /* AssetInfo.swift */; };
 		9440FBB126974EC000ADC68E /* WhitelistOperationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9440FBB026974EBF00ADC68E /* WhitelistOperationFactory.swift */; };
@@ -2767,6 +2792,19 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletMigrationRetainedDeviceEvidenceTests.swift; sourceTree = "<group>"; };
+		A10000150000000000000001 /* NexusWalletService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWalletService.swift; sourceTree = "<group>"; };
+		A10000160000000000000001 /* PolkamarktRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktRuntime.swift; sourceTree = "<group>"; };
+		A10000170000000000000001 /* NexusPortfolioViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusPortfolioViewController.swift; sourceTree = "<group>"; };
+		A10000180000000000000001 /* PolkamarktViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolkamarktViewController.swift; sourceTree = "<group>"; };
+		A10000210000000000000001 /* WalletModernizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletModernizationTests.swift; sourceTree = "<group>"; };
+		A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRecoveryCapabilityGateTests.swift; sourceTree = "<group>"; };
+		A10000620000000000000001 /* WalletRecoveryExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRecoveryExporter.swift; sourceTree = "<group>"; };
+		A10000640000000000000001 /* WalletRecoveryExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRecoveryExporterTests.swift; sourceTree = "<group>"; };
+		A10000140000000000000001 /* PIAsyncOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIAsyncOperation.swift; sourceTree = "<group>"; };
+		A10000130000000000000001 /* PIIndexerClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIIndexerClient.swift; sourceTree = "<group>"; };
+		A10000110000000000000001 /* IrohaAddressCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaAddressCodec.swift; sourceTree = "<group>"; };
+		A10000120000000000000001 /* WalletNetworkModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkModel.swift; sourceTree = "<group>"; };
 		0200346421C77E3C001A6A53 /* NotificationEnablePermissionMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationEnablePermissionMock.swift; sourceTree = "<group>"; };
 		0200346721C78A43001A6A53 /* GoogleService-Info-Dev.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info-Dev.plist"; sourceTree = "<group>"; };
 		0200347921C8DA77001A6A53 /* ReachabilityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReachabilityManager.swift; sourceTree = "<group>"; };
@@ -2819,6 +2857,8 @@
 		02623ECF2178C0930011250E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		02623ED42178C0930011250E /* SoraPassportUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SoraPassportUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		02623ED82178C0930011250E /* SoraPassportUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoraPassportUITests.swift; sourceTree = "<group>"; };
+		E71D0A010000000000000002 /* RetainedMigrationEvidenceHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetainedMigrationEvidenceHarness.swift; sourceTree = "<group>"; };
+		E71D0A010000000000000004 /* RetainedMigrationEvidenceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetainedMigrationEvidenceUITests.swift; sourceTree = "<group>"; };
 		02623EDA2178C0930011250E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		02623EE82179AD390011250E /* RootInteractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootInteractor.swift; sourceTree = "<group>"; };
 		02623EEA2179AD440011250E /* RootPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootPresenter.swift; sourceTree = "<group>"; };
@@ -4410,6 +4450,7 @@
 		0208CEB7217E5CBB0043FCD7 /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				A10000220000000000000001 /* Modernization */,
 				84C0A50E240BAE6C0097D9AB /* Crypto */,
 				84EBF58523C90E9E00E609FF /* DataProvider */,
 				84A3E6AC2329105700167C00 /* DeepLink */,
@@ -4421,6 +4462,16 @@
 				0208CEB8217E5CC70043FCD7 /* Network */,
 			);
 			path = Common;
+			sourceTree = "<group>";
+		};
+		A10000220000000000000001 /* Modernization */ = {
+			isa = PBXGroup;
+			children = (
+				A10000210000000000000001 /* WalletModernizationTests.swift */,
+				A10000410000000000000001 /* WalletRecoveryCapabilityGateTests.swift */,
+				A10000640000000000000001 /* WalletRecoveryExporterTests.swift */,
+			);
+			path = Modernization;
 			sourceTree = "<group>";
 		};
 		0208CEB8217E5CC70043FCD7 /* Network */ = {
@@ -4761,6 +4812,7 @@
 			isa = PBXGroup;
 			children = (
 				02623ED82178C0930011250E /* SoraPassportUITests.swift */,
+				E71D0A010000000000000004 /* RetainedMigrationEvidenceUITests.swift */,
 				02623EDA2178C0930011250E /* Info.plist */,
 			);
 			path = SoraPassportUITests;
@@ -4781,6 +4833,7 @@
 		02623EF92179D0B50011250E /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				E71D0A010000000000000001 /* MigrationEvidence */,
 				36E34F832BA05489005A44BC /* Legacy */,
 				369E10C12B91DF230097DB61 /* IconGenerator */,
 				3618AE532AC43C5D00F582BD /* PriceInfo */,
@@ -4833,6 +4886,14 @@
 				02601CF3217A08C9006BD248 /* Protocols */,
 			);
 			path = Common;
+			sourceTree = "<group>";
+		};
+		E71D0A010000000000000001 /* MigrationEvidence */ = {
+			isa = PBXGroup;
+			children = (
+				E71D0A010000000000000002 /* RetainedMigrationEvidenceHarness.swift */,
+			);
+			path = MigrationEvidence;
 			sourceTree = "<group>";
 		};
 		02623F0B2179F2D40011250E /* Mocks */ = {
@@ -5062,6 +5123,10 @@
 		029879242181E3780085E605 /* Model */ = {
 			isa = PBXGroup;
 			children = (
+				A10000150000000000000001 /* NexusWalletService.swift */,
+				A10000160000000000000001 /* PolkamarktRuntime.swift */,
+				A10000110000000000000001 /* IrohaAddressCodec.swift */,
+				A10000120000000000000001 /* WalletNetworkModel.swift */,
 				9481B484286EFE6000A472E2 /* ChainRegistry */,
 				9441F8DE25C9699400775559 /* AccountCreateError.swift */,
 				9441F8DD25C9699300775559 /* AccountImportSource.swift */,
@@ -6714,6 +6779,8 @@
 				8BF42860293B98EA00590F92 /* MoreMenuProtocol.swift */,
 				8BF42862293BB29700590F92 /* MoreMenuViewFactory.swift */,
 				8BF42864293BB2A500590F92 /* MoreMenuWireframe.swift */,
+				A10000170000000000000001 /* NexusPortfolioViewController.swift */,
+				A10000180000000000000001 /* PolkamarktViewController.swift */,
 				55063DB228FF3CC8008782E1 /* MoreMenuViewController.swift */,
 				55063DBB2902A96E008782E1 /* MoreMenuPresenter.swift */,
 				55063DBD2902AAC9008782E1 /* MoreMenuModel.swift */,
@@ -6866,6 +6933,7 @@
 			isa = PBXGroup;
 			children = (
 				94D4B65F28C0AC37007F98EB /* StorageMigrator.swift */,
+				A10000620000000000000001 /* WalletRecoveryExporter.swift */,
 				94D4B66328C0B7DB007F98EB /* StorageMigrator+Sync.swift */,
 				94D4B66128C0AC6A007F98EB /* UserStorageVersion.swift */,
 				60AAFDC5270EEEDB00916408 /* InconsistentStateMigrator.swift */,
@@ -7003,6 +7071,7 @@
 		84324BCC2411446000CA339A /* SoraPassportIntegrationTests */ = {
 			isa = PBXGroup;
 			children = (
+				A10000E10000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift */,
 				55C71BBD28F04BAE00D2C424 /* AssetsInfoProviderTests.swift */,
 				55D06B4928C0F6EE00256B98 /* Polkaswap */,
 				9484F3CA25D67CF200AAAAB6 /* Substrate */,
@@ -7847,6 +7916,8 @@
 		94B3000F26FB770100F239D7 /* Subquery */ = {
 			isa = PBXGroup;
 			children = (
+				A10000140000000000000001 /* PIAsyncOperation.swift */,
+				A10000130000000000000001 /* PIIndexerClient.swift */,
 				36C370EF28250AE50027BA77 /* ReferrerRewards */,
 				5E18558227EDD8CE0007F6ED /* Pools */,
 				94B3008526FC97A400F239D7 /* SubqueryHistoryElement+Wallet.swift */,
@@ -8065,6 +8136,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 02623EDD2178C0930011250E /* Build configuration list for PBXNativeTarget "SoraPassport" */;
 			buildPhases = (
+				A10000300000000000000001 /* Verify production modernization dependencies */,
 				02623F072179DCD20011250E /* R.swift */,
 				02623EB12178C0910011250E /* Sources */,
 				02623EB22178C0910011250E /* Frameworks */,
@@ -8242,6 +8314,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 45F0D71C7E3BA236C78D011F /* Build configuration list for PBXNativeTarget "SoraPassportDev" */;
 			buildPhases = (
+				A10000310000000000000001 /* Verify production modernization dependencies */,
 				5F91C0BC049A27D6337875B7 /* R.swift */,
 				8B57AD25632A35C3CE446E7C /* Sources */,
 				71EEB59B262183D4175AFDEC /* Frameworks */,
@@ -8607,6 +8680,110 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A10000300000000000000001 /* Verify production modernization dependencies */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/Fixtures/Modernization/funded-nexus-canary-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/funded-nexus-canary-trust.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/minamoto-funded-canary.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-candidate.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-advancement.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-controller-trust.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/taira-funded-canary.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/iroha-production-send-readiness.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-trust.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-readiness.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-evidence.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-trust.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-README.md",
+				"$(PROJECT_DIR)/SoraPassport/Configs/ModernizationDependencies.conf",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary-json.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-production-rollout.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-production-rollout-json.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-production-rollout-contract.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-ios-vendored-binary-qualification.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-production-signing-identity.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-production-signing-identity.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-ios-production-signing-identity.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-modernization-dependencies.sh",
+				"$(PROJECT_DIR)/SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+				"$(PROJECT_DIR)/VendorPackages/GoogleSignIn-iOS/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/Rswift/Package.resolved",
+				"$(PROJECT_DIR)/VendorPackages/Rswift/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/google-api-objectivec-client-for-rest/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/shared-features-spm/Package.swift",
+			);
+			name = "Verify production modernization dependencies";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${PROJECT_DIR}/SoraPassport/Scripts/verify-modernization-dependencies.sh\"\n";
+		};
+		A10000310000000000000001 /* Verify production modernization dependencies */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/Fixtures/Modernization/funded-nexus-canary-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/funded-nexus-canary-trust.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/minamoto-funded-canary.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-candidate.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-advancement.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-controller-trust.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/production-rollout-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/taira-funded-canary.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/iroha-production-send-readiness.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-trust.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-production-signing-identity-qualification-README.md",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-readiness.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-evidence.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-trust.blocked.json",
+				"$(PROJECT_DIR)/Fixtures/Modernization/ios-vendored-binary-qualification-README.md",
+				"$(PROJECT_DIR)/SoraPassport/Configs/ModernizationDependencies.conf",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-funded-nexus-canary-json.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-production-rollout.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-production-rollout-json.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-production-rollout-contract.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-vendored-binary-qualification.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-ios-vendored-binary-qualification.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-production-signing-identity.sh",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-ios-production-signing-identity.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/test-ios-production-signing-identity.py",
+				"$(PROJECT_DIR)/SoraPassport/Scripts/verify-modernization-dependencies.sh",
+				"$(PROJECT_DIR)/SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+				"$(PROJECT_DIR)/VendorPackages/GoogleSignIn-iOS/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/Rswift/Package.resolved",
+				"$(PROJECT_DIR)/VendorPackages/Rswift/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/google-api-objectivec-client-for-rest/Package.swift",
+				"$(PROJECT_DIR)/VendorPackages/shared-features-spm/Package.swift",
+			);
+			name = "Verify production modernization dependencies";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${PROJECT_DIR}/SoraPassport/Scripts/verify-modernization-dependencies.sh\"\n";
+		};
 		02623F072179DCD20011250E /* R.swift */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -8710,6 +8887,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E71D0A010000000000000003 /* RetainedMigrationEvidenceHarness.swift in Sources */,
+				A10000090000000000000001 /* NexusWalletService.swift in Sources */,
+				A100000B0000000000000001 /* PolkamarktRuntime.swift in Sources */,
+				A100000D0000000000000001 /* NexusPortfolioViewController.swift in Sources */,
+				A100000F0000000000000001 /* PolkamarktViewController.swift in Sources */,
+				A10000070000000000000001 /* PIAsyncOperation.swift in Sources */,
+				A10000050000000000000001 /* PIIndexerClient.swift in Sources */,
+				A10000010000000000000001 /* IrohaAddressCodec.swift in Sources */,
+				A10000020000000000000001 /* WalletNetworkModel.swift in Sources */,
 				36E350012BA09099005A44BC /* NumberFormatterFactory.swift in Sources */,
 				8BD084BB2941F9CE00EEAE0D /* RedesignWalletViewController.swift in Sources */,
 				847527432362E14A0028D871 /* DeviceInfoFactory.swift in Sources */,
@@ -9108,6 +9294,7 @@
 				9441F89525C957C400775559 /* WalletNetworkOperationFactory.swift in Sources */,
 				9441F9FC25C9823800775559 /* JSONRPCEngine.swift in Sources */,
 				94D4B66028C0AC37007F98EB /* StorageMigrator.swift in Sources */,
+				A10000600000000000000001 /* WalletRecoveryExporter.swift in Sources */,
 				847435EA22DCC359002B1BDC /* BearerTokenRequestModifier.swift in Sources */,
 				36E34F9B2BA056FB005A44BC /* BalanceData.swift in Sources */,
 				84324B9A240E4CA000CA339A /* Result+Type.swift in Sources */,
@@ -9885,6 +10072,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000200000000000000001 /* WalletModernizationTests.swift in Sources */,
+				A10000400000000000000001 /* WalletRecoveryCapabilityGateTests.swift in Sources */,
+				A10000630000000000000001 /* WalletRecoveryExporterTests.swift in Sources */,
 				9431D55226305306001E5C85 /* UserDataStorageTestFacade.swift in Sources */,
 				0253FCD62213077700D3AD49 /* AccessBackupInteractorTests.swift in Sources */,
 				021C83F721E2330E0037F633 /* ProjectDataGenerator.swift in Sources */,
@@ -9955,6 +10145,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				02623ED92178C0930011250E /* SoraPassportUITests.swift in Sources */,
+				E71D0A010000000000000005 /* RetainedMigrationEvidenceUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -9962,11 +10153,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000E00000000000000001 /* WalletMigrationRetainedDeviceEvidenceTests.swift in Sources */,
 				8476CAFC25F0CAD0003EEAE1 /* AccountCreationHelper.swift in Sources */,
 				84B97BAC2490BFCE00C7E048 /* IdentityGenerator.swift in Sources */,
 				55C6E9C828DB3176005C309F /* JSONRPCPoolXYKTests.swift in Sources */,
 				554C5CC128D0B6E000AEF6AC /* SwapMarketSourcerProtocolTests.swift in Sources */,
 				943EDF982600CD3700E9A3ED /* NetworkBaseTests.swift in Sources */,
+				A10000650000000000000001 /* NetworkMockManager.swift in Sources */,
 				94497EBA25EFE39F00FD4F14 /* SubstrateStorageTestFacade.swift in Sources */,
 				9484F3CC25D67D0400AAAAB6 /* JSONRPCTests.swift in Sources */,
 				55C71BBE28F04BAE00D2C424 /* AssetsInfoProviderTests.swift in Sources */,
@@ -9979,6 +10172,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A100000A0000000000000001 /* NexusWalletService.swift in Sources */,
+				A100000C0000000000000001 /* PolkamarktRuntime.swift in Sources */,
+				A100000E0000000000000001 /* NexusPortfolioViewController.swift in Sources */,
+				A10000100000000000000001 /* PolkamarktViewController.swift in Sources */,
+				A10000080000000000000001 /* PIAsyncOperation.swift in Sources */,
+				A10000060000000000000001 /* PIIndexerClient.swift in Sources */,
+				A10000030000000000000001 /* IrohaAddressCodec.swift in Sources */,
+				A10000040000000000000001 /* WalletNetworkModel.swift in Sources */,
 				1D5B05F069EF423169265437 /* NumberFormatterFactory.swift in Sources */,
 				C56D8A43F5821BAF2AD50CFA /* RedesignWalletViewController.swift in Sources */,
 				C33DB7A1D0CD83E6F0AB0614 /* DecentralizedDocumentFetchMock.swift in Sources */,
@@ -10392,6 +10593,7 @@
 				E83420CA5278A914D7887F19 /* WalletNetworkOperationFactory.swift in Sources */,
 				97F6462585A9EAA883D6EF2A /* JSONRPCEngine.swift in Sources */,
 				6ACC5746DCB426E9B815A385 /* StorageMigrator.swift in Sources */,
+				A10000610000000000000001 /* WalletRecoveryExporter.swift in Sources */,
 				68DC2BC5520CAEB372EEF080 /* BearerTokenRequestModifier.swift in Sources */,
 				7390B9A7C342C6D23BC29F1D /* BalanceData.swift in Sources */,
 				7ACA541EF380C19D8635037E /* Result+Type.swift in Sources */,

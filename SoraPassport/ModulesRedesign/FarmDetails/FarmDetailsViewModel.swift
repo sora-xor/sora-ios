@@ -170,7 +170,7 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         }
     }
     
-    private func createSnapshot(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [FiatData] = []) -> FarmDetailsSnapshot {
+    private func createSnapshot(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [PIExactFiatData] = []) -> FarmDetailsSnapshot {
         var snapshot = FarmDetailsSnapshot()
         let sections = [ contentSection(poolInfo: poolInfo, userFarmInfo: userFarmInfo, fiatData: fiatData) ]
         snapshot.appendSections(sections)
@@ -179,7 +179,7 @@ extension FarmDetailsViewModel: FarmDetailsViewModelProtocol, AlertPresentable {
         return snapshot
     }
     
-    private func contentSection(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [FiatData] = []) -> FarmDetailsSection {
+    private func contentSection(poolInfo: PoolInfo? = nil, userFarmInfo: UserFarm? = nil, fiatData: [PIExactFiatData] = []) -> FarmDetailsSection {
         var items: [FarmDetailsSectionItem] = []
         
         var supplyLiquidityItem: SupplyPoolItem?

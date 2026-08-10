@@ -98,7 +98,6 @@ extension SubqueryHistoryElement: WalletRemoteHistoryItemProtocol {
             )
         }
 
-        print("Error: No tx type for: \(data)")
         return nil
     }
 

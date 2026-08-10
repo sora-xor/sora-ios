@@ -146,4 +146,17 @@ extension AccountItem {
                     order: order,
                     isSelected: isSelected)
     }
+
+    func replacingSelection(_ newSelection: Bool) -> AccountItem {
+        AccountItem(
+            address: address,
+            cryptoType: cryptoType,
+            networkType: networkType,
+            username: username,
+            publicKeyData: publicKeyData,
+            settings: settings,
+            order: order,
+            isSelected: newSelection
+        )
+    }
 }

@@ -42,38 +42,43 @@ protocol SlippageToleranceViewModelProtocol: InputAccessoryViewDelegate, Slippag
 final class SlippageToleranceViewModel {
     
     weak var view: SlippageToleranceViewProtocol?
-    var completion: ((Float) -> Void)?
-    var currentValue: Float {
+    var completion: ((PolkaswapSlippage) -> Void)?
+    var currentValue: PolkaswapSlippage? {
         didSet {
-            view?.setupDoneButton(isEnabled: currentValue != 0)
+            view?.setupDoneButton(isEnabled: currentValue != nil)
         }
     }
     
-    init(value: Float) {
+    init(value: PolkaswapSlippage) {
         self.currentValue = value
     }
 }
 
 extension SlippageToleranceViewModel: SlippageToleranceViewModelProtocol {
     func viewDidLoad() {
-        view?.setup(tolerance: currentValue)
+        if let currentValue {
+            view?.setup(tolerance: currentValue)
+        }
+        view?.setupDoneButton(isEnabled: currentValue != nil)
     }
     
     func doneButtonTapped() {
+        guard let currentValue else { return }
         view?.controller.navigationController?.popViewController(animated: true)
         completion?(currentValue)
     }
 }
 
 extension SlippageToleranceViewModel: InputAccessoryViewDelegate {
-    func didSelect(variant: Float) {
-        view?.setup(tolerance: variant)
-        currentValue = variant
+    func didSelect(variant: Decimal) {
+        guard let value = PolkaswapSlippage(percent: variant) else { return }
+        view?.setup(tolerance: value)
+        currentValue = value
     }
 }
 
 extension SlippageToleranceViewModel: SlippageToleranceViewDelegate {
-    func slippageToleranceChanged(_ to: Float) {
+    func slippageToleranceChanged(_ to: PolkaswapSlippage?) {
         currentValue = to
     }
 }

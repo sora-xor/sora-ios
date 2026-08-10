@@ -40,14 +40,14 @@ final class EditFarmItemFactory {
     func createEditFarmItem(
         stakeFeeAmount: Decimal,
         sharePercentage: Decimal,
-        stakedValue: Float,
+        stakedSelection: FarmShareSelection,
         viewModel: EditFarmViewModelProtocol,
         service: EditFarmItemService?
     ) -> EditFarmItem {
         
         let editFarmItem = EditFarmItem(
             sharePercentage: sharePercentage,
-            stakedValue: stakedValue,
+            stakedSelection: stakedSelection,
             stakeFeeAmount: stakeFeeAmount,
             service: service
         )
@@ -67,4 +67,3 @@ final class EditFarmItemFactory {
         return editFarmItem
     }
 }
-

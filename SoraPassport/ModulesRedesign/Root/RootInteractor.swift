@@ -29,8 +29,228 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import CryptoKit
 import SoraKeystore
 import IrohaCrypto
+
+enum LegacyWalletUpgradePolicy {
+    static func isCandidate(
+        keyIdentifiers: Set<String>,
+        hasWatchOnlyWallet: Bool,
+        snapshot: WalletNetworkSnapshot?
+    ) -> Bool {
+        let scopedSuffixes = [
+            "-secretKey",
+            "-entropy",
+            "-deriv",
+            "-seed",
+        ]
+        let hasScopedWallet = keyIdentifiers.contains {
+            identifier in
+            scopedSuffixes.contains {
+                identifier.hasSuffix($0)
+            }
+        }
+        // Some pre-account-model releases stored signing material under the
+        // unscoped `privateKey` tag. Its presence alongside `seedEntropy` is
+        // ambiguous: the two records are not proven to describe the same
+        // identity. Never import the entropy as a fresh account in that state.
+        let hasUnscopedPrivateKey = keyIdentifiers.contains("privateKey")
+        return keyIdentifiers.contains(
+            KeystoreTag.legacyEntropy.rawValue
+        ) &&
+            !hasScopedWallet &&
+            !hasUnscopedPrivateKey &&
+            !hasWatchOnlyWallet &&
+            (snapshot?.selectedWalletId == nil) &&
+            (snapshot?.wallets.isEmpty ?? true) &&
+            (snapshot?.accounts.isEmpty ?? true)
+    }
+
+    static func shouldDeferStorageMigration(
+        storeExists: Bool,
+        keyIdentifiers: Set<String>,
+        hasWatchOnlyWallet: Bool,
+        snapshot: WalletNetworkSnapshot?
+    ) -> Bool {
+        !storeExists && isCandidate(
+            keyIdentifiers: keyIdentifiers,
+            hasWatchOnlyWallet: hasWatchOnlyWallet,
+            snapshot: snapshot
+        )
+    }
+}
+
+/// Resolves the pre-account-model display name without normalizing or moving
+/// either retained source. Some production releases stored `userName` in
+/// settings, while older installations kept the same UTF-8 value in Keychain.
+/// Conflicting or malformed evidence is a recovery condition, not permission
+/// to silently choose one value and change the wallet's visible identity.
+enum LegacyWalletUpgradeDisplayNameResolver {
+    private static let maximumUTF8Bytes = 4 * 1_024
+
+    static func resolve(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol
+    ) throws -> String {
+        let key = KeystoreTag.legacyUsername.rawValue
+
+        let settingsName: String?
+        if settings.allKeys().contains(key) {
+            guard
+                let retained = settings.anyValue(for: key) as? String,
+                retained.utf8.count <= maximumUTF8Bytes
+            else {
+                throw WalletIntegrityError
+                    .legacyWalletUpgradeVerificationFailed
+            }
+            settingsName = retained
+        } else {
+            settingsName = nil
+        }
+
+        var keychainBytes = try keystore.loadIfKeyExists(key)
+        defer {
+            if let count = keychainBytes?.count {
+                keychainBytes?.resetBytes(in: 0 ..< count)
+            }
+            keychainBytes = nil
+        }
+        let keychainName: String?
+        if let keychainBytes {
+            guard
+                keychainBytes.count <= maximumUTF8Bytes,
+                let retained = String(
+                    data: keychainBytes,
+                    encoding: .utf8
+                ),
+                retained.utf8.count == keychainBytes.count
+            else {
+                throw WalletIntegrityError
+                    .legacyWalletUpgradeVerificationFailed
+            }
+            keychainName = retained
+        } else {
+            keychainName = nil
+        }
+
+        switch (settingsName, keychainName) {
+        case let (settingsName?, keychainName?):
+            guard settingsName == keychainName else {
+                throw WalletIntegrityError
+                    .legacyWalletUpgradeVerificationFailed
+            }
+            return settingsName
+        case let (settingsName?, nil):
+            return settingsName
+        case let (nil, keychainName?):
+            return keychainName
+        case (nil, nil):
+            return ""
+        }
+    }
+}
+
+/// Activates the account model for an unsuffixed legacy entropy record without
+/// copying, normalizing, or replacing any secret. The normal importer remains
+/// responsible only for in-memory derivation and identity verification.
+enum LegacyWalletUpgradeSecretRetention {
+    static func consumeWithoutPersisting(
+        _ prepared: PreparedAccount,
+        keystore: KeystoreProtocol,
+        settings: SettingsManagerProtocol,
+        expectedEntropyDigest: Data,
+        expectedDisplayName: String,
+        recoveryGate: WalletRecoveryCapabilityGate = .shared
+    ) throws {
+        try recoveryGate
+            .requireAuthorizedLifecycleContinuation()
+        let account = prepared.account
+        guard
+            account.username == expectedDisplayName,
+            try LegacyWalletUpgradeDisplayNameResolver.resolve(
+                settings: settings,
+                keystore: keystore
+            ) == expectedDisplayName
+        else {
+            throw WalletIntegrityError
+                .legacyWalletUpgradeVerificationFailed
+        }
+        let scopedTags = [
+            KeystoreTag.secretKeyTagForAddress(account.address),
+            KeystoreTag.entropyTagForAddress(account.address),
+            KeystoreTag.deriviationTagForAddress(account.address),
+            KeystoreTag.seedTagForAddress(account.address),
+        ]
+        let identifiers = Set(try keystore.allKeyIdentifiers())
+        guard
+            !identifiers.contains("privateKey"),
+            scopedTags.allSatisfy({ !identifiers.contains($0) })
+        else {
+            throw WalletIntegrityError
+                .legacyWalletUpgradeVerificationFailed
+        }
+
+        var retainedEntropy = try keystore.fetchKey(
+            for: KeystoreTag.legacyEntropy.rawValue
+        )
+        defer {
+            retainedEntropy.resetBytes(
+                in: retainedEntropy.startIndex ..< retainedEntropy.endIndex
+            )
+        }
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: retainedEntropy)
+        guard
+            !retainedEntropy.isEmpty,
+            Data(SHA256.hash(data: retainedEntropy)) ==
+                expectedEntropyDigest,
+            WalletMnemonicWordPolicy.retainedSoraWordCounts
+                .contains(mnemonic.allWords().count)
+        else {
+            throw WalletIntegrityError
+                .legacyWalletUpgradeVerificationFailed
+        }
+        try LegacySoraIdentityValidator.validate(
+            address: account.address,
+            publicKey: account.publicKeyData,
+            cryptoType: account.cryptoType,
+            networkType: account.networkType,
+            derivationPath: nil,
+            entropy: retainedEntropy,
+            rawSeed: nil,
+            secret: nil,
+            recoveryGate: recoveryGate
+        )
+
+        // Wipe the normal importer's derived copies instead of persisting them.
+        prepared.discard()
+
+        var verifiedRetainedEntropy = try keystore.fetchKey(
+            for: KeystoreTag.legacyEntropy.rawValue
+        )
+        defer {
+            verifiedRetainedEntropy.resetBytes(
+                in: verifiedRetainedEntropy.startIndex ..<
+                    verifiedRetainedEntropy.endIndex
+            )
+        }
+        let postIdentifiers = Set(try keystore.allKeyIdentifiers())
+        guard
+            Data(SHA256.hash(data: verifiedRetainedEntropy)) ==
+                expectedEntropyDigest,
+            try LegacyWalletUpgradeDisplayNameResolver.resolve(
+                settings: settings,
+                keystore: keystore
+            ) == expectedDisplayName,
+            !postIdentifiers.contains("privateKey"),
+            scopedTags.allSatisfy({ !postIdentifiers.contains($0) })
+        else {
+            throw WalletIntegrityError
+                .legacyWalletUpgradeVerificationFailed
+        }
+    }
+}
 
 final class RootInteractor {
     weak var presenter: RootInteractorOutputProtocol?
@@ -40,18 +260,69 @@ final class RootInteractor {
     let migrators: [Migrating]
     var securityLayerInteractor: SecurityLayerInteractorInputProtocol
     var networkAvailabilityLayerInteractor: NetworkAvailabilityLayerInteractorInputProtocol?
+    private let legacyUpgradeLock = NSLock()
+    private var didStartLegacyWalletUpgrade = false
+    private let legacyUpgradeSelectedAccount: () -> AccountItem?
+    private let legacyUpgradeSnapshotLoader:
+        () throws -> WalletNetworkSnapshot?
+    private let legacyUpgradeUnresolvedCommitLoader:
+        () throws -> [WalletAccountCommitJournal]
+    private let legacyUpgradeInteractorFactory:
+        (
+            KeystoreProtocol,
+            SettingsManagerProtocol,
+            Data,
+            String
+        ) -> AccountImportInteractorInputProtocol?
 
     init(settings: SettingsManagerProtocol,
          keystore: KeystoreProtocol,
          migrators: [Migrating],
          securityLayerInteractor: SecurityLayerInteractorInputProtocol,
-         networkAvailabilityLayerInteractor: NetworkAvailabilityLayerInteractorInputProtocol?) {
+         networkAvailabilityLayerInteractor: NetworkAvailabilityLayerInteractorInputProtocol?,
+         legacyUpgradeSelectedAccount:
+             @escaping () -> AccountItem? = {
+                 SelectedWalletSettings.shared.currentAccount
+             },
+         legacyUpgradeSnapshotLoader:
+             @escaping () throws -> WalletNetworkSnapshot? = {
+                 try WalletNetworkStore().load()
+             },
+         legacyUpgradeUnresolvedCommitLoader:
+             @escaping () throws -> [WalletAccountCommitJournal] = {
+                 try WalletAccountCommitJournalStore().unresolved()
+             },
+         legacyUpgradeInteractorFactory:
+             @escaping (
+                 KeystoreProtocol,
+                 SettingsManagerProtocol,
+                 Data,
+                 String
+             ) -> AccountImportInteractorInputProtocol? = {
+                 keystore,
+                 settings,
+                 expectedEntropyDigest,
+                 expectedDisplayName in
+                 AccountImportViewFactory.createLegacyUpgradeInteractor(
+                     keystore: keystore,
+                     settings: settings,
+                     expectedEntropyDigest: expectedEntropyDigest,
+                     expectedDisplayName: expectedDisplayName
+                 )
+             }) {
         self.settings = settings
         self.keystore = keystore
         self.migrators = migrators
         self.securityLayerInteractor = securityLayerInteractor
         self.networkAvailabilityLayerInteractor = networkAvailabilityLayerInteractor
-        checkLegacyUpdate()
+        self.legacyUpgradeSelectedAccount =
+            legacyUpgradeSelectedAccount
+        self.legacyUpgradeSnapshotLoader =
+            legacyUpgradeSnapshotLoader
+        self.legacyUpgradeUnresolvedCommitLoader =
+            legacyUpgradeUnresolvedCommitLoader
+        self.legacyUpgradeInteractorFactory =
+            legacyUpgradeInteractorFactory
     }
 
     private func configureSecurityService() {
@@ -79,19 +350,93 @@ final class RootInteractor {
 
     var legacyImportInteractor: AccountImportInteractorInputProtocol?
 
-    private func checkLegacyUpdate() {
-        if let legacySeed = try? keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue),
-           let mnemonic = try? IRMnemonicCreator(language: .english).mnemonic(fromEntropy: legacySeed),
-           let importInteractor = AccountImportViewFactory.createSilentImportInteractor() {
+    private func isLegacyWalletUpgradeCandidate(
+        snapshot: WalletNetworkSnapshot?
+    ) throws -> Bool {
+        LegacyWalletUpgradePolicy.isCandidate(
+            keyIdentifiers: Set(
+                try keystore.allKeyIdentifiers()
+            ),
+            hasWatchOnlyWallet:
+                settings.hasRetainedWatchOnlyWallet(),
+            snapshot: snapshot
+        )
+    }
 
-            let username = settings.string(for: KeystoreTag.legacyUsername.rawValue) ?? ""
-            let request = AccountImportMnemonicRequest(mnemonic: mnemonic.toString(),
-                                                       username: username,
-                                                       networkType: .sora,
-                                                       derivationPath: "",
-                                                       cryptoType: .sr25519)
-            legacyImportInteractor = importInteractor
-            importInteractor.importAccountWithMnemonic(request: request)
+    private func failLegacyWalletUpgrade(_ error: Error) {
+        settings.walletMigrationRecoveryRequired = true
+        settings.walletMigrationRecoveryReason =
+            UserStorageMigrationError
+                .privacySafeRecoveryDescription(for: error)
+        legacyImportInteractor = nil
+        presenter?.didDecideBroken()
+    }
+
+    private func verifyLegacyWalletUpgrade(
+        account: AccountItem,
+        expectedEntropyDigest: Data,
+        expectedDisplayName: String
+    ) throws {
+        let scopedTags = [
+            KeystoreTag.secretKeyTagForAddress(account.address),
+            KeystoreTag.entropyTagForAddress(account.address),
+            KeystoreTag.deriviationTagForAddress(account.address),
+            KeystoreTag.seedTagForAddress(account.address),
+        ]
+        let identifiers = Set(try keystore.allKeyIdentifiers())
+        var retainedEntropy = try keystore.fetchKey(
+            for: KeystoreTag.legacyEntropy.rawValue
+        )
+        defer {
+            retainedEntropy.resetBytes(
+                in: retainedEntropy.startIndex ..<
+                retainedEntropy.endIndex
+            )
+        }
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: retainedEntropy)
+        let wordCount = mnemonic.allWords().count
+        guard
+            let expectedSource = WalletMnemonicWordPolicy
+                .retainedSecretSource(forWordCount: wordCount)
+        else {
+            throw WalletIntegrityError
+                .legacyWalletUpgradeVerificationFailed
+        }
+        let expectedNetworks: Set<NetworkId> =
+            expectedSource == .legacyMnemonicEntropy
+                ? [.sora2]
+                : Set(NetworkId.allCases)
+        guard
+            !retainedEntropy.isEmpty,
+            Data(SHA256.hash(data: retainedEntropy)) ==
+                expectedEntropyDigest,
+            !identifiers.contains("privateKey"),
+            scopedTags.allSatisfy({ !identifiers.contains($0) }),
+            let snapshot = try legacyUpgradeSnapshotLoader(),
+            snapshot.wallets.count == 1,
+            snapshot.selectedWalletId == account.address,
+            snapshot.wallets.first?.id == account.address,
+            snapshot.wallets.first?.existingSoraAddress ==
+                account.address,
+            account.username == expectedDisplayName,
+            snapshot.wallets.first?.displayName == expectedDisplayName,
+            snapshot.wallets.first?.secretSource == expectedSource,
+            snapshot.accounts.filter({
+                $0.walletId == account.address &&
+                    $0.networkId == .sora2 &&
+                    $0.address == account.address &&
+                    $0.publicKey == account.publicKeyData
+            }).count == 1,
+            snapshot.accounts.allSatisfy({
+                $0.walletId == account.address
+            }),
+            snapshot.accounts.count == expectedNetworks.count,
+            Set(snapshot.accounts.map(\.networkId)) == expectedNetworks,
+            try legacyUpgradeUnresolvedCommitLoader().isEmpty
+        else {
+            throw WalletIntegrityError
+                .legacyWalletUpgradeVerificationFailed
         }
     }
 }
@@ -99,16 +444,52 @@ final class RootInteractor {
 extension RootInteractor: RootInteractorInputProtocol {
     func decideModuleSynchroniously() {
         do {
-            if !settings.hasSelectedAccount {
-                try keystore.deleteKeyIfExists(for: KeystoreTag.pincode.rawValue)
+            if settings.walletMigrationRecoveryRequired {
+                presenter?.didDecideBroken()
+                return
+            }
+
+            let pincodeExists = try keystore.checkKey(
+                for: KeystoreTag.pincode.rawValue
+            )
+            if legacyUpgradeSelectedAccount() == nil {
+                let hasWatchOnlyWallet =
+                    settings.hasRetainedWatchOnlyWallet()
+                let networkSnapshot = try legacyUpgradeSnapshotLoader()
+                let hasInventoriedWallets =
+                    networkSnapshot?.wallets.isEmpty == false
+                let hasRetainedWalletSettings =
+                    settings.hasRetainedWalletSettings()
+                if try isLegacyWalletUpgradeCandidate(
+                    snapshot: networkSnapshot
+                ) {
+                    presenter?.didDecideLegacyWalletUpgrade()
+                    return
+                }
+                let hasProtectedWalletMaterial =
+                    try keystore.hasRetainedWalletMaterial()
+
+                if hasProtectedWalletMaterial ||
+                    hasRetainedWalletSettings ||
+                    hasWatchOnlyWallet ||
+                    hasInventoriedWallets ||
+                    pincodeExists {
+                    let error = WalletIntegrityError.selectedAccountMissing
+                    settings.walletMigrationRecoveryRequired = true
+                    settings.walletMigrationRecoveryReason =
+                        UserStorageMigrationError
+                            .privacySafeRecoveryDescription(for: error)
+                    presenter?.didDecideBroken()
+                    return
+                }
 
                 presenter?.didDecideOnboarding()
                 return
-            } else {
-                try? keystore.deleteKeyIfExists(for: KeystoreTag.legacyEntropy.rawValue)
             }
 
-            let pincodeExists = try keystore.checkKey(for: KeystoreTag.pincode.rawValue)
+            // Keep the legacy entropy record during this migration release.
+            // The wallet model remains dual-readable for rollback/recovery and
+            // a successful import is not permission to delete its source.
 
             if pincodeExists {
                 presenter?.didDecideLocalAuthentication()
@@ -117,7 +498,116 @@ extension RootInteractor: RootInteractorInputProtocol {
             }
 
         } catch {
+            settings.walletMigrationRecoveryRequired = true
+            settings.walletMigrationRecoveryReason =
+                UserStorageMigrationError
+                    .privacySafeRecoveryDescription(for: error)
             presenter?.didDecideBroken()
+        }
+    }
+
+    func performLegacyWalletUpgrade() {
+        legacyUpgradeLock.lock()
+        guard !didStartLegacyWalletUpgrade else {
+            legacyUpgradeLock.unlock()
+            return
+        }
+        didStartLegacyWalletUpgrade = true
+        legacyUpgradeLock.unlock()
+
+        do {
+            guard
+                !settings.walletMigrationRecoveryRequired,
+                legacyUpgradeSelectedAccount() == nil,
+                try isLegacyWalletUpgradeCandidate(
+                    snapshot: legacyUpgradeSnapshotLoader()
+                )
+            else {
+                throw WalletIntegrityError
+                    .legacyWalletUpgradeVerificationFailed
+            }
+
+            var legacyEntropy = try keystore.fetchKey(
+                for: KeystoreTag.legacyEntropy.rawValue
+            )
+            defer {
+                legacyEntropy.resetBytes(
+                    in: legacyEntropy.startIndex ..<
+                        legacyEntropy.endIndex
+                )
+            }
+            guard !legacyEntropy.isEmpty else {
+                throw WalletIntegrityError
+                    .legacyWalletUpgradeVerificationFailed
+            }
+            let expectedEntropyDigest = Data(
+                SHA256.hash(data: legacyEntropy)
+            )
+            let mnemonic = try IRMnemonicCreator(
+                language: .english
+            ).mnemonic(fromEntropy: legacyEntropy)
+            var phrase = mnemonic.toString()
+            defer {
+                phrase.removeAll(keepingCapacity: false)
+            }
+            let username = try LegacyWalletUpgradeDisplayNameResolver
+                .resolve(
+                    settings: settings,
+                    keystore: keystore
+                )
+            guard
+                WalletMnemonicWordPolicy.retainedSoraWordCounts
+                    .contains(mnemonic.allWords().count),
+                let importInteractor = legacyUpgradeInteractorFactory(
+                    keystore,
+                    settings,
+                    expectedEntropyDigest,
+                    username
+                )
+            else {
+                throw WalletIntegrityError
+                    .legacyWalletUpgradeVerificationFailed
+            }
+
+            let request = AccountImportMnemonicRequest(
+                mnemonic: phrase,
+                username: username,
+                networkType: .sora,
+                derivationPath: "",
+                cryptoType: .sr25519
+            )
+            legacyImportInteractor = importInteractor
+            importInteractor.importAccountWithMnemonic(
+                request: request
+            ) { [weak self] result in
+                guard let self else {
+                    return
+                }
+                switch result {
+                case let .success(account):
+                    do {
+                        try self.verifyLegacyWalletUpgrade(
+                            account: account,
+                            expectedEntropyDigest:
+                                expectedEntropyDigest,
+                            expectedDisplayName: username
+                        )
+                        self.legacyImportInteractor = nil
+                        self.decideModuleSynchroniously()
+                    } catch {
+                        self.failLegacyWalletUpgrade(error)
+                    }
+                case let .failure(error):
+                    self.failLegacyWalletUpgrade(error)
+                case .none:
+                    self.failLegacyWalletUpgrade(
+                        WalletIntegrityError
+                            .legacyWalletUpgradeVerificationFailed
+                    )
+                }
+            }
+        } catch {
+            failLegacyWalletUpgrade(error)
         }
     }
 
@@ -126,7 +616,11 @@ extension RootInteractor: RootInteractorInputProtocol {
             do {
                 try migrator.migrate()
             } catch {
-                Logger.shared.error(error.localizedDescription)
+                let outcome = UserStorageMigrationError
+                    .privacySafeOutcomeCode(for: error)
+                Logger.shared.error(
+                    "Wallet migrator outcome: \(outcome)"
+                )
             }
         }
     }

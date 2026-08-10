@@ -22,6 +22,22 @@ final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFac
 
     var transferClosure: ((TransferInfo) -> CompoundOperationWrapper<Data>)?
 
+    var transferFeeClosure: ((TransferInfo) async throws -> Decimal)?
+
+    var prepareTransferClosure: ((TransferInfo, () throws -> Void) async throws
+        -> PreparedSora2TransferSubmission)?
+
+    var submitPreparedTransferClosure: ((PreparedSora2TransferSubmission, TransferInfo, () throws -> Void) async throws
+        -> Data)?
+
+    var liquidityFeeClosure: ((TransferInfo) async throws -> Decimal)?
+
+    var prepareLiquidityClosure: ((TransferInfo, () throws -> Void) async throws
+        -> PreparedLiquiditySubmission)?
+
+    var submitPreparedLiquidityClosure: ((PreparedLiquiditySubmission, TransferInfo, () throws -> Void) async throws
+        -> Data)?
+
     var searchClosure: ((String) -> CompoundOperationWrapper<[SearchData]?>)?
 
     var contactsClosure: (() -> CompoundOperationWrapper<[SearchData]?>)?
@@ -78,6 +94,70 @@ final class WalletNetworkOperationFactoryProtocolMock: WalletNetworkOperationFac
             let operation = ClosureOperation<Data> { Data() }
             return CompoundOperationWrapper(targetOperation: operation)
         }
+    }
+
+    func estimateTransferFee(for info: TransferInfo) async throws -> Decimal {
+        guard let transferFeeClosure else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        return try await transferFeeClosure(info)
+    }
+
+    func prepareTransferSubmission(
+        for info: TransferInfo,
+        preSigningValidation: @escaping () throws -> Void
+    ) async throws -> PreparedSora2TransferSubmission {
+        guard let prepareTransferClosure else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        return try await prepareTransferClosure(info, preSigningValidation)
+    }
+
+    func submitPreparedTransfer(
+        _ submission: PreparedSora2TransferSubmission,
+        info: TransferInfo,
+        preTransportValidation: @escaping () throws -> Void
+    ) async throws -> Data {
+        guard let submitPreparedTransferClosure else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        return try await submitPreparedTransferClosure(
+            submission,
+            info,
+            preTransportValidation
+        )
+    }
+
+    func estimateLiquidityFee(for info: TransferInfo) async throws -> Decimal {
+        guard let liquidityFeeClosure else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        return try await liquidityFeeClosure(info)
+    }
+
+    func prepareLiquiditySubmission(
+        for info: TransferInfo,
+        preSigningValidation: @escaping () throws -> Void
+    ) async throws -> PreparedLiquiditySubmission {
+        guard let prepareLiquidityClosure else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        return try await prepareLiquidityClosure(info, preSigningValidation)
+    }
+
+    func submitPreparedLiquidity(
+        _ submission: PreparedLiquiditySubmission,
+        info: TransferInfo,
+        preTransportValidation: @escaping () throws -> Void
+    ) async throws -> Data {
+        guard let submitPreparedLiquidityClosure else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        return try await submitPreparedLiquidityClosure(
+            submission,
+            info,
+            preTransportValidation
+        )
     }
 
     func searchOperation(_ searchString: String) -> CompoundOperationWrapper<[SearchData]?> {

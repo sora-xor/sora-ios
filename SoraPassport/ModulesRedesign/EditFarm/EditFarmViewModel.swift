@@ -56,7 +56,7 @@ final class EditFarmViewModel {
     internal var sharePercentage: Decimal = 0
     private var fee: Decimal = 0
     
-    private var stakedValue: Float = 0
+    private var stakedSelection: FarmShareSelection = .zero
 
     init(farm: Farm,
          poolInfo: PoolInfo,
@@ -107,14 +107,14 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
             service = EditFarmItemService(poolInfo: poolInfo,
                                               userFarm: userFarmInfo,
                                               feeProvider: feeProvider,
-                                              currentPercentage: stakedValue,
+                                              currentSelection: stakedSelection,
                                               feePercentage: farm.depositFee,
                                               userBalance: balance.balance.decimalValue)
             service?.setup()
             
             let editFarmItem = itemFactory.createEditFarmItem(stakeFeeAmount: farm.depositFee,
                                                               sharePercentage: sharePercentage,
-                                                              stakedValue: stakedValue,
+                                                              stakedSelection: stakedSelection,
                                                               viewModel: self,
                                                               service: service)
             items.append(.stake(editFarmItem))
@@ -134,7 +134,7 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
         let accountPoolBalance = poolInfo.accountPoolBalance ?? .zero
         let sharePercentage = accountPoolBalance > 0 ? pooledTokens / accountPoolBalance * 100 : 0
         self.sharePercentage = sharePercentage
-        self.stakedValue = sharePercentage.floatValue / 100
+        self.stakedSelection = FarmShareSelection(percent: sharePercentage) ?? .zero
     }
     
     func feeInfoButtonTapped() {
@@ -215,4 +215,3 @@ extension EditFarmViewModel: EditFarmViewModelProtocol, AlertPresentable {
         }
     }
 }
-

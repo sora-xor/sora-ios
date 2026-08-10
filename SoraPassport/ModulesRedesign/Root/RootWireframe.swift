@@ -29,10 +29,14 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
+import SoraKeystore
 import SoraUIKit
 
 final class RootWireframe: RootWireframeProtocol {
     func showOnboarding(on view: UIWindow) {
+        RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
+            .onboarding
+        )
         let containerView = WelcomeBackgroundViewController()
         
         let onboardingView = OnboardingMainViewFactory.createWelcomeViewForRoot()
@@ -47,8 +51,28 @@ final class RootWireframe: RootWireframeProtocol {
         view.rootViewController = containerView
     }
 
+    func showLegacyWalletUpgrade(
+        on view: UIWindow,
+        onConfirm: @escaping () -> Void
+    ) {
+        RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
+            .legacyUpgradeReady
+        )
+        let controller = LegacyWalletUpgradeViewController(
+            onConfirm: onConfirm
+        )
+        let navigation = UINavigationController(
+            rootViewController: controller
+        )
+        navigation.navigationBar.isHidden = true
+        view.rootViewController = navigation
+    }
+
     @MainActor
     func showLocalAuthentication(on view: UIWindow) {
+        RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
+            .localAuthentication
+        )
         let pinView = PinViewFactory.createRedesignSecuredPinView()?.controller ?? UIViewController()
         
         let containerView = BlurViewController()
@@ -61,6 +85,9 @@ final class RootWireframe: RootWireframeProtocol {
     }
 
     func showPincodeSetup(on view: UIWindow) {
+        RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
+            .pincodeSetup
+        )
         guard let controller = PinViewFactory.createRedesignPinSetupView()?.controller else {
             return
         }
@@ -69,7 +96,431 @@ final class RootWireframe: RootWireframeProtocol {
     }
 
     func showBroken(on view: UIWindow) {
-        // normally user must not see this but on malicious devices it is possible
-        view.backgroundColor = .red
+        RetainedMigrationEvidenceHarness.shared.observeApplicationRoute(
+            .recovery
+        )
+        let controller = WalletRecoveryViewController(
+            reason: SettingsManager.shared.walletMigrationRecoveryReason
+        )
+        let navigation = UINavigationController(rootViewController: controller)
+        navigation.navigationBar.isHidden = true
+        view.rootViewController = navigation
+    }
+}
+
+/// An explicit confirmation replaces the historical silent-import path. The
+/// old entropy remains in its original Keychain tag throughout the journaled
+/// account commit and is retained after success for dual-read recovery.
+private final class LegacyWalletUpgradeViewController: UIViewController {
+    private let onConfirm: () -> Void
+    private let continueButton = UIButton(type: .system)
+    private let statusLabel = UILabel()
+    private let progress = UIActivityIndicatorView(style: .medium)
+    private var didConfirm = false
+
+    init(onConfirm: @escaping () -> Void) {
+        self.onConfirm = onConfirm
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+
+        let titleLabel = UILabel()
+        titleLabel.font = .preferredFont(forTextStyle: .title2)
+        titleLabel.numberOfLines = 0
+        titleLabel.text = "Protect and upgrade your wallet"
+
+        let bodyLabel = UILabel()
+        bodyLabel.font = .preferredFont(forTextStyle: .body)
+        bodyLabel.textColor = .secondaryLabel
+        bodyLabel.numberOfLines = 0
+        bodyLabel.text = [
+            "SORA found a wallet created by an older app version.",
+            "Continue only when you are ready. SORA will verify the protected recovery entropy, derive the same deterministic SORA account, and commit it through the interruption-safe wallet journal.",
+            "The original Keychain entry will not be deleted or replaced in this release. If any check fails, the app will stop in recovery mode instead of creating another wallet."
+        ].joined(separator: "\n\n")
+
+        continueButton.setTitle(
+            "Continue protected upgrade",
+            for: .normal
+        )
+        continueButton.accessibilityIdentifier =
+            RetainedMigrationEvidenceHarness
+                .continueUpgradeAccessibilityIdentifier
+        continueButton.titleLabel?.font = .preferredFont(
+            forTextStyle: .headline
+        )
+        continueButton.addTarget(
+            self,
+            action: #selector(confirmUpgrade),
+            for: .touchUpInside
+        )
+
+        statusLabel.font = .preferredFont(forTextStyle: .footnote)
+        statusLabel.textColor = .secondaryLabel
+        statusLabel.numberOfLines = 0
+        statusLabel.textAlignment = .center
+
+        progress.hidesWhenStopped = true
+
+        let stack = UIStackView(
+            arrangedSubviews: [
+                titleLabel,
+                bodyLabel,
+                continueButton,
+                progress,
+                statusLabel,
+            ]
+        )
+        stack.axis = .vertical
+        stack.spacing = 20
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.leadingAnchor,
+                constant: 24
+            ),
+            stack.trailingAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.trailingAnchor,
+                constant: -24
+            ),
+            stack.centerYAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.centerYAnchor
+            ),
+        ])
+    }
+
+    @objc private func confirmUpgrade() {
+        guard !didConfirm else {
+            return
+        }
+        didConfirm = true
+        continueButton.isEnabled = false
+        progress.startAnimating()
+        statusLabel.text =
+            "Verifying and preserving your wallet. Do not delete the app."
+        onConfirm()
+    }
+}
+
+/// A fail-closed surface used when wallet integrity or account-bound context
+/// cannot be proven.
+/// It deliberately has no reset/logout action: deleting local state is never a
+/// recovery strategy for a production wallet.
+final class WalletRecoveryViewController: UIViewController {
+    private let reason: String?
+    private let exportButton = UIButton(type: .system)
+    private let exportProgress = UIActivityIndicatorView(style: .medium)
+    private let exportStatusLabel = UILabel()
+    private var isExporting = false
+
+    init(reason: String?) {
+        self.reason = reason
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+        view.accessibilityIdentifier =
+            RetainedMigrationEvidenceHarness.recoveryAccessibilityIdentifier
+
+        let titleLabel = UILabel()
+        titleLabel.font = .preferredFont(forTextStyle: .title2)
+        titleLabel.text = "Your wallet is safe"
+        titleLabel.numberOfLines = 0
+
+        let bodyLabel = UILabel()
+        bodyLabel.font = .preferredFont(forTextStyle: .body)
+        bodyLabel.textColor = .secondaryLabel
+        bodyLabel.numberOfLines = 0
+        bodyLabel.text = [
+            "SORA could not verify the encrypted wallet for this operation, so it stopped before continuing. It did not delete, replace, log out, or recreate any account.",
+            reason,
+            "Do not delete or reinstall the app. The installed wallet database, settings, Keychain entries, and any verified migration backup have been preserved. Contact SORA support and include the app version shown below; never share your recovery phrase."
+        ].compactMap { $0 }.joined(separator: "\n\n")
+
+        let versionLabel = UILabel()
+        versionLabel.font = .preferredFont(forTextStyle: .footnote)
+        versionLabel.textColor = .tertiaryLabel
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        versionLabel.text = "SORA \(version) (\(build))"
+
+        let supportButton = UIButton(type: .system)
+        supportButton.setTitle("Open SORA support", for: .normal)
+        supportButton.addTarget(
+            self,
+            action: #selector(openSupport),
+            for: .touchUpInside
+        )
+
+        let detailsButton = UIButton(type: .system)
+        detailsButton.setTitle("Copy recovery details", for: .normal)
+        detailsButton.addTarget(
+            self,
+            action: #selector(copyRecoveryDetails),
+            for: .touchUpInside
+        )
+
+        exportButton.setTitle(
+            "Create protected recovery export",
+            for: .normal
+        )
+        exportButton.accessibilityIdentifier =
+            RetainedMigrationEvidenceHarness
+                .recoveryExportAccessibilityIdentifier
+        exportButton.titleLabel?.font = .preferredFont(
+            forTextStyle: .headline
+        )
+        exportButton.addTarget(
+            self,
+            action: #selector(confirmRecoveryExport),
+            for: .touchUpInside
+        )
+
+        exportProgress.hidesWhenStopped = true
+
+        exportStatusLabel.font = .preferredFont(forTextStyle: .footnote)
+        exportStatusLabel.accessibilityIdentifier =
+            RetainedMigrationEvidenceHarness
+                .recoveryExportSuccessAccessibilityIdentifier
+        exportStatusLabel.textColor = .secondaryLabel
+        exportStatusLabel.numberOfLines = 0
+        exportStatusLabel.textAlignment = .center
+
+        let backupHelpButton = UIButton(type: .system)
+        backupHelpButton.setTitle("Recovery export help", for: .normal)
+        backupHelpButton.addTarget(
+            self,
+            action: #selector(showBackupHelp),
+            for: .touchUpInside
+        )
+
+        let stack = UIStackView(
+            arrangedSubviews: [
+                titleLabel,
+                bodyLabel,
+                versionLabel,
+                supportButton,
+                detailsButton,
+                exportButton,
+                exportProgress,
+                exportStatusLabel,
+                backupHelpButton
+            ]
+        )
+        stack.axis = .vertical
+        stack.spacing = 20
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let scrollView = UIScrollView()
+        scrollView.alwaysBounceVertical = true
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.leadingAnchor
+            ),
+            scrollView.trailingAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.trailingAnchor
+            ),
+            scrollView.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor
+            ),
+            scrollView.bottomAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.bottomAnchor
+            ),
+            stack.leadingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.leadingAnchor,
+                constant: 24
+            ),
+            stack.trailingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.trailingAnchor,
+                constant: -24
+            ),
+            stack.topAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.topAnchor,
+                constant: 24
+            ),
+            stack.bottomAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.bottomAnchor,
+                constant: -24
+            ),
+            stack.widthAnchor.constraint(
+                equalTo: scrollView.frameLayoutGuide.widthAnchor,
+                constant: -48
+            )
+        ])
+    }
+
+    @objc private func openSupport() {
+        UIApplication.shared.open(ApplicationConfig.shared.supportURL)
+    }
+
+    @objc private func copyRecoveryDetails() {
+        let version = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "unknown"
+        let build = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleVersion"
+        ) as? String ?? "unknown"
+        UIPasteboard.general.string = [
+            "SORA \(version) (\(build))",
+            reason ?? "Wallet integrity verification stopped."
+        ].joined(separator: "\n")
+    }
+
+    @objc private func showBackupHelp() {
+        let instructions = [
+            "Do not delete or reinstall SORA.",
+            "Keep any existing recovery phrase or encrypted JSON backup offline.",
+            "A protected recovery export contains public wallet metadata but no phrase, seed, private key, PIN, signed payload, or Keychain item.",
+            "Keychain secrets stay only on this device.",
+            "Use Copy recovery details when contacting SORA support.",
+            "Never send anyone your phrase, seed, private key, or PIN."
+        ].joined(separator: "\n")
+        let alert = UIAlertController(
+            title: "Protect your recovery options",
+            message: instructions,
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: "Copy instructions",
+                style: .default
+            ) { _ in
+                UIPasteboard.general.string = instructions
+            }
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: "Open SORA support",
+                style: .default
+            ) { _ in
+                UIApplication.shared.open(
+                    ApplicationConfig.shared.supportURL
+                )
+            }
+        )
+        alert.addAction(
+            UIAlertAction(title: "Cancel", style: .cancel)
+        )
+        present(alert, animated: true)
+    }
+
+    @objc private func confirmRecoveryExport() {
+        guard !isExporting else {
+            return
+        }
+        let alert = UIAlertController(
+            title: "Create protected recovery export?",
+            message: [
+                "The export can contain public wallet metadata, including addresses, account names, preferences, and transaction history.",
+                "It does not contain your phrase, seed, private key, PIN, signed transaction payloads, or any Keychain item. Keychain secrets stay only on this device.",
+                "Keep the export private and share it only through an official support channel whose identity you have verified."
+            ].joined(separator: "\n\n"),
+            preferredStyle: .alert
+        )
+        alert.view.accessibilityIdentifier =
+            RetainedMigrationEvidenceHarness
+                .recoveryExportConfirmAccessibilityIdentifier
+        alert.addAction(
+            UIAlertAction(title: "Cancel", style: .cancel)
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: "Create export",
+                style: .default
+            ) { [weak self] _ in
+                self?.createRecoveryExport()
+            }
+        )
+        present(alert, animated: true)
+    }
+
+    private func createRecoveryExport() {
+        guard !isExporting else {
+            return
+        }
+        isExporting = true
+        exportButton.isEnabled = false
+        exportProgress.startAnimating()
+        exportStatusLabel.text =
+            "Verifying preserved files. Wallet data and Keychain will not be changed."
+
+        let exporter = WalletRecoveryExporter()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let result = try exporter.createRecoveryPackage()
+                DispatchQueue.main.async {
+                    self?.presentRecoveryExport(result.packageURL)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.finishRecoveryExport(
+                        error: error.localizedDescription
+                    )
+                }
+            }
+        }
+    }
+
+    private func presentRecoveryExport(_ url: URL) {
+        isExporting = false
+        exportButton.isEnabled = true
+        exportProgress.stopAnimating()
+        exportStatusLabel.text = [
+            "Protected export created.",
+            "Keychain secrets remain only on this device."
+        ].joined(separator: " ")
+        RetainedMigrationEvidenceHarness.shared
+            .recordRecoveryArchiveExport(url)
+
+        let activity = UIActivityViewController(
+            activityItems: [url],
+            applicationActivities: nil
+        )
+        if let popover = activity.popoverPresentationController {
+            popover.sourceView = exportButton
+            popover.sourceRect = exportButton.bounds
+        }
+        present(activity, animated: true)
+    }
+
+    private func finishRecoveryExport(error: String) {
+        isExporting = false
+        exportButton.isEnabled = true
+        exportProgress.stopAnimating()
+        exportStatusLabel.text =
+            "No recovery package was published."
+
+        let alert = UIAlertController(
+            title: "Recovery export stopped safely",
+            message: [
+                error,
+                "The installed wallet, settings, recovery marker, and Keychain were not changed."
+            ].joined(separator: "\n\n"),
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(title: "OK", style: .default)
+        )
+        present(alert, animated: true)
     }
 }

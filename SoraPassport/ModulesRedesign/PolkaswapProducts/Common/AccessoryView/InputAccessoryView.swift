@@ -34,11 +34,11 @@ import UIKit
 
 struct InputAccessoryVariant {
     let displayValue: String
-    let value: Float
+    let value: Decimal
 }
 
 protocol InputAccessoryViewDelegate: AnyObject {
-    func didSelect(variant: Float)
+    func didSelect(variant: Decimal)
 }
 
 final class InputAccessoryView: SoramitsuView {

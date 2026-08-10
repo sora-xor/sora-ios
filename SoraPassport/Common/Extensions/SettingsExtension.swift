@@ -44,6 +44,7 @@ enum SettingsKey: String {
     case streamToken
     case selectedAccount
     case hasMigrated
+    case migratedAccountsV1
     case externalGenesis
     case externalExistentialDeposit
     case externalPrefix
@@ -51,9 +52,67 @@ enum SettingsKey: String {
     case inputBlockDate
     case failInputPinCount
     case lastSuccessfulUrl
+    case walletMigrationRecoveryRequired
+    case walletMigrationRecoveryReason
+    case walletNetworkStoreVersion
+    case tairaEnabled
+    case tairaPreferenceWasSet
+    case tairaExplicitPreference
+    case tairaRemoteDefault
+    case nexusEnabled
+    case nexusSendsEnabled
+    case polkamarktEnabled
+    case polkamarktMutationsEnabled
+}
+
+private enum TairaExplicitPreferenceState {
+    case absent
+    case enabled
+    case disabled
+    case malformed
+}
+
+private enum TairaStoredBooleanState {
+    case absent
+    case value(Bool)
+    case malformed
 }
 
 extension SettingsManagerProtocol {
+    private var atomicTairaExplicitPreference: TairaExplicitPreferenceState {
+        guard let stored = anyValue(
+            for: SettingsKey.tairaExplicitPreference.rawValue
+        ) else {
+            return .absent
+        }
+        guard let raw = stored as? String else {
+            return .malformed
+        }
+        switch raw {
+        case "enabled":
+            return .enabled
+        case "disabled":
+            return .disabled
+        default:
+            // A present but malformed explicit choice is never permission for a
+            // remote default to expose a test network.
+            return .malformed
+        }
+    }
+
+    private func tairaStoredBooleanState(
+        for key: SettingsKey
+    ) -> TairaStoredBooleanState {
+        guard let stored = anyValue(for: key.rawValue) else {
+            return .absent
+        }
+        guard let number = stored as? NSNumber,
+              CFGetTypeID(number) == CFBooleanGetTypeID() else {
+            return .malformed
+        }
+        return .value(number.boolValue)
+    }
+
     var hasSelectedAccount: Bool {
         SelectedWalletSettings.shared.hasValue
     }
@@ -281,4 +340,252 @@ extension SettingsManagerProtocol {
             }
         }
     }
+
+    /// A sticky, non-destructive recovery marker. Migration success is not
+    /// authority to clear a marker that another integrity check may have
+    /// latched; only a future explicit, audited recovery action may clear it.
+    var walletMigrationRecoveryRequired: Bool {
+        get { bool(for: SettingsKey.walletMigrationRecoveryRequired.rawValue) ?? false }
+        set { set(value: newValue, for: SettingsKey.walletMigrationRecoveryRequired.rawValue) }
+    }
+
+    var walletMigrationRecoveryReason: String? {
+        get { string(for: SettingsKey.walletMigrationRecoveryReason.rawValue) }
+        set {
+            if let newValue {
+                set(value: newValue, for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+            } else {
+                removeValue(for: SettingsKey.walletMigrationRecoveryReason.rawValue)
+            }
+        }
+    }
+
+    var walletNetworkStoreVersion: Int {
+        get { integer(for: SettingsKey.walletNetworkStoreVersion.rawValue) ?? 0 }
+        set { set(value: newValue, for: SettingsKey.walletNetworkStoreVersion.rawValue) }
+    }
+
+    /// Taira is on by default for the tester release. Once the user changes
+    /// this value, future remote defaults must not override their choice.
+    var isTairaEnabled: Bool {
+        get {
+            switch atomicTairaExplicitPreference {
+            case .enabled:
+                return true
+            case .disabled, .malformed:
+                return false
+            case .absent:
+                break
+            }
+
+            let legacyMarker = tairaStoredBooleanState(for: .tairaPreferenceWasSet)
+            let legacyValue = tairaStoredBooleanState(for: .tairaEnabled)
+            switch (legacyMarker, legacyValue) {
+            case let (.value(true), .value(enabled)):
+                return enabled
+            case (.absent, .absent):
+                switch tairaStoredBooleanState(for: .tairaRemoteDefault) {
+                case let .value(remoteDefault):
+                    return remoteDefault
+                case .absent:
+                    return true
+                case .malformed:
+                    return false
+                }
+            default:
+                // The retired writer stored value then marker. Any partial pair,
+                // explicit false marker, or malformed member is interruption
+                // evidence, never permission to apply a remote default.
+                return false
+            }
+        }
+        set {
+            // One authoritative tri-state key makes the explicit choice durable
+            // in a single logical write. Retain the legacy pair for one further
+            // dual-read release; it is no longer authoritative once this key exists.
+            set(
+                value: newValue ? "enabled" : "disabled",
+                for: SettingsKey.tairaExplicitPreference.rawValue
+            )
+            set(value: newValue, for: SettingsKey.tairaEnabled.rawValue)
+            set(value: true, for: SettingsKey.tairaPreferenceWasSet.rawValue)
+        }
+    }
+
+    var nexusEnabled: Bool {
+        get { bool(for: SettingsKey.nexusEnabled.rawValue) ?? true }
+        set { set(value: newValue, for: SettingsKey.nexusEnabled.rawValue) }
+    }
+
+    var nexusSendsEnabled: Bool {
+        // Mutation capabilities fail closed until the reviewed native signer
+        // and live-network qualification gates have passed. A qualified
+        // release or emergency configuration may persist an explicit value.
+        get {
+            ProductionRemoteCapabilitySession.shared.permitsMutation(
+                localQualification: ProductionMutationQualification.nexusSends,
+                capability: .nexusSends
+            )
+        }
+        set { set(value: newValue, for: SettingsKey.nexusSendsEnabled.rawValue) }
+    }
+
+    var polkamarktEnabled: Bool {
+        get { bool(for: SettingsKey.polkamarktEnabled.rawValue) ?? true }
+        set { set(value: newValue, for: SettingsKey.polkamarktEnabled.rawValue) }
+    }
+
+    var polkamarktMutationsEnabled: Bool {
+        // Discovery may remain visible while transaction construction is
+        // independently gated. Missing configuration is never permission to
+        // submit a production mutation.
+        get {
+            ProductionRemoteCapabilitySession.shared.permitsMutation(
+                localQualification:
+                    ProductionMutationQualification.polkamarktMutations,
+                capability: .polkamarktMutations
+            )
+        }
+        set { set(value: newValue, for: SettingsKey.polkamarktMutationsEnabled.rawValue) }
+    }
+
+    @discardableResult
+    func applyPIMobileConfig(
+        _ config: PIMobileConfig,
+        refreshToken: ProductionRemoteCapabilitySession.RefreshToken
+    ) -> Bool {
+        let capabilitySession = ProductionRemoteCapabilitySession.shared
+        return capabilitySession.publishFreshConfig(
+            refreshToken,
+            nexusSends: config.nexusAvailable && config.nexusSendsAvailable,
+            polkamarktMutations:
+                config.polkamarktVisible && config.polkamarktMutationsAvailable
+        ) {
+            nexusEnabled = config.nexusAvailable
+            nexusSendsEnabled =
+                config.nexusAvailable && config.nexusSendsAvailable
+            polkamarktEnabled = config.polkamarktVisible
+            polkamarktMutationsEnabled =
+                config.polkamarktVisible && config.polkamarktMutationsAvailable
+            // This is deliberately not `isTairaEnabled = ...`: that setter marks a
+            // user choice. Remote configuration changes only the default observed
+            // by users who have never made an explicit selection.
+            set(
+                value: config.tairaDefaultVisible,
+                for: SettingsKey.tairaRemoteDefault.rawValue
+            )
+            // Session publication occurs only after every persisted value is
+            // complete; concurrent readers cannot observe a partial config.
+        }
+    }
+}
+
+/// Live PI mutation authority is deliberately process-local. Persisted flags
+/// support diagnostics and cached read-only visibility, but a prior process's
+/// response can never enable a send or trade before this process receives and
+/// applies a fresh qualified `mobileConfig` response.
+final class ProductionRemoteCapabilitySession: @unchecked Sendable {
+    enum MutationCapability {
+        case nexusSends
+        case polkamarktMutations
+    }
+
+    struct RefreshToken: Sendable {
+        fileprivate let generation: UInt64
+    }
+
+    private struct Snapshot {
+        let nexusSends: Bool
+        let polkamarktMutations: Bool
+    }
+
+    static let shared = ProductionRemoteCapabilitySession()
+
+    private let publicationLock = NSLock()
+    private let stateLock = NSLock()
+    private var generation: UInt64 = 0
+    private var snapshot: Snapshot?
+
+    private init() {}
+
+    func beginLiveRefresh() -> RefreshToken {
+        publicationLock.lock()
+        stateLock.lock()
+        generation &+= 1
+        snapshot = nil
+        let token = RefreshToken(generation: generation)
+        stateLock.unlock()
+        publicationLock.unlock()
+        return token
+    }
+
+    func invalidate() {
+        _ = beginLiveRefresh()
+    }
+
+    func invalidate(_ token: RefreshToken) {
+        publicationLock.lock()
+        stateLock.lock()
+        if generation == token.generation {
+            generation &+= 1
+            snapshot = nil
+        }
+        stateLock.unlock()
+        publicationLock.unlock()
+    }
+
+    @discardableResult
+    func publishFreshConfig(
+        _ token: RefreshToken,
+        nexusSends: Bool,
+        polkamarktMutations: Bool,
+        publication: () -> Void
+    ) -> Bool {
+        publicationLock.lock()
+        stateLock.lock()
+        guard generation == token.generation else {
+            stateLock.unlock()
+            publicationLock.unlock()
+            return false
+        }
+        snapshot = nil
+        stateLock.unlock()
+        publication()
+        stateLock.lock()
+        snapshot = Snapshot(
+            nexusSends: nexusSends,
+            polkamarktMutations: polkamarktMutations
+        )
+        stateLock.unlock()
+        publicationLock.unlock()
+        return true
+    }
+
+    func permitsMutation(
+        localQualification: Bool,
+        capability: MutationCapability
+    ) -> Bool {
+        guard localQualification else {
+            return false
+        }
+        stateLock.lock()
+        let permitted: Bool
+        switch capability {
+        case .nexusSends:
+            permitted = snapshot?.nexusSends ?? false
+        case .polkamarktMutations:
+            permitted = snapshot?.polkamarktMutations ?? false
+        }
+        stateLock.unlock()
+        return permitted
+    }
+}
+
+enum ProductionMutationQualification {
+    // Promote only after the retained migration matrix, pinned native signer,
+    // runtime parity fixtures and funded network canaries are qualified. A
+    // remote flag is a kill switch, never authority to enable an unqualified
+    // binary.
+    static let nexusSends = false
+    static let polkamarktMutations = false
 }

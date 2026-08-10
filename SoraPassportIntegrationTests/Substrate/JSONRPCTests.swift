@@ -307,12 +307,15 @@ class JSONRPCTests: NetworkBaseTests {
 
         do {
             let result = try operation.extractResultData(throwing: BaseOperationError.parentOperationCancelled)
-            logger.debug("\(mnemonic) Received response: \(result)")
+            // Recovery phrases are never diagnostic material, including in CI
+            // and integration-test logs. Record only the operation outcome
+            // class; the test assertions already retain the Boolean result.
+            logger.debug("Migration eligibility response received")
             if(result == true) {
 //                try testMigrationService(mnemonic)
             }
         } catch {
-            XCTFail("Unexpected error: \(error)")
+            XCTFail("Migration eligibility request failed")
         }
     }
 //

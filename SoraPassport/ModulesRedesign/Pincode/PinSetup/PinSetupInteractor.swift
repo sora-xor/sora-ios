@@ -79,6 +79,15 @@ class PinSetupInteractor {
 
     private func submitPincode() {
         guard state == .submitingPincode, let currentPincode = pincode else { return }
+        do {
+            try WalletRecoveryCapabilityGate.shared
+                .requireAuthorizedLifecycleContinuation()
+        } catch {
+            pincode = nil
+            state = .waitingPincode
+            presenter?.didReceiveConfigError(error)
+            return
+        }
 
         secretManager.saveSecret(currentPincode,
                                  for: KeystoreTag.pincode.rawValue,

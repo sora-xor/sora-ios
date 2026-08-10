@@ -45,6 +45,38 @@
 	<string>This app require the access to Microphone to pass KYC</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Load photos from library</string>
+	<key>SoraMigrationEvidenceAuthorizationKeyId</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID)</string>
+	<key>SoraMigrationEvidenceAuthorizationPublicKeyX963Base64</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_AUTHORIZATION_PUBLIC_KEY_X963_BASE64)</string>
+	<key>SoraMigrationEvidenceQualificationContractSha256</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_QUALIFICATION_CONTRACT_SHA256)</string>
+	<key>SoraMigrationEvidenceSourceRevision</key>
+	<string>$(SORA_MIGRATION_EVIDENCE_SOURCE_REVISION)</string>
+	<key>SoraTairaCanonicalToriiBaseUrl</key>
+	<string>$(SORA_TAIRA_CANONICAL_TORII_BASE_URL)</string>
+	<key>SoraTairaCurrentChainId</key>
+	<string>$(SORA_TAIRA_CURRENT_CHAIN_ID)</string>
+	<key>SoraTairaCurrentDeploymentEpoch</key>
+	<string>$(SORA_TAIRA_CURRENT_DEPLOYMENT_EPOCH)</string>
+	<key>SoraTairaCurrentGenesisHash</key>
+	<string>$(SORA_TAIRA_CURRENT_GENESIS_HASH)</string>
+	<key>SoraTairaDeploymentAdmissionContractId</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID)</string>
+	<key>SoraTairaDeploymentAdmissionSha256</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256)</string>
+	<key>SoraTairaDeploymentManifestSha256</key>
+	<string>$(SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256)</string>
+	<key>SoraTairaPendingRowPolicy</key>
+	<string>$(SORA_TAIRA_PENDING_ROW_POLICY)</string>
+	<key>SoraTairaPublicMcpEndpoint</key>
+	<string>$(SORA_TAIRA_PUBLIC_MCP_ENDPOINT)</string>
+	<key>SoraTairaRetiredChainId</key>
+	<string>$(SORA_TAIRA_RETIRED_CHAIN_ID)</string>
+	<key>SoraTairaRetiredDeploymentEpoch</key>
+	<string>$(SORA_TAIRA_RETIRED_DEPLOYMENT_EPOCH)</string>
+	<key>SoraTairaRetiredGenesisHash</key>
+	<string>$(SORA_TAIRA_RETIRED_GENESIS_HASH)</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>sora-Bold.otf</string>

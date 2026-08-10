@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Chuỗi từ khóa khôi phục";
 "common.passphrase.save.or.send" = "Lưu hoặc gửi";
 "common.passphrase.header" = "Chuỗi từ khóa khôi phục ví là\n một loại mật khẩu.";
-"common.passphrase.body" = "Bây giờ, khi tạo một tài khoản SORA mới, bạn sẽ nhận được một chuỗi từ khóa khôi phục gồm 12 từ. Còn nếu bạn đã từng có chuỗi từ khóa khôi phục SORA cũ gồm 15 từ, thì bạn vẫn có thể sử dụng ở đây - nó vẫn tương thích và hoạt động bình thường.";
+"common.passphrase.body" = "Khi tạo một tài khoản SORA mới, bạn sẽ nhận được chuỗi từ khóa khôi phục gồm 24 từ. Chuỗi từ khóa SORA hiện có gồm 12 hoặc 24 từ đều có thể được nhập và sẽ tiếp tục hoạt động.";
 "common.passphrase.your.passphrase" = "Chuỗi từ khóa khôi phục của bạn";
 "network.unavailable" = "Kết nối mạng không khả dụng";
 "common.save" = "Lưu";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Vui lòng kiểm tra kết nối internet và thử lại sau.";
 "common.error.general.message" = "Chúng tôi đang làm việc chăm chỉ để khắc phục sự cố. Vui lòng thử lại sau.";
 "result.ambiguous.error.title" = "Kết quả không rõ ràng";
-"access.restore.words.error.message" = "Chuỗi từ khóa khôi phục chứa 15 từ";
-"access.restore.phrase.error.message" = "Hãy kiểm tra, chuỗi từ khóa khôi phục của bạn gồm 12 hoặc 15 từ được nhập chính xác.";
+"access.restore.words.error.message" = "Chuỗi từ khóa khôi phục chứa 12 hoặc 24 từ";
+"access.restore.phrase.error.message" = "Hãy kiểm tra, chuỗi từ khóa khôi phục của bạn gồm 12 hoặc 24 từ được nhập chính xác.";
 "wallet.search.query.error.message" = "Kích thước tìm kiếm phải từ 3 đến 64 ký tự";
 "user.create.phone.registered.error.message" = "Số điện thoại đã được sử dụng trong quá trình đăng ký với người dùng này hoặc người dùng khác";
 "common.error.invalid.parameters" = "Thông số không hợp lệ";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Xuất JSON";
 "export.protection.passphrase.title" = "Cụm mật khẩu";
 "export.protection.json.description" = "Trong bước tiếp theo, bạn sẽ có thể tải xuống tệp JSON cho phép bạn khôi phục tài khoản của mình.";
-"export.protection.passphrase.description" = "Trong bước tiếp theo, bạn sẽ thấy Cụm từ mật khẩu (12 từ) cho phép bạn khôi phục tài khoản.";
+"export.protection.passphrase.description" = "Trong bước tiếp theo, bạn sẽ thấy Cụm từ mật khẩu (24 từ) cho phép bạn khôi phục tài khoản.";
 "export.protection.seed.description" = "Trong bước tiếp theo, bạn sẽ thấy Raw Seed (một hàm băm dài) cho phép bạn khôi phục tài khoản.";
 "export.protection.json.1" = "Nếu tôi mất JSON, tiền của tôi sẽ bị mất vĩnh viễn.";
 "export.protection.json.2" = "Nếu tôi tiết lộ hoặc chia sẻ JSON của mình với bất kỳ ai, tiền của tôi có thể bị đánh cắp.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

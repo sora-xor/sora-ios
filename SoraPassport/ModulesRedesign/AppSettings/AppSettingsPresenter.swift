@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraFoundation
+import SoraKeystore
 import SoraUIKit
 
 protocol AppSettingsPresenterProtocol: AnyObject {
@@ -51,6 +52,7 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
         
         sections.append(languageSection())
         sections.append(appearanceSection())
+        sections.append(networksSection())
         
         return AppSettingsModel(title: R.string.localizable.settingsHeaderApp(preferredLanguages: languages),
                                 sections: sections)
@@ -91,6 +93,25 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
         items.append(darkMode)
         let card = AppSettingsCardItem(title: R.string.localizable.appearanceTitle(preferredLanguages: languages).uppercased(),
                                        menuItems: items)
+        return SoramitsuTableViewSection(rows: [card])
+    }
+
+    private func networksSection() -> SoramitsuTableViewSection {
+        let settings = SettingsManager.shared
+        let taira = AppSettingsItem(
+            title: "Taira testnet",
+            rightItem: .switcher(state: settings.isTairaEnabled ? .on : .off),
+            onSwitch: { [weak self] enabled in
+                // The setter records an explicit choice, so a future remote
+                // default can never override what the user selected.
+                settings.isTairaEnabled = enabled
+                self?.reload()
+            }
+        )
+        let card = AppSettingsCardItem(
+            title: "TEST NETWORKS",
+            menuItems: [taira]
+        )
         return SoramitsuTableViewSection(rows: [card])
     }
     

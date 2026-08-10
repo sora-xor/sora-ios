@@ -240,7 +240,7 @@ final class ChainSyncService {
 
             eventCenter.notify(with: event)
         case let .failure(error):
-            logger?.error("Sync failed with error: \(error)")
+            logger?.error("Chain synchronization failed")
 
             let event = ChainSyncDidFail(error: error)
             eventCenter.notify(with: event)

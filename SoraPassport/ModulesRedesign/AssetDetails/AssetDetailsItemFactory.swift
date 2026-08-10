@@ -117,7 +117,7 @@ final class AssetDetailsItemFactory {
         return transferableItem
     }
     
-    func createPooledItem(with assetInfo: AssetInfo, fiatData: [FiatData]) -> PooledItem? {
+    func createPooledItem(with assetInfo: AssetInfo, fiatData: [PIExactFiatData]) -> PooledItem? {
         guard let pools = poolsService?.loadPools(currentAsset: assetInfo), !pools.isEmpty else {
             return nil
         }

@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import UIKit
+import IrohaCrypto
 import SoraUIKit
 
 import RobinHood
@@ -261,18 +262,74 @@ private extension GenerateQRViewModel {
               let networkFacade = networkFacade else { return }
         
         if let amount = result.receiverInfo?.amount {
-            feeProvider.getFee(for: .outgoing) { [weak self] fee in
-                self?.wireframe?.showConfirmSendingAsset(on: self?.view?.controller,
-                                                   assetId: result.receiverInfo?.assetId ?? .xor,
-                                                   walletService: WalletService(operationFactory: networkFacade),
-                                                   assetManager: assetManager,
-                                                   fiatService: fiatService,
-                                                   recipientAddress: result.firstName,
-                                                   firstAssetAmount: amount.decimalValue,
-                                                   fee: fee,
-                                                   assetsProvider: assetsProvider)
+            Task { @MainActor [weak self] in
+                guard let self,
+                      let selectedAccount = SelectedWalletSettings.shared
+                        .currentAccount,
+                      selectedAccount.isSelected else {
+                    return
+                }
+                do {
+                    let reviewedRecipient = result.firstName
+                    let reviewedAmount = amount
+                    let addressFactory = SS58AddressFactory()
+                    let source = try addressFactory.accountId(
+                        fromAddress: selectedAccount.address,
+                        type: selectedAccount.addressType
+                    ).toHex()
+                    let destination = try addressFactory.accountId(
+                        fromAddress: reviewedRecipient,
+                        type: selectedAccount.addressType
+                    ).toHex()
+                    let assetId = result.receiverInfo?.assetId ?? .xor
+                    let info = TransferInfo(
+                        source: source,
+                        destination: destination,
+                        amount: reviewedAmount,
+                        asset: assetId,
+                        details: "",
+                        fees: [],
+                        context: [
+                            TransactionContextKeys.transactionType:
+                                TransactionType.outgoing.rawValue
+                        ]
+                    )
+                    let exactFee = try await networkFacade
+                        .estimateTransferFee(for: info)
+                    try Task.checkCancellation()
+                    guard exactFee > 0 else {
+                        throw WalletNetworkOperationFactoryError.invalidFee
+                    }
+                    guard
+                        let currentAccount = SelectedWalletSettings.shared
+                            .currentAccount,
+                        currentAccount.isSelected,
+                        currentAccount.address == selectedAccount.address,
+                        currentAccount.publicKeyData ==
+                            selectedAccount.publicKeyData,
+                        currentAccount.cryptoType == selectedAccount.cryptoType,
+                        currentAccount.networkType == selectedAccount.networkType
+                    else {
+                        throw WalletNetworkOperationFactoryError.invalidContext
+                    }
+                    self.wireframe?.showConfirmSendingAsset(
+                        on: self.view?.controller,
+                        assetId: assetId,
+                        walletService: WalletService(
+                            operationFactory: networkFacade
+                        ),
+                        assetManager: assetManager,
+                        fiatService: fiatService,
+                        recipientAddress: reviewedRecipient,
+                        firstAssetAmount: reviewedAmount.decimalValue,
+                        fee: exactFee,
+                        assetsProvider: assetsProvider
+                    )
+                } catch {
+                    // Fail closed. The ordinary send screen can be reopened to
+                    // obtain a fresh exact-call fee; no fixed QR fee is accepted.
+                }
             }
-            
             return
         }
         wireframe?.showSend(on: view?.controller,

@@ -26,13 +26,18 @@ final class AccountCreationHelper {
                                              derivationPath: derivationPath,
                                              cryptoType: cryptoType)
 
-        let operation = AccountOperationFactory(keystore: keychain)
-            .newAccountOperation(request: request, mnemonic: mnemonic)
+        let factory = AccountOperationFactory(keystore: keychain)
+        let operation = factory.prepareAccountOperation(
+            request: request,
+            mnemonic: mnemonic
+        )
 
         OperationQueue().addOperations([operation], waitUntilFinished: true)
 
-        let accountItem = try operation
+        let prepared = try operation
             .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+        try factory.persistPreparedAccount(prepared)
+        let accountItem = prepared.account
 
         try selectAccount(accountItem, settings: settings)
     }
@@ -50,13 +55,15 @@ final class AccountCreationHelper {
                                                derivationPath: derivationPath,
                                                cryptoType: cryptoType)
 
-        let operation = AccountOperationFactory(keystore: keychain)
-            .newAccountOperation(request: request)
+        let factory = AccountOperationFactory(keystore: keychain)
+        let operation = factory.prepareAccountOperation(request: request)
 
         OperationQueue().addOperations([operation], waitUntilFinished: true)
 
-        let accountItem = try operation
+        let prepared = try operation
         .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+        try factory.persistPreparedAccount(prepared)
+        let accountItem = prepared.account
 
         try selectAccount(accountItem, settings: settings)
     }
@@ -102,13 +109,15 @@ final class AccountCreationHelper {
                                                    networkType: networkType,
                                                    cryptoType: cryptoType)
 
-        let operation = AccountOperationFactory(keystore: keychain)
-            .newAccountOperation(request: request)
+        let factory = AccountOperationFactory(keystore: keychain)
+        let operation = factory.prepareAccountOperation(request: request)
 
         OperationQueue().addOperations([operation], waitUntilFinished: true)
 
-        let accountItem = try operation
+        let prepared = try operation
         .extractResultData(throwing: BaseOperationError.parentOperationCancelled)
+        try factory.persistPreparedAccount(prepared)
+        let accountItem = prepared.account
 
         try selectAccount(accountItem, settings: settings)
     }
@@ -133,7 +142,60 @@ extension InMemorySettingsManager: SelectedWalletSettingsProtocol {
     }
 
     public func performSave(value: SoraPassport.AccountItem, completionClosure: @escaping (Result<SoraPassport.AccountItem, Error>) -> Void) {
+        save(value: value)
+        completionClosure(.success(value))
+    }
 
+    public func performInsertAndSelect(
+        prepared: PreparedAccount,
+        persistSecrets: @escaping () throws -> Void,
+        lifecycleLease: WalletLifecycleLease,
+        completionClosure: @escaping (
+            Result<SoraPassport.AccountItem, Error>
+        ) -> Void
+    ) {
+        do {
+            try persistSecrets()
+            save(value: prepared.account)
+            completionClosure(.success(prepared.account))
+        } catch {
+            completionClosure(.failure(error))
+        }
+    }
+
+    public func performSelectAfterRemoval(
+        value: SoraPassport.AccountItem,
+        lifecycleLease: WalletLifecycleLease,
+        completionClosure: @escaping (
+            Result<SoraPassport.AccountItem, Error>
+        ) -> Void
+    ) {
+        save(value: value)
+        completionClosure(.success(value))
+    }
+
+    public func performUpdateName(
+        account: SoraPassport.AccountItem,
+        displayName: String,
+        completionClosure: @escaping (
+            Result<SoraPassport.AccountItem, Error>
+        ) -> Void
+    ) {
+        let updated = account.replacingUsername(displayName)
+        save(value: updated)
+        completionClosure(.success(updated))
+    }
+
+    public func performUpdateAssetSettings(
+        account: SoraPassport.AccountItem,
+        settings: AccountSettings,
+        completionClosure: @escaping (
+            Result<SoraPassport.AccountItem, Error>
+        ) -> Void
+    ) {
+        let updated = account.replacingSettings(settings)
+        save(value: updated)
+        completionClosure(.success(updated))
     }
 
     public func performSetup(completionClosure: @escaping (Result<SoraPassport.AccountItem?, Error>) -> Void) {

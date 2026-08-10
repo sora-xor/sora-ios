@@ -34,7 +34,7 @@ import RobinHood
 import sorawallet
 
 struct PriceInfo {
-    let fiatData: [FiatData]
+    let fiatData: [PIExactFiatData]
     let marketCapInfo: Set<MarketCapInfo>
 }
 

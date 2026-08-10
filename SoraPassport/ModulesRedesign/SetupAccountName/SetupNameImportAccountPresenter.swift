@@ -129,10 +129,15 @@ extension SetupNameImportAccountPresenter: UsernameSetupPresenterProtocol {
     func proceed() {
        let endingBlock: (() -> Void)? = { [weak self] in
             guard let self = self else { return }
-            if let updated = self.settingsManager.currentAccount?.replacingUsername(self.userName ?? "") {
-                self.settingsManager.save(value: updated, runningCompletionIn: .main) { [weak self] result in
-                    if case .success = result {
-                        self?.eventCenter.notify(with: SelectedUsernameChanged())
+            if let account = self.settingsManager.currentAccount {
+                self.settingsManager.performUpdateName(
+                    account: account,
+                    displayName: self.userName ?? ""
+                ) { [weak self] result in
+                    DispatchQueue.main.async {
+                        if case .success = result {
+                            self?.eventCenter.notify(with: SelectedUsernameChanged())
+                        }
                     }
                 }
                 

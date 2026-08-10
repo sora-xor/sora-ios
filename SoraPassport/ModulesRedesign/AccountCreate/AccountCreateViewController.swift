@@ -279,7 +279,9 @@ extension AccountCreateViewController: AccountCreateViewProtocol {
     func set(mnemonic: [String]) {
         var conditionedMnemonic = mnemonic
         if mnemonic.count % 2 == 1 {
-            conditionedMnemonic.append("") //Quick fix for legacy 15-word mnemonics
+            // Display-only padding for retained odd-count legacy mnemonics.
+            // The phrase and its stored derivation material are never changed.
+            conditionedMnemonic.append("")
         }
         mnemonicView.bind(words: conditionedMnemonic, columnsCount: 2)
     }
@@ -302,4 +304,3 @@ extension AccountCreateViewController: Localizable {
         }
     }
 }
-

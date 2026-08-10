@@ -78,8 +78,8 @@ extension SpecVersionSubscription: SpecVersionSubscriptionProtocol {
                 )
             }
 
-            let failureClosure: (Error, Bool) -> Void = { [weak self] error, unsubscribed in
-                self?.logger?.error("Unexpected failure after subscription: \(error) \(unsubscribed)")
+            let failureClosure: (Error, Bool) -> Void = { [weak self] _, _ in
+                self?.logger?.error("Spec-version subscription failed")
             }
 
             let params: [String] = []
@@ -90,7 +90,7 @@ extension SpecVersionSubscription: SpecVersionSubscriptionProtocol {
                 failureClosure: failureClosure
             )
         } catch {
-            logger?.error("Unexpected chain \(chainId) subscription failure: \(error)")
+            logger?.error("Spec-version subscription setup failed")
         }
     }
 

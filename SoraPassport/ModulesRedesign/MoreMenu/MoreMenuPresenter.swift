@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import SoraFoundation
+import SoraKeystore
 import SoraUIKit
 
 
@@ -93,6 +94,32 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     private func secondSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
+        if SettingsManager.shared.nexusEnabled {
+            let portfolio = MoreMenuItem(
+                title: "SORA Portfolio",
+                subtitle: "SORA2 · Minamoto · Taira Testnet",
+                picture: .icon(
+                    image: R.image.iconStar2()!,
+                    color: .accentTertiary
+                ),
+                onTap: { self.showNexusPortfolio() }
+            )
+            items.append(portfolio)
+        }
+        if SettingsManager.shared.polkamarktEnabled {
+            let polkamarkt = MoreMenuItem(
+                title: R.string.localizable.pageTitlePolkamarkt(
+                    preferredLanguages: languages
+                ),
+                subtitle: "Prediction markets on SORA2",
+                picture: .icon(
+                    image: R.image.iconNode()!,
+                    color: .accentTertiary
+                ),
+                onTap: { self.showPolkamarkt() }
+            )
+            items.append(polkamarkt)
+        }
         let nodes = MoreMenuItem(title: R.string.localizable.settingsNodes(preferredLanguages: languages),
                                  subtitle: nodeName(), //TODO: node address/description here
                                  picture: .icon(image: R.image.iconNode()!,
@@ -152,6 +179,14 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     func showAccounts() {
         wireframe.showChangeAccountView(from: view)
+    }
+
+    func showNexusPortfolio() {
+        wireframe.showNexusPortfolio(from: view)
+    }
+
+    func showPolkamarkt() {
+        wireframe.showPolkamarkt(from: view)
     }
 
     func showNodes() {

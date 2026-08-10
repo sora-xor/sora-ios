@@ -33,7 +33,7 @@ import UIKit
 import SoraUIKit
 
 protocol SlippageToleranceViewProtocol: ControllerBackedProtocol {
-    func setup(tolerance: Float)
+    func setup(tolerance: PolkaswapSlippage)
     func setupDoneButton(isEnabled: Bool)
 }
 
@@ -112,9 +112,8 @@ extension SlippageToleranceViewController: SlippageToleranceViewProtocol {
         }
     }
     
-    func setup(tolerance: Float) {
-        slippageToleranceView.field.sora.text = "\(tolerance)%"
+    func setup(tolerance: PolkaswapSlippage) {
+        slippageToleranceView.field.sora.text = tolerance.displayValue
     }
 }
-
 

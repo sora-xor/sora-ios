@@ -36,7 +36,7 @@ extension UserStorageMigrator: Migrating {
             return
         }
 
-        performMigration()
+        try performMigration()
 
         Logger.shared.info("Db migration completed")
     }

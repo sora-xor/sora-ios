@@ -35,6 +35,16 @@ import SoraFoundation
 import SoraUIKit
 import SSFCloudStorage
 
+enum AccountOptionsDeletionPresentationPolicy {
+    static func dismissalContainer(
+        for controller: UIViewController
+    ) -> UIViewController {
+        let navigationController = controller.navigationController
+        return navigationController?.parent ??
+            navigationController ?? controller
+    }
+}
+
 final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, AuthorizationPresentable, Loadable {
 
     private(set) var localizationManager: LocalizationManagerProtocol
@@ -136,7 +146,36 @@ final class AccountOptionsWireframe: AccountOptionsWireframeProtocol, Authorizat
 
     func back(from view: AccountOptionsViewProtocol?) {
         DispatchQueue.main.async {
-            view?.controller.navigationController?.popViewController(animated: true)
+            guard let controller = view?.controller else {
+                return
+            }
+            guard let navigationController = controller.navigationController
+            else {
+                controller.dismiss(animated: true)
+                return
+            }
+            if navigationController.viewControllers.first === controller {
+                // Wallet presents Account Options as the navigation root
+                // inside BlurViewController. Popping that root is a no-op and
+                // would leave a deleted wallet actionable on screen.
+                (navigationController.parent ?? navigationController)
+                    .dismiss(animated: true)
+            } else {
+                navigationController.popViewController(animated: true)
+            }
+        }
+    }
+
+    func dismissAfterDeletion(from view: AccountOptionsViewProtocol?) {
+        DispatchQueue.main.async {
+            guard let controller = view?.controller else {
+                return
+            }
+            // Account deletion invalidates both the options controller and a
+            // Change Account parent that may still list the removed wallet.
+            AccountOptionsDeletionPresentationPolicy
+                .dismissalContainer(for: controller)
+                .dismiss(animated: true)
         }
     }
 

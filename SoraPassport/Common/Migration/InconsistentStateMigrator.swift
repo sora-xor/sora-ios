@@ -31,6 +31,23 @@
 import Foundation
 import SoraKeystore
 
+enum WalletIntegrityError: LocalizedError, Equatable {
+    case selectedAccountSecretMissing(address: String)
+    case selectedAccountMissing
+    case legacyWalletUpgradeVerificationFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .selectedAccountSecretMissing:
+            return "The secure key for the selected wallet is unavailable. The wallet data was preserved."
+        case .selectedAccountMissing:
+            return "Existing wallet data was found, but the selected wallet setting is unavailable. The wallet data was preserved."
+        case .legacyWalletUpgradeVerificationFailed:
+            return "The protected legacy wallet could not be verified and was preserved without creating a replacement account."
+        }
+    }
+}
+
 final class InconsistentStateMigrator: Migrating {
     private(set) var settings: SettingsManagerProtocol
     private(set) var keychain: KeystoreProtocol
@@ -49,9 +66,29 @@ final class InconsistentStateMigrator: Migrating {
         }
 
         let hasSecretKey = try keychain.checkSecretKeyForAddress(selectedAccount.address)
+        let hasEntropy = try keychain.checkEntropyForAddress(
+            selectedAccount.address
+        )
+        let hasRawSeed = try keychain.checkSeedForAddress(
+            selectedAccount.address
+        )
+        let isExplicitWatchOnly =
+            settings.bool(for: "wallet.watchOnly.\(selectedAccount.address)") == true
 
-        if !hasSecretKey {
-            settings.removeAll()
+        if !hasSecretKey && !hasEntropy && !hasRawSeed && !isExplicitWatchOnly {
+            // Never convert an unreadable keychain state into a fresh-wallet
+            // state. That used to call removeAll(), which could log a user out
+            // and make a recoverable keychain/database mismatch look like data
+            // loss. Keep every legacy key and setting intact and route startup
+            // to the recovery-safe screen instead.
+            settings.walletMigrationRecoveryRequired = true
+            settings.walletMigrationRecoveryReason = UserStorageMigrationError
+                .privacySafeRecoveryDescription(
+                    for: WalletIntegrityError.selectedAccountSecretMissing(
+                        address: selectedAccount.address
+                    )
+                )
+            throw WalletIntegrityError.selectedAccountSecretMissing(address: selectedAccount.address)
         }
     }
 }

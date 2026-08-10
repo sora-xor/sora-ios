@@ -156,7 +156,7 @@ final class ChainRegistry {
                     chains = chains.filter { $0.chainId != chainId }
                 }
             } catch {
-                logger?.error("Unexpected error on handling chains update: \(error)")
+                logger?.error("Chain update handling failed")
             }
         }
     }
@@ -166,8 +166,8 @@ final class ChainRegistry {
             self?.handle(changes: changes)
         }
 
-        let failureClosure: (Error) -> Void = { [weak self] error in
-            self?.logger?.error("Unexpected error chains listener setup: \(error)")
+        let failureClosure: (Error) -> Void = { [weak self] _ in
+            self?.logger?.error("Chain listener setup failed")
         }
 
         let options = StreamableProviderObserverOptions(
@@ -255,8 +255,8 @@ extension ChainRegistry: ChainRegistryProtocol {
             self?.handle(changes: changes)
         }
 
-        let failureClosure: (Error) -> Void = { [weak self] error in
-            self?.logger?.error("Unexpected error chains listener setup: \(error)")
+        let failureClosure: (Error) -> Void = { [weak self] _ in
+            self?.logger?.error("Chain listener setup failed")
         }
 
         let options = StreamableProviderObserverOptions(
@@ -341,8 +341,8 @@ extension ChainRegistry: ChainRegistryProtocol {
             }
         }
 
-        let failureClosure: (Error) -> Void = { [weak self] error in
-            self?.logger?.error("Unexpected error chains listener setup: \(error)")
+        let failureClosure: (Error) -> Void = { [weak self] _ in
+            self?.logger?.error("Chain listener setup failed")
         }
 
         let options = StreamableProviderObserverOptions(

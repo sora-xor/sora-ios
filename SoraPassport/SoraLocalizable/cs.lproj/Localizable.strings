@@ -131,7 +131,7 @@
 "common.passphrase.title" = "Přístupová fráze";
 "common.passphrase.save.or.send" = "Uložit nebo odeslat";
 "common.passphrase.header" = "Přístupová fráze je \ntyp hesla.";
-"common.passphrase.body" = "Při vytváření nového účtu v systému SORA nyní získáte 12ti slovní přístupovou frázi. Pokud již máte 15ti slovní přístupovou frázi SORA, můžete svůj účet importovat s ní - tyto fráze jsou rovněž kompatibilní a budou fungovat i nadále.";
+"common.passphrase.body" = "Při vytváření nového účtu v systému SORA nyní získáte 24slovnou přístupovou frázi. Stávající 12- i 24slovné přístupové fráze SORA lze importovat a budou fungovat i nadále.";
 "common.passphrase.your.passphrase" = "Vaše přístupová fráze";
 "network.unavailable" = "Síťové připojení není k dispozici";
 "common.save" = "Uložit";
@@ -145,8 +145,8 @@
 "connection.error.message" = "Zkontrolujte připojení k internetu a zkuste to znovu později, prosím.";
 "common.error.general.message" = "Usilovně pracujeme na vyřešení problému. Zkuste to znovu později, prosím.";
 "result.ambiguous.error.title" = "Nejednoznačný výsledek";
-"access.restore.words.error.message" = "Přístupová fráze musí obsahovat 15 slov";
-"access.restore.phrase.error.message" = "Ujistěte se prosím, že vaše přístupové fráze obsahuje 12 nebo 15 slov a všechna jsou správná.";
+"access.restore.words.error.message" = "Přístupová fráze musí obsahovat 12 nebo 24 slov";
+"access.restore.phrase.error.message" = "Ujistěte se prosím, že vaše přístupová fráze obsahuje 12 nebo 24 slov a všechna jsou správná.";
 "wallet.search.query.error.message" = "Délka hledaného retězce musí být mezi 3 a 64 znaky";
 "user.create.phone.registered.error.message" = "Telefonní číslo již bylo použito při registraci u tohoto nebo jiného uživatele";
 "common.error.invalid.parameters" = "Neplatné parametry";
@@ -622,7 +622,7 @@
 "export.protection.json.title" = "Exportovat soubor JSON";
 "export.protection.passphrase.title" = "Přístupová fráze";
 "export.protection.json.description" = "V dalším kroku si budete moci stáhnout soubor JSON, který vám umožní obnovit vaše účty.";
-"export.protection.passphrase.description" = "V dalším kroku uvidíte přístupovou frázi (12 slov), která vám umožní obnovit účet.";
+"export.protection.passphrase.description" = "V dalším kroku uvidíte přístupovou frázi (24 slov), která vám umožní obnovit účet.";
 "export.protection.seed.description" = "V dalším kroku uvidíte Raw Seed (dlouhý hash), který vám umožní obnovit účet.";
 "export.protection.json.1" = "Pokud ztratím svůj soubor JSON, mé prostředky budou navždy ztraceny.";
 "export.protection.json.2" = "Pokud někomu ukážu nebo nasdílím svůj soubor JSON, mé prostředky mohou být ukradeny.";
@@ -938,3 +938,17 @@
 "polkaswap.farming.pool.share.will.be" = "Your pool share staked will be";
 "common.farms" = "Farms";
 "common.nothing.found" = "Nothing found";
+
+/* Polkamarkt v130 canonical labels; English fallback pending reviewed translation. */
+"pageTitle.Polkamarkt" = "Polkamarkt";
+"polkamarkt.outcomes.yes" = "Yes";
+"polkamarkt.outcomes.no" = "No";
+"polkamarkt.actions.buy" = "Buy";
+"polkamarkt.actions.sell" = "Sell";
+"polkamarkt.actions.claimTraderPayout" = "Claim trader payout";
+"polkamarkt.actions.claimCreatorFees" = "Claim creator fees";
+"polkamarkt.ticket.sharesOut" = "Shares out";
+"polkamarkt.ticket.collateralOut" = "Collateral out";
+"polkamarkt.ticket.slippage" = "Slippage";
+"polkamarkt.ticket.takerFee" = "Taker fee";
+"networkFeeText" = "Network fee";

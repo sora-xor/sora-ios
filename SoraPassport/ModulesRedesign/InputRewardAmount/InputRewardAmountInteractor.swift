@@ -73,7 +73,14 @@ extension InputRewardAmountInteractor: InputRewardAmountInteractorInputProtocol 
     }
 
     func sendReferralBalanceRequest(with type: InputRewardAmountType, decimalBalance: Decimal) {
-        let balance = decimalBalance.toSubstrateAmount(precision: 18) ?? 0
+        guard decimalBalance > 0,
+              let balance = decimalBalance.toSubstrateAmount(precision: 18),
+              balance > 0 else {
+            presenter?.referralBalanceOperationReceived(
+                with: .failure(WalletNetworkOperationFactoryError.invalidAmount)
+            )
+            return
+        }
 
         var operation = operationFactory.createExtrinsicReserveReferralBalanceOperation(with: balance)
 
