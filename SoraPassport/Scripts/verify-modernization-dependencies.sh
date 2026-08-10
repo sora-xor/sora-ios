@@ -72,6 +72,7 @@ run_ios_migration_release_source_gate() {
     ios_gate_taira_deployment="${root}/SoraPassport/Scripts/verify-ios-taira-deployment-manifest.py"
     ios_gate_signing_identity="${root}/SoraPassport/Scripts/verify-ios-production-signing-identity.py"
     ios_gate_release_test_runner="${root}/SoraPassport/Scripts/run-ios-release-tests.sh"
+    ios_gate_ci_workflow="${root}/.github/workflows/ios_modernization.yml"
     ios_gate_projector_suite="${root}/SoraPassport/Scripts/test-ios-migration-test-host-derivation.py"
     ios_gate_clone_suite="${root}/SoraPassport/Scripts/test-ios-migration-installable-clone.py"
     ios_gate_controller_suite="${root}/SoraPassport/Scripts/test-ios-migration-exact-ipa-evidence.py"
@@ -107,6 +108,7 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_taira_deployment}" \
         "${ios_gate_signing_identity}" \
         "${ios_gate_release_test_runner}" \
+        "${ios_gate_ci_workflow}" \
         "${ios_gate_projector_suite}" \
         "${ios_gate_clone_suite}" \
         "${ios_gate_controller_suite}" \
@@ -167,7 +169,7 @@ run_ios_migration_release_source_gate() {
         echo "error: iOS migration Release source suite inventory is not exactly 93 tests" >&2
         return 1
     }
-    run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 16 release-reproducibility-package || return 1
+    run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 17 release-reproducibility-package || return 1
     run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 13 taira-deployment-admission || return 1
     run_exact_ios_migration_suite "${ios_gate_vendored_binary_suite}" 10 vendored-binary-qualification || return 1
     run_exact_ios_migration_suite "${ios_gate_signing_identity_suite}" 10 production-signing-identity || return 1
@@ -309,7 +311,9 @@ run_ios_migration_release_source_gate() {
     fi
     if ! /usr/bin/grep -Fq 'canonical-signed-application-equivalence-v1' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'exact-ipa-bytes-v1' "${ios_gate_release_package}" ||
-       ! /usr/bin/grep -Fq 'sora-ios-qualified-ipa-package-v3' "${ios_gate_release_package}" ||
+       ! /usr/bin/grep -Fq 'sora-ios-qualified-ipa-package-v4' "${ios_gate_release_package}" ||
+       ! /usr/bin/grep -Fq 'sora-ios-release-build-manifest-v4' "${ios_gate_release_package}" ||
+       ! /usr/bin/grep -Fq 'sora-ios-release-reproducibility-equivalence-v4' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'application_signing_certificate_sha256' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'require_retained_signing_identity' "${ios_gate_release_package}" ||
        ! /usr/bin/grep -Fq 'signing-identity-receipt.json' "${ios_gate_release_package}" ||
@@ -322,6 +326,10 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/grep -Fq -- '--capture-build-manifest' "${ios_gate_archiver}" ||
        ! /usr/bin/grep -Fq -- '--signing-receipt-sha "${signing_identity_sha}"' "${ios_gate_archiver}" ||
        ! /usr/bin/grep -Fq -- '--vendored-receipt-sha "${vendored_binary_sha}"' "${ios_gate_archiver}" ||
+       [ "$(/usr/bin/grep -Fc '"CURRENT_PROJECT_VERSION=${build_number}"' "${ios_gate_archiver}")" -ne 2 ] ||
+       ! /usr/bin/grep -Fq 'IOS_APP_STORE_BUILD_NUMBER_LOWER_BOUND' "${ios_gate_archiver}" ||
+       ! /usr/bin/grep -Fq -- '--build-number "${build_number}"' "${ios_gate_archiver}" ||
+       ! /usr/bin/grep -Fq -- '--app-store-build-lower-bound "${app_store_build_number_lower_bound}"' "${ios_gate_archiver}" ||
        [ "$(/usr/bin/grep -Fc '/bin/sh "${signing_identity_tool}" --verify-qualified' "${ios_gate_archiver}")" -ne 2 ] ||
        [ "$(/usr/bin/grep -Fc '/bin/sh "${vendored_binary_tool}" --verify-qualified' "${ios_gate_archiver}")" -ne 2 ] ||
        ! /usr/bin/grep -Fq -- '-derivedDataPath "${derived_data_path}"' "${ios_gate_archiver}" ||
@@ -335,6 +343,19 @@ run_ios_migration_release_source_gate() {
         echo "error: iOS independently reproduced Release package gate is fail-open" >&2
         return 1
     fi
+    if ! /usr/bin/grep -Fq 'pull_request:' "${ios_gate_ci_workflow}" ||
+       /usr/bin/grep -Fq 'pull_request_target:' "${ios_gate_ci_workflow}" ||
+       ! /usr/bin/grep -Fq 'permissions:' "${ios_gate_ci_workflow}" ||
+       ! /usr/bin/grep -Fq 'contents: read' "${ios_gate_ci_workflow}" ||
+       ! /usr/bin/grep -Fq 'Modernization Source Contract' "${ios_gate_ci_workflow}" ||
+       ! /usr/bin/grep -Fq 'Full Release XCTest Closure' "${ios_gate_ci_workflow}" ||
+       ! /usr/bin/grep -Fq -- '--lint-ios-migration-release-source-gate' "${ios_gate_ci_workflow}" ||
+       ! /usr/bin/grep -Fq 'run-ios-release-tests.sh' "${ios_gate_ci_workflow}" ||
+       ! /usr/bin/grep -Fq 'SoraPassport-Release-${{ github.sha }}' "${ios_gate_ci_workflow}" ||
+       ! /usr/bin/grep -Fq 'if-no-files-found: error' "${ios_gate_ci_workflow}"; then
+        echo "error: iOS pull-request modernization closure workflow is absent or fail-open" >&2
+        return 1
+    fi
     if /usr/bin/grep -Fq 'extractedAppRawTreeSha256' "${ios_gate_harness}" ||
        /usr/bin/grep -Fq 'extractedAppRawTreeSha256' "${ios_gate_controller}" ||
        /usr/bin/grep -Fq 'Simulator' "${ios_gate_evidence_scheme}" ||
@@ -345,7 +366,7 @@ run_ios_migration_release_source_gate() {
     fi
 
     /usr/bin/printf \
-        'iOS migration Release source gate: OK (93 migration tests + 16 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 11 lints, shell/Swift parse)\n'
+        'iOS migration Release source gate: OK (93 migration tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests, 11 lints, shell/Swift parse)\n'
 }
 
 if [ "$#" -eq 1 ] && [ "$1" = "--lint-ios-migration-release-source-gate" ]; then

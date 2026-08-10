@@ -44,6 +44,17 @@ lint_contract() {
         fail "production scheme lacks its Release archive action"
 }
 
+canonical_build_number() {
+    raw_value="$1"
+    value_label="$2"
+    case "${raw_value}" in
+        ''|0|0*|*[!0-9]*) fail "${value_label} must be one positive canonical decimal integer" ;;
+    esac
+    [ "${#raw_value}" -le 18 ] ||
+        fail "${value_label} exceeds the 18-digit release bound"
+    /usr/bin/printf '%s\n' "${raw_value}"
+}
+
 canonical_fresh_private_path() {
     raw_path="$1"
     required_suffix="$2"
@@ -76,29 +87,38 @@ fi
 reproducible_build=false
 build_role=""
 derived_data_path=""
-if [ "$#" -eq 5 ] &&
+if [ "$#" -eq 7 ] &&
    [ "$1" = "--archive-and-export" ] &&
-   [ "$2" = "--archive-path" ] &&
-   [ "$4" = "--export-path" ]; then
-    archive_argument="$3"
-    export_argument="$5"
-elif [ "$#" -eq 9 ] &&
+   [ "$2" = "--build-number" ] &&
+   [ "$4" = "--archive-path" ] &&
+   [ "$6" = "--export-path" ]; then
+    build_number_argument="$3"
+    archive_argument="$5"
+    export_argument="$7"
+elif [ "$#" -eq 11 ] &&
      [ "$1" = "--archive-and-export-reproducible" ] &&
      [ "$2" = "--role" ] &&
      { [ "$3" = "primary" ] || [ "$3" = "reproduction" ]; } &&
-     [ "$4" = "--derived-data-path" ] &&
-     [ "$6" = "--archive-path" ] &&
-     [ "$8" = "--export-path" ]; then
+     [ "$4" = "--build-number" ] &&
+     [ "$6" = "--derived-data-path" ] &&
+     [ "$8" = "--archive-path" ] &&
+     [ "${10}" = "--export-path" ]; then
     reproducible_build=true
     build_role="$3"
-    derived_data_argument="$5"
-    archive_argument="$7"
-    export_argument="$9"
+    build_number_argument="$5"
+    derived_data_argument="$7"
+    archive_argument="$9"
+    export_argument="${11}"
 else
-    fail "usage: archive-ios-migration-candidate.sh --lint-contract | --archive-and-export --archive-path /private/new.xcarchive --export-path /private/new-export | --archive-and-export-reproducible --role primary|reproduction --derived-data-path /private/new-DerivedData --archive-path /private/new.xcarchive --export-path /private/new-export"
+    fail "usage: archive-ios-migration-candidate.sh --lint-contract | --archive-and-export --build-number N --archive-path /private/new.xcarchive --export-path /private/new-export | --archive-and-export-reproducible --role primary|reproduction --build-number N --derived-data-path /private/new-DerivedData --archive-path /private/new.xcarchive --export-path /private/new-export"
 fi
 
 lint_contract
+build_number="$(canonical_build_number "${build_number_argument}" "candidate build number")"
+: "${IOS_APP_STORE_BUILD_NUMBER_LOWER_BOUND:?controller-provided App Store build-number lower bound is required}"
+app_store_build_number_lower_bound="$(canonical_build_number "${IOS_APP_STORE_BUILD_NUMBER_LOWER_BOUND}" "App Store build-number lower bound")"
+[ "${build_number}" -gt "${app_store_build_number_lower_bound}" ] ||
+    fail "candidate build number must be greater than the controller-provided App Store lower bound"
 archive_path="$(canonical_fresh_private_path "${archive_argument}" ".xcarchive" "candidate archive path")"
 export_path="$(canonical_fresh_private_path "${export_argument}" "-export" "candidate export path")"
 [ "${archive_path}" != "${export_path}" ] || fail "candidate archive and export paths must differ"
@@ -244,6 +264,7 @@ if [ "${reproducible_build}" = true ]; then
         -destination 'generic/platform=iOS' \
         -derivedDataPath "${derived_data_path}" \
         -archivePath "${archive_path}" \
+        "CURRENT_PROJECT_VERSION=${build_number}" \
         "SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_MODE=${mode}" \
         SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_ACTION=archive \
         "SORA_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID=${IOS_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID}" \
@@ -272,6 +293,7 @@ else
         -configuration Release \
         -destination 'generic/platform=iOS' \
         -archivePath "${archive_path}" \
+        "CURRENT_PROJECT_VERSION=${build_number}" \
         "SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_MODE=${mode}" \
         SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_ACTION=archive \
         "SORA_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID=${IOS_MIGRATION_EVIDENCE_AUTHORIZATION_KEY_ID}" \
@@ -297,6 +319,16 @@ fi
 
 [ -d "${archive_path}" ] && [ ! -L "${archive_path}" ] ||
     fail "candidate archive was not created as a non-symbolic directory"
+archived_app_count="$({ /usr/bin/find "${archive_path}/Products/Applications" -mindepth 1 -maxdepth 1 -type d -name '*.app' -print 2>/dev/null | /usr/bin/wc -l | /usr/bin/tr -d '[:space:]'; })"
+[ "${archived_app_count}" = "1" ] ||
+    fail "candidate archive does not contain exactly one application"
+archived_app="$({ /usr/bin/find "${archive_path}/Products/Applications" -mindepth 1 -maxdepth 1 -type d -name '*.app' -print; })"
+[ ! -L "${archived_app}" ] && [ -f "${archived_app}/Info.plist" ] && [ ! -L "${archived_app}/Info.plist" ] ||
+    fail "candidate archived application identity is missing or symbolic"
+archived_build_number="$({ /usr/bin/plutil -extract CFBundleVersion raw -expect string "${archived_app}/Info.plist" 2>/dev/null; })" ||
+    fail "candidate archived application lacks its build number"
+[ "${archived_build_number}" = "${build_number}" ] ||
+    fail "candidate archived application build number differs from the controller-authorized input"
 
 if ! /usr/bin/xcodebuild \
     -exportArchive \
@@ -347,6 +379,11 @@ case "${handoff_result}" in
 esac
 [ "$({ /usr/bin/printf '%s\n' "${handoff_result}" | /usr/bin/wc -l | /usr/bin/tr -d '[:space:]'; })" = "1" ] ||
     fail "candidate identity handoff returned multiple records"
+handoff_path="${export_path}/ios-migration-candidate-handoff.json"
+handoff_build_number="$({ /usr/bin/plutil -extract ipa.buildVersion raw -expect string "${handoff_path}" 2>/dev/null; })" ||
+    fail "candidate identity handoff lacks its build number"
+[ "${handoff_build_number}" = "${build_number}" ] ||
+    fail "candidate exported IPA build number differs from the controller-authorized input"
 
 if [ "${reproducible_build}" = true ]; then
     candidate_ipa="${handoff_result#ipaPath=}"
@@ -366,6 +403,8 @@ if [ "${reproducible_build}" = true ]; then
             --qualification-contract-sha "${qualification_contract_sha}" \
             --signing-receipt-sha "${signing_identity_sha}" \
             --vendored-receipt-sha "${vendored_binary_sha}" \
+            --build-number "${build_number}" \
+            --app-store-build-lower-bound "${app_store_build_number_lower_bound}" \
             --output "${build_manifest}"
     })" || fail "candidate archive/export manifest could not be captured"
     case "${manifest_result}" in

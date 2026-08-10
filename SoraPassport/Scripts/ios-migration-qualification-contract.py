@@ -54,7 +54,11 @@ def safe_relative_path(value: Any, label: str) -> PurePosixPath:
     if (
         path.as_posix() != value
         or any(
-            component in ("", ".", "..") or COMPONENT_RE.fullmatch(component) is None
+            component in ("", ".", "..")
+            or (
+                component != ".github"
+                and COMPONENT_RE.fullmatch(component) is None
+            )
             for component in path.parts
         )
     ):
@@ -258,6 +262,7 @@ def load_manifest(
             "Fixtures/Modernization/ios-production-signing-identity-qualification-README.md"
         ),
         PurePosixPath("Fixtures/Modernization/production-rollout-README.md"),
+        PurePosixPath(".github/workflows/ios_modernization.yml"),
         PurePosixPath(
             "SoraPassport/Configs/ios-migration-candidate-export-options.plist"
         ),
