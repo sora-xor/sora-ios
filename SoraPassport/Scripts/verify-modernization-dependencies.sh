@@ -289,6 +289,10 @@ run_ios_migration_release_source_gate() {
     ios_gate_qualifier="${root}/SoraPassport/Scripts/verify-ios-migration-qualification.py"
     ios_gate_builder="${root}/SoraPassport/Scripts/build-ios-migration-evidence-candidate.sh"
     ios_gate_archiver="${root}/SoraPassport/Scripts/archive-ios-migration-candidate.sh"
+    ios_gate_internal_testflight="${root}/SoraPassport/Scripts/upload-ios-internal-testflight.sh"
+    ios_gate_internal_testflight_delivery="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
+    ios_gate_internal_testflight_export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-options.plist"
+    ios_gate_source_contract="${root}/Fixtures/Modernization/ios-migration-qualification-contract-v1.json"
     ios_gate_promotion="${root}/SoraPassport/Scripts/verify-ios-migration-promotion-ipa.sh"
     ios_gate_rollout="${root}/SoraPassport/Scripts/verify-production-rollout.sh"
     ios_gate_release_package="${root}/SoraPassport/Scripts/verify-ios-release-reproducibility-package.py"
@@ -304,6 +308,7 @@ run_ios_migration_release_source_gate() {
     ios_gate_sanitizer_suite="${root}/SoraPassport/Scripts/test-ios-migration-xctestrun-sanitizer.py"
     ios_gate_collector_suite="${root}/SoraPassport/Scripts/test-ios-migration-evidence-collector.py"
     ios_gate_boundary_suite="${root}/SoraPassport/Scripts/test-ios-migration-release-boundary.py"
+    ios_gate_internal_testflight_suite="${root}/SoraPassport/Scripts/test-ios-internal-testflight-upload.py"
     ios_gate_release_package_suite="${root}/SoraPassport/Scripts/test-ios-release-reproducibility-package.py"
     ios_gate_taira_deployment_suite="${root}/SoraPassport/Scripts/test-ios-taira-deployment-manifest.py"
     ios_gate_vendored_binary_suite="${root}/SoraPassport/Scripts/test-ios-vendored-binary-qualification.py"
@@ -330,6 +335,10 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_qualifier}" \
         "${ios_gate_builder}" \
         "${ios_gate_archiver}" \
+        "${ios_gate_internal_testflight}" \
+        "${ios_gate_internal_testflight_delivery}" \
+        "${ios_gate_internal_testflight_export_options}" \
+        "${ios_gate_source_contract}" \
         "${ios_gate_promotion}" \
         "${ios_gate_rollout}" \
         "${ios_gate_release_package}" \
@@ -345,6 +354,7 @@ run_ios_migration_release_source_gate() {
         "${ios_gate_sanitizer_suite}" \
         "${ios_gate_collector_suite}" \
         "${ios_gate_boundary_suite}" \
+        "${ios_gate_internal_testflight_suite}" \
         "${ios_gate_release_package_suite}" \
         "${ios_gate_taira_deployment_suite}" \
         "${ios_gate_vendored_binary_suite}" \
@@ -377,7 +387,7 @@ run_ios_migration_release_source_gate() {
         return 1
     fi
 
-    # Twelve source-contract/template lints. Keep this inventory explicit: a new
+    # Thirteen source-contract/template lints. Keep this inventory explicit: a new
     # producer is not admitted merely because one aggregate wrapper still lints.
     if ! /usr/bin/python3 -B -I -S "${ios_gate_projector}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_clone}" --lint-contract >/dev/null ||
@@ -386,12 +396,13 @@ run_ios_migration_release_source_gate() {
        ! /usr/bin/python3 -B -I -S "${ios_gate_collector}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_qualifier}" --lint-templates >/dev/null ||
        ! /bin/sh "${ios_gate_builder}" --lint-contract >/dev/null ||
+       ! /bin/sh "${ios_gate_internal_testflight}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_release_package}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_taira_deployment}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_signing_identity}" --lint-templates >/dev/null ||
        ! /bin/sh "${ios_gate_release_test_runner}" --lint-contract >/dev/null ||
        ! /usr/bin/python3 -B -I -S "${ios_gate_production_promotion}" --lint-contract >/dev/null; then
-        echo "error: one of twelve iOS migration Release contract/template lints failed" >&2
+        echo "error: one of thirteen iOS migration Release contract/template lints failed" >&2
         return 1
     fi
 
@@ -412,6 +423,7 @@ run_ios_migration_release_source_gate() {
         echo "error: iOS migration Release source suite inventory is not exactly 93 tests" >&2
         return 1
     }
+    run_exact_ios_migration_suite "${ios_gate_internal_testflight_suite}" 7 internal-testflight-upload || return 1
     run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 17 release-reproducibility-package || return 1
     run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 13 taira-deployment-admission || return 1
     run_exact_ios_migration_suite "${ios_gate_vendored_binary_suite}" 10 vendored-binary-qualification || return 1
@@ -427,6 +439,7 @@ run_ios_migration_release_source_gate() {
         "${root}/SoraPassport/Scripts/run-ios-migration-evidence-collection.sh" \
         "${root}/SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.sh" \
         "${root}/SoraPassport/Scripts/run-ios-release-tests.sh" \
+        "${root}/SoraPassport/Scripts/upload-ios-internal-testflight.sh" \
         "${root}/SoraPassport/Scripts/verify-ios-migration-qualification.sh" \
         "${root}/SoraPassport/Scripts/verify-ios-migration-promotion-ipa.sh" \
         "${root}/SoraPassport/Scripts/verify-ios-production-signing-identity.sh" \
@@ -618,7 +631,7 @@ run_ios_migration_release_source_gate() {
     fi
 
     /usr/bin/printf \
-        'iOS migration Release source gate: OK (93 migration tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 12 lints, shell/Swift parse)\n'
+        'iOS migration Release source gate: OK (93 migration tests + 7 internal-TestFlight tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 13 lints, shell/Swift parse)\n'
 }
 
 if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-google-signin-phase-dependencies" ]; then
@@ -630,6 +643,11 @@ if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-reachability-listener-synchronization"
     exit 0
 fi
 if [ "$#" -eq 1 ] && [ "$1" = "--lint-ios-migration-release-source-gate" ]; then
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_SOURCE_REVISION
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256
     run_ios_migration_release_source_gate
     exit 0
 fi
@@ -648,6 +666,96 @@ release_test_action="${SORA_IOS_NONPROMOTING_RELEASE_TEST_ACTION:-}"
 if [ -z "${release_test_mode}" ] && [ -n "${release_test_action}" ]; then
     echo "error: iOS non-promoting Release-test action lacks its exact capability" >&2
     exit 1
+fi
+internal_testflight_mode="${SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE:-}"
+internal_testflight_action="${SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION:-}"
+if [ -z "${internal_testflight_mode}" ] && [ -n "${internal_testflight_action}" ]; then
+    echo "error: iOS internal TestFlight action lacks its exact capability" >&2
+    exit 1
+fi
+if [ -n "${internal_testflight_mode}" ]; then
+    internal_testflight_wrapper="${root}/SoraPassport/Scripts/upload-ios-internal-testflight.sh"
+    internal_testflight_export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-options.plist"
+    internal_testflight_build_number="${SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER:-}"
+    internal_testflight_source_revision="${SORA_IOS_INTERNAL_TESTFLIGHT_SOURCE_REVISION:-}"
+    internal_testflight_export_options_sha="${SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256:-}"
+    if [ "${internal_testflight_mode}" != "sora-ios-internal-testflight-upload-v1" ] ||
+       [ "${internal_testflight_action}" != "archive" ] ||
+       [ -n "${SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_MODE:-}" ] ||
+       [ -n "${SORA_IOS_MIGRATION_EVIDENCE_BUILD_MODE:-}" ] ||
+       [ -n "${release_test_mode}" ] ||
+       [ "${ACTION:-}" != "install" ] ||
+       [ "${CONFIGURATION:-}" != "Release" ] ||
+       [ "${PLATFORM_NAME:-}" != "iphoneos" ] ||
+       [ "${EFFECTIVE_PLATFORM_NAME:-}" != "-iphoneos" ] ||
+       [ "${DEPLOYMENT_LOCATION:-}" != "YES" ] ||
+       [ "${TARGET_NAME:-}" != "SoraPassport" ] ||
+       [ "${PRODUCT_NAME:-}" != "SoraPassport" ] ||
+       [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" != "co.jp.soramitsu.sora" ] ||
+       [ "${DEVELOPMENT_TEAM:-}" != "YLWWUD25VZ" ] ||
+       [ "${CODE_SIGN_STYLE:-}" != "Manual" ] ||
+       [ "${CODE_SIGN_IDENTITY:-}" != "84AB95335BE14CAE9B050A353910F86FF2F9539B" ] ||
+       [ "${PROVISIONING_PROFILE_SPECIFIER:-}" != "7ae520bc-599b-48ae-abfa-627eef530f0c" ] ||
+       [ "${internal_testflight_build_number}" != "2026081002" ] ||
+       [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
+       [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
+       [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
+       [ "${SORA_APPLICATION_CONFIG:-}" != "Release" ] ||
+       [ "${SORA_NAME:-}" != "SORA" ] ||
+       [ "${CODE_SIGNING_ALLOWED:-YES}" != "YES" ] ||
+       [ "${CODE_SIGNING_REQUIRED:-YES}" != "YES" ] ||
+       [ "${#internal_testflight_source_revision}" -ne 40 ] ||
+       [ "${internal_testflight_source_revision}" != "${SORA_MIGRATION_EVIDENCE_SOURCE_REVISION:-}" ]; then
+        echo "error: iOS internal-only TestFlight archive capability is invalid" >&2
+        exit 1
+    fi
+    case "${internal_testflight_source_revision}" in
+        *[!0-9a-f]*)
+            echo "error: iOS internal-only TestFlight source revision is invalid" >&2
+            exit 1
+            ;;
+    esac
+    case "${SDK_NAME:-}" in
+        iphoneos*) ;;
+        *)
+            echo "error: iOS internal-only TestFlight archive requires the physical-device SDK" >&2
+            exit 1
+            ;;
+    esac
+    if [ ! -f "${internal_testflight_wrapper}" ] || [ -L "${internal_testflight_wrapper}" ] ||
+       [ ! -f "${internal_testflight_export_options}" ] || [ -L "${internal_testflight_export_options}" ] ||
+       [ "${#internal_testflight_export_options_sha}" -ne 64 ] ||
+       [ "$({ /usr/bin/shasum -a 256 "${internal_testflight_export_options}" | /usr/bin/awk '{print $1}'; })" != "${internal_testflight_export_options_sha}" ]; then
+        echo "error: iOS internal-only TestFlight upload boundary is missing or unstable" >&2
+        exit 1
+    fi
+    if [ ! -x /usr/bin/git ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/modernize" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "bad71b872dc70e13a6666e8ba596e3abd89bc5ad" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "bad71b872dc70e13a6666e8ba596e3abd89bc5ad..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "bad71b872dc70e13a6666e8ba596e3abd89bc5ad..${internal_testflight_source_revision}" 2>/dev/null)" != 'Fixtures/Modernization/ios-migration-qualification-contract-v1.json
+SoraPassport/Configs/ios-internal-testflight-export-options.plist
+SoraPassport/Scripts/test-ios-internal-testflight-upload.py
+SoraPassport/Scripts/test-ios-migration-release-boundary.py
+SoraPassport/Scripts/upload-ios-internal-testflight.sh
+SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
+SoraPassport/Scripts/verify-modernization-dependencies.sh' ] ||
+       [ -n "$(/usr/bin/git -C "${root}" status --porcelain=v1 --untracked-files=normal)" ]; then
+        echo "error: iOS internal-only TestFlight source is not the exact clean pushed revision" >&2
+        exit 1
+    fi
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_SOURCE_REVISION
+    unset SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256
+    run_ios_migration_release_source_gate
+    /bin/sh "${internal_testflight_wrapper}" --lint-contract >/dev/null
+    /usr/bin/printf '%s\n' \
+        'warning: internal-TestFlight-only archive is non-authorizing; protected migration, canary, rollout, and promotion admission are not granted' >&2
+    exit 0
 fi
 migration_candidate_archive_mode="${SORA_IOS_MIGRATION_CANDIDATE_ARCHIVE_MODE:-}"
 migration_candidate_archive_active=false
@@ -947,6 +1055,11 @@ migration_collection_runner="${root}/SoraPassport/Scripts/run-ios-migration-evid
 migration_collection_pipeline="${root}/Jenkinsfile.migration-evidence"
 migration_evidence_builder="${root}/SoraPassport/Scripts/build-ios-migration-evidence-candidate.sh"
 migration_candidate_archiver="${root}/SoraPassport/Scripts/archive-ios-migration-candidate.sh"
+internal_testflight_uploader="${root}/SoraPassport/Scripts/upload-ios-internal-testflight.sh"
+internal_testflight_delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
+internal_testflight_export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-options.plist"
+internal_testflight_harness="${root}/SoraPassport/Scripts/test-ios-internal-testflight-upload.py"
+internal_testflight_source_contract_manifest="${root}/Fixtures/Modernization/ios-migration-qualification-contract-v1.json"
 migration_candidate_handoff="${root}/SoraPassport/Scripts/create-ios-migration-candidate-handoff.py"
 migration_test_host_deriver="${root}/SoraPassport/Scripts/derive-ios-migration-test-host.sh"
 migration_test_host_projector="${root}/SoraPassport/Scripts/derive-ios-migration-test-host.py"
@@ -2139,6 +2252,16 @@ if [ ! -f "${migration_collector_validator}" ] ||
    [ -L "${migration_evidence_builder}" ] ||
    [ ! -f "${migration_candidate_archiver}" ] ||
    [ -L "${migration_candidate_archiver}" ] ||
+   [ ! -f "${internal_testflight_uploader}" ] ||
+   [ -L "${internal_testflight_uploader}" ] ||
+   [ ! -f "${internal_testflight_delivery_verifier}" ] ||
+   [ -L "${internal_testflight_delivery_verifier}" ] ||
+   [ ! -f "${internal_testflight_export_options}" ] ||
+   [ -L "${internal_testflight_export_options}" ] ||
+   [ ! -f "${internal_testflight_harness}" ] ||
+   [ -L "${internal_testflight_harness}" ] ||
+   [ ! -f "${internal_testflight_source_contract_manifest}" ] ||
+   [ -L "${internal_testflight_source_contract_manifest}" ] ||
    [ ! -f "${migration_candidate_handoff}" ] ||
    [ -L "${migration_candidate_handoff}" ] ||
    [ ! -f "${migration_test_host_deriver}" ] ||
@@ -2161,6 +2284,7 @@ if [ ! -f "${migration_collector_validator}" ] ||
    [ -L "${migration_evidence_tests}" ] ||
    ! run_ios_migration_release_source_gate >/dev/null ||
    ! /bin/sh "${migration_candidate_archiver}" --lint-contract >/dev/null ||
+   ! /bin/sh "${internal_testflight_uploader}" --lint-contract >/dev/null ||
    ! /bin/sh "${migration_test_host_deriver}" --lint-contract >/dev/null ||
    ! /bin/sh "${migration_promotion_admission}" --lint-contract >/dev/null ||
    ! /bin/sh "${migration_collector_validator}" --lint-contract >/dev/null; then
@@ -2236,6 +2360,36 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    ! /usr/bin/grep -Fq -- '--verify-export-options-source "${export_options_sha}"' "${migration_candidate_archiver}" ||
    ! /usr/bin/grep -Fq -- '--export-options-sha "${export_options_sha}"' "${migration_candidate_archiver}" ||
    /usr/bin/grep -Fq 'verify-production-rollout' "${migration_candidate_archiver}" ||
+   ! /usr/bin/grep -Fq 'sora-ios-internal-testflight-upload-v1' "${dependency_verifier}" ||
+   ! /usr/bin/grep -Fq 'internal-TestFlight-only archive is non-authorizing' "${dependency_verifier}" ||
+   ! /usr/bin/grep -Fq 'testFlightInternalTestingOnly' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'testFlightInternalTestingOnly' "${internal_testflight_export_options}" ||
+   ! /usr/bin/grep -Fq '<string>manual</string>' "${internal_testflight_export_options}" ||
+   ! /usr/bin/grep -Fq '<string>84AB95335BE14CAE9B050A353910F86FF2F9539B</string>' "${internal_testflight_export_options}" ||
+   ! /usr/bin/grep -Fq '<string>7ae520bc-599b-48ae-abfa-627eef530f0c</string>' "${internal_testflight_export_options}" ||
+   ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="bad71b872dc70e13a6666e8ba596e3abd89bc5ad"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/modernize"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_build_number="2026081002"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_profile_sha256="19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'CODE_SIGN_IDENTITY=${reviewed_signing_certificate_sha1}' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'PROVISIONING_PROFILE_SPECIFIER=${reviewed_profile_uuid}' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq '/bin/chmod 400 "${export_options_snapshot}"' "${internal_testflight_uploader}" ||
+   [ "$(/usr/bin/grep -Fc 'sha256_file "${export_options_snapshot}"' "${internal_testflight_uploader}")" -ne 3 ] ||
+   [ "$(/usr/bin/grep -Fc 'SoraPassport/Configs/ios-internal-testflight-export-options.plist' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
+   [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
+   [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/upload-ios-internal-testflight.sh' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
+   [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
+   ! /usr/bin/grep -Fq 'sora-ios-xcode-apple-upload-receipt-v1' "${internal_testflight_delivery_verifier}" ||
+   ! /usr/bin/grep -Fq 'certificateSha1' "${internal_testflight_delivery_verifier}" ||
+   ! /usr/bin/grep -Fq 'SORA_MIGRATION_EVIDENCE_SOURCE_REVISION=${source_revision}' "${internal_testflight_uploader}" ||
+   [ "$(/usr/bin/grep -Fc -- '--verify-snapshot "${contract_snapshot}"' "${internal_testflight_uploader}")" -ne 2 ] ||
+   ! /usr/bin/grep -Fq 'appleDeliveryId": delivery_id' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'appleUploadState": "success"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'productionRolloutAuthorized": False' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq -- '-exportArchive' "${internal_testflight_uploader}" ||
+   /usr/bin/grep -Fq 'ITSAppUsesNonExemptEncryption' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'sora-ios-wallet-migration-candidate-handoff-v1' "${migration_candidate_handoff}" ||
    ! /usr/bin/grep -Fq '"releaseAuthorized": False' "${migration_candidate_handoff}" ||
    ! /usr/bin/grep -Fq '"promotionAuthorized": False' "${migration_candidate_handoff}" ||
