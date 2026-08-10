@@ -1466,7 +1466,7 @@ final class PIIndexerClient {
             """,
             cachePolicy: requireLive
                 ? .none
-                : .offline(maximumAge: 24 * 60 * 60),
+                : .offline(maximumAge: TimeInterval(24 * 60 * 60)),
             validateResponse: { payload, _ in
                 try Self.validateHealth(payload._health)
             }
@@ -2142,7 +2142,7 @@ final class PIIndexerClient {
             """,
             cachePolicy: requireLive
                 ? .none
-                : .offline(maximumAge: 7 * 24 * 60 * 60),
+                : .offline(maximumAge: TimeInterval(7 * 24 * 60 * 60)),
             validateResponse: { payload, _ in
                 try Self.validateMobileConfig(payload.mobileConfig)
             }
@@ -2190,7 +2190,7 @@ final class PIIndexerClient {
             }
             """,
             variables: compact(["first": first, "after": after]),
-            cachePolicy: .offline(maximumAge: 24 * 60 * 60),
+            cachePolicy: .offline(maximumAge: TimeInterval(24 * 60 * 60)),
             validateResponse: { payload, _ in
                 try Self.validateConnectionPage(
                     payload.assets,
@@ -2249,7 +2249,7 @@ final class PIIndexerClient {
             }
             """,
             variables: compact(["first": first, "after": after]),
-            cachePolicy: .offline(maximumAge: 24 * 60 * 60),
+            cachePolicy: .offline(maximumAge: TimeInterval(24 * 60 * 60)),
             validateResponse: { payload, _ in
                 try Self.validateConnectionPage(
                     payload.poolXYKs,
@@ -2327,7 +2327,7 @@ final class PIIndexerClient {
                 "after": after,
                 "filter": ["referrer": ["equalTo": address]]
             ]),
-            cachePolicy: .offline(maximumAge: 24 * 60 * 60),
+            cachePolicy: .offline(maximumAge: TimeInterval(24 * 60 * 60)),
             validateResponse: { payload, qualification in
                 try Self.validateConnectionPage(
                     payload.referrerRewards,
@@ -2727,7 +2727,7 @@ final class PIIndexerClient {
                     ["status": ["equalTo": $0.rawValue]]
                 }
             ]),
-            cachePolicy: .offline(maximumAge: 6 * 60 * 60),
+            cachePolicy: .offline(maximumAge: TimeInterval(6 * 60 * 60)),
             validateResponse: { payload, qualification in
                 try Self.validateConnectionPage(
                     payload.markets,
@@ -2842,7 +2842,7 @@ final class PIIndexerClient {
                     "type": ["equalTo": "DEFAULT"]
                 ]
             ]),
-            cachePolicy: .offline(maximumAge: 6 * 60 * 60),
+            cachePolicy: .offline(maximumAge: TimeInterval(6 * 60 * 60)),
             validateResponse: { payload, qualification in
                 try Self.validateConnectionPage(
                     payload.marketSnapshots,
@@ -2925,7 +2925,7 @@ final class PIIndexerClient {
                 "after": after,
                 "filter": ["account": ["equalTo": account]]
             ]),
-            cachePolicy: .offline(maximumAge: 24 * 60 * 60),
+            cachePolicy: .offline(maximumAge: TimeInterval(24 * 60 * 60)),
             validateResponse: { payload, qualification in
                 try Self.validateConnectionPage(
                     payload.accountPositions,
@@ -3006,7 +3006,7 @@ final class PIIndexerClient {
                 "after": after,
                 "filter": ["account": ["equalTo": account]]
             ]),
-            cachePolicy: .offline(maximumAge: 24 * 60 * 60),
+            cachePolicy: .offline(maximumAge: TimeInterval(24 * 60 * 60)),
             validateResponse: { payload, qualification in
                 try Self.validateConnectionPage(
                     payload.accountTrades,
@@ -3080,7 +3080,7 @@ final class PIIndexerClient {
               }
             }
             """,
-            cachePolicy: .offline(maximumAge: 6 * 60 * 60),
+            cachePolicy: .offline(maximumAge: TimeInterval(6 * 60 * 60)),
             validateResponse: { payload, _ in
                 try Self.validatePolkamarktSignals(
                     payload.polkamarktSignals
