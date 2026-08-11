@@ -16,7 +16,7 @@ export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-opti
 source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-contract.py"
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="f1a2cab5debfa6213adfe087972dfc70d4d8688e"
+reviewed_base_revision="70553b0227ccf1d2564c0ca7cac0c52929aaf3d8"
 reviewed_upstream="origin/modernize"
 reviewed_build_number="2026081002"
 reviewed_lower_bound="2026081001"
@@ -64,10 +64,14 @@ lint_contract() {
         fail "internal TestFlight export method must be app-store-connect"
     [ "$(plist_raw manageAppVersionAndBuildNumber "${export_options}")" = "false" ] ||
         fail "Xcode must not mutate the reviewed build number"
-    [ "$(plist_raw signingStyle "${export_options}")" = "manual" ] ||
-        fail "internal TestFlight export signing style must be manual"
-    [ "$(plist_raw signingCertificate "${export_options}")" = "${reviewed_signing_certificate_sha1}" ] ||
-        fail "internal TestFlight export signing certificate drifted"
+    [ "$(plist_raw signingStyle "${export_options}")" = "automatic" ] ||
+        fail "the Xcode-managed App Store profile requires automatic export signing"
+    if /usr/bin/plutil -extract signingCertificate raw "${export_options}" >/dev/null 2>&1; then
+        fail "automatic export must not contain the manual-only signingCertificate key"
+    fi
+    if /usr/bin/plutil -extract provisioningProfiles raw "${export_options}" >/dev/null 2>&1; then
+        fail "automatic export must not contain the manual-only provisioningProfiles key"
+    fi
     [ "$(plist_raw teamID "${export_options}")" = "${reviewed_team_id}" ] ||
         fail "internal TestFlight export team is invalid"
     [ "$(plist_raw testFlightInternalTestingOnly "${export_options}")" = "true" ] ||
@@ -75,17 +79,8 @@ lint_contract() {
     [ "$(plist_raw stripSwiftSymbols "${export_options}")" = "true" ] &&
         [ "$(plist_raw uploadSymbols "${export_options}")" = "false" ] ||
         fail "internal TestFlight symbol policy drifted"
-    [ "$(/usr/bin/plutil -convert json -o - "${export_options}" | /usr/bin/python3 -B -I -S -c 'import json,sys; print(len(json.load(sys.stdin)))')" = "10" ] ||
+    [ "$(/usr/bin/plutil -convert json -o - "${export_options}" | /usr/bin/python3 -B -I -S -c 'import json,sys; print(len(json.load(sys.stdin)))')" = "8" ] ||
         fail "internal TestFlight export options contain an unreviewed key"
-    /usr/bin/python3 -I -S - "${export_options}" "${reviewed_bundle_identifier}" "${reviewed_profile_uuid}" <<'PY' || fail "internal TestFlight export provisioning profile drifted"
-import plistlib
-import sys
-from pathlib import Path
-
-options = plistlib.loads(Path(sys.argv[1]).read_bytes())
-if options.get("provisioningProfiles") != {sys.argv[2]: sys.argv[3]}:
-    raise SystemExit(1)
-PY
     /usr/bin/grep -Fq 'buildForArchiving = "YES"' "${scheme}" ||
         fail "production scheme does not archive the production target"
     /usr/bin/grep -Fq 'buildConfiguration = "Release"' "${scheme}" ||
@@ -184,9 +179,9 @@ parent_revision="$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" ||
     fail "internal TestFlight source is not the reviewed single successor"
 [ "$(/usr/bin/git -C "${root}" rev-list --count "${reviewed_base_revision}..${source_revision}")" = "1" ] ||
     fail "internal TestFlight source history is not the reviewed single commit"
-reviewed_successor_paths='SoraPassport/Scripts/test-ios-internal-testflight-upload.py
+reviewed_successor_paths='SoraPassport/Configs/ios-internal-testflight-export-options.plist
+SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
-SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh'
 observed_successor_paths="$(/usr/bin/git -C "${root}" diff --name-only --no-renames "${reviewed_base_revision}..${source_revision}")"
 [ "${observed_successor_paths}" = "${reviewed_successor_paths}" ] ||

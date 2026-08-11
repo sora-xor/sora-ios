@@ -105,11 +105,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
                 "destination": "upload",
                 "manageAppVersionAndBuildNumber": False,
                 "method": "app-store-connect",
-                "provisioningProfiles": {
-                    "co.jp.soramitsu.sora": "7ae520bc-599b-48ae-abfa-627eef530f0c"
-                },
-                "signingCertificate": "84AB95335BE14CAE9B050A353910F86FF2F9539B",
-                "signingStyle": "manual",
+                "signingStyle": "automatic",
                 "stripSwiftSymbols": True,
                 "teamID": "YLWWUD25VZ",
                 "testFlightInternalTestingOnly": True,
@@ -122,7 +118,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'status --porcelain=v1 --untracked-files=normal',
             "rev-parse '@{upstream}'",
-            'reviewed_base_revision="f1a2cab5debfa6213adfe087972dfc70d4d8688e"',
+            'reviewed_base_revision="70553b0227ccf1d2564c0ca7cac0c52929aaf3d8"',
             'reviewed_upstream="origin/modernize"',
             'reviewed_build_number="2026081002"',
             'reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"',
