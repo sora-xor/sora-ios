@@ -2361,11 +2361,11 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    ! /usr/bin/grep -Fq 'internal-TestFlight-only archive is non-authorizing' "${dependency_verifier}" ||
    ! /usr/bin/grep -Fq 'testFlightInternalTestingOnly' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'testFlightInternalTestingOnly' "${internal_testflight_export_options}" ||
-   ! /usr/bin/grep -Fq '<string>manual</string>' "${internal_testflight_export_options}" ||
-   ! /usr/bin/grep -Fq '<string>84AB95335BE14CAE9B050A353910F86FF2F9539B</string>' "${internal_testflight_export_options}" ||
-   ! /usr/bin/grep -Fq '<string>7ae520bc-599b-48ae-abfa-627eef530f0c</string>' "${internal_testflight_export_options}" ||
+   ! /usr/bin/grep -Fq '<string>automatic</string>' "${internal_testflight_export_options}" ||
+   /usr/bin/grep -Fq '<key>signingCertificate</key>' "${internal_testflight_export_options}" ||
+   /usr/bin/grep -Fq '<key>provisioningProfiles</key>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="f1a2cab5debfa6213adfe087972dfc70d4d8688e"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="70553b0227ccf1d2564c0ca7cac0c52929aaf3d8"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_upstream="origin/modernize"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_build_number="2026081002"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"' "${internal_testflight_uploader}" ||
