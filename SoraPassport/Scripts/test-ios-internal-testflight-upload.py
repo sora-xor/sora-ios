@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import plistlib
@@ -21,6 +22,13 @@ DELIVERY_VERIFIER = SCRIPTS / "verify-ios-internal-testflight-delivery.py"
 EXPORT_OPTIONS = (
     ROOT / "SoraPassport" / "Configs" / "ios-internal-testflight-export-options.plist"
 )
+DELIVERY_SPEC = importlib.util.spec_from_file_location(
+    "ios_internal_testflight_delivery", DELIVERY_VERIFIER
+)
+if DELIVERY_SPEC is None or DELIVERY_SPEC.loader is None:
+    raise RuntimeError("delivery verifier cannot be loaded")
+DELIVERY_MODULE = importlib.util.module_from_spec(DELIVERY_SPEC)
+DELIVERY_SPEC.loader.exec_module(DELIVERY_MODULE)
 
 
 def run(*arguments: str, environment: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -118,7 +126,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'status --porcelain=v1 --untracked-files=normal',
             "rev-parse '@{upstream}'",
-            'reviewed_base_revision="70553b0227ccf1d2564c0ca7cac0c52929aaf3d8"',
+            'reviewed_base_revision="b174893b6d79728187ee4e465bec99ddcb6fcf0c"',
             'reviewed_upstream="origin/modernize"',
             'reviewed_build_number="2026081002"',
             'reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"',
@@ -134,6 +142,8 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             'sha256_file "${export_options_snapshot}"',
             'delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"',
             '--archive-info "${archive_path}/Info.plist"',
+            '--xcodebuild-log "${export_log}"',
+            '--reviewed-profile "${reviewed_profile_path}"',
             'SORA_MIGRATION_EVIDENCE_SOURCE_REVISION=${source_revision}',
             'SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256=${export_options_sha}',
             '--verify-snapshot "${contract_snapshot}"',
@@ -143,10 +153,10 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             'externalTestFlightAuthorized": False',
             'appStorePromotionAuthorized": False',
             'productionRolloutAuthorized": False',
-            "-allowProvisioningUpdates",
             "-exportArchive",
         ):
             self.assertIn(marker, source)
+        self.assertEqual(source.count("-allowProvisioningUpdates"), 1)
         self.assertNotIn("ITSAppUsesNonExemptEncryption", source)
         self.assertNotIn("ITSEncryptionExportComplianceCode", source)
         self.assertNotIn('"PROVISIONING_PROFILE_SPECIFIER=', source)
@@ -157,7 +167,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             'rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}"',
             "rev-parse '@{upstream}' 2>/dev/null",
             "origin/modernize",
-            "f1a2cab5debfa6213adfe087972dfc70d4d8688e",
+            "b174893b6d79728187ee4e465bec99ddcb6fcf0c",
             "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER",
             "CURRENT_PROJECT_VERSION",
             "PROVISIONING_PROFILE_SPECIFIER",
@@ -166,7 +176,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         ):
             self.assertIn(marker, verifier)
 
-    def test_delivery_verifier_accepts_exact_success_and_rejects_cert_drift(self) -> None:
+    def test_delivery_verifier_binds_exact_success_profile_and_options(self) -> None:
         prepared = {
             "date": "2026-08-11T01:00:00Z",
             "errors": [],
@@ -218,39 +228,144 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             root = Path(directory)
             archive_path = root / "ArchiveInfo.plist"
             archive_path.write_bytes(plistlib.dumps(archive, sort_keys=True))
-            receipt_path = root / "receipt.json"
-            result = run(
-                "/usr/bin/python3",
-                "-I",
-                "-S",
-                str(DELIVERY_VERIFIER),
-                "--archive-info",
-                str(archive_path),
-                "--receipt",
-                str(receipt_path),
-                "--build-number",
-                "2026081002",
+            reviewed_profile = root / "reviewed.mobileprovision"
+            reviewed_profile.write_bytes(b"synthetic reviewed profile\n")
+            reviewed_profile_sha256 = hashlib.sha256(reviewed_profile.read_bytes()).hexdigest()
+            log_root = root / "SoraPassport_0008-08-11_01-00-00.000.xcdistributionlogs"
+            log_root.mkdir(mode=0o700)
+            effective_options = dict(DELIVERY_MODULE.EXPECTED_EXPORT_OPTIONS)
+            standard_log = log_root / "IDEDistribution.standard.log"
+            standard_log.write_text(
+                "2026-08-11 01:00:00 +0000 [MT] Starting export with options: "
+                + json.dumps(effective_options, separators=(",", ":"), sort_keys=True)
+                + "\n",
+                encoding="utf-8",
             )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("appleUploadState=success", result.stdout)
+            verbose_log = log_root / "IDEDistribution.verbose.log"
+            verbose_template = """2026-08-11 01:00:01 +0000 [MT] Evaluation for SoraPassport.app is <IDEProvisionableStatusEvaluation 0x1:
+    Default = \"<_IDEProvisionableConfigurationSnapshot 0x2: provisioningStyle: 0, certificateSigningStyle: 2, team: <IDEProvisioningBasicTeam: 0x3; teamID='YLWWUD25VZ', teamName='(null)'>, bundleIdentifier: co.jp.soramitsu.sora, provisioningPurpose: app-store>\";
+Profile:  <DVTEmbeddedProvisioningProfile 0x4: name: iOS Team Store Provisioning Profile: co.jp.soramitsu.sora, UUID: 7ae520bc-599b-48ae-abfa-627eef530f0c, teamName: Soramitsu Co., Ltd., isXcodeManaged: 1, filePath: <DVTFilePath:0x5:'{profile_path}'>>
+Identity: 84AB95335BE14CAE9B050A353910F86FF2F9539B
+Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co., Ltd. (YLWWUD25VZ)', hash='84AB95335BE14CAE9B050A353910F86FF2F9539B', serialNumber='1'>
+2026-08-11 01:00:02 +0000 [MT] Running step: IDEDistributionPackagingStep
+""".format(profile_path=reviewed_profile)
+            verbose_log.write_text(verbose_template, encoding="utf-8")
+            xcodebuild_log = root / "upload.log"
+            xcodebuild_log.write_text(
+                f'Created bundle at path "{log_root}".\n** EXPORT SUCCEEDED **\n',
+                encoding="utf-8",
+            )
+            receipt_path = root / "receipt.json"
+            delivery_id, _ = DELIVERY_MODULE.verify(
+                archive_path,
+                xcodebuild_log,
+                reviewed_profile,
+                receipt_path,
+                "2026081002",
+                expected_profile_sha256=reviewed_profile_sha256,
+            )
+            self.assertEqual(delivery_id, "12345678-1234-4234-8234-123456789abc")
             receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             self.assertEqual(receipt["deliveryId"], "12345678-1234-4234-8234-123456789abc")
+            self.assertEqual(receipt["provisioningProfileSha256"], reviewed_profile_sha256)
+            self.assertTrue(receipt["provisioningProfileIsXcodeManaged"])
+            self.assertTrue(receipt["testFlightInternalTestingOnly"])
             archive["Distributions"][0]["certificateSHA1"] = "0" * 40
             archive_path.write_bytes(plistlib.dumps(archive, sort_keys=True))
-            rejected = run(
-                "/usr/bin/python3",
-                "-I",
-                "-S",
-                str(DELIVERY_VERIFIER),
-                "--archive-info",
-                str(archive_path),
-                "--receipt",
-                str(root / "rejected.json"),
-                "--build-number",
-                "2026081002",
+            with self.assertRaisesRegex(SystemExit, "distribution record identity drifted"):
+                DELIVERY_MODULE.verify(
+                    archive_path,
+                    xcodebuild_log,
+                    reviewed_profile,
+                    root / "rejected.json",
+                    "2026081002",
+                    expected_profile_sha256=reviewed_profile_sha256,
+                )
+
+            for label, standard_text, verbose_text, profile_hash in (
+                (
+                    "internal-only option",
+                    standard_log.read_text(encoding="utf-8").replace(
+                        '"testFlightInternalTestingOnly":true',
+                        '"testFlightInternalTestingOnly":false',
+                    ),
+                    verbose_template,
+                    reviewed_profile_sha256,
+                ),
+                (
+                    "profile UUID",
+                    standard_log.read_text(encoding="utf-8"),
+                    verbose_template.replace(
+                        "7ae520bc-599b-48ae-abfa-627eef530f0c",
+                        "00000000-0000-4000-8000-000000000000",
+                    ),
+                    reviewed_profile_sha256,
+                ),
+                (
+                    "managed bit",
+                    standard_log.read_text(encoding="utf-8"),
+                    verbose_template.replace("isXcodeManaged: 1", "isXcodeManaged: 0"),
+                    reviewed_profile_sha256,
+                ),
+                (
+                    "profile name",
+                    standard_log.read_text(encoding="utf-8"),
+                    verbose_template.replace(
+                        "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora",
+                        "unreviewed profile",
+                    ),
+                    reviewed_profile_sha256,
+                ),
+                (
+                    "profile path",
+                    standard_log.read_text(encoding="utf-8"),
+                    verbose_template.replace(str(reviewed_profile), str(root / "unexpected.mobileprovision")),
+                    reviewed_profile_sha256,
+                ),
+                (
+                    "signing identity",
+                    standard_log.read_text(encoding="utf-8"),
+                    verbose_template.replace(
+                        "Identity: 84AB95335BE14CAE9B050A353910F86FF2F9539B",
+                        "Identity: 0000000000000000000000000000000000000000",
+                    ),
+                    reviewed_profile_sha256,
+                ),
+                (
+                    "missing app evaluation",
+                    standard_log.read_text(encoding="utf-8"),
+                    verbose_template.replace("Evaluation for SoraPassport.app", "Evaluation for Other.app"),
+                    reviewed_profile_sha256,
+                ),
+                (
+                    "duplicate app evaluation",
+                    standard_log.read_text(encoding="utf-8"),
+                    verbose_template + verbose_template,
+                    reviewed_profile_sha256,
+                ),
+                (
+                    "profile hash",
+                    standard_log.read_text(encoding="utf-8"),
+                    verbose_template,
+                    "0" * 64,
+                ),
+            ):
+                with self.subTest(label=label):
+                    standard_log.write_text(standard_text, encoding="utf-8")
+                    verbose_log.write_text(verbose_text, encoding="utf-8")
+                    with self.assertRaises(SystemExit):
+                        DELIVERY_MODULE.verify_distribution_signing(
+                            xcodebuild_log,
+                            reviewed_profile,
+                            expected_profile_sha256=profile_hash,
+                        )
+            standard_log.write_text(
+                "2026-08-11 01:00:00 +0000 [MT] Starting export with options: "
+                + json.dumps(effective_options, separators=(",", ":"), sort_keys=True)
+                + "\n",
+                encoding="utf-8",
             )
-            self.assertNotEqual(rejected.returncode, 0)
-            self.assertIn("distribution record identity drifted", rejected.stderr)
+            verbose_log.write_text(verbose_template, encoding="utf-8")
 
     def test_wrapper_rejects_unreviewed_build_before_xcode(self) -> None:
         result = run(
