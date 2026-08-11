@@ -16,7 +16,7 @@ export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-opti
 source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-contract.py"
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="70553b0227ccf1d2564c0ca7cac0c52929aaf3d8"
+reviewed_base_revision="b174893b6d79728187ee4e465bec99ddcb6fcf0c"
 reviewed_upstream="origin/modernize"
 reviewed_build_number="2026081002"
 reviewed_lower_bound="2026081001"
@@ -179,9 +179,9 @@ parent_revision="$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" ||
     fail "internal TestFlight source is not the reviewed single successor"
 [ "$(/usr/bin/git -C "${root}" rev-list --count "${reviewed_base_revision}..${source_revision}")" = "1" ] ||
     fail "internal TestFlight source history is not the reviewed single commit"
-reviewed_successor_paths='SoraPassport/Configs/ios-internal-testflight-export-options.plist
-SoraPassport/Scripts/test-ios-internal-testflight-upload.py
+reviewed_successor_paths='SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
+SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh'
 observed_successor_paths="$(/usr/bin/git -C "${root}" diff --name-only --no-renames "${reviewed_base_revision}..${source_revision}")"
 [ "${observed_successor_paths}" = "${reviewed_successor_paths}" ] ||
@@ -363,8 +363,7 @@ if ! /usr/bin/xcodebuild \
     -exportArchive \
     -archivePath "${archive_path}" \
     -exportPath "${export_path}" \
-    -exportOptionsPlist "${export_options_snapshot}" \
-    -allowProvisioningUpdates >"${export_log}" 2>&1; then
+    -exportOptionsPlist "${export_options_snapshot}" >"${export_log}" 2>&1; then
     fail "internal TestFlight upload failed; private upload log retained at ${export_log}"
 fi
 
@@ -381,18 +380,30 @@ fi
     fail "source changed during internal TestFlight upload"
 if ! /usr/bin/python3 -I -S "${delivery_verifier}" \
     --archive-info "${archive_path}/Info.plist" \
+    --xcodebuild-log "${export_log}" \
+    --reviewed-profile "${reviewed_profile_path}" \
     --receipt "${delivery_receipt_path}" \
     --build-number "${build_number}" >"${control_path}/delivery-verification.log"; then
     fail "Xcode did not record one exact successful Apple upload"
 fi
 delivery_id="$(plist_raw deliveryId "${delivery_receipt_path}")"
 delivery_uploaded_at="$(plist_raw uploadedAt "${delivery_receipt_path}")"
+delivery_profile_uuid="$(plist_raw provisioningProfileUuid "${delivery_receipt_path}")"
+delivery_profile_name="$(plist_raw provisioningProfileName "${delivery_receipt_path}")"
+delivery_profile_sha="$(plist_raw provisioningProfileSha256 "${delivery_receipt_path}")"
+delivery_profile_managed="$(plist_raw provisioningProfileIsXcodeManaged "${delivery_receipt_path}")"
+delivery_signing_style="$(plist_raw signingStyle "${delivery_receipt_path}")"
+delivery_standard_log_sha="$(plist_raw standardDistributionLogSha256 "${delivery_receipt_path}")"
+delivery_verbose_log_sha="$(plist_raw verboseDistributionLogSha256 "${delivery_receipt_path}")"
 delivery_receipt_sha="$(sha256_file "${delivery_receipt_path}")"
 /usr/bin/python3 -I -S - \
     "${manifest_path}" "${source_revision}" "${build_number}" "${qualification_contract_sha}" \
     "${export_options_sha}" "${executable_sha}" "${profile_sha}" \
     "${signed_certificate_sha1}" "${signed_certificate_sha256}" \
-    "${delivery_id}" "${delivery_uploaded_at}" "${delivery_receipt_sha}" <<'PY'
+    "${delivery_id}" "${delivery_uploaded_at}" "${delivery_receipt_sha}" \
+    "${delivery_profile_uuid}" "${delivery_profile_name}" "${delivery_profile_sha}" \
+    "${delivery_profile_managed}" "${delivery_signing_style}" \
+    "${delivery_standard_log_sha}" "${delivery_verbose_log_sha}" <<'PY'
 import datetime
 import json
 import os
@@ -411,6 +422,13 @@ import sys
     delivery_id,
     uploaded_at,
     delivery_receipt_sha256,
+    upload_profile_uuid,
+    upload_profile_name,
+    upload_profile_sha256,
+    upload_profile_managed,
+    upload_signing_style,
+    standard_distribution_log_sha256,
+    verbose_distribution_log_sha256,
 ) = sys.argv[1:]
 manifest = {
     "schemaVersion": 1,
@@ -428,10 +446,14 @@ manifest = {
     "embeddedProfileName": "iOS Team Provisioning Profile: co.jp.soramitsu.sora",
     "archivedLeafCertificateSha1": certificate_sha1,
     "archivedLeafCertificateSha256": certificate_sha256,
-    "uploadProvisioningProfileUuid": "7ae520bc-599b-48ae-abfa-627eef530f0c",
-    "uploadProvisioningProfileName": "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora",
-    "uploadProvisioningProfileSha256": "19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93",
+    "uploadProvisioningProfileUuid": upload_profile_uuid,
+    "uploadProvisioningProfileName": upload_profile_name,
+    "uploadProvisioningProfileSha256": upload_profile_sha256,
+    "uploadProvisioningProfileIsXcodeManaged": upload_profile_managed == "true",
+    "uploadSigningStyle": upload_signing_style,
     "uploadSigningCertificateSha1": "84AB95335BE14CAE9B050A353910F86FF2F9539B",
+    "standardDistributionLogSha256": standard_distribution_log_sha256,
+    "verboseDistributionLogSha256": verbose_distribution_log_sha256,
     "appleAdamId": "1457566711",
     "appleProviderId": "69a6de8e-8bb9-47e3-e053-5b8c7c11a4d1",
     "appleDeliveryId": delivery_id,
