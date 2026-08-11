@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 SCOPE = "sora-ios-xcode-apple-upload-receipt-v1"
-BUILD_NUMBER = "2026081002"
+BUILD_NUMBER = "2026081101"
 MARKETING_VERSION = "3.8.7"
 BUNDLE_IDENTIFIER = "co.jp.soramitsu.sora"
 TEAM_ID = "YLWWUD25VZ"
