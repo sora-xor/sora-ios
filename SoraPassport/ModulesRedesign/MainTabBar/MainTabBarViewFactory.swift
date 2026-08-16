@@ -39,18 +39,33 @@ import SSFUtils
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
 
+    static func isNetworkReady(
+        connectionState: WebSocketEngine.State,
+        hasRuntimeSnapshot: Bool
+    ) -> Bool {
+        guard hasRuntimeSnapshot else {
+            return false
+        }
+        if case .connected = connectionState {
+            return true
+        }
+        return false
+    }
+
     static func isReadyForCreation() -> Bool {
         let keystoreImportService: KeystoreImportServiceProtocol? =
             URLHandlingService.shared.findService()
-        guard
-            keystoreImportService != nil,
-            SelectedWalletSettings.shared.currentAccount != nil,
-            ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) != nil,
-            ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil
-        else {
+        guard keystoreImportService != nil,
+              SelectedWalletSettings.shared.currentAccount != nil,
+              let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
+              let runtimeProvider = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
             return false
         }
-        return true
+
+        return isNetworkReady(
+            connectionState: connection.state,
+            hasRuntimeSnapshot: runtimeProvider.snapshot != nil
+        )
     }
     
     @MainActor

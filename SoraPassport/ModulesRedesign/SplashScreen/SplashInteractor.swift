@@ -77,29 +77,42 @@ final class SplashInteractor: SplashInteractorProtocol {
     }
 
     private func loadAssetsInfo(chainId: String?) {
-        guard reachabilityManager?.isReachable ?? false else {
-            didLoadAssetsInfo([])
+        guard reachabilityManager?.isReachable ?? false,
+              let connection = socketService.connection else {
+            scheduleAssetsInfoReload(chainId: chainId)
             return
         }
-        
-        let provider = AssetsInfoProvider(engine: socketService.connection!, storageKeyFactory: StorageKeyFactory(), chainId: chainId)
+
+        let provider = AssetsInfoProvider(engine: connection, storageKeyFactory: StorageKeyFactory(), chainId: chainId)
         provider.load { [weak self] assetsInfo in
-            self?.didLoadAssetsInfo(assetsInfo)
+            self?.didLoadAssetsInfo(assetsInfo, chainId: chainId)
         }
     }
 
-    private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo]) {
+    private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo], chainId: String?) {
+        guard !assetsInfo.isEmpty else {
+            Logger.shared.error("Asset metadata bootstrap returned no assets; preserving existing chain state and retrying")
+            scheduleAssetsInfoReload(chainId: chainId)
+            return
+        }
+
+        AssetManager.networkAssets = assetsInfo
+        socketService.throttle()
+
+        // Chain startup must not be held behind an optional pricing backend.
+        DispatchQueue.main.async {
+            self.startChain()
+        }
+
+        let assetsIds = assetsInfo.filter { $0.visible }.map { $0.assetId }
         Task {
-            AssetManager.networkAssets = assetsInfo
-
-            let assetsIds = assetsInfo.filter{ $0.visible }.map { $0.assetId }
             await PriceInfoService.shared.setup(for: assetsIds)
+        }
+    }
 
-            socketService.throttle()
-
-            DispatchQueue.main.async {
-                self.startChain()
-            }
+    private func scheduleAssetsInfoReload(chainId: String?) {
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 3) { [weak self] in
+            self?.loadAssetsInfo(chainId: chainId)
         }
     }
 

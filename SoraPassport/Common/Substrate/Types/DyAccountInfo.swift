@@ -44,11 +44,58 @@ struct DyAccountData: Codable, Equatable {
     @StringCodable var reserved: BigUInt
     @StringCodable var miscFrozen: BigUInt
     @StringCodable var feeFrozen: BigUInt
+
+    private enum CodingKeys: String, CodingKey {
+        case free
+        case reserved
+        case miscFrozen
+        case feeFrozen
+        case frozen
+    }
+
+    init(free: BigUInt, reserved: BigUInt, miscFrozen: BigUInt, feeFrozen: BigUInt) {
+        self.free = free
+        self.reserved = reserved
+        self.miscFrozen = miscFrozen
+        self.feeFrozen = feeFrozen
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        free = try container.decode(StringCodable<BigUInt>.self, forKey: .free).wrappedValue
+        reserved = try container.decode(StringCodable<BigUInt>.self, forKey: .reserved).wrappedValue
+
+        if let currentFrozen = try container.decodeIfPresent(
+            StringCodable<BigUInt>.self,
+            forKey: .frozen
+        )?.wrappedValue {
+            miscFrozen = currentFrozen
+            feeFrozen = .zero
+        } else {
+            miscFrozen = try container.decode(
+                StringCodable<BigUInt>.self,
+                forKey: .miscFrozen
+            ).wrappedValue
+            feeFrozen = try container.decode(
+                StringCodable<BigUInt>.self,
+                forKey: .feeFrozen
+            ).wrappedValue
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(StringCodable(wrappedValue: free), forKey: .free)
+        try container.encode(StringCodable(wrappedValue: reserved), forKey: .reserved)
+        try container.encode(StringCodable(wrappedValue: miscFrozen), forKey: .miscFrozen)
+        try container.encode(StringCodable(wrappedValue: feeFrozen), forKey: .feeFrozen)
+    }
 }
 
 extension DyAccountData {
     var total: BigUInt { free + reserved }
     var frozen: BigUInt { reserved + locked }
     var locked: BigUInt { max(miscFrozen, feeFrozen) }
-    var available: BigUInt { free - locked }
+    var available: BigUInt { free >= locked ? free - locked : .zero }
 }

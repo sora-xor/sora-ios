@@ -33,25 +33,12 @@ import sorawallet
 import Foundation
 
 public final class SubqueryMarketCapInfoOperation<ResultType>: BaseOperation<ResultType> {
-
-    private let httpProvider: SoramitsuHttpClientProviderImpl
-    private let soraNetworkClient: SoramitsuNetworkClient
-    private let subQueryClient: SoraWalletBlockExplorerInfo
     private let baseUrl: URL
     private let assetIds: [String]
 
     public init(baseUrl: URL, assetIds: [String]) {
         self.baseUrl = baseUrl
         self.assetIds = assetIds
-        self.httpProvider = SoramitsuHttpClientProviderImpl()
-        self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
-        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
-                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
-                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
-        let configBuilder = provider.provide()
-
-        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, soraRemoteConfigBuilder: configBuilder)
-
         super.init()
     }
 
@@ -66,26 +53,53 @@ public final class SubqueryMarketCapInfoOperation<ResultType>: BaseOperation<Res
             return
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
+        do {
+            let safeAssetIds = assetIds.filter {
+                $0.range(of: #"^0x[0-9a-fA-F]{64}$"#, options: .regularExpression) != nil
+            }
+            var assets: [AssetsInfo] = []
 
-        var optionalCallResult: Result<ResultType, Swift.Error>?
-
-        DispatchQueue.main.async {
-
-            let timestamp = Int64((Date() - TimeInterval(60*60*24)).timeIntervalSince1970)
-            
-            self.subQueryClient.getAssetsInfo(tokenIds: self.assetIds, timestamp: timestamp, completionHandler: { [self] requestResult, error in
-
-                if let data = requestResult as? ResultType {
-                    optionalCallResult = .success(data)
+            for startIndex in stride(from: 0, to: safeAssetIds.count, by: 70) {
+                let endIndex = min(startIndex + 70, safeAssetIds.count)
+                let chunk = safeAssetIds[startIndex..<endIndex]
+                let encodedIds = chunk.map { "\"\($0)\"" }.joined(separator: ",")
+                let nodes: [SoraIndexerAssetNode] = try SoraIndexerClient.fetchEntities(
+                    from: baseUrl
+                ) { cursor in
+                    """
+                    query AssetsQuery {
+                      entities: assets(
+                        first: 100
+                        after: "\(cursor)"
+                        filter: { and: [{ id: { in: [\(encodedIds)] } }] }
+                      ) {
+                        nodes { id liquidity priceChangeDay }
+                        pageInfo { hasNextPage endCursor }
+                      }
+                    }
+                    """
                 }
+                assets.append(contentsOf: nodes.map {
+                    AssetsInfo(
+                        tokenId: $0.id,
+                        liquidity: $0.liquidity ?? "",
+                        hourDelta: $0.priceChangeDay.map(KotlinDouble.init(value:))
+                    )
+                })
+            }
 
-                semaphore.signal()
-
-                result = optionalCallResult
-            })
+            guard let typedAssets = assets as? ResultType else {
+                throw SoraIndexerClientError.resultTypeMismatch
+            }
+            result = .success(typedAssets)
+        } catch {
+            result = .failure(error)
         }
-
-        semaphore.wait()
     }
+}
+
+private struct SoraIndexerAssetNode: Decodable {
+    let id: String
+    let liquidity: String?
+    let priceChangeDay: Double?
 }

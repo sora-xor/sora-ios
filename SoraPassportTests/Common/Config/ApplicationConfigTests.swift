@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+import BigInt
 @testable import SoraPassport
 
 class ApplicationConfigTests: XCTestCase {
@@ -28,10 +29,12 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertEqual(ApplicationConfig.shared.subqueryUrl, ApplicationConfig.shared.polkaswapIndexerURL)
 
         let nodes = ApplicationConfig.shared.defaultChainNodes
-        XCTAssertEqual(nodes.count, 1)
-        XCTAssertEqual(nodes.first?.url.absoluteString, "wss://mof2.sora.org")
-        XCTAssertEqual(nodes.first?.name, "Sora")
-        XCTAssertNil(nodes.first?.apikey)
+        XCTAssertEqual(Set(nodes.map(\.url.absoluteString)), [
+            "wss://mof2.sora.org",
+            "wss://ws.mof.sora.org"
+        ])
+        XCTAssertTrue(nodes.allSatisfy { $0.name == "Sora" })
+        XCTAssertTrue(nodes.allSatisfy { $0.apikey == nil })
     }
 
     func testRemoteConfigFallsBackFromInvalidURLs() {
@@ -110,5 +113,108 @@ class ApplicationConfigTests: XCTestCase {
         }
 
         return []
+    }
+}
+
+final class RuntimeAccountDataTests: XCTestCase {
+    func testDecodesCurrentRuntimeAccountData() throws {
+        let json = Data(#"""
+        {
+            "nonce":"1",
+            "consumers":"2",
+            "providers":"3",
+            "sufficients":"1",
+            "data":{"free":"100","reserved":"7","frozen":"25","flags":"0"}
+        }
+        """#.utf8)
+
+        let account = try JSONDecoder().decode(AccountInfo.self, from: json)
+
+        XCTAssertEqual(account.data.free, BigUInt(100))
+        XCTAssertEqual(account.data.reserved, BigUInt(7))
+        XCTAssertEqual(account.data.miscFrozen, BigUInt(25))
+        XCTAssertEqual(account.data.feeFrozen, .zero)
+        XCTAssertEqual(account.data.locked, BigUInt(25))
+        XCTAssertEqual(account.data.available, BigUInt(75))
+    }
+
+    func testDecodesLegacyRuntimeAccountData() throws {
+        let json = Data(#"""
+        {
+            "nonce":"1",
+            "consumers":"2",
+            "providers":"3",
+            "data":{"free":"100","reserved":"7","miscFrozen":"11","feeFrozen":"13"}
+        }
+        """#.utf8)
+
+        let account = try JSONDecoder().decode(AccountInfo.self, from: json)
+
+        XCTAssertEqual(account.data.miscFrozen, BigUInt(11))
+        XCTAssertEqual(account.data.feeFrozen, BigUInt(13))
+        XCTAssertEqual(account.data.locked, BigUInt(13))
+    }
+
+    func testDynamicAccountDataUsesCurrentFrozenField() throws {
+        let json = Data(#"""
+        {
+            "nonce":"1",
+            "consumers":"2",
+            "providers":"3",
+            "data":{"free":"10","reserved":"0","frozen":"25","flags":"0"}
+        }
+        """#.utf8)
+
+        let account = try JSONDecoder().decode(DyAccountInfo.self, from: json)
+
+        XCTAssertEqual(account.data.locked, BigUInt(25))
+        XCTAssertEqual(account.data.available, .zero)
+    }
+
+    func testRejectsAccountDataWithoutAnyFrozenRepresentation() {
+        let json = Data(#"""
+        {
+            "nonce":"1",
+            "consumers":"2",
+            "providers":"3",
+            "data":{"free":"100","reserved":"7"}
+        }
+        """#.utf8)
+
+        XCTAssertThrowsError(try JSONDecoder().decode(AccountInfo.self, from: json))
+    }
+}
+
+final class SoraIndexerResponseTests: XCTestCase {
+    private struct AssetNode: Decodable {
+        let id: String
+        let priceUSD: String
+    }
+
+    func testDecodesProductionIndexerConnectionShape() throws {
+        let json = Data(#"""
+        {
+          "data": {
+            "entities": {
+              "nodes": [{"id":"0x02","priceUSD":"5.39"}],
+              "pageInfo": {"hasNextPage":false,"endCursor":"cursor"}
+            }
+          }
+        }
+        """#.utf8)
+
+        let response = try JSONDecoder().decode(
+            SubqueryResponse<SoraIndexerEntitiesPayload<AssetNode>>.self,
+            from: json
+        )
+
+        switch response {
+        case let .data(payload):
+            XCTAssertEqual(payload.entities.nodes.first?.id, "0x02")
+            XCTAssertEqual(payload.entities.nodes.first?.priceUSD, "5.39")
+            XCTAssertFalse(payload.entities.pageInfo.hasNextPage)
+        case .errors:
+            XCTFail("Expected data response")
+        }
     }
 }

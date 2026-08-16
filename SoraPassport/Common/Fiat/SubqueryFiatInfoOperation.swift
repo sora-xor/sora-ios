@@ -33,23 +33,10 @@ import sorawallet
 import Foundation
 
 public final class SubqueryFiatInfoOperation<ResultType>: BaseOperation<ResultType> {
-
-    private let httpProvider: SoramitsuHttpClientProviderImpl
-    private let soraNetworkClient: SoramitsuNetworkClient
-    private let subQueryClient: SoraWalletBlockExplorerInfo
     private let baseUrl: URL
 
     public init(baseUrl: URL) {
         self.baseUrl = baseUrl
-        self.httpProvider = SoramitsuHttpClientProviderImpl()
-        self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
-        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
-                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
-                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
-        let configBuilder = provider.provide()
-
-        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, soraRemoteConfigBuilder: configBuilder)
-
         super.init()
     }
 
@@ -64,24 +51,36 @@ public final class SubqueryFiatInfoOperation<ResultType>: BaseOperation<ResultTy
             return
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
-
-        var optionalCallResult: Result<ResultType, Swift.Error>?
-
-        DispatchQueue.main.async {
-
-            self.subQueryClient.getFiat(completionHandler: { [self] requestResult, error in
-
-                if let data = requestResult as? ResultType {
-                    optionalCallResult = .success(data)
+        do {
+            let nodes: [SoraIndexerFiatNode] = try SoraIndexerClient.fetchEntities(
+                from: baseUrl
+            ) { cursor in
+                """
+                query FiatPriceQuery {
+                  entities: assets(first: 100 after: "\(cursor)") {
+                    nodes { id priceUSD }
+                    pageInfo { hasNextPage endCursor }
+                  }
                 }
-
-                semaphore.signal()
-
-                result = optionalCallResult
-            })
+                """
+            }
+            let fiatData = nodes.map {
+                FiatData(
+                    id: $0.id,
+                    priceUsd: Double($0.priceUSD).map(KotlinDouble.init(value:))
+                )
+            }
+            guard let typedData = fiatData as? ResultType else {
+                throw SoraIndexerClientError.resultTypeMismatch
+            }
+            result = .success(typedData)
+        } catch {
+            result = .failure(error)
         }
-
-        semaphore.wait()
     }
+}
+
+private struct SoraIndexerFiatNode: Decodable {
+    let id: String
+    let priceUSD: String
 }

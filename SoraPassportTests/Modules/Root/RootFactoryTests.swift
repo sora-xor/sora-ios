@@ -2,8 +2,30 @@ import XCTest
 @testable import SoraPassport
 import SoraKeystore
 import IrohaCrypto
+import SSFUtils
 
 class RootFactoryTests: XCTestCase {
+    func testMainWalletRequiresConnectedNodeAndRuntimeSnapshot() {
+        XCTAssertFalse(
+            MainTabBarViewFactory.isNetworkReady(
+                connectionState: .notConnected,
+                hasRuntimeSnapshot: true
+            )
+        )
+        XCTAssertFalse(
+            MainTabBarViewFactory.isNetworkReady(
+                connectionState: .connected,
+                hasRuntimeSnapshot: false
+            )
+        )
+        XCTAssertTrue(
+            MainTabBarViewFactory.isNetworkReady(
+                connectionState: .connected,
+                hasRuntimeSnapshot: true
+            )
+        )
+    }
+
     func testPresenterCreation() {
         let optionalPresenter = RootPresenterFactory.createPresenter(with: SoraWindow()) as? RootPresenter
 

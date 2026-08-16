@@ -33,24 +33,12 @@ import sorawallet
 import Foundation
 
 public final class SubqueryReferralRewardsOperation<ResultType>: BaseOperation<ResultType> {
-
-    private let httpProvider: SoramitsuHttpClientProviderImpl
-    private let soraNetworkClient: SoramitsuNetworkClient
-    private let subQueryClient: SoraWalletBlockExplorerInfo
     private let address: String
     private let baseUrl: URL
     private let count: Int
 
     public init(address: String, count: Int = 1000, baseUrl: URL) {
         self.baseUrl = baseUrl
-        self.httpProvider = SoramitsuHttpClientProviderImpl()
-        self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
-        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
-                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
-                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
-        let configBuilder = provider.provide()
-
-        self.subQueryClient = SoraWalletBlockExplorerInfo(networkClient: self.soraNetworkClient, soraRemoteConfigBuilder: configBuilder)
         self.address = address
         self.count = count
 
@@ -68,21 +56,49 @@ public final class SubqueryReferralRewardsOperation<ResultType>: BaseOperation<R
             return
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
+        do {
+            guard address.range(
+                of: #"^[1-9A-HJ-NP-Za-km-z]+$"#,
+                options: .regularExpression
+            ) != nil else {
+                throw SoraIndexerClientError.invalidResponse
+            }
 
-        DispatchQueue.main.async {
-            self.subQueryClient.getReferrerRewards(address: self.address, completionHandler: { [self] requestResult, error in
-                guard let data = requestResult as? ResultType else { return }
-
-                if isCancelled {
-                    return
+            let nodes: [SoraIndexerReferralNode] = try SoraIndexerClient.fetchEntities(
+                from: baseUrl
+            ) { cursor in
+                """
+                query ReferrerRewardsQuery {
+                  entities: referrerRewards(
+                    first: 100
+                    after: "\(cursor)"
+                    filter: { referrer: { equalTo: "\(address)" } }
+                  ) {
+                    nodes { referral amount }
+                    pageInfo { hasNextPage endCursor }
+                  }
                 }
-                semaphore.signal()
-
-                result = .success(data)
-            })
+                """
+            }
+            var rewardsByReferral: [String: String] = [:]
+            nodes.prefix(max(0, count)).forEach {
+                rewardsByReferral[$0.referral] = $0.amount
+            }
+            let rewards = rewardsByReferral.map {
+                ReferrerReward(referral: $0.key, amount: $0.value)
+            }
+            let info = ReferrerRewardsInfo(rewards: rewards)
+            guard let typedData = info as? ResultType else {
+                throw SoraIndexerClientError.resultTypeMismatch
+            }
+            result = .success(typedData)
+        } catch {
+            result = .failure(error)
         }
-
-        semaphore.wait()
     }
+}
+
+private struct SoraIndexerReferralNode: Decodable {
+    let referral: String
+    let amount: String
 }
