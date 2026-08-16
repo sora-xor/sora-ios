@@ -28,35 +28,33 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import Foundation
 import RobinHood
+import SSFUtils
 import sorawallet
 
-struct SubqueryKmmError: Swift.Error {
-    
+enum SubqueryHistoryOperationError: Swift.Error {
+    case invalidRequest
+    case invalidResponse
 }
 
 public final class SubqueryHistoryOperation<ResultType>: BaseOperation<ResultType> {
-    
-    private let httpProvider: SoramitsuHttpClientProviderImpl
-    private let soraNetworkClient: SoramitsuNetworkClient
-    private let subQueryClient: SubQueryClientForSoraWallet
+
+    private let baseUrl: URL
     private let address: String
     private let count: Int
     private let page: Int
     private var filter: ((TxHistoryItem) -> KotlinBoolean)? = nil
 
-    public init(address: String, count: Int, page: Int, filter: ((TxHistoryItem) -> KotlinBoolean)? = nil) {
-        self.httpProvider = SoramitsuHttpClientProviderImpl()
+    public init(
+        address: String,
+        count: Int,
+        page: Int,
+        filter: ((TxHistoryItem) -> KotlinBoolean)? = nil,
+        baseUrl: URL? = nil
+    ) {
+        self.baseUrl = baseUrl ?? ConfigService.shared.config.subqueryURL
         self.filter = filter
-        self.soraNetworkClient = SoramitsuNetworkClient(timeout: 60000, logging: true, provider: httpProvider)
-        let provider = SoraRemoteConfigProvider(client: self.soraNetworkClient,
-                                                commonUrl: ApplicationConfig.shared.commonConfigUrl,
-                                                mobileUrl: ApplicationConfig.shared.mobileConfigUrl)
-        let configBuilder = provider.provide()
-
-        self.subQueryClient = SubQueryClientForSoraWalletFactory().create(soramitsuNetworkClient: self.soraNetworkClient,
-                                                                          pageSize: Int32(count),
-                                                                          soraRemoteConfigBuilder: configBuilder)
         self.address = address
         self.count = count
         self.page = page
@@ -75,34 +73,170 @@ public final class SubqueryHistoryOperation<ResultType>: BaseOperation<ResultTyp
             return
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
+        do {
+            guard (1...100).contains(count),
+                  (1...100).contains(page),
+                  (1...128).contains(address.utf8.count),
+                  address.range(
+                    of: #"^[1-9A-HJ-NP-Za-km-z]+$"#,
+                    options: .regularExpression
+                  ) != nil else {
+                throw SubqueryHistoryOperationError.invalidRequest
+            }
 
-        //TODO: delete after kotlin 1.7.0 released, now we should call method from main queue
-        DispatchQueue.main.async {
-            self.subQueryClient.getTransactionHistoryPaged(address: self.address,
-                                                           page: Int64(self.page),
-                                                           filter: self.filter,
-                                                           completionHandler: { [self] requestResult, error in
-                if let error = error {
-                    self.result = .failure(error)
-                    semaphore.signal()
-                    return
+            let offset = (page - 1) * count
+            let query = """
+            query WalletHistory {
+              historyElements(
+                first: \(count)
+                offset: \(offset)
+                orderBy: TIMESTAMP_DESC
+                filter: { address: { equalTo: "\(address)" } }
+              ) {
+                nodes {
+                  id
+                  blockHash
+                  module
+                  method
+                  address
+                  networkFee
+                  execution
+                  timestamp
+                  data
                 }
+                pageInfo { endCursor hasNextPage }
+              }
+            }
+            """
 
-                guard let data = requestResult as? ResultType else {
-                    self.result = .failure(SubqueryKmmError())
-                    semaphore.signal()
-                    return
-                }
+            let payload: SubqueryHistoryData = try SoraIndexerClient.execute(
+                url: baseUrl,
+                query: query
+            )
+            guard payload.historyElements.nodes.allSatisfy({ $0.address == address }),
+                  Set(payload.historyElements.nodes.map(\.identifier)).count ==
+                    payload.historyElements.nodes.count else {
+                throw SubqueryHistoryOperationError.invalidResponse
+            }
+            Logger.shared.info(
+                "SORA history request succeeded: \(baseUrl.host ?? "unknown host")"
+            )
 
-                if self.isCancelled {
-                    return
-                }
-                semaphore.signal()
-                self.result = .success(data)
-            })
+            var items = payload.historyElements.nodes.map {
+                SoraIndexerHistoryMapper.map($0, address: address)
+            }
+            if let filter {
+                items = items.filter { filter($0).boolValue }
+            }
+
+            let historyResult = TxHistoryResult<TxHistoryItem>(
+                endCursor: payload.historyElements.pageInfo.endCursor,
+                endReached: !payload.historyElements.pageInfo.hasNextPage,
+                page: Int64(page),
+                items: items,
+                errorMessage: nil
+            )
+            guard let typedResult = historyResult as? ResultType else {
+                throw SoraIndexerClientError.resultTypeMismatch
+            }
+            result = .success(typedResult)
+        } catch {
+            result = .failure(error)
+        }
+    }
+}
+
+enum SoraIndexerHistoryMapper {
+    static func map(_ element: SubqueryHistoryElement, address: String) -> TxHistoryItem {
+        TxHistoryItem(
+            id: element.identifier,
+            blockHash: element.blockHash,
+            module: element.module,
+            method: element.method,
+            timestamp: String(element.timestamp.value),
+            networkFee: element.fee,
+            success: element.execution.success,
+            data: dataParameters(from: element, address: address),
+            nestedData: nestedItems(from: element.data)
+        )
+    }
+
+    private static func dataParameters(
+        from element: SubqueryHistoryElement,
+        address: String
+    ) -> [TxHistoryItemParam]? {
+        guard let values = element.data.dictValue else {
+            return nil
         }
 
-        semaphore.wait()
+        if element.module.caseInsensitiveCompare("liquidityProxy") == .orderedSame,
+           element.method.caseInsensitiveCompare("swapTransferBatch") == .orderedSame {
+            var selected: [String: JSON] = [:]
+            values.forEach { key, value in
+                switch key.lowercased() {
+                case "adarfee", "actualfee":
+                    selected[key] = value
+                case "transfers":
+                    value.arrayValue?.compactMap(\.dictValue).forEach { transfer in
+                        guard transfer.values.contains(where: { primitiveString($0) == address }) else {
+                            return
+                        }
+                        selected.merge(transfer) { _, new in new }
+                    }
+                default:
+                    break
+                }
+            }
+            return parameters(from: selected)
+        }
+
+        return parameters(from: values)
+    }
+
+    private static func nestedItems(from data: JSON) -> [TxHistoryItemNested]? {
+        guard let values = data.arrayValue else {
+            return nil
+        }
+
+        return values.compactMap { value in
+            guard let item = value.dictValue else {
+                return nil
+            }
+            let arguments = item["data"]?.dictValue?["args"]?.dictValue ?? [:]
+            return TxHistoryItemNested(
+                module: primitiveString(item["module"] ?? .null) ?? "",
+                method: primitiveString(item["method"] ?? .null) ?? "",
+                hash: primitiveString(item["hash"] ?? .null) ?? "",
+                data: parameters(from: arguments)
+            )
+        }
+    }
+
+    private static func parameters(from values: [String: JSON]) -> [TxHistoryItemParam] {
+        values.map {
+            TxHistoryItemParam(
+                paramName: $0.key,
+                paramValue: primitiveString($0.value) ?? ""
+            )
+        }
+    }
+
+    private static func primitiveString(_ value: JSON) -> String? {
+        switch value {
+        case let .stringValue(value):
+            return value
+        case let .unsignedIntValue(value):
+            return String(value)
+        case let .signedIntValue(value):
+            return String(value)
+        case let .boolValue(value):
+            return String(value)
+        case let .doubleValue(value):
+            return String(value)
+        case .null:
+            return "null"
+        case .arrayValue, .dictionaryValue:
+            return nil
+        }
     }
 }

@@ -1,6 +1,7 @@
 import XCTest
 import Foundation
 import BigInt
+import sorawallet
 @testable import SoraPassport
 
 class ApplicationConfigTests: XCTestCase {
@@ -216,5 +217,41 @@ final class SoraIndexerResponseTests: XCTestCase {
         case .errors:
             XCTFail("Expected data response")
         }
+    }
+
+    func testMapsProductionHistoryElementToWalletHistoryItem() throws {
+        let json = Data(#"""
+        {
+          "id":"0x357177f16f2e7abf1b5780d173392c8157ba0b0d802c3b48aa5a83d665c71dbf",
+          "blockHash":"0xc06a7f48afdc6ca167b2c5eb5ce4a9d83cb92c90510c9c4fcc2071e5569631fd",
+          "module":"liquidityProxy",
+          "method":"swap",
+          "address":"cnSN33HpCwZqxQ4iVf3voVUJ9jx9wPULVMXw6iVgPgkeneNtM",
+          "timestamp":1783361850,
+          "networkFee":"100014612589707326",
+          "execution":{"success":true},
+          "data":{
+            "baseAssetId":"0x020004",
+            "targetAssetId":"0x020000",
+            "baseAssetAmount":"549.647891640506891617",
+            "targetAssetAmount":"1",
+            "selectedMarket":"PoolXYK"
+          }
+        }
+        """#.utf8)
+
+        let element = try JSONDecoder().decode(SubqueryHistoryElement.self, from: json)
+        let item = SoraIndexerHistoryMapper.map(element, address: element.address)
+
+        XCTAssertEqual(item.id, element.identifier)
+        XCTAssertEqual(item.module, "liquidityProxy")
+        XCTAssertEqual(item.method, "swap")
+        XCTAssertEqual(item.timestamp, "1783361850")
+        XCTAssertEqual(item.networkFee, "100014612589707326")
+        XCTAssertTrue(item.success)
+        XCTAssertEqual(
+            item.data?.first(where: { $0.paramName == "selectedMarket" })?.paramValue,
+            "PoolXYK"
+        )
     }
 }
