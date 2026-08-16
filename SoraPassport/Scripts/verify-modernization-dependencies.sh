@@ -423,7 +423,7 @@ run_ios_migration_release_source_gate() {
         echo "error: iOS migration Release source suite inventory is not exactly 93 tests" >&2
         return 1
     }
-    run_exact_ios_migration_suite "${ios_gate_internal_testflight_suite}" 7 internal-testflight-upload || return 1
+    run_exact_ios_migration_suite "${ios_gate_internal_testflight_suite}" 8 internal-testflight-upload || return 1
     run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 17 release-reproducibility-package || return 1
     run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 13 taira-deployment-admission || return 1
     run_exact_ios_migration_suite "${ios_gate_vendored_binary_suite}" 10 vendored-binary-qualification || return 1
@@ -631,7 +631,7 @@ run_ios_migration_release_source_gate() {
     fi
 
     /usr/bin/printf \
-        'iOS migration Release source gate: OK (93 migration tests + 7 internal-TestFlight tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 13 lints, shell/Swift parse)\n'
+        'iOS migration Release source gate: OK (93 migration tests + 8 internal-TestFlight tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 13 lints, shell/Swift parse)\n'
 }
 
 if [ "$#" -eq 2 ] && [ "$1" = "--lint-ios-google-signin-phase-dependencies" ]; then
@@ -696,7 +696,7 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${CODE_SIGN_STYLE:-}" != "Automatic" ] ||
        [ "${CODE_SIGN_IDENTITY:-}" != "iPhone Developer" ] ||
        [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ] ||
-       [ "${internal_testflight_build_number}" != "2026081101" ] ||
+       [ "${internal_testflight_build_number}" != "2026081601" ] ||
        [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
        [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
        [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
@@ -733,12 +733,14 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/modernize" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "3176b2557e105d7640c09cbb98f8f49fa71040cf" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-list --count "3176b2557e105d7640c09cbb98f8f49fa71040cf..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
-       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "3176b2557e105d7640c09cbb98f8f49fa71040cf..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "d657f9ccc55ba1f9558c474229bc470375a71bfd" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "d657f9ccc55ba1f9558c474229bc470375a71bfd..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "d657f9ccc55ba1f9558c474229bc470375a71bfd..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
+SoraPassport/Scripts/test-ios-migration-release-boundary.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
-SoraPassport/Scripts/verify-modernization-dependencies.sh' ] ||
+SoraPassport/Scripts/verify-modernization-dependencies.sh
+VendorPackages/JOSESwift/Package.swift' ] ||
        [ -n "$(/usr/bin/git -C "${root}" status --porcelain=v1 --untracked-files=normal)" ]; then
         echo "error: iOS internal-only TestFlight source is not the exact clean pushed revision" >&2
         exit 1
@@ -1016,6 +1018,7 @@ xnetworking_manifest="${root}/VendorPackages/shared-features-spm/Package.swift"
 rswift_manifest="${root}/VendorPackages/Rswift/Package.swift"
 google_signin_manifest="${root}/VendorPackages/GoogleSignIn-iOS/Package.swift"
 google_api_manifest="${root}/VendorPackages/google-api-objectivec-client-for-rest/Package.swift"
+jose_manifest="${root}/VendorPackages/JOSESwift/Package.swift"
 swiftpm_resolution="${root}/SoraPassport.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
 rswift_resolution="${root}/VendorPackages/Rswift/Package.resolved"
 wallet_derivation_fixture="${root}/Fixtures/Modernization/wallet-derivation-v1.json"
@@ -1991,7 +1994,8 @@ for swiftpm_manifest in \
     "${xnetworking_manifest}" \
     "${rswift_manifest}" \
     "${google_signin_manifest}" \
-    "${google_api_manifest}"
+    "${google_api_manifest}" \
+    "${jose_manifest}"
 do
     if [ ! -f "${swiftpm_manifest}" ] ||
        [ -L "${swiftpm_manifest}" ]; then
@@ -2007,6 +2011,12 @@ if /usr/bin/grep -E \
     "${google_signin_manifest}" \
     "${google_api_manifest}" >/dev/null; then
     echo "error: Release dependency manifests contain a dynamic SwiftPM requirement"
+    exit 1
+fi
+
+if ! /usr/bin/grep -Fq '.library(name: "JOSESwift", type: .static, targets: ["JOSESwift"])' "${jose_manifest}" ||
+   /usr/bin/grep -Fq '.library(name: "JOSESwift", type: .dynamic' "${jose_manifest}"; then
+    echo "error: JOSESwift must remain statically linked so archived apps have no unembedded runtime dependency"
     exit 1
 fi
 
@@ -2365,9 +2375,12 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    /usr/bin/grep -Fq '<key>signingCertificate</key>' "${internal_testflight_export_options}" ||
    /usr/bin/grep -Fq '<key>provisioningProfiles</key>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="3176b2557e105d7640c09cbb98f8f49fa71040cf"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="d657f9ccc55ba1f9558c474229bc470375a71bfd"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_upstream="origin/modernize"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_build_number="2026081101"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_build_number="2026081601"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq -- '--verify-app-runtime-closure "${archived_app}"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'verify_app_runtime_dependency_closure' "${internal_testflight_delivery_verifier}" ||
+   ! /usr/bin/grep -Fq 'test_runtime_dependency_closure_rejects_missing_framework' "${internal_testflight_harness}" ||
    ! /usr/bin/grep -Fq 'reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_profile_sha256="19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_archive_signing_certificate_sha256="b479b9064f19cf90085926479768088416407c9e99e1537662014ba6805c179d"' "${internal_testflight_uploader}" ||
