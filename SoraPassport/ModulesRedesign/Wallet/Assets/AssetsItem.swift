@@ -54,17 +54,10 @@ final class AssetsItem: NSObject {
         self.isExpand = isExpand
         self.assetProvider = assetProvider
         super.init()
-        self.assetProvider.add(observer: self)
     }
     
     public func updateContent() {
         service?.setup()
-    }
-}
-
-extension AssetsItem: AssetProviderObserverProtocol {
-    func processBalance(data: [BalanceData]) {
-        updateContent()
     }
 }
 

@@ -38,67 +38,126 @@ protocol FiatServiceObserverProtocol: AnyObject {
 
 protocol FiatServiceProtocol: AnyObject {
     func getFiat() async -> [FiatData]
+    func getFiat(for assetIds: [String]) async -> [FiatData]
 }
 
 struct FiatServiceObserver {
     weak var observer: FiatServiceObserverProtocol?
 }
 
-final class FiatService {
+actor FiatService {
     static let shared = FiatService()
+
+    private struct PendingRefresh {
+        let identifier = UUID()
+        let assetIds: Set<String>
+        let task: Task<Result<[FiatData], Swift.Error>, Never>
+    }
+
     private let operationManager: OperationManager = OperationManager()
-    private var expiredDate: Date = Date()
-    private var fiatData: [FiatData] = []
-    private var observers: [FiatServiceObserver] = []
-    private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.fiat.service")
+    private var fiatDataByAssetId: [String: FiatData] = [:]
+    private var expirationByAssetId: [String: Date] = [:]
+    private var pendingRefresh: PendingRefresh?
 
-    private func updateFiatData() {
-        let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
-        queryOperation.completionBlock = { [weak self] in
-            guard let self, let response = try? queryOperation.extractNoCancellableResultData() else {
-                return
-            }
-            self.fiatData = response
-            self.expiredDate = Date().addingTimeInterval(20)
-        }
-        operationManager.enqueue(operations: [queryOperation], in: .transient)
+    private func currentAssetIds() -> [String] {
+        let assetManager = ChainRegistryFacade.sharedRegistry.getAssetManager(
+            for: Chain.sora.genesisHash()
+        )
+        return (assetManager.getAssetList() ?? []).map(\.assetId)
     }
-    
-    private func updateFiatDataAwait() async -> [FiatData] {
-        let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(baseUrl: ConfigService.shared.config.subqueryURL)
 
-        return await withCheckedContinuation { continuation in
-            queryOperation.completionBlock = {
-                guard let response = try? queryOperation.extractNoCancellableResultData() else {
-                    continuation.resume(returning: [])
-                    return
+    private func createRefresh(for assetIds: Set<String>) -> PendingRefresh {
+        let sortedAssetIds = assetIds.sorted()
+        let operationManager = operationManager
+        let baseUrl = ConfigService.shared.config.subqueryURL
+        let task = Task<Result<[FiatData], Swift.Error>, Never> {
+            await withCheckedContinuation { continuation in
+                let queryOperation = SubqueryFiatInfoOperation<[FiatData]>(
+                    baseUrl: baseUrl,
+                    assetIds: sortedAssetIds
+                )
+                queryOperation.completionBlock = {
+                    continuation.resume(returning: Result {
+                        try queryOperation.extractNoCancellableResultData()
+                    })
                 }
-                continuation.resume(returning: response)
+                operationManager.enqueue(operations: [queryOperation], in: .transient)
             }
-            operationManager.enqueue(operations: [queryOperation], in: .transient)
+        }
+
+        return PendingRefresh(assetIds: assetIds, task: task)
+    }
+
+    private func complete(_ refresh: PendingRefresh) async -> Bool {
+        let result = await refresh.task.value
+
+        guard pendingRefresh?.identifier == refresh.identifier else {
+            if case .failure = result {
+                return false
+            }
+            return true
+        }
+        pendingRefresh = nil
+
+        switch result {
+        case let .success(response):
+            refresh.assetIds.forEach { fiatDataByAssetId[$0] = nil }
+            response.forEach { fiatDataByAssetId[$0.id] = $0 }
+            let expirationDate = Date().addingTimeInterval(600)
+            refresh.assetIds.forEach { expirationByAssetId[$0] = expirationDate }
+            Logger.shared.info(
+                "SORA fiat prices loaded: \(response.count)/\(refresh.assetIds.count)"
+            )
+            return true
+        case .failure:
+            Logger.shared.error("SORA fiat price refresh failed")
+            return false
         }
     }
-    
-    private func updateFiatData(with data: [FiatData]) async {
-        fiatData = data
-        expiredDate = Date().addingTimeInterval(600)
+
+    private func cachedFiatData(for assetIds: Set<String>) -> [FiatData] {
+        assetIds.compactMap { fiatDataByAssetId[$0] }.sorted { $0.id < $1.id }
     }
 }
 
 extension FiatService: FiatServiceProtocol {
-    
     func getFiat() async -> [FiatData] {
-        if expiredDate < Date() {
-            updateFiatData()
+        let assetIds = currentAssetIds()
+        guard !assetIds.isEmpty else {
+            return fiatDataByAssetId.values.sorted { $0.id < $1.id }
         }
-        
-        if !fiatData.isEmpty {
-            return fiatData
+        return await getFiat(for: assetIds)
+    }
+
+    func getFiat(for assetIds: [String]) async -> [FiatData] {
+        let requestedAssetIds = Set(assetIds.filter {
+            $0.range(of: #"^0x[0-9a-fA-F]{64}$"#, options: .regularExpression) != nil
+        })
+        guard !requestedAssetIds.isEmpty else {
+            return []
         }
-        
-        let response = await updateFiatDataAwait()
-        await updateFiatData(with: response)
-        
-        return response
+
+        while true {
+            let currentDate = Date()
+            let missingAssetIds = requestedAssetIds.filter {
+                (expirationByAssetId[$0] ?? .distantPast) <= currentDate
+            }
+            guard !missingAssetIds.isEmpty else {
+                return cachedFiatData(for: requestedAssetIds)
+            }
+
+            if let pendingRefresh {
+                guard await complete(pendingRefresh) else {
+                    return cachedFiatData(for: requestedAssetIds)
+                }
+                continue
+            }
+
+            let refresh = createRefresh(for: Set(missingAssetIds))
+            pendingRefresh = refresh
+            guard await complete(refresh) else {
+                return cachedFiatData(for: requestedAssetIds)
+            }
+        }
     }
 }

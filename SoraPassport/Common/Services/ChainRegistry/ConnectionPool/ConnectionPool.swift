@@ -106,7 +106,7 @@ extension ConnectionPool: ConnectionPoolProtocol {
 
         let connection = connectionFactory.createConnection(for: url, delegate: self)
         let wrapper = WeakWrapper(target: connection)
-        Logger.shared.info("Connected node: \(url)")
+        Logger.shared.info("Connecting node: \(url)")
         connectionsByChainIds[chain.chainId] = wrapper
 
         return connection
@@ -136,6 +136,9 @@ extension ConnectionPool: WebSocketEngineDelegate {
                 delegate?.connectionNeedsReconnect(url: previousUrl, attempt: attempt)
             }
         case .connected:
+            Logger.shared.info(
+                "SORA node connection established: \(previousUrl.host ?? "unknown host")"
+            )
             delegate?.connectionUpdated(url: previousUrl)
 
         case .notConnected, .notReachable:

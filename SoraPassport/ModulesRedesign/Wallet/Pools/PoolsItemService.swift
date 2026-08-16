@@ -39,6 +39,7 @@ final class PoolsItemService {
     let poolViewModelsFactory: PoolViewModelFactory
     var fiatData: [FiatData] = []
     var updateHandler: (() -> Void)?
+    private var updateGeneration = 0
     
     @Published var poolViewModels: [PoolViewModel] = [
         PoolViewModel(identifier: "1", title: "", subtitle: "", fiatText: ""),
@@ -61,6 +62,13 @@ final class PoolsItemService {
     }
     
     func setup(with pools: [PoolInfo]) {
+        Task { @MainActor [weak self] in
+            self?.setupOnMain(with: pools)
+        }
+    }
+
+    @MainActor
+    private func setupOnMain(with pools: [PoolInfo]) {
         if fiatData.isEmpty {
             poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
                 return poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
@@ -68,11 +76,17 @@ final class PoolsItemService {
 
             updateHandler?()
         }
-        
-        Task { [weak self] in
+
+        updateGeneration += 1
+        let generation = updateGeneration
+        let assetIds = Array(Set(pools.flatMap { [$0.baseAssetId, $0.targetAssetId] }))
+        Task { @MainActor [weak self] in
             guard let self else { return }
 
-            let fiatData = await self.fiatService?.getFiat() ?? []
+            let fiatData = await self.fiatService?.getFiat(for: assetIds) ?? []
+            guard generation == self.updateGeneration, !Task.isCancelled else {
+                return
+            }
             self.fiatData = fiatData
             
             let fiatDecimal = pools.filter { $0.isFavorite }.reduce(Decimal(0), { partialResult, pool in

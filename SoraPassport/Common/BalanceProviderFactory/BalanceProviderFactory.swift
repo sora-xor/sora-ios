@@ -61,7 +61,7 @@ class BalanceProviderFactory {
             return operation!
         }
 
-        let updateTrigger = DataProviderEventTrigger.onInitialization
+        let updateTrigger = DataProviderEventTrigger.onAddObserver
 
         let targetId = identifierFactory.balanceIdentifierForAccountId(accountId)
 

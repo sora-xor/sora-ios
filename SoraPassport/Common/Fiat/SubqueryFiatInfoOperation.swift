@@ -34,9 +34,11 @@ import Foundation
 
 public final class SubqueryFiatInfoOperation<ResultType>: BaseOperation<ResultType> {
     private let baseUrl: URL
+    private let assetIds: [String]
 
-    public init(baseUrl: URL) {
+    public init(baseUrl: URL, assetIds: [String]) {
         self.baseUrl = baseUrl
+        self.assetIds = assetIds
         super.init()
     }
 
@@ -52,22 +54,30 @@ public final class SubqueryFiatInfoOperation<ResultType>: BaseOperation<ResultTy
         }
 
         do {
-            let nodes: [SoraIndexerFiatNode] = try SoraIndexerClient.fetchEntities(
-                from: baseUrl
-            ) { cursor in
-                """
-                query FiatPriceQuery {
-                  entities: assets(first: 100 after: "\(cursor)") {
-                    nodes { id priceUSD }
-                    pageInfo { hasNextPage endCursor }
-                  }
+            var nodesById: [String: SoraIndexerFiatNode] = [:]
+
+            for chunk in SoraFiatPriceQueryBuilder.batches(for: assetIds) {
+                let chunkIds = Set(chunk)
+                let nodes: [SoraIndexerFiatNode] = try SoraIndexerClient.fetchEntities(
+                    from: baseUrl
+                ) { cursor in
+                    SoraFiatPriceQueryBuilder.query(assetIds: chunk, cursor: cursor)
                 }
-                """
+                guard Set(nodes.map(\.id)).count == nodes.count,
+                      nodes.allSatisfy({ chunkIds.contains($0.id) }) else {
+                    throw SoraIndexerClientError.invalidResponse
+                }
+                nodes.forEach { nodesById[$0.id] = $0 }
             }
-            let fiatData = nodes.map {
-                FiatData(
-                    id: $0.id,
-                    priceUsd: Double($0.priceUSD).map(KotlinDouble.init(value:))
+
+            let fiatData: [FiatData] = nodesById.values.sorted { $0.id < $1.id }.compactMap {
+                node -> FiatData? in
+                guard let priceUsd = Double(node.priceUSD) else {
+                    return nil
+                }
+                return FiatData(
+                    id: node.id,
+                    priceUsd: KotlinDouble(value: priceUsd)
                 )
             }
             guard let typedData = fiatData as? ResultType else {
@@ -77,6 +87,37 @@ public final class SubqueryFiatInfoOperation<ResultType>: BaseOperation<ResultTy
         } catch {
             result = .failure(error)
         }
+    }
+}
+
+enum SoraFiatPriceQueryBuilder {
+    static let maximumAssetIdsPerBatch = 70
+
+    static func batches(for assetIds: [String]) -> [[String]] {
+        let safeAssetIds = Array(Set(assetIds.filter {
+            $0.range(of: #"^0x[0-9a-fA-F]{64}$"#, options: .regularExpression) != nil
+        })).sorted()
+
+        return stride(from: 0, to: safeAssetIds.count, by: maximumAssetIdsPerBatch).map {
+            let endIndex = min($0 + maximumAssetIdsPerBatch, safeAssetIds.count)
+            return Array(safeAssetIds[$0..<endIndex])
+        }
+    }
+
+    static func query(assetIds: [String], cursor: String) -> String {
+        let encodedIds = assetIds.map { "\"\($0)\"" }.joined(separator: ",")
+        return """
+        query FiatPriceQuery {
+          entities: assets(
+            first: 100
+            after: "\(cursor)"
+            filter: { and: [{ id: { in: [\(encodedIds)] } }] }
+          ) {
+            nodes { id priceUSD }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+        """
     }
 }
 

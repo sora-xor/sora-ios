@@ -45,43 +45,84 @@ protocol PriceInfoServiceProtocol: AnyObject {
 
 actor PriceInfoService {
     static let shared = PriceInfoService()
+
+    private struct PendingDownload {
+        let identifier = UUID()
+        let assetIds: Set<String>
+        let task: Task<PriceInfo, Never>
+    }
+
     private var priceInfo: PriceInfo?
     private let fiatService = FiatService.shared
     private let marketCapService = MarketCapService.shared
-    private var task: Task<Void, Swift.Error>?
-    
-    private func downloadInfo(for assetIds: [String]) async -> PriceInfo {
-        async let fiatData = self.fiatService.getFiat()
-        async let assetInfo = self.marketCapService.getMarketCap(for: assetIds)
-        
-        return await PriceInfo(fiatData: fiatData, marketCapInfo: assetInfo)
+    private var loadedAssetIds: Set<String> = []
+    private var pendingDownload: PendingDownload?
+    private var expirationDate = Date.distantPast
+
+    private func createDownload(for assetIds: Set<String>) -> PendingDownload {
+        let sortedAssetIds = assetIds.sorted()
+        let fiatService = fiatService
+        let marketCapService = marketCapService
+        let task = Task<PriceInfo, Never> {
+            async let fiatData = fiatService.getFiat(for: sortedAssetIds)
+            async let assetInfo = marketCapService.getMarketCap(for: sortedAssetIds)
+
+            return await PriceInfo(fiatData: fiatData, marketCapInfo: assetInfo)
+        }
+
+        return PendingDownload(assetIds: assetIds, task: task)
+    }
+
+    private func complete(_ download: PendingDownload) async {
+        let downloadedPriceInfo = await download.task.value
+        guard pendingDownload?.identifier == download.identifier else {
+            return
+        }
+
+        pendingDownload = nil
+        priceInfo = downloadedPriceInfo
+        if !downloadedPriceInfo.fiatData.isEmpty {
+            loadedAssetIds.formUnion(download.assetIds)
+            expirationDate = Date().addingTimeInterval(600)
+        }
     }
 }
 
 extension PriceInfoService: PriceInfoServiceProtocol {
-    
     func setup(for assetIds: [String]) async {
-        priceInfo = await self.downloadInfo(for: assetIds)
+        _ = await getPriceInfo(for: assetIds)
     }
-    
+
     func getPriceInfo(for assetIds: [String]) async -> PriceInfo {
-        if let priceInfo {
-            let searchableInfo = Set(assetIds.map { MarketCapInfo(assetId: $0) })
-            let result = searchableInfo.subtracting(priceInfo.marketCapInfo)
-            
-            if !result.isEmpty || priceInfo.fiatData.isEmpty {
-                
-                let priceInfo = await downloadInfo(for: assetIds)
-                self.priceInfo = priceInfo
-                return priceInfo
-                
-            } else {
+        let requestedAssetIds = Set(assetIds)
+        var startedDownload = false
+
+        while true {
+            if expirationDate <= Date(), pendingDownload == nil {
+                loadedAssetIds.removeAll()
+            }
+
+            if let priceInfo, requestedAssetIds.isSubset(of: loadedAssetIds) {
                 return priceInfo
             }
+
+            if let pendingDownload {
+                let requestWasCovered = requestedAssetIds.isSubset(of: pendingDownload.assetIds)
+                await complete(pendingDownload)
+                if requestWasCovered {
+                    startedDownload = true
+                }
+                continue
+            }
+
+            guard !startedDownload else {
+                return priceInfo ?? PriceInfo(fiatData: [], marketCapInfo: [])
+            }
+
+            startedDownload = true
+            let download = createDownload(for: loadedAssetIds.union(requestedAssetIds))
+            pendingDownload = download
+            await complete(download)
         }
-        
-        let priceInfo = await downloadInfo(for: assetIds)
-        self.priceInfo = priceInfo
-        return priceInfo
     }
 }

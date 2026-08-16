@@ -219,6 +219,32 @@ final class SoraIndexerResponseTests: XCTestCase {
         }
     }
 
+    func testFiatQueriesAreFilteredAndBoundedToRequestedAssetIds() {
+        let assetIds = (0..<141).map { "0x" + String(format: "%064x", $0) }
+        let batches = SoraFiatPriceQueryBuilder.batches(
+            for: assetIds + [assetIds[0], "invalid-asset-id"]
+        )
+
+        XCTAssertEqual(batches.map(\.count), [70, 70, 1])
+        XCTAssertEqual(Set(batches.flatMap { $0 }), Set(assetIds))
+
+        let query = SoraFiatPriceQueryBuilder.query(
+            assetIds: batches[0],
+            cursor: "cursor"
+        )
+        XCTAssertTrue(query.contains("filter: { and: [{ id: { in:"))
+        XCTAssertTrue(query.contains(assetIds[0]))
+        XCTAssertTrue(query.contains("after: \"cursor\""))
+        XCTAssertFalse(query.contains("invalid-asset-id"))
+    }
+
+    func testFiatQueryBuilderRejectsEmptyAndMalformedRequests() {
+        XCTAssertTrue(SoraFiatPriceQueryBuilder.batches(for: []).isEmpty)
+        XCTAssertTrue(
+            SoraFiatPriceQueryBuilder.batches(for: ["0x02", "not-an-id"]).isEmpty
+        )
+    }
+
     func testMapsProductionHistoryElementToWalletHistoryItem() throws {
         let json = Data(#"""
         {
