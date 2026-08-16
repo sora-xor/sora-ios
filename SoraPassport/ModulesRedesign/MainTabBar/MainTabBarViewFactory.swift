@@ -38,6 +38,20 @@ import SSFUtils
 
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
+
+    static func isReadyForCreation() -> Bool {
+        let keystoreImportService: KeystoreImportServiceProtocol? =
+            URLHandlingService.shared.findService()
+        guard
+            keystoreImportService != nil,
+            SelectedWalletSettings.shared.currentAccount != nil,
+            ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) != nil,
+            ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil
+        else {
+            return false
+        }
+        return true
+    }
     
     @MainActor
     static func createView() -> MainTabBarViewProtocol? {
@@ -46,13 +60,6 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             Logger.shared.error("Can't find required keystore import service")
             return nil
         }
-        
-        let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
-                                              serviceCoordinator: ServiceCoordinator.shared,
-                                              keystoreImportService: keystoreImportService)
-        
-        let view = MainTabBarViewController()
-        view.localizationManager = LocalizationManager.shared
         
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
         
@@ -66,6 +73,57 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
             return nil
+        }
+
+        let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
+                                              serviceCoordinator: ServiceCoordinator.shared,
+                                              keystoreImportService: keystoreImportService)
+
+        let view = MainTabBarViewController()
+        view.localizationManager = LocalizationManager.shared
+
+        let requiresRecoveryReadOnlyMode = SelectedWalletSettings.requiresRecoveryReadOnlyMode(
+            settings: SettingsManager.shared,
+            keystore: Keychain(),
+            account: selectedAccount
+        )
+        view.recoveryRestoreHandler = { [weak view] in
+            guard
+                let view,
+                let recoveryAccount = SelectedWalletSettings.shared.currentAccount
+            else {
+                return
+            }
+
+            let completion = { [weak view] in
+                guard let view else {
+                    return
+                }
+                guard
+                    let account = SelectedWalletSettings.shared.currentAccount,
+                    !SelectedWalletSettings.requiresRecoveryReadOnlyMode(
+                        settings: SettingsManager.shared,
+                        keystore: Keychain(),
+                        account: account
+                    ),
+                    let mainController = MainTabBarViewFactory.createView()?.controller
+                else {
+                    return
+                }
+
+                RootControllerAnimationCoordinator().animateTransition(to: mainController)
+                view.recoveryRestoreHandler = nil
+            }
+
+            guard let importController = AccountImportViewFactory.createViewForAdding(
+                endAddingBlock: completion,
+                recoveryAccount: recoveryAccount
+            )?.controller else {
+                return
+            }
+
+            let navigationController = SoraNavigationController(rootViewController: importController)
+            view.present(navigationController, animated: true)
         }
         
         let farmingService = DemeterFarmingService(
@@ -93,6 +151,9 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         }
         
         view.viewControllers = viewControllers
+        if requiresRecoveryReadOnlyMode {
+            view.enableRecoveryReadOnlyMode()
+        }
         
         let presenter = MainTabBarPresenter()
         

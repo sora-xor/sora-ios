@@ -33,9 +33,12 @@ import SoraUIKit
 import SoraFoundation
 
 final class MainTabBarViewController: UITabBarController {
-	var presenter: MainTabBarPresenterProtocol!
+    var presenter: MainTabBarPresenterProtocol!
     var middleButtonHadler: (() -> Void)?
+    private(set) var isRecoveryReadOnly = false
+    var recoveryRestoreHandler: (() -> Void)?
     private var viewAppeared: Bool = false
+    private(set) var recoveryInteractionShield: UIView?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -57,6 +60,10 @@ final class MainTabBarViewController: UITabBarController {
         
         SoramitsuUI.updates.addObserver(self)
         configureTabBar()
+
+        if isRecoveryReadOnly {
+            configureRecoveryReadOnlyMode()
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -66,6 +73,22 @@ final class MainTabBarViewController: UITabBarController {
             viewAppeared = true
             presenter.setup()
         }
+    }
+
+    func enableRecoveryReadOnlyMode() {
+        isRecoveryReadOnly = true
+
+        if isViewLoaded, recoveryInteractionShield == nil {
+            configureRecoveryReadOnlyMode()
+        }
+    }
+
+    func disableRecoveryReadOnlyMode() {
+        isRecoveryReadOnly = false
+        recoveryInteractionShield?.removeFromSuperview()
+        recoveryInteractionShield = nil
+        viewControllers?.forEach { $0.view.accessibilityElementsHidden = false }
+        tabBar.accessibilityElementsHidden = false
     }
 
     private func configureTabBar() {
@@ -82,6 +105,74 @@ final class MainTabBarViewController: UITabBarController {
             $0.setTitleTextAttributes(normalAttributes, for: .normal)
             $0.setTitleTextAttributes(selectedAttributes, for: .selected)
         }
+    }
+
+    private func configureRecoveryReadOnlyMode() {
+        selectedIndex = MainTabBarViewFactory.walletIndex
+
+        let interactionShield = UIView()
+        interactionShield.translatesAutoresizingMaskIntoConstraints = false
+        interactionShield.backgroundColor = .clear
+        interactionShield.isAccessibilityElement = false
+        interactionShield.accessibilityViewIsModal = true
+
+        let banner = UIView()
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        banner.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.96)
+        banner.layer.cornerRadius = 12
+
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Wallet recovery preview — read only. Restore your wallet backup to send funds."
+        label.textColor = .black
+        label.font = UIFont.preferredFont(forTextStyle: .subheadline)
+        label.adjustsFontForContentSizeCategory = true
+        label.numberOfLines = 0
+        label.textAlignment = .center
+
+        let restoreButton = UIButton(type: .system)
+        restoreButton.translatesAutoresizingMaskIntoConstraints = false
+        restoreButton.setTitle(
+            R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale),
+            for: .normal
+        )
+        restoreButton.setTitleColor(.black, for: .normal)
+        restoreButton.titleLabel?.font = UIFont.preferredFont(forTextStyle: .headline)
+        restoreButton.titleLabel?.adjustsFontForContentSizeCategory = true
+        restoreButton.backgroundColor = UIColor.white.withAlphaComponent(0.9)
+        restoreButton.layer.cornerRadius = 8
+        restoreButton.accessibilityHint = "Restore the signing key for this wallet"
+        restoreButton.addTarget(self, action: #selector(restoreWallet), for: .touchUpInside)
+
+        banner.addSubview(label)
+        banner.addSubview(restoreButton)
+        interactionShield.addSubview(banner)
+        view.addSubview(interactionShield)
+        recoveryInteractionShield = interactionShield
+        viewControllers?.forEach { $0.view.accessibilityElementsHidden = true }
+        tabBar.accessibilityElementsHidden = true
+
+        NSLayoutConstraint.activate([
+            interactionShield.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            interactionShield.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            interactionShield.topAnchor.constraint(equalTo: view.topAnchor),
+            interactionShield.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            banner.leadingAnchor.constraint(equalTo: interactionShield.leadingAnchor, constant: 16),
+            banner.trailingAnchor.constraint(equalTo: interactionShield.trailingAnchor, constant: -16),
+            banner.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            label.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 14),
+            label.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -14),
+            label.topAnchor.constraint(equalTo: banner.topAnchor, constant: 10),
+            restoreButton.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 14),
+            restoreButton.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -14),
+            restoreButton.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 10),
+            restoreButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            restoreButton.bottomAnchor.constraint(equalTo: banner.bottomAnchor, constant: -10)
+        ])
+    }
+
+    @objc private func restoreWallet() {
+        recoveryRestoreHandler?()
     }
 }
 
@@ -112,6 +203,9 @@ extension MainTabBarViewController: MainTabBarViewProtocol {
         newViewControllers[index] = newView
 
         self.setViewControllers(newViewControllers, animated: false)
+        if let recoveryInteractionShield {
+            self.view.bringSubviewToFront(recoveryInteractionShield)
+        }
     }
 }
 

@@ -5,10 +5,10 @@ let package = Package(
     name: "JOSESwift",
     platforms: [.iOS(.v10), .macOS(.v10_15)],
     products: [
-        // The app target links this vendored package but does not embed a
-        // dynamic JOSESwift framework in archives. Link it statically so the
-        // installed app has no unresolved @rpath dependency at launch.
-        .library(name: "JOSESwift", type: .static, targets: ["JOSESwift"])
+        // Leave linkage automatic so Xcode can coalesce the package across the
+        // app and test targets. It resolves to static linkage in the archive,
+        // avoiding the unembedded JOSESwift.framework launch crash.
+        .library(name: "JOSESwift", targets: ["JOSESwift"])
     ],
     dependencies: [],
     targets: [

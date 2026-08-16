@@ -80,6 +80,11 @@ final class RootInteractor {
     var legacyImportInteractor: AccountImportInteractorInputProtocol?
 
     private func checkLegacyUpdate() {
+        guard settings.bool(for: "walletMigrationRecoveryRequired") != true else {
+            Logger.shared.debug("Legacy wallet import deferred while migration recovery is required")
+            return
+        }
+
         if let legacySeed = try? keystore.fetchKey(for: KeystoreTag.legacyEntropy.rawValue),
            let mnemonic = try? IRMnemonicCreator(language: .english).mnemonic(fromEntropy: legacySeed),
            let importInteractor = AccountImportViewFactory.createSilentImportInteractor() {
@@ -100,12 +105,12 @@ extension RootInteractor: RootInteractorInputProtocol {
     func decideModuleSynchroniously() {
         do {
             if !settings.hasSelectedAccount {
-                try keystore.deleteKeyIfExists(for: KeystoreTag.pincode.rawValue)
-
                 presenter?.didDecideOnboarding()
                 return
             } else {
-                try? keystore.deleteKeyIfExists(for: KeystoreTag.legacyEntropy.rawValue)
+                if settings.bool(for: "walletMigrationRecoveryRequired") != true {
+                    try? keystore.deleteKeyIfExists(for: KeystoreTag.legacyEntropy.rawValue)
+                }
             }
 
             let pincodeExists = try keystore.checkKey(for: KeystoreTag.pincode.rawValue)

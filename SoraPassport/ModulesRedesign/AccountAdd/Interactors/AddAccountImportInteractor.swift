@@ -38,6 +38,7 @@ import SSFCloudStorage
 final class AddAccountImportInteractor: BaseAccountImportInteractor {
     private(set) var settings: SelectedWalletSettingsProtocol
     let eventCenter: EventCenterProtocol
+    private let recoveryAccount: AccountItem?
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -45,9 +46,11 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
          settings: SelectedWalletSettingsProtocol,
          keystoreImportService: KeystoreImportServiceProtocol,
          eventCenter: EventCenterProtocol,
-         cloudStorage: CloudStorageServiceProtocol? = nil) {
+         cloudStorage: CloudStorageServiceProtocol? = nil,
+         recoveryAccount: AccountItem? = nil) {
         self.settings = settings
         self.eventCenter = eventCenter
+        self.recoveryAccount = recoveryAccount
 
         super.init(accountOperationFactory: accountOperationFactory,
                    accountRepository: accountRepository,
@@ -63,8 +66,23 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                                                               options: RepositoryFetchOptions())
 
         let persistentOperation = accountRepository.saveOperation({
-            if try checkOperation
-                .extractResultData(throwing: BaseOperationError.parentOperationCancelled) != nil {
+            let existingAccount = try checkOperation.extractResultData(
+                throwing: BaseOperationError.parentOperationCancelled
+            )
+
+            if let recoveryAccount = self.recoveryAccount {
+                guard
+                    let existingAccount,
+                    Self.isValidRecoveryReplacement(
+                        item,
+                        expected: recoveryAccount,
+                        existing: existingAccount,
+                        keystore: Keychain()
+                    )
+                else {
+                    throw AccountCreateError.invalidSeed
+                }
+            } else if existingAccount != nil {
                 throw AccountCreateError.duplicated
             }
 
@@ -109,20 +127,65 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
         let checkOperation = accountRepository.fetchOperation(by: item.address,
                                                               options: RepositoryFetchOptions())
         
-        checkOperation.completionBlock = {
-            guard let account = try? checkOperation.extractNoCancellableResultData() else {
-                DispatchQueue.main.async {
-                    completion?(.success(item))
+        checkOperation.completionBlock = { [weak self] in
+            let result: Result<AccountItem?, Swift.Error>
+            do {
+                let existingAccount = try checkOperation.extractNoCancellableResultData()
+                if let recoveryAccount = self?.recoveryAccount {
+                    guard
+                        let existingAccount,
+                        Self.isValidRecoveryReplacement(
+                            item,
+                            expected: recoveryAccount,
+                            existing: existingAccount,
+                            keystore: Keychain()
+                        )
+                    else {
+                        result = .failure(AccountCreateError.invalidSeed)
+                        DispatchQueue.main.async { completion?(result) }
+                        return
+                    }
+                    result = .success(item)
+                } else if existingAccount == nil {
+                    result = .success(item)
+                } else {
+                    result = .failure(AccountCreateError.duplicated)
                 }
-                return
+            } catch {
+                result = .failure(error)
             }
-            
+
             DispatchQueue.main.async {
-                completion?(.failure(AccountCreateError.duplicated))
+                completion?(result)
             }
         }
         
         operationManager.enqueue(operations: [checkOperation], in: .sync)
+    }
+
+    static func isValidRecoveryReplacement(
+        _ candidate: AccountItem,
+        expected: AccountItem,
+        existing: AccountItem,
+        keystore: KeystoreProtocol
+    ) -> Bool {
+        guard
+            candidate.address == expected.address,
+            candidate.publicKeyData == expected.publicKeyData,
+            candidate.networkType == expected.networkType,
+            candidate.cryptoType == expected.cryptoType,
+            existing.address == expected.address,
+            existing.publicKeyData == expected.publicKeyData,
+            existing.networkType == expected.networkType,
+            existing.cryptoType == expected.cryptoType
+        else {
+            return false
+        }
+
+        return SelectedWalletSettings.hasVerifiedSigningKey(
+            keystore: keystore,
+            account: candidate
+        )
     }
 
     override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {
@@ -159,4 +222,3 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
         operationManager.enqueue(operations: [importOperation], in: .sync)
     }
 }
-

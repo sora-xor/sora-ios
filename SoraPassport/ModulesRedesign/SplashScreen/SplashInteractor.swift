@@ -134,10 +134,11 @@ final class SplashInteractor: SplashInteractorProtocol {
                     logger.debug("No selected account")
                 }
             case let .failure(error):
+                chainRegistry.performColdBoot()
                 logger.error("Selected account setup failed: \(error)")
             }
-        }
 
-        self.presenter.setupComplete()
+            self.presenter.setupComplete()
+        }
     }
 }

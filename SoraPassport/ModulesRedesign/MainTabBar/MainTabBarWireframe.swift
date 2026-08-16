@@ -124,6 +124,19 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
             let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()) else {
                 return
             }
+
+        if let tabBarController = view?.controller as? MainTabBarViewController {
+            let requiresRecoveryReadOnlyMode = SelectedWalletSettings.requiresRecoveryReadOnlyMode(
+                settings: SettingsManager.shared,
+                keystore: Keychain(),
+                account: selectedAccount
+            )
+            if requiresRecoveryReadOnlyMode {
+                tabBarController.enableRecoveryReadOnlyMode()
+            } else {
+                tabBarController.disableRecoveryReadOnlyMode()
+            }
+        }
         
         let farmingService = DemeterFarmingService(
             operationFactory: DemeterFarmingOperationFactory(engine: connection),

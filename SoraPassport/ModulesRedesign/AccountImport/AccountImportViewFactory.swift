@@ -92,7 +92,10 @@ final class AccountImportViewFactory {
         return interactor
     }
     
-    static func createViewForAdding(endAddingBlock: (() -> Void)?) -> AccountImportViewProtocol? {
+    static func createViewForAdding(
+        endAddingBlock: (() -> Void)?,
+        recoveryAccount: AccountItem? = nil
+    ) -> AccountImportViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
             Logger.shared.error("Missing required keystore import service")
@@ -113,7 +116,8 @@ final class AccountImportViewFactory {
                                                     operationManager: OperationManagerFacade.sharedManager,
                                                     settings: SelectedWalletSettings.shared,
                                                     keystoreImportService: keystoreImportService,
-                                                    eventCenter: EventCenter.shared)
+                                                    eventCenter: EventCenter.shared,
+                                                    recoveryAccount: recoveryAccount)
 
         let localizationManager = LocalizationManager.shared
 

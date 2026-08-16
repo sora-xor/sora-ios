@@ -31,6 +31,8 @@
 import Foundation
 import RobinHood
 import SoraKeystore
+import IrohaCrypto
+import SSFUtils
 
 protocol SelectedWalletSettingsProtocol: AnyObject {
     var currentAccount: AccountItem? { get }
@@ -43,6 +45,15 @@ protocol SelectedWalletSettingsProtocol: AnyObject {
 }
 
 final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, SelectedWalletSettingsProtocol {
+    struct RetainedAccountRepairPlan: Equatable {
+        let account: AccountItem
+    }
+
+    private enum RetainedAccountRepairKey {
+        static let recoveryRequired = "walletMigrationRecoveryRequired"
+        static let recoveryAccount = "walletMigrationRecoveryExpectedAccount"
+    }
+
     static let shared = SelectedWalletSettings(
         storageFacade: UserDataStorageFacade.shared,
         operationQueue: OperationManagerFacade.sharedDefaultQueue
@@ -71,7 +82,27 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         operation.completionBlock = {
             do {
                 let result = try operation.extractNoCancellableResultData().first
-                completionClosure(.success(result))
+                guard result == nil else {
+                    completionClosure(.success(result))
+                    return
+                }
+
+                guard let repairPlan = try Self.retainedAccountRepairPlan(
+                    settings: SettingsManager.shared,
+                    keystore: Keychain()
+                ) else {
+                    completionClosure(.success(nil))
+                    return
+                }
+
+                self.performSave(value: repairPlan.account) { saveResult in
+                    switch saveResult {
+                    case let .success(account):
+                        completionClosure(.success(account))
+                    case let .failure(error):
+                        completionClosure(.failure(error))
+                    }
+                }
             } catch {
                 completionClosure(.failure(error))
             }
@@ -160,6 +191,148 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         }
 
         operationQueue.addOperations(dependencies + [saveOperation], waitUntilFinished: false)
+    }
+}
+
+extension SelectedWalletSettings {
+    static func retainedAccountRepairPlan(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol
+    ) throws -> RetainedAccountRepairPlan? {
+        guard
+            settings.bool(for: RetainedAccountRepairKey.recoveryRequired) == true,
+            let retainedAccount = retainedRecoveryAccount(settings: settings)
+        else {
+            return nil
+        }
+
+        let derivedAddress = try SS58AddressFactory().address(
+            fromAccountId: retainedAccount.publicKeyData,
+            type: retainedAccount.networkType
+        )
+        guard derivedAddress == retainedAccount.address else {
+            return nil
+        }
+
+        let account = AccountItem(
+            address: retainedAccount.address,
+            cryptoType: retainedAccount.cryptoType,
+            networkType: retainedAccount.networkType,
+            username: retainedAccount.username,
+            publicKeyData: retainedAccount.publicKeyData,
+            settings: retainedAccount.settings,
+            order: retainedAccount.order,
+            isSelected: true
+        )
+        let hasSigningMaterial = try keystore.checkSecretKeyForAddress(account.address) ||
+            keystore.checkEntropyForAddress(account.address) ||
+            keystore.checkSeedForAddress(account.address)
+        guard !hasSigningMaterial else {
+            // Retained key material must be cryptographically matched before it can be used.
+            // This rollback build only restores public metadata for a read-only preview.
+            return nil
+        }
+
+        return RetainedAccountRepairPlan(account: account)
+    }
+
+    static func requiresRecoveryReadOnlyMode(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        account: AccountItem
+    ) -> Bool {
+        guard
+            settings.bool(for: RetainedAccountRepairKey.recoveryRequired) == true,
+            let retainedAccount = retainedRecoveryAccount(settings: settings),
+            retainedAccount.address == account.address,
+            retainedAccount.publicKeyData == account.publicKeyData,
+            retainedAccount.networkType == account.networkType,
+            retainedAccount.cryptoType == account.cryptoType,
+            let derivedAddress = try? SS58AddressFactory().address(
+                fromAccountId: account.publicKeyData,
+                type: account.networkType
+            )
+        else {
+            return false
+        }
+
+        guard derivedAddress == account.address else {
+            return false
+        }
+
+        guard hasVerifiedSigningKey(keystore: keystore, account: account) else {
+            return true
+        }
+
+        settings.removeValue(for: RetainedAccountRepairKey.recoveryRequired)
+        settings.removeValue(for: "walletMigrationRecoveryReason")
+        settings.removeValue(for: RetainedAccountRepairKey.recoveryAccount)
+        return false
+    }
+
+    private static func retainedRecoveryAccount(
+        settings: SettingsManagerProtocol
+    ) -> AccountItem? {
+        if let account = settings.value(
+            of: AccountItem.self,
+            for: RetainedAccountRepairKey.recoveryAccount
+        ) {
+            return account
+        }
+
+        guard let account = settings.value(
+            of: AccountItem.self,
+            for: SettingsKey.selectedAccount.rawValue
+        ) else {
+            return nil
+        }
+
+        settings.set(value: account, for: RetainedAccountRepairKey.recoveryAccount)
+        return account
+    }
+
+    static func hasVerifiedSigningKey(
+        keystore: KeystoreProtocol,
+        account: AccountItem
+    ) -> Bool {
+        do {
+            guard try keystore.checkSecretKeyForAddress(account.address) else {
+                return false
+            }
+
+            let challenge = Data("SORA wallet recovery signing-key verification v1".utf8)
+            let signature = try SigningWrapper(keystore: keystore, account: account).sign(challenge)
+
+            switch account.cryptoType {
+            case .sr25519:
+                guard let signature = signature as? SNSignature else {
+                    return false
+                }
+                let publicKey = try SNPublicKey(rawData: account.publicKeyData)
+                return SNSignatureVerifier().verify(
+                    signature,
+                    forOriginalData: challenge,
+                    using: publicKey
+                )
+            case .ed25519:
+                let publicKey = try EDPublicKey(rawData: account.publicKeyData)
+                return EDSignatureVerifier().verify(
+                    signature,
+                    forOriginalData: challenge,
+                    usingPublicKey: publicKey
+                )
+            case .ecdsa:
+                let publicKey = try SECPublicKey(rawData: account.publicKeyData)
+                return SECSignatureVerifier().verify(
+                    signature,
+                    forOriginalData: try challenge.blake2b32(),
+                    usingPublicKey: publicKey
+                )
+            }
+        } catch {
+            Logger.shared.error("Retained wallet signing-key verification failed: \(error)")
+            return false
+        }
     }
 }
 

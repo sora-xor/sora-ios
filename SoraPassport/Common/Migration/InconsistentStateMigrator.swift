@@ -51,7 +51,9 @@ final class InconsistentStateMigrator: Migrating {
         let hasSecretKey = try keychain.checkSecretKeyForAddress(selectedAccount.address)
 
         if !hasSecretKey {
-            settings.removeAll()
+            Logger.shared.error(
+                "Selected wallet signing material is unavailable; retained wallet state was preserved"
+            )
         }
     }
 }
