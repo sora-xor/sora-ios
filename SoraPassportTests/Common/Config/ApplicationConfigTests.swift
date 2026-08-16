@@ -38,6 +38,34 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertTrue(nodes.allSatisfy { $0.apikey == nil })
     }
 
+    func testXorNameIsCanonicalizedByAssetId() throws {
+        let cachedAsset = AssetInfo(
+            id: WalletAssetId.xor.rawValue,
+            symbol: "XOR",
+            chainId: Chain.sora.genesisHash(),
+            precision: 18,
+            icon: nil,
+            displayName: "1M XOR",
+            visible: true
+        )
+        XCTAssertEqual(cachedAsset.name, "XOR")
+
+        let remoteAsset = try JSONDecoder().decode(AssetInfo.self, from: Data(#"""
+        {
+          "symbol":"XOR",
+          "name":"1M XOR",
+          "asset_id":"0x0200000000000000000000000000000000000000000000000000000000000000",
+          "precision":"18"
+        }
+        """#.utf8))
+        XCTAssertEqual(remoteAsset.name, "XOR")
+
+        XCTAssertEqual(
+            AssetInfo.canonicalName(for: WalletAssetId.pswap.rawValue, proposedName: "Polkaswap"),
+            "Polkaswap"
+        )
+    }
+
     func testRemoteConfigFallsBackFromInvalidURLs() {
         let fallback = ApplicationConfig.shared.polkaswapIndexerURL
         let config = RemoteConfig(

@@ -56,9 +56,10 @@ struct AssetInfo: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        symbol = try container.decode(String.self, forKey: .symbol)
-        name = try container.decode(String.self, forKey: .name)
         assetId = try container.decode(String.self, forKey: .assetId)
+        symbol = try container.decode(String.self, forKey: .symbol)
+        let decodedName = try container.decode(String.self, forKey: .name)
+        name = Self.canonicalName(for: assetId, proposedName: decodedName)
         precision = try container.decode(StringCodable<UInt32>.self, forKey: .precision).wrappedValue
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         visible = try container.decodeIfPresent(Bool.self, forKey: .visible) ?? false
@@ -78,8 +79,16 @@ struct AssetInfo: Codable {
         self.symbol = symbol
         self.precision = precision
         self.icon = icon
-        self.name = displayName ?? ""
+        self.name = Self.canonicalName(for: id, proposedName: displayName)
         self.visible = visible
+    }
+
+    static func canonicalName(for assetId: String, proposedName: String?) -> String {
+        if assetId.caseInsensitiveCompare(WalletAssetId.xor.rawValue) == .orderedSame {
+            return "XOR"
+        }
+
+        return proposedName ?? ""
     }
 }
 

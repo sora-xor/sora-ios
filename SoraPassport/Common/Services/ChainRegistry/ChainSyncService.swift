@@ -115,7 +115,10 @@ final class ChainSyncService {
                     list.assetId == asset.assetId
                 }) {
                     asset.icon = listed.icon
-                    asset.name = listed.name
+                    asset.name = AssetInfo.canonicalName(
+                        for: asset.assetId,
+                        proposedName: listed.name
+                    )
                     asset.symbol = listed.symbol
                     filteredAssets.append(asset)
                 }
