@@ -7,6 +7,10 @@ import SSFCrypto
 import SSFCloudStorage
 
 class RootFactoryTests: XCTestCase {
+    func testSafeSr25519ValidatorContainsPanicsInsideItsFFIBoundary() {
+        XCTAssertTrue(SNSafeKeypairValidator.containsForcedPanicForReleaseValidation())
+    }
+
     func testMainWalletRequiresConnectedNodeAndRuntimeSnapshot() {
         XCTAssertFalse(
             MainTabBarViewFactory.isNetworkReady(
@@ -429,7 +433,7 @@ class RootFactoryTests: XCTestCase {
         let keychain = InMemoryKeychain()
         let entropy = Data((0 ..< 20).map { UInt8($0 + 101) })
         let fixture = try makeMnemonicRecoveryFixture(entropy: entropy)
-        let invalidSecret = Data(repeating: 1, count: fixture.secretKey.count)
+        let invalidSecret = Data(repeating: 0xff, count: fixture.secretKey.count)
         markRecoveryRequired(settings: settings, account: fixture.account)
         try keychain.saveSecretKey(invalidSecret, address: fixture.account.address)
         try keychain.saveKey(entropy, with: KeystoreTag.legacyEntropy.rawValue)
@@ -449,6 +453,95 @@ class RootFactoryTests: XCTestCase {
             settings.bool(for: "walletMigrationRecoveryRequired"),
             true
         )
+    }
+
+    func testValidScopedSecretAloneAutomaticallyRepairsRetainedWallet() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 113) })
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+        try keychain.saveSecretKey(
+            fixture.secretKey,
+            address: fixture.account.address
+        )
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertTrue(
+            SelectedWalletSettings.hasVerifiedSigningKey(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
+        XCTAssertNil(settings.string(for: "walletMigrationRecoveryReason"))
+    }
+
+    func testScopedSecretRepairUsesOnlyBytesValidatedBySafeParser() throws {
+        let settings = InMemorySettingsManager()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 127) })
+        )
+        let replacement = try SNKeyFactory()
+            .createKeypair(fromSeed: Data(repeating: 0x42, count: 32))
+            .privateKey()
+            .rawData()
+        let identifier = KeystoreTag.secretKeyTagForAddress(fixture.account.address)
+        let keychain = ChangingSecretKeystore(
+            identifier: identifier,
+            initialValue: fixture.secretKey,
+            replacementValue: replacement
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(keychain.targetFetchCount, 1)
+        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
+    }
+
+    func testRecoveryRequiredMarkerIsClearedLast() throws {
+        let settings = RecordingSettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 139) })
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+        settings.set(value: "retained migration", for: "walletMigrationRecoveryReason")
+        settings.set(
+            value: fixture.account,
+            for: "walletMigrationRecoveryExpectedAccount"
+        )
+        settings.resetMutationTracking()
+        try keychain.saveSecretKey(
+            fixture.secretKey,
+            address: fixture.account.address
+        )
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(settings.removedKeys.last, "walletMigrationRecoveryRequired")
     }
 
     func testLegacyPrivateKeyAloneIsNeverPromotedToSora2Signer() throws {
@@ -1067,12 +1160,63 @@ private final class RecordingKeystore: KeystoreProtocol {
     }
 }
 
+private final class ChangingSecretKeystore: KeystoreProtocol {
+    private var storage: [String: Data]
+    private let targetIdentifier: String
+    private let replacementValue: Data
+    private(set) var targetFetchCount = 0
+
+    init(identifier: String, initialValue: Data, replacementValue: Data) {
+        targetIdentifier = identifier
+        storage = [identifier: initialValue]
+        self.replacementValue = replacementValue
+    }
+
+    func addKey(_ key: Data, with identifier: String) throws {
+        guard storage[identifier] == nil else {
+            throw KeystoreError.duplicatedItem
+        }
+        storage[identifier] = key
+    }
+
+    func updateKey(_ key: Data, with identifier: String) throws {
+        guard storage[identifier] != nil else {
+            throw KeystoreError.noKeyFound
+        }
+        storage[identifier] = key
+    }
+
+    func fetchKey(for identifier: String) throws -> Data {
+        guard let value = storage[identifier] else {
+            throw KeystoreError.noKeyFound
+        }
+        guard identifier == targetIdentifier else {
+            return value
+        }
+
+        targetFetchCount += 1
+        return targetFetchCount == 1 ? value : replacementValue
+    }
+
+    func checkKey(for identifier: String) throws -> Bool {
+        storage[identifier] != nil
+    }
+
+    func deleteKey(for identifier: String) throws {
+        guard storage.removeValue(forKey: identifier) != nil else {
+            throw KeystoreError.noKeyFound
+        }
+    }
+}
+
 private final class RecordingSettingsManager: SettingsManagerProtocol {
     private let storage = InMemorySettingsManager()
     private(set) var mutationCount = 0
+    private(set) var removedKeys: [String] = []
 
     func resetMutationTracking() {
         mutationCount = 0
+        removedKeys = []
     }
 
     func set(value: Bool, for key: String) {
@@ -1114,6 +1258,7 @@ private final class RecordingSettingsManager: SettingsManagerProtocol {
 
     func removeValue(for key: String) {
         mutationCount += 1
+        removedKeys.append(key)
         storage.removeValue(for: key)
     }
 

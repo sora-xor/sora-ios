@@ -296,10 +296,30 @@ extension SelectedWalletSettings {
         }
 
         // Never pass an arbitrary retained secret into the native sr25519 signer. Some
-        // malformed 64-byte encodings can panic below Swift's throwable boundary. A
-        // retained secret is accepted only when independently derived seed/entropy first
-        // proves the exact public key and address, and the bytes agree with that result.
+        // malformed 64-byte encodings can panic below Swift's throwable boundary. The
+        // independent fallible parser must prove that these exact bytes encode the retained
+        // public key before the same bytes are used for a live signing challenge.
         let existingSecret = try keystore.fetchSecretKeyForAddress(account.address)
+
+        if
+            let existingSecret,
+            account.cryptoType == .sr25519,
+            SNSafeKeypairValidator.isValidSr25519SecretKey(
+                existingSecret,
+                publicKey: account.publicKeyData
+            ),
+            hasVerifiedSr25519SigningKey(
+                secretKey: existingSecret,
+                account: account
+            )
+        {
+            clearRetainedRecoveryState(settings: settings)
+            Logger.shared.info(
+                "SORA retained wallet signing material repaired automatically: existing-scoped-secret"
+            )
+            return true
+        }
+
         let derivationPath = try keystore.fetchDeriviationForAddress(account.address) ?? ""
         let scopedSeed = try keystore.fetchSeedForAddress(account.address)
         let scopedEntropy = try keystore.fetchEntropyForAddress(account.address)
@@ -672,9 +692,10 @@ extension SelectedWalletSettings {
     }
 
     private static func clearRetainedRecoveryState(settings: SettingsManagerProtocol) {
-        settings.removeValue(for: RetainedAccountRepairKey.recoveryRequired)
         settings.removeValue(for: "walletMigrationRecoveryReason")
         settings.removeValue(for: RetainedAccountRepairKey.recoveryAccount)
+        // This required marker is the fail-closed commit bit and must be removed last.
+        settings.removeValue(for: RetainedAccountRepairKey.recoveryRequired)
     }
 
     private static func retainedRecoveryAccount(
@@ -742,6 +763,31 @@ extension SelectedWalletSettings {
             }
         } catch {
             Logger.shared.error("Retained wallet signing-key verification failed: \(error)")
+            return false
+        }
+    }
+
+    private static func hasVerifiedSr25519SigningKey(
+        secretKey: Data,
+        account: AccountItem
+    ) -> Bool {
+        do {
+            let challenge = Data("SORA wallet recovery signing-key verification v1".utf8)
+            let privateKey = try SNPrivateKey(rawData: secretKey)
+            let publicKey = try SNPublicKey(rawData: account.publicKeyData)
+            let signature = try SNSigner(
+                keypair: SNKeypair(privateKey: privateKey, publicKey: publicKey)
+            ).sign(challenge)
+
+            return SNSignatureVerifier().verify(
+                signature,
+                forOriginalData: challenge,
+                using: publicKey
+            )
+        } catch {
+            Logger.shared.error(
+                "Retained wallet existing sr25519 signing-key verification failed: \(error)"
+            )
             return false
         }
     }

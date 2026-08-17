@@ -69,6 +69,10 @@ let package = Package(
         .binaryTarget(name: "blake2lib", path: "Binaries/blake2lib.xcframework"),
         .binaryTarget(name: "libed25519", path: "Binaries/libed25519.xcframework"),
         .binaryTarget(name: "sr25519lib", path: "Binaries/sr25519lib.xcframework"),
+        .binaryTarget(
+            name: "Sr25519SafeValidator",
+            path: "Binaries/Sr25519SafeValidator.xcframework"
+        ),
         .binaryTarget(name: "sorawallet", path: "Binaries/sorawallet.xcframework"),
         .binaryTarget(name: "MPQRCoreSDK", path: "Binaries/MPQRCoreSDK.xcframework"),
         .binaryTarget(
@@ -182,6 +186,7 @@ let package = Package(
             dependencies: [
                 .byName(name: "libed25519"),
                 .byName(name: "sr25519lib"),
+                .byName(name: "Sr25519SafeValidator"),
                 .byName(name: "blake2lib"),
                 .product(name: "secp256k1", package: "secp256k1.swift"),
                 "scrypt"

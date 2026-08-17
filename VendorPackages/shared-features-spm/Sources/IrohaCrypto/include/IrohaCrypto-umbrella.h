@@ -43,6 +43,7 @@
 #import "SNKeypair.h"
 #import "SNPrivateKey.h"
 #import "SNPublicKey.h"
+#import "SNSafeKeypairValidator.h"
 #import "SNSignature.h"
 #import "SNSignatureVerifier.h"
 #import "SNSigner.h"
@@ -54,4 +55,3 @@
 
 FOUNDATION_EXPORT double IrohaCryptoVersionNumber;
 FOUNDATION_EXPORT const unsigned char IrohaCryptoVersionString[];
-
