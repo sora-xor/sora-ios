@@ -11,23 +11,15 @@ class RootFactoryTests: XCTestCase {
         XCTAssertTrue(SNSafeKeypairValidator.containsForcedPanicForReleaseValidation())
     }
 
-    func testMainWalletRequiresConnectedNodeAndRuntimeSnapshot() {
+    func testMainWalletRequiresConnectedNodeWithoutBlockingOnRuntimeSnapshot() {
         XCTAssertFalse(
             MainTabBarViewFactory.isNetworkReady(
-                connectionState: .notConnected,
-                hasRuntimeSnapshot: true
-            )
-        )
-        XCTAssertFalse(
-            MainTabBarViewFactory.isNetworkReady(
-                connectionState: .connected,
-                hasRuntimeSnapshot: false
+                connectionState: .notConnected
             )
         )
         XCTAssertTrue(
             MainTabBarViewFactory.isNetworkReady(
-                connectionState: .connected,
-                hasRuntimeSnapshot: true
+                connectionState: .connected
             )
         )
     }
@@ -169,6 +161,29 @@ class RootFactoryTests: XCTestCase {
         XCTAssertTrue(interactionShield.isDescendant(of: controller.view))
         XCTAssertTrue(controller.view.subviews.last === interactionShield)
         XCTAssertTrue(interactionShield.accessibilityViewIsModal)
+    }
+
+    @MainActor
+    func testSuccessfulBackgroundRecoveryRemovesExistingInteractionShield() throws {
+        let controller = MainTabBarViewController()
+        var recoveryRequired = true
+        controller.recoveryRequiredProvider = { recoveryRequired }
+        controller.viewControllers = [UIViewController()]
+        controller.loadViewIfNeeded()
+        controller.enableRecoveryReadOnlyMode()
+        XCTAssertNotNil(controller.recoveryInteractionShield)
+
+        recoveryRequired = false
+        NotificationCenter.default.post(name: .retainedWalletSigningRestored, object: nil)
+
+        XCTAssertFalse(controller.isRecoveryReadOnly)
+        XCTAssertNil(controller.recoveryInteractionShield)
+        XCTAssertFalse(controller.tabBar.accessibilityElementsHidden)
+
+        // A factory decision sampled before recovery must not re-enable the shield later.
+        controller.enableRecoveryReadOnlyMode()
+        XCTAssertFalse(controller.isRecoveryReadOnly)
+        XCTAssertNil(controller.recoveryInteractionShield)
     }
 
     func testVerifiedSigningKeyClearsRecoveryMode() throws {
@@ -851,7 +866,13 @@ class RootFactoryTests: XCTestCase {
 
     func testCloudRecoveryAfterUnlockRestoresOnlyExactVerifiedWallet() async throws {
         let fixture = try makeCloudRecoveryFixture()
-        let service = makeCloudRecoveryService(fixture: fixture)
+        let provider = RetainedSigningMaterialCandidateProviderMock(
+            candidates: [fixture.secretKey]
+        )
+        let service = makeCloudRecoveryService(
+            fixture: fixture,
+            materialCandidateProvider: provider
+        )
 
         let didRecover = await service.recoverAfterLocalAuthentication(
             protectedDataAvailable: true
@@ -859,6 +880,7 @@ class RootFactoryTests: XCTestCase {
         XCTAssertTrue(didRecover)
         XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
         XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
+        XCTAssertEqual(provider.loadCallCount, 0)
         XCTAssertEqual(fixture.cloud.receivedPassword, fixture.pin)
         XCTAssertEqual(fixture.cloud.receivedAddress, fixture.account.address)
         XCTAssertTrue(
@@ -881,6 +903,29 @@ class RootFactoryTests: XCTestCase {
         )
         XCTAssertNil(fixture.settings.bool(for: "walletMigrationRecoveryRequired"))
         XCTAssertNil(fixture.settings.string(for: "walletMigrationRecoveryReason"))
+    }
+
+    func testPostAuthRecoveryUsesCloudBeforeUnlabeledScan() async throws {
+        let fixture = try makeCloudRecoveryFixture()
+        fixture.cloud.restoreState = .notAuthorized
+        let provider = RetainedSigningMaterialCandidateProviderMock(
+            candidates: [fixture.secretKey]
+        )
+
+        let didRecover = await makeCloudRecoveryService(
+            fixture: fixture,
+            materialCandidateProvider: provider
+        ).recoverAfterLocalAuthentication(protectedDataAvailable: true)
+
+        XCTAssertTrue(didRecover)
+        XCTAssertEqual(provider.loadCallCount, 1)
+        XCTAssertFalse(provider.wasCalledOnMainThread)
+        XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+        XCTAssertEqual(
+            try fixture.keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertNil(fixture.settings.bool(for: "walletMigrationRecoveryRequired"))
     }
 
     func testCloudRecoveryDoesNotRunForOrdinaryLoginOrUnavailableProtectedData() async throws {
@@ -1204,6 +1249,7 @@ class RootFactoryTests: XCTestCase {
         signingVerifier: @escaping RetainedWalletCloudRecoveryService.SigningVerifier = {
             SelectedWalletSettings.hasVerifiedSigningKey(keystore: $0, account: $1)
         },
+        materialCandidateProvider: RetainedSigningMaterialCandidateProviding? = nil,
         cloudTimeout: TimeInterval = 1
     ) -> RetainedWalletCloudRecoveryService {
         RetainedWalletCloudRecoveryService(
@@ -1212,6 +1258,7 @@ class RootFactoryTests: XCTestCase {
             cloudStorage: fixture.cloud,
             selectedAccountProvider: { fixture.account },
             signingVerifier: signingVerifier,
+            materialCandidateProvider: materialCandidateProvider,
             cloudTimeout: cloudTimeout
         )
     }
@@ -1310,6 +1357,7 @@ private final class RetainedSigningMaterialCandidateProviderMock:
 {
     let candidates: [Data]
     private(set) var loadCallCount = 0
+    private(set) var wasCalledOnMainThread = false
 
     init(candidates: [Data]) {
         self.candidates = candidates
@@ -1317,6 +1365,7 @@ private final class RetainedSigningMaterialCandidateProviderMock:
 
     func loadAccessibleSigningMaterialCandidates() -> [Data] {
         loadCallCount += 1
+        wasCalledOnMainThread = Thread.isMainThread
         return candidates
     }
 }

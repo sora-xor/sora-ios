@@ -31,6 +31,13 @@
 import UIKit
 import SoraUIKit
 import SoraFoundation
+import SoraKeystore
+
+extension Notification.Name {
+    static let retainedWalletSigningRestored = Notification.Name(
+        "co.jp.soramitsu.sora.retained-wallet-signing-restored"
+    )
+}
 
 final class MainTabBarViewController: UITabBarController {
     var presenter: MainTabBarPresenterProtocol!
@@ -39,9 +46,28 @@ final class MainTabBarViewController: UITabBarController {
     var recoveryRestoreHandler: (() -> Void)?
     private var viewAppeared: Bool = false
     private(set) var recoveryInteractionShield: UIView?
+    private var recoveryRestoredObserver: NSObjectProtocol?
+    var recoveryRequiredProvider: (() -> Bool)?
+
+    deinit {
+        if let recoveryRestoredObserver {
+            NotificationCenter.default.removeObserver(recoveryRestoredObserver)
+        }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        recoveryRestoredObserver = NotificationCenter.default.addObserver(
+            forName: .retainedWalletSigningRestored,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, !self.recoveryIsStillRequired() else {
+                return
+            }
+            self.disableRecoveryReadOnlyMode()
+        }
 
         self.delegate = self
 
@@ -61,8 +87,10 @@ final class MainTabBarViewController: UITabBarController {
         SoramitsuUI.updates.addObserver(self)
         configureTabBar()
 
-        if isRecoveryReadOnly {
+        if isRecoveryReadOnly, recoveryIsStillRequired() {
             configureRecoveryReadOnlyMode()
+        } else {
+            isRecoveryReadOnly = false
         }
     }
 
@@ -77,6 +105,13 @@ final class MainTabBarViewController: UITabBarController {
 
     func enableRecoveryReadOnlyMode() {
         isRecoveryReadOnly = true
+
+        // Creation can race a successful background recovery after the factory sampled
+        // recovery state. Never recreate a shield from that stale decision.
+        guard recoveryIsStillRequired() else {
+            disableRecoveryReadOnlyMode()
+            return
+        }
 
         if isViewLoaded, recoveryInteractionShield == nil {
             configureRecoveryReadOnlyMode()
@@ -93,6 +128,22 @@ final class MainTabBarViewController: UITabBarController {
             }
         }
         tabBar.accessibilityElementsHidden = false
+    }
+
+    private func recoveryIsStillRequired() -> Bool {
+        if let recoveryRequiredProvider {
+            return recoveryRequiredProvider()
+        }
+
+        guard let account = SelectedWalletSettings.shared.currentAccount else {
+            return isRecoveryReadOnly
+        }
+
+        return SelectedWalletSettings.requiresRecoveryReadOnlyMode(
+            settings: SettingsManager.shared,
+            keystore: Keychain(),
+            account: account
+        )
     }
 
     private func configureTabBar() {

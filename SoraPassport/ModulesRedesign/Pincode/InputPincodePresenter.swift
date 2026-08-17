@@ -185,12 +185,9 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
                 UIApplication.shared.isProtectedDataAvailable
             }
 
-            if let retainedWalletCloudRecovery = self.retainedWalletCloudRecovery {
-                _ = await retainedWalletCloudRecovery.recoverAfterLocalAuthentication(
-                    protectedDataAvailable: protectedDataAvailable
-                )
-            }
-
+            // Authentication must route immediately. Keychain enumeration, cloud session
+            // restoration, and scrypt work are best-effort recovery and must never hold the
+            // PIN screen hostage.
             await MainActor.run {
                 guard self.isNeedUpdateTo6Symbols else {
                     self.wireframe.showMain(from: self.view)
@@ -199,6 +196,20 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
 
                 self.mode = .create
                 self.view?.showUpdatePinRequestView()
+            }
+
+            if let retainedWalletCloudRecovery = self.retainedWalletCloudRecovery {
+                let didRecover = await retainedWalletCloudRecovery.recoverAfterLocalAuthentication(
+                    protectedDataAvailable: protectedDataAvailable
+                )
+                if didRecover {
+                    await MainActor.run {
+                        NotificationCenter.default.post(
+                            name: .retainedWalletSigningRestored,
+                            object: nil
+                        )
+                    }
+                }
             }
         }
     }

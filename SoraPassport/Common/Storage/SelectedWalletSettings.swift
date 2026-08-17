@@ -561,9 +561,9 @@ extension SelectedWalletSettings {
             settings: settings,
             keystore: keystore,
             account: account,
-            materialCandidateProvider: keystore is Keychain
-                ? AccessibleKeychainRetainedSigningMaterialCandidateProvider()
-                : nil
+            // Root setup, wallet creation, and signing availability call this overload
+            // synchronously. Never enumerate the entire Keychain from those UI paths.
+            materialCandidateProvider: nil
         )
     }
 
@@ -1301,6 +1301,7 @@ final class RetainedWalletCloudRecoveryService: RetainedWalletCloudRecoveryProto
     private let selectedAccountProvider: () -> AccountItem?
     private let candidateDeriver: RetainedWalletBackupCandidateDeriving
     private let signingVerifier: SigningVerifier
+    private let materialCandidateProvider: RetainedSigningMaterialCandidateProviding?
     private let cloudTimeout: TimeInterval
 
     init(
@@ -1313,6 +1314,7 @@ final class RetainedWalletCloudRecoveryService: RetainedWalletCloudRecoveryProto
         signingVerifier: @escaping SigningVerifier = {
             SelectedWalletSettings.hasVerifiedSigningKey(keystore: $0, account: $1)
         },
+        materialCandidateProvider: RetainedSigningMaterialCandidateProviding? = nil,
         cloudTimeout: TimeInterval = 5
     ) {
         self.settings = settings
@@ -1321,6 +1323,7 @@ final class RetainedWalletCloudRecoveryService: RetainedWalletCloudRecoveryProto
         self.selectedAccountProvider = selectedAccountProvider
         self.candidateDeriver = candidateDeriver
         self.signingVerifier = signingVerifier
+        self.materialCandidateProvider = materialCandidateProvider
         self.cloudTimeout = cloudTimeout
     }
 
@@ -1329,7 +1332,8 @@ final class RetainedWalletCloudRecoveryService: RetainedWalletCloudRecoveryProto
             settings: SettingsManager.shared,
             keystore: Keychain(),
             cloudStorage: CloudStorageService(uiDelegate: nil),
-            selectedAccountProvider: { SelectedWalletSettings.shared.currentAccount }
+            selectedAccountProvider: { SelectedWalletSettings.shared.currentAccount },
+            materialCandidateProvider: AccessibleKeychainRetainedSigningMaterialCandidateProvider()
         )
     }
 
@@ -1357,48 +1361,87 @@ final class RetainedWalletCloudRecoveryService: RetainedWalletCloudRecoveryProto
         }
 
         do {
+            // Known, account-scoped tags are cheap and safe to check before any network work.
+            if try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keystore,
+                account: retainedAccount,
+                materialCandidateProvider: nil
+            ) {
+                return true
+            }
+
             // A present canonical signer is never inspected, replaced, or deleted by cloud
             // recovery. Local retained-material recovery owns that case.
             guard try keystore.fetchSecretKeyForAddress(retainedAccount.address) == nil else {
                 return false
             }
 
-            let pinData = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
-            guard let pin = String(data: pinData, encoding: .utf8), !pin.isEmpty else {
+            // Prefer the bounded, exact-address cloud recovery path. A full Keychain scan is
+            // only a best-effort fallback and must never delay a usable cloud backup.
+            if let pinData = try? keystore.fetchKey(for: KeystoreTag.pincode.rawValue),
+               let pin = String(data: pinData, encoding: .utf8),
+               !pin.isEmpty {
+                do {
+                    let backup = try await fetchSilentBackup(
+                        address: retainedAccount.address,
+                        password: pin
+                    )
+                    try Task.checkCancellation()
+
+                    if backup.address == retainedAccount.address {
+                        let candidate = try candidateDeriver.deriveCandidate(
+                            from: backup,
+                            password: pin
+                        )
+                        if candidateMatches(candidate.account, retainedAccount: retainedAccount),
+                           signingVerifier(candidate.verificationKeystore, candidate.account),
+                           SelectedWalletSettings.hasExactStoredRetainedRecoveryIdentity(
+                               settings: settings,
+                               account: retainedAccount
+                           ),
+                           try persistVerifiedCandidate(
+                               candidate,
+                               retainedAccount: retainedAccount
+                           ) {
+                            return true
+                        }
+                    }
+                } catch {
+                    Logger.shared.warning("SORA silent retained-wallet cloud recovery unavailable")
+                }
+            }
+
+            guard let materialCandidateProvider else {
                 return false
             }
 
-            let backup = try await fetchSilentBackup(
-                address: retainedAccount.address,
-                password: pin
-            )
-            try Task.checkCancellation()
-
-            guard backup.address == retainedAccount.address else {
-                return false
-            }
-
-            let candidate = try candidateDeriver.deriveCandidate(
-                from: backup,
-                password: pin
-            )
-            guard candidateMatches(candidate.account, retainedAccount: retainedAccount),
-                  signingVerifier(candidate.verificationKeystore, candidate.account),
-                  SelectedWalletSettings.hasExactStoredRetainedRecoveryIdentity(
-                      settings: settings,
-                      account: retainedAccount
-                  )
-            else {
-                return false
-            }
-
-            return try persistVerifiedCandidate(
-                candidate,
-                retainedAccount: retainedAccount
+            // Security.framework enumeration and candidate derivation can be slow for a large
+            // Keychain. Keep it on a utility queue and out of every launch/MainActor path.
+            return await repairFromAccessibleKeychain(
+                retainedAccount: retainedAccount,
+                materialCandidateProvider: materialCandidateProvider
             )
         } catch {
-            Logger.shared.warning("SORA silent retained-wallet cloud recovery unavailable")
+            Logger.shared.warning("SORA retained-wallet automatic recovery unavailable")
             return false
+        }
+    }
+
+    private func repairFromAccessibleKeychain(
+        retainedAccount: AccountItem,
+        materialCandidateProvider: RetainedSigningMaterialCandidateProviding
+    ) async -> Bool {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async { [settings, keystore] in
+                let didRepair = (try? SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                    settings: settings,
+                    keystore: keystore,
+                    account: retainedAccount,
+                    materialCandidateProvider: materialCandidateProvider
+                )) ?? false
+                continuation.resume(returning: didRepair)
+            }
         }
     }
 

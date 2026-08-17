@@ -76,6 +76,8 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
             return
         }
 
+        Logger.shared.info("SORA wallet screen created after node connection")
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             self.rootAnimator.animateTransition(to: mainViewController)
         }

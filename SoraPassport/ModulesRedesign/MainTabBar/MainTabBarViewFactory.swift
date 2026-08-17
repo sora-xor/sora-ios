@@ -39,13 +39,7 @@ import SSFUtils
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
 
-    static func isNetworkReady(
-        connectionState: WebSocketEngine.State,
-        hasRuntimeSnapshot: Bool
-    ) -> Bool {
-        guard hasRuntimeSnapshot else {
-            return false
-        }
+    static func isNetworkReady(connectionState: WebSocketEngine.State) -> Bool {
         if case .connected = connectionState {
             return true
         }
@@ -58,14 +52,14 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         guard keystoreImportService != nil,
               SelectedWalletSettings.shared.currentAccount != nil,
               let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-              let runtimeProvider = ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) else {
+              ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil else {
             return false
         }
 
-        return isNetworkReady(
-            connectionState: connection.state,
-            hasRuntimeSnapshot: runtimeProvider.snapshot != nil
-        )
+        // WalletContextFactory and its services obtain runtime metadata lazily. Requiring a
+        // populated snapshot here can stall the PIN-to-wallet transition when metadata
+        // sync is delayed even though the node connection is already usable.
+        return isNetworkReady(connectionState: connection.state)
     }
     
     @MainActor
