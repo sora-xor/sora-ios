@@ -117,6 +117,7 @@ final class PinViewFactory {
         presenter.interactor = interactor
         presenter.view = pinView
         presenter.wireframe = wireframe
+        presenter.retainedWalletCloudRecovery = RetainedWalletCloudRecoveryService.live()
 
         interactor.presenter = presenter
 

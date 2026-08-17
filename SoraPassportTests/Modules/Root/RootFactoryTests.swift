@@ -4,6 +4,7 @@ import SoraKeystore
 import IrohaCrypto
 import SSFUtils
 import SSFCrypto
+import SSFCloudStorage
 
 class RootFactoryTests: XCTestCase {
     func testMainWalletRequiresConnectedNodeAndRuntimeSnapshot() {
@@ -578,6 +579,236 @@ class RootFactoryTests: XCTestCase {
         )
     }
 
+    func testCloudRecoveryAfterUnlockRestoresOnlyExactVerifiedWallet() async throws {
+        let fixture = try makeCloudRecoveryFixture()
+        let service = makeCloudRecoveryService(fixture: fixture)
+
+        let didRecover = await service.recoverAfterLocalAuthentication(
+            protectedDataAvailable: true
+        )
+        XCTAssertTrue(didRecover)
+        XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.receivedPassword, fixture.pin)
+        XCTAssertEqual(fixture.cloud.receivedAddress, fixture.account.address)
+        XCTAssertTrue(
+            SelectedWalletSettings.hasVerifiedSigningKey(
+                keystore: fixture.keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(
+            try fixture.keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertEqual(
+            try fixture.keychain.fetchSeedForAddress(fixture.account.address),
+            fixture.seed
+        )
+        XCTAssertEqual(
+            try fixture.keychain.fetchEntropyForAddress(fixture.account.address),
+            fixture.entropy
+        )
+        XCTAssertNil(fixture.settings.bool(for: "walletMigrationRecoveryRequired"))
+        XCTAssertNil(fixture.settings.string(for: "walletMigrationRecoveryReason"))
+    }
+
+    func testCloudRecoveryDoesNotRunForOrdinaryLoginOrUnavailableProtectedData() async throws {
+        let ordinary = try makeCloudRecoveryFixture()
+        ordinary.settings.removeValue(for: "walletMigrationRecoveryRequired")
+        ordinary.settings.resetMutationTracking()
+
+        let ordinaryDidRecover = await makeCloudRecoveryService(fixture: ordinary)
+            .recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(ordinaryDidRecover)
+        XCTAssertEqual(ordinary.cloud.restoreCallsCount, 0)
+        try assertCloudRecoveryFailureWasReadOnly(ordinary, expectedMarker: nil)
+
+        let mismatchedMarker = try makeCloudRecoveryFixture()
+        let differentIdentity = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map { UInt8($0 + 51) })
+        ).account
+        mismatchedMarker.settings.set(
+            value: differentIdentity,
+            for: "walletMigrationRecoveryExpectedAccount"
+        )
+        mismatchedMarker.settings.resetMutationTracking()
+        let mismatchedMarkerDidRecover = await makeCloudRecoveryService(
+            fixture: mismatchedMarker
+        ).recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(mismatchedMarkerDidRecover)
+        XCTAssertEqual(mismatchedMarker.cloud.restoreCallsCount, 0)
+        try assertCloudRecoveryFailureWasReadOnly(mismatchedMarker)
+
+        let protectedDataUnavailable = try makeCloudRecoveryFixture()
+        let unavailableDataDidRecover = await makeCloudRecoveryService(
+            fixture: protectedDataUnavailable
+        ).recoverAfterLocalAuthentication(protectedDataAvailable: false)
+        XCTAssertFalse(unavailableDataDidRecover)
+        XCTAssertEqual(protectedDataUnavailable.cloud.restoreCallsCount, 0)
+        try assertCloudRecoveryFailureWasReadOnly(protectedDataUnavailable)
+
+        let missingStoredPin = try makeCloudRecoveryFixture()
+        try missingStoredPin.keychain.deleteKey(for: KeystoreTag.pincode.rawValue)
+        missingStoredPin.keychain.resetMutationTracking()
+        let missingPinDidRecover = await makeCloudRecoveryService(fixture: missingStoredPin)
+            .recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(missingPinDidRecover)
+        XCTAssertEqual(missingStoredPin.cloud.restoreCallsCount, 0)
+        try assertCloudRecoveryFailureWasReadOnly(missingStoredPin)
+    }
+
+    func testCloudRecoveryWithoutPreviousGoogleSessionIsNoninteractiveAndReadOnly() async throws {
+        let fixture = try makeCloudRecoveryFixture()
+        fixture.cloud.restoreState = .notAuthorized
+
+        let didRecover = await makeCloudRecoveryService(fixture: fixture)
+            .recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(didRecover)
+        XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 0)
+        try assertCloudRecoveryFailureWasReadOnly(fixture)
+    }
+
+    func testCloudRecoveryMissingFileWrongPinAndNetworkErrorAreReadOnly() async throws {
+        let errors: [Error] = [
+            CloudStorageServiceError.notFound,
+            CloudStorageServiceError.incorectPassword,
+            CloudRecoveryTestError.network
+        ]
+        for error in errors {
+            let fixture = try makeCloudRecoveryFixture()
+            fixture.cloud.mobileImportError = error
+
+            let didRecover = await makeCloudRecoveryService(fixture: fixture)
+                .recoverAfterLocalAuthentication(protectedDataAvailable: true)
+            XCTAssertFalse(didRecover)
+            XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+            XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
+            try assertCloudRecoveryFailureWasReadOnly(fixture)
+        }
+
+        let restoreNetworkFailure = try makeCloudRecoveryFixture()
+        restoreNetworkFailure.cloud.restoreError = CloudRecoveryTestError.network
+        let restoreFailureDidRecover = await makeCloudRecoveryService(
+            fixture: restoreNetworkFailure
+        ).recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(restoreFailureDidRecover)
+        XCTAssertEqual(restoreNetworkFailure.cloud.mobileImportCallsCount, 0)
+        try assertCloudRecoveryFailureWasReadOnly(restoreNetworkFailure)
+    }
+
+    func testCloudRecoveryIdentityMismatchAndFailedSignatureAreReadOnly() async throws {
+        let identityMismatch = try makeCloudRecoveryFixture()
+        let differentEntropy = Data((0 ..< 16).map { UInt8($0 + 91) })
+        let differentMnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: differentEntropy)
+        identityMismatch.cloud.mobileImportResult?.passphrase = differentMnemonic.toString()
+
+        let identityMismatchDidRecover = await makeCloudRecoveryService(
+            fixture: identityMismatch
+        ).recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(identityMismatchDidRecover)
+        try assertCloudRecoveryFailureWasReadOnly(identityMismatch)
+
+        let failedSignature = try makeCloudRecoveryFixture()
+        let failedSignatureDidRecover = await makeCloudRecoveryService(
+            fixture: failedSignature,
+            signingVerifier: { _, _ in false }
+        ).recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(failedSignatureDidRecover)
+        try assertCloudRecoveryFailureWasReadOnly(failedSignature)
+    }
+
+    func testCloudRecoveryRejectsRawJsonBackupWithoutWalletMutation() async throws {
+        let fixture = try makeCloudRecoveryFixture()
+        fixture.cloud.mobileImportResult = OpenBackupAccount(
+            name: fixture.account.username,
+            address: fixture.account.address,
+            cryptoType: fixture.account.cryptoType.typeString,
+            substrateDerivationPath: "",
+            backupAccountType: [.json],
+            json: OpenBackupAccount.Json(substrateJson: "{}", ethJson: nil)
+        )
+
+        let didRecover = await makeCloudRecoveryService(fixture: fixture)
+            .recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(didRecover)
+        try assertCloudRecoveryFailureWasReadOnly(fixture)
+    }
+
+    func testCloudRecoveryOverlappingCallsCommitOnlyOnceWithoutDeletingSigner() async throws {
+        let fixture = try makeCloudRecoveryFixture()
+        fixture.cloud.mobileImportDelayNanoseconds = 100_000_000
+        let service = makeCloudRecoveryService(fixture: fixture)
+
+        async let firstAttempt = service.recoverAfterLocalAuthentication(
+            protectedDataAvailable: true
+        )
+        try await Task.sleep(nanoseconds: 10_000_000)
+        async let overlappingAttempt = service.recoverAfterLocalAuthentication(
+            protectedDataAvailable: true
+        )
+        let results = await [firstAttempt, overlappingAttempt]
+
+        XCTAssertEqual(results.filter { $0 }.count, 1)
+        XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
+        XCTAssertTrue(
+            SelectedWalletSettings.hasVerifiedSigningKey(
+                keystore: fixture.keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertNil(fixture.settings.bool(for: "walletMigrationRecoveryRequired"))
+    }
+
+    func testCloudRecoveryTimeoutFallsBackWithoutWalletMutation() async throws {
+        let fixture = try makeCloudRecoveryFixture()
+        fixture.cloud.mobileImportDelayNanoseconds = 5_000_000_000
+        let start = Date()
+
+        let didRecover = await makeCloudRecoveryService(
+            fixture: fixture,
+            cloudTimeout: 0.01
+        ).recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(didRecover)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 1)
+        try assertCloudRecoveryFailureWasReadOnly(fixture)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        try assertCloudRecoveryFailureWasReadOnly(fixture)
+    }
+
+    func testCloudRecoveryCommitFailureRollsBackCanonicalTagsAndKeepsMarker() async throws {
+        let fixture = try makeCloudRecoveryFixture()
+        var verificationCount = 0
+        let verifier: RetainedWalletCloudRecoveryService.SigningVerifier = { keystore, account in
+            verificationCount += 1
+            guard verificationCount == 1 else {
+                return false
+            }
+            return SelectedWalletSettings.hasVerifiedSigningKey(
+                keystore: keystore,
+                account: account
+            )
+        }
+
+        let didRecover = await makeCloudRecoveryService(
+            fixture: fixture,
+            signingVerifier: verifier
+        ).recoverAfterLocalAuthentication(protectedDataAvailable: true)
+        XCTAssertFalse(didRecover)
+        XCTAssertEqual(verificationCount, 2)
+        XCTAssertEqual(fixture.settings.mutationCount, 0)
+        XCTAssertEqual(
+            fixture.settings.bool(for: "walletMigrationRecoveryRequired"),
+            true
+        )
+        XCTAssertFalse(try fixture.keychain.checkSecretKeyForAddress(fixture.account.address))
+        XCTAssertFalse(try fixture.keychain.checkSeedForAddress(fixture.account.address))
+        XCTAssertFalse(try fixture.keychain.checkEntropyForAddress(fixture.account.address))
+    }
+
     private func makeMnemonicRecoveryFixture(
         entropy: Data
     ) throws -> (account: AccountItem, seed: Data, secretKey: Data) {
@@ -642,4 +873,252 @@ class RootFactoryTests: XCTestCase {
         settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
     }
 
+    private typealias CloudRecoveryFixture = (
+        settings: RecordingSettingsManager,
+        keychain: RecordingKeystore,
+        cloud: RetainedWalletCloudStorageMock,
+        account: AccountItem,
+        backup: OpenBackupAccount,
+        entropy: Data,
+        seed: Data,
+        secretKey: Data,
+        pin: String
+    )
+
+    private func makeCloudRecoveryFixture() throws -> CloudRecoveryFixture {
+        let entropy = Data((0 ..< 16).map { UInt8($0 + 11) })
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy)
+        let local = try makeMnemonicRecoveryFixture(entropy: entropy)
+        let settings = RecordingSettingsManager()
+        settings.set(value: true, for: "walletMigrationRecoveryRequired")
+        settings.set(value: "cloud-recovery", for: "walletMigrationRecoveryReason")
+        settings.set(value: local.account, for: SettingsKey.selectedAccount.rawValue)
+        settings.set(
+            value: local.account,
+            for: "walletMigrationRecoveryExpectedAccount"
+        )
+        settings.resetMutationTracking()
+
+        let pin = "123456"
+        let keychain = RecordingKeystore()
+        try keychain.addKey(Data(pin.utf8), with: KeystoreTag.pincode.rawValue)
+        keychain.resetMutationTracking()
+
+        let backup = OpenBackupAccount(
+            name: local.account.username,
+            address: local.account.address,
+            passphrase: mnemonic.toString(),
+            cryptoType: local.account.cryptoType.typeString,
+            substrateDerivationPath: "",
+            backupAccountType: [.passphrase]
+        )
+        let cloud = RetainedWalletCloudStorageMock()
+        cloud.mobileImportResult = backup
+
+        return (
+            settings,
+            keychain,
+            cloud,
+            local.account,
+            backup,
+            entropy,
+            local.seed,
+            local.secretKey,
+            pin
+        )
+    }
+
+    private func makeCloudRecoveryService(
+        fixture: CloudRecoveryFixture,
+        signingVerifier: @escaping RetainedWalletCloudRecoveryService.SigningVerifier = {
+            SelectedWalletSettings.hasVerifiedSigningKey(keystore: $0, account: $1)
+        },
+        cloudTimeout: TimeInterval = 1
+    ) -> RetainedWalletCloudRecoveryService {
+        RetainedWalletCloudRecoveryService(
+            settings: fixture.settings,
+            keystore: fixture.keychain,
+            cloudStorage: fixture.cloud,
+            selectedAccountProvider: { fixture.account },
+            signingVerifier: signingVerifier,
+            cloudTimeout: cloudTimeout
+        )
+    }
+
+    private func assertCloudRecoveryFailureWasReadOnly(
+        _ fixture: CloudRecoveryFixture,
+        expectedMarker: Bool? = true,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        XCTAssertEqual(fixture.settings.mutationCount, 0, file: file, line: line)
+        XCTAssertEqual(fixture.keychain.mutationCount, 0, file: file, line: line)
+        XCTAssertEqual(
+            fixture.settings.bool(for: "walletMigrationRecoveryRequired"),
+            expectedMarker,
+            file: file,
+            line: line
+        )
+        XCTAssertFalse(
+            try fixture.keychain.checkSecretKeyForAddress(fixture.account.address),
+            file: file,
+            line: line
+        )
+        XCTAssertFalse(
+            try fixture.keychain.checkSeedForAddress(fixture.account.address),
+            file: file,
+            line: line
+        )
+        XCTAssertFalse(
+            try fixture.keychain.checkEntropyForAddress(fixture.account.address),
+            file: file,
+            line: line
+        )
+    }
+
+}
+
+private enum CloudRecoveryTestError: Error {
+    case network
+}
+
+private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol {
+    var isUserAuthorized: Bool { restoreState == .authorized }
+    var restoreState: CloudStorageAccountState = .authorized
+    var restoreError: Error?
+    var mobileImportResult: OpenBackupAccount?
+    var mobileImportError: Error?
+    var mobileImportDelayNanoseconds: UInt64 = 0
+    private(set) var restoreCallsCount = 0
+    private(set) var mobileImportCallsCount = 0
+    private(set) var receivedAddress: String?
+    private(set) var receivedPassword: String?
+
+    func restorePreviousSignInIfAvailable() async throws -> CloudStorageAccountState {
+        restoreCallsCount += 1
+        if let restoreError {
+            throw restoreError
+        }
+        return restoreState
+    }
+
+    func importMobileBackupIfAuthorized(
+        account: OpenBackupAccount,
+        password: String
+    ) async throws -> OpenBackupAccount {
+        mobileImportCallsCount += 1
+        receivedAddress = account.address
+        receivedPassword = password
+        if mobileImportDelayNanoseconds > 0 {
+            try await Task.sleep(nanoseconds: mobileImportDelayNanoseconds)
+        }
+        if let mobileImportError {
+            throw mobileImportError
+        }
+        guard let mobileImportResult else {
+            throw CloudStorageServiceError.notFound
+        }
+        return mobileImportResult
+    }
+
+    func signInIfNeeded() async throws -> CloudStorageAccountState { .notAuthorized }
+    func getBackupAccounts() async throws -> [OpenBackupAccount] { [] }
+    func saveBackup(account: OpenBackupAccount, password: String) async throws {}
+    func importBackup(
+        account: OpenBackupAccount,
+        password: String
+    ) async throws -> OpenBackupAccount {
+        try await importMobileBackupIfAuthorized(account: account, password: password)
+    }
+    func deleteBackup(account: OpenBackupAccount) async throws {}
+    func disconnect() {}
+}
+
+private final class RecordingKeystore: KeystoreProtocol {
+    private let storage = InMemoryKeychain()
+    private(set) var mutationCount = 0
+
+    func resetMutationTracking() {
+        mutationCount = 0
+    }
+
+    func addKey(_ key: Data, with identifier: String) throws {
+        mutationCount += 1
+        try storage.addKey(key, with: identifier)
+    }
+
+    func updateKey(_ key: Data, with identifier: String) throws {
+        mutationCount += 1
+        try storage.updateKey(key, with: identifier)
+    }
+
+    func fetchKey(for identifier: String) throws -> Data {
+        try storage.fetchKey(for: identifier)
+    }
+
+    func checkKey(for identifier: String) throws -> Bool {
+        try storage.checkKey(for: identifier)
+    }
+
+    func deleteKey(for identifier: String) throws {
+        mutationCount += 1
+        try storage.deleteKey(for: identifier)
+    }
+}
+
+private final class RecordingSettingsManager: SettingsManagerProtocol {
+    private let storage = InMemorySettingsManager()
+    private(set) var mutationCount = 0
+
+    func resetMutationTracking() {
+        mutationCount = 0
+    }
+
+    func set(value: Bool, for key: String) {
+        mutationCount += 1
+        storage.set(value: value, for: key)
+    }
+
+    func set(value: Int, for key: String) {
+        mutationCount += 1
+        storage.set(value: value, for: key)
+    }
+
+    func set(value: Double, for key: String) {
+        mutationCount += 1
+        storage.set(value: value, for: key)
+    }
+
+    func set(value: String, for key: String) {
+        mutationCount += 1
+        storage.set(value: value, for: key)
+    }
+
+    func set(value: Data, for key: String) {
+        mutationCount += 1
+        storage.set(value: value, for: key)
+    }
+
+    func set(anyValue: Any, for key: String) {
+        mutationCount += 1
+        storage.set(anyValue: anyValue, for: key)
+    }
+
+    func bool(for key: String) -> Bool? { storage.bool(for: key) }
+    func integer(for key: String) -> Int? { storage.integer(for: key) }
+    func double(for key: String) -> Double? { storage.double(for: key) }
+    func string(for key: String) -> String? { storage.string(for: key) }
+    func data(for key: String) -> Data? { storage.data(for: key) }
+    func anyValue(for key: String) -> Any? { storage.anyValue(for: key) }
+
+    func removeValue(for key: String) {
+        mutationCount += 1
+        storage.removeValue(for: key)
+    }
+
+    func removeAll() {
+        mutationCount += 1
+        storage.removeAll()
+    }
 }

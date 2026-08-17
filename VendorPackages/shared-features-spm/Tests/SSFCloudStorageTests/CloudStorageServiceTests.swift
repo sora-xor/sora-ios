@@ -51,6 +51,10 @@ final class CloudStorageServiceTests: XCTestCase {
         try super.tearDownWithError()
         service = nil
         signInProvider?._currentUser = nil
+        signInProvider?.hasPreviousSignInCallsCount = 0
+        signInProvider?.hasPreviousSignInReturnValue = false
+        signInProvider?.restorePreviousSignInCallsCount = 0
+        signInProvider?.restorePreviousSignInClosure = nil
         signInProvider?.signInCallsCount = 0
         signInProvider?.signInClosure = nil
         signInProvider = nil
@@ -80,6 +84,125 @@ final class CloudStorageServiceTests: XCTestCase {
         XCTAssertEqual(state, .authorized)
         XCTAssertEqual(googleService?.setAuthorizerCallsCount, 1)
         XCTAssertTrue(googleService?.setAuthorizerCalled ?? false)
+    }
+
+    func testRestorePreviousSignInWhenAvailableDoesNotPresentInteractiveSignIn() async throws {
+        // arrange
+        signInProvider?.hasPreviousSignInReturnValue = true
+        signInProvider?.restorePreviousSignInClosure = { completion in
+            completion?(TestData.user, nil)
+        }
+
+        // act
+        let state = try await service?.restorePreviousSignInIfAvailable()
+
+        // assert
+        XCTAssertEqual(state, .authorized)
+        XCTAssertEqual(signInProvider?.hasPreviousSignInCallsCount, 1)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 1)
+        XCTAssertEqual(signInProvider?.signInCallsCount, 0)
+        XCTAssertEqual(googleService?.setAuthorizerCallsCount, 1)
+    }
+
+    func testRestorePreviousSignInWithoutSessionReturnsNotAuthorized() async throws {
+        // act
+        let state = try await service?.restorePreviousSignInIfAvailable()
+
+        // assert
+        XCTAssertEqual(state, .notAuthorized)
+        XCTAssertEqual(signInProvider?.hasPreviousSignInCallsCount, 1)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 0)
+        XCTAssertEqual(signInProvider?.signInCallsCount, 0)
+        XCTAssertEqual(googleService?.setAuthorizerCallsCount, 0)
+    }
+
+    func testMobileImportRequiresPreviouslyRestoredSessionWithoutInteractiveSignIn() async {
+        do {
+            _ = try await service?.importMobileBackupIfAuthorized(
+                account: TestData.account,
+                password: "1"
+            )
+            XCTFail("Expected a restored-session requirement")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.notAuthorized.localizedDescription
+            )
+            XCTAssertEqual(signInProvider?.signInCallsCount, 0)
+            XCTAssertEqual(googleService?.executeQueryCallsCount, 0)
+        }
+    }
+
+    func testMobileImportAfterSilentRestoreUsesOnlyExactMobileLookup() async throws {
+        signInProvider?.hasPreviousSignInReturnValue = true
+        signInProvider?.restorePreviousSignInClosure = { completion in
+            completion?(TestData.user, nil)
+        }
+        googleService?.account = TestData.encryptedAccount
+
+        XCTAssertEqual(
+            try await service?.restorePreviousSignInIfAvailable(),
+            .authorized
+        )
+        let account = try await service?.importMobileBackupIfAuthorized(
+            account: TestData.account,
+            password: "1"
+        )
+
+        XCTAssertEqual(account?.address, TestData.account.address)
+        XCTAssertEqual(signInProvider?.signInCallsCount, 0)
+        XCTAssertEqual(googleService?.executeQueryCallsCount, 2)
+        let listQuery = googleService?.executeQueryReceivedInvocations.first
+            as? GTLRDriveQuery_FilesList
+        XCTAssertEqual(
+            listQuery?.q,
+            "name = '\(TestData.account.address).json' and trashed = false"
+        )
+        XCTAssertFalse(
+            googleService?.executeQueryReceivedInvocations.contains {
+                $0 is GTLRDriveQuery_FilesCreate
+            } ?? true
+        )
+    }
+
+    func testSignInIfNeededRestoresBeforeInteractiveSignIn() async throws {
+        // arrange
+        signInProvider?.hasPreviousSignInReturnValue = true
+        signInProvider?.restorePreviousSignInClosure = { completion in
+            completion?(TestData.user, nil)
+        }
+
+        // act
+        let state = try await service?.signInIfNeeded()
+
+        // assert
+        XCTAssertEqual(state, .authorized)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 1)
+        XCTAssertEqual(signInProvider?.signInCallsCount, 0)
+    }
+
+    func testSignInIfNeededFallsBackToInteractiveSignInWhenRestoreFails() async throws {
+        // arrange
+        signInProvider?.hasPreviousSignInReturnValue = true
+        signInProvider?.restorePreviousSignInClosure = { completion in
+            completion?(nil, CloudStorageServiceError.notAuthorized)
+        }
+        signInProvider?.signInClosure = { _, _, _, completion in
+            completion?(nil, CloudStorageServiceError.notAuthorized)
+        }
+
+        // act and assert
+        do {
+            _ = try await service?.signInIfNeeded()
+            XCTFail("Expected interactive sign-in failure")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.notAuthorized.localizedDescription
+            )
+            XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 1)
+            XCTAssertEqual(signInProvider?.signInCallsCount, 1)
+        }
     }
 
     func testSignInIfNeededWithError() async throws {
@@ -150,6 +273,37 @@ final class CloudStorageServiceTests: XCTestCase {
         XCTAssertEqual(account?.ethDerivationPath, TestData.account.ethDerivationPath)
         XCTAssertEqual(account?.backupAccountType, TestData.account.backupAccountType)
         XCTAssertEqual(account?.json, TestData.account.json)
+
+        let listQuery = googleService?.executeQueryReceivedInvocations.first
+            as? GTLRDriveQuery_FilesList
+        XCTAssertEqual(
+            listQuery?.q,
+            "name = '\(TestData.account.address).json' and trashed = false"
+        )
+        XCTAssertFalse(
+            googleService?.executeQueryReceivedInvocations.contains {
+                $0 is GTLRDriveQuery_FilesCreate
+            } ?? true
+        )
+    }
+
+    func testImportBackupRejectsDecodedAccountWithDifferentAddress() async throws {
+        // arrange
+        signInProvider?._currentUser = TestData.user
+        var mismatchedAccount = TestData.encryptedAccount
+        mismatchedAccount.address = TestData.emptyAccount.address
+        googleService?.account = mismatchedAccount
+
+        // act and assert
+        do {
+            _ = try await service?.importBackup(account: TestData.account, password: "1")
+            XCTFail("Expected an address mismatch to be rejected")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.incorectJson.localizedDescription
+            )
+        }
     }
 
     func testImportBackupAccountWithError() async throws {

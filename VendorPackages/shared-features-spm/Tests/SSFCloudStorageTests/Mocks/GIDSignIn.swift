@@ -9,6 +9,26 @@ class GIDSignInMock: GIDSignIn {
 
     var _currentUser: GIDGoogleUser?
 
+    // MARK: - previous sign-in
+
+    var hasPreviousSignInCallsCount: Int = 0
+    var hasPreviousSignInReturnValue: Bool = false
+
+    override func hasPreviousSignIn() -> Bool {
+        hasPreviousSignInCallsCount += 1
+        return hasPreviousSignInReturnValue
+    }
+
+    var restorePreviousSignInCallsCount: Int = 0
+    var restorePreviousSignInClosure: ((((GIDGoogleUser?, Error?) -> Void)?) -> Void)?
+
+    override func restorePreviousSignIn(
+        completion: ((GIDGoogleUser?, Error?) -> Void)? = nil
+    ) {
+        restorePreviousSignInCallsCount += 1
+        restorePreviousSignInClosure?(completion)
+    }
+
     // MARK: - signIn
 
     var signInCallsCount: Int = 0

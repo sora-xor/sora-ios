@@ -30,6 +30,7 @@
 
 import Foundation
 import SoraUIKit
+import UIKit
 
 enum InputMode {
     case verify
@@ -49,6 +50,7 @@ class InputPincodePresenter: PinSetupPresenterProtocol {
     weak var view: PinSetupViewProtocol?
     var wireframe: PinSetupWireframeProtocol!
     var interactor: LocalAuthInteractorInputProtocol!
+    var retainedWalletCloudRecovery: RetainedWalletCloudRecoveryProtocol?
     var isNeedUpdateTo6Symbols: Bool = false
     let formatter = DateComponentsFormatter()
     
@@ -177,14 +179,27 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
     func didChangeState(from state: LocalAuthInteractor.LocalAuthState) {}
     
     func didCompleteAuth() {
-        DispatchQueue.main.async {
-            guard self.isNeedUpdateTo6Symbols else {
-                self.wireframe.showMain(from: self.view)
-                return
+        Task { [weak self] in
+            guard let self = self else { return }
+            let protectedDataAvailable = await MainActor.run {
+                UIApplication.shared.isProtectedDataAvailable
             }
 
-            self.mode = .create
-            self.view?.showUpdatePinRequestView()
+            if let retainedWalletCloudRecovery = self.retainedWalletCloudRecovery {
+                _ = await retainedWalletCloudRecovery.recoverAfterLocalAuthentication(
+                    protectedDataAvailable: protectedDataAvailable
+                )
+            }
+
+            await MainActor.run {
+                guard self.isNeedUpdateTo6Symbols else {
+                    self.wireframe.showMain(from: self.view)
+                    return
+                }
+
+                self.mode = .create
+                self.view?.showUpdatePinRequestView()
+            }
         }
     }
 

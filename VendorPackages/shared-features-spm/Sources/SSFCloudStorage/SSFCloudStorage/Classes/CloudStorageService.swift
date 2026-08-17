@@ -19,6 +19,11 @@ public enum CloudStorageAccountState {
 
 public protocol CloudStorageServiceProtocol: AnyObject {
     var isUserAuthorized: Bool { get }
+    func restorePreviousSignInIfAvailable() async throws -> CloudStorageAccountState
+    func importMobileBackupIfAuthorized(
+        account: OpenBackupAccount,
+        password: String
+    ) async throws -> OpenBackupAccount
     func signInIfNeeded() async throws -> CloudStorageAccountState
     func getBackupAccounts() async throws -> [OpenBackupAccount]
     func saveBackup(account: OpenBackupAccount, password: String) async throws
@@ -41,9 +46,10 @@ public class CloudStorageService: NSObject, GoogleDriveServiceProtocol {
     private let queue: DispatchQueueType
     private let encryptionService: EncryptionServiceProtocol
     private let fileFactory: BackupFileFactoryProtocol
+    private var hasConfiguredDriveAuthorizer = false
 
     public init(
-        uiDelegate: UIViewController,
+        uiDelegate: UIViewController?,
         signInProvider: GIDSignIn = GIDSignIn.sharedInstance,
         googleDriveService: GoogleService =
             BaseGoogleService(googleService: GTLRDriveService()),
@@ -115,18 +121,55 @@ public class CloudStorageService: NSObject, GoogleDriveServiceProtocol {
 // MARK: - CloudStorageServiceProtocol
 
 extension CloudStorageService: CloudStorageServiceProtocol {
+    public func restorePreviousSignInIfAvailable() async throws -> CloudStorageAccountState {
+        if let user = singInProvider.currentUser {
+            googleDriveService.set(authorizer: user.fetcherAuthorizer)
+            hasConfiguredDriveAuthorizer = true
+            return .authorized
+        }
+
+        guard singInProvider.hasPreviousSignIn() else {
+            return .notAuthorized
+        }
+
+        guard let user = try await restorePreviousSignIn() else {
+            return .notAuthorized
+        }
+
+        googleDriveService.set(authorizer: user.fetcherAuthorizer)
+        hasConfiguredDriveAuthorizer = true
+        return .authorized
+    }
+
+    /// Fetches only the canonical mobile backup after a caller has restored an existing
+    /// Google session. This API never attempts interactive sign-in and never falls back to
+    /// the broad Fearless-extension lookup.
+    public func importMobileBackupIfAuthorized(
+        account: OpenBackupAccount,
+        password: String
+    ) async throws -> OpenBackupAccount {
+        guard hasConfiguredDriveAuthorizer else {
+            throw CloudStorageServiceError.notAuthorized
+        }
+
+        return try await fetchAuthorizedMobileBackup(
+            account: account,
+            password: password
+        )
+    }
+
     public func signInIfNeeded() async throws -> CloudStorageAccountState {
+        if (try? await restorePreviousSignInIfAvailable()) == .authorized {
+            return .authorized
+        }
+
         guard let uiDelegate = uiDelegate else {
             return .notAuthorized
         }
 
-        if let user = singInProvider.currentUser {
-            googleDriveService.set(authorizer: user.fetcherAuthorizer)
-            return .authorized
-        }
-
         let result = try await signIn(uiDelegate: uiDelegate)
         googleDriveService.set(authorizer: result?.user.fetcherAuthorizer)
+        hasConfiguredDriveAuthorizer = result?.user != nil
         return .authorized
     }
 
@@ -212,6 +255,23 @@ extension CloudStorageService: CloudStorageServiceProtocol {
 }
 
 extension CloudStorageService {
+    private func restorePreviousSignIn() async throws -> GIDGoogleUser? {
+        try await withCheckedThrowingContinuation { [weak self] continuation in
+            guard let self else {
+                continuation.resume(returning: nil)
+                return
+            }
+
+            singInProvider.restorePreviousSignIn { user, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: user)
+                }
+            }
+        }
+    }
+
     private func signIn(uiDelegate: UIViewController) async throws -> GIDSignInResult? {
         try await withCheckedThrowingContinuation { [weak self] continuation in
             self?.queue.async { [weak self] in
@@ -292,9 +352,26 @@ extension CloudStorageService {
             throw CloudStorageServiceError.notAuthorized
         }
 
-        let files = try await getAppFolderFiles()
+        return try await fetchAuthorizedMobileBackup(
+            account: account,
+            password: password
+        )
+    }
 
-        guard let fileId = files.first(where: { $0.name?.contains(account.address) ?? false })?
+    private func fetchAuthorizedMobileBackup(
+        account: OpenBackupAccount,
+        password: String
+    ) async throws -> OpenBackupAccount {
+        let requestedAddress = account.address
+
+        let fileName = "\(requestedAddress).json"
+        let escapedFileName = fileName.replacingOccurrences(of: "'", with: "\\'")
+        let files = try await getAppFolderFiles(
+            from: "name = '\(escapedFileName)' and trashed = false",
+            withField: true
+        )
+
+        guard let fileId = files.first(where: { $0.name == fileName })?
             .identifier else
         {
             throw CloudStorageServiceError.notFound
@@ -302,7 +379,10 @@ extension CloudStorageService {
 
         let data = try await executeQueryForMedia(withFileId: fileId)
 
-        guard let account = try? JSONDecoder().decode(EcryptedBackupAccount.self, from: data) else {
+        guard
+            let account = try? JSONDecoder().decode(EcryptedBackupAccount.self, from: data),
+            account.address == requestedAddress
+        else {
             throw CloudStorageServiceError.incorectJson
         }
 

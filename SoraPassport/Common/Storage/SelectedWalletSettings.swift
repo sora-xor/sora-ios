@@ -34,6 +34,7 @@ import SoraKeystore
 import IrohaCrypto
 import SSFUtils
 import SSFCrypto
+import SSFCloudStorage
 
 protocol SelectedWalletSettingsProtocol: AnyObject {
     var currentAccount: AccountItem? { get }
@@ -526,6 +527,50 @@ extension SelectedWalletSettings {
         matchesRetainedRecoveryIdentity(settings: settings, account: account)
     }
 
+    /// Unlike the legacy repair helper, this check never backfills recovery state from
+    /// `selectedAccount`. Silent cloud recovery requires an already-persisted expected
+    /// identity so every failure path remains completely read-only.
+    static func hasExactStoredRetainedRecoveryIdentity(
+        settings: SettingsManagerProtocol,
+        account: AccountItem
+    ) -> Bool {
+        guard
+            settings.bool(for: RetainedAccountRepairKey.recoveryRequired) == true,
+            let retainedAccount = settings.value(
+                of: AccountItem.self,
+                for: RetainedAccountRepairKey.recoveryAccount
+            ),
+            retainedAccount.address == account.address,
+            retainedAccount.publicKeyData == account.publicKeyData,
+            retainedAccount.networkType == account.networkType,
+            retainedAccount.cryptoType == account.cryptoType,
+            let derivedAddress = try? SS58AddressFactory().address(
+                fromAccountId: account.publicKeyData,
+                type: account.networkType
+            )
+        else {
+            return false
+        }
+
+        return derivedAddress == account.address
+    }
+
+    @discardableResult
+    static func completeRetainedCloudRecovery(
+        settings: SettingsManagerProtocol,
+        account: AccountItem
+    ) -> Bool {
+        guard hasExactStoredRetainedRecoveryIdentity(
+            settings: settings,
+            account: account
+        ) else {
+            return false
+        }
+
+        clearRetainedRecoveryState(settings: settings)
+        return true
+    }
+
     @discardableResult
     static func completeRetainedRecoveryAfterVerifiedImport(
         settings: SettingsManagerProtocol,
@@ -705,5 +750,376 @@ extension SelectedWalletSettings {
 extension SelectedWalletSettings {
     var currentAccount: AccountItem? {
         return value
+    }
+}
+
+// MARK: - Post-authentication retained-wallet cloud recovery
+
+protocol RetainedWalletCloudRecoveryProtocol: AnyObject {
+    @discardableResult
+    func recoverAfterLocalAuthentication(protectedDataAvailable: Bool) async -> Bool
+}
+
+struct RetainedWalletBackupKeyMaterial {
+    let identifier: String
+    let data: Data
+    let isSigningKey: Bool
+}
+
+struct RetainedWalletBackupCandidate {
+    let account: AccountItem
+    let verificationKeystore: KeystoreProtocol
+    let keyMaterial: [RetainedWalletBackupKeyMaterial]
+}
+
+protocol RetainedWalletBackupCandidateDeriving {
+    func deriveCandidate(
+        from backup: OpenBackupAccount,
+        password: String
+    ) throws -> RetainedWalletBackupCandidate
+}
+
+enum RetainedWalletCloudRecoveryError: Error {
+    case unsupportedBackup
+    case missingSigningKey
+    case timeout
+}
+
+final class AccountOperationRetainedWalletBackupCandidateDeriver:
+    RetainedWalletBackupCandidateDeriving
+{
+    func deriveCandidate(
+        from backup: OpenBackupAccount,
+        password: String
+    ) throws -> RetainedWalletBackupCandidate {
+        let inMemoryKeystore = InMemoryKeychain()
+        let factory = AccountOperationFactory(keystore: inMemoryKeystore)
+        let backupTypes = backup.backupAccountType ?? []
+        let operation: BaseOperation<AccountItem>
+        let cryptoType = CryptoType(type: backup.cryptoType ?? "SR25519")
+        let derivationPath = backup.substrateDerivationPath ?? ""
+
+        if backupTypes.contains(.passphrase),
+           let passphrase = backup.passphrase,
+           !passphrase.isEmpty
+        {
+            let mnemonic = try IRMnemonicCreator().mnemonic(fromList: passphrase)
+            let request = AccountCreationRequest(
+                username: backup.name ?? "",
+                type: .sora,
+                derivationPath: derivationPath,
+                cryptoType: cryptoType
+            )
+            operation = factory.newAccountOperation(request: request, mnemonic: mnemonic)
+        } else if backupTypes.contains(.seed),
+                  let seed = backup.encryptedSeed?.substrateSeed,
+                  !seed.isEmpty
+        {
+            let request = AccountImportSeedRequest(
+                seed: seed,
+                username: backup.name ?? "",
+                networkType: .sora,
+                derivationPath: derivationPath,
+                cryptoType: cryptoType
+            )
+            operation = factory.newAccountOperation(request: request)
+        } else {
+            // JSON backups contain an independently supplied raw secret key. Automatic
+            // recovery must never pass those bytes to the native sr25519 signer: malformed
+            // encodings can panic below Swift's throwable boundary. Manual JSON import
+            // remains available through its existing, user-initiated flow.
+            throw RetainedWalletCloudRecoveryError.unsupportedBackup
+        }
+
+        OperationQueue().addOperations([operation], waitUntilFinished: true)
+        let account = try operation.extractResultData(
+            throwing: BaseOperationError.parentOperationCancelled
+        )
+
+        let identifiers = [
+            KeystoreTag.entropyTagForAddress(account.address),
+            KeystoreTag.deriviationTagForAddress(account.address),
+            KeystoreTag.seedTagForAddress(account.address),
+            KeystoreTag.secretKeyTagForAddress(account.address)
+        ]
+        let keyMaterial: [RetainedWalletBackupKeyMaterial] = try identifiers.compactMap { identifier -> RetainedWalletBackupKeyMaterial? in
+            guard let data = try inMemoryKeystore.loadIfKeyExists(identifier) else {
+                return nil
+            }
+
+            return RetainedWalletBackupKeyMaterial(
+                identifier: identifier,
+                data: data,
+                isSigningKey: identifier == KeystoreTag.secretKeyTagForAddress(account.address)
+            )
+        }
+
+        guard keyMaterial.contains(where: { $0.isSigningKey }) else {
+            throw RetainedWalletCloudRecoveryError.missingSigningKey
+        }
+
+        return RetainedWalletBackupCandidate(
+            account: account,
+            verificationKeystore: inMemoryKeystore,
+            keyMaterial: keyMaterial
+        )
+    }
+}
+
+private final class RetainedWalletCloudResultGate<Value> {
+    private let lock = NSLock()
+    private var completed = false
+
+    func resume(
+        _ continuation: CheckedContinuation<Result<Value, Error>, Never>,
+        with result: Result<Value, Error>
+    ) {
+        lock.lock()
+        guard !completed else {
+            lock.unlock()
+            return
+        }
+        completed = true
+        lock.unlock()
+        continuation.resume(returning: result)
+    }
+}
+
+final class RetainedWalletCloudRecoveryService: RetainedWalletCloudRecoveryProtocol {
+    typealias SigningVerifier = (KeystoreProtocol, AccountItem) -> Bool
+
+    private struct RecoveryGateKey: Hashable {
+        let settingsIdentifier: ObjectIdentifier
+        let address: String
+    }
+
+    private static let recoveryGateLock = NSLock()
+    private static var recoveriesInFlight = Set<RecoveryGateKey>()
+
+    private let settings: SettingsManagerProtocol
+    private let keystore: KeystoreProtocol
+    private let cloudStorage: CloudStorageServiceProtocol
+    private let selectedAccountProvider: () -> AccountItem?
+    private let candidateDeriver: RetainedWalletBackupCandidateDeriving
+    private let signingVerifier: SigningVerifier
+    private let cloudTimeout: TimeInterval
+
+    init(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        cloudStorage: CloudStorageServiceProtocol,
+        selectedAccountProvider: @escaping () -> AccountItem?,
+        candidateDeriver: RetainedWalletBackupCandidateDeriving =
+            AccountOperationRetainedWalletBackupCandidateDeriver(),
+        signingVerifier: @escaping SigningVerifier = {
+            SelectedWalletSettings.hasVerifiedSigningKey(keystore: $0, account: $1)
+        },
+        cloudTimeout: TimeInterval = 5
+    ) {
+        self.settings = settings
+        self.keystore = keystore
+        self.cloudStorage = cloudStorage
+        self.selectedAccountProvider = selectedAccountProvider
+        self.candidateDeriver = candidateDeriver
+        self.signingVerifier = signingVerifier
+        self.cloudTimeout = cloudTimeout
+    }
+
+    static func live() -> RetainedWalletCloudRecoveryService {
+        RetainedWalletCloudRecoveryService(
+            settings: SettingsManager.shared,
+            keystore: Keychain(),
+            cloudStorage: CloudStorageService(uiDelegate: nil),
+            selectedAccountProvider: { SelectedWalletSettings.shared.currentAccount }
+        )
+    }
+
+    @discardableResult
+    func recoverAfterLocalAuthentication(protectedDataAvailable: Bool) async -> Bool {
+        guard protectedDataAvailable,
+              let retainedAccount = selectedAccountProvider(),
+              SelectedWalletSettings.hasExactStoredRetainedRecoveryIdentity(
+                  settings: settings,
+                  account: retainedAccount
+              )
+        else {
+            return false
+        }
+
+        let recoveryGateKey = RecoveryGateKey(
+            settingsIdentifier: ObjectIdentifier(settings),
+            address: retainedAccount.address
+        )
+        guard Self.beginRecovery(for: recoveryGateKey) else {
+            return false
+        }
+        defer {
+            Self.endRecovery(for: recoveryGateKey)
+        }
+
+        do {
+            // A present canonical signer is never inspected, replaced, or deleted by cloud
+            // recovery. Local retained-material recovery owns that case.
+            guard try keystore.fetchSecretKeyForAddress(retainedAccount.address) == nil else {
+                return false
+            }
+
+            let pinData = try keystore.fetchKey(for: KeystoreTag.pincode.rawValue)
+            guard let pin = String(data: pinData, encoding: .utf8), !pin.isEmpty else {
+                return false
+            }
+
+            let backup = try await fetchSilentBackup(
+                address: retainedAccount.address,
+                password: pin
+            )
+            try Task.checkCancellation()
+
+            guard backup.address == retainedAccount.address else {
+                return false
+            }
+
+            let candidate = try candidateDeriver.deriveCandidate(
+                from: backup,
+                password: pin
+            )
+            guard candidateMatches(candidate.account, retainedAccount: retainedAccount),
+                  signingVerifier(candidate.verificationKeystore, candidate.account),
+                  SelectedWalletSettings.hasExactStoredRetainedRecoveryIdentity(
+                      settings: settings,
+                      account: retainedAccount
+                  )
+            else {
+                return false
+            }
+
+            return try persistVerifiedCandidate(
+                candidate,
+                retainedAccount: retainedAccount
+            )
+        } catch {
+            Logger.shared.warning("SORA silent retained-wallet cloud recovery unavailable")
+            return false
+        }
+    }
+
+    private static func beginRecovery(for key: RecoveryGateKey) -> Bool {
+        recoveryGateLock.lock()
+        defer { recoveryGateLock.unlock() }
+        return recoveriesInFlight.insert(key).inserted
+    }
+
+    private static func endRecovery(for key: RecoveryGateKey) {
+        recoveryGateLock.lock()
+        recoveriesInFlight.remove(key)
+        recoveryGateLock.unlock()
+    }
+
+    private func fetchSilentBackup(
+        address: String,
+        password: String
+    ) async throws -> OpenBackupAccount {
+        let gate = RetainedWalletCloudResultGate<OpenBackupAccount>()
+        let result = await withCheckedContinuation {
+            (continuation: CheckedContinuation<Result<OpenBackupAccount, Error>, Never>) in
+            let requestTask = Task { [cloudStorage] in
+                do {
+                    let state = try await cloudStorage.restorePreviousSignInIfAvailable()
+                    try Task.checkCancellation()
+                    guard state == .authorized else {
+                        throw CloudStorageServiceError.notAuthorized
+                    }
+
+                    let backup = try await cloudStorage.importMobileBackupIfAuthorized(
+                        account: OpenBackupAccount(address: address),
+                        password: password
+                    )
+                    try Task.checkCancellation()
+                    gate.resume(continuation, with: .success(backup))
+                } catch {
+                    gate.resume(continuation, with: .failure(error))
+                }
+            }
+
+            Task {
+                let nanoseconds = UInt64(max(0, cloudTimeout) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanoseconds)
+                requestTask.cancel()
+                gate.resume(
+                    continuation,
+                    with: .failure(RetainedWalletCloudRecoveryError.timeout)
+                )
+            }
+        }
+
+        return try result.get()
+    }
+
+    private func candidateMatches(
+        _ candidate: AccountItem,
+        retainedAccount: AccountItem
+    ) -> Bool {
+        candidate.address == retainedAccount.address &&
+            candidate.publicKeyData == retainedAccount.publicKeyData &&
+            candidate.networkType == retainedAccount.networkType &&
+            candidate.cryptoType == retainedAccount.cryptoType
+    }
+
+    private func persistVerifiedCandidate(
+        _ candidate: RetainedWalletBackupCandidate,
+        retainedAccount: AccountItem
+    ) throws -> Bool {
+        guard SelectedWalletSettings.hasExactStoredRetainedRecoveryIdentity(
+            settings: settings,
+            account: retainedAccount
+        ), try keystore.fetchSecretKeyForAddress(retainedAccount.address) == nil else {
+            return false
+        }
+
+        var missingMaterial: [RetainedWalletBackupKeyMaterial] = []
+        for material in candidate.keyMaterial {
+            if let existing = try keystore.loadIfKeyExists(material.identifier) {
+                guard existing == material.data else {
+                    return false
+                }
+            } else {
+                missingMaterial.append(material)
+            }
+        }
+
+        // Supporting material is written before the signer; until the final add succeeds,
+        // the wallet remains unable to sign. `addKey` is create-only and cannot overwrite.
+        missingMaterial.sort { !$0.isSigningKey && $1.isSigningKey }
+        var addedIdentifiers: [String] = []
+
+        do {
+            for material in missingMaterial {
+                try keystore.addKey(material.data, with: material.identifier)
+                addedIdentifiers.append(material.identifier)
+            }
+
+            for material in candidate.keyMaterial {
+                guard try keystore.fetchKey(for: material.identifier) == material.data else {
+                    throw RetainedWalletCloudRecoveryError.missingSigningKey
+                }
+            }
+
+            guard signingVerifier(keystore, retainedAccount),
+                  SelectedWalletSettings.completeRetainedCloudRecovery(
+                      settings: settings,
+                      account: retainedAccount
+                  )
+            else {
+                throw RetainedWalletCloudRecoveryError.missingSigningKey
+            }
+
+            Logger.shared.info("SORA retained wallet recovered from an existing cloud session")
+            return true
+        } catch {
+            for identifier in addedIdentifiers.reversed() {
+                try? keystore.deleteKeyIfExists(for: identifier)
+            }
+            throw error
+        }
     }
 }
