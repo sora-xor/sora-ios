@@ -273,6 +273,50 @@ final class SoraIndexerResponseTests: XCTestCase {
         )
     }
 
+    func testFiatNodeAcceptsProductionPriceShapes() throws {
+        let json = Data(#"""
+        {
+          "data": {
+            "entities": {
+              "nodes": [
+                {"id":"string","priceUSD":"5.39"},
+                {"id":"number","priceUSD":5.39},
+                {"id":"missing","priceUSD":null}
+              ],
+              "pageInfo": {"hasNextPage":false,"endCursor":null}
+            }
+          }
+        }
+        """#.utf8)
+        let response = try JSONDecoder().decode(
+            SubqueryResponse<SoraIndexerEntitiesPayload<SoraIndexerFiatNode>>.self,
+            from: json
+        )
+
+        guard case let .data(payload) = response else {
+            return XCTFail("Expected data response")
+        }
+        XCTAssertEqual(payload.entities.nodes.map(\.priceUSD), [5.39, 5.39, nil])
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                SoraIndexerFiatNode.self,
+                from: Data(#"{"id":7,"priceUSD":"5.39"}"#.utf8)
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                SoraIndexerFiatNode.self,
+                from: Data(#"{"id":"bool","priceUSD":true}"#.utf8)
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                SoraIndexerFiatNode.self,
+                from: Data(#"{"id":"object","priceUSD":{}}"#.utf8)
+            )
+        )
+    }
+
     func testApyPairKeyIsStableAcrossAssetOrderAndCase() {
         let xor = WalletAssetId.xor.rawValue
         let pswap = WalletAssetId.pswap.rawValue

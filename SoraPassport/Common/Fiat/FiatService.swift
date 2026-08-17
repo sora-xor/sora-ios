@@ -105,8 +105,9 @@ actor FiatService {
             response.forEach { fiatDataByAssetId[$0.id] = $0 }
             let expirationDate = Date().addingTimeInterval(600)
             refresh.assetIds.forEach { expirationByAssetId[$0] = expirationDate }
+            let pricedCount = response.filter { $0.priceUsd != nil }.count
             Logger.shared.info(
-                "SORA fiat prices loaded: \(response.count)/\(refresh.assetIds.count)"
+                "SORA fiat prices loaded: \(pricedCount)/\(refresh.assetIds.count)"
             )
             return true
         case let .failure(error):

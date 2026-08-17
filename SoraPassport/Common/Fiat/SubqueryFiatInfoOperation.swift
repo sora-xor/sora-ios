@@ -70,14 +70,10 @@ public final class SubqueryFiatInfoOperation<ResultType>: BaseOperation<ResultTy
                 nodes.forEach { nodesById[$0.id] = $0 }
             }
 
-            let fiatData: [FiatData] = nodesById.values.sorted { $0.id < $1.id }.compactMap {
-                node -> FiatData? in
-                guard let priceUsd = Double(node.priceUSD) else {
-                    return nil
-                }
-                return FiatData(
+            let fiatData: [FiatData] = nodesById.values.sorted { $0.id < $1.id }.map { node in
+                FiatData(
                     id: node.id,
-                    priceUsd: KotlinDouble(value: priceUsd)
+                    priceUsd: node.priceUSD.map(KotlinDouble.init(value:))
                 )
             }
             guard let typedData = fiatData as? ResultType else {
@@ -121,7 +117,26 @@ enum SoraFiatPriceQueryBuilder {
     }
 }
 
-private struct SoraIndexerFiatNode: Decodable {
+struct SoraIndexerFiatNode: Decodable {
     let id: String
-    let priceUSD: String
+    let priceUSD: Double?
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case priceUSD
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+
+        if try container.decodeNil(forKey: .priceUSD) {
+            priceUSD = nil
+        } else if let value = try? container.decode(String.self, forKey: .priceUSD) {
+            priceUSD = Double(value).flatMap { $0.isFinite ? $0 : nil }
+        } else {
+            let value = try container.decode(Double.self, forKey: .priceUSD)
+            priceUSD = value.isFinite ? value : nil
+        }
+    }
 }
