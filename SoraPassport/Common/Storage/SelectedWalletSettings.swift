@@ -52,7 +52,7 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
 
     private struct RetainedSigningMaterial {
         let secretKey: Data
-        let seed: Data
+        let seed: Data?
         let entropy: Data?
         let source: String
     }
@@ -255,7 +255,33 @@ extension SelectedWalletSettings {
             return false
         }
 
-        return true
+        if hasAnyRetainedSigningMaterial(keystore: keystore, account: account) {
+            return true
+        }
+
+        // There is nothing the full-screen restore prompt can consume automatically.
+        // Preserve the recovery marker and keep signing fail-closed, but allow users to
+        // browse balances, prices, activity, and receive funds without being trapped.
+        Logger.shared.warning(
+            "SORA wallet signing material is unavailable; continuing in browse-only mode"
+        )
+        return false
+    }
+
+    private static func hasAnyRetainedSigningMaterial(
+        keystore: KeystoreProtocol,
+        account: AccountItem
+    ) -> Bool {
+        let identifiers = [
+            KeystoreTag.secretKeyTagForAddress(account.address),
+            KeystoreTag.seedTagForAddress(account.address),
+            KeystoreTag.entropyTagForAddress(account.address),
+            KeystoreTag.legacyEntropy.rawValue,
+            "privateKey",
+            "ethKey"
+        ]
+
+        return identifiers.contains { (try? keystore.checkKey(for: $0)) == true }
     }
 
     static func repairRetainedSigningMaterialIfPossible(
@@ -264,6 +290,7 @@ extension SelectedWalletSettings {
         account: AccountItem
     ) throws -> Bool {
         guard matchesRetainedRecoveryIdentity(settings: settings, account: account) else {
+            logAutomaticRecoveryBlocked(reason: "retained-identity-mismatch")
             return false
         }
 
@@ -275,6 +302,7 @@ extension SelectedWalletSettings {
         // Never replace an existing key that failed verification. Reconstruction is only
         // allowed when a retained seed or entropy derives the exact retained identity.
         guard try !keystore.checkSecretKeyForAddress(account.address) else {
+            logAutomaticRecoveryBlocked(reason: "existing-secret-failed-verification")
             return false
         }
 
@@ -292,6 +320,7 @@ extension SelectedWalletSettings {
             ) else {
                 // Contradictory or invalid address-scoped records must never fall through
                 // to a different legacy source.
+                logAutomaticRecoveryBlocked(reason: "scoped-material-invalid-or-conflicting")
                 return false
             }
 
@@ -299,17 +328,38 @@ extension SelectedWalletSettings {
         } else if
             derivationPath.isEmpty,
             account.cryptoType == .sr25519,
-            account.networkType == ApplicationConfig.shared.addressType,
-            let legacyEntropy = try keystore.loadIfKeyExists(
-                KeystoreTag.legacyEntropy.rawValue
-            ),
-            let legacyMaterial = try retainedSigningMaterial(
-                legacyEntropy: legacyEntropy,
-                account: account
-            )
+            account.networkType == ApplicationConfig.shared.addressType
         {
-            candidates = [legacyMaterial]
+            if let legacyEntropy = try keystore.loadIfKeyExists(
+                KeystoreTag.legacyEntropy.rawValue
+            ) {
+                if let legacyMaterial = try retainedSigningMaterial(
+                    legacyEntropy: legacyEntropy,
+                    account: account
+                ) {
+                    candidates = [legacyMaterial]
+                } else {
+                    candidates = try retainedLegacySecretCandidates(
+                        keystore: keystore,
+                        account: account
+                    )
+                    if candidates.isEmpty {
+                        logAutomaticRecoveryBlocked(
+                            reason: "legacy-entropy-identity-mismatch"
+                        )
+                    }
+                }
+            } else {
+                candidates = try retainedLegacySecretCandidates(
+                    keystore: keystore,
+                    account: account
+                )
+                if candidates.isEmpty {
+                    logAutomaticRecoveryBlocked(reason: "no-compatible-retained-secret")
+                }
+            }
         } else {
+            logAutomaticRecoveryBlocked(reason: "legacy-source-shape-unsupported")
             candidates = []
         }
 
@@ -323,7 +373,9 @@ extension SelectedWalletSettings {
                 continue
             }
 
-            try? keystore.saveSeed(material.seed, address: account.address)
+            if let seed = material.seed {
+                try? keystore.saveSeed(seed, address: account.address)
+            }
             if let entropy = material.entropy {
                 try? keystore.saveEntropy(entropy, address: account.address)
             }
@@ -336,6 +388,51 @@ extension SelectedWalletSettings {
         }
 
         return false
+    }
+
+    private static func retainedLegacySecretCandidates(
+        keystore: KeystoreProtocol,
+        account: AccountItem
+    ) throws -> [RetainedSigningMaterial] {
+        let identifiers = ["privateKey", "ethKey"]
+
+        return try identifiers.flatMap { identifier -> [RetainedSigningMaterial] in
+            guard let secret = try keystore.loadIfKeyExists(identifier) else {
+                return []
+            }
+
+            var candidates = [
+                RetainedSigningMaterial(
+                    secretKey: secret,
+                    seed: nil,
+                    entropy: nil,
+                    source: "legacy-\(identifier)-as-secret"
+                )
+            ]
+            let seedMaterial: RetainedSigningMaterial?
+
+            do {
+                seedMaterial = try retainedSigningMaterial(
+                    seed: secret,
+                    entropy: nil,
+                    derivationPath: "",
+                    source: "legacy-\(identifier)-as-seed",
+                    account: account
+                )
+            } catch {
+                seedMaterial = nil
+            }
+
+            if let seedMaterial {
+                candidates.append(seedMaterial)
+            }
+
+            return candidates
+        }
+    }
+
+    private static func logAutomaticRecoveryBlocked(reason: String) {
+        Logger.shared.warning("SORA automatic retained-wallet recovery blocked: \(reason)")
     }
 
     private static func retainedScopedSigningMaterial(

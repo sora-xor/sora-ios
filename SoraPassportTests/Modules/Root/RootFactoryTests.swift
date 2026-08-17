@@ -46,7 +46,7 @@ class RootFactoryTests: XCTestCase {
         XCTAssertNotNil(interactor.presenter)
     }
 
-    func testRetainedAccountRepairRestoresPublicMetadataForRecoveryPreview() throws {
+    func testRetainedAccountRepairRestoresPublicMetadataForBrowseOnlyWallet() throws {
         let settings = InMemorySettingsManager()
         let keychain = InMemoryKeychain()
         let publicKey = try XCTUnwrap(
@@ -75,7 +75,7 @@ class RootFactoryTests: XCTestCase {
         XCTAssertEqual(repairPlan.account.address, account.address)
         XCTAssertTrue(repairPlan.account.isSelected)
         XCTAssertEqual(settings.bool(for: "walletMigrationRecoveryRequired"), true)
-        XCTAssertTrue(
+        XCTAssertFalse(
             SelectedWalletSettings.requiresRecoveryReadOnlyMode(
                 settings: settings,
                 keystore: keychain,
@@ -472,6 +472,58 @@ class RootFactoryTests: XCTestCase {
             settings.bool(for: "walletMigrationRecoveryRequired"),
             true
         )
+    }
+
+    func testVerifiedLegacyPrivateKeySecretRepairsRetainedWallet() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 23) })
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+        try keychain.saveKey(fixture.secretKey, with: "privateKey")
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertEqual(try keychain.fetchKey(for: "privateKey"), fixture.secretKey)
+        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
+    }
+
+    func testVerifiedLegacyPrivateKeySeedRepairsRetainedWallet() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 37) })
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+        try keychain.saveKey(fixture.seed, with: "privateKey")
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertEqual(
+            try keychain.fetchSeedForAddress(fixture.account.address),
+            fixture.seed
+        )
+        XCTAssertEqual(try keychain.fetchKey(for: "privateKey"), fixture.seed)
+        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
     }
 
     func testRetainedRepairPlanKeepsPreviewWhenScopedMaterialIsUnrecoverable() throws {
