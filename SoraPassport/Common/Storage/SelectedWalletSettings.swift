@@ -33,6 +33,7 @@ import RobinHood
 import SoraKeystore
 import IrohaCrypto
 import SSFUtils
+import SSFCrypto
 
 protocol SelectedWalletSettingsProtocol: AnyObject {
     var currentAccount: AccountItem? { get }
@@ -47,6 +48,13 @@ protocol SelectedWalletSettingsProtocol: AnyObject {
 final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, SelectedWalletSettingsProtocol {
     struct RetainedAccountRepairPlan: Equatable {
         let account: AccountItem
+    }
+
+    private struct RetainedSigningMaterial {
+        let secretKey: Data
+        let seed: Data
+        let entropy: Data?
+        let source: String
     }
 
     private enum RetainedAccountRepairKey {
@@ -224,21 +232,178 @@ extension SelectedWalletSettings {
             order: retainedAccount.order,
             isSelected: true
         )
-        let hasSigningMaterial = try keystore.checkSecretKeyForAddress(account.address) ||
-            keystore.checkEntropyForAddress(account.address) ||
-            keystore.checkSeedForAddress(account.address)
-        guard !hasSigningMaterial else {
-            // Retained key material must be cryptographically matched before it can be used.
-            // This rollback build only restores public metadata for a read-only preview.
-            return nil
-        }
 
+        // Keep recovery state intact until the public account row is durably saved.
+        // Root's inconsistent-state migrator performs the verified signing repair next.
         return RetainedAccountRepairPlan(account: account)
     }
 
     static func requiresRecoveryReadOnlyMode(
         settings: SettingsManagerProtocol,
         keystore: KeystoreProtocol,
+        account: AccountItem
+    ) -> Bool {
+        guard matchesRetainedRecoveryIdentity(settings: settings, account: account) else {
+            return false
+        }
+
+        if (try? repairRetainedSigningMaterialIfPossible(
+            settings: settings,
+            keystore: keystore,
+            account: account
+        )) == true {
+            return false
+        }
+
+        return true
+    }
+
+    static func repairRetainedSigningMaterialIfPossible(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        account: AccountItem
+    ) throws -> Bool {
+        guard matchesRetainedRecoveryIdentity(settings: settings, account: account) else {
+            return false
+        }
+
+        if hasVerifiedSigningKey(keystore: keystore, account: account) {
+            clearRetainedRecoveryState(settings: settings)
+            return true
+        }
+
+        // Never replace an existing key that failed verification. Reconstruction is only
+        // allowed when a retained seed or entropy derives the exact retained identity.
+        guard try !keystore.checkSecretKeyForAddress(account.address) else {
+            return false
+        }
+
+        let derivationPath = try keystore.fetchDeriviationForAddress(account.address) ?? ""
+        let scopedSeed = try keystore.fetchSeedForAddress(account.address)
+        let scopedEntropy = try keystore.fetchEntropyForAddress(account.address)
+        let candidates: [RetainedSigningMaterial]
+
+        if scopedSeed != nil || scopedEntropy != nil {
+            guard let scopedMaterial = try retainedScopedSigningMaterial(
+                seed: scopedSeed,
+                entropy: scopedEntropy,
+                derivationPath: derivationPath,
+                account: account
+            ) else {
+                // Contradictory or invalid address-scoped records must never fall through
+                // to a different legacy source.
+                return false
+            }
+
+            candidates = [scopedMaterial]
+        } else if
+            derivationPath.isEmpty,
+            account.cryptoType == .sr25519,
+            account.networkType == ApplicationConfig.shared.addressType,
+            let legacyEntropy = try keystore.loadIfKeyExists(
+                KeystoreTag.legacyEntropy.rawValue
+            ),
+            let legacyMaterial = try retainedSigningMaterial(
+                legacyEntropy: legacyEntropy,
+                account: account
+            )
+        {
+            candidates = [legacyMaterial]
+        } else {
+            candidates = []
+        }
+
+        for material in candidates {
+            try keystore.saveSecretKey(material.secretKey, address: account.address)
+
+            guard hasVerifiedSigningKey(keystore: keystore, account: account) else {
+                try? keystore.deleteKeyIfExists(
+                    for: KeystoreTag.secretKeyTagForAddress(account.address)
+                )
+                continue
+            }
+
+            try? keystore.saveSeed(material.seed, address: account.address)
+            if let entropy = material.entropy {
+                try? keystore.saveEntropy(entropy, address: account.address)
+            }
+
+            clearRetainedRecoveryState(settings: settings)
+            Logger.shared.info(
+                "SORA retained wallet signing material repaired automatically: \(material.source)"
+            )
+            return true
+        }
+
+        return false
+    }
+
+    private static func retainedScopedSigningMaterial(
+        seed: Data?,
+        entropy: Data?,
+        derivationPath: String,
+        account: AccountItem
+    ) throws -> RetainedSigningMaterial? {
+        let seedMaterial = try seed.flatMap {
+            try retainedSigningMaterial(
+                seed: $0,
+                entropy: entropy,
+                derivationPath: derivationPath,
+                source: entropy == nil ? "address-seed" : "address-seed-and-entropy",
+                account: account
+            )
+        }
+        let entropyMaterial = try entropy.flatMap {
+            try retainedSigningMaterial(
+                entropy: $0,
+                derivationPath: derivationPath,
+                source: seed == nil ? "address-entropy" : "address-seed-and-entropy",
+                account: account
+            )
+        }
+
+        if seed != nil, entropy != nil {
+            guard
+                let seedMaterial,
+                let entropyMaterial,
+                seedMaterial.seed == entropyMaterial.seed
+            else {
+                return nil
+            }
+
+            return seedMaterial
+        }
+
+        return seedMaterial ?? entropyMaterial
+    }
+
+    private static func retainedSigningMaterial(
+        legacyEntropy: Data,
+        account: AccountItem
+    ) throws -> RetainedSigningMaterial? {
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(
+            fromEntropy: legacyEntropy
+        )
+        guard [12, 15, 24].contains(mnemonic.allWords().count) else {
+            return nil
+        }
+
+        let seed = try SeedFactory().deriveSeed(
+            from: mnemonic.toString(),
+            password: ""
+        ).seed.miniSeed
+
+        return try retainedSigningMaterial(
+            seed: seed,
+            entropy: legacyEntropy,
+            derivationPath: "",
+            source: "legacy-entropy",
+            account: account
+        )
+    }
+
+    private static func matchesRetainedRecoveryIdentity(
+        settings: SettingsManagerProtocol,
         account: AccountItem
     ) -> Bool {
         guard
@@ -256,18 +421,100 @@ extension SelectedWalletSettings {
             return false
         }
 
-        guard derivedAddress == account.address else {
-            return false
+        return derivedAddress == account.address
+    }
+
+    private static func retainedSigningMaterial(
+        entropy: Data,
+        derivationPath: String,
+        source: String,
+        account: AccountItem
+    ) throws -> RetainedSigningMaterial? {
+        let password: String
+
+        if derivationPath.isEmpty {
+            password = ""
+        } else {
+            password = try SubstrateJunctionFactory().parse(path: derivationPath).password ?? ""
         }
 
-        guard hasVerifiedSigningKey(keystore: keystore, account: account) else {
-            return true
+        let mnemonic = try IRMnemonicCreator(language: .english).mnemonic(fromEntropy: entropy)
+        let seed = try SeedFactory().deriveSeed(
+            from: mnemonic.toString(),
+            password: password
+        ).seed.miniSeed
+
+        return try retainedSigningMaterial(
+            seed: seed,
+            entropy: entropy,
+            derivationPath: derivationPath,
+            source: source,
+            account: account
+        )
+    }
+
+    private static func retainedSigningMaterial(
+        seed: Data,
+        entropy: Data?,
+        derivationPath: String,
+        source: String,
+        account: AccountItem
+    ) throws -> RetainedSigningMaterial? {
+        let chaincodes: [Chaincode] = derivationPath.isEmpty
+            ? []
+            : try SubstrateJunctionFactory().parse(path: derivationPath).chaincodes
+        let miniSeed = seed.miniSeed
+        let keypair: IRCryptoKeypairProtocol
+        let secretKey: Data
+
+        switch account.cryptoType {
+        case .sr25519:
+            keypair = try SR25519KeypairFactory().createKeypairFromSeed(
+                seed,
+                chaincodeList: chaincodes
+            )
+            secretKey = keypair.privateKey().rawData()
+        case .ed25519:
+            let factory = Ed25519KeypairFactory()
+            keypair = try factory.createKeypairFromSeed(seed, chaincodeList: chaincodes)
+            secretKey = try factory.deriveChildSeedFromParent(
+                miniSeed,
+                chaincodeList: chaincodes
+            )
+        case .ecdsa:
+            let factory = EcdsaKeypairFactory()
+            keypair = try factory.createKeypairFromSeed(seed, chaincodeList: chaincodes)
+            secretKey = try factory.deriveChildSeedFromParent(
+                miniSeed,
+                chaincodeList: chaincodes
+            )
         }
 
+        let publicKey = keypair.publicKey().rawData()
+        guard publicKey == account.publicKeyData else {
+            return nil
+        }
+
+        let address = try SS58AddressFactory().address(
+            fromAccountId: publicKey,
+            type: account.networkType
+        )
+        guard address == account.address else {
+            return nil
+        }
+
+        return RetainedSigningMaterial(
+            secretKey: secretKey,
+            seed: seed,
+            entropy: entropy,
+            source: source
+        )
+    }
+
+    private static func clearRetainedRecoveryState(settings: SettingsManagerProtocol) {
         settings.removeValue(for: RetainedAccountRepairKey.recoveryRequired)
         settings.removeValue(for: "walletMigrationRecoveryReason")
         settings.removeValue(for: RetainedAccountRepairKey.recoveryAccount)
-        return false
     }
 
     private static func retainedRecoveryAccount(

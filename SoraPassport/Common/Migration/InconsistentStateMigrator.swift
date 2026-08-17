@@ -48,6 +48,14 @@ final class InconsistentStateMigrator: Migrating {
             return
         }
 
+        if try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+            settings: settings,
+            keystore: keychain,
+            account: selectedAccount
+        ) {
+            return
+        }
+
         let hasSecretKey = try keychain.checkSecretKeyForAddress(selectedAccount.address)
 
         if !hasSecretKey {

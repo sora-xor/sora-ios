@@ -80,6 +80,10 @@ final class RootInteractor {
     var legacyImportInteractor: AccountImportInteractorInputProtocol?
 
     private func checkLegacyUpdate() {
+        guard !settings.hasSelectedAccount else {
+            return
+        }
+
         guard settings.bool(for: "walletMigrationRecoveryRequired") != true else {
             Logger.shared.debug("Legacy wallet import deferred while migration recovery is required")
             return
@@ -107,10 +111,6 @@ extension RootInteractor: RootInteractorInputProtocol {
             if !settings.hasSelectedAccount {
                 presenter?.didDecideOnboarding()
                 return
-            } else {
-                if settings.bool(for: "walletMigrationRecoveryRequired") != true {
-                    try? keystore.deleteKeyIfExists(for: KeystoreTag.legacyEntropy.rawValue)
-                }
             }
 
             let pincodeExists = try keystore.checkKey(for: KeystoreTag.pincode.rawValue)
