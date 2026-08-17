@@ -102,7 +102,7 @@ class RootFactoryTests: XCTestCase {
         )
         settings.set(value: true, for: "walletMigrationRecoveryRequired")
         settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
-        try keychain.saveSecretKey(Data(repeating: 1, count: 32), address: account.address)
+        try keychain.saveSecretKey(Data(repeating: 0xff, count: 64), address: account.address)
 
         let repairPlan = try XCTUnwrap(
             SelectedWalletSettings.retainedAccountRepairPlan(
@@ -188,6 +188,7 @@ class RootFactoryTests: XCTestCase {
         settings.set(value: true, for: "walletMigrationRecoveryRequired")
         settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
         try keychain.saveSecretKey(keypair.privateKey().rawData(), address: address)
+        try keychain.saveSeed(Data(repeating: 7, count: 32), address: address)
 
         XCTAssertFalse(
             SelectedWalletSettings.requiresRecoveryReadOnlyMode(

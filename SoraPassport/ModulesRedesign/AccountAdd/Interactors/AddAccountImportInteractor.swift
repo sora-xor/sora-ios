@@ -106,6 +106,12 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                 switch connectionOperation.result {
                 case .success(let accountItem):
                     self?.settings.save(value: accountItem)
+                    if self?.recoveryAccount != nil {
+                        SelectedWalletSettings.completeRetainedRecoveryAfterVerifiedImport(
+                            settings: SettingsManager.shared,
+                            account: accountItem
+                        )
+                    }
                     self?.eventCenter.notify(with: SelectedAccountChanged())
                     self?.presenter?.didCompleteAccountImport()
                 case .failure(let error):

@@ -294,18 +294,11 @@ extension SelectedWalletSettings {
             return false
         }
 
-        if hasVerifiedSigningKey(keystore: keystore, account: account) {
-            clearRetainedRecoveryState(settings: settings)
-            return true
-        }
-
-        // Never replace an existing key that failed verification. Reconstruction is only
-        // allowed when a retained seed or entropy derives the exact retained identity.
-        guard try !keystore.checkSecretKeyForAddress(account.address) else {
-            logAutomaticRecoveryBlocked(reason: "existing-secret-failed-verification")
-            return false
-        }
-
+        // Never pass an arbitrary retained secret into the native sr25519 signer. Some
+        // malformed 64-byte encodings can panic below Swift's throwable boundary. A
+        // retained secret is accepted only when independently derived seed/entropy first
+        // proves the exact public key and address, and the bytes agree with that result.
+        let existingSecret = try keystore.fetchSecretKeyForAddress(account.address)
         let derivationPath = try keystore.fetchDeriviationForAddress(account.address) ?? ""
         let scopedSeed = try keystore.fetchSeedForAddress(account.address)
         let scopedEntropy = try keystore.fetchEntropyForAddress(account.address)
@@ -364,12 +357,20 @@ extension SelectedWalletSettings {
         }
 
         for material in candidates {
-            try keystore.saveSecretKey(material.secretKey, address: account.address)
+            if let existingSecret, existingSecret != material.secretKey {
+                continue
+            }
+
+            if existingSecret == nil {
+                try keystore.saveSecretKey(material.secretKey, address: account.address)
+            }
 
             guard hasVerifiedSigningKey(keystore: keystore, account: account) else {
-                try? keystore.deleteKeyIfExists(
-                    for: KeystoreTag.secretKeyTagForAddress(account.address)
-                )
+                if existingSecret == nil {
+                    try? keystore.deleteKeyIfExists(
+                        for: KeystoreTag.secretKeyTagForAddress(account.address)
+                    )
+                }
                 continue
             }
 
@@ -385,6 +386,10 @@ extension SelectedWalletSettings {
                 "SORA retained wallet signing material repaired automatically: \(material.source)"
             )
             return true
+        }
+
+        if existingSecret != nil {
+            logAutomaticRecoveryBlocked(reason: "existing-secret-has-no-verified-source")
         }
 
         return false
@@ -519,6 +524,19 @@ extension SelectedWalletSettings {
         account: AccountItem
     ) -> Bool {
         matchesRetainedRecoveryIdentity(settings: settings, account: account)
+    }
+
+    @discardableResult
+    static func completeRetainedRecoveryAfterVerifiedImport(
+        settings: SettingsManagerProtocol,
+        account: AccountItem
+    ) -> Bool {
+        guard matchesRetainedRecoveryIdentity(settings: settings, account: account) else {
+            return false
+        }
+
+        clearRetainedRecoveryState(settings: settings)
+        return true
     }
 
     private static func retainedSigningMaterial(
