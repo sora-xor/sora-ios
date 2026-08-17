@@ -474,28 +474,52 @@ class RootFactoryTests: XCTestCase {
         )
     }
 
-    func testVerifiedLegacyPrivateKeySecretRepairsRetainedWallet() throws {
+    func testMalformedLegacyKeysNeverBecomeRetainedWalletSigner() throws {
         let settings = InMemorySettingsManager()
         let keychain = InMemoryKeychain()
         let fixture = try makeMnemonicRecoveryFixture(
             entropy: Data((0 ..< 20).map { UInt8($0 + 23) })
         )
         markRecoveryRequired(settings: settings, account: fixture.account)
-        try keychain.saveKey(fixture.secretKey, with: "privateKey")
+        try keychain.saveKey(Data(repeating: 0xa5, count: 31), with: "privateKey")
+        try keychain.saveKey(Data(repeating: 0x5a, count: 32), with: "ethKey")
 
-        XCTAssertTrue(
+        XCTAssertFalse(
             try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
                 settings: settings,
                 keystore: keychain,
                 account: fixture.account
             )
         )
-        XCTAssertEqual(
-            try keychain.fetchSecretKeyForAddress(fixture.account.address),
-            fixture.secretKey
+        XCTAssertFalse(
+            try keychain.checkSecretKeyForAddress(fixture.account.address)
         )
-        XCTAssertEqual(try keychain.fetchKey(for: "privateKey"), fixture.secretKey)
-        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
+        XCTAssertEqual(settings.bool(for: "walletMigrationRecoveryRequired"), true)
+    }
+
+    func testSigningIsBlockedWhileRetainedRecoveryMarkerRemains() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 29) })
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+        try keychain.saveSecretKey(
+            fixture.secretKey,
+            address: fixture.account.address
+        )
+
+        let signer = SigningWrapper(
+            keystore: keychain,
+            account: fixture.account,
+            recoverySettings: settings
+        )
+
+        XCTAssertThrowsError(try signer.sign(Data("blocked".utf8))) { error in
+            guard case SigningWrapperError.retainedWalletRecoveryRequired = error else {
+                return XCTFail("Unexpected signing error: \(error)")
+            }
+        }
     }
 
     func testVerifiedLegacyPrivateKeySeedRepairsRetainedWallet() throws {

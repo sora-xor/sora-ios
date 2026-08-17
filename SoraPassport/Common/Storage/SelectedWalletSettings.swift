@@ -401,14 +401,7 @@ extension SelectedWalletSettings {
                 return []
             }
 
-            var candidates = [
-                RetainedSigningMaterial(
-                    secretKey: secret,
-                    seed: nil,
-                    entropy: nil,
-                    source: "legacy-\(identifier)-as-secret"
-                )
-            ]
+            var candidates: [RetainedSigningMaterial] = []
             let seedMaterial: RetainedSigningMaterial?
 
             do {
@@ -519,6 +512,13 @@ extension SelectedWalletSettings {
         }
 
         return derivedAddress == account.address
+    }
+
+    static func isRetainedRecoveryAccount(
+        settings: SettingsManagerProtocol,
+        account: AccountItem
+    ) -> Bool {
+        matchesRetainedRecoveryIdentity(settings: settings, account: account)
     }
 
     private static func retainedSigningMaterial(
@@ -645,7 +645,11 @@ extension SelectedWalletSettings {
             }
 
             let challenge = Data("SORA wallet recovery signing-key verification v1".utf8)
-            let signature = try SigningWrapper(keystore: keystore, account: account).sign(challenge)
+            let signature = try SigningWrapper(
+                keystore: keystore,
+                account: account,
+                recoverySettings: nil
+            ).sign(challenge)
 
             switch account.cryptoType {
             case .sr25519:

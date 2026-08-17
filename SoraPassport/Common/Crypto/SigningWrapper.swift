@@ -36,18 +36,33 @@ import SSFUtils
 enum SigningWrapperError: Error {
     case missingSelectedAccount
     case missingSecretKey
+    case retainedWalletRecoveryRequired
 }
 
 final class SigningWrapper: SigningWrapperProtocol {
     let keystore: KeystoreProtocol
     let account: AccountItem
+    private let recoverySettings: SettingsManagerProtocol?
 
-    init(keystore: KeystoreProtocol, account: AccountItem) {
+    init(
+        keystore: KeystoreProtocol,
+        account: AccountItem,
+        recoverySettings: SettingsManagerProtocol? = SettingsManager.shared
+    ) {
         self.keystore = keystore
         self.account = account
+        self.recoverySettings = recoverySettings
     }
 
     func sign(_ originalData: Data) throws -> IRSignatureProtocol {
+        if let recoverySettings,
+           SelectedWalletSettings.isRetainedRecoveryAccount(
+               settings: recoverySettings,
+               account: account
+           ) {
+            throw SigningWrapperError.retainedWalletRecoveryRequired
+        }
+
         guard let secretKey = try keystore.fetchSecretKeyForAddress(account.address) else {
             throw SigningWrapperError.missingSecretKey
         }
