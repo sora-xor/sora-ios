@@ -58,7 +58,7 @@ public final class SubqueryApyInfoOperation<ResultType>: BaseOperation<ResultTyp
                 """
                 query StrategicBonusApyQuery {
                   entities: poolXYKs(first: 100 after: "\(cursor)") {
-                    nodes { id strategicBonusApy }
+                    nodes { baseAssetId targetAssetId strategicBonusApy }
                     pageInfo { hasNextPage endCursor }
                     totalCount
                   }
@@ -67,7 +67,10 @@ public final class SubqueryApyInfoOperation<ResultType>: BaseOperation<ResultTyp
             }
             let apyInfo = nodes.map {
                 SbApyInfo(
-                    id: $0.id,
+                    id: SoraApyPairKey.make(
+                        baseAssetId: $0.baseAssetId,
+                        targetAssetId: $0.targetAssetId
+                    ),
                     sbApy: $0.strategicBonusApy
                         .flatMap(Double.init)
                         .map(KotlinDouble.init(value:))
@@ -84,6 +87,15 @@ public final class SubqueryApyInfoOperation<ResultType>: BaseOperation<ResultTyp
 }
 
 private struct SoraIndexerApyNode: Decodable {
-    let id: String
+    let baseAssetId: String
+    let targetAssetId: String
     let strategicBonusApy: String?
+}
+
+enum SoraApyPairKey {
+    static func make(baseAssetId: String, targetAssetId: String) -> String {
+        [baseAssetId.lowercased(), targetAssetId.lowercased()]
+            .sorted()
+            .joined(separator: "|")
+    }
 }

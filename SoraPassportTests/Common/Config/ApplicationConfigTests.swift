@@ -273,6 +273,16 @@ final class SoraIndexerResponseTests: XCTestCase {
         )
     }
 
+    func testApyPairKeyIsStableAcrossAssetOrderAndCase() {
+        let xor = WalletAssetId.xor.rawValue
+        let pswap = WalletAssetId.pswap.rawValue
+
+        XCTAssertEqual(
+            SoraApyPairKey.make(baseAssetId: xor, targetAssetId: pswap),
+            SoraApyPairKey.make(baseAssetId: pswap.uppercased(), targetAssetId: xor)
+        )
+    }
+
     func testMapsProductionHistoryElementToWalletHistoryItem() throws {
         let json = Data(#"""
         {

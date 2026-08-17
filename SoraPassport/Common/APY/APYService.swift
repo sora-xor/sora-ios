@@ -46,7 +46,6 @@ actor APYService {
         let task: Task<Result<[SbApyInfo], Swift.Error>, Never>
     }
 
-    private var polkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol?
     private let operationManager: OperationManager = OperationManager()
     private var expiredDate: Date = Date()
     private var apy: [SbApyInfo] = []
@@ -56,44 +55,18 @@ actor APYService {
 extension APYService: APYServiceProtocol {
     
     func setup(factory: PolkaswapNetworkOperationFactoryProtocol) {
-        polkaswapNetworkOperationFactory = factory
+        // APY data is keyed by the indexer's explicit asset pair metadata.
     }
 
     func getApy(for baseAssetId: String, targetAssetId: String) async -> Decimal? {
         guard !baseAssetId.isEmpty,
-              !targetAssetId.isEmpty,
-              let factory = self.polkaswapNetworkOperationFactory,
-              let poolPropertiesOperation = try? factory.poolProperties(baseAsset: baseAssetId, targetAsset: targetAssetId) else {
+              !targetAssetId.isEmpty else {
             return nil
         }
 
-        let reservesAccountId: String? = await withCheckedContinuation { continuation in
-            poolPropertiesOperation.completionBlock = {
-                guard let reservesAccountData = try? poolPropertiesOperation
-                    .extractResultData()?
-                    .underlyingValue?
-                    .reservesAccountId,
-                    let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-
-                let address = try? SS58AddressFactory().addressFromAccountId(
-                    data: reservesAccountData.value,
-                    type: selectedAccount.networkType
-                )
-                continuation.resume(returning: address)
-            }
-
-            operationManager.enqueue(operations: [poolPropertiesOperation], in: .transient)
-        }
-
-        guard let reservesAccountId else {
-            return nil
-        }
-
+        let pairKey = SoraApyPairKey.make(baseAssetId: baseAssetId, targetAssetId: targetAssetId)
         let apy = await loadApy()
-        return apy.first(where: { $0.id == reservesAccountId })?.sbApy?.decimalValue
+        return apy.first(where: { $0.id == pairKey })?.sbApy?.decimalValue
     }
 
     private func loadApy() async -> [SbApyInfo] {
