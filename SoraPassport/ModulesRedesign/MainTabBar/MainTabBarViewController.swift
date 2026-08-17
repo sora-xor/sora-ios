@@ -87,7 +87,11 @@ final class MainTabBarViewController: UITabBarController {
         isRecoveryReadOnly = false
         recoveryInteractionShield?.removeFromSuperview()
         recoveryInteractionShield = nil
-        viewControllers?.forEach { $0.view.accessibilityElementsHidden = false }
+        viewControllers?.forEach {
+            if $0.isViewLoaded {
+                $0.view.accessibilityElementsHidden = false
+            }
+        }
         tabBar.accessibilityElementsHidden = false
     }
 
@@ -149,7 +153,11 @@ final class MainTabBarViewController: UITabBarController {
         interactionShield.addSubview(banner)
         view.addSubview(interactionShield)
         recoveryInteractionShield = interactionShield
-        viewControllers?.forEach { $0.view.accessibilityElementsHidden = true }
+        viewControllers?.forEach {
+            if $0.isViewLoaded {
+                $0.view.accessibilityElementsHidden = true
+            }
+        }
         tabBar.accessibilityElementsHidden = true
 
         NSLayoutConstraint.activate([

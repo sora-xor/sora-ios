@@ -60,6 +60,7 @@ public final class SubqueryApyInfoOperation<ResultType>: BaseOperation<ResultTyp
                   entities: poolXYKs(first: 100 after: "\(cursor)") {
                     nodes { id strategicBonusApy }
                     pageInfo { hasNextPage endCursor }
+                    totalCount
                   }
                 }
                 """

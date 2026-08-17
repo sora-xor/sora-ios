@@ -103,14 +103,19 @@ enum SoraIndexerClient {
         var seenCursors: Set<String> = []
         var nodes: [Node] = []
 
-        for _ in 0..<maximumPages {
+        for pageIndex in 0..<maximumPages {
+            let requestQuery = query(cursor)
             let payload: SoraIndexerEntitiesPayload<Node> = try execute(
                 url: url,
-                query: query(cursor)
+                query: requestQuery
             )
             nodes.append(contentsOf: payload.entities.nodes)
 
             guard payload.entities.pageInfo.hasNextPage else {
+                Logger.shared.info(
+                    "SORA indexer query succeeded: \(queryName(from: requestQuery)), " +
+                    "pages=\(pageIndex + 1), host=\(url.host ?? "unknown host")"
+                )
                 return nodes
             }
             guard let nextCursor = payload.entities.pageInfo.endCursor,
@@ -122,6 +127,47 @@ enum SoraIndexerClient {
         }
 
         throw SoraIndexerClientError.invalidPagination
+    }
+
+    static func failureCategory(for error: Error) -> String {
+        if let indexerError = error as? SoraIndexerClientError {
+            switch indexerError {
+            case .invalidResponse:
+                return "invalid-response"
+            case let .httpStatus(statusCode):
+                return "http-\(statusCode)"
+            case .responseTooLarge:
+                return "response-too-large"
+            case .timedOut:
+                return "timed-out"
+            case .invalidPagination:
+                return "invalid-pagination"
+            case .resultTypeMismatch:
+                return "result-type-mismatch"
+            }
+        }
+
+        if error is SubqueryErrors {
+            return "graphql"
+        }
+        if error is DecodingError {
+            return "decoding"
+        }
+        if let urlError = error as? URLError {
+            return "transport-\(urlError.errorCode)"
+        }
+
+        return "unknown"
+    }
+
+    private static func queryName(from query: String) -> String {
+        let tokens = query.split(whereSeparator: { $0.isWhitespace })
+        guard tokens.count >= 2, tokens[0] == "query" else {
+            return "anonymous"
+        }
+
+        let candidate = tokens[1].filter { $0.isLetter || $0.isNumber || $0 == "_" }
+        return candidate.isEmpty ? "anonymous" : String(candidate.prefix(64))
     }
 
     static func execute<Response: Decodable>(
@@ -180,7 +226,6 @@ enum SoraIndexerClient {
         let response = try JSONDecoder().decode(SubqueryResponse<Response>.self, from: data)
         switch response {
         case let .data(payload):
-            Logger.shared.info("SORA indexer request succeeded: \(url.host ?? "unknown host")")
             return payload
         case let .errors(errors):
             throw errors

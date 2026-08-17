@@ -103,11 +103,6 @@ final class SplashInteractor: SplashInteractorProtocol {
         DispatchQueue.main.async {
             self.startChain()
         }
-
-        let assetsIds = assetsInfo.filter { $0.visible }.map { $0.assetId }
-        Task {
-            await PriceInfoService.shared.setup(for: assetsIds)
-        }
     }
 
     private func scheduleAssetsInfoReload(chainId: String?) {

@@ -109,8 +109,10 @@ actor FiatService {
                 "SORA fiat prices loaded: \(response.count)/\(refresh.assetIds.count)"
             )
             return true
-        case .failure:
-            Logger.shared.error("SORA fiat price refresh failed")
+        case let .failure(error):
+            Logger.shared.error(
+                "SORA fiat price refresh failed: \(SoraIndexerClient.failureCategory(for: error))"
+            )
             return false
         }
     }

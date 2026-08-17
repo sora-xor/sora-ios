@@ -40,11 +40,17 @@ protocol APYServiceProtocol: Actor {
 
 actor APYService {
     static let shared = APYService()
+
+    private struct PendingRefresh {
+        let identifier = UUID()
+        let task: Task<Result<[SbApyInfo], Swift.Error>, Never>
+    }
+
     private var polkaswapNetworkOperationFactory: PolkaswapNetworkOperationFactoryProtocol?
     private let operationManager: OperationManager = OperationManager()
     private var expiredDate: Date = Date()
     private var apy: [SbApyInfo] = []
-    private var task: Task<Void, Swift.Error>?
+    private var pendingRefresh: PendingRefresh?
 }
 
 extension APYService: APYServiceProtocol {
@@ -60,51 +66,83 @@ extension APYService: APYServiceProtocol {
               let poolPropertiesOperation = try? factory.poolProperties(baseAsset: baseAssetId, targetAsset: targetAssetId) else {
             return nil
         }
-        
-        let queryOperation = SubqueryApyInfoOperation<[SbApyInfo]>(baseUrl: ConfigService.shared.config.subqueryURL)
-        
-        return await withCheckedContinuation { continuation in
-            queryOperation.completionBlock = { [weak self] in
-                guard let self = self,
-                      let reservesAccountData = try? poolPropertiesOperation.extractResultData()?.underlyingValue?.reservesAccountId,
-                      let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
+
+        let reservesAccountId: String? = await withCheckedContinuation { continuation in
+            poolPropertiesOperation.completionBlock = {
+                guard let reservesAccountData = try? poolPropertiesOperation
+                    .extractResultData()?
+                    .underlyingValue?
+                    .reservesAccountId,
+                    let selectedAccount = SelectedWalletSettings.shared.currentAccount else {
                     continuation.resume(returning: nil)
                     return
                 }
-                
-                let reservesAccountId = try? SS58AddressFactory().addressFromAccountId(data: reservesAccountData.value,
-                                                                                       type: selectedAccount.networkType)
-                Task {
-                    let expiredDate = await self.expiredDate
-                    let apy = await self.apy
-                    guard expiredDate < Date() || apy.isEmpty else {
-                        let apy = apy.first(where: { $0.id == reservesAccountId })
-                        continuation.resume(returning: apy?.sbApy?.decimalValue)
-                        return
-                    }
-                    
-                    guard let response = try? queryOperation.extractNoCancellableResultData() else {
-                        continuation.resume(returning: nil)
-                        return
-                    }
-                    let info = response.first(where: { $0.id == reservesAccountId })
-                    await self.updateApy(apy: response)
-                    await self.updateExpiredDate()
-                    continuation.resume(returning: info?.sbApy?.decimalValue)
-                }
+
+                let address = try? SS58AddressFactory().addressFromAccountId(
+                    data: reservesAccountData.value,
+                    type: selectedAccount.networkType
+                )
+                continuation.resume(returning: address)
             }
-            
-            queryOperation.addDependency(poolPropertiesOperation)
-            
-            operationManager.enqueue(operations: [poolPropertiesOperation, queryOperation], in: .transient)
+
+            operationManager.enqueue(operations: [poolPropertiesOperation], in: .transient)
         }
+
+        guard let reservesAccountId else {
+            return nil
+        }
+
+        let apy = await loadApy()
+        return apy.first(where: { $0.id == reservesAccountId })?.sbApy?.decimalValue
     }
-    
-    private func updateApy(apy: [SbApyInfo]) {
-        self.apy = apy
+
+    private func loadApy() async -> [SbApyInfo] {
+        if expiredDate > Date(), !apy.isEmpty {
+            return apy
+        }
+
+        if let pendingRefresh {
+            return await complete(pendingRefresh)
+        }
+
+        let refresh = createRefresh()
+        pendingRefresh = refresh
+        return await complete(refresh)
     }
-    
-    private func updateExpiredDate() {
-        self.expiredDate = Date().addingTimeInterval(60)
+
+    private func createRefresh() -> PendingRefresh {
+        let operationManager = operationManager
+        let baseUrl = ConfigService.shared.config.subqueryURL
+        let task = Task<Result<[SbApyInfo], Swift.Error>, Never> {
+            await withCheckedContinuation { continuation in
+                let queryOperation = SubqueryApyInfoOperation<[SbApyInfo]>(baseUrl: baseUrl)
+                queryOperation.completionBlock = {
+                    continuation.resume(returning: Result {
+                        try queryOperation.extractNoCancellableResultData()
+                    })
+                }
+                operationManager.enqueue(operations: [queryOperation], in: .transient)
+            }
+        }
+
+        return PendingRefresh(task: task)
+    }
+
+    private func complete(_ refresh: PendingRefresh) async -> [SbApyInfo] {
+        let result = await refresh.task.value
+        guard pendingRefresh?.identifier == refresh.identifier else {
+            if case let .success(response) = result {
+                return response
+            }
+            return apy
+        }
+
+        pendingRefresh = nil
+        if case let .success(response) = result {
+            apy = response
+            expiredDate = Date().addingTimeInterval(60)
+        }
+
+        return apy
     }
 }

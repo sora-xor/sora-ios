@@ -73,9 +73,14 @@ final class AssetsItemService {
 
     @MainActor
     private func setupOnMain() {
-        let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId }
-        if priceInfo == nil || assetIds.count != assetViewModels.count {
-            let items = assetProvider.getBalances(with: assetIds)
+        let visibleAssetIds = (assetManager.getAssetList() ?? [])
+            .filter(\.visible)
+            .map(\.assetId)
+        let items = assetProvider.getBalances(with: visibleAssetIds)
+        let pricedAssetIds = items.map(\.identifier)
+        let displayedAssetIds = Set(assetViewModels.map(\.identifier))
+
+        if priceInfo == nil || Set(pricedAssetIds) != displayedAssetIds {
 
             assetViewModels = items.compactMap { item in
                 return self.assetViewModelsFactory.createAssetViewModel(with: item, fiatData: [], mode: .view)
@@ -91,7 +96,7 @@ final class AssetsItemService {
 
         priceUpdateTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
+            let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: pricedAssetIds)
             guard !Task.isCancelled else {
                 self.priceUpdateTask = nil
                 if self.needsPriceRefresh {
@@ -101,8 +106,10 @@ final class AssetsItemService {
             }
             self.priceInfo = poolItemInfo
             
-            let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId } 
-            let items = assetProvider.getBalances(with: assetIds)
+            let visibleAssetIds = (assetManager.getAssetList() ?? [])
+                .filter(\.visible)
+                .map(\.assetId)
+            let items = assetProvider.getBalances(with: visibleAssetIds)
             
             let fiatDecimal = items.reduce(Decimal(0), { partialResult, balanceData in
                 if let priceUsd = poolItemInfo.fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
