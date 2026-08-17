@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import Security
 import RobinHood
 import SoraKeystore
 import IrohaCrypto
@@ -50,6 +51,239 @@ enum WalletTransactionSigningAvailability: Equatable {
     case available
     case recoveryRequired
     case missingKey
+}
+
+protocol RetainedSigningMaterialCandidateProviding {
+    func loadAccessibleSigningMaterialCandidates() -> [Data]
+}
+
+struct AccessibleKeychainRetainedSigningMaterialCandidateProvider:
+    RetainedSigningMaterialCandidateProviding
+{
+    private struct ItemReference {
+        let securityClass: CFString
+        let persistentReference: Data
+    }
+
+    func loadAccessibleSigningMaterialCandidates() -> [Data] {
+        let securityClasses: [(value: CFString, name: String)] = [
+            (kSecClassKey, "key"),
+            (kSecClassGenericPassword, "generic-password")
+        ]
+        var candidates = Set<Data>()
+
+        for securityClass in securityClasses {
+            let references = persistentReferences(
+                for: securityClass.value,
+                named: securityClass.name
+            )
+            var successfulReads = 0
+            var candidateSizedValues = 0
+            var readFailures: [OSStatus: Int] = [:]
+            var unsupportedReadResults = 0
+
+            for reference in references {
+                let result = data(for: reference)
+                guard result.status == errSecSuccess else {
+                    readFailures[result.status, default: 0] += 1
+                    continue
+                }
+                guard let data = result.data else {
+                    unsupportedReadResults += 1
+                    continue
+                }
+
+                successfulReads += 1
+                let normalizedCandidates = normalizedCandidates(from: data)
+                candidateSizedValues += normalizedCandidates.count
+                candidates.formUnion(normalizedCandidates)
+            }
+
+            let failureSummary = readFailures
+                .sorted { $0.key < $1.key }
+                .map { "\($0.key):\($0.value)" }
+                .joined(separator: ",")
+            Logger.shared.info(
+                "SORA retained-wallet accessible Keychain scan summary: " +
+                    "class=\(securityClass.name) refs=\(references.count) " +
+                    "reads=\(successfulReads) readFailures=\(failureSummary.isEmpty ? "none" : failureSummary) " +
+                    "unsupportedResults=\(unsupportedReadResults) " +
+                    "candidateSized=\(candidateSizedValues)"
+            )
+        }
+
+        return Array(candidates)
+    }
+
+    private func normalizedCandidates(from data: Data) -> Set<Data> {
+        let candidateLengths = Set([16, 20, 24, 28, 32, 64])
+        var candidates = Set<Data>()
+
+        if candidateLengths.contains(data.count) {
+            candidates.insert(data)
+        }
+
+        guard data.count <= 65_536 else {
+            return candidates
+        }
+
+        if let text = String(data: data, encoding: .utf8) {
+            appendNormalizedCandidate(
+                from: text,
+                candidateLengths: candidateLengths,
+                to: &candidates
+            )
+        }
+
+        if let object = try? JSONSerialization.jsonObject(with: data) {
+            var remainingStrings = 128
+            appendNormalizedCandidates(
+                from: object,
+                candidateLengths: candidateLengths,
+                remainingStrings: &remainingStrings,
+                to: &candidates
+            )
+        }
+
+        return candidates
+    }
+
+    private func appendNormalizedCandidates(
+        from object: Any,
+        candidateLengths: Set<Int>,
+        remainingStrings: inout Int,
+        to candidates: inout Set<Data>
+    ) {
+        guard remainingStrings > 0 else {
+            return
+        }
+
+        if let string = object as? String {
+            remainingStrings -= 1
+            appendNormalizedCandidate(
+                from: string,
+                candidateLengths: candidateLengths,
+                to: &candidates
+            )
+        } else if let dictionary = object as? [String: Any] {
+            for value in dictionary.values where remainingStrings > 0 {
+                appendNormalizedCandidates(
+                    from: value,
+                    candidateLengths: candidateLengths,
+                    remainingStrings: &remainingStrings,
+                    to: &candidates
+                )
+            }
+        } else if let array = object as? [Any] {
+            for value in array where remainingStrings > 0 {
+                appendNormalizedCandidates(
+                    from: value,
+                    candidateLengths: candidateLengths,
+                    remainingStrings: &remainingStrings,
+                    to: &candidates
+                )
+            }
+        }
+    }
+
+    private func appendNormalizedCandidate(
+        from source: String,
+        candidateLengths: Set<Int>,
+        to candidates: inout Set<Data>
+    ) {
+        let value = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, value.utf8.count <= 4_096 else {
+            return
+        }
+
+        if
+            let decoded = Data(base64Encoded: value),
+            candidateLengths.contains(decoded.count)
+        {
+            candidates.insert(decoded)
+        }
+
+        if
+            let decoded = try? Data(hexStringSSF: value),
+            candidateLengths.contains(decoded.count)
+        {
+            candidates.insert(decoded)
+        }
+
+        let words = value.split(whereSeparator: { $0.isWhitespace })
+        if [12, 15, 18, 21, 24].contains(words.count) {
+            let mnemonic = words.joined(separator: " ")
+            if let seed = try? SeedFactory().deriveSeed(
+                from: mnemonic,
+                password: ""
+            ).seed.miniSeed {
+                candidates.insert(seed)
+            }
+        }
+    }
+
+    private func persistentReferences(
+        for securityClass: CFString,
+        named securityClassName: String
+    ) -> [ItemReference] {
+        let query: [String: Any] = [
+            kSecClass as String: securityClass,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+            kSecReturnPersistentRef as String: kCFBooleanTrue as Any,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        if status == errSecItemNotFound {
+            return []
+        }
+        guard status == errSecSuccess else {
+            Logger.shared.warning(
+                "SORA retained-wallet accessible Keychain scan unavailable: " +
+                    "class=\(securityClassName) status=\(status)"
+            )
+            return []
+        }
+
+        if let references = result as? [Data] {
+            return references.map {
+                ItemReference(
+                    securityClass: securityClass,
+                    persistentReference: $0
+                )
+            }
+        }
+        if let reference = result as? Data {
+            return [
+                ItemReference(
+                    securityClass: securityClass,
+                    persistentReference: reference
+                )
+            ]
+        }
+
+        Logger.shared.warning(
+            "SORA retained-wallet accessible Keychain scan returned an unsupported result: " +
+                "class=\(securityClassName)"
+        )
+        return []
+    }
+
+    private func data(for reference: ItemReference) -> (status: OSStatus, data: Data?) {
+        let query: [String: Any] = [
+            kSecClass as String: reference.securityClass,
+            kSecValuePersistentRef as String: reference.persistentReference,
+            kSecReturnData as String: kCFBooleanTrue as Any,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        return (status, status == errSecSuccess ? result as? Data : nil)
+    }
 }
 
 final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, SelectedWalletSettingsProtocol {
@@ -323,6 +557,22 @@ extension SelectedWalletSettings {
         keystore: KeystoreProtocol,
         account: AccountItem
     ) throws -> Bool {
+        try repairRetainedSigningMaterialIfPossible(
+            settings: settings,
+            keystore: keystore,
+            account: account,
+            materialCandidateProvider: keystore is Keychain
+                ? AccessibleKeychainRetainedSigningMaterialCandidateProvider()
+                : nil
+        )
+    }
+
+    static func repairRetainedSigningMaterialIfPossible(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        account: AccountItem,
+        materialCandidateProvider: RetainedSigningMaterialCandidateProviding?
+    ) throws -> Bool {
         guard matchesRetainedRecoveryIdentity(settings: settings, account: account) else {
             logAutomaticRecoveryBlocked(reason: "retained-identity-mismatch")
             return false
@@ -353,10 +603,15 @@ extension SelectedWalletSettings {
             return true
         }
 
+        guard existingSecret == nil else {
+            logAutomaticRecoveryBlocked(reason: "existing-scoped-secret-invalid")
+            return false
+        }
+
         let derivationPath = try keystore.fetchDeriviationForAddress(account.address) ?? ""
         let scopedSeed = try keystore.fetchSeedForAddress(account.address)
         let scopedEntropy = try keystore.fetchEntropyForAddress(account.address)
-        let candidates: [RetainedSigningMaterial]
+        var candidates: [RetainedSigningMaterial]
 
         if scopedSeed != nil || scopedEntropy != nil {
             guard let scopedMaterial = try retainedScopedSigningMaterial(
@@ -401,6 +656,12 @@ extension SelectedWalletSettings {
                     keystore: keystore,
                     account: account
                 )
+                if candidates.isEmpty, let materialCandidateProvider {
+                    candidates = retainedAccessibleSigningMaterialCandidates(
+                        provider: materialCandidateProvider,
+                        account: account
+                    )
+                }
                 if candidates.isEmpty {
                     logAutomaticRecoveryBlocked(reason: "no-compatible-retained-secret")
                 }
@@ -447,6 +708,65 @@ extension SelectedWalletSettings {
         }
 
         return false
+    }
+
+    private static func retainedAccessibleSigningMaterialCandidates(
+        provider: RetainedSigningMaterialCandidateProviding,
+        account: AccountItem
+    ) -> [RetainedSigningMaterial] {
+        guard account.cryptoType == .sr25519 else {
+            return []
+        }
+
+        let candidates = provider.loadAccessibleSigningMaterialCandidates()
+        var matchesBySecret: [Data: RetainedSigningMaterial] = [:]
+
+        for candidate in candidates {
+            if
+                candidate.count == 64,
+                SNSafeKeypairValidator.isValidSr25519SecretKey(
+                    candidate,
+                    publicKey: account.publicKeyData
+                )
+            {
+                matchesBySecret[candidate] = RetainedSigningMaterial(
+                    secretKey: candidate,
+                    seed: nil,
+                    entropy: nil,
+                    source: "accessible-unlabeled-secret"
+                )
+            }
+
+            if let seedMaterial = try? retainedSigningMaterial(
+                seed: candidate,
+                entropy: nil,
+                derivationPath: "",
+                source: "accessible-unlabeled-seed",
+                account: account
+            ) {
+                matchesBySecret[seedMaterial.secretKey] = seedMaterial
+            }
+
+            if
+                [16, 20, 24, 28, 32].contains(candidate.count),
+                let entropyMaterial = try? retainedSigningMaterial(
+                    entropy: candidate,
+                    derivationPath: "",
+                    source: "accessible-unlabeled-entropy",
+                    account: account
+                )
+            {
+                matchesBySecret[entropyMaterial.secretKey] = entropyMaterial
+            }
+        }
+
+        let matches = Array(matchesBySecret.values)
+
+        Logger.shared.info(
+            "SORA retained-wallet accessible Keychain candidate validation: " +
+                "candidateSized=\(candidates.count) identityMatches=\(matches.count)"
+        )
+        return matches
     }
 
     private static func retainedLegacySecretCandidates(

@@ -1,6 +1,8 @@
 import GoogleAPIClientForREST_Drive
 import GoogleAPIClientForRESTCore
 import GoogleSignIn
+import SSFModels
+import SSFUtils
 import XCTest
 
 @testable import SSFCloudStorage
@@ -27,6 +29,7 @@ final class CloudStorageServiceTests: XCTestCase {
         let googleService = GoogleServiceMock()
         let factory = BackupFileFactoryMock()
         let encryptionService = EncryptionServiceMock()
+        encryptionService.getDecryptedReturnValue = TestData.account.address
 
         guard let signInProvider else { throw CloudStorageServiceTestsError.noSignInProviderExists }
 
@@ -306,6 +309,141 @@ final class CloudStorageServiceTests: XCTestCase {
         }
     }
 
+    func testImportLegacyBackupWithoutVerifierWithCorrectPassword() async throws {
+        let password = "legacy-password"
+        let encryptedAccount = try makeLegacyEncryptedAccount(password: password)
+        try useRealEncryptionService(account: encryptedAccount)
+
+        let account = try await service?.importBackup(
+            account: TestData.account,
+            password: password
+        )
+
+        XCTAssertEqual(account?.address, TestData.account.address)
+        XCTAssertEqual(
+            account?.encryptedSeed?.substrateSeed,
+            TestData.legacySubstrateSeed
+        )
+    }
+
+    func testImportLegacyBackupWithoutVerifierRejectsWrongPassword() async throws {
+        let encryptedAccount = try makeLegacyEncryptedAccount(
+            password: "correct-password"
+        )
+        try useRealEncryptionService(account: encryptedAccount)
+
+        do {
+            _ = try await service?.importBackup(
+                account: TestData.account,
+                password: "wrong-password"
+            )
+            XCTFail("Expected the legacy backup password to be rejected")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.incorectPassword.localizedDescription
+            )
+        }
+    }
+
+    func testImportLegacyBackupWithoutVerifierRejectsMismatchedAddress() async throws {
+        let encryptedAccount = try makeLegacyEncryptedAccount(
+            password: "legacy-password",
+            address: TestData.emptyAccount.address
+        )
+        try useRealEncryptionService(account: encryptedAccount)
+
+        do {
+            _ = try await service?.importBackup(
+                account: TestData.account,
+                password: "legacy-password"
+            )
+            XCTFail("Expected the legacy backup address to be rejected")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.incorectJson.localizedDescription
+            )
+        }
+    }
+
+    func testImportLegacyBackupWithoutVerifierRejectsTamperedCiphertext() async throws {
+        var encryptedAccount = try makeLegacyEncryptedAccount(
+            password: "legacy-password"
+        )
+        let encryptedSeed = try XCTUnwrap(
+            encryptedAccount.encryptedSeed?.substrateSeed
+        )
+        encryptedAccount.encryptedSeed?.substrateSeed = tamperLastHexDigit(
+            encryptedSeed
+        )
+        try useRealEncryptionService(account: encryptedAccount)
+
+        do {
+            _ = try await service?.importBackup(
+                account: TestData.account,
+                password: "legacy-password"
+            )
+            XCTFail("Expected tampered legacy ciphertext to be rejected")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.incorectPassword.localizedDescription
+            )
+        }
+    }
+
+    func testImportBackupRejectsVerifierForDifferentAddress() async throws {
+        let password = "current-password"
+        var encryptedAccount = try makeLegacyEncryptedAccount(password: password)
+        encryptedAccount.keyVerifier = try XCTUnwrap(
+            EncryptionService().createEncryptedData(
+                with: password,
+                message: "different-address"
+            )
+        ).toHex()
+        try useRealEncryptionService(account: encryptedAccount)
+
+        do {
+            _ = try await service?.importBackup(
+                account: TestData.account,
+                password: password
+            )
+            XCTFail("Expected a mismatched verifier to be rejected")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.incorectPassword.localizedDescription
+            )
+        }
+    }
+
+    func testImportLegacyJSONOnlyBackupWithoutVerifierWithCorrectPassword() async throws {
+        let password = "legacy-json-password"
+        let json = try makeLegacySubstrateJSON(password: password)
+        let encryptedAccount = EcryptedBackupAccount(
+            name: TestData.account.name ?? "",
+            address: TestData.account.address,
+            keyVerifier: nil,
+            encryptedMnemonicPhrase: nil,
+            encryptedSubstrateDerivationPath: nil,
+            encryptedEthDerivationPath: nil,
+            cryptoType: TestData.account.cryptoType,
+            backupAccountType: [OpenBackupAccount.BackupAccountType.json.rawValue],
+            json: OpenBackupAccount.Json(substrateJson: json),
+            encryptedSeed: nil
+        )
+        try useRealEncryptionService(account: encryptedAccount)
+
+        let account = try await service?.importBackup(
+            account: TestData.account,
+            password: password
+        )
+
+        XCTAssertEqual(account?.address, TestData.account.address)
+        XCTAssertEqual(account?.json?.substrateJson, json)
+    }
+
     func testImportBackupAccountWithError() async throws {
         // arrange
         signInProvider?._currentUser = TestData.user
@@ -382,6 +520,9 @@ extension CloudStorageServiceTests {
         0ffea7239c86f2c57976bb2ae65f0fe183ad40b5450edd2c0f2610aab80e9ae70080000001000000080000009f92ff8b19a2fc6eb7b68b746d9c6b6a21710d82b13704e62a7b90e402b8cd879b4f859f7da243bcc9f9674435e08fcd1a3562e500b99d3e40508bdd34e54819e3b79153097995f687ad3180852a3b1f05a657919ec8dcf2f0f0ed88693e0a263aa7ec0ff1106763e842
         """
 
+        static let legacySubstrateSeed =
+            "0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+
         static let account = OpenBackupAccount(
             name: "chop",
             address: "cnSNFyYFzPPJWm1yKjZCKZnGhhrZWWx1Mme1gw64YvjJhNGoJ",
@@ -424,5 +565,76 @@ extension CloudStorageServiceTests {
         let data = try JSONEncoder().encode(TestData.encryptedAccount)
         try data.write(to: url)
         return url
+    }
+
+    private func makeLegacyEncryptedAccount(
+        password: String,
+        address: String = TestData.account.address
+    ) throws -> EcryptedBackupAccount {
+        let encryptedSeed = try XCTUnwrap(
+            EncryptionService().createEncryptedData(
+                with: password,
+                message: TestData.legacySubstrateSeed
+            )
+        )
+
+        return EcryptedBackupAccount(
+            name: TestData.account.name ?? "",
+            address: address,
+            keyVerifier: nil,
+            encryptedMnemonicPhrase: nil,
+            encryptedSubstrateDerivationPath: nil,
+            encryptedEthDerivationPath: nil,
+            cryptoType: TestData.account.cryptoType,
+            backupAccountType: [OpenBackupAccount.BackupAccountType.seed.rawValue],
+            json: nil,
+            encryptedSeed: OpenBackupAccount.Seed(
+                substrateSeed: encryptedSeed.toHex()
+            )
+        )
+    }
+
+    private func makeLegacySubstrateJSON(password: String) throws -> String {
+        let keystoreData = KeystoreData(
+            address: TestData.account.address,
+            secretKeyData: Data(repeating: 7, count: 64),
+            publicKeyData: Data(repeating: 9, count: 32),
+            cryptoType: SSFModels.CryptoType.sr25519
+        )
+        let definition = try KeystoreBuilder().build(
+            from: keystoreData,
+            password: password,
+            isEthereum: false
+        )
+        let data = try JSONEncoder().encode(definition)
+        return try XCTUnwrap(String(data: data, encoding: .utf8))
+    }
+
+    private func useRealEncryptionService(
+        account: EcryptedBackupAccount
+    ) throws {
+        let signInProvider = try XCTUnwrap(signInProvider)
+        let googleService = try XCTUnwrap(googleService)
+        let queue = try XCTUnwrap(queue)
+        let factory = try XCTUnwrap(factory)
+
+        signInProvider._currentUser = TestData.user
+        googleService.account = account
+        service = CloudStorageService(
+            uiDelegate: delegate,
+            signInProvider: signInProvider,
+            googleDriveService: googleService,
+            queue: queue,
+            encryptionService: EncryptionService(),
+            fileFactory: factory
+        )
+    }
+
+    private func tamperLastHexDigit(_ value: String) -> String {
+        guard let last = value.last else {
+            return value
+        }
+
+        return String(value.dropLast()) + (last == "0" ? "1" : "0")
     }
 }

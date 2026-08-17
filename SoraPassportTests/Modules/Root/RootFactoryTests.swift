@@ -434,6 +434,9 @@ class RootFactoryTests: XCTestCase {
         let entropy = Data((0 ..< 20).map { UInt8($0 + 101) })
         let fixture = try makeMnemonicRecoveryFixture(entropy: entropy)
         let invalidSecret = Data(repeating: 0xff, count: fixture.secretKey.count)
+        let provider = RetainedSigningMaterialCandidateProviderMock(
+            candidates: [fixture.secretKey]
+        )
         markRecoveryRequired(settings: settings, account: fixture.account)
         try keychain.saveSecretKey(invalidSecret, address: fixture.account.address)
         try keychain.saveKey(entropy, with: KeystoreTag.legacyEntropy.rawValue)
@@ -442,9 +445,11 @@ class RootFactoryTests: XCTestCase {
             try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
                 settings: settings,
                 keystore: keychain,
-                account: fixture.account
+                account: fixture.account,
+                materialCandidateProvider: provider
             )
         )
+        XCTAssertEqual(provider.loadCallCount, 0)
         XCTAssertEqual(
             try keychain.fetchSecretKeyForAddress(fixture.account.address),
             invalidSecret
@@ -486,6 +491,151 @@ class RootFactoryTests: XCTestCase {
         )
         XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
         XCTAssertNil(settings.string(for: "walletMigrationRecoveryReason"))
+    }
+
+    func testUnlabeledSecretProviderIsNotCalledWhenScopedSecretExists() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 117) })
+        )
+        let provider = RetainedSigningMaterialCandidateProviderMock(
+            candidates: [Data(repeating: 0xff, count: 64)]
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+        try keychain.saveSecretKey(
+            fixture.secretKey,
+            address: fixture.account.address
+        )
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account,
+                materialCandidateProvider: provider
+            )
+        )
+        XCTAssertEqual(provider.loadCallCount, 0)
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+    }
+
+    func testCryptographicallyMatchingUnlabeledSecretRepairsRetainedWallet() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 121) })
+        )
+        let provider = RetainedSigningMaterialCandidateProviderMock(
+            candidates: [Data(repeating: 0xff, count: 64), fixture.secretKey]
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account,
+                materialCandidateProvider: provider
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertTrue(
+            SelectedWalletSettings.hasVerifiedSigningKey(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
+    }
+
+    func testCryptographicallyMatchingUnlabeledSeedRepairsRetainedWallet() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 122) })
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account,
+                materialCandidateProvider: RetainedSigningMaterialCandidateProviderMock(
+                    candidates: [fixture.seed]
+                )
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertEqual(
+            try keychain.fetchSeedForAddress(fixture.account.address),
+            fixture.seed
+        )
+        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
+    }
+
+    func testCryptographicallyMatchingUnlabeledEntropyRepairsRetainedWallet() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let entropy = Data((0 ..< 20).map { UInt8($0 + 124) })
+        let fixture = try makeMnemonicRecoveryFixture(entropy: entropy)
+        markRecoveryRequired(settings: settings, account: fixture.account)
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account,
+                materialCandidateProvider: RetainedSigningMaterialCandidateProviderMock(
+                    candidates: [entropy]
+                )
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertEqual(
+            try keychain.fetchEntropyForAddress(fixture.account.address),
+            entropy
+        )
+        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
+    }
+
+    func testUnlabeledSecretScanNeverPromotesIdentityMismatch() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 123) })
+        )
+        let unrelatedSecret = try SNKeyFactory()
+            .createKeypair(fromSeed: Data(repeating: 0x6a, count: 32))
+            .privateKey()
+            .rawData()
+        markRecoveryRequired(settings: settings, account: fixture.account)
+
+        XCTAssertFalse(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account,
+                materialCandidateProvider: RetainedSigningMaterialCandidateProviderMock(
+                    candidates: [unrelatedSecret]
+                )
+            )
+        )
+        XCTAssertFalse(try keychain.checkSecretKeyForAddress(fixture.account.address))
+        XCTAssertEqual(settings.bool(for: "walletMigrationRecoveryRequired"), true)
     }
 
     func testScopedSecretRepairUsesOnlyBytesValidatedBySafeParser() throws {
@@ -1153,6 +1303,22 @@ private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol 
     }
     func deleteBackup(account: OpenBackupAccount) async throws {}
     func disconnect() {}
+}
+
+private final class RetainedSigningMaterialCandidateProviderMock:
+    RetainedSigningMaterialCandidateProviding
+{
+    let candidates: [Data]
+    private(set) var loadCallCount = 0
+
+    init(candidates: [Data]) {
+        self.candidates = candidates
+    }
+
+    func loadAccessibleSigningMaterialCandidates() -> [Data] {
+        loadCallCount += 1
+        return candidates
+    }
 }
 
 private final class RecordingKeystore: KeystoreProtocol {

@@ -386,12 +386,11 @@ extension CloudStorageService {
             throw CloudStorageServiceError.incorectJson
         }
 
-        guard let _ = try? encryptionService.getDecrypted(
-            from: account.keyVerifier,
+        try validatePassword(
+            for: account,
+            requestedAddress: requestedAddress,
             password: password
-        ) else {
-            throw CloudStorageServiceError.incorectPassword
-        }
+        )
 
         let passphrase = try? encryptionService.getDecrypted(
             from: account.encryptedMnemonicPhrase,
@@ -443,6 +442,118 @@ extension CloudStorageService {
         )
 
         return decodedAccount
+    }
+
+    private func validatePassword(
+        for account: EcryptedBackupAccount,
+        requestedAddress: String,
+        password: String
+    ) throws {
+        if let keyVerifier = account.keyVerifier {
+            guard isExpectedEncryptedPayload(keyVerifier),
+                  let decryptedAddress = try? encryptionService.getDecrypted(
+                      from: keyVerifier,
+                      password: password
+                  ),
+                  decryptedAddress == requestedAddress
+            else {
+                throw CloudStorageServiceError.incorectPassword
+            }
+
+            return
+        }
+
+        let encryptedKeyMaterial = [
+            account.encryptedMnemonicPhrase,
+            account.encryptedSeed?.substrateSeed,
+            account.encryptedSeed?.ethSeed,
+        ].compactMap { $0 }
+
+        let authenticatedKeyMaterial = encryptedKeyMaterial.contains { material in
+            guard isExpectedEncryptedPayload(material) else {
+                return false
+            }
+
+            do {
+                return try encryptionService.getDecrypted(
+                    from: material,
+                    password: password
+                ) != nil
+            } catch {
+                return false
+            }
+        }
+
+        guard authenticatedKeyMaterial ||
+            isAuthenticatedLegacySubstrateJSON(
+                account.json?.substrateJson,
+                password: password
+            )
+        else {
+            throw CloudStorageServiceError.incorectPassword
+        }
+    }
+
+    private func isExpectedEncryptedPayload(_ value: String) -> Bool {
+        guard let data = try? Data(hexStringSSF: value),
+              data.count >= ScryptParameters.encodedLength + KeystoreConstants.nonceLength + 16,
+              let parameters = try? ScryptParameters(data: data)
+        else {
+            return false
+        }
+
+        return parameters.scryptN == 32_768 &&
+            parameters.scryptP == 1 &&
+            parameters.scryptR == 8
+    }
+
+    private func isAuthenticatedLegacySubstrateJSON(
+        _ value: String?,
+        password: String
+    ) -> Bool {
+        guard let value,
+              let jsonData = value.data(using: .utf8),
+              let definition = try? JSONDecoder().decode(
+                  KeystoreDefinition.self,
+                  from: jsonData
+              ),
+              definition.encoding.content == ["pkcs8", "sr25519"],
+              definition.encoding.type == ["scrypt", "xsalsa20-poly1305"],
+              let encodedData = Data(base64Encoded: definition.encoded),
+              encodedData.count >=
+                ScryptParameters.encodedLength + KeystoreConstants.nonceLength + 16,
+              let parameters = try? ScryptParameters(data: encodedData),
+              parameters.scryptN == 32_768,
+              parameters.scryptP == 1,
+              parameters.scryptR == 8,
+              let passwordData = password.data(using: .utf8)
+        else {
+            return false
+        }
+
+        do {
+            let encryptionKey = try IRScryptKeyDeriviation().deriveKey(
+                from: passwordData,
+                salt: parameters.salt,
+                scryptN: UInt(parameters.scryptN),
+                scryptP: UInt(parameters.scryptP),
+                scryptR: UInt(parameters.scryptR),
+                length: UInt(KeystoreConstants.encryptionKeyLength)
+            )
+            let nonceStart = ScryptParameters.encodedLength
+            let nonceEnd = nonceStart + KeystoreConstants.nonceLength
+            let nonce = Data(encodedData[nonceStart ..< nonceEnd])
+            let encryptedData = Data(encodedData[nonceEnd...])
+            let decryptedData = try NaclSecretBox.open(
+                box: encryptedData,
+                nonce: nonce,
+                key: encryptionKey
+            )
+
+            return decryptedData.count == 117
+        } catch {
+            return false
+        }
     }
 
     private func executeExtension(
