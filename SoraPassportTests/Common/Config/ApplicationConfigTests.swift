@@ -217,7 +217,7 @@ final class RuntimeAccountDataTests: XCTestCase {
 final class SoraIndexerResponseTests: XCTestCase {
     private struct AssetNode: Decodable {
         let id: String
-        let priceUSD: String
+        let priceUsd: String
     }
 
     func testDecodesProductionIndexerConnectionShape() throws {
@@ -240,7 +240,7 @@ final class SoraIndexerResponseTests: XCTestCase {
         switch response {
         case let .data(payload):
             XCTAssertEqual(payload.entities.nodes.first?.id, "0x02")
-            XCTAssertEqual(payload.entities.nodes.first?.priceUSD, "5.39")
+            XCTAssertEqual(payload.entities.nodes.first?.priceUsd, "5.39")
             XCTAssertFalse(payload.entities.pageInfo.hasNextPage)
         case .errors:
             XCTFail("Expected data response")
@@ -274,6 +274,22 @@ final class SoraIndexerResponseTests: XCTestCase {
     }
 
     func testFiatNodeAcceptsProductionPriceShapes() throws {
+        func decodeNode(_ node: String) throws -> SoraIndexerFiatNode {
+            let json = Data("""
+            {"data":{"entities":{"nodes":[\(node)],
+            "pageInfo":{"hasNextPage":false,"endCursor":null}}}}
+            """.utf8)
+            let response = try JSONDecoder().decode(
+                SubqueryResponse<SoraIndexerEntitiesPayload<SoraIndexerFiatNode>>.self,
+                from: json
+            )
+            guard case let .data(payload) = response,
+                  let decodedNode = payload.entities.nodes.first else {
+                throw SoraIndexerClientError.invalidResponse
+            }
+            return decodedNode
+        }
+
         let json = Data(#"""
         {
           "data": {
@@ -296,24 +312,15 @@ final class SoraIndexerResponseTests: XCTestCase {
         guard case let .data(payload) = response else {
             return XCTFail("Expected data response")
         }
-        XCTAssertEqual(payload.entities.nodes.map(\.priceUSD), [5.39, 5.39, nil])
+        XCTAssertEqual(payload.entities.nodes.map(\.priceUsd), [5.39, 5.39, nil])
         XCTAssertThrowsError(
-            try JSONDecoder().decode(
-                SoraIndexerFiatNode.self,
-                from: Data(#"{"id":7,"priceUSD":"5.39"}"#.utf8)
-            )
+            try decodeNode(#"{"id":7,"priceUSD":"5.39"}"#)
         )
         XCTAssertThrowsError(
-            try JSONDecoder().decode(
-                SoraIndexerFiatNode.self,
-                from: Data(#"{"id":"bool","priceUSD":true}"#.utf8)
-            )
+            try decodeNode(#"{"id":"bool","priceUSD":true}"#)
         )
         XCTAssertThrowsError(
-            try JSONDecoder().decode(
-                SoraIndexerFiatNode.self,
-                from: Data(#"{"id":"object","priceUSD":{}}"#.utf8)
-            )
+            try decodeNode(#"{"id":"object","priceUSD":{}}"#)
         )
     }
 
