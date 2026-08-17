@@ -33,6 +33,7 @@ import SoraUIKit
 
 import RobinHood
 import SoraFoundation
+import SoraKeystore
 import sorawallet
 
 final class SwapViewModel {
@@ -214,6 +215,7 @@ final class SwapViewModel {
     private var quoteParams: PolkaswapMainInteractorQuoteParams?
     
     private let feeProvider: FeeProviderProtocol
+    private let signingAvailabilityProvider: () -> WalletTransactionSigningAvailability
     private var fiatData: [FiatData] = [] {
         didSet {
             updateAssetsBalance()
@@ -268,7 +270,18 @@ final class SwapViewModel {
         lpServiceFee: LPFeeServiceProtocol,
         polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
         warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
-        marketCapService: MarketCapServiceProtocol
+        marketCapService: MarketCapServiceProtocol,
+        signingAvailabilityProvider: @escaping () -> WalletTransactionSigningAvailability = {
+            guard let account = SelectedWalletSettings.shared.currentAccount else {
+                return .missingKey
+            }
+
+            return SelectedWalletSettings.transactionSigningAvailability(
+                settings: SettingsManager.shared,
+                keystore: Keychain(),
+                account: account
+            )
+        }
     ) {
         self.assetsProvider = assetsProvider
         self.fiatService = fiatService
@@ -285,6 +298,7 @@ final class SwapViewModel {
         self.polkaswapNetworkFacade = polkaswapNetworkFacade
         self.warningViewModelFactory = warningViewModelFactory
         self.marketCapService = marketCapService
+        self.signingAvailabilityProvider = signingAvailabilityProvider
         self.eventCenter.add(observer: self)
     }
 }
@@ -413,6 +427,12 @@ extension SwapViewModel: LiquidityViewModelProtocol {
     
     func reviewButtonTapped() {
         guard let assetManager = assetManager, let amounts = amounts, let quoteParams = quoteParams else { return }
+        let signingAvailability = signingAvailabilityProvider()
+        guard signingAvailability == .available else {
+            presentSigningUnavailable(signingAvailability)
+            return
+        }
+
         wireframe?.showSwapConfirmation(on: view?.controller.navigationController,
                                         baseAssetId: firstAssetId,
                                         targetAssetId: secondAssetId,
@@ -433,6 +453,27 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                         assetsProvider: assetsProvider,
                                         fiatData: fiatData,
                                         polkaswapNetworkFacade: polkaswapNetworkFacade)
+    }
+
+    private func presentSigningUnavailable(
+        _ availability: WalletTransactionSigningAvailability
+    ) {
+        let message: String
+        switch availability {
+        case .available:
+            return
+        case .recoveryRequired:
+            message = "This wallet is read only because its signing key could not be recovered after the update. Import the exact wallet backup before swapping."
+        case .missingKey:
+            message = "The signing key for this wallet is unavailable. Import the exact wallet backup before swapping."
+        }
+
+        wireframe?.present(
+            message: message,
+            title: "Wallet signing unavailable",
+            closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+            from: view
+        )
     }
     
     func recalculate(field: FocusedField) {}
@@ -584,7 +625,10 @@ extension SwapViewModel {
             let amount = self.swapVariant == .desiredInput ? self.inputedFirstAmount : self.inputedSecondAmount
             let route = self.quote?.route.compactMap({ self.assetManager?.assetInfo(for: $0)?.symbol }).joined(separator: " → ")
             
-            self.minBuy = amounts.toAmount * (1 - Decimal(Double(self.slippageTolerance)) / 100.0)
+            let slippage = Decimal(Double(self.slippageTolerance)) / 100.0
+            self.minBuy = self.swapVariant == .desiredInput
+                ? amounts.toAmount * (1 - slippage)
+                : amounts.toAmount * (1 + slippage)
             self.details = self.detailsFactory.createSwapViewModels(fromAsset: fromAsset,
                                                                     toAsset: toAsset,
                                                                     slippage: Decimal(Double(self.slippageTolerance)),

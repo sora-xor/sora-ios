@@ -40,7 +40,9 @@ extension TransactionHistoryItem {
         _ info: TransferInfo,
         transactionHash: Data,
         networkType: SNAddressType,
-        addressFactory: SS58AddressFactoryProtocol
+        addressFactory: SS58AddressFactoryProtocol,
+        sourceAssetPrecision: Int16 = 18,
+        destinationAssetPrecision: Int16 = 18
     ) throws -> TransactionHistoryItem {
 
         let lpFee = String(info.fees.first(where: { $0.feeDescription.type == "lp" })?.value.decimalValue.toSubstrateAmount(precision: 18) ?? BigUInt(0))
@@ -54,7 +56,10 @@ extension TransactionHistoryItem {
         case .swap:
             let sender = info.asset
             let receiver = info.destination
-            let amountCall = info.amountCall ?? [:]
+            let amountCall = info.amountCall(
+                sourcePrecision: sourceAssetPrecision,
+                destinationPrecision: destinationAssetPrecision
+            ) ?? [:]
             let sourceType: String = info.context?[TransactionContextKeys.marketType] ?? ""
             let dexId: String = info.context?[TransactionContextKeys.dex] ?? "0"
             let marketType: LiquiditySourceType = LiquiditySourceType(rawValue: sourceType) ?? .smart

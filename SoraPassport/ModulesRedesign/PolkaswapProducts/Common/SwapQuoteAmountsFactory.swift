@@ -42,11 +42,20 @@ struct SwapQuoteAmounts: Equatable {
 
 class SwapQuoteAmountsFactory: SwapQuoteConverterProtocol {
     func createAmounts(fromAsset: AssetInfo, toAsset: AssetInfo, params: PolkaswapMainInteractorQuoteParams, quote: SwapValues) -> SwapQuoteAmounts? {
+        let enteredAsset = params.swapVariant == .desiredInput ? fromAsset : toAsset
+        let quotedAsset = params.swapVariant == .desiredInput ? toAsset : fromAsset
+
         guard
             let fromAmountBig = BigUInt(params.amount),
             let toAmountBig = BigUInt(quote.amount),
-            let fromAmount = Decimal.fromSubstrateAmount(fromAmountBig, precision: Int16(fromAsset.precision)),
-            let toAmount = Decimal.fromSubstrateAmount(toAmountBig, precision: Int16(toAsset.precision)) else {
+            let fromAmount = Decimal.fromSubstrateAmount(
+                fromAmountBig,
+                precision: Int16(enteredAsset.precision)
+            ),
+            let toAmount = Decimal.fromSubstrateAmount(
+                toAmountBig,
+                precision: Int16(quotedAsset.precision)
+            ) else {
                 return nil
         }
 

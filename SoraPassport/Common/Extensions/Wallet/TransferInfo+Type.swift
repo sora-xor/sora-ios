@@ -42,6 +42,13 @@ extension TransferInfo {
     }
 
     var amountCall: [SwapVariant: SwapAmount]? {
+        amountCall(sourcePrecision: 18, destinationPrecision: 18)
+    }
+
+    func amountCall(
+        sourcePrecision: Int16,
+        destinationPrecision: Int16
+    ) -> [SwapVariant: SwapAmount]? {
         if type == .swap,
            let context = self.context,
            let raw = context[TransactionContextKeys.desire],
@@ -54,11 +61,31 @@ extension TransferInfo {
             let slip: BigUInt
             switch desire {
             case .desiredInput:
-                desired = self.amount.decimalValue.toSubstrateAmount(precision: 18) ?? 0
-                slip = minMaxAmount.decimalValue.toSubstrateAmount(precision: 18) ?? 0
+                guard
+                    let desiredAmount = self.amount.decimalValue.toSubstrateAmount(
+                        precision: sourcePrecision
+                    ),
+                    let minimumOutput = minMaxAmount.decimalValue.toSubstrateAmountRoundingDown(
+                        precision: destinationPrecision
+                    )
+                else {
+                    return nil
+                }
+                desired = desiredAmount
+                slip = minimumOutput
             case .desiredOutput:
-                desired = estimatedAmount.decimalValue.toSubstrateAmount(precision: 18) ?? 0
-                slip = self.amount.decimalValue.toSubstrateAmount(precision: 18) ?? 0
+                guard
+                    let desiredAmount = estimatedAmount.decimalValue.toSubstrateAmount(
+                        precision: destinationPrecision
+                    ),
+                    let maximumInput = minMaxAmount.decimalValue.toSubstrateAmountRoundingUp(
+                        precision: sourcePrecision
+                    )
+                else {
+                    return nil
+                }
+                desired = desiredAmount
+                slip = maximumInput
             }
 
             return [desire: SwapAmount(type: desire, desired: desired, slip: slip)]

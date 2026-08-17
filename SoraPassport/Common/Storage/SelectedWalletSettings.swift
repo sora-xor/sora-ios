@@ -46,6 +46,12 @@ protocol SelectedWalletSettingsProtocol: AnyObject {
     func save(value: AccountItem)
 }
 
+enum WalletTransactionSigningAvailability: Equatable {
+    case available
+    case recoveryRequired
+    case missingKey
+}
+
 final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, SelectedWalletSettingsProtocol {
     struct RetainedAccountRepairPlan: Equatable {
         let account: AccountItem
@@ -267,6 +273,33 @@ extension SelectedWalletSettings {
             "SORA wallet signing material is unavailable; continuing in browse-only mode"
         )
         return false
+    }
+
+    static func transactionSigningAvailability(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        account: AccountItem,
+        attemptRepair: Bool = true
+    ) -> WalletTransactionSigningAvailability {
+        if matchesRetainedRecoveryIdentity(settings: settings, account: account) {
+            if attemptRepair {
+                _ = try? repairRetainedSigningMaterialIfPossible(
+                    settings: settings,
+                    keystore: keystore,
+                    account: account
+                )
+            }
+
+            if matchesRetainedRecoveryIdentity(settings: settings, account: account) {
+                return .recoveryRequired
+            }
+        }
+
+        guard (try? keystore.fetchSecretKeyForAddress(account.address)) != nil else {
+            return .missingKey
+        }
+
+        return .available
     }
 
     private static func hasAnyRetainedSigningMaterial(

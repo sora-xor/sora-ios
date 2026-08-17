@@ -33,6 +33,7 @@ import SoraUIKit
 
 import RobinHood
 import SoraFoundation
+import SoraKeystore
 import sorawallet
 
 final class ConfirmSwapViewModel {
@@ -61,6 +62,7 @@ final class ConfirmSwapViewModel {
     private let interactor: PolkaswapMainInteractorInputProtocol
     private var quoteParams: PolkaswapMainInteractorQuoteParams
     private weak var assetsProvider: AssetProviderProtocol?
+    private let signingAvailabilityProvider: () -> WalletTransactionSigningAvailability
     private var items: [SoramitsuTableViewItemProtocol] = [] {
         didSet {
             setupItems?(items)
@@ -134,7 +136,18 @@ final class ConfirmSwapViewModel {
         interactor: PolkaswapMainInteractorInputProtocol,
         quoteParams: PolkaswapMainInteractorQuoteParams,
         assetsProvider: AssetProviderProtocol?,
-        fiatData: [FiatData]
+        fiatData: [FiatData],
+        signingAvailabilityProvider: @escaping () -> WalletTransactionSigningAvailability = {
+            guard let account = SelectedWalletSettings.shared.currentAccount else {
+                return .missingKey
+            }
+
+            return SelectedWalletSettings.transactionSigningAvailability(
+                settings: SettingsManager.shared,
+                keystore: Keychain(),
+                account: account
+            )
+        }
     ) {
         self.firstAssetId = firstAssetId
         self.secondAssetId = secondAssetId
@@ -155,6 +168,7 @@ final class ConfirmSwapViewModel {
         self.quoteParams = quoteParams
         self.assetsProvider = assetsProvider
         self.fiatData = fiatData
+        self.signingAvailabilityProvider = signingAvailabilityProvider
         self.eventCenter = eventCenter
         self.eventCenter.add(observer: self)
     }
@@ -262,6 +276,12 @@ extension ConfirmSwapViewModel {
     }
     
     func submit() {
+        let signingAvailability = signingAvailabilityProvider()
+        guard signingAvailability == .available else {
+            presentSigningUnavailable(signingAvailability)
+            return
+        }
+
         let networkFeeDescription = FeeDescription(identifier: WalletAssetId.xor.rawValue,
                                                    assetId: WalletAssetId.xor.rawValue,
                                                    type: "fee",
@@ -303,6 +323,17 @@ extension ConfirmSwapViewModel {
     }
     
     private func handleTransfer(result: Result<Data, Swift.Error>) {
+        if case let .failure(error) = result,
+           let signingError = error as? SigningWrapperError {
+            switch signingError {
+            case .retainedWalletRecoveryRequired:
+                presentSigningUnavailable(.recoveryRequired)
+            case .missingSelectedAccount, .missingSecretKey:
+                presentSigningUnavailable(.missingKey)
+            }
+            return
+        }
+
         var status: TransactionBase.Status = .pending
         var txHash = ""
         if case let .failure = result {
@@ -328,6 +359,27 @@ extension ConfirmSwapViewModel {
         wireframe?.showActivityDetails(on: view?.controller, model: swapTransaction, assetManager: assetManager) { [weak self] in
             self?.view?.dismiss(competion: {})
         }
+    }
+
+    private func presentSigningUnavailable(
+        _ availability: WalletTransactionSigningAvailability
+    ) {
+        let message: String
+        switch availability {
+        case .available:
+            return
+        case .recoveryRequired:
+            message = "This wallet is read only because its signing key could not be recovered after the update. Import the exact wallet backup before swapping."
+        case .missingKey:
+            message = "The signing key for this wallet is unavailable. Import the exact wallet backup before swapping."
+        }
+
+        wireframe?.present(
+            message: message,
+            title: "Wallet signing unavailable",
+            closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+            from: view
+        )
     }
     
     func updateDetails(params: PolkaswapMainInteractorQuoteParams? = nil,
@@ -355,7 +407,10 @@ extension ConfirmSwapViewModel {
         
         let route = quote.route.compactMap({ self.assetManager.assetInfo(for: $0)?.symbol }).joined(separator: " → ")
         
-        minMaxValue = amounts.toAmount * (1 - Decimal(Double(slippageTolerance)) / 100.0)
+        let slippage = Decimal(Double(slippageTolerance)) / 100.0
+        minMaxValue = swapVariant == .desiredInput
+            ? amounts.toAmount * (1 - slippage)
+            : amounts.toAmount * (1 + slippage)
         details = detailsFactory.createSwapViewModels(fromAsset: fromAsset,
                                                       toAsset: toAsset,
                                                       slippage: Decimal(Double(slippageTolerance)),
@@ -406,7 +461,9 @@ extension ConfirmSwapViewModel: PolkaswapMainInteractorOutputProtocol {
             // check if exchanging to XOR, we'll receive enough XOR to pay nework fee from it
             if let toAsset = self.assetManager.assetInfo(for: self.secondAssetId),
                toAsset.isFeeAsset {
-                let xorAmount = self.swapVariant == .desiredInput ? self.minMaxValue : self.amounts.toAmount
+                let xorAmount = self.swapVariant == .desiredInput
+                    ? self.minMaxValue
+                    : self.amounts.fromAmount
                 let xorAmountFuture = self.secondAssetBalance.balance.decimalValue + xorAmount
                 guard xorAmountFuture > self.fee else {
                     self.isEnoughtBalance = false

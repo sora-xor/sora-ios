@@ -592,7 +592,7 @@ class RootFactoryTests: XCTestCase {
         XCTAssertEqual(settings.bool(for: "walletMigrationRecoveryRequired"), true)
     }
 
-    func testSigningIsBlockedWhileRetainedRecoveryMarkerRemains() throws {
+    func testSigningAutomaticallyRepairsValidScopedSecret() throws {
         let settings = InMemorySettingsManager()
         let keychain = InMemoryKeychain()
         let fixture = try makeMnemonicRecoveryFixture(
@@ -610,11 +610,38 @@ class RootFactoryTests: XCTestCase {
             recoverySettings: settings
         )
 
+        XCTAssertNoThrow(try signer.sign(Data("repaired".utf8)))
+        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
+    }
+
+    func testSigningIsBlockedWhenRetainedRecoveryHasNoKey() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 31) })
+        )
+        markRecoveryRequired(settings: settings, account: fixture.account)
+
+        let signer = SigningWrapper(
+            keystore: keychain,
+            account: fixture.account,
+            recoverySettings: settings
+        )
+
         XCTAssertThrowsError(try signer.sign(Data("blocked".utf8))) { error in
             guard case SigningWrapperError.retainedWalletRecoveryRequired = error else {
                 return XCTFail("Unexpected signing error: \(error)")
             }
         }
+        XCTAssertEqual(
+            SelectedWalletSettings.transactionSigningAvailability(
+                settings: settings,
+                keystore: keychain,
+                account: fixture.account
+            ),
+            .recoveryRequired
+        )
+        XCTAssertEqual(settings.bool(for: "walletMigrationRecoveryRequired"), true)
     }
 
     func testVerifiedLegacyPrivateKeySeedRepairsRetainedWallet() throws {

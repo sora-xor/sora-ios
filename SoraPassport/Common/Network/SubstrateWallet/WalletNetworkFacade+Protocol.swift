@@ -167,6 +167,12 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
             }
 
             let transferWrapper: CompoundOperationWrapper = nodeOperationFactory.transferOperation(info)
+            let sourceAssetPrecision = accountSettings.assets.first(
+                where: { $0.identifier == info.asset }
+            )?.precision ?? 18
+            let destinationAssetPrecision = accountSettings.assets.first(
+                where: { $0.identifier == info.destination }
+            )?.precision ?? 18
 
             let txSaveOperation = txStorage.saveOperation({
                 switch transferWrapper.targetOperation.result {
@@ -175,7 +181,9 @@ extension WalletNetworkFacade: WalletNetworkOperationFactoryProtocol {
                         info,
                         transactionHash: txHash,
                         networkType: currentNetworkType,
-                        addressFactory: addressFactory
+                        addressFactory: addressFactory,
+                        sourceAssetPrecision: sourceAssetPrecision,
+                        destinationAssetPrecision: destinationAssetPrecision
                     )
                     return [item]
                 case let .failure(error):

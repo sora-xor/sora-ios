@@ -55,12 +55,19 @@ final class SigningWrapper: SigningWrapperProtocol {
     }
 
     func sign(_ originalData: Data) throws -> IRSignatureProtocol {
-        if let recoverySettings,
-           SelectedWalletSettings.isRetainedRecoveryAccount(
-               settings: recoverySettings,
-               account: account
-           ) {
-            throw SigningWrapperError.retainedWalletRecoveryRequired
+        if let recoverySettings {
+            switch SelectedWalletSettings.transactionSigningAvailability(
+                settings: recoverySettings,
+                keystore: keystore,
+                account: account
+            ) {
+            case .available:
+                break
+            case .recoveryRequired:
+                throw SigningWrapperError.retainedWalletRecoveryRequired
+            case .missingKey:
+                throw SigningWrapperError.missingSecretKey
+            }
         }
 
         guard let secretKey = try keystore.fetchSecretKeyForAddress(account.address) else {

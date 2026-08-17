@@ -43,4 +43,18 @@ extension Decimal {
         let valueString = (self as NSDecimalNumber).multiplying(byPowerOf10: precision, withBehavior: handler).stringValue
         return BigUInt(valueString)
     }
+
+    func toSubstrateAmountRoundingUp(precision: Int16) -> BigUInt? {
+        let handler = NSDecimalNumberHandler(roundingMode: .up,
+                               scale: 0,
+                               raiseOnExactness: false,
+                               raiseOnOverflow: false,
+                               raiseOnUnderflow: false,
+                               raiseOnDivideByZero: false)
+
+        let valueString = (self as NSDecimalNumber)
+            .multiplying(byPowerOf10: precision, withBehavior: handler)
+            .stringValue
+        return BigUInt(valueString)
+    }
 }
