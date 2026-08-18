@@ -40,6 +40,10 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
     }
 
     private var cancellables: Set<AnyCancellable> = []
+    private var interactivePopWasEnabled: Bool?
+    private var backButtonWasHidden: Bool?
+    private var navigationWasModalInPresentation: Bool?
+    private var isNavigationLocked = false
     
     private lazy var dataSource: EnterPasswordDataSource = {
         EnterPasswordDataSource(tableView: tableView) { tableView, indexPath, item in
@@ -65,6 +69,9 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
         tableView.delegate = self
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 420
+        tableView.keyboardDismissMode = .interactive
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.register(EnterPasswordCell.self, forCellReuseIdentifier: "EnterPasswordCell")
         return tableView
@@ -121,13 +128,43 @@ final class EnterPasswordViewController: SoramitsuViewController & EnterPassword
     }
     
     func showLoading() {
+        if !isNavigationLocked {
+            interactivePopWasEnabled = navigationController?
+                .interactivePopGestureRecognizer?.isEnabled
+            backButtonWasHidden = navigationItem.hidesBackButton
+            navigationWasModalInPresentation = navigationController?.isModalInPresentation
+            isNavigationLocked = true
+        }
+
+        navigationController?.isModalInPresentation = true
+        navigationController?.interactivePopGestureRecognizer?.isEnabled = false
+        navigationItem.setHidesBackButton(true, animated: false)
         loadingView.isHidden = false
     }
     
     func hideLoading() {
+        guard isNavigationLocked else {
+            loadingView.isHidden = true
+            return
+        }
+
+        if let navigationWasModalInPresentation {
+            navigationController?.isModalInPresentation = navigationWasModalInPresentation
+        }
+
+        if let interactivePopWasEnabled {
+            navigationController?.interactivePopGestureRecognizer?.isEnabled = interactivePopWasEnabled
+        }
+        if let backButtonWasHidden {
+            navigationItem.setHidesBackButton(backButtonWasHidden, animated: false)
+        }
+
+        interactivePopWasEnabled = nil
+        backButtonWasHidden = nil
+        navigationWasModalInPresentation = nil
+        isNavigationLocked = false
         loadingView.isHidden = true
     }
 }
 
 extension EnterPasswordViewController: UITableViewDelegate {}
-

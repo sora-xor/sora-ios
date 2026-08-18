@@ -56,4 +56,8 @@ extension EnterPasswordWireframe: EnterPasswordWireframeProtocol {
         )?.controller else { return }
         currentController?.controller.navigationController?.setViewControllers([successView], animated: true)
     }
+
+    func completeRecovery() {
+        currentController?.controller.dismiss(animated: true, completion: endAddingBlock)
+    }
 }

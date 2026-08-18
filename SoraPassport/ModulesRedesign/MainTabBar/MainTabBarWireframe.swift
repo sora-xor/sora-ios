@@ -92,8 +92,23 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
             return
         }
 
-        guard let importController = AccountImportViewFactory
-            .createViewForAdding(endAddingBlock: nil)?.controller else {
+        let currentAccount = SelectedWalletSettings.shared.currentAccount
+        let recoveryAccount = currentAccount.flatMap { account in
+            SelectedWalletSettings.transactionSigningAvailability(
+                settings: SettingsManager.shared,
+                keystore: Keychain(),
+                account: account,
+                attemptRepair: false
+            ) == .available ? nil : account
+        }
+
+        guard let importController = AccountImportViewFactory.createViewForAdding(
+            sourceType: recoveryAccount == nil ? nil : .keystore,
+            endAddingBlock: { [weak self, weak view] in
+                self?.showNewWalletView(on: view)
+            },
+            recoveryAccount: recoveryAccount
+        )?.controller else {
             return
         }
 

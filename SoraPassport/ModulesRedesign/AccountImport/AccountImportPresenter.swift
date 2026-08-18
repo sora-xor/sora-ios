@@ -60,12 +60,27 @@ final class AccountImportPresenter {
     private(set) var passwordViewModel: InputViewModelProtocol?
     private(set) var derivationPathViewModel: InputViewModelProtocol?
     private let config: ApplicationConfigProtocol
+    private(set) var recoveryMode: Bool
+    private let recoveryAccount: AccountItem?
+    private let recoveryCompletion: (() -> Void)?
+    private var didCompleteRecovery = false
 
     private lazy var jsonDeserializer = JSONSerialization()
     
-    init(sourceType: AccountImportSource? = nil, config: ApplicationConfigProtocol) {
+    init(
+        sourceType: AccountImportSource? = nil,
+        config: ApplicationConfigProtocol,
+        recoveryMode: Bool = false,
+        recoveryAccount: AccountItem? = nil,
+        recoveryCompletion: (() -> Void)? = nil
+    ) {
         self.selectedSourceType = sourceType
         self.config = config
+        self.recoveryMode = recoveryMode
+        self.recoveryAccount = recoveryAccount
+        self.recoveryCompletion = recoveryCompletion
+        self.selectedCryptoType = recoveryAccount?.cryptoType
+        self.selectedNetworkType = recoveryAccount?.networkType.chain
     }
 
     private func applySourceType(_ value: String = "", preferredInfo: AccountImportPreferredInfo? = nil) {
@@ -73,7 +88,10 @@ final class AccountImportPresenter {
             return
         }
 
-        if let preferredInfo = preferredInfo {
+        if let recoveryAccount {
+            selectedCryptoType = recoveryAccount.cryptoType
+            selectedNetworkType = recoveryAccount.networkType.chain
+        } else if let preferredInfo = preferredInfo {
             selectedCryptoType = preferredInfo.cryptoType
 
             if let preferredNetwork = preferredInfo.networkType,
@@ -92,7 +110,7 @@ final class AccountImportPresenter {
 
         applySourceTextViewModel(value)
 
-        let username = preferredInfo?.username ?? ""
+        let username = recoveryAccount?.username ?? preferredInfo?.username ?? ""
         applyUsernameViewModel(username)
         applyPasswordViewModel()
         applyAdvanced(preferredInfo)
@@ -130,7 +148,21 @@ final class AccountImportPresenter {
                 predicate: NSPredicate.seed
             )
             viewModel = InputViewModel(inputHandler: inputHandler, placeholder: placeholder)
-        default: viewModel = InputViewModel(inputHandler: InputHandler())
+        case .keystore:
+            let placeholder = recoveryText(
+                "wallet.recovery.json.placeholder",
+                fallback: "Paste the complete JSON backup"
+            )
+            let inputHandler = InputHandler(
+                value: value,
+                maxLength: AccountImportPresenter.maxKeystoreLength,
+                predicate: NSPredicate.notEmpty
+            )
+            viewModel = InputViewModel(
+                inputHandler: inputHandler,
+                placeholder: placeholder,
+                autocapitalization: .none
+            )
         }
 
         sourceViewModel = viewModel
@@ -170,35 +202,32 @@ final class AccountImportPresenter {
     }
 
     private func showUploadWarningIfNeeded(_ preferredInfo: AccountImportPreferredInfo) {
-        guard let metadata = metadata else {
+        guard !recoveryMode, let metadata = metadata else {
             return
         }
 
         if preferredInfo.networkType == nil {
-            let locale = localizationManager?.selectedLocale
-            let message = "accountImportJsonNoNetwork"//R.string.localizable.accountImportJsonNoNetwork(preferredLanguages: locale?.rLanguages)
+            let message = recoveryText(
+                "wallet.recovery.json.network.missing",
+                fallback: "This backup does not identify a network. It will be verified before import."
+            )
             view?.setUploadWarning(message: message)
             return
         }
 
         if let preferredNetwork = preferredInfo.networkType,
            !metadata.availableNetworks.contains(preferredNetwork) {
-            let locale = localizationManager?.selectedLocale ?? Locale.current
-            let message = "accountImportWrongNetwork"//R.string.localizable
-                //.accountImportWrongNetwork(preferredNetwork.titleForLocale(locale),
-                     //                      metadata.defaultNetwork.titleForLocale(locale))
+            let message = recoveryText(
+                "wallet.recovery.json.network.wrong",
+                fallback: "This backup is for a different network. Nothing has been changed."
+            )
             view?.setUploadWarning(message: message)
             return
         }
     }
 
     private func applyAdvanced(_ preferredInfo: AccountImportPreferredInfo?) {
-        guard let selectedSourceType = selectedSourceType else {
-            let locale = localizationManager?.selectedLocale
-            let warning = "accountImportJsonNoNetwork"//R.string.localizable.accountImportJsonNoNetwork(preferredLanguages: locale?.rLanguages)
-            view?.setUploadWarning(message: warning)
-            return
-        }
+        guard let selectedSourceType = selectedSourceType else { return }
 
         switch selectedSourceType {
         case .mnemonic, .seed:
@@ -327,6 +356,7 @@ final class AccountImportPresenter {
 extension AccountImportPresenter: AccountImportPresenterProtocol {
 
     func setup() {
+        view?.setRecoveryMode(recoveryMode, account: recoveryAccount)
         interactor.setup()
     }
     
@@ -403,6 +433,40 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
             presentDerivationPathError(sourceType: selectedSourceType, cryptoType: selectedCryptoType)
             return
         }
+
+        if recoveryMode {
+            view?.setLoading(true)
+            switch selectedSourceType {
+            case .mnemonic:
+                let request = AccountImportMnemonicRequest(
+                    mnemonic: sourceViewModel.inputHandler.value,
+                    username: usernameViewModel.inputHandler.value,
+                    networkType: selectedNetworkType,
+                    derivationPath: derivationPathViewModel?.inputHandler.value ?? "",
+                    cryptoType: selectedCryptoType
+                )
+                interactor.importAccountWithMnemonic(request: request)
+            case .seed:
+                let request = AccountImportSeedRequest(
+                    seed: sourceViewModel.inputHandler.value,
+                    username: usernameViewModel.inputHandler.value,
+                    networkType: selectedNetworkType,
+                    derivationPath: derivationPathViewModel?.inputHandler.value ?? "",
+                    cryptoType: selectedCryptoType
+                )
+                interactor.importAccountWithSeed(request: request)
+            case .keystore:
+                let request = AccountImportKeystoreRequest(
+                    keystore: sourceViewModel.inputHandler.value,
+                    password: passwordViewModel?.inputHandler.value ?? "",
+                    username: usernameViewModel.inputHandler.value,
+                    networkType: selectedNetworkType,
+                    cryptoType: selectedCryptoType
+                )
+                interactor.importAccountWithKeystore(request: request)
+            }
+            return
+        }
         
         validateAccount { [weak self] result in
             switch result {
@@ -436,17 +500,51 @@ extension AccountImportPresenter: AccountImportPresenterProtocol {
 extension AccountImportPresenter: AccountImportInteractorOutputProtocol {
     func didReceiveAccountImport(metadata: AccountImportMetadata) {
         self.metadata = metadata
-        
+
+        selectedSourceType = selectedSourceType ?? metadata.defaultSource
         selectedCryptoType = metadata.defaultCryptoType
         selectedNetworkType = metadata.defaultNetwork
 
         applySourceType()
     }
 
-    func didCompleteAccountImport() {}
+    func didCompleteAccountImport() {
+        guard recoveryMode else {
+            view?.setLoading(false)
+            return
+        }
+        guard !didCompleteRecovery else { return }
+
+        didCompleteRecovery = true
+        view?.setLoading(false)
+        guard let view else {
+            recoveryCompletion?()
+            return
+        }
+
+        view.dismissPresentedController(completion: recoveryCompletion)
+    }
 
     func didReceiveAccountImport(error: Error) {
+        view?.setLoading(false)
         let locale = localizationManager?.selectedLocale ?? Locale.current
+
+        if recoveryMode, let message = Self.recoveryErrorMessage(for: error) {
+            wireframe.present(
+                message: message,
+                title: recoveryText(
+                    "wallet.recovery.backup.not.match.title",
+                    fallback: "Recovery details don’t match"
+                ),
+                closeAction: R.string.localizable.commonOk(
+                    preferredLanguages: locale.rLanguages
+                ),
+                from: view
+            ) { [weak self] in
+                self?.view?.resetFocus()
+            }
+            return
+        }
 
         guard !wireframe.present(error: error, from: view, locale: locale, completion: { [weak self] in
             self?.view?.resetFocus()
@@ -458,6 +556,20 @@ extension AccountImportPresenter: AccountImportInteractorOutputProtocol {
                               from: view,
                               locale: locale) { [weak self] in
             self?.view?.resetFocus()
+        }
+    }
+
+    static func recoveryErrorMessage(for error: Error) -> String? {
+        guard let accountError = error as? AccountCreateError else { return nil }
+
+        switch accountError {
+        case .invalidSeed, .duplicated:
+            return recoveryText(
+                "wallet.recovery.backup.not.match",
+                fallback: "These recovery details do not restore this wallet. Check the backup and derivation path. Your current wallet was not changed."
+            )
+        default:
+            return nil
         }
     }
 

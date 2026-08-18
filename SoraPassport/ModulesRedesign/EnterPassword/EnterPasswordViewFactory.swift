@@ -87,7 +87,8 @@ final class EnterPasswordViewFactory {
                                                backedUpAccounts: backedUpAccounts,
                                                interactor: interactor,
                                                wireframe: wireframe,
-                                               view: view)
+                                               view: view,
+                                               isRecovery: recoveryAccount != nil)
         interactor.presenter = viewModel
         view.viewModel = viewModel
 

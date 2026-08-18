@@ -64,6 +64,19 @@ final class EnterPasswordCell: SoramitsuTableViewCell {
         view.sora.textFieldPlaceholder = R.string.localizable.enterPasswordTitle(preferredLanguages: .currentLocale)
         view.textField.returnKeyType = .go
         view.textField.isSecureTextEntry = true
+        view.sora.textContentType = .password
+        view.sora.buttonImage = UIImage(systemName: "eye")
+        view.sora.buttonImageTintColor = .fgSecondary
+        view.button.sora.addHandler(for: .touchUpInside) { [weak view] in
+            guard let view else { return }
+            view.textField.isSecureTextEntry.toggle()
+            view.sora.buttonImage = UIImage(
+                systemName: view.textField.isSecureTextEntry ? "eye" : "eye.slash"
+            )
+        }
+        view.sora.addHandler(for: .editingChanged) { [weak self] in
+            self?.continueButton.sora.isEnabled = !(self?.passwordInputField.textField.text ?? "").isEmpty
+        }
         return view
     }()
     
@@ -120,7 +133,7 @@ final class EnterPasswordCell: SoramitsuTableViewCell {
             passwordInputField.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             passwordInputField.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             passwordInputField.topAnchor.constraint(equalTo: accountView.bottomAnchor, constant: 24),
-            passwordInputField.heightAnchor.constraint(equalToConstant: 76),
+            passwordInputField.heightAnchor.constraint(greaterThanOrEqualToConstant: 76),
             
             continueButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
             continueButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
@@ -138,15 +151,20 @@ extension EnterPasswordCell: SoramitsuTableViewCellProtocol {
         accountView.accountTitle.sora.text = item.accountName
         accountView.accountTitle.sora.isHidden = item.accountName?.isEmpty ?? true
         accountView.accountAddress.sora.text = item.accountAddress
+        descriptionLabel.sora.text = item.descriptionText
+        continueButton.sora.title = item.continueTitle
+        continueButton.sora.isEnabled = !(passwordInputField.textField.text ?? "").isEmpty
         accountView.accountImageView.image = try? generator.generateFromAddress(item.accountAddress)
             .imageWithFillColor(UIColor.white,
                                 size: CGSize(width: 40.0, height: 40.0),
                                 contentScale: UIScreen.main.scale)
-        passwordInputField.textField.becomeFirstResponder()
-
         if !item.errorText.isEmpty {
-            passwordInputField.sora.descriptionLabelText = R.string.localizable.enterPasswordIncorectTitle(preferredLanguages: .currentLocale)
+            passwordInputField.sora.descriptionLabelText = item.errorText
             passwordInputField.sora.state = .fail
+            UIAccessibility.post(notification: .announcement, argument: item.errorText)
+        } else {
+            passwordInputField.sora.descriptionLabelText = nil
+            passwordInputField.sora.state = .default
         }
         
         self.item = item

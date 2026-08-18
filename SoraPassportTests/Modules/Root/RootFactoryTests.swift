@@ -179,18 +179,48 @@ class RootFactoryTests: XCTestCase {
     }
 
     @MainActor
-    func testRecoveryWalletPreviewLocksWalletInteractions() throws {
+    func testRecoveryBannerLeavesBrowseInteractionsEnabled() throws {
         let controller = MainTabBarViewController()
+        controller.recoveryRequiredProvider = { true }
+        let wallet = UIViewController()
+        let activity = UIViewController()
+        controller.viewControllers = [wallet, activity]
+        controller.loadViewIfNeeded()
+        controller.selectedIndex = 1
+        controller.enableRecoveryReadOnlyMode()
+        controller.view.layoutIfNeeded()
+
+        let banner = try XCTUnwrap(controller.recoveryInteractionShield)
+        XCTAssertEqual(controller.selectedIndex, 1)
+        XCTAssertTrue(banner.isUserInteractionEnabled)
+        XCTAssertTrue(banner.isDescendant(of: controller.view))
+        XCTAssertLessThan(banner.bounds.height, controller.view.bounds.height)
+        XCTAssertFalse(wallet.view.accessibilityElementsHidden)
+        XCTAssertFalse(activity.view.accessibilityElementsHidden)
+        XCTAssertFalse(controller.tabBar.accessibilityElementsHidden)
+        XCTAssertFalse(banner.accessibilityViewIsModal)
+        XCTAssertGreaterThan(controller.additionalSafeAreaInsets.top, 0)
+        XCTAssertLessThanOrEqual(
+            banner.frame.maxY,
+            controller.view.safeAreaInsets.top + 1
+        )
+    }
+
+    @MainActor
+    func testRecoveryBannerRestoreButtonInvokesHandler() throws {
+        let controller = MainTabBarViewController()
+        controller.recoveryRequiredProvider = { true }
         controller.viewControllers = [UIViewController()]
+        var invocationCount = 0
+        controller.recoveryRestoreHandler = { invocationCount += 1 }
         controller.loadViewIfNeeded()
         controller.enableRecoveryReadOnlyMode()
 
-        let interactionShield = try XCTUnwrap(controller.recoveryInteractionShield)
-        XCTAssertEqual(controller.selectedIndex, MainTabBarViewFactory.walletIndex)
-        XCTAssertTrue(interactionShield.isUserInteractionEnabled)
-        XCTAssertTrue(interactionShield.isDescendant(of: controller.view))
-        XCTAssertTrue(controller.view.subviews.last === interactionShield)
-        XCTAssertTrue(interactionShield.accessibilityViewIsModal)
+        let banner = try XCTUnwrap(controller.recoveryInteractionShield)
+        let restoreButton = try XCTUnwrap(banner.subviews.compactMap { $0 as? UIButton }.first)
+        restoreButton.sendActions(for: .touchUpInside)
+
+        XCTAssertEqual(invocationCount, 1)
     }
 
     @MainActor
@@ -467,6 +497,7 @@ class RootFactoryTests: XCTestCase {
 
         let initialView = try XCTUnwrap(
             AccountImportViewFactory.createViewForAdding(
+                sourceType: .mnemonic,
                 endAddingBlock: {},
                 recoveryAccount: fixture.account
             ) as? ImportAccountViewController
@@ -481,6 +512,10 @@ class RootFactoryTests: XCTestCase {
             recoveryWireframe.recoveryAccount?.address,
             fixture.account.address
         )
+        XCTAssertEqual(initialPresenter.selectedSourceType, .mnemonic)
+        XCTAssertEqual(initialPresenter.selectedCryptoType, fixture.account.cryptoType)
+        XCTAssertEqual(initialPresenter.selectedNetworkType, fixture.account.networkType.chain)
+        XCTAssertTrue(initialPresenter.recoveryMode)
 
         let sourceViewModel = InputViewModel(
             inputHandler: InputHandler(value: "source")
@@ -512,6 +547,272 @@ class RootFactoryTests: XCTestCase {
         XCTAssertEqual(
             interactor.recoveryAccount?.publicKeyData,
             fixture.account.publicKeyData
+        )
+    }
+
+    @MainActor
+    func testRecoveryPresenterImportsEachSourceDirectlyAndCompletesOnce() throws {
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map(UInt8.init))
+        )
+
+        for sourceType in AccountImportSource.allCases {
+            var completionCount = 0
+            let view = RecoveryAccountImportViewSpy()
+            let interactor = RecoveryAccountImportInteractorSpy()
+            let presenter = AccountImportPresenter(
+                sourceType: sourceType,
+                config: ApplicationConfig.shared,
+                recoveryMode: true,
+                recoveryAccount: fixture.account,
+                recoveryCompletion: { completionCount += 1 }
+            )
+            presenter.view = view
+            presenter.interactor = interactor
+            presenter.wireframe = AddImportedWireframe(
+                localizationManager: LocalizationManager.shared,
+                recoveryAccount: fixture.account
+            )
+            presenter.localizationManager = LocalizationManager.shared
+            interactor.presenter = presenter
+            presenter.setup()
+
+            switch sourceType {
+            case .mnemonic:
+                presenter.sourceViewModel?.inputHandler.changeValue(to: "one two three")
+            case .seed:
+                presenter.sourceViewModel?.inputHandler.changeValue(
+                    to: String(repeating: "a", count: 64)
+                )
+            case .keystore:
+                presenter.sourceViewModel?.inputHandler.changeValue(to: "{}")
+                presenter.passwordViewModel?.inputHandler.changeValue(to: "backup-password")
+            }
+
+            presenter.proceed()
+
+            XCTAssertEqual(view.loadingStates, [true], "source: \(sourceType)")
+            XCTAssertEqual(interactor.totalImportCount, 1, "source: \(sourceType)")
+            XCTAssertEqual(interactor.lastImportedSource, sourceType)
+
+            switch sourceType {
+            case .mnemonic:
+                let request = try XCTUnwrap(interactor.mnemonicRequests.first)
+                XCTAssertEqual(request.mnemonic, "one two three")
+                XCTAssertEqual(request.username, fixture.account.username)
+                XCTAssertEqual(request.networkType, fixture.account.networkType.chain)
+                XCTAssertEqual(request.cryptoType, fixture.account.cryptoType)
+            case .seed:
+                let request = try XCTUnwrap(interactor.seedRequests.first)
+                XCTAssertEqual(request.seed, String(repeating: "a", count: 64))
+                XCTAssertEqual(request.username, fixture.account.username)
+                XCTAssertEqual(request.networkType, fixture.account.networkType.chain)
+                XCTAssertEqual(request.cryptoType, fixture.account.cryptoType)
+            case .keystore:
+                let request = try XCTUnwrap(interactor.keystoreRequests.first)
+                XCTAssertEqual(request.keystore, "{}")
+                XCTAssertEqual(request.password, "backup-password")
+                XCTAssertEqual(request.username, fixture.account.username)
+                XCTAssertEqual(request.networkType, fixture.account.networkType.chain)
+                XCTAssertEqual(request.cryptoType, fixture.account.cryptoType)
+            }
+
+            presenter.didCompleteAccountImport()
+            presenter.didCompleteAccountImport()
+
+            XCTAssertEqual(view.loadingStates, [true, false], "source: \(sourceType)")
+            XCTAssertEqual(view.dismissCount, 1, "source: \(sourceType)")
+            XCTAssertEqual(completionCount, 1, "source: \(sourceType)")
+        }
+    }
+
+    @MainActor
+    func testRecoveryChooserShowsAllMethodsForExactWallet() throws {
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map(UInt8.init))
+        )
+        let controller = RetainedWalletRecoveryViewController(account: fixture.account)
+        controller.loadViewIfNeeded()
+
+        XCTAssertEqual(controller.account.address, fixture.account.address)
+        XCTAssertEqual(controller.methodControls.count, 4)
+        XCTAssertEqual(Set(controller.methodControls.map(\.methodTitle)).count, 4)
+        XCTAssertTrue(controller.methodControls.allSatisfy(\.isAccessibilityElement))
+
+        XCTAssertTrue(controller.beginMethodSelection())
+        XCTAssertFalse(controller.beginMethodSelection())
+        XCTAssertTrue(controller.methodControls.allSatisfy { !$0.isEnabled })
+
+        controller.endMethodSelection()
+        XCTAssertTrue(controller.methodControls.allSatisfy(\.isEnabled))
+    }
+
+    @MainActor
+    func testRecoveryJsonFormBindsPasswordAndExactIdentity() throws {
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map(UInt8.init))
+        )
+        let existingURLHandlers = URLHandlingService.shared.children
+        URLHandlingService.shared.setup(
+            children: [KeystoreImportService(logger: Logger.shared)]
+        )
+        defer {
+            URLHandlingService.shared.setup(children: existingURLHandlers)
+        }
+
+        let view = try XCTUnwrap(
+            AccountImportViewFactory.createViewForAdding(
+                sourceType: .keystore,
+                endAddingBlock: {},
+                recoveryAccount: fixture.account
+            ) as? ImportAccountViewController
+        )
+        view.loadViewIfNeeded()
+        let presenter = try XCTUnwrap(view.presenter as? AccountImportPresenter)
+        let suggestedJSON = "{\"address\":\"\(fixture.account.address)\"}"
+        presenter.didSuggestKeystore(text: suggestedJSON, preferredInfo: nil)
+
+        XCTAssertTrue(view.isRecoveryMode)
+        XCTAssertEqual(view.recoveryAccount?.address, fixture.account.address)
+        XCTAssertEqual(view.displayedSourceType, .keystore)
+        XCTAssertFalse(view.passwordField.sora.isHidden)
+        XCTAssertTrue(view.sourceTextView.isScrollEnabled)
+        XCTAssertEqual(view.sourceTextView.text, suggestedJSON)
+        XCTAssertEqual(presenter.sourceViewModel?.inputHandler.value, suggestedJSON)
+        XCTAssertEqual(presenter.selectedCryptoType, fixture.account.cryptoType)
+        XCTAssertEqual(presenter.selectedNetworkType, fixture.account.networkType.chain)
+        XCTAssertEqual(presenter.usernameViewModel?.inputHandler.value, fixture.account.username)
+    }
+
+    func testRecoveryCloudPasswordErrorsAreActionable() {
+        XCTAssertEqual(
+            EnterPasswordViewModel.classify(error: CloudStorageServiceError.incorectPassword),
+            .incorrectPassword
+        )
+        XCTAssertEqual(
+            EnterPasswordViewModel.classify(error: CloudStorageServiceError.notFound),
+            .backupNotFound
+        )
+        XCTAssertEqual(
+            EnterPasswordViewModel.classify(error: CloudStorageServiceError.notAuthorized),
+            .authorization
+        )
+        XCTAssertEqual(
+            EnterPasswordViewModel.classify(error: CloudStorageServiceError.incorectJson),
+            .unreadableBackup
+        )
+        XCTAssertEqual(
+            EnterPasswordViewModel.classify(error: AccountCreateError.invalidSeed),
+            .differentWallet
+        )
+        XCTAssertNotNil(
+            AccountImportPresenter.recoveryErrorMessage(for: AccountCreateError.invalidSeed)
+        )
+    }
+
+    @MainActor
+    func testRecoveryPasteNormalizesAndRejectsWrongSourceShape() throws {
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map(UInt8.init))
+        )
+        let existingURLHandlers = URLHandlingService.shared.children
+        URLHandlingService.shared.setup(
+            children: [KeystoreImportService(logger: Logger.shared)]
+        )
+        defer {
+            URLHandlingService.shared.setup(children: existingURLHandlers)
+        }
+
+        let view = try XCTUnwrap(
+            AccountImportViewFactory.createViewForAdding(
+                sourceType: .seed,
+                endAddingBlock: {},
+                recoveryAccount: fixture.account
+            ) as? ImportAccountViewController
+        )
+        view.loadViewIfNeeded()
+
+        let seed = String(repeating: "a", count: 64)
+        XCTAssertTrue(view.applyPastedSource("  \(seed)\n"))
+        XCTAssertEqual(view.sourceTextView.text, seed)
+        XCTAssertFalse(view.applyPastedSource("not-a-seed\n"))
+        XCTAssertEqual(view.sourceTextView.text, seed)
+
+        XCTAssertEqual(
+            ImportAccountViewController.normalizedPastedSource(
+                "  one   two\nthree  ",
+                sourceType: .mnemonic
+            ),
+            "one two three"
+        )
+    }
+
+    @MainActor
+    func testRecoveryVerificationLocksBackNavigationUntilItFinishes() throws {
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map(UInt8.init))
+        )
+        let existingURLHandlers = URLHandlingService.shared.children
+        URLHandlingService.shared.setup(
+            children: [KeystoreImportService(logger: Logger.shared)]
+        )
+        defer {
+            URLHandlingService.shared.setup(children: existingURLHandlers)
+        }
+
+        let root = UIViewController()
+        let importView = try XCTUnwrap(
+            AccountImportViewFactory.createViewForAdding(
+                sourceType: .mnemonic,
+                endAddingBlock: {},
+                recoveryAccount: fixture.account
+            ) as? ImportAccountViewController
+        )
+        let navigationController = SoraNavigationController(rootViewController: root)
+        navigationController.pushViewController(importView, animated: false)
+        navigationController.loadViewIfNeeded()
+        importView.loadViewIfNeeded()
+
+        let originalPopState = navigationController.interactivePopGestureRecognizer?.isEnabled
+        importView.setLoading(true)
+
+        XCTAssertTrue(navigationController.isModalInPresentation)
+        XCTAssertTrue(importView.navigationItem.hidesBackButton)
+        XCTAssertEqual(navigationController.interactivePopGestureRecognizer?.isEnabled, false)
+
+        importView.setLoading(false)
+
+        XCTAssertFalse(navigationController.isModalInPresentation)
+        XCTAssertFalse(importView.navigationItem.hidesBackButton)
+        XCTAssertEqual(
+            navigationController.interactivePopGestureRecognizer?.isEnabled,
+            originalPopState
+        )
+    }
+
+    @MainActor
+    func testRecoveryCloudVerificationLocksBackNavigationUntilItFinishes() {
+        let root = UIViewController()
+        let passwordView = EnterPasswordViewController()
+        let navigationController = SoraNavigationController(rootViewController: root)
+        navigationController.pushViewController(passwordView, animated: false)
+        navigationController.loadViewIfNeeded()
+        passwordView.loadViewIfNeeded()
+
+        let originalPopState = navigationController.interactivePopGestureRecognizer?.isEnabled
+        passwordView.showLoading()
+
+        XCTAssertTrue(navigationController.isModalInPresentation)
+        XCTAssertTrue(passwordView.navigationItem.hidesBackButton)
+        XCTAssertEqual(navigationController.interactivePopGestureRecognizer?.isEnabled, false)
+
+        passwordView.hideLoading()
+
+        XCTAssertFalse(navigationController.isModalInPresentation)
+        XCTAssertFalse(passwordView.navigationItem.hidesBackButton)
+        XCTAssertEqual(
+            navigationController.interactivePopGestureRecognizer?.isEnabled,
+            originalPopState
         )
     }
 
@@ -2006,6 +2307,103 @@ private final class ChangingSecretKeystore: KeystoreProtocol {
             throw KeystoreError.noKeyFound
         }
     }
+}
+
+private final class RecoveryAccountImportViewSpy: AccountImportViewProtocol {
+    let controller = UIViewController()
+    var isSetup: Bool { true }
+
+    private(set) var loadingStates: [Bool] = []
+    private(set) var dismissCount = 0
+
+    func setSource(type: AccountImportSource) {}
+    func setSource(viewModel: InputViewModelProtocol) {}
+    func setName(viewModel: InputViewModelProtocol) {}
+    func setPassword(viewModel: InputViewModelProtocol) {}
+    func setDerivationPath(viewModel: InputViewModelProtocol) {}
+    func setUploadWarning(message: String) {}
+    func setRecoveryMode(_ isRecovery: Bool, account: AccountItem?) {}
+    func resetFocus() {}
+
+    func setLoading(_ isLoading: Bool) {
+        loadingStates.append(isLoading)
+    }
+
+    func dismissPresentedController(completion: (() -> Void)?) {
+        dismissCount += 1
+        completion?()
+    }
+}
+
+private final class RecoveryAccountImportInteractorSpy: AccountImportInteractorInputProtocol {
+    weak var presenter: AccountImportInteractorOutputProtocol?
+
+    private(set) var mnemonicRequests: [AccountImportMnemonicRequest] = []
+    private(set) var seedRequests: [AccountImportSeedRequest] = []
+    private(set) var keystoreRequests: [AccountImportKeystoreRequest] = []
+
+    var totalImportCount: Int {
+        mnemonicRequests.count + seedRequests.count + keystoreRequests.count
+    }
+
+    var lastImportedSource: AccountImportSource? {
+        if !mnemonicRequests.isEmpty { return .mnemonic }
+        if !seedRequests.isEmpty { return .seed }
+        if !keystoreRequests.isEmpty { return .keystore }
+        return nil
+    }
+
+    func setup() {
+        presenter?.didReceiveAccountImport(
+            metadata: AccountImportMetadata(
+                availableSources: AccountImportSource.allCases,
+                defaultSource: .mnemonic,
+                availableNetworks: [.sora],
+                defaultNetwork: .sora,
+                availableCryptoTypes: CryptoType.allCases,
+                defaultCryptoType: .sr25519
+            )
+        )
+    }
+
+    func importAccountWithMnemonic(
+        request: AccountImportMnemonicRequest,
+        completion: ((Result<AccountItem, Error>?) -> Void)?
+    ) {
+        mnemonicRequests.append(request)
+    }
+
+    func importAccountWithSeed(
+        request: AccountImportSeedRequest,
+        completion: ((Result<AccountItem, Error>?) -> Void)?
+    ) {
+        seedRequests.append(request)
+    }
+
+    func importAccountWithKeystore(
+        request: AccountImportKeystoreRequest,
+        completion: ((Result<AccountItem, Error>?) -> Void)?
+    ) {
+        keystoreRequests.append(request)
+    }
+
+    func validateAccountWithMnemonic(
+        request: AccountImportMnemonicRequest,
+        completion: ((Result<AccountItem?, Error>?) -> Void)?
+    ) {}
+
+    func validateAccountWithSeed(
+        request: AccountImportSeedRequest,
+        completion: ((Result<AccountItem?, Error>?) -> Void)?
+    ) {}
+
+    func validateAccountWithKeystore(
+        request: AccountImportKeystoreRequest,
+        completion: ((Result<AccountItem?, Error>?) -> Void)?
+    ) {}
+
+    func deriveMetadataFromKeystore(_ keystore: String) {}
+    func importBackedupAccount(request: AccountImportBackedupRequest) {}
 }
 
 private final class RecordingSettingsManager: SettingsManagerProtocol {

@@ -78,57 +78,39 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return false
         }
 
-        let recoveryChooser = UIAlertController(
-            title: R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale),
-            message: R.string.localizable.importAccountMessage(preferredLanguages: .currentLocale),
-            preferredStyle: .alert
-        )
-        recoveryChooser.addAction(
-            UIAlertAction(
-                title: R.string.localizable.onboardingContinueWithGoogle(
-                    preferredLanguages: .currentLocale
-                ),
-                style: .default
-            ) { [weak controller, weak recoveryChooser] _ in
-                guard let controller, let recoveryChooser else { return }
-                recoveryChooser.dismiss(animated: true) {
-                    Task { @MainActor [weak controller] in
-                        guard let controller else { return }
-                        await presentInteractiveCloudRecovery(
-                            from: controller,
-                            recoveryAccount: recoveryAccount,
-                            completion: completion
-                        )
-                    }
-                }
+        let recoveryChooser = RetainedWalletRecoveryViewController(account: recoveryAccount)
+        recoveryChooser.onGoogleBackup = { [weak recoveryChooser] in
+            guard let recoveryChooser, recoveryChooser.beginMethodSelection() else { return }
+            Task { @MainActor [weak recoveryChooser] in
+                guard let recoveryChooser else { return }
+                await presentInteractiveCloudRecovery(
+                    from: recoveryChooser,
+                    recoveryAccount: recoveryAccount,
+                    completion: completion
+                )
+                recoveryChooser.endMethodSelection()
             }
-        )
-        recoveryChooser.addAction(
-            UIAlertAction(
-                title: R.string.localizable.recoveryTitleV2(
-                    preferredLanguages: .currentLocale
-                ),
-                style: .default
-            ) { [weak controller, weak recoveryChooser] _ in
-                guard let controller, let recoveryChooser else { return }
-                recoveryChooser.dismiss(animated: true) {
-                    _ = presentManualRecovery(
-                        from: controller,
-                        recoveryAccount: recoveryAccount,
-                        completion: completion
-                    )
-                }
-            }
-        )
-        recoveryChooser.addAction(
-            UIAlertAction(
-                title: R.string.localizable.commonCancel(preferredLanguages: .currentLocale),
-                style: .cancel
+        }
+        recoveryChooser.onManualSource = { [weak recoveryChooser] sourceType in
+            guard let recoveryChooser, recoveryChooser.beginMethodSelection() else { return }
+            _ = presentManualRecovery(
+                from: recoveryChooser,
+                sourceType: sourceType,
+                recoveryAccount: recoveryAccount,
+                completion: completion
             )
+            recoveryChooser.endMethodSelection()
+        }
+        recoveryChooser.onCancel = { [weak recoveryChooser] in
+            recoveryChooser?.dismiss(animated: true)
+        }
+
+        let recoveryNavigation = SoraNavigationController(
+            rootViewController: recoveryChooser
         )
 
         return presentAfterDismissingAlert(from: controller) {
-            controller.present(recoveryChooser, animated: true)
+            controller.present(recoveryNavigation, animated: true)
         }
     }
 
@@ -136,20 +118,26 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     @discardableResult
     private static func presentManualRecovery(
         from controller: UIViewController,
+        sourceType: AccountImportSource,
         recoveryAccount: AccountItem,
         completion: @escaping () -> Void
     ) -> Bool {
         guard let importController = AccountImportViewFactory.createViewForAdding(
+            sourceType: sourceType,
             endAddingBlock: completion,
             recoveryAccount: recoveryAccount
         )?.controller else {
             return false
         }
 
-        controller.present(
-            SoraNavigationController(rootViewController: importController),
-            animated: true
-        )
+        if let navigationController = controller.navigationController {
+            navigationController.pushViewController(importController, animated: true)
+        } else {
+            controller.present(
+                SoraNavigationController(rootViewController: importController),
+                animated: true
+            )
+        }
         return true
     }
 
@@ -188,11 +176,15 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                 return
             }
 
-            _ = presentAfterDismissingAlert(from: controller) {
-                controller.present(
-                    SoraNavigationController(rootViewController: passwordController),
-                    animated: true
-                )
+            if let navigationController = controller.navigationController {
+                navigationController.pushViewController(passwordController, animated: true)
+            } else {
+                _ = presentAfterDismissingAlert(from: controller) {
+                    controller.present(
+                        SoraNavigationController(rootViewController: passwordController),
+                        animated: true
+                    )
+                }
             }
         } catch {
             presentRecoveryUnavailableAlert(from: controller)

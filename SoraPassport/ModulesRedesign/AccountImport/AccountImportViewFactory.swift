@@ -93,6 +93,7 @@ final class AccountImportViewFactory {
     }
     
     static func createViewForAdding(
+        sourceType: AccountImportSource? = nil,
         endAddingBlock: (() -> Void)?,
         recoveryAccount: AccountItem? = nil
     ) -> AccountImportViewProtocol? {
@@ -103,7 +104,13 @@ final class AccountImportViewFactory {
         }
 
         let view = ImportAccountViewController()
-        let presenter = AccountImportPresenter(config: ApplicationConfig.shared)
+        let presenter = AccountImportPresenter(
+            sourceType: sourceType,
+            config: ApplicationConfig.shared,
+            recoveryMode: recoveryAccount != nil,
+            recoveryAccount: recoveryAccount,
+            recoveryCompletion: endAddingBlock
+        )
 
         let keystore = Keychain()
         let accountOperationFactory = AccountOperationFactory(keystore: keystore)
