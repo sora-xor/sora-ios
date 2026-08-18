@@ -35,6 +35,7 @@ import Then
 import SoraUIKit
 import IrohaCrypto
 import SSFUtils
+import SSFCloudStorage
 
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
@@ -71,6 +72,73 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             RootControllerAnimationCoordinator().animateTransition(to: mainController)
         }
 
+        let controller = presentingController
+            ?? UIApplication.shared.delegate?.window??.rootViewController
+        guard let controller else {
+            return false
+        }
+
+        let recoveryChooser = UIAlertController(
+            title: R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale),
+            message: R.string.localizable.importAccountMessage(preferredLanguages: .currentLocale),
+            preferredStyle: .alert
+        )
+        recoveryChooser.addAction(
+            UIAlertAction(
+                title: R.string.localizable.onboardingContinueWithGoogle(
+                    preferredLanguages: .currentLocale
+                ),
+                style: .default
+            ) { [weak controller, weak recoveryChooser] _ in
+                guard let controller, let recoveryChooser else { return }
+                recoveryChooser.dismiss(animated: true) {
+                    Task { @MainActor [weak controller] in
+                        guard let controller else { return }
+                        await presentInteractiveCloudRecovery(
+                            from: controller,
+                            recoveryAccount: recoveryAccount,
+                            completion: completion
+                        )
+                    }
+                }
+            }
+        )
+        recoveryChooser.addAction(
+            UIAlertAction(
+                title: R.string.localizable.recoveryTitleV2(
+                    preferredLanguages: .currentLocale
+                ),
+                style: .default
+            ) { [weak controller, weak recoveryChooser] _ in
+                guard let controller, let recoveryChooser else { return }
+                recoveryChooser.dismiss(animated: true) {
+                    _ = presentManualRecovery(
+                        from: controller,
+                        recoveryAccount: recoveryAccount,
+                        completion: completion
+                    )
+                }
+            }
+        )
+        recoveryChooser.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonCancel(preferredLanguages: .currentLocale),
+                style: .cancel
+            )
+        )
+
+        return presentAfterDismissingAlert(from: controller) {
+            controller.present(recoveryChooser, animated: true)
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    private static func presentManualRecovery(
+        from controller: UIViewController,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) -> Bool {
         guard let importController = AccountImportViewFactory.createViewForAdding(
             endAddingBlock: completion,
             recoveryAccount: recoveryAccount
@@ -78,16 +146,84 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             return false
         }
 
-        let controller = presentingController
-            ?? UIApplication.shared.delegate?.window??.rootViewController
-        guard let controller else {
-            return false
-        }
+        controller.present(
+            SoraNavigationController(rootViewController: importController),
+            animated: true
+        )
+        return true
+    }
 
-        let navigationController = SoraNavigationController(rootViewController: importController)
-        return presentAfterDismissingAlert(from: controller) {
-            controller.present(navigationController, animated: true)
+    @MainActor
+    private static func presentInteractiveCloudRecovery(
+        from controller: UIViewController,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) async {
+        let cloudStorage = CloudStorageService(uiDelegate: controller)
+
+        do {
+            guard try await cloudStorage.signInIfNeeded() == .authorized,
+                  let currentAccount = SelectedWalletSettings.shared.currentAccount,
+                  sameRecoveryIdentity(currentAccount, recoveryAccount),
+                  SelectedWalletSettings.transactionSigningAvailability(
+                      settings: SettingsManager.shared,
+                      keystore: Keychain(),
+                      account: currentAccount,
+                      attemptRepair: false
+                  ) != .available else {
+                return
+            }
+
+            let exactBackup = OpenBackupAccount(
+                name: currentAccount.username,
+                address: currentAccount.address
+            )
+            guard let passwordController = EnterPasswordViewFactory.createView(
+                with: exactBackup.address,
+                backedUpAccounts: [exactBackup],
+                endAddingBlock: completion,
+                recoveryAccount: currentAccount
+            )?.controller else {
+                presentRecoveryUnavailableAlert(from: controller)
+                return
+            }
+
+            _ = presentAfterDismissingAlert(from: controller) {
+                controller.present(
+                    SoraNavigationController(rootViewController: passwordController),
+                    animated: true
+                )
+            }
+        } catch {
+            presentRecoveryUnavailableAlert(from: controller)
         }
+    }
+
+    static func sameRecoveryIdentity(_ lhs: AccountItem, _ rhs: AccountItem) -> Bool {
+        lhs.address == rhs.address &&
+            lhs.publicKeyData == rhs.publicKeyData &&
+            lhs.networkType == rhs.networkType &&
+            lhs.cryptoType == rhs.cryptoType
+    }
+
+    @MainActor
+    private static func presentRecoveryUnavailableAlert(from controller: UIViewController) {
+        guard controller.presentedViewController == nil else { return }
+
+        let alert = UIAlertController(
+            title: R.string.localizable.commonErrorGeneralTitle(
+                preferredLanguages: .currentLocale
+            ),
+            message: R.string.localizable.commonErrorRetry(preferredLanguages: .currentLocale),
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                style: .default
+            )
+        )
+        controller.present(alert, animated: true)
     }
 
     @MainActor

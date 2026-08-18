@@ -180,27 +180,36 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
             [idToRemove]
         }
 
-        forgetOperation.completionBlock = { [weak self] in
-            let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
-            ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != self?.account.address }
-            
-            self?.cleanKeystore(leavingPin: true)
-        }
-
         let countOperation =  accountRepository.fetchAllOperation(with: RepositoryFetchOptions())
         countOperation.completionBlock = { [weak self] in
-            let accounts = try? countOperation.extractNoCancellableResultData()
-            guard let accounts = accounts,
-                        !accounts.isEmpty else {
-                self?.cleanData()
+            guard let self else { return }
+            guard let accounts = Self.deleteWalletMaterialAfterSuccessfulAccountDeletion(
+                forgetOperation: forgetOperation,
+                countOperation: countOperation,
+                keystore: self.keystore,
+                address: self.account.address
+            ) else {
+                Logger.shared.error(
+                    "SORA account deletion failed; wallet signing material was preserved"
+                )
                 return
             }
-            if let deleted = self?.account, deleted.isSelected {
+
+            let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
+            ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter {
+                $0 != self.account.address
+            }
+
+            guard !accounts.isEmpty else {
+                self.cleanData()
+                return
+            }
+            if self.account.isSelected {
                 SelectedWalletSettings.shared.save(value: accounts[0])
-                self?.eventCenter.notify(with: SelectedAccountChanged())
+                self.eventCenter.notify(with: SelectedAccountChanged())
                 
             }
-            self?.presenter.close()
+            self.presenter.close()
         }
 
         countOperation.addDependency(forgetOperation)
@@ -212,12 +221,32 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
 
 extension AccountOptionsInteractor: EventVisitorProtocol {}
 
+extension AccountOptionsInteractor {
+    /// Account bytes are deleted only after both the repository deletion and its dependent
+    /// follow-up fetch completed successfully. Any failure leaves every signer tag intact.
+    static func deleteWalletMaterialAfterSuccessfulAccountDeletion(
+        forgetOperation: BaseOperation<Void>,
+        countOperation: BaseOperation<[AccountItem]>,
+        keystore: KeystoreProtocol,
+        address: String
+    ) -> [AccountItem]? {
+        do {
+            _ = try forgetOperation.extractNoCancellableResultData()
+            let accounts = try countOperation.extractNoCancellableResultData()
+            try? keystore.deleteAccountKeys(for: address)
+            return accounts
+        } catch {
+            return nil
+        }
+    }
+}
+
 private extension AccountOptionsInteractor {
 
     func cleanKeystore(leavingPin: Bool = true) {
         let address = account.address
         if leavingPin {
-            try? keystore.deleteEntropy(for: address)
+            try? keystore.deleteAccountKeys(for: address)
         } else {
             try? keystore.deleteAll(for: address)
         }

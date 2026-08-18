@@ -112,6 +112,19 @@ final class SplashInteractor: SplashInteractorProtocol {
     }
 
     private func startChain() {
+        // Older production versions keep the selected public account in Settings until
+        // Core Data migration completes. Preserve its independently verified signer before
+        // any storage migration runs, so a schema/update failure cannot orphan the wallet.
+        if let preMigrationAccount = settings.value(
+            of: AccountItem.self,
+            for: SettingsKey.selectedAccount.rawValue
+        ) {
+            _ = try? SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: Keychain(),
+                account: preMigrationAccount
+            )
+        }
+
         let dbMigrator = UserStorageMigrator(
             targetVersion: UserStorageParams.modelVersion,
             storeURL: UserStorageParams.storageURL,

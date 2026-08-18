@@ -1022,6 +1022,250 @@ class RootFactoryTests: XCTestCase {
         XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
     }
 
+    func testVerifiedCanonicalSignerCreatesCreateOnlyPreservationRecord() throws {
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 41) })
+        )
+        try keychain.saveSecretKey(fixture.secretKey, address: fixture.account.address)
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchPreservedSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+
+        let conflicting = Data(repeating: 0xff, count: fixture.secretKey.count)
+        try keychain.updateKey(
+            conflicting,
+            with: KeystoreTag.preservedSecretKeyTagForAddress(fixture.account.address)
+        )
+        XCTAssertTrue(
+            try SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchPreservedSecretKeyForAddress(fixture.account.address),
+            conflicting,
+            "An existing preservation record must never be overwritten"
+        )
+    }
+
+    func testMissingCanonicalSignerSelfHealsOnlyFromExactPreservedIdentity() throws {
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 47) })
+        )
+        try keychain.addKey(
+            fixture.secretKey,
+            with: KeystoreTag.preservedSecretKeyTagForAddress(fixture.account.address)
+        )
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertTrue(
+            SelectedWalletSettings.hasVerifiedSigningKey(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+    }
+
+    func testEd25519SignerIsPreservedAndRestoredWithExactIdentity() throws {
+        let keychain = InMemoryKeychain()
+        let fixture = try makeRawSeedRecoveryFixture(
+            seed: Data((0 ..< 32).map { UInt8($0 + 83) })
+        )
+        try keychain.saveSecretKey(fixture.secretKey, address: fixture.account.address)
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        try keychain.deleteKey(
+            for: KeystoreTag.secretKeyTagForAddress(fixture.account.address)
+        )
+        XCTAssertTrue(
+            try SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+    }
+
+    func testEcdsaSignerIsPreservedAndRestoredWithExactIdentity() throws {
+        let keychain = InMemoryKeychain()
+        let fixture = try makeEcdsaRecoveryFixture(
+            seed: Data((0 ..< 32).map { UInt8($0 + 131) })
+        )
+        try keychain.saveSecretKey(fixture.secretKey, address: fixture.account.address)
+
+        XCTAssertTrue(
+            try SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        try keychain.deleteKey(
+            for: KeystoreTag.secretKeyTagForAddress(fixture.account.address)
+        )
+        XCTAssertTrue(
+            try SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+    }
+
+    func testSelectedAndUnselectedPersistedAccountsBothReceivePreservationRecords() throws {
+        let keychain = InMemoryKeychain()
+        let selected = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 89) })
+        )
+        let unselectedFixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 97) })
+        )
+        let unselected = AccountItem(
+            address: unselectedFixture.account.address,
+            cryptoType: unselectedFixture.account.cryptoType,
+            networkType: unselectedFixture.account.networkType,
+            username: unselectedFixture.account.username,
+            publicKeyData: unselectedFixture.account.publicKeyData,
+            settings: unselectedFixture.account.settings,
+            order: 1,
+            isSelected: false
+        )
+        try keychain.saveSecretKey(selected.secretKey, address: selected.account.address)
+        try keychain.saveSecretKey(unselectedFixture.secretKey, address: unselected.address)
+
+        SelectedWalletSettings.reconcileSigningKeyPreservations(
+            keystore: keychain,
+            accounts: [selected.account, unselected]
+        )
+
+        XCTAssertEqual(
+            try keychain.fetchPreservedSecretKeyForAddress(selected.account.address),
+            selected.secretKey
+        )
+        XCTAssertEqual(
+            try keychain.fetchPreservedSecretKeyForAddress(unselected.address),
+            unselectedFixture.secretKey
+        )
+    }
+
+    func testPreservedSignerForDifferentIdentityNeverMutatesCanonicalTag() throws {
+        let keychain = InMemoryKeychain()
+        let expected = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 53) })
+        )
+        let different = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 59) })
+        )
+        try keychain.addKey(
+            different.secretKey,
+            with: KeystoreTag.preservedSecretKeyTagForAddress(expected.account.address)
+        )
+
+        XCTAssertFalse(
+            try SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: keychain,
+                account: expected.account
+            )
+        )
+        XCTAssertNil(try keychain.fetchSecretKeyForAddress(expected.account.address))
+        XCTAssertEqual(
+            try keychain.fetchPreservedSecretKeyForAddress(expected.account.address),
+            different.secretKey
+        )
+    }
+
+    func testExplicitAccountKeyDeletionRemovesPreservationWithoutDeletingPin() throws {
+        let keychain = InMemoryKeychain()
+        let entropy = Data((0 ..< 20).map { UInt8($0 + 61) })
+        let fixture = try makeMnemonicRecoveryFixture(entropy: entropy)
+        try keychain.saveKey(Data("123456".utf8), with: KeystoreTag.pincode.rawValue)
+        try keychain.saveSecretKey(fixture.secretKey, address: fixture.account.address)
+        try keychain.addKey(
+            fixture.secretKey,
+            with: KeystoreTag.preservedSecretKeyTagForAddress(fixture.account.address)
+        )
+        try keychain.saveSeed(fixture.seed, address: fixture.account.address)
+        try keychain.saveEntropy(entropy, address: fixture.account.address)
+
+        try keychain.deleteAccountKeys(for: fixture.account.address)
+
+        XCTAssertTrue(try keychain.checkKey(for: KeystoreTag.pincode.rawValue))
+        XCTAssertNil(try keychain.fetchSecretKeyForAddress(fixture.account.address))
+        XCTAssertNil(try keychain.fetchPreservedSecretKeyForAddress(fixture.account.address))
+        XCTAssertNil(try keychain.fetchSeedForAddress(fixture.account.address))
+        XCTAssertNil(try keychain.fetchEntropyForAddress(fixture.account.address))
+    }
+
+    func testFailedAccountDeletionOrFollowUpNeverDeletesSignerCopies() throws {
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 103) })
+        )
+
+        for failurePoint in 0 ..< 2 {
+            let keychain = InMemoryKeychain()
+            try keychain.saveSecretKey(fixture.secretKey, address: fixture.account.address)
+            try keychain.addKey(
+                fixture.secretKey,
+                with: KeystoreTag.preservedSecretKeyTagForAddress(fixture.account.address)
+            )
+            let forgetOperation = BaseOperation<Void>()
+            let countOperation = BaseOperation<[AccountItem]>()
+            forgetOperation.result = failurePoint == 0
+                ? .failure(CloudRecoveryTestError.network)
+                : .success(())
+            countOperation.result = failurePoint == 1
+                ? .failure(CloudRecoveryTestError.network)
+                : .success([])
+
+            XCTAssertNil(
+                AccountOptionsInteractor.deleteWalletMaterialAfterSuccessfulAccountDeletion(
+                    forgetOperation: forgetOperation,
+                    countOperation: countOperation,
+                    keystore: keychain,
+                    address: fixture.account.address
+                )
+            )
+            XCTAssertEqual(
+                try keychain.fetchSecretKeyForAddress(fixture.account.address),
+                fixture.secretKey
+            )
+            XCTAssertEqual(
+                try keychain.fetchPreservedSecretKeyForAddress(fixture.account.address),
+                fixture.secretKey
+            )
+        }
+    }
+
     func testSigningIsBlockedWhenRetainedRecoveryHasNoKey() throws {
         let settings = InMemorySettingsManager()
         let keychain = InMemoryKeychain()
@@ -1146,6 +1390,39 @@ class RootFactoryTests: XCTestCase {
         )
         XCTAssertNil(fixture.settings.bool(for: "walletMigrationRecoveryRequired"))
         XCTAssertNil(fixture.settings.string(for: "walletMigrationRecoveryReason"))
+    }
+
+    func testInteractiveRecoveryUsesExactMobileBackupWithoutBroadFallback() async throws {
+        let fixture = try makeCloudRecoveryFixture()
+        fixture.cloud.interactiveSignInState = .authorized
+        fixture.cloud.mobileImportResult = fixture.backup
+        let request = AccountImportBackedupRequest(
+            account: OpenBackupAccount(address: fixture.account.address),
+            password: fixture.pin
+        )
+
+        let restored = try await BaseAccountImportInteractor.fetchBackedUpAccount(
+            cloudStorage: fixture.cloud,
+            request: request,
+            exactMobileBackupOnly: true
+        )
+
+        XCTAssertEqual(restored.address, fixture.account.address)
+        XCTAssertEqual(fixture.cloud.interactiveSignInCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.broadImportCallsCount, 0)
+    }
+
+    func testRecoveryIdentityComparisonRejectsDifferentPublicKey() throws {
+        let expected = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 67) })
+        ).account
+        let different = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 73) })
+        ).account
+
+        XCTAssertTrue(MainTabBarViewFactory.sameRecoveryIdentity(expected, expected))
+        XCTAssertFalse(MainTabBarViewFactory.sameRecoveryIdentity(expected, different))
     }
 
     func testPostAuthRecoveryUsesCloudBeforeUnlabeledScan() async throws {
@@ -1423,6 +1700,33 @@ class RootFactoryTests: XCTestCase {
         return (account, secretKey)
     }
 
+    private func makeEcdsaRecoveryFixture(
+        seed: Data
+    ) throws -> (account: AccountItem, secretKey: Data) {
+        let factory = EcdsaKeypairFactory()
+        let keypair = try factory.createKeypairFromSeed(seed, chaincodeList: [])
+        let publicKey = keypair.publicKey().rawData()
+        let address = try SS58AddressFactory().address(
+            fromAccountId: publicKey,
+            type: ApplicationConfig.shared.addressType
+        )
+        let account = AccountItem(
+            address: address,
+            cryptoType: .ecdsa,
+            networkType: ApplicationConfig.shared.addressType,
+            username: "ecdsa seed",
+            publicKeyData: publicKey,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+            order: 0,
+            isSelected: true
+        )
+        let secretKey = try factory.deriveChildSeedFromParent(
+            seed.miniSeed,
+            chaincodeList: []
+        )
+        return (account, secretKey)
+    }
+
     private func markRecoveryRequired(
         settings: SettingsManagerProtocol,
         account: AccountItem
@@ -1550,8 +1854,11 @@ private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol 
     var mobileImportResult: OpenBackupAccount?
     var mobileImportError: Error?
     var mobileImportDelayNanoseconds: UInt64 = 0
+    var interactiveSignInState: CloudStorageAccountState = .notAuthorized
     private(set) var restoreCallsCount = 0
+    private(set) var interactiveSignInCallsCount = 0
     private(set) var mobileImportCallsCount = 0
+    private(set) var broadImportCallsCount = 0
     private(set) var receivedAddress: String?
     private(set) var receivedPassword: String?
 
@@ -1582,14 +1889,21 @@ private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol 
         return mobileImportResult
     }
 
-    func signInIfNeeded() async throws -> CloudStorageAccountState { .notAuthorized }
+    func signInIfNeeded() async throws -> CloudStorageAccountState {
+        interactiveSignInCallsCount += 1
+        return interactiveSignInState
+    }
     func getBackupAccounts() async throws -> [OpenBackupAccount] { [] }
     func saveBackup(account: OpenBackupAccount, password: String) async throws {}
     func importBackup(
         account: OpenBackupAccount,
         password: String
     ) async throws -> OpenBackupAccount {
-        try await importMobileBackupIfAuthorized(account: account, password: password)
+        broadImportCallsCount += 1
+        return try await importMobileBackupIfAuthorized(
+            account: account,
+            password: password
+        )
     }
     func deleteBackup(account: OpenBackupAccount) async throws {}
     func disconnect() {}

@@ -39,7 +39,8 @@ final class EnterPasswordViewFactory {
     static func createView(
         with selectedAddress: String,
         backedUpAccounts: [OpenBackupAccount],
-        endAddingBlock: (() -> Void)? = nil
+        endAddingBlock: (() -> Void)? = nil,
+        recoveryAccount: AccountItem? = nil
     ) -> EnterPasswordViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
@@ -57,13 +58,29 @@ final class EnterPasswordViewFactory {
         let view = EnterPasswordViewController()
         let cloudStorage = CloudStorageService(uiDelegate: view)
         
-        let interactor = AccountImportInteractor(accountOperationFactory: accountOperationFactory,
-                                                 accountRepository: AnyDataProviderRepository(accountRepository),
-                                                 operationManager: OperationManagerFacade.sharedManager,
-                                                 settings: settings,
-                                                 keystoreImportService: keystoreImportService,
-                                                 eventCenter: EventCenter.shared,
-                                                 cloudStorage: cloudStorage)
+        let interactor: BaseAccountImportInteractor
+        if let recoveryAccount {
+            interactor = AddAccountImportInteractor(
+                accountOperationFactory: accountOperationFactory,
+                accountRepository: AnyDataProviderRepository(accountRepository),
+                operationManager: OperationManagerFacade.sharedManager,
+                settings: settings,
+                keystoreImportService: keystoreImportService,
+                eventCenter: EventCenter.shared,
+                cloudStorage: cloudStorage,
+                recoveryAccount: recoveryAccount
+            )
+        } else {
+            interactor = AccountImportInteractor(
+                accountOperationFactory: accountOperationFactory,
+                accountRepository: AnyDataProviderRepository(accountRepository),
+                operationManager: OperationManagerFacade.sharedManager,
+                settings: settings,
+                keystoreImportService: keystoreImportService,
+                eventCenter: EventCenter.shared,
+                cloudStorage: cloudStorage
+            )
+        }
 
         let wireframe = EnterPasswordWireframe(currentController: view, endAddingBlock: endAddingBlock)
         let viewModel = EnterPasswordViewModel(selectedAddress: selectedAddress,

@@ -58,7 +58,8 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                    keystoreImportService: keystoreImportService,
                    supportedNetworks: Chain.allCases,
                    defaultNetwork: Chain.sora,
-                   cloudStorage: cloudStorage)
+                   cloudStorage: cloudStorage,
+                   exactMobileBackupOnly: recoveryAccount != nil)
     }
 
     private func importAccountItem(_ item: AccountItem, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {

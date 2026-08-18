@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import CoreData
 import Security
 import RobinHood
 import SoraKeystore
@@ -51,6 +52,60 @@ enum WalletTransactionSigningAvailability: Equatable {
     case available
     case recoveryRequired
     case missingKey
+}
+
+private struct SigningKeyPreservationAccountItem: RobinHood.Identifiable {
+    let identifier: String
+    let account: AccountItem?
+}
+
+/// A fetch-only mapper that never lets one malformed legacy row abort preservation for every
+/// other wallet. Rows without enough public identity to verify a signer are returned as nil.
+private final class SigningKeyPreservationAccountItemMapper: CoreDataMapperProtocol {
+    typealias DataProviderModel = SigningKeyPreservationAccountItem
+    typealias CoreDataEntity = CDAccountItem
+
+    var entityIdentifierFieldName: String {
+        #keyPath(CoreDataEntity.identifier)
+    }
+
+    func populate(
+        entity: CoreDataEntity,
+        from model: DataProviderModel,
+        using context: NSManagedObjectContext
+    ) throws {
+        guard let account = model.account else {
+            throw AccountItemMapperError.invalidEntity
+        }
+        try AccountItemMapper().populate(entity: entity, from: account, using: context)
+    }
+
+    func transform(entity: CoreDataEntity) throws -> DataProviderModel {
+        let identifier = entity.identifier ?? entity.objectID.uriRepresentation().absoluteString
+        guard
+            let address = entity.identifier,
+            let publicKey = entity.publicKey,
+            let cryptoType = CryptoType(rawValue: UInt8(entity.cryptoType))
+        else {
+            return SigningKeyPreservationAccountItem(identifier: identifier, account: nil)
+        }
+
+        let settings = AccountSettings(
+            visibleAssetIds: entity.settings?.visibleAssets as? [String],
+            orderedAssetIds: entity.settings?.orderedAssets as? [String]
+        )
+        let account = AccountItem(
+            address: address,
+            cryptoType: cryptoType,
+            networkType: SNAddressType(UInt8(entity.networkType)),
+            username: entity.username ?? "",
+            publicKeyData: publicKey,
+            settings: settings,
+            order: entity.order,
+            isSelected: entity.isSelected
+        )
+        return SigningKeyPreservationAccountItem(identifier: identifier, account: account)
+    }
 }
 
 protocol RetainedSigningMaterialCandidateProviding {
@@ -307,6 +362,7 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         storageFacade: UserDataStorageFacade.shared,
         operationQueue: OperationManagerFacade.sharedDefaultQueue
     )
+    private static let signingKeyPreservationLock = NSLock()
 
     let operationQueue: OperationQueue
 
@@ -319,19 +375,45 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
     override func performSetup(completionClosure: @escaping (Result<AccountItem?, Error>) -> Void) {
         let mapper = AccountItemMapper()
 
+        // Keep the boot-critical selected-account lookup isolated. A malformed legacy
+        // unselected row must never stop an otherwise valid selected wallet from launching.
         let repository = storageFacade.createRepository(
             filter: NSPredicate.selectedAccount(),
             sortDescriptors: [],
             mapper: AnyCoreDataMapper(mapper)
         )
+        let allAccountsRepository = storageFacade.createRepository(
+            mapper: AnyCoreDataMapper(SigningKeyPreservationAccountItemMapper())
+        )
 
         let options = RepositoryFetchOptions(includesProperties: true, includesSubentities: true)
         let operation = repository.fetchAllOperation(with: options)
+        let preservationOperation = allAccountsRepository.fetchAllOperation(with: options)
+
+        preservationOperation.completionBlock = {
+            do {
+                let accounts = try preservationOperation.extractNoCancellableResultData()
+                    .compactMap(\.account)
+                Self.reconcileSigningKeyPreservations(
+                    keystore: Keychain(),
+                    accounts: accounts
+                )
+            } catch {
+                // This is deliberately best-effort and independent of selected-wallet boot.
+                Logger.shared.error(
+                    "SORA multi-wallet signer preservation scan failed; selected-wallet launch continues"
+                )
+            }
+        }
 
         operation.completionBlock = {
             do {
                 let result = try operation.extractNoCancellableResultData().first
-                guard result == nil else {
+                if let result {
+                    _ = try? Self.reconcileSigningKeyPreservation(
+                        keystore: Keychain(),
+                        account: result
+                    )
                     completionClosure(.success(result))
                     return
                 }
@@ -357,7 +439,10 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
             }
         }
 
-        operationQueue.addOperation(operation)
+        operationQueue.addOperations(
+            [operation, preservationOperation],
+            waitUntilFinished: false
+        )
     }
 
     override func performSave(
@@ -432,6 +517,10 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
         saveOperation.completionBlock = { [weak self] in
             do {
                 _ = try saveOperation.extractNoCancellableResultData()
+                _ = try? Self.reconcileSigningKeyPreservation(
+                    keystore: Keychain(),
+                    account: value
+                )
                 self?.internalValue = value
                 completionClosure(.success(value))
             } catch {
@@ -529,7 +618,18 @@ extension SelectedWalletSettings {
             }
         }
 
-        guard (try? keystore.fetchSecretKeyForAddress(account.address)) != nil else {
+        if attemptRepair {
+            _ = try? reconcileSigningKeyPreservation(
+                keystore: keystore,
+                account: account
+            )
+        }
+
+        guard let secret = try? keystore.fetchSecretKeyForAddress(account.address) else {
+            return .missingKey
+        }
+
+        guard isVerifiedSigningSecret(secret, account: account) else {
             return .missingKey
         }
 
@@ -578,30 +678,19 @@ extension SelectedWalletSettings {
             return false
         }
 
+        if try reconcileSigningKeyPreservation(keystore: keystore, account: account) {
+            clearRetainedRecoveryState(settings: settings)
+            Logger.shared.info(
+                "SORA retained wallet signing material repaired automatically: preserved-or-canonical-secret"
+            )
+            return true
+        }
+
         // Never pass an arbitrary retained secret into the native sr25519 signer. Some
         // malformed 64-byte encodings can panic below Swift's throwable boundary. The
         // independent fallible parser must prove that these exact bytes encode the retained
         // public key before the same bytes are used for a live signing challenge.
         let existingSecret = try keystore.fetchSecretKeyForAddress(account.address)
-
-        if
-            let existingSecret,
-            account.cryptoType == .sr25519,
-            SNSafeKeypairValidator.isValidSr25519SecretKey(
-                existingSecret,
-                publicKey: account.publicKeyData
-            ),
-            hasVerifiedSr25519SigningKey(
-                secretKey: existingSecret,
-                account: account
-            )
-        {
-            clearRetainedRecoveryState(settings: settings)
-            Logger.shared.info(
-                "SORA retained wallet signing material repaired automatically: existing-scoped-secret"
-            )
-            return true
-        }
 
         guard existingSecret == nil else {
             logAutomaticRecoveryBlocked(reason: "existing-scoped-secret-invalid")
@@ -695,6 +784,11 @@ extension SelectedWalletSettings {
             if let entropy = material.entropy {
                 try? keystore.saveEntropy(entropy, address: account.address)
             }
+
+            _ = try? reconcileSigningKeyPreservation(
+                keystore: keystore,
+                account: account
+            )
 
             clearRetainedRecoveryState(settings: settings)
             Logger.shared.info(
@@ -1116,6 +1210,168 @@ extension SelectedWalletSettings {
             }
         } catch {
             Logger.shared.error("Retained wallet signing-key verification failed: \(error)")
+            return false
+        }
+    }
+
+    /// Keeps a second, versioned copy of a verified SORA signer and restores the canonical
+    /// address-scoped tag only when that canonical item is absent. Both writes use `addKey`,
+    /// so neither an existing canonical signer nor an existing preservation record is ever
+    /// overwritten. The source record is never deleted by automatic recovery.
+    static func reconcileSigningKeyPreservations(
+        keystore: KeystoreProtocol,
+        accounts: [AccountItem]
+    ) {
+        accounts.forEach { account in
+            _ = try? reconcileSigningKeyPreservation(
+                keystore: keystore,
+                account: account
+            )
+        }
+    }
+
+    static func reconcileSigningKeyPreservation(
+        keystore: KeystoreProtocol,
+        account: AccountItem
+    ) throws -> Bool {
+        signingKeyPreservationLock.lock()
+        defer { signingKeyPreservationLock.unlock() }
+
+        let canonicalIdentifier = KeystoreTag.secretKeyTagForAddress(account.address)
+        let preservedIdentifier = KeystoreTag.preservedSecretKeyTagForAddress(account.address)
+        let canonicalSecret = try keystore.fetchSecretKeyForAddress(account.address)
+
+        if let canonicalSecret {
+            guard isVerifiedSigningSecret(canonicalSecret, account: account) else {
+                Logger.shared.error("SORA canonical wallet signer failed identity verification")
+                return false
+            }
+
+            let preservedSecret = try keystore.fetchPreservedSecretKeyForAddress(account.address)
+            if let preservedSecret {
+                if preservedSecret != canonicalSecret ||
+                    !isVerifiedSigningSecret(preservedSecret, account: account) {
+                    Logger.shared.error(
+                        "SORA wallet signer preservation conflict; existing record was left unchanged"
+                    )
+                }
+                return true
+            }
+
+            do {
+                try keystore.addKey(canonicalSecret, with: preservedIdentifier)
+            } catch {
+                // Another serialized writer may have created the item first. Never update it;
+                // accept only an exact, independently verified value.
+                let currentPreserved = try? keystore.fetchPreservedSecretKeyForAddress(
+                    account.address
+                )
+                if currentPreserved != canonicalSecret {
+                    Logger.shared.error("SORA wallet signer preservation write was unavailable")
+                }
+                return true
+            }
+
+            guard
+                try keystore.fetchPreservedSecretKeyForAddress(account.address) == canonicalSecret
+            else {
+                try? keystore.deleteKeyIfExists(for: preservedIdentifier)
+                Logger.shared.error("SORA wallet signer preservation read-back failed")
+                return true
+            }
+
+            Logger.shared.info("SORA wallet signer preservation record created")
+            return true
+        }
+
+        guard
+            let preservedSecret = try keystore.fetchPreservedSecretKeyForAddress(account.address),
+            isVerifiedSigningSecret(preservedSecret, account: account)
+        else {
+            return false
+        }
+
+        var createdCanonical = false
+        do {
+            try keystore.addKey(preservedSecret, with: canonicalIdentifier)
+            createdCanonical = true
+        } catch {
+            // Never call updateKey here. If an item appeared concurrently, accept only the
+            // exact retained signer; otherwise fail closed and leave both records untouched.
+        }
+
+        guard
+            try keystore.fetchSecretKeyForAddress(account.address) == preservedSecret,
+            isVerifiedSigningSecret(preservedSecret, account: account)
+        else {
+            if createdCanonical,
+               (try? keystore.fetchSecretKeyForAddress(account.address)) == preservedSecret {
+                try? keystore.deleteKeyIfExists(for: canonicalIdentifier)
+            }
+            return false
+        }
+
+        Logger.shared.info("SORA wallet signer restored from its preservation record")
+        return true
+    }
+
+    private static func isVerifiedSigningSecret(
+        _ secretKey: Data,
+        account: AccountItem
+    ) -> Bool {
+        guard
+            let derivedAddress = try? SS58AddressFactory().address(
+                fromAccountId: account.publicKeyData,
+                type: account.networkType
+            ),
+            derivedAddress == account.address
+        else {
+            return false
+        }
+
+        do {
+            let challenge = Data("SORA wallet recovery signing-key verification v1".utf8)
+
+            switch account.cryptoType {
+            case .sr25519:
+                return SNSafeKeypairValidator.isValidSr25519SecretKey(
+                    secretKey,
+                    publicKey: account.publicKeyData
+                ) && hasVerifiedSr25519SigningKey(secretKey: secretKey, account: account)
+            case .ed25519:
+                let keypair = try Ed25519KeypairFactory().createKeypairFromSeed(
+                    secretKey.miniSeed,
+                    chaincodeList: []
+                )
+                guard keypair.publicKey().rawData() == account.publicKeyData else {
+                    return false
+                }
+                let signature = try EDSigner(privateKey: keypair.privateKey()).sign(challenge)
+                return EDSignatureVerifier().verify(
+                    signature,
+                    forOriginalData: challenge,
+                    usingPublicKey: try EDPublicKey(rawData: account.publicKeyData)
+                )
+            case .ecdsa:
+                let keypair = try EcdsaKeypairFactory().createKeypairFromSeed(
+                    secretKey.miniSeed,
+                    chaincodeList: []
+                )
+                guard keypair.publicKey().rawData() == account.publicKeyData else {
+                    return false
+                }
+                let hashedChallenge = try challenge.blake2b32()
+                let signature = try SECSigner(privateKey: keypair.privateKey()).sign(
+                    hashedChallenge
+                )
+                return SECSignatureVerifier().verify(
+                    signature,
+                    forOriginalData: hashedChallenge,
+                    usingPublicKey: try SECPublicKey(rawData: account.publicKeyData)
+                )
+            }
+        } catch {
+            Logger.shared.error("SORA wallet signer identity verification failed: \(error)")
             return false
         }
     }

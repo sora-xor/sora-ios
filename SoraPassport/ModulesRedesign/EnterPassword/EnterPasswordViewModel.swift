@@ -102,7 +102,9 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
         guard let selectedAccount = selectedAccount else { return }
         
         var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
-        backupedAccountAddresses.append(selectedAccount.address)
+        if !backupedAccountAddresses.contains(selectedAccount.address) {
+            backupedAccountAddresses.append(selectedAccount.address)
+        }
         ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
         
         wireframe?.openSuccessImport(importedAccountAddress: selectedAccount.address, accounts: backedUpAccounts)
