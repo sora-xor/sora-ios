@@ -111,6 +111,7 @@ fi
 
 for exported_symbol in \
     _sora_sr25519_keypair_is_valid \
+    _sora_sr25519_secret_from_ed25519 \
     _sora_sr25519_validator_contains_forced_panic; do
     if ! nm -gU "$device_library" 2>/dev/null | grep " $exported_symbol$" >/dev/null; then
         printf 'Missing exported symbol: %s\n' "$exported_symbol" >&2

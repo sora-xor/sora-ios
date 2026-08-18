@@ -63,6 +63,7 @@ final class ConfirmSwapViewModel {
     private var quoteParams: PolkaswapMainInteractorQuoteParams
     private weak var assetsProvider: AssetProviderProtocol?
     private let signingAvailabilityProvider: () -> WalletTransactionSigningAvailability
+    private let signingRecoveryPresenter: (UIViewController?) -> Void
     private var items: [SoramitsuTableViewItemProtocol] = [] {
         didSet {
             setupItems?(items)
@@ -147,6 +148,11 @@ final class ConfirmSwapViewModel {
                 keystore: Keychain(),
                 account: account
             )
+        },
+        signingRecoveryPresenter: @escaping (UIViewController?) -> Void = { controller in
+            DispatchQueue.main.async {
+                MainTabBarViewFactory.presentRetainedWalletRecovery(from: controller)
+            }
         }
     ) {
         self.firstAssetId = firstAssetId
@@ -169,6 +175,7 @@ final class ConfirmSwapViewModel {
         self.assetsProvider = assetsProvider
         self.fiatData = fiatData
         self.signingAvailabilityProvider = signingAvailabilityProvider
+        self.signingRecoveryPresenter = signingRecoveryPresenter
         self.eventCenter = eventCenter
         self.eventCenter.add(observer: self)
     }
@@ -364,22 +371,17 @@ extension ConfirmSwapViewModel {
     private func presentSigningUnavailable(
         _ availability: WalletTransactionSigningAvailability
     ) {
-        let message: String
-        switch availability {
-        case .available:
+        guard let alert = WalletSigningUnavailableAlertFactory.create(
+            availability: availability,
+            recoveryAction: { [weak self] in
+                guard let self else { return }
+                self.signingRecoveryPresenter(self.view?.controller)
+            }
+        ) else {
             return
-        case .recoveryRequired:
-            message = "This wallet is read only because its signing key could not be recovered after the update. Import the exact wallet backup before swapping."
-        case .missingKey:
-            message = "The signing key for this wallet is unavailable. Import the exact wallet backup before swapping."
         }
 
-        wireframe?.present(
-            message: message,
-            title: "Wallet signing unavailable",
-            closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
-            from: view
-        )
+        wireframe?.present(viewModel: alert, style: .alert, from: view)
     }
     
     func updateDetails(params: PolkaswapMainInteractorQuoteParams? = nil,

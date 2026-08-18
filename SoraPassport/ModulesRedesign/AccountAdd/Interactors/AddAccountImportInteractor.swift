@@ -38,7 +38,7 @@ import SSFCloudStorage
 final class AddAccountImportInteractor: BaseAccountImportInteractor {
     private(set) var settings: SelectedWalletSettingsProtocol
     let eventCenter: EventCenterProtocol
-    private let recoveryAccount: AccountItem?
+    private(set) var recoveryAccount: AccountItem?
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -82,6 +82,10 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                 else {
                     throw AccountCreateError.invalidSeed
                 }
+
+                // A recovery import restores signing capability for this exact public
+                // account. Keep its asset visibility, ordering, and selection metadata.
+                return [Self.recoveredAccount(existing: existingAccount, candidate: item)]
             } else if existingAccount != nil {
                 throw AccountCreateError.duplicated
             }
@@ -94,6 +98,16 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
         let connectionOperation: BaseOperation<AccountItem> = ClosureOperation {
             if case .failure(let error) = persistentOperation.result {
                 throw error
+            }
+
+            if self.recoveryAccount != nil {
+                let existingAccount = try checkOperation.extractResultData(
+                    throwing: BaseOperationError.parentOperationCancelled
+                )
+                guard let existingAccount else {
+                    throw AccountCreateError.invalidSeed
+                }
+                return Self.recoveredAccount(existing: existingAccount, candidate: item)
             }
 
             return item
@@ -188,10 +202,29 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
             return false
         }
 
+        if candidate.cryptoType == .sr25519 {
+            guard
+                let secret = try? keystore.fetchSecretKeyForAddress(candidate.address),
+                SNSafeKeypairValidator.isValidSr25519SecretKey(
+                    secret,
+                    publicKey: candidate.publicKeyData
+                )
+            else {
+                return false
+            }
+        }
+
         return SelectedWalletSettings.hasVerifiedSigningKey(
             keystore: keystore,
             account: candidate
         )
+    }
+
+    static func recoveredAccount(
+        existing: AccountItem,
+        candidate: AccountItem
+    ) -> AccountItem {
+        existing.replacingUsername(candidate.username)
     }
 
     override func importAccountUsingOperation(_ importOperation: BaseOperation<AccountItem>, completion: ((Result<AccountItem, Swift.Error>?) -> Void)?) {

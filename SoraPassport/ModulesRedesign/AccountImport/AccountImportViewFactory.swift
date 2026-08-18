@@ -121,7 +121,10 @@ final class AccountImportViewFactory {
 
         let localizationManager = LocalizationManager.shared
 
-        let wireframe = AddImportedWireframe(localizationManager: localizationManager)
+        let wireframe = AddImportedWireframe(
+            localizationManager: localizationManager,
+            recoveryAccount: recoveryAccount
+        )
    
         view.presenter = presenter
         presenter.view = view

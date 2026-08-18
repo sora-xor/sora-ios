@@ -207,18 +207,43 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
             let address = try addressFactory.address(fromAccountId: publicKey.rawData(),
                                                      type: SNAddressType(chain: request.networkType))
 
+            let settings = AccountSettings(visibleAssetIds: [], orderedAssetIds: [])
+            let account = AccountItem(address: address,
+                                      cryptoType: request.cryptoType,
+                                      networkType: request.networkType.addressType(),
+                                      username: request.username,
+                                      publicKeyData: keystore.publicKeyData,
+                                      settings: settings,
+                                      order: 0,
+                                      isSelected: true)
+
+            if request.cryptoType == .sr25519 {
+                guard SNSafeKeypairValidator.isValidSr25519SecretKey(
+                    keystore.secretKeyData,
+                    publicKey: keystore.publicKeyData
+                ) else {
+                    throw AccountOperationFactoryError.invalidKeystore
+                }
+            }
+
+            // JSON stores its public and private material independently. Verify the pair
+            // in memory before any real Keychain write so a malformed or mismatched file
+            // cannot overwrite the retained wallet's canonical signing-key tag.
+            let verificationKeystore = InMemoryKeychain()
+            try verificationKeystore.saveSecretKey(
+                keystore.secretKeyData,
+                address: address
+            )
+            guard SelectedWalletSettings.hasVerifiedSigningKey(
+                keystore: verificationKeystore,
+                account: account
+            ) else {
+                throw AccountOperationFactoryError.invalidKeystore
+            }
+
             try self.keystore.saveSecretKey(keystore.secretKeyData, address: address)
 
-            let settings = AccountSettings(visibleAssetIds: [], orderedAssetIds: [])
-
-            return AccountItem(address: address,
-                               cryptoType: request.cryptoType,
-                               networkType: request.networkType.addressType(),
-                               username: request.username,
-                               publicKeyData: keystore.publicKeyData,
-                               settings: settings,
-                               order: 0,
-                               isSelected: true)
+            return account
         }
     }
 

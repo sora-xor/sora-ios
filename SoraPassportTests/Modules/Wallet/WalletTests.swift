@@ -110,17 +110,25 @@ final class SwapTransactionTests: XCTestCase {
     func testUnavailableSignerStopsSwapBeforeWalletService() {
         let walletService = SwapTestWalletService()
         let wireframe = SwapTestConfirmWireframe()
+        var recoveryPresentationCount = 0
         let viewModel = makeConfirmViewModel(
             walletService: walletService,
             wireframe: wireframe,
-            signingAvailability: .recoveryRequired
+            signingAvailability: .recoveryRequired,
+            signingRecoveryPresenter: { _ in recoveryPresentationCount += 1 }
         )
 
         viewModel.submit()
 
         XCTAssertEqual(walletService.transferCount, 0)
         XCTAssertEqual(wireframe.activityIndicatorCount, 0)
-        XCTAssertEqual(wireframe.presentedMessageCount, 1)
+        XCTAssertEqual(wireframe.presentedAlertCount, 1)
+        XCTAssertEqual(wireframe.presentedAlert?.actions.count, 1)
+        XCTAssertEqual(wireframe.presentedAlert?.closeAction,
+                       R.string.localizable.commonCancel(preferredLanguages: .currentLocale))
+
+        wireframe.presentedAlert?.actions.first?.handler?()
+        XCTAssertEqual(recoveryPresentationCount, 1)
     }
 
     func testAvailableSignerSubmitsSwapExactlyOnce() {
@@ -136,7 +144,7 @@ final class SwapTransactionTests: XCTestCase {
 
         XCTAssertEqual(walletService.transferCount, 1)
         XCTAssertEqual(wireframe.activityIndicatorCount, 1)
-        XCTAssertEqual(wireframe.presentedMessageCount, 0)
+        XCTAssertEqual(wireframe.presentedAlertCount, 0)
     }
 
     private func makeSwapInfo(
@@ -180,7 +188,8 @@ final class SwapTransactionTests: XCTestCase {
     private func makeConfirmViewModel(
         walletService: SwapTestWalletService,
         wireframe: SwapTestConfirmWireframe,
-        signingAvailability: WalletTransactionSigningAvailability
+        signingAvailability: WalletTransactionSigningAvailability,
+        signingRecoveryPresenter: @escaping (UIViewController?) -> Void = { _ in }
     ) -> ConfirmSwapViewModel {
         let fromAsset = makeAsset(id: fromAssetId, precision: 18, symbol: "FROM")
         let toAsset = makeAsset(id: toAssetId, precision: 18, symbol: "TO")
@@ -213,7 +222,8 @@ final class SwapTransactionTests: XCTestCase {
             ),
             assetsProvider: nil,
             fiatData: [],
-            signingAvailabilityProvider: { signingAvailability }
+            signingAvailabilityProvider: { signingAvailability },
+            signingRecoveryPresenter: signingRecoveryPresenter
         )
     }
 }
@@ -279,7 +289,8 @@ private final class SwapTestWalletService: WalletServiceProtocol {
 
 private final class SwapTestConfirmWireframe: ConfirmWireframeProtocol {
     private(set) var activityIndicatorCount = 0
-    private(set) var presentedMessageCount = 0
+    private(set) var presentedAlertCount = 0
+    private(set) var presentedAlert: AlertPresentableViewModel?
 
     func showActivityIndicator() { activityIndicatorCount += 1 }
     func hideActivityIndicator() {}
@@ -297,7 +308,16 @@ private final class SwapTestConfirmWireframe: ConfirmWireframeProtocol {
         closeAction: String?,
         from view: ControllerBackedProtocol?
     ) {
-        presentedMessageCount += 1
+        XCTFail("Signing failures must present a recovery action, not an OK-only message")
+    }
+
+    func present(
+        viewModel: AlertPresentableViewModel,
+        style: UIAlertController.Style,
+        from view: ControllerBackedProtocol?
+    ) {
+        presentedAlertCount += 1
+        presentedAlert = viewModel
     }
 }
 

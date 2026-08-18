@@ -35,11 +35,16 @@ import SoraUI
 
 final class AddImportedWireframe: AccountImportWireframeProtocol {
     var endAddingBlock: (() -> Void)?
+    let recoveryAccount: AccountItem?
     
     let localizationManager: LocalizationManagerProtocol
 
-    init(localizationManager: LocalizationManagerProtocol) {
+    init(
+        localizationManager: LocalizationManagerProtocol,
+        recoveryAccount: AccountItem? = nil
+    ) {
         self.localizationManager = localizationManager
+        self.recoveryAccount = recoveryAccount
     }
 
     func proceed(from view: AccountImportViewProtocol?,
@@ -62,7 +67,8 @@ final class AddImportedWireframe: AccountImportWireframeProtocol {
                                                                                      usernameViewModel: usernameViewModel,
                                                                                      passwordViewModel: passwordViewModel,
                                                                                      derivationPathViewModel: derivationPathViewModel,
-                                                                                     endAddingBlock: endAddingBlock)?.controller
+                                                                                     endAddingBlock: endAddingBlock,
+                                                                                     recoveryAccount: recoveryAccount)?.controller
         else {
             MainTransitionHelper.transitToMainTabBarController(closing: navigationController, animated: true)
             return

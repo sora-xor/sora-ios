@@ -36,6 +36,35 @@ import SoraFoundation
 import SoraKeystore
 import sorawallet
 
+enum WalletSigningUnavailableAlertFactory {
+    static func create(
+        availability: WalletTransactionSigningAvailability,
+        recoveryAction: @escaping () -> Void
+    ) -> AlertPresentableViewModel? {
+        let message: String
+        switch availability {
+        case .available:
+            return nil
+        case .recoveryRequired:
+            message = "Your funds remain on-chain, but this app cannot sign because the wallet key is unavailable after the update. Import the exact wallet passphrase, raw seed, or JSON backup to restore signing."
+        case .missingKey:
+            message = "Your funds remain on-chain, but the signing key for this wallet is unavailable. Import the exact wallet passphrase, raw seed, or JSON backup to restore signing."
+        }
+
+        let recovery = AlertPresentableAction(
+            title: R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale),
+            handler: recoveryAction
+        )
+
+        return AlertPresentableViewModel(
+            title: "Wallet signing unavailable",
+            message: message,
+            actions: [recovery],
+            closeAction: R.string.localizable.commonCancel(preferredLanguages: .currentLocale)
+        )
+    }
+}
+
 final class SwapViewModel {
     var detailsItem: PoolDetailsItem?
     var setupItems: (([SoramitsuTableViewItemProtocol]) -> Void)?
@@ -216,6 +245,7 @@ final class SwapViewModel {
     
     private let feeProvider: FeeProviderProtocol
     private let signingAvailabilityProvider: () -> WalletTransactionSigningAvailability
+    private let signingRecoveryPresenter: (UIViewController?) -> Void
     private var fiatData: [FiatData] = [] {
         didSet {
             updateAssetsBalance()
@@ -281,6 +311,11 @@ final class SwapViewModel {
                 keystore: Keychain(),
                 account: account
             )
+        },
+        signingRecoveryPresenter: @escaping (UIViewController?) -> Void = { controller in
+            DispatchQueue.main.async {
+                MainTabBarViewFactory.presentRetainedWalletRecovery(from: controller)
+            }
         }
     ) {
         self.assetsProvider = assetsProvider
@@ -299,6 +334,7 @@ final class SwapViewModel {
         self.warningViewModelFactory = warningViewModelFactory
         self.marketCapService = marketCapService
         self.signingAvailabilityProvider = signingAvailabilityProvider
+        self.signingRecoveryPresenter = signingRecoveryPresenter
         self.eventCenter.add(observer: self)
     }
 }
@@ -458,22 +494,17 @@ extension SwapViewModel: LiquidityViewModelProtocol {
     private func presentSigningUnavailable(
         _ availability: WalletTransactionSigningAvailability
     ) {
-        let message: String
-        switch availability {
-        case .available:
+        guard let alert = WalletSigningUnavailableAlertFactory.create(
+            availability: availability,
+            recoveryAction: { [weak self] in
+                guard let self else { return }
+                self.signingRecoveryPresenter(self.view?.controller)
+            }
+        ) else {
             return
-        case .recoveryRequired:
-            message = "This wallet is read only because its signing key could not be recovered after the update. Import the exact wallet backup before swapping."
-        case .missingKey:
-            message = "The signing key for this wallet is unavailable. Import the exact wallet backup before swapping."
         }
 
-        wireframe?.present(
-            message: message,
-            title: "Wallet signing unavailable",
-            closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
-            from: view
-        )
+        wireframe?.present(viewModel: alert, style: .alert, from: view)
     }
     
     func recalculate(field: FocusedField) {}

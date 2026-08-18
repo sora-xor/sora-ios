@@ -1,10 +1,13 @@
 import XCTest
+import UIKit
 @testable import SoraPassport
 import SoraKeystore
 import IrohaCrypto
 import SSFUtils
 import SSFCrypto
 import SSFCloudStorage
+import RobinHood
+import SoraFoundation
 
 class RootFactoryTests: XCTestCase {
     func testSafeSr25519ValidatorContainsPanicsInsideItsFFIBoundary() {
@@ -22,6 +25,33 @@ class RootFactoryTests: XCTestCase {
                 connectionState: .connected
             )
         )
+    }
+
+    @MainActor
+    func testRecoveryPresentationWaitsForSigningAlertDismissal() {
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        let controller = UIViewController()
+        let alert = UIAlertController(
+            title: "Wallet signing unavailable",
+            message: nil,
+            preferredStyle: .alert
+        )
+        let presented = expectation(description: "recovery presentation scheduled")
+
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.present(alert, animated: false)
+        XCTAssertTrue(controller.presentedViewController === alert)
+
+        XCTAssertTrue(
+            MainTabBarViewFactory.presentAfterDismissingAlert(from: controller) {
+                XCTAssertNil(controller.presentedViewController)
+                presented.fulfill()
+            }
+        )
+
+        wait(for: [presented], timeout: 2)
+        window.isHidden = true
     }
 
     func testPresenterCreation() {
@@ -269,6 +299,219 @@ class RootFactoryTests: XCTestCase {
                 existing: account,
                 keystore: keychain
             )
+        )
+
+        try keychain.saveSecretKey(
+            Data(repeating: 0xff, count: 64),
+            address: account.address
+        )
+        XCTAssertFalse(
+            AddAccountImportInteractor.isValidRecoveryReplacement(
+                account,
+                expected: account,
+                existing: account,
+                keystore: keychain
+            )
+        )
+    }
+
+    func testRecoveryImportPreservesRetainedWalletMetadata() throws {
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map(UInt8.init))
+        )
+        let retained = AccountItem(
+            address: fixture.account.address,
+            cryptoType: fixture.account.cryptoType,
+            networkType: fixture.account.networkType,
+            username: "old name",
+            publicKeyData: fixture.account.publicKeyData,
+            settings: AccountSettings(
+                visibleAssetIds: ["xor", "val"],
+                orderedAssetIds: ["val", "xor"]
+            ),
+            order: 7,
+            isSelected: true
+        )
+        let candidate = AccountItem(
+            address: retained.address,
+            cryptoType: retained.cryptoType,
+            networkType: retained.networkType,
+            username: "restored name",
+            publicKeyData: retained.publicKeyData,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+            order: 0,
+            isSelected: true
+        )
+
+        let recovered = AddAccountImportInteractor.recoveredAccount(
+            existing: retained,
+            candidate: candidate
+        )
+
+        XCTAssertEqual(recovered.username, candidate.username)
+        XCTAssertEqual(recovered.settings, retained.settings)
+        XCTAssertEqual(recovered.order, retained.order)
+        XCTAssertEqual(recovered.isSelected, retained.isSelected)
+    }
+
+    func testMismatchedJsonCannotOverwriteRetainedSigner() throws {
+        let retainedKeypair = try SNKeyFactory().createKeypair(
+            fromSeed: Data(repeating: 21, count: 32)
+        )
+        let importedKeypair = try SNKeyFactory().createKeypair(
+            fromSeed: Data(repeating: 22, count: 32)
+        )
+        let retainedPublicKey = retainedKeypair.publicKey().rawData()
+        let retainedAddress = try SS58AddressFactory().address(
+            fromAccountId: retainedPublicKey,
+            type: ApplicationConfig.shared.addressType
+        )
+        let encoded = KeystoreConstants.pkcs8Header
+            + importedKeypair.privateKey().toEd25519Data()
+            + KeystoreConstants.pkcs8Divider
+            + retainedPublicKey
+        let definition = KeystoreDefinition(
+            address: retainedAddress,
+            encoded: encoded.base64EncodedString(),
+            encoding: KeystoreEncoding(
+                content: ["pkcs8", "sr25519"],
+                type: [],
+                version: "3"
+            ),
+            meta: nil
+        )
+        let json = try JSONEncoder().encode(definition)
+        let jsonString = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let keychain = InMemoryKeychain()
+        let retainedSecret = retainedKeypair.privateKey().rawData()
+        try keychain.saveSecretKey(retainedSecret, address: retainedAddress)
+        let operation = AccountOperationFactory(keystore: keychain)
+            .newAccountOperation(
+                request: AccountImportKeystoreRequest(
+                    keystore: jsonString,
+                    password: "",
+                    username: "mismatched",
+                    networkType: .sora,
+                    cryptoType: .sr25519
+                )
+            )
+
+        OperationQueue().addOperations([operation], waitUntilFinished: true)
+
+        XCTAssertThrowsError(
+            try operation.extractResultData(
+                throwing: BaseOperationError.parentOperationCancelled
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(retainedAddress),
+            retainedSecret
+        )
+
+        let malformedEncoded = KeystoreConstants.pkcs8Header
+            + Data(repeating: 0xff, count: 64)
+            + KeystoreConstants.pkcs8Divider
+            + retainedPublicKey
+        let malformedDefinition = KeystoreDefinition(
+            address: retainedAddress,
+            encoded: malformedEncoded.base64EncodedString(),
+            encoding: KeystoreEncoding(
+                content: ["pkcs8", "sr25519"],
+                type: [],
+                version: "3"
+            ),
+            meta: nil
+        )
+        let malformedJSON = try JSONEncoder().encode(malformedDefinition)
+        let malformedJSONString = try XCTUnwrap(
+            String(data: malformedJSON, encoding: .utf8)
+        )
+        let malformedOperation = AccountOperationFactory(keystore: keychain)
+            .newAccountOperation(
+                request: AccountImportKeystoreRequest(
+                    keystore: malformedJSONString,
+                    password: "",
+                    username: "malformed",
+                    networkType: .sora,
+                    cryptoType: .sr25519
+                )
+            )
+
+        OperationQueue().addOperations(
+            [malformedOperation],
+            waitUntilFinished: true
+        )
+
+        XCTAssertThrowsError(
+            try malformedOperation.extractResultData(
+                throwing: BaseOperationError.parentOperationCancelled
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(retainedAddress),
+            retainedSecret
+        )
+    }
+
+    func testRecoveryIdentityReachesFinalImportStep() throws {
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map(UInt8.init))
+        )
+        let existingURLHandlers = URLHandlingService.shared.children
+        URLHandlingService.shared.setup(
+            children: [KeystoreImportService(logger: Logger.shared)]
+        )
+        defer {
+            URLHandlingService.shared.setup(children: existingURLHandlers)
+        }
+
+        let initialView = try XCTUnwrap(
+            AccountImportViewFactory.createViewForAdding(
+                endAddingBlock: {},
+                recoveryAccount: fixture.account
+            ) as? ImportAccountViewController
+        )
+        let initialPresenter = try XCTUnwrap(
+            initialView.presenter as? AccountImportPresenter
+        )
+        let recoveryWireframe = try XCTUnwrap(
+            initialPresenter.wireframe as? AddImportedWireframe
+        )
+        XCTAssertEqual(
+            recoveryWireframe.recoveryAccount?.address,
+            fixture.account.address
+        )
+
+        let sourceViewModel = InputViewModel(
+            inputHandler: InputHandler(value: "source")
+        )
+        let usernameViewModel = InputViewModel(
+            inputHandler: InputHandler(value: "retained")
+        )
+        let view = try XCTUnwrap(
+            SetupAccountNameViewFactory.createViewForAddImport(
+                sourceType: .mnemonic,
+                cryptoType: fixture.account.cryptoType,
+                networkType: .sora,
+                sourceViewModel: sourceViewModel,
+                usernameViewModel: usernameViewModel,
+                passwordViewModel: nil,
+                derivationPathViewModel: nil,
+                endAddingBlock: nil,
+                recoveryAccount: fixture.account
+            ) as? SetupAccountNameViewController
+        )
+        let presenter = try XCTUnwrap(
+            view.presenter as? SetupNameImportAccountPresenter
+        )
+        let interactor = try XCTUnwrap(
+            presenter.interactor as? AddAccountImportInteractor
+        )
+
+        XCTAssertEqual(interactor.recoveryAccount?.address, fixture.account.address)
+        XCTAssertEqual(
+            interactor.recoveryAccount?.publicKeyData,
+            fixture.account.publicKeyData
         )
     }
 

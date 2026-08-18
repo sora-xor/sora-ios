@@ -39,6 +39,76 @@ import SSFUtils
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
 
+    @MainActor
+    @discardableResult
+    static func presentRetainedWalletRecovery(from presentingController: UIViewController?) -> Bool {
+        guard
+            let recoveryAccount = SelectedWalletSettings.shared.currentAccount,
+            SelectedWalletSettings.transactionSigningAvailability(
+                settings: SettingsManager.shared,
+                keystore: Keychain(),
+                account: recoveryAccount,
+                attemptRepair: false
+            ) != .available
+        else {
+            return false
+        }
+
+        let completion = {
+            guard
+                let account = SelectedWalletSettings.shared.currentAccount,
+                SelectedWalletSettings.transactionSigningAvailability(
+                    settings: SettingsManager.shared,
+                    keystore: Keychain(),
+                    account: account,
+                    attemptRepair: false
+                ) == .available,
+                let mainController = MainTabBarViewFactory.createView()?.controller
+            else {
+                return
+            }
+
+            RootControllerAnimationCoordinator().animateTransition(to: mainController)
+        }
+
+        guard let importController = AccountImportViewFactory.createViewForAdding(
+            endAddingBlock: completion,
+            recoveryAccount: recoveryAccount
+        )?.controller else {
+            return false
+        }
+
+        let controller = presentingController
+            ?? UIApplication.shared.delegate?.window??.rootViewController
+        guard let controller else {
+            return false
+        }
+
+        let navigationController = SoraNavigationController(rootViewController: importController)
+        return presentAfterDismissingAlert(from: controller) {
+            controller.present(navigationController, animated: true)
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    static func presentAfterDismissingAlert(
+        from controller: UIViewController,
+        presentation: @escaping () -> Void
+    ) -> Bool {
+        guard let presentedController = controller.presentedViewController else {
+            presentation()
+            return true
+        }
+
+        guard presentedController is UIAlertController else {
+            return false
+        }
+
+        presentedController.dismiss(animated: true, completion: presentation)
+        return true
+    }
+
     static func isNetworkReady(connectionState: WebSocketEngine.State) -> Bool {
         if case .connected = connectionState {
             return true
@@ -97,42 +167,7 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             account: selectedAccount
         )
         view.recoveryRestoreHandler = { [weak view] in
-            guard
-                let view,
-                let recoveryAccount = SelectedWalletSettings.shared.currentAccount
-            else {
-                return
-            }
-
-            let completion = { [weak view] in
-                guard let view else {
-                    return
-                }
-                guard
-                    let account = SelectedWalletSettings.shared.currentAccount,
-                    !SelectedWalletSettings.requiresRecoveryReadOnlyMode(
-                        settings: SettingsManager.shared,
-                        keystore: Keychain(),
-                        account: account
-                    ),
-                    let mainController = MainTabBarViewFactory.createView()?.controller
-                else {
-                    return
-                }
-
-                RootControllerAnimationCoordinator().animateTransition(to: mainController)
-                view.recoveryRestoreHandler = nil
-            }
-
-            guard let importController = AccountImportViewFactory.createViewForAdding(
-                endAddingBlock: completion,
-                recoveryAccount: recoveryAccount
-            )?.controller else {
-                return
-            }
-
-            let navigationController = SoraNavigationController(rootViewController: importController)
-            view.present(navigationController, animated: true)
+            _ = presentRetainedWalletRecovery(from: view)
         }
         
         let farmingService = DemeterFarmingService(

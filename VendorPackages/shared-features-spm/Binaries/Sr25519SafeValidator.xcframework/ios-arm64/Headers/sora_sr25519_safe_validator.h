@@ -16,6 +16,13 @@ bool sora_sr25519_keypair_is_valid(
     size_t public_len
 );
 
+bool sora_sr25519_secret_from_ed25519(
+    const uint8_t *ed25519_ptr,
+    size_t ed25519_len,
+    uint8_t *output_ptr,
+    size_t output_len
+);
+
 bool sora_sr25519_validator_contains_forced_panic(void);
 
 #ifdef __cplusplus
