@@ -17,14 +17,34 @@ public enum CloudStorageAccountState {
     case notAuthorized
 }
 
+public struct CloudStorageAccountIdentity: Equatable {
+    public let userID: String
+    public let email: String
+    public let name: String?
+
+    public init(userID: String, email: String, name: String? = nil) {
+        self.userID = userID
+        self.email = email
+        self.name = name
+    }
+}
+
 public protocol CloudStorageServiceProtocol: AnyObject {
     var isUserAuthorized: Bool { get }
+    var currentAccountIdentity: CloudStorageAccountIdentity? { get }
+    @MainActor func configureCurrentAccountIfAvailable() -> CloudStorageAccountState
     func restorePreviousSignInIfAvailable() async throws -> CloudStorageAccountState
     func importMobileBackupIfAuthorized(
         account: OpenBackupAccount,
         password: String
     ) async throws -> OpenBackupAccount
+    func importMobileBackupIfAuthorized(
+        account: OpenBackupAccount,
+        password: String,
+        expectedAccountUserID: String
+    ) async throws -> OpenBackupAccount
     func signInIfNeeded() async throws -> CloudStorageAccountState
+    func signInSelectingAccount() async throws -> CloudStorageAccountIdentity?
     func getBackupAccounts() async throws -> [OpenBackupAccount]
     func saveBackup(account: OpenBackupAccount, password: String) async throws
     func importBackup(account: OpenBackupAccount, password: String) async throws
@@ -39,6 +59,9 @@ protocol GoogleDriveServiceProtocol: AnyObject {
 
 public class CloudStorageService: NSObject, GoogleDriveServiceProtocol {
     public var isUserAuthorized: Bool { singInProvider.currentUser != nil }
+    public var currentAccountIdentity: CloudStorageAccountIdentity? {
+        singInProvider.currentUser.flatMap(accountIdentity(for:))
+    }
     public var googleDriveService: GoogleService
 
     private weak var uiDelegate: UIViewController?
@@ -47,6 +70,7 @@ public class CloudStorageService: NSObject, GoogleDriveServiceProtocol {
     private let encryptionService: EncryptionServiceProtocol
     private let fileFactory: BackupFileFactoryProtocol
     private var hasConfiguredDriveAuthorizer = false
+    private var configuredAccountIdentity: CloudStorageAccountIdentity?
 
     public init(
         uiDelegate: UIViewController?,
@@ -121,24 +145,35 @@ public class CloudStorageService: NSObject, GoogleDriveServiceProtocol {
 // MARK: - CloudStorageServiceProtocol
 
 extension CloudStorageService: CloudStorageServiceProtocol {
+    /// Configures Drive only from Google's already-loaded in-memory user. This never starts
+    /// token restoration or presents authentication UI.
+    @MainActor public func configureCurrentAccountIfAvailable() -> CloudStorageAccountState {
+        if singInProvider.currentUser == nil {
+            _ = singInProvider.restorePreviousSignInWithoutRefresh()
+        }
+        guard let user = singInProvider.currentUser else {
+            clearDriveAuthorization()
+            return .notAuthorized
+        }
+        return configureDriveAuthorizerIfPermitted(for: user)
+    }
+
     public func restorePreviousSignInIfAvailable() async throws -> CloudStorageAccountState {
-        if let user = singInProvider.currentUser {
-            googleDriveService.set(authorizer: user.fetcherAuthorizer)
-            hasConfiguredDriveAuthorizer = true
-            return .authorized
+        if await MainActor.run(body: { singInProvider.currentUser != nil }) {
+            return await configureCurrentAccountIfAvailable()
         }
 
         guard singInProvider.hasPreviousSignIn() else {
+            clearDriveAuthorization()
             return .notAuthorized
         }
 
         guard let user = try await restorePreviousSignIn() else {
+            clearDriveAuthorization()
             return .notAuthorized
         }
 
-        googleDriveService.set(authorizer: user.fetcherAuthorizer)
-        hasConfiguredDriveAuthorizer = true
-        return .authorized
+        return configureDriveAuthorizerIfPermitted(for: user)
     }
 
     /// Fetches only the canonical mobile backup after a caller has restored an existing
@@ -158,6 +193,24 @@ extension CloudStorageService: CloudStorageServiceProtocol {
         )
     }
 
+    /// Reads a backup only when the Drive authorizer still belongs to the exact Google
+    /// identity confirmed by the user on the recovery screen.
+    public func importMobileBackupIfAuthorized(
+        account: OpenBackupAccount,
+        password: String,
+        expectedAccountUserID: String
+    ) async throws -> OpenBackupAccount {
+        guard hasConfiguredDriveAuthorizer,
+              configuredAccountIdentity?.userID == expectedAccountUserID else {
+            throw CloudStorageServiceError.notAuthorized
+        }
+
+        return try await fetchAuthorizedMobileBackup(
+            account: account,
+            password: password
+        )
+    }
+
     public func signInIfNeeded() async throws -> CloudStorageAccountState {
         if (try? await restorePreviousSignInIfAvailable()) == .authorized {
             return .authorized
@@ -167,10 +220,43 @@ extension CloudStorageService: CloudStorageServiceProtocol {
             return .notAuthorized
         }
 
-        let result = try await signIn(uiDelegate: uiDelegate)
-        googleDriveService.set(authorizer: result?.user.fetcherAuthorizer)
-        hasConfiguredDriveAuthorizer = result?.user != nil
-        return .authorized
+        if let user = singInProvider.currentUser {
+            let scopedUser = try await addDriveScopeIfNeeded(
+                to: user,
+                uiDelegate: uiDelegate
+            )
+            return configureDriveAuthorizerIfPermitted(for: scopedUser)
+        }
+
+        let result = try await signIn(
+            uiDelegate: uiDelegate,
+            forceAccountSelection: false
+        )
+        guard let user = result?.user else {
+            clearDriveAuthorization()
+            return .notAuthorized
+        }
+        return configureDriveAuthorizerIfPermitted(for: user)
+    }
+
+    /// Starts interactive Google sign-in and requires Google's account selector.
+    public func signInSelectingAccount() async throws -> CloudStorageAccountIdentity? {
+        guard let uiDelegate else {
+            return nil
+        }
+
+        let result = try await signIn(
+            uiDelegate: uiDelegate,
+            forceAccountSelection: true
+        )
+        guard let user = result?.user else {
+            clearDriveAuthorization()
+            return nil
+        }
+        guard configureDriveAuthorizerIfPermitted(for: user) == .authorized else {
+            return nil
+        }
+        return configuredAccountIdentity
     }
 
     public func getBackupAccounts() async throws -> [OpenBackupAccount] {
@@ -251,10 +337,81 @@ extension CloudStorageService: CloudStorageServiceProtocol {
     public func disconnect() {
         singInProvider.signOut()
         singInProvider.disconnect()
+        clearDriveAuthorization()
     }
 }
 
 extension CloudStorageService {
+    private func accountIdentity(
+        for user: GIDGoogleUser
+    ) -> CloudStorageAccountIdentity? {
+        guard let profile = user.profile else {
+            return nil
+        }
+
+        let userID = (user.userID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = profile.email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !userID.isEmpty, !email.isEmpty else {
+            return nil
+        }
+
+        let name = profile.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return CloudStorageAccountIdentity(
+            userID: userID,
+            email: email,
+            name: name.isEmpty ? nil : name
+        )
+    }
+
+    private func clearDriveAuthorization() {
+        googleDriveService.set(authorizer: nil)
+        hasConfiguredDriveAuthorizer = false
+        configuredAccountIdentity = nil
+    }
+
+    private func hasDriveAppDataScope(_ user: GIDGoogleUser) -> Bool {
+        user.grantedScopes?.contains(kGTLRAuthScopeDriveAppdata) == true
+    }
+
+    private func configureDriveAuthorizerIfPermitted(
+        for user: GIDGoogleUser
+    ) -> CloudStorageAccountState {
+        guard hasDriveAppDataScope(user),
+              let identity = accountIdentity(for: user) else {
+            clearDriveAuthorization()
+            return .notAuthorized
+        }
+
+        googleDriveService.set(authorizer: user.fetcherAuthorizer)
+        hasConfiguredDriveAuthorizer = true
+        configuredAccountIdentity = identity
+        return .authorized
+    }
+
+    private func addDriveScopeIfNeeded(
+        to user: GIDGoogleUser,
+        uiDelegate: UIViewController
+    ) async throws -> GIDGoogleUser {
+        guard !hasDriveAppDataScope(user) else {
+            return user
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            user.addScopes(
+                [kGTLRAuthScopeDriveAppdata],
+                presenting: uiDelegate
+            ) { result, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let scopedUser = result?.user {
+                    continuation.resume(returning: scopedUser)
+                } else {
+                    continuation.resume(throwing: CloudStorageServiceError.notAuthorized)
+                }
+            }
+        }
+    }
+
     private func restorePreviousSignIn() async throws -> GIDGoogleUser? {
         try await withCheckedThrowingContinuation { [weak self] continuation in
             guard let self else {
@@ -272,13 +429,25 @@ extension CloudStorageService {
         }
     }
 
-    private func signIn(uiDelegate: UIViewController) async throws -> GIDSignInResult? {
+    private func signIn(
+        uiDelegate: UIViewController,
+        forceAccountSelection: Bool
+    ) async throws -> GIDSignInResult? {
         try await withCheckedThrowingContinuation { [weak self] continuation in
-            self?.queue.async { [weak self] in
-                self?.singInProvider.signIn(
+            guard let self else {
+                continuation.resume(returning: nil)
+                return
+            }
+            queue.async { [weak self] in
+                guard let self else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                singInProvider.signIn(
                     withPresenting: uiDelegate,
                     hint: nil,
                     additionalScopes: [kGTLRAuthScopeDriveAppdata],
+                    forceAccountSelection: forceAccountSelection,
                     completion: { result, error in
                         if let error = error {
                             continuation.resume(throwing: error)

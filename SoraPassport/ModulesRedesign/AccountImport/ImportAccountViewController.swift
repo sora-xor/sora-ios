@@ -806,6 +806,14 @@ extension ImportAccountViewController: UIDocumentPickerDelegate {
     }
 }
 
+enum RecoveryGoogleAccountStatus: Equatable {
+    case notChecked
+    case checking
+    case available(email: String)
+    case notSaved
+    case unavailable
+}
+
 final class RetainedWalletRecoveryViewController: SoramitsuViewController {
     let account: AccountItem
     var onGoogleBackup: (() -> Void)?
@@ -813,7 +821,9 @@ final class RetainedWalletRecoveryViewController: SoramitsuViewController {
     var onCancel: (() -> Void)?
 
     private(set) var methodControls: [RecoveryMethodControl] = []
+    private(set) var googleAccountStatus: RecoveryGoogleAccountStatus = .notChecked
     private var isMethodSelectionInProgress = false
+    private var googleMethodControl: RecoveryMethodControl?
 
     private let scrollView: UIScrollView = {
         let view = UIScrollView()
@@ -922,11 +932,9 @@ final class RetainedWalletRecoveryViewController: SoramitsuViewController {
         let google = RecoveryMethodControl(
             image: R.image.googleOptionIcon(),
             title: recoveryText("wallet.recovery.method.google", fallback: "Google Drive backup"),
-            subtitle: recoveryText(
-                "wallet.recovery.method.google.help",
-                fallback: "Restore this wallet’s encrypted cloud backup."
-            )
+            subtitle: Self.googleAccountSubtitle(for: googleAccountStatus)
         ) { [weak self] in self?.onGoogleBackup?() }
+        googleMethodControl = google
         let passphrase = RecoveryMethodControl(
             image: UIImage(systemName: "text.word.spacing"),
             title: R.string.localizable.commonPassphraseTitle(preferredLanguages: .currentLocale),
@@ -1000,14 +1008,59 @@ final class RetainedWalletRecoveryViewController: SoramitsuViewController {
         methodControls.forEach { $0.isEnabled = true }
         navigationItem.rightBarButtonItem?.isEnabled = true
     }
+
+    func setGoogleAccountStatus(_ status: RecoveryGoogleAccountStatus) {
+        googleAccountStatus = status
+        googleMethodControl?.setSubtitle(Self.googleAccountSubtitle(for: status))
+    }
+
+    static func googleAccountSubtitle(for status: RecoveryGoogleAccountStatus) -> String {
+        switch status {
+        case .notChecked:
+            return recoveryText(
+                "wallet.recovery.google.account.check",
+                fallback: "Tap to check for a Google account saved on this phone."
+            )
+        case .checking:
+            return recoveryText(
+                "wallet.recovery.google.account.checking",
+                fallback: "Checking this phone for a saved Google sign-in…"
+            )
+        case .available(let email):
+            let label = recoveryText(
+                "wallet.recovery.google.account.signed.in",
+                fallback: "Signed in as"
+            )
+            return "\(label) \(email)"
+        case .notSaved:
+            return recoveryText(
+                "wallet.recovery.google.account.not.saved",
+                fallback: "SORA did not save the Google email for this backup. Choose the account you used."
+            )
+        case .unavailable:
+            return recoveryText(
+                "wallet.recovery.google.account.unavailable",
+                fallback: "The saved Google account could not be checked. You can choose an account."
+            )
+        }
+    }
 }
 
 final class RecoveryMethodControl: UIControl {
     let methodTitle: String
+    private(set) var methodSubtitle: String
     private let action: () -> Void
+    private let subtitleLabel: SoramitsuLabel = {
+        let label = SoramitsuLabel()
+        label.sora.font = FontType.paragraphXS
+        label.sora.textColor = .fgSecondary
+        label.sora.numberOfLines = 0
+        return label
+    }()
 
     init(image: UIImage?, title: String, subtitle: String, action: @escaping () -> Void) {
         methodTitle = title
+        methodSubtitle = subtitle
         self.action = action
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
@@ -1034,11 +1087,7 @@ final class RecoveryMethodControl: UIControl {
         titleLabel.sora.text = title
         titleLabel.sora.numberOfLines = 0
 
-        let subtitleLabel = SoramitsuLabel()
-        subtitleLabel.sora.font = FontType.paragraphXS
-        subtitleLabel.sora.textColor = .fgSecondary
         subtitleLabel.sora.text = subtitle
-        subtitleLabel.sora.numberOfLines = 0
 
         let textStack = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
         textStack.translatesAutoresizingMaskIntoConstraints = false
@@ -1089,6 +1138,12 @@ final class RecoveryMethodControl: UIControl {
 
     override var isHighlighted: Bool {
         didSet { alpha = isHighlighted ? 0.72 : 1 }
+    }
+
+    func setSubtitle(_ subtitle: String) {
+        methodSubtitle = subtitle
+        subtitleLabel.sora.text = subtitle
+        accessibilityHint = subtitle
     }
 
     @objc private func activate() {

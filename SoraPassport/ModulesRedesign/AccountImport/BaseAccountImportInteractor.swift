@@ -158,6 +158,14 @@ class BaseAccountImportInteractor {
             )
         }
 
+        if let expectedCloudAccountID = request.expectedCloudAccountID {
+            return try await cloudStorage.importMobileBackupIfAuthorized(
+                account: request.account,
+                password: request.password,
+                expectedAccountUserID: expectedCloudAccountID
+            )
+        }
+
         guard try await cloudStorage.signInIfNeeded() == .authorized else {
             throw CloudStorageServiceError.notAuthorized
         }

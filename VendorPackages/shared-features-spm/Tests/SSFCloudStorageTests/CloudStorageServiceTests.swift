@@ -39,6 +39,10 @@ final class CloudStorageServiceTests: XCTestCase {
         self.googleService = googleService
         self.encryptionService = encryptionService
         self.factory = factory
+        TestData.user.userIDValue = "google-user-id"
+        TestData.user.scopesValue = [kGTLRAuthScopeDriveAppdata]
+        TestData.user.profileValue.emailValue = "wallet@example.com"
+        TestData.user.profileValue.nameValue = "Wallet Owner"
 
         service = CloudStorageService(
             uiDelegate: delegate,
@@ -58,8 +62,14 @@ final class CloudStorageServiceTests: XCTestCase {
         signInProvider?.hasPreviousSignInReturnValue = false
         signInProvider?.restorePreviousSignInCallsCount = 0
         signInProvider?.restorePreviousSignInClosure = nil
+        signInProvider?.restorePreviousSignInWithoutRefreshCallsCount = 0
+        signInProvider?.restorePreviousSignInWithoutRefreshClosure = nil
         signInProvider?.signInCallsCount = 0
         signInProvider?.signInClosure = nil
+        signInProvider?.signOutCallsCount = 0
+        signInProvider?.signOutClosure = nil
+        signInProvider?.disconnectCompletionCallsCount = 0
+        signInProvider?.disconnectCompletionClosure = nil
         signInProvider = nil
         delegate = nil
         queue = nil
@@ -89,6 +99,46 @@ final class CloudStorageServiceTests: XCTestCase {
         XCTAssertTrue(googleService?.setAuthorizerCalled ?? false)
     }
 
+    func testConfigureCurrentAccountDoesNotRestoreOrPresentSignIn() async {
+        signInProvider?._currentUser = TestData.user
+
+        let state = await service?.configureCurrentAccountIfAvailable()
+
+        XCTAssertEqual(state, .authorized)
+        XCTAssertEqual(signInProvider?.hasPreviousSignInCallsCount, 0)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 0)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInWithoutRefreshCallsCount, 0)
+        XCTAssertEqual(signInProvider?.signInCallsCount, 0)
+        XCTAssertEqual(googleService?.setAuthorizerCallsCount, 1)
+    }
+
+    func testConfigureCurrentAccountRestoresIdentityWithoutNetworkOrAuthFlow() async {
+        signInProvider?.restorePreviousSignInWithoutRefreshClosure = { [weak self] in
+            self?.signInProvider?._currentUser = TestData.user
+            return true
+        }
+
+        let state = await service?.configureCurrentAccountIfAvailable()
+
+        XCTAssertEqual(state, .authorized)
+        XCTAssertEqual(service?.currentAccountIdentity?.email, "wallet@example.com")
+        XCTAssertEqual(signInProvider?.hasPreviousSignInCallsCount, 0)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 0)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInWithoutRefreshCallsCount, 1)
+        XCTAssertEqual(signInProvider?.signInCallsCount, 0)
+        XCTAssertEqual(googleService?.executeQueryCallsCount, 0)
+    }
+
+    func testConfigureCurrentAccountWithoutSavedUserIsNoninteractive() async {
+        let state = await service?.configureCurrentAccountIfAvailable()
+
+        XCTAssertEqual(state, .notAuthorized)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInWithoutRefreshCallsCount, 1)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 0)
+        XCTAssertEqual(signInProvider?.signInCallsCount, 0)
+        XCTAssertEqual(googleService?.executeQueryCallsCount, 0)
+    }
+
     func testRestorePreviousSignInWhenAvailableDoesNotPresentInteractiveSignIn() async throws {
         // arrange
         signInProvider?.hasPreviousSignInReturnValue = true
@@ -105,6 +155,40 @@ final class CloudStorageServiceTests: XCTestCase {
         XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 1)
         XCTAssertEqual(signInProvider?.signInCallsCount, 0)
         XCTAssertEqual(googleService?.setAuthorizerCallsCount, 1)
+    }
+
+    func testRestoredIdentityIsShownButDriveRequiresAppDataScope() async throws {
+        TestData.user.scopesValue = []
+        signInProvider?._currentUser = TestData.user
+
+        let state = try await service?.restorePreviousSignInIfAvailable()
+
+        XCTAssertEqual(state, .notAuthorized)
+        XCTAssertEqual(service?.currentAccountIdentity?.userID, "google-user-id")
+        XCTAssertEqual(service?.currentAccountIdentity?.email, "wallet@example.com")
+        XCTAssertNil(googleService?.setAuthorizerReceivedArguments)
+    }
+
+    func testBoundMobileImportRejectsDifferentGoogleIdentityBeforeDriveQuery() async throws {
+        signInProvider?._currentUser = TestData.user
+        let restoredState = try await service?.restorePreviousSignInIfAvailable()
+        XCTAssertEqual(restoredState, .authorized)
+        let queryCount = googleService?.executeQueryCallsCount
+
+        do {
+            _ = try await service?.importMobileBackupIfAuthorized(
+                account: TestData.emptyAccount,
+                password: "password",
+                expectedAccountUserID: "different-google-user"
+            )
+            XCTFail("Expected mismatched Google identity to be rejected")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.notAuthorized.localizedDescription
+            )
+        }
+        XCTAssertEqual(googleService?.executeQueryCallsCount, queryCount)
     }
 
     func testRestorePreviousSignInWithoutSessionReturnsNotAuthorized() async throws {
@@ -143,10 +227,8 @@ final class CloudStorageServiceTests: XCTestCase {
         }
         googleService?.account = TestData.encryptedAccount
 
-        XCTAssertEqual(
-            try await service?.restorePreviousSignInIfAvailable(),
-            .authorized
-        )
+        let restoredState = try await service?.restorePreviousSignInIfAvailable()
+        XCTAssertEqual(restoredState, .authorized)
         let account = try await service?.importMobileBackupIfAuthorized(
             account: TestData.account,
             password: "1"
@@ -205,7 +287,35 @@ final class CloudStorageServiceTests: XCTestCase {
             )
             XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 1)
             XCTAssertEqual(signInProvider?.signInCallsCount, 1)
+            XCTAssertEqual(
+                signInProvider?.signInReceivedArguments?.forceAccountSelection,
+                false
+            )
         }
+    }
+
+    func testSelectingAnotherAccountPreservesExistingSessionWhenChooserIsCancelled() async {
+        signInProvider?._currentUser = TestData.user
+        signInProvider?.signInClosure = { _, _, _, completion in
+            completion?(nil, NSError(domain: kGIDSignInErrorDomain, code: -5))
+        }
+
+        do {
+            _ = try await service?.signInSelectingAccount()
+            XCTFail("Expected account chooser cancellation")
+        } catch {
+            XCTAssertEqual((error as NSError).domain, kGIDSignInErrorDomain)
+            XCTAssertEqual((error as NSError).code, -5)
+        }
+
+        XCTAssertEqual(signInProvider?.signInCallsCount, 1)
+        XCTAssertEqual(
+            signInProvider?.signInReceivedArguments?.forceAccountSelection,
+            true
+        )
+        XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 0)
+        XCTAssertEqual(signInProvider?.signOutCallsCount, 0)
+        XCTAssertEqual(signInProvider?.disconnectCompletionCallsCount, 0)
     }
 
     func testSignInIfNeededWithError() async throws {
@@ -510,7 +620,7 @@ final class CloudStorageServiceTests: XCTestCase {
 
 extension CloudStorageServiceTests {
     enum TestData {
-        static let user = GIDGoogleUser()
+        static let user = GIDGoogleUserMock()
 
         static let substrateJson = """
         {\"address\":\"cnSNFyYFzPPJWm1yKjZCKZnGhhrZWWx1Mme1gw64YvjJhNGoJ\",\"encoded\":\"AAUbK8HDAE7Mw26rox6dktexv9pG5MRk\\/WtCJFtV2+kAgAAAAQAAAAgAAACivZKIFh9rMwauWG97MJ0ONwPg6eOpXNygK6X9RQfKMPvETRAfpHbRJp42LKEeWDNczqKaxltMj3yeMUi9kOYIz1sXMt7g7PC7aHUvSsF2G8nzV+XrNpC7nc8s+ty1OmVeKJWsSACfNj3OW9gxesmAtpfSrWx2ppSviKwvU1SKNYPfq+rxFCG+sXx4lggOFouAmT5iaPTL9fck\\/1vI\",\"encoding\":{\"content\":[\"pkcs8\",\"sr25519\"],\"type\":[\"scrypt\",\"xsalsa20-poly1305\"],\"version\":\"3\"},\"meta\":{\"genesisHash\":\"0xded5a658e6ff2c82ce640caf8910ea2bb700aad5511ec7c3014cc7c256f5d956\",\"name\":\"chop\",\"whenCreated\":1706609064}}

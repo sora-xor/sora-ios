@@ -1,6 +1,25 @@
 import SSFCloudStorage
+import GoogleAPIClientForREST_Drive
 
 @testable import GoogleSignIn
+
+final class GIDProfileDataMock: GIDProfileData {
+    var emailValue = "wallet@example.com"
+    var nameValue = "Wallet Owner"
+
+    override var email: String { emailValue }
+    override var name: String { nameValue }
+}
+
+final class GIDGoogleUserMock: GIDGoogleUser {
+    var userIDValue: String? = "google-user-id"
+    var scopesValue: [String]? = [kGTLRAuthScopeDriveAppdata]
+    let profileValue = GIDProfileDataMock()
+
+    override var userID: String? { userIDValue }
+    override var profile: GIDProfileData? { profileValue }
+    override var grantedScopes: [String]? { scopesValue }
+}
 
 class GIDSignInMock: GIDSignIn {
     override var currentUser: GIDGoogleUser? {
@@ -21,12 +40,19 @@ class GIDSignInMock: GIDSignIn {
 
     var restorePreviousSignInCallsCount: Int = 0
     var restorePreviousSignInClosure: ((((GIDGoogleUser?, Error?) -> Void)?) -> Void)?
+    var restorePreviousSignInWithoutRefreshCallsCount: Int = 0
+    var restorePreviousSignInWithoutRefreshClosure: (() -> Bool)?
 
     override func restorePreviousSignIn(
         completion: ((GIDGoogleUser?, Error?) -> Void)? = nil
     ) {
         restorePreviousSignInCallsCount += 1
         restorePreviousSignInClosure?(completion)
+    }
+
+    override func restorePreviousSignInWithoutRefresh() -> Bool {
+        restorePreviousSignInWithoutRefreshCallsCount += 1
+        return restorePreviousSignInWithoutRefreshClosure?() ?? (_currentUser != nil)
     }
 
     // MARK: - signIn
@@ -40,6 +66,7 @@ class GIDSignInMock: GIDSignIn {
         withPresenting: UIViewController,
         hint: String?,
         additionalScopes: [String]?,
+        forceAccountSelection: Bool,
         completion: ((GIDSignInResult?, Error?) -> Void)?
     )?
     var signInClosure: ((
@@ -53,6 +80,7 @@ class GIDSignInMock: GIDSignIn {
         withPresenting presentingViewController: UIViewController,
         hint: String?,
         additionalScopes: [String]?,
+        forceAccountSelection: Bool,
         completion: ((GIDSignInResult?, Error?) -> Void)?
     ) {
         signInCallsCount += 1
@@ -60,6 +88,7 @@ class GIDSignInMock: GIDSignIn {
             withPresenting: presentingViewController,
             hint: hint,
             additionalScopes: additionalScopes,
+            forceAccountSelection: forceAccountSelection,
             completion: completion
         )
         signInClosure?(presentingViewController, hint, additionalScopes, completion)

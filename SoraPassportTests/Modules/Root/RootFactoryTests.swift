@@ -638,6 +638,22 @@ class RootFactoryTests: XCTestCase {
         XCTAssertEqual(controller.methodControls.count, 4)
         XCTAssertEqual(Set(controller.methodControls.map(\.methodTitle)).count, 4)
         XCTAssertTrue(controller.methodControls.allSatisfy(\.isAccessibilityElement))
+        XCTAssertEqual(controller.googleAccountStatus, .notChecked)
+
+        controller.setGoogleAccountStatus(.available(email: "wallet.owner@example.com"))
+        XCTAssertEqual(
+            controller.googleAccountStatus,
+            .available(email: "wallet.owner@example.com")
+        )
+        XCTAssertTrue(
+            controller.methodControls[0].methodSubtitle.contains("wallet.owner@example.com")
+        )
+
+        controller.setGoogleAccountStatus(.notSaved)
+        XCTAssertEqual(controller.googleAccountStatus, .notSaved)
+        XCTAssertFalse(
+            controller.methodControls[0].methodSubtitle.contains("wallet.owner@example.com")
+        )
 
         XCTAssertTrue(controller.beginMethodSelection())
         XCTAssertFalse(controller.beginMethodSelection())
@@ -708,6 +724,42 @@ class RootFactoryTests: XCTestCase {
         XCTAssertNotNil(
             AccountImportPresenter.recoveryErrorMessage(for: AccountCreateError.invalidSeed)
         )
+        let accountDescription = EnterPasswordViewModel.recoveryDescription(
+            googleAccountEmail: "wallet.owner@example.com"
+        )
+        XCTAssertTrue(accountDescription.contains("wallet.owner@example.com"))
+        XCTAssertTrue(accountDescription.contains("PIN"))
+    }
+
+    func testRecoveryPasswordRequestCarriesConfirmedGoogleIdentity() throws {
+        let interactor = RecoveryAccountImportInteractorSpy()
+        let account = OpenBackupAccount(
+            name: "Retained wallet",
+            address: "retained-address"
+        )
+        let viewModel = EnterPasswordViewModel(
+            selectedAddress: account.address,
+            backedUpAccounts: [account],
+            interactor: interactor,
+            wireframe: EnterPasswordWireframe(),
+            view: nil,
+            isRecovery: true,
+            googleAccountEmail: "wallet.owner@example.com",
+            expectedGoogleAccountID: "confirmed-google-user"
+        )
+        viewModel.reload()
+        let identifier = try XCTUnwrap(viewModel.snapshot.itemIdentifiers.first)
+        guard case let .enterPassword(item) = identifier else {
+            XCTFail("Expected password item")
+            return
+        }
+
+        item.continueButtonHandler?("backup-password")
+
+        let request = try XCTUnwrap(interactor.backedUpRequests.first)
+        XCTAssertEqual(request.account.address, account.address)
+        XCTAssertEqual(request.password, "backup-password")
+        XCTAssertEqual(request.expectedCloudAccountID, "confirmed-google-user")
     }
 
     @MainActor
@@ -1666,7 +1718,8 @@ class RootFactoryTests: XCTestCase {
             protectedDataAvailable: true
         )
         XCTAssertTrue(didRecover)
-        XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.currentSessionAuthorizationCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.restoreCallsCount, 0)
         XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
         XCTAssertEqual(provider.loadCallCount, 0)
         XCTAssertEqual(fixture.cloud.receivedPassword, fixture.pin)
@@ -1714,6 +1767,51 @@ class RootFactoryTests: XCTestCase {
         XCTAssertEqual(fixture.cloud.broadImportCallsCount, 0)
     }
 
+    func testInteractiveRecoveryBindsDriveReadToConfirmedGoogleAccount() async throws {
+        let fixture = try makeCloudRecoveryFixture()
+        let identity = CloudStorageAccountIdentity(
+            userID: "confirmed-google-user",
+            email: "wallet.owner@example.com"
+        )
+        fixture.cloud.currentAccountIdentity = identity
+        fixture.cloud.mobileImportResult = fixture.backup
+        let request = AccountImportBackedupRequest(
+            account: OpenBackupAccount(address: fixture.account.address),
+            password: fixture.pin,
+            expectedCloudAccountID: identity.userID
+        )
+
+        let restored = try await BaseAccountImportInteractor.fetchBackedUpAccount(
+            cloudStorage: fixture.cloud,
+            request: request,
+            exactMobileBackupOnly: true
+        )
+
+        XCTAssertEqual(restored.address, fixture.account.address)
+        XCTAssertEqual(fixture.cloud.interactiveSignInCallsCount, 0)
+        XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
+
+        let mismatchedRequest = AccountImportBackedupRequest(
+            account: OpenBackupAccount(address: fixture.account.address),
+            password: fixture.pin,
+            expectedCloudAccountID: "different-google-user"
+        )
+        do {
+            _ = try await BaseAccountImportInteractor.fetchBackedUpAccount(
+                cloudStorage: fixture.cloud,
+                request: mismatchedRequest,
+                exactMobileBackupOnly: true
+            )
+            XCTFail("Expected a different Google identity to be rejected")
+        } catch {
+            XCTAssertEqual(
+                (error as? CloudStorageServiceError)?.localizedDescription,
+                CloudStorageServiceError.notAuthorized.localizedDescription
+            )
+        }
+        XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
+    }
+
     func testRecoveryIdentityComparisonRejectsDifferentPublicKey() throws {
         let expected = try makeMnemonicRecoveryFixture(
             entropy: Data((0 ..< 20).map { UInt8($0 + 67) })
@@ -1741,7 +1839,8 @@ class RootFactoryTests: XCTestCase {
         XCTAssertTrue(didRecover)
         XCTAssertEqual(provider.loadCallCount, 1)
         XCTAssertFalse(provider.wasCalledOnMainThread)
-        XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.currentSessionAuthorizationCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.restoreCallsCount, 0)
         XCTAssertEqual(
             try fixture.keychain.fetchSecretKeyForAddress(fixture.account.address),
             fixture.secretKey
@@ -1757,7 +1856,7 @@ class RootFactoryTests: XCTestCase {
         let ordinaryDidRecover = await makeCloudRecoveryService(fixture: ordinary)
             .recoverAfterLocalAuthentication(protectedDataAvailable: true)
         XCTAssertFalse(ordinaryDidRecover)
-        XCTAssertEqual(ordinary.cloud.restoreCallsCount, 0)
+        XCTAssertEqual(ordinary.cloud.currentSessionAuthorizationCallsCount, 0)
         try assertCloudRecoveryFailureWasReadOnly(ordinary, expectedMarker: nil)
 
         let mismatchedMarker = try makeCloudRecoveryFixture()
@@ -1773,7 +1872,7 @@ class RootFactoryTests: XCTestCase {
             fixture: mismatchedMarker
         ).recoverAfterLocalAuthentication(protectedDataAvailable: true)
         XCTAssertFalse(mismatchedMarkerDidRecover)
-        XCTAssertEqual(mismatchedMarker.cloud.restoreCallsCount, 0)
+        XCTAssertEqual(mismatchedMarker.cloud.currentSessionAuthorizationCallsCount, 0)
         try assertCloudRecoveryFailureWasReadOnly(mismatchedMarker)
 
         let protectedDataUnavailable = try makeCloudRecoveryFixture()
@@ -1781,7 +1880,10 @@ class RootFactoryTests: XCTestCase {
             fixture: protectedDataUnavailable
         ).recoverAfterLocalAuthentication(protectedDataAvailable: false)
         XCTAssertFalse(unavailableDataDidRecover)
-        XCTAssertEqual(protectedDataUnavailable.cloud.restoreCallsCount, 0)
+        XCTAssertEqual(
+            protectedDataUnavailable.cloud.currentSessionAuthorizationCallsCount,
+            0
+        )
         try assertCloudRecoveryFailureWasReadOnly(protectedDataUnavailable)
 
         let missingStoredPin = try makeCloudRecoveryFixture()
@@ -1790,7 +1892,7 @@ class RootFactoryTests: XCTestCase {
         let missingPinDidRecover = await makeCloudRecoveryService(fixture: missingStoredPin)
             .recoverAfterLocalAuthentication(protectedDataAvailable: true)
         XCTAssertFalse(missingPinDidRecover)
-        XCTAssertEqual(missingStoredPin.cloud.restoreCallsCount, 0)
+        XCTAssertEqual(missingStoredPin.cloud.currentSessionAuthorizationCallsCount, 0)
         try assertCloudRecoveryFailureWasReadOnly(missingStoredPin)
     }
 
@@ -1801,7 +1903,8 @@ class RootFactoryTests: XCTestCase {
         let didRecover = await makeCloudRecoveryService(fixture: fixture)
             .recoverAfterLocalAuthentication(protectedDataAvailable: true)
         XCTAssertFalse(didRecover)
-        XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.currentSessionAuthorizationCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.restoreCallsCount, 0)
         XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 0)
         try assertCloudRecoveryFailureWasReadOnly(fixture)
     }
@@ -1819,19 +1922,12 @@ class RootFactoryTests: XCTestCase {
             let didRecover = await makeCloudRecoveryService(fixture: fixture)
                 .recoverAfterLocalAuthentication(protectedDataAvailable: true)
             XCTAssertFalse(didRecover)
-            XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+            XCTAssertEqual(fixture.cloud.currentSessionAuthorizationCallsCount, 1)
+            XCTAssertEqual(fixture.cloud.restoreCallsCount, 0)
             XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
             try assertCloudRecoveryFailureWasReadOnly(fixture)
         }
 
-        let restoreNetworkFailure = try makeCloudRecoveryFixture()
-        restoreNetworkFailure.cloud.restoreError = CloudRecoveryTestError.network
-        let restoreFailureDidRecover = await makeCloudRecoveryService(
-            fixture: restoreNetworkFailure
-        ).recoverAfterLocalAuthentication(protectedDataAvailable: true)
-        XCTAssertFalse(restoreFailureDidRecover)
-        XCTAssertEqual(restoreNetworkFailure.cloud.mobileImportCallsCount, 0)
-        try assertCloudRecoveryFailureWasReadOnly(restoreNetworkFailure)
     }
 
     func testCloudRecoveryIdentityMismatchAndFailedSignatureAreReadOnly() async throws {
@@ -1888,7 +1984,8 @@ class RootFactoryTests: XCTestCase {
         let results = await [firstAttempt, overlappingAttempt]
 
         XCTAssertEqual(results.filter { $0 }.count, 1)
-        XCTAssertEqual(fixture.cloud.restoreCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.currentSessionAuthorizationCallsCount, 1)
+        XCTAssertEqual(fixture.cloud.restoreCallsCount, 0)
         XCTAssertEqual(fixture.cloud.mobileImportCallsCount, 1)
         XCTAssertTrue(
             SelectedWalletSettings.hasVerifiedSigningKey(
@@ -2150,6 +2247,7 @@ private enum CloudRecoveryTestError: Error {
 
 private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol {
     var isUserAuthorized: Bool { restoreState == .authorized }
+    var currentAccountIdentity: CloudStorageAccountIdentity?
     var restoreState: CloudStorageAccountState = .authorized
     var restoreError: Error?
     var mobileImportResult: OpenBackupAccount?
@@ -2157,11 +2255,17 @@ private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol 
     var mobileImportDelayNanoseconds: UInt64 = 0
     var interactiveSignInState: CloudStorageAccountState = .notAuthorized
     private(set) var restoreCallsCount = 0
+    private(set) var currentSessionAuthorizationCallsCount = 0
     private(set) var interactiveSignInCallsCount = 0
     private(set) var mobileImportCallsCount = 0
     private(set) var broadImportCallsCount = 0
     private(set) var receivedAddress: String?
     private(set) var receivedPassword: String?
+
+    @MainActor func configureCurrentAccountIfAvailable() -> CloudStorageAccountState {
+        currentSessionAuthorizationCallsCount += 1
+        return restoreState
+    }
 
     func restorePreviousSignInIfAvailable() async throws -> CloudStorageAccountState {
         restoreCallsCount += 1
@@ -2190,9 +2294,27 @@ private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol 
         return mobileImportResult
     }
 
+    func importMobileBackupIfAuthorized(
+        account: OpenBackupAccount,
+        password: String,
+        expectedAccountUserID: String
+    ) async throws -> OpenBackupAccount {
+        guard currentAccountIdentity?.userID == expectedAccountUserID else {
+            throw CloudStorageServiceError.notAuthorized
+        }
+        return try await importMobileBackupIfAuthorized(
+            account: account,
+            password: password
+        )
+    }
+
     func signInIfNeeded() async throws -> CloudStorageAccountState {
         interactiveSignInCallsCount += 1
         return interactiveSignInState
+    }
+    func signInSelectingAccount() async throws -> CloudStorageAccountIdentity? {
+        interactiveSignInCallsCount += 1
+        return interactiveSignInState == .authorized ? currentAccountIdentity : nil
     }
     func getBackupAccounts() async throws -> [OpenBackupAccount] { [] }
     func saveBackup(account: OpenBackupAccount, password: String) async throws {}
@@ -2341,6 +2463,7 @@ private final class RecoveryAccountImportInteractorSpy: AccountImportInteractorI
     private(set) var mnemonicRequests: [AccountImportMnemonicRequest] = []
     private(set) var seedRequests: [AccountImportSeedRequest] = []
     private(set) var keystoreRequests: [AccountImportKeystoreRequest] = []
+    private(set) var backedUpRequests: [AccountImportBackedupRequest] = []
 
     var totalImportCount: Int {
         mnemonicRequests.count + seedRequests.count + keystoreRequests.count
@@ -2403,7 +2526,9 @@ private final class RecoveryAccountImportInteractorSpy: AccountImportInteractorI
     ) {}
 
     func deriveMetadataFromKeystore(_ keystore: String) {}
-    func importBackedupAccount(request: AccountImportBackedupRequest) {}
+    func importBackedupAccount(request: AccountImportBackedupRequest) {
+        backedUpRequests.append(request)
+    }
 }
 
 private final class RecordingSettingsManager: SettingsManagerProtocol {

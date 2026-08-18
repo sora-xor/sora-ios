@@ -40,7 +40,10 @@ final class EnterPasswordViewFactory {
         with selectedAddress: String,
         backedUpAccounts: [OpenBackupAccount],
         endAddingBlock: (() -> Void)? = nil,
-        recoveryAccount: AccountItem? = nil
+        recoveryAccount: AccountItem? = nil,
+        googleAccountEmail: String? = nil,
+        expectedGoogleAccountID: String? = nil,
+        cloudStorageService: CloudStorageServiceProtocol? = nil
     ) -> EnterPasswordViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
@@ -56,7 +59,7 @@ final class EnterPasswordViewFactory {
             = UserDataStorageFacade.shared.createRepository()
         
         let view = EnterPasswordViewController()
-        let cloudStorage = CloudStorageService(uiDelegate: view)
+        let cloudStorage = cloudStorageService ?? CloudStorageService(uiDelegate: view)
         
         let interactor: BaseAccountImportInteractor
         if let recoveryAccount {
@@ -88,7 +91,9 @@ final class EnterPasswordViewFactory {
                                                interactor: interactor,
                                                wireframe: wireframe,
                                                view: view,
-                                               isRecovery: recoveryAccount != nil)
+                                               isRecovery: recoveryAccount != nil,
+                                               googleAccountEmail: googleAccountEmail,
+                                               expectedGoogleAccountID: expectedGoogleAccountID)
         interactor.presenter = viewModel
         view.viewModel = viewModel
 

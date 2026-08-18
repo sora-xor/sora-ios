@@ -1722,8 +1722,7 @@ final class RetainedWalletCloudRecoveryService: RetainedWalletCloudRecoveryProto
             (continuation: CheckedContinuation<Result<OpenBackupAccount, Error>, Never>) in
             let requestTask = Task { [cloudStorage] in
                 do {
-                    let state = try await cloudStorage.restorePreviousSignInIfAvailable()
-                    try Task.checkCancellation()
+                    let state = await cloudStorage.configureCurrentAccountIfAvailable()
                     guard state == .authorized else {
                         throw CloudStorageServiceError.notAuthorized
                     }
