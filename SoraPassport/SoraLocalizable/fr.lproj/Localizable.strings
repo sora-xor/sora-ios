@@ -1024,3 +1024,17 @@
 "wallet.recovery.file.unreadable" = "Ce fichier JSON est illisible. Choisissez l’export d’origine du portefeuille.";
 "wallet.recovery.file.loaded" = "Sauvegarde JSON chargée";
 "wallet.backup.change.unavailable" = "La sauvegarde ne peut pas être modifiée tant que la signature du portefeuille est indisponible. Restaurez d’abord ce portefeuille afin de protéger la sauvegarde existante.";
+"taira_testnet_title" = "Réseau de test Taira";
+"taira_testnet_entry_enabled" = "Actifs de test uniquement · Ouvrir votre compte Taira";
+"taira_testnet_entry_disabled" = "Actifs de test uniquement · Touchez pour activer";
+"taira_testnet_entry_unavailable" = "Actifs de test uniquement · Indisponible dans cette version";
+"taira_testnet_guide_title" = "Essayer le réseau de test Taira";
+"taira_testnet_guide_message" = "Taira sert uniquement aux tests. Les XOR de test n’ont aucune valeur monétaire.\n\n1. Activez Taira.\n2. Ouvrez Portefeuille SORA et sélectionnez TAIRA · TESTNET.\n3. Copiez votre adresse Taira pour recevoir des XOR de test, puis testez l’envoi et la réception.\n\nVotre solde SORA2 et votre clé privée ne sont pas déplacés.";
+"taira_testnet_enable_open" = "Activer et ouvrir";
+"taira_testnet_open" = "Ouvrir Taira";
+"taira_testnet_unavailable_title" = "Taira n’est pas disponible dans cette version";
+"taira_testnet_unavailable_message" = "Cette version ne contient pas de paramètres réseau Taira vérifiés. Aucune donnée du portefeuille n’a été modifiée. Installez une version de test avec accès à Taira et réessayez.";
+"taira_testnet_settings_unavailable" = "Réseau de test Taira — indisponible";
+"taira_testnet_settings_section" = "RÉSEAUX DE TEST";
+"taira_testnet_portfolio_unavailable" = "Le réseau de test Taira est affiché dans Plus pour que les testeurs puissent le trouver. Cette version ne contient pas de déploiement Taira vérifié ; l’accès au réseau reste donc désactivé.";
+"taira_testnet_portfolio_disabled" = "Le réseau de test Taira est désactivé. Ouvrez Plus → Réseau de test Taira pour l’activer. Les actifs de test n’ont aucune valeur monétaire.";

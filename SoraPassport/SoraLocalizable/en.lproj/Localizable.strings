@@ -1024,3 +1024,17 @@
 "wallet.recovery.file.unreadable" = "This JSON file could not be read. Choose the original wallet export.";
 "wallet.recovery.file.loaded" = "JSON backup loaded";
 "wallet.backup.change.unavailable" = "Backup cannot be changed while wallet signing is unavailable. Restore this wallet first to protect the existing backup.";
+"taira_testnet_title" = "Taira Testnet";
+"taira_testnet_entry_enabled" = "Test assets only · Open your Taira account";
+"taira_testnet_entry_disabled" = "Test assets only · Tap to enable and start";
+"taira_testnet_entry_unavailable" = "Test assets only · Unavailable in this build";
+"taira_testnet_guide_title" = "Try Taira Testnet";
+"taira_testnet_guide_message" = "Taira is for testing only. Test XOR has no monetary value.\n\n1. Enable Taira.\n2. Open SORA Portfolio and select TAIRA · TESTNET.\n3. Copy your Taira address to receive test XOR, then try sending and receiving.\n\nYour SORA2 balance and private key are not moved.";
+"taira_testnet_enable_open" = "Enable and open";
+"taira_testnet_open" = "Open Taira";
+"taira_testnet_unavailable_title" = "Taira is unavailable in this build";
+"taira_testnet_unavailable_message" = "This build does not include verified Taira network settings. No wallet data was changed. Install a tester build with Taira access and try again.";
+"taira_testnet_settings_unavailable" = "Taira testnet — unavailable";
+"taira_testnet_settings_section" = "TEST NETWORKS";
+"taira_testnet_portfolio_unavailable" = "Taira Testnet is listed in More so testers can find it. This build does not contain a verified Taira deployment, so network access remains disabled.";
+"taira_testnet_portfolio_disabled" = "Taira Testnet is off. Open More → Taira Testnet to enable it. Test assets have no monetary value.";

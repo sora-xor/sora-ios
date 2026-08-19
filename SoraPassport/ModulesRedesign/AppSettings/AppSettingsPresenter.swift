@@ -31,6 +31,7 @@
 import SoraFoundation
 import SoraKeystore
 import SoraUIKit
+import UIKit
 
 protocol AppSettingsPresenterProtocol: AnyObject {
     var view: AppSettingsViewProtocol? { get set }
@@ -104,10 +105,45 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
 
     private func networksSection() -> SoramitsuTableViewSection {
         let settings = SettingsManager.shared
+        let state = NexusPortfolioPresentationPolicy.tairaEntryState(
+            nexusEnabled: settings.nexusEnabled,
+            tairaEnabled: settings.isTairaEnabled,
+            tairaAdmitted: NexusNetworkAdmissionPolicy.current.isTairaAdmitted
+        )
         let taira = AppSettingsItem(
-            title: "Taira testnet",
-            rightItem: .switcher(state: settings.isTairaEnabled ? .on : .off),
+            title: state == .unavailable
+                ? tairaLocalizedText(
+                    "taira_testnet_settings_unavailable",
+                    fallback: "Taira testnet — unavailable"
+                )
+                : tairaLocalizedText(
+                    "taira_testnet_title",
+                    fallback: "Taira Testnet"
+                ),
+            rightItem: .switcher(
+                state: state == .unavailable
+                    ? .disabled
+                    : (settings.isTairaEnabled ? .on : .off)
+            ),
+            onTap: { [weak self] in
+                guard state == .unavailable else {
+                    return
+                }
+                self?.showTairaUnavailable()
+            },
             onSwitch: { [weak self] enabled in
+                guard
+                    NexusPortfolioPresentationPolicy.tairaEntryState(
+                        nexusEnabled: settings.nexusEnabled,
+                        tairaEnabled: settings.isTairaEnabled,
+                        tairaAdmitted: NexusNetworkAdmissionPolicy
+                            .current.isTairaAdmitted
+                    ) != .unavailable
+                else {
+                    self?.showTairaUnavailable()
+                    self?.reload()
+                    return
+                }
                 // The setter records an explicit choice, so a future remote
                 // default can never override what the user selected.
                 settings.isTairaEnabled = enabled
@@ -115,10 +151,39 @@ final class AppSettingsPresenter: AppSettingsPresenterProtocol {
             }
         )
         let card = AppSettingsCardItem(
-            title: "TEST NETWORKS",
+            title: tairaLocalizedText(
+                "taira_testnet_settings_section",
+                fallback: "TEST NETWORKS"
+            ),
             menuItems: [taira]
         )
         return SoramitsuTableViewSection(rows: [card])
+    }
+
+    private func showTairaUnavailable() {
+        guard let controller = view?.controller else {
+            return
+        }
+        let alert = UIAlertController(
+            title: tairaLocalizedText(
+                "taira_testnet_unavailable_title",
+                fallback: "Taira is unavailable in this build"
+            ),
+            message: tairaLocalizedText(
+                "taira_testnet_unavailable_message",
+                fallback: "This build does not include verified Taira network settings. No wallet data was changed. Install a tester build with Taira access and try again."
+            ),
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonOk(
+                    preferredLanguages: languages
+                ),
+                style: .default
+            )
+        )
+        controller.present(alert, animated: true)
     }
     
     private func showLanguages() {

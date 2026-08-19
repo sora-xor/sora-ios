@@ -1024,3 +1024,17 @@
 "wallet.recovery.file.unreadable" = "このJSONファイルを読み込めません。元のウォレットエクスポートを選択してください。";
 "wallet.recovery.file.loaded" = "JSONバックアップを読み込みました";
 "wallet.backup.change.unavailable" = "ウォレットの署名が利用できない間はバックアップを変更できません。既存のバックアップを保護するため、先にこのウォレットを復元してください。";
+"taira_testnet_title" = "Tairaテストネット";
+"taira_testnet_entry_enabled" = "テスト用資産のみ · Tairaアカウントを開く";
+"taira_testnet_entry_disabled" = "テスト用資産のみ · タップして有効化";
+"taira_testnet_entry_unavailable" = "テスト用資産のみ · このビルドでは利用できません";
+"taira_testnet_guide_title" = "Tairaテストネットを試す";
+"taira_testnet_guide_message" = "Tairaはテスト専用です。テストXORに金銭的価値はありません。\n\n1. Tairaを有効にします。\n2. SORAポートフォリオを開き、TAIRA · TESTNETを選択します。\n3. TairaアドレスをコピーしてテストXORを受け取り、送受信を試します。\n\nSORA2残高と秘密鍵は移動されません。";
+"taira_testnet_enable_open" = "有効にして開く";
+"taira_testnet_open" = "Tairaを開く";
+"taira_testnet_unavailable_title" = "このビルドではTairaを利用できません";
+"taira_testnet_unavailable_message" = "このビルドには検証済みのTairaネットワーク設定が含まれていません。ウォレットデータは変更されていません。Tairaアクセス付きのテスタービルドをインストールして、もう一度お試しください。";
+"taira_testnet_settings_unavailable" = "Tairaテストネット — 利用不可";
+"taira_testnet_settings_section" = "テストネットワーク";
+"taira_testnet_portfolio_unavailable" = "テスターが見つけられるよう、Tairaテストネットは「その他」に表示されています。このビルドには検証済みのTairaデプロイがないため、ネットワークアクセスは無効です。";
+"taira_testnet_portfolio_disabled" = "Tairaテストネットはオフです。「その他」→「Tairaテストネット」から有効にできます。テスト用資産に金銭的価値はありません。";

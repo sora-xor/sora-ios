@@ -7,7 +7,43 @@ import SoraFoundation
 import SoraKeystore
 import UIKit
 
+func tairaLocalizedText(_ key: String, fallback: String) -> String {
+    let selectedLocalization = LocalizationManager.shared.selectedLocalization
+    let languageCode = Locale.components(fromIdentifier: selectedLocalization)[
+        NSLocale.Key.languageCode.rawValue
+    ]
+    let candidates = [selectedLocalization, languageCode, "en"].compactMap { $0 }
+
+    for localization in candidates where !localization.isEmpty {
+        guard
+            let path = Bundle.main.path(
+                forResource: localization,
+                ofType: "lproj"
+            ),
+            let bundle = Bundle(path: path)
+        else {
+            continue
+        }
+        let value = bundle.localizedString(
+            forKey: key,
+            value: nil,
+            table: "Localizable"
+        )
+        if value != key {
+            return value
+        }
+    }
+
+    return fallback
+}
+
 enum NexusPortfolioPresentationPolicy {
+    enum TairaEntryState: Equatable {
+        case readyEnabled
+        case readyDisabled
+        case unavailable
+    }
+
     enum PendingKind: Equatable {
         case currentXor
         case assetRecovery
@@ -50,7 +86,21 @@ enum NexusPortfolioPresentationPolicy {
     }
 
     static func exposesTairaSettings(tairaAdmitted: Bool) -> Bool {
-        tairaAdmitted
+        // Discoverability is not network authority. Every user should be able
+        // to find Taira and understand why it is unavailable, while the
+        // deployment admission continues to gate every account and request.
+        true
+    }
+
+    static func tairaEntryState(
+        nexusEnabled: Bool,
+        tairaEnabled: Bool,
+        tairaAdmitted: Bool
+    ) -> TairaEntryState {
+        guard nexusEnabled, tairaAdmitted else {
+            return .unavailable
+        }
+        return tairaEnabled ? .readyEnabled : .readyDisabled
     }
 
     static func networkDetailIsAvailable(
@@ -459,6 +509,18 @@ final class NexusPortfolioViewController: UITableViewController {
         _ tableView: UITableView,
         titleForFooterInSection section: Int
     ) -> String? {
+        if !NexusNetworkAdmissionPolicy.current.isTairaAdmitted {
+            return tairaLocalizedText(
+                "taira_testnet_portfolio_unavailable",
+                fallback: "Taira Testnet is listed in More so testers can find it. This build does not contain a verified Taira deployment, so network access remains disabled."
+            )
+        }
+        if !settings.isTairaEnabled {
+            return tairaLocalizedText(
+                "taira_testnet_portfolio_disabled",
+                fallback: "Taira Testnet is off. Open More → Taira Testnet to enable it. Test assets have no monetary value."
+            )
+        }
         if rows.contains(where: { $0.account.networkId != .sora2 }) {
             return "Addresses, receives, sends, history, pending transactions, and explorers are always scoped to the network badge shown above."
         }
