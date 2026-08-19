@@ -2265,9 +2265,21 @@ final class AccountOperationRetainedWalletBackupCandidateDeriver:
         password: String
     ) throws -> RetainedWalletBackupCandidate {
         let inMemoryKeystore = InMemoryKeychain()
-        let factory = AccountOperationFactory(keystore: inMemoryKeystore)
+        // Candidate derivation is intentionally isolated from the installed
+        // wallet. Recovery is already latched for that wallet, so use a
+        // private capability gate for the in-memory validation and persist
+        // nothing until the candidate has been identity-checked below.
+        let candidateRecoveryGate = WalletRecoveryCapabilityGate(
+            settings: InMemorySettingsManager(),
+            unresolvedMigrationJournal: { false },
+            unresolvedWalletCommitJournal: { false }
+        )
+        let factory = AccountOperationFactory(
+            keystore: inMemoryKeystore,
+            recoveryGate: candidateRecoveryGate
+        )
         let backupTypes = backup.backupAccountType ?? []
-        let operation: BaseOperation<AccountItem>
+        let operation: BaseOperation<PreparedAccount>
         let cryptoType = CryptoType(type: backup.cryptoType ?? "SR25519")
         let derivationPath = backup.substrateDerivationPath ?? ""
 
@@ -2282,7 +2294,10 @@ final class AccountOperationRetainedWalletBackupCandidateDeriver:
                 derivationPath: derivationPath,
                 cryptoType: cryptoType
             )
-            operation = factory.newAccountOperation(request: request, mnemonic: mnemonic)
+            operation = factory.prepareAccountOperation(
+                request: request,
+                mnemonic: mnemonic
+            )
         } else if backupTypes.contains(.seed),
                   let seed = backup.encryptedSeed?.substrateSeed,
                   !seed.isEmpty
@@ -2294,7 +2309,7 @@ final class AccountOperationRetainedWalletBackupCandidateDeriver:
                 derivationPath: derivationPath,
                 cryptoType: cryptoType
             )
-            operation = factory.newAccountOperation(request: request)
+            operation = factory.prepareAccountOperation(request: request)
         } else {
             // JSON backups contain an independently supplied raw secret key. Automatic
             // recovery must never pass those bytes to the native sr25519 signer: malformed
@@ -2304,9 +2319,11 @@ final class AccountOperationRetainedWalletBackupCandidateDeriver:
         }
 
         OperationQueue().addOperations([operation], waitUntilFinished: true)
-        let account = try operation.extractResultData(
+        let prepared = try operation.extractResultData(
             throwing: BaseOperationError.parentOperationCancelled
         )
+        try factory.persistPreparedAccount(prepared)
+        let account = prepared.account
 
         let identifiers = [
             KeystoreTag.entropyTagForAddress(account.address),
