@@ -42,6 +42,13 @@ extension TransferInfo {
     }
 
     var amountCall: [SwapVariant: SwapAmount]? {
+        amountCall(sourcePrecision: 18, destinationPrecision: 18)
+    }
+
+    func amountCall(
+        sourcePrecision: Int16,
+        destinationPrecision: Int16
+    ) -> [SwapVariant: SwapAmount]? {
         if type == .swap,
            let context = self.context,
            let raw = context[TransactionContextKeys.desire],
@@ -60,8 +67,12 @@ extension TransferInfo {
                 guard self.amount.decimalValue > 0,
                       minMaxAmount.decimalValue > 0,
                       minMaxAmount.decimalValue == expectedMinimum,
-                      let desiredValue = self.amount.decimalValue.toSubstrateAmount(precision: 18),
-                      let slipValue = expectedMinimum.toSubstrateAmountRoundingDown(precision: 18),
+                      let desiredValue = self.amount.decimalValue.toSubstrateAmount(
+                          precision: sourcePrecision
+                      ),
+                      let slipValue = expectedMinimum.toSubstrateAmountRoundingDown(
+                          precision: destinationPrecision
+                      ),
                       desiredValue > 0,
                       slipValue > 0 else {
                     return nil
@@ -73,8 +84,12 @@ extension TransferInfo {
                 guard estimatedAmount.decimalValue > 0,
                       minMaxAmount.decimalValue > 0,
                       minMaxAmount.decimalValue == expectedMaximum,
-                      let desiredValue = estimatedAmount.decimalValue.toSubstrateAmount(precision: 18),
-                      let slipValue = expectedMaximum.toSubstrateAmountRoundingUp(precision: 18),
+                      let desiredValue = estimatedAmount.decimalValue.toSubstrateAmount(
+                          precision: destinationPrecision
+                      ),
+                      let slipValue = expectedMaximum.toSubstrateAmountRoundingUp(
+                          precision: sourcePrecision
+                      ),
                       desiredValue > 0,
                       slipValue > 0 else {
                     return nil

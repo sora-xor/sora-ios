@@ -87,29 +87,36 @@ final class SplashInteractor: SplashInteractorProtocol {
     }
 
     private func loadAssetsInfo(chainId: String?) {
-        guard reachabilityManager?.isReachable ?? false else {
-            didLoadAssetsInfo([])
+        guard reachabilityManager?.isReachable ?? false,
+              let connection = socketService.connection else {
+            didLoadAssetsInfo([], chainId: chainId)
             return
         }
-        
-        let provider = AssetsInfoProvider(engine: socketService.connection!, storageKeyFactory: StorageKeyFactory(), chainId: chainId)
+
+        let provider = AssetsInfoProvider(engine: connection, storageKeyFactory: StorageKeyFactory(), chainId: chainId)
         provider.load { [weak self] assetsInfo in
-            self?.didLoadAssetsInfo(assetsInfo)
+            self?.didLoadAssetsInfo(assetsInfo, chainId: chainId)
         }
     }
 
-    private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo]) {
-        Task {
+    private func didLoadAssetsInfo(_ assetsInfo: [AssetInfo], chainId: String?) {
+        if !assetsInfo.isEmpty {
             AssetManager.networkAssets = assetsInfo
-
-            let assetsIds = assetsInfo.filter{ $0.visible }.map { $0.assetId }
-            await PriceInfoService.shared.setup(for: assetsIds)
-
-            socketService.throttle()
-
-            await MainActor.run {
-                self.startChain()
+            let assetIds = assetsInfo.filter(\.visible).map(\.assetId)
+            Task {
+                await PriceInfoService.shared.setup(for: assetIds)
             }
+        } else {
+            Logger.shared.warning(
+                "Asset metadata bootstrap is unavailable; continuing with retained chain state"
+            )
+        }
+        socketService.throttle()
+
+        // Wallet migration and unlock must never wait for optional network or
+        // price data. Chain services can reconnect after the UI is available.
+        DispatchQueue.main.async {
+            self.startChain()
         }
     }
 
@@ -134,6 +141,18 @@ final class SplashInteractor: SplashInteractorProtocol {
 
     private func performStorageMigration() {
         let keychain = Keychain()
+        // Older production versions keep the selected public account in Settings until
+        // Core Data migration completes. Preserve its independently verified signer before
+        // any storage migration runs, so a schema/update failure cannot orphan the wallet.
+        if let preMigrationAccount = settings.value(
+            of: AccountItem.self,
+            for: SettingsKey.selectedAccount.rawValue
+        ) {
+            _ = try? SelectedWalletSettings.reconcileSigningKeyPreservation(
+                keystore: keychain,
+                account: preMigrationAccount
+            )
+        }
         let dbMigrator = UserStorageMigrator(
             targetVersion: UserStorageParams.modelVersion,
             storeURL: UserStorageParams.storageURL,

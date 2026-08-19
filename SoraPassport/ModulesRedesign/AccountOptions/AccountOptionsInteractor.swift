@@ -96,6 +96,14 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
 
     }
 
+    var canManageCloudBackup: Bool {
+        SelectedWalletSettings.transactionSigningAvailability(
+            settings: settings,
+            keystore: keystore,
+            account: account
+        ) == .available
+    }
+
     func getMetadata() -> AccountCreationMetadata? {
         guard let mnemonic = try? loadPhrase() else { return nil }
         
@@ -131,16 +139,29 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     }
     
     func deleteBackup(completion: @escaping (Error?) -> Void) {
+        guard canManageCloudBackup else {
+            completion(AccountOptionsBackupSafetyError.signingUnavailable)
+            return
+        }
+
         let account = OpenBackupAccount(address: currentAccount.address)
         Task { [weak self] in
             do {
+                guard let self else { return }
                 try WalletRecoveryCapabilityGate.shared
                     .requireAuthorizedLifecycleContinuation()
-                try await self?.cloudStorageService.deleteBackup(account: account)
+                let identity = try await self.cloudStorageService
+                    .deleteBackup(account: account)
                 try WalletRecoveryCapabilityGate.shared
                     .requireAuthorizedLifecycleContinuation()
+                WalletGoogleAccountAssociationStore.shared.remove(
+                    for: self.currentAccount,
+                    googleUserID: identity.userID
+                )
                 let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
-                ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != self?.currentAccount.address }
+                ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter {
+                    $0 != self.currentAccount.address
+                }
                 completion(nil)
             } catch {
                 completion(error)
@@ -149,6 +170,11 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     }
 
     func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?) {
+        guard canManageCloudBackup else {
+            completion?(nil)
+            return
+        }
+
         Task { [weak self] in
             guard let result = try await self?.cloudStorageService.signInIfNeeded(), result == .authorized, let self = self else {
                 completion?(nil)
@@ -536,6 +562,17 @@ private final class WalletPendingDeletionPreflightOperation:
     }
 }
 
+private enum AccountOptionsBackupSafetyError: LocalizedError {
+    case signingUnavailable
+
+    var errorDescription: String? {
+        recoveryText(
+            "wallet.backup.change.unavailable",
+            fallback: "Backup cannot be changed while wallet signing is unavailable. Restore this wallet first to protect the existing backup."
+        )
+    }
+}
+
 /// Pure identity/material policy used by the lifecycle-gated account deletion
 /// flow and its retained-wallet regression tests. It performs no writes.
 enum WalletExplicitRemovalIdentityPolicy {
@@ -701,6 +738,26 @@ enum WalletExplicitRemovalIdentityPolicy {
 
 extension AccountOptionsInteractor: EventVisitorProtocol {}
 
+extension AccountOptionsInteractor {
+    /// Account bytes are deleted only after both the repository deletion and its dependent
+    /// follow-up fetch completed successfully. Any failure leaves every signer tag intact.
+    static func deleteWalletMaterialAfterSuccessfulAccountDeletion(
+        forgetOperation: BaseOperation<Void>,
+        countOperation: BaseOperation<[AccountItem]>,
+        keystore: KeystoreProtocol,
+        address: String
+    ) -> [AccountItem]? {
+        do {
+            _ = try forgetOperation.extractNoCancellableResultData()
+            let accounts = try countOperation.extractNoCancellableResultData()
+            try? keystore.deleteAccountKeys(for: address)
+            return accounts
+        } catch {
+            return nil
+        }
+    }
+}
+
 private extension AccountOptionsInteractor {
 
     /// Proves that the exact protected material about to be deleted still
@@ -842,6 +899,7 @@ private extension AccountOptionsInteractor {
             backupedAddresses.filter {
                 $0 != account.address
             }
+        WalletGoogleAccountAssociationStore.shared.remove(for: account)
 
         guard !accounts.isEmpty else {
             cleanData(lifecycleLease: lifecycleLease)
@@ -921,7 +979,7 @@ private extension AccountOptionsInteractor {
                     ) == nil
                 else {
                     throw WalletNetworkMigrationError
-                        .explicitRemovalInventoryMismatch
+                    .explicitRemovalInventoryMismatch
                 }
             }
         } else {

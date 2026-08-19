@@ -35,9 +35,693 @@ import Then
 import SoraUIKit
 import IrohaCrypto
 import SSFUtils
+import SSFCloudStorage
+import GoogleSignIn
 
 final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     static let walletIndex: Int = 0
+
+    @MainActor
+    @discardableResult
+    static func presentRetainedWalletRecovery(from presentingController: UIViewController?) -> Bool {
+        guard
+            let recoveryAccount = SelectedWalletSettings.shared.currentAccount,
+            SelectedWalletSettings.transactionSigningAvailability(
+                settings: SettingsManager.shared,
+                keystore: Keychain(),
+                account: recoveryAccount,
+                attemptRepair: false
+            ) != .available
+        else {
+            return false
+        }
+
+        let completion = {
+            guard
+                let account = SelectedWalletSettings.shared.currentAccount,
+                SelectedWalletSettings.transactionSigningAvailability(
+                    settings: SettingsManager.shared,
+                    keystore: Keychain(),
+                    account: account,
+                    attemptRepair: false
+                ) == .available,
+                let mainController = MainTabBarViewFactory.createView()?.controller
+            else {
+                return
+            }
+
+            RootControllerAnimationCoordinator().animateTransition(to: mainController)
+        }
+
+        let controller = presentingController
+            ?? UIApplication.shared.delegate?.window??.rootViewController
+        guard let controller else {
+            return false
+        }
+
+        let recoveryChooser = RetainedWalletRecoveryViewController(account: recoveryAccount)
+        let cloudStorage = CloudStorageService(uiDelegate: recoveryChooser)
+        _ = cloudStorage.configureCurrentAccountIfAvailable()
+        let storedAssociations = WalletGoogleAccountAssociationStore.shared.associations(
+            for: recoveryAccount
+        )
+        if !storedAssociations.isEmpty {
+            recoveryChooser.setGoogleAccountStatus(
+                .previouslyUsed(emails: storedAssociations.map(\.email))
+            )
+        } else if let identity = cloudStorage.currentAccountIdentity {
+            recoveryChooser.setGoogleAccountStatus(.available(email: identity.email))
+        } else {
+            recoveryChooser.setGoogleAccountStatus(.notChecked)
+        }
+        recoveryChooser.onGoogleBackup = { [weak recoveryChooser] in
+            guard let recoveryChooser else { return }
+            resolveGoogleAccountForRecovery(
+                from: recoveryChooser,
+                cloudStorage: cloudStorage,
+                recoveryAccount: recoveryAccount,
+                completion: completion
+            )
+        }
+        recoveryChooser.onManualSource = { [weak recoveryChooser] sourceType in
+            guard let recoveryChooser, recoveryChooser.beginMethodSelection() else { return }
+            _ = presentManualRecovery(
+                from: recoveryChooser,
+                sourceType: sourceType,
+                recoveryAccount: recoveryAccount,
+                completion: completion
+            )
+            recoveryChooser.endMethodSelection()
+        }
+        recoveryChooser.onCancel = { [weak recoveryChooser] in
+            recoveryChooser?.dismiss(animated: true)
+        }
+
+        let recoveryNavigation = SoraNavigationController(
+            rootViewController: recoveryChooser
+        )
+
+        return presentAfterDismissingAlert(from: controller) {
+            controller.present(recoveryNavigation, animated: true)
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    private static func presentManualRecovery(
+        from controller: UIViewController,
+        sourceType: AccountImportSource,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) -> Bool {
+        guard let importController = AccountImportViewFactory.createViewForAdding(
+            sourceType: sourceType,
+            endAddingBlock: completion,
+            recoveryAccount: recoveryAccount
+        )?.controller else {
+            return false
+        }
+
+        if let navigationController = controller.navigationController {
+            navigationController.pushViewController(importController, animated: true)
+        } else {
+            controller.present(
+                SoraNavigationController(rootViewController: importController),
+                animated: true
+            )
+        }
+        return true
+    }
+
+    @MainActor
+    private static func resolveGoogleAccountForRecovery(
+        from controller: RetainedWalletRecoveryViewController,
+        cloudStorage: CloudStorageService,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) {
+        guard controller.beginMethodSelection() else { return }
+
+        let storedAssociations = WalletGoogleAccountAssociationStore.shared.associations(
+            for: recoveryAccount
+        )
+        if !storedAssociations.isEmpty {
+            if let identity = cloudStorage.currentAccountIdentity,
+               storedAssociations.contains(where: { $0.userID == identity.userID }) {
+                controller.endMethodSelection()
+                presentGoogleAccountDecision(
+                    from: controller,
+                    cloudStorage: cloudStorage,
+                    identity: identity,
+                    recoveryAccount: recoveryAccount,
+                    completion: completion
+                )
+            } else {
+                controller.endMethodSelection()
+                presentPreviouslyUsedGoogleAccountDecision(
+                    from: controller,
+                    cloudStorage: cloudStorage,
+                    associations: storedAssociations,
+                    activeIdentity: cloudStorage.currentAccountIdentity,
+                    recoveryAccount: recoveryAccount,
+                    completion: completion
+                )
+            }
+            return
+        }
+
+        if let identity = cloudStorage.currentAccountIdentity {
+            controller.endMethodSelection()
+            presentGoogleAccountDecision(
+                from: controller,
+                cloudStorage: cloudStorage,
+                identity: identity,
+                recoveryAccount: recoveryAccount,
+                completion: completion
+            )
+            return
+        }
+
+        controller.setGoogleAccountStatus(.checking)
+        Task { @MainActor [weak controller] in
+            guard let controller else { return }
+
+            let identity: CloudStorageAccountIdentity?
+            do {
+                _ = try await cloudStorage.restorePreviousSignInIfAvailable()
+                identity = cloudStorage.currentAccountIdentity
+                controller.setGoogleAccountStatus(
+                    identity.map { .available(email: $0.email) } ?? .notSaved
+                )
+            } catch {
+                identity = nil
+                controller.setGoogleAccountStatus(.unavailable)
+            }
+
+            controller.endMethodSelection()
+            presentGoogleAccountDecision(
+                from: controller,
+                cloudStorage: cloudStorage,
+                identity: identity,
+                recoveryAccount: recoveryAccount,
+                completion: completion
+            )
+        }
+    }
+
+    @MainActor
+    private static func presentGoogleAccountDecision(
+        from controller: RetainedWalletRecoveryViewController,
+        cloudStorage: CloudStorageService,
+        identity: CloudStorageAccountIdentity?,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) {
+        guard controller.presentedViewController == nil else { return }
+
+        let alert: UIAlertController
+        if let identity {
+            let isPreviouslyUsed = WalletGoogleAccountAssociationStore.shared.association(
+                for: recoveryAccount,
+                googleUserID: identity.userID
+            ) != nil
+            alert = UIAlertController(
+                title: isPreviouslyUsed
+                    ? recoveryText(
+                        "wallet.recovery.google.account.previous.title",
+                        fallback: "Previous Google Drive account"
+                    )
+                    : recoveryText(
+                        "wallet.recovery.google.account.title",
+                        fallback: "Google Drive account"
+                    ),
+                message: "\(identity.email)\n\n" + recoveryText(
+                    "wallet.recovery.google.account.confirm",
+                    fallback: "Search this account for the encrypted backup of this wallet?"
+                ),
+                preferredStyle: .alert
+            )
+            alert.addAction(
+                UIAlertAction(
+                    title: recoveryText(
+                        "wallet.recovery.google.account.search",
+                        fallback: "Search this account"
+                    ),
+                    style: .default
+                ) { [weak controller] _ in
+                    guard let controller else { return }
+                    runGoogleActionAfterAlert(from: controller) {
+                        await continueGoogleRecovery(
+                            from: controller,
+                            cloudStorage: cloudStorage,
+                            confirmedIdentity: identity,
+                            recoveryAccount: recoveryAccount,
+                            completion: completion
+                        )
+                    }
+                }
+            )
+        } else {
+            alert = UIAlertController(
+                title: recoveryText(
+                    "wallet.recovery.google.account.unknown.title",
+                    fallback: "Google account unknown"
+                ),
+                message: recoveryText(
+                    "wallet.recovery.google.account.unknown.message",
+                    fallback: "The older app did not save which Google email was used. Choose an account to check for this wallet's backup."
+                ),
+                preferredStyle: .alert
+            )
+        }
+
+        alert.addAction(
+            UIAlertAction(
+                title: identity == nil
+                    ? recoveryText(
+                        "wallet.recovery.google.account.choose",
+                        fallback: "Choose Google account"
+                    )
+                    : recoveryText(
+                        "wallet.recovery.google.account.another",
+                        fallback: "Use another Google account"
+                    ),
+                style: .default
+            ) { [weak controller, weak alert] _ in
+                guard let controller, let alert else { return }
+                if let identity {
+                    guard controller.beginMethodSelection() else { return }
+                    presentGoogleAccountSwitchConfirmation(
+                        after: alert,
+                        from: controller,
+                        cloudStorage: cloudStorage,
+                        recoveryAccount: recoveryAccount,
+                        completion: completion
+                    )
+                } else {
+                    runGoogleActionAfterAlert(from: controller) {
+                        await selectGoogleAccount(
+                            from: controller,
+                            cloudStorage: cloudStorage,
+                            recoveryAccount: recoveryAccount,
+                            completion: completion
+                        )
+                    }
+                }
+            }
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonCancel(preferredLanguages: .currentLocale),
+                style: .cancel
+            )
+        )
+        controller.present(alert, animated: true)
+    }
+
+    @MainActor
+    private static func presentPreviouslyUsedGoogleAccountDecision(
+        from controller: RetainedWalletRecoveryViewController,
+        cloudStorage: CloudStorageService,
+        associations: [WalletGoogleAccountAssociation],
+        activeIdentity: CloudStorageAccountIdentity?,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) {
+        guard controller.presentedViewController == nil else { return }
+
+        var message = associations.map(\.email).joined(separator: "\n") + "\n\n" + recoveryText(
+            "wallet.recovery.google.account.previous.help",
+            fallback: "Choose this account in Google to check this wallet's backup."
+        )
+        if let activeIdentity,
+           !associations.contains(where: { $0.userID == activeIdentity.userID }) {
+            let currentLabel = recoveryText(
+                "wallet.recovery.google.account.current",
+                fallback: "Currently signed in"
+            )
+            message += "\n\n\(currentLabel): \(activeIdentity.email)"
+        }
+
+        let alert = UIAlertController(
+            title: recoveryText(
+                "wallet.recovery.google.account.previous.title",
+                fallback: "Previous Google Drive account"
+            ),
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: recoveryText(
+                    "wallet.recovery.google.account.choose",
+                    fallback: "Choose Google account"
+                ),
+                style: .default
+            ) { [weak controller] _ in
+                guard let controller else { return }
+                runGoogleActionAfterAlert(from: controller) {
+                    await selectGoogleAccount(
+                        from: controller,
+                        cloudStorage: cloudStorage,
+                        recoveryAccount: recoveryAccount,
+                        completion: completion
+                    )
+                }
+            }
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonCancel(preferredLanguages: .currentLocale),
+                style: .cancel
+            )
+        )
+        controller.present(alert, animated: true)
+    }
+
+    @MainActor
+    private static func runGoogleActionAfterAlert(
+        from controller: RetainedWalletRecoveryViewController,
+        action: @escaping @MainActor () async -> Void
+    ) {
+        guard controller.beginMethodSelection() else { return }
+        Task { @MainActor [weak controller] in
+            guard let controller else { return }
+            let alertDismissed = await waitForPresentedAlertToDismiss(from: controller)
+            guard alertDismissed else {
+                controller.endMethodSelection()
+                return
+            }
+            await action()
+            controller.endMethodSelection()
+        }
+    }
+
+    @MainActor
+    private static func waitForPresentedAlertToDismiss(
+        from controller: UIViewController
+    ) async -> Bool {
+        for _ in 0 ..< 120 {
+            if controller.presentedViewController == nil {
+                return true
+            }
+            guard controller.presentedViewController is UIAlertController else {
+                return false
+            }
+            try? await Task.sleep(nanoseconds: 25_000_000)
+        }
+        return false
+    }
+
+    @MainActor
+    private static func presentGoogleAccountSwitchConfirmation(
+        after dismissedAlert: UIAlertController,
+        from controller: RetainedWalletRecoveryViewController,
+        cloudStorage: CloudStorageService,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) {
+        Task { @MainActor [weak controller, weak dismissedAlert] in
+            guard let controller else { return }
+            guard await waitForPresentedAlertToDismiss(from: controller),
+                  dismissedAlert?.presentingViewController == nil else {
+                controller.endMethodSelection()
+                return
+            }
+
+            let alert = UIAlertController(
+                title: recoveryText(
+                    "wallet.recovery.google.switch.title",
+                    fallback: "Choose another Google account"
+                ),
+                message: recoveryText(
+                    "wallet.recovery.google.switch.message",
+                    fallback: "Google will show its account chooser. Your wallet and Drive backup will not be deleted."
+                ),
+                preferredStyle: .alert
+            )
+            alert.addAction(
+                UIAlertAction(
+                    title: recoveryText(
+                        "wallet.recovery.google.switch.continue",
+                        fallback: "Choose account"
+                    ),
+                    style: .default
+                ) { [weak controller] _ in
+                    guard let controller else { return }
+                    Task { @MainActor [weak controller] in
+                        guard let controller else { return }
+                        guard await waitForPresentedAlertToDismiss(from: controller) else {
+                            controller.endMethodSelection()
+                            return
+                        }
+                        await selectGoogleAccount(
+                            from: controller,
+                            cloudStorage: cloudStorage,
+                            recoveryAccount: recoveryAccount,
+                            completion: completion
+                        )
+                        controller.endMethodSelection()
+                    }
+                }
+            )
+            alert.addAction(
+                UIAlertAction(
+                    title: R.string.localizable.commonCancel(
+                        preferredLanguages: .currentLocale
+                    ),
+                    style: .cancel
+                ) { [weak controller] _ in
+                    controller?.endMethodSelection()
+                }
+            )
+            controller.present(alert, animated: true)
+        }
+    }
+
+    @MainActor
+    private static func selectGoogleAccount(
+        from controller: RetainedWalletRecoveryViewController,
+        cloudStorage: CloudStorageService,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) async {
+        do {
+            guard let identity = try await cloudStorage.signInSelectingAccount() else {
+                controller.setGoogleAccountStatus(.unavailable)
+                presentRecoveryUnavailableAlert(from: controller)
+                return
+            }
+
+            let storedAssociations = WalletGoogleAccountAssociationStore.shared.associations(
+                for: recoveryAccount
+            )
+            if storedAssociations.contains(where: { $0.userID == identity.userID }) {
+                controller.setGoogleAccountStatus(
+                    .previouslyUsed(emails: storedAssociations.map(\.email))
+                )
+            } else {
+                controller.setGoogleAccountStatus(.available(email: identity.email))
+            }
+            presentGoogleAccountDecision(
+                from: controller,
+                cloudStorage: cloudStorage,
+                identity: identity,
+                recoveryAccount: recoveryAccount,
+                completion: completion
+            )
+        } catch {
+            guard !isGoogleSignInCancellation(error) else { return }
+            presentRecoveryUnavailableAlert(from: controller)
+        }
+    }
+
+    @MainActor
+    private static func continueGoogleRecovery(
+        from controller: RetainedWalletRecoveryViewController,
+        cloudStorage: CloudStorageService,
+        confirmedIdentity: CloudStorageAccountIdentity,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) async {
+
+        do {
+            guard try await cloudStorage.signInIfNeeded() == .authorized else {
+                presentRecoveryUnavailableAlert(from: controller)
+                return
+            }
+            guard let activeIdentity = cloudStorage.currentAccountIdentity else {
+                presentRecoveryUnavailableAlert(from: controller)
+                return
+            }
+            guard activeIdentity.userID == confirmedIdentity.userID else {
+                controller.setGoogleAccountStatus(.available(email: activeIdentity.email))
+                presentGoogleAccountDecision(
+                    from: controller,
+                    cloudStorage: cloudStorage,
+                    identity: activeIdentity,
+                    recoveryAccount: recoveryAccount,
+                    completion: completion
+                )
+                return
+            }
+            guard let currentAccount = SelectedWalletSettings.shared.currentAccount,
+                  sameRecoveryIdentity(currentAccount, recoveryAccount) else {
+                presentRecoveryUnavailableAlert(from: controller)
+                return
+            }
+            guard SelectedWalletSettings.transactionSigningAvailability(
+                settings: SettingsManager.shared,
+                keystore: Keychain(),
+                account: currentAccount,
+                attemptRepair: false
+            ) != .available else {
+                controller.dismiss(animated: true, completion: completion)
+                return
+            }
+
+            let containsExactBackup = try await cloudStorage.containsMobileBackupIfAuthorized(
+                address: currentAccount.address,
+                expectedAccountUserID: activeIdentity.userID
+            )
+            guard containsExactBackup else {
+                presentNoGoogleBackupAlert(from: controller)
+                return
+            }
+
+            let exactBackup = OpenBackupAccount(
+                name: currentAccount.username,
+                address: currentAccount.address
+            )
+            guard let passwordController = EnterPasswordViewFactory.createView(
+                with: exactBackup.address,
+                backedUpAccounts: [exactBackup],
+                endAddingBlock: completion,
+                recoveryAccount: currentAccount,
+                googleAccountEmail: activeIdentity.email,
+                expectedGoogleAccountID: activeIdentity.userID,
+                cloudStorageService: cloudStorage
+            )?.controller else {
+                presentRecoveryUnavailableAlert(from: controller)
+                return
+            }
+
+            if let navigationController = controller.navigationController {
+                navigationController.pushViewController(passwordController, animated: true)
+            } else {
+                _ = presentAfterDismissingAlert(from: controller) {
+                    controller.present(
+                        SoraNavigationController(rootViewController: passwordController),
+                        animated: true
+                    )
+                }
+            }
+        } catch {
+            presentRecoveryUnavailableAlert(from: controller)
+        }
+    }
+
+    private static func isGoogleSignInCancellation(_ error: Error) -> Bool {
+        let error = error as NSError
+        return error.domain == kGIDSignInErrorDomain && error.code == -5
+    }
+
+    static func sameRecoveryIdentity(_ lhs: AccountItem, _ rhs: AccountItem) -> Bool {
+        lhs.address == rhs.address &&
+            lhs.publicKeyData == rhs.publicKeyData &&
+            lhs.networkType == rhs.networkType &&
+            lhs.cryptoType == rhs.cryptoType
+    }
+
+    @MainActor
+    private static func presentRecoveryUnavailableAlert(from controller: UIViewController) {
+        guard controller.presentedViewController == nil else { return }
+
+        let alert = UIAlertController(
+            title: R.string.localizable.commonErrorGeneralTitle(
+                preferredLanguages: .currentLocale
+            ),
+            message: R.string.localizable.commonErrorRetry(preferredLanguages: .currentLocale),
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                style: .default
+            )
+        )
+        controller.present(alert, animated: true)
+    }
+
+    @MainActor
+    private static func presentNoGoogleBackupAlert(from controller: UIViewController) {
+        guard controller.presentedViewController == nil else { return }
+
+        let alert = UIAlertController(
+            title: recoveryText(
+                "wallet.recovery.backup.not.found.title",
+                fallback: "Backup not found"
+            ),
+            message: recoveryText(
+                "wallet.recovery.backup.not.found",
+                fallback: "No Google Drive backup was found for this wallet."
+            ),
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                style: .default
+            )
+        )
+        controller.present(alert, animated: true)
+    }
+
+    @MainActor
+    @discardableResult
+    static func presentAfterDismissingAlert(
+        from controller: UIViewController,
+        presentation: @escaping () -> Void
+    ) -> Bool {
+        guard let presentedController = controller.presentedViewController else {
+            presentation()
+            return true
+        }
+
+        guard presentedController is UIAlertController else {
+            return false
+        }
+
+        presentedController.dismiss(animated: true, completion: presentation)
+        return true
+    }
+
+    static func isWalletShellReady(
+        hasKeystoreImportService: Bool,
+        hasSelectedAccount: Bool,
+        hasConnection: Bool,
+        hasRuntimeProvider: Bool
+    ) -> Bool {
+        hasKeystoreImportService &&
+            hasSelectedAccount &&
+            hasConnection &&
+            hasRuntimeProvider
+    }
+
+    static func isReadyForCreation() -> Bool {
+        let keystoreImportService: KeystoreImportServiceProtocol? =
+            URLHandlingService.shared.findService()
+        return isWalletShellReady(
+            hasKeystoreImportService: keystoreImportService != nil,
+            hasSelectedAccount: SelectedWalletSettings.shared.currentAccount != nil,
+            hasConnection: ChainRegistryFacade.sharedRegistry.getConnection(
+                for: Chain.sora.genesisHash()
+            ) != nil,
+            hasRuntimeProvider: ChainRegistryFacade.sharedRegistry.getRuntimeProvider(
+                for: Chain.sora.genesisHash()
+            ) != nil
+        )
+    }
     
     @MainActor
     static func createView() -> MainTabBarViewProtocol? {
@@ -46,13 +730,6 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
             Logger.shared.error("Can't find required keystore import service")
             return nil
         }
-        
-        let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
-                                              serviceCoordinator: ServiceCoordinator.shared,
-                                              keystoreImportService: keystoreImportService)
-        
-        let view = MainTabBarViewController()
-        view.localizationManager = LocalizationManager.shared
         
         let primitiveFactory = WalletPrimitiveFactory(keystore: Keychain())
         
@@ -66,6 +743,22 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         guard let selectedAccount = SelectedWalletSettings.shared.currentAccount,
               let accountSettings = try? primitiveFactory.createAccountSettings(for: selectedAccount, assetManager: assetManager) else {
             return nil
+        }
+
+        let interactor = MainTabBarInteractor(eventCenter: EventCenter.shared,
+                                              serviceCoordinator: ServiceCoordinator.shared,
+                                              keystoreImportService: keystoreImportService)
+
+        let view = MainTabBarViewController()
+        view.localizationManager = LocalizationManager.shared
+
+        let requiresRecoveryReadOnlyMode = SelectedWalletSettings.requiresRecoveryReadOnlyMode(
+            settings: SettingsManager.shared,
+            keystore: Keychain(),
+            account: selectedAccount
+        )
+        view.recoveryRestoreHandler = { [weak view] in
+            _ = presentRetainedWalletRecovery(from: view)
         }
         
         let farmingService = DemeterFarmingService(
@@ -93,6 +786,9 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         }
         
         view.viewControllers = viewControllers
+        if requiresRecoveryReadOnlyMode {
+            view.enableRecoveryReadOnlyMode()
+        }
         
         let presenter = MainTabBarPresenter()
         

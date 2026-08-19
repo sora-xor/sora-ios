@@ -78,6 +78,8 @@ final class ChainRegistry {
     private(set) var runtimeVersionSubscriptions: [ChainModel.Id: SpecVersionSubscriptionProtocol] = [:]
 
     private let mutex = NSLock()
+    private let subscriptionMutex = NSLock()
+    private var isSubscribedToChains = false
 
     private let maxAttemptCount = 2
 
@@ -161,7 +163,15 @@ final class ChainRegistry {
         }
     }
     
-    func subscribeToChians() {
+    private func subscribeToChainsIfNeeded() {
+        subscriptionMutex.lock()
+        guard !isSubscribedToChains else {
+            subscriptionMutex.unlock()
+            return
+        }
+        isSubscribedToChains = true
+        subscriptionMutex.unlock()
+
         let updateClosure: ([DataProviderChange<ChainModel>]) -> Void = { [weak self] changes in
             self?.handle(changes: changes)
         }
@@ -183,6 +193,10 @@ final class ChainRegistry {
             failing: failureClosure,
             options: options
         )
+    }
+
+    func subscribeToChians() {
+        subscribeToChainsIfNeeded()
     }
 
     private func setupAssetManager(for chain: ChainModel) {
@@ -251,27 +265,7 @@ extension ChainRegistry: ChainRegistryProtocol {
     }
 
     private func subscribeToChains() {
-        let updateClosure: ([DataProviderChange<ChainModel>]) -> Void = { [weak self] changes in
-            self?.handle(changes: changes)
-        }
-
-        let failureClosure: (Error) -> Void = { [weak self] _ in
-            self?.logger?.error("Chain listener setup failed")
-        }
-
-        let options = StreamableProviderObserverOptions(
-            alwaysNotifyOnRefresh: false,
-            waitsInProgressSyncOnAdd: false,
-            refreshWhenEmpty: false
-        )
-
-        chainProvider.addObserver(
-            self,
-            deliverOn: DispatchQueue.global(qos: .userInitiated),
-            executing: updateClosure,
-            failing: failureClosure,
-            options: options
-        )
+        subscribeToChainsIfNeeded()
     }
 
     func getConnection(for chainId: ChainModel.Id) -> ChainConnection? {
@@ -422,6 +416,7 @@ extension ChainRegistry: ConnectionPoolDelegate {
 
     func connectionUpdated(url: URL) {
         SettingsManager.shared.lastSuccessfulUrl = url
+        eventCenter.notify(with: WalletBalanceChanged())
     }
 
     private func changeSelectedNode(from: ChainModel, to: ChainNodeModel) {

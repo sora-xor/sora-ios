@@ -56,12 +56,6 @@ final class ServiceCoordinator {
         eventCenter.add(observer: self, dispatchIn: .main)
     }
 
-    private func setup(chainRegistry: ChainRegistryProtocol) {
-        let chainRegistry = ChainRegistryFacade.sharedRegistry
-        chainRegistry.subscribeToChians()
-        chainRegistry.syncUp()
-    }
-
     private func updateWebSocketSettings() {
 //        let connectionItem = settings.selectedConnection
 //        let account = settings.selectedAccount
@@ -140,8 +134,6 @@ extension ServiceCoordinator: ServiceCoordinatorProtocol {
 
     func setup() {
         let chainRegistry = ChainRegistryFacade.sharedRegistry
-        setup(chainRegistry: chainRegistry)
-
         self.setupSubscriptions(connection: chainRegistry.getConnection(for: Chain.sora.genesisHash()))
         Task { @MainActor in
             self.updateSora2PendingRecoveryReadiness()

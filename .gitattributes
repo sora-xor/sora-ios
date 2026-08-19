@@ -1,0 +1,2 @@
+SoraPassport/Resources/Sr25519SafeValidatorLicenses/*.txt -text -whitespace
+VendorPackages/shared-features-spm/Rust/Sr25519SafeValidator/licenses/*.txt -text -whitespace

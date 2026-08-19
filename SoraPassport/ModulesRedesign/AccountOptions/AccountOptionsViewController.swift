@@ -242,7 +242,11 @@ extension AccountOptionsViewController: AccountOptionsViewProtocol {
         addressLabel.sora.text = address
     }
     
-    func setupOptions(with backUpState: BackupState, hasEntropy: Bool) {
+    func setupOptions(
+        with backUpState: BackupState,
+        hasEntropy: Bool,
+        canManageBackup: Bool
+    ) {
         var options: [SoramitsuView] = []
         
         if hasEntropy {
@@ -277,15 +281,19 @@ extension AccountOptionsViewController: AccountOptionsViewProtocol {
             }),
             AccountOptionSeparator(),
             AccountOptionItem().then({
-                $0.titleLabel.sora.textColor = backUpState.optionTitleColor
+                $0.titleLabel.sora.textColor = canManageBackup
+                    ? backUpState.optionTitleColor
+                    : .fgSecondary
                 $0.titleLabel.sora.text = backUpState.optionTitle
                 $0.leftImageView.image = R.image.googleOptionIcon()
-                $0.addArrow()
-                $0.addTapGesture { [weak self] recognizer in
-                    if backUpState == .backedUp {
-                        self?.deleteBackup()
-                    } else {
-                        self?.presenter.createBackup()
+                if canManageBackup {
+                    $0.addArrow()
+                    $0.addTapGesture { [weak self] recognizer in
+                        if backUpState == .backedUp {
+                            self?.deleteBackup()
+                        } else {
+                            self?.presenter.createBackup()
+                        }
                     }
                 }
             })

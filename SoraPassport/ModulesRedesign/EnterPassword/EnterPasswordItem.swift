@@ -34,12 +34,23 @@ final class EnterPasswordItem: NSObject {
 
     let accountName: String?
     let accountAddress: String
+    let descriptionText: String
+    let continueTitle: String
     let errorText: String
     let continueButtonHandler: ((String) -> Void)?
 
-    init(accountName: String? = nil, accountAddress: String, errorText: String, continueButtonHandler: ((String) -> Void)?) {
+    init(
+        accountName: String? = nil,
+        accountAddress: String,
+        descriptionText: String,
+        continueTitle: String,
+        errorText: String,
+        continueButtonHandler: ((String) -> Void)?
+    ) {
         self.accountName = accountName
         self.accountAddress = accountAddress
+        self.descriptionText = descriptionText
+        self.continueTitle = continueTitle
         self.errorText = errorText
         self.continueButtonHandler = continueButtonHandler
     }

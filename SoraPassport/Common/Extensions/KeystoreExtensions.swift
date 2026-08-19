@@ -39,6 +39,9 @@ enum KeystoreTag: String, CaseIterable {
     case legacyUsername = "userName"
 
     static func secretKeyTagForAddress(_ address: String) -> String { address + "-" + "secretKey" }
+    static func preservedSecretKeyTagForAddress(_ address: String) -> String {
+        "wallet.signer-preservation.v1." + address + "-secretKey"
+    }
     static func entropyTagForAddress(_ address: String) -> String { address + "-" + "entropy"}
     static func deriviationTagForAddress(_ address: String) -> String { address + "-" + "deriv"}
     static func seedTagForAddress(_ address: String) -> String { address + "-" + "seed" }
@@ -66,21 +69,26 @@ extension KeystoreProtocol {
     }
 
     func deleteAll(for address: String) throws {
-        try deleteWalletMaterial(for: address)
         try deleteKeysIfExist(
             for: KeystoreTag.allCases.map(\.rawValue)
         )
+        try deleteAccountKeys(for: address)
     }
 
     func deleteWalletMaterial(for address: String) throws {
-        try deleteKeysIfExist(
-            for: [
-                KeystoreTag.secretKeyTagForAddress(address),
-                KeystoreTag.entropyTagForAddress(address),
-                KeystoreTag.deriviationTagForAddress(address),
-                KeystoreTag.seedTagForAddress(address)
-            ]
-        )
+        try deleteAccountKeys(for: address)
+    }
+
+    func deleteAccountKeys(for address: String) throws {
+        try deleteKeysIfExist(for: [
+            KeystoreTag.preservedSecretKeyTagForAddress(address),
+            KeystoreTag.entropyTagForAddress(address),
+            KeystoreTag.deriviationTagForAddress(address),
+            KeystoreTag.seedTagForAddress(address),
+            // Delete the canonical signer last. If an earlier deletion fails, the wallet
+            // remains signable rather than being left with only a hidden recovery copy.
+            KeystoreTag.secretKeyTagForAddress(address)
+        ])
     }
 
     func deleteEntropy(for address: String) throws {
@@ -105,6 +113,10 @@ extension KeystoreProtocol {
         let tag = KeystoreTag.secretKeyTagForAddress(address)
 
         return try loadIfKeyExists(tag)
+    }
+
+    func fetchPreservedSecretKeyForAddress(_ address: String) throws -> Data? {
+        try loadIfKeyExists(KeystoreTag.preservedSecretKeyTagForAddress(address))
     }
 
     func checkSecretKeyForAddress(_ address: String) throws -> Bool {

@@ -131,6 +131,8 @@ static NSString *const kOpenIDRealmParameter = @"openid.realm";
 static NSString *const kIncludeGrantedScopesParameter = @"include_granted_scopes";
 static NSString *const kLoginHintParameter = @"login_hint";
 static NSString *const kHostedDomainParameter = @"hd";
+static NSString *const kPromptParameter = @"prompt";
+static NSString *const kSelectAccountPrompt = @"select_account";
 
 // Minimum time to expiration for a restored access token.
 static const NSTimeInterval kMinimumRestoredAccessTokenTimeToExpire = 600.0;
@@ -235,6 +237,10 @@ static NSString *const kConfigOpenIDRealmKey = @"GIDOpenIDRealm";
   return YES;
 }
 
+- (BOOL)restorePreviousSignInWithoutRefresh {
+  return [self restorePreviousSignInNoRefresh];
+}
+
 #if TARGET_OS_IOS || TARGET_OS_MACCATALYST
 
 - (void)signInWithPresentingViewController:(UIViewController *)presentingViewController
@@ -260,6 +266,25 @@ static NSString *const kConfigOpenIDRealmKey = @"GIDOpenIDRealm";
                                                 addScopesFlow:NO
                                                        scopes:additionalScopes
                                                    completion:completion];
+  [self signInWithOptions:options];
+}
+
+- (void)signInWithPresentingViewController:(UIViewController *)presentingViewController
+                                      hint:(nullable NSString *)hint
+                          additionalScopes:(nullable NSArray<NSString *> *)additionalScopes
+                     forceAccountSelection:(BOOL)forceAccountSelection
+                                completion:(nullable GIDSignInCompletion)completion {
+  GIDSignInInternalOptions *options =
+    [GIDSignInInternalOptions defaultOptionsWithConfiguration:_configuration
+                                     presentingViewController:presentingViewController
+                                                    loginHint:hint
+                                                addScopesFlow:NO
+                                                       scopes:additionalScopes
+                                                   completion:completion];
+  if (forceAccountSelection) {
+    options = [options optionsWithExtraParameters:@{ kPromptParameter : kSelectAccountPrompt }
+                                   forContinuation:NO];
+  }
   [self signInWithOptions:options];
 }
 

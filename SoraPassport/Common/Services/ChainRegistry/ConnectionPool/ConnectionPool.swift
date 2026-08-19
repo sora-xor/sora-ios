@@ -30,6 +30,7 @@
 
 import Foundation
 import SSFUtils
+import SoraKeystore
 
 protocol ConnectionPoolProtocol {
     func setupConnection(for chain: ChainModel) throws -> ChainConnection
@@ -70,7 +71,18 @@ extension ConnectionPool: ConnectionPoolProtocol {
     }
 
     func setupConnection(for chain: ChainModel, ignoredUrl: URL?) throws -> ChainConnection {
-        let node = chain.selectedNode ?? chain.nodes.first
+        let availableNodes = chain.nodes
+            .union(chain.customNodes ?? [])
+            .filter { $0.url != ignoredUrl }
+        let selectedNode = chain.selectedNode.flatMap { selected in
+            availableNodes.first { $0.url == selected.url }
+        }
+        let lastSuccessfulNode = SettingsManager.shared.lastSuccessfulUrl.flatMap { lastUrl in
+            availableNodes.first { $0.url == lastUrl }
+        }
+        let node = selectedNode
+            ?? lastSuccessfulNode
+            ?? availableNodes.sorted { $0.url.absoluteString < $1.url.absoluteString }.first
 
         guard let url = node?.url else {
             throw JSONRPCEngineError.unknownError
@@ -94,7 +106,7 @@ extension ConnectionPool: ConnectionPoolProtocol {
 
         let connection = connectionFactory.createConnection(for: url, delegate: self)
         let wrapper = WeakWrapper(target: connection)
-        Logger.shared.info("Connected node: \(url)")
+        Logger.shared.info("Connecting node: \(url)")
         connectionsByChainIds[chain.chainId] = wrapper
 
         return connection
@@ -124,6 +136,9 @@ extension ConnectionPool: WebSocketEngineDelegate {
                 delegate?.connectionNeedsReconnect(url: previousUrl, attempt: attempt)
             }
         case .connected:
+            Logger.shared.info(
+                "SORA node connection established: \(previousUrl.host ?? "unknown host")"
+            )
             delegate?.connectionUpdated(url: previousUrl)
 
         case .notConnected, .notReachable:

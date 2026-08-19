@@ -40,6 +40,8 @@ final class AssetsItemService {
     var priceInfo: PriceInfo?
     var assetManager: AssetManagerProtocol
     var updateHandler: (() -> Void)?
+    private var priceUpdateTask: Task<Void, Never>?
+    private var needsPriceRefresh = false
     
     @Published var assetViewModels: [AssetViewModel] = [ AssetViewModel(identifier: "1", title: "", subtitle: "", fiatText: ""),
                                                          AssetViewModel(identifier: "2", title: "", subtitle: "", fiatText: ""),
@@ -64,9 +66,21 @@ final class AssetsItemService {
     }
     
     func setup() {
-        let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId }
-        if priceInfo == nil || assetIds.count != assetViewModels.count {
-            let items = assetProvider.getBalances(with: assetIds)
+        Task { @MainActor [weak self] in
+            self?.setupOnMain()
+        }
+    }
+
+    @MainActor
+    private func setupOnMain() {
+        let visibleAssetIds = (assetManager.getAssetList() ?? [])
+            .filter(\.visible)
+            .map(\.assetId)
+        let items = assetProvider.getBalances(with: visibleAssetIds)
+        let pricedAssetIds = items.map(\.identifier)
+        let displayedAssetIds = Set(assetViewModels.map(\.identifier))
+
+        if priceInfo == nil || Set(pricedAssetIds) != displayedAssetIds {
 
             assetViewModels = items.compactMap { item in
                 return self.assetViewModelsFactory.createAssetViewModel(with: item, fiatData: [], mode: .view)
@@ -74,12 +88,28 @@ final class AssetsItemService {
             updateHandler?()
         }
 
-        Task {
-            let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: assetIds)
+        guard priceUpdateTask == nil else {
+            needsPriceRefresh = true
+            return
+        }
+        needsPriceRefresh = false
+
+        priceUpdateTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let poolItemInfo = await PriceInfoService.shared.getPriceInfo(for: pricedAssetIds)
+            guard !Task.isCancelled else {
+                self.priceUpdateTask = nil
+                if self.needsPriceRefresh {
+                    self.setupOnMain()
+                }
+                return
+            }
             self.priceInfo = poolItemInfo
             
-            let assetIds = (assetManager.getAssetList() ?? []).filter { $0.visible }.map { $0.assetId } 
-            let items = assetProvider.getBalances(with: assetIds)
+            let visibleAssetIds = (assetManager.getAssetList() ?? [])
+                .filter(\.visible)
+                .map(\.assetId)
+            let items = assetProvider.getBalances(with: visibleAssetIds)
             
             let fiatDecimal = items.reduce(Decimal(0), { partialResult, balanceData in
                 if let priceUsd = poolItemInfo.fiatData.first(where: { $0.id == balanceData.identifier })?.priceUsd?.decimalValue {
@@ -97,7 +127,18 @@ final class AssetsItemService {
                                                                         mode: .view,
                                                                         priceDelta: deltaPrice)
             }
+            let pricedAssetIds = Set(
+                poolItemInfo.fiatData.filter { $0.priceUsd != nil }.map(\.id)
+            )
+            let pricedItemCount = items.filter { pricedAssetIds.contains($0.identifier) }.count
+            Logger.shared.info(
+                "SORA wallet prices rendered: \(pricedItemCount)/\(items.count)"
+            )
             updateHandler?()
+            priceUpdateTask = nil
+            if needsPriceRefresh {
+                setupOnMain()
+            }
         }
     }
 }

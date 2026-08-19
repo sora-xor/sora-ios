@@ -361,6 +361,15 @@ final class AccountOperationFactory: AccountOperationFactoryProtocol {
 
             let settings = AccountSettings(visibleAssetIds: [], orderedAssetIds: [])
 
+            if request.cryptoType == .sr25519 {
+                guard SNSafeKeypairValidator.isValidSr25519SecretKey(
+                    keystore.secretKeyData,
+                    publicKey: keystore.publicKeyData
+                ) else {
+                    throw AccountOperationFactoryError.invalidKeystore
+                }
+            }
+
             let account = AccountItem(
                 address: address,
                 cryptoType: request.cryptoType,

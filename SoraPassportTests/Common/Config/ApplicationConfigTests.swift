@@ -1,5 +1,7 @@
 import XCTest
 import Foundation
+import BigInt
+import sorawallet
 @testable import SoraPassport
 
 class ApplicationConfigTests: XCTestCase {
@@ -28,10 +30,40 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertEqual(ApplicationConfig.shared.subqueryUrl, ApplicationConfig.shared.polkaswapIndexerURL)
 
         let nodes = ApplicationConfig.shared.defaultChainNodes
-        XCTAssertEqual(nodes.count, 1)
-        XCTAssertEqual(nodes.first?.url.absoluteString, "wss://mof2.sora.org")
-        XCTAssertEqual(nodes.first?.name, "Sora")
-        XCTAssertNil(nodes.first?.apikey)
+        XCTAssertEqual(Set(nodes.map(\.url.absoluteString)), [
+            "wss://mof2.sora.org",
+            "wss://ws.mof.sora.org"
+        ])
+        XCTAssertTrue(nodes.allSatisfy { $0.name == "Sora" })
+        XCTAssertTrue(nodes.allSatisfy { $0.apikey == nil })
+    }
+
+    func testXorNameIsCanonicalizedByAssetId() throws {
+        let cachedAsset = AssetInfo(
+            id: WalletAssetId.xor.rawValue,
+            symbol: "XOR",
+            chainId: Chain.sora.genesisHash(),
+            precision: 18,
+            icon: nil,
+            displayName: "1M XOR",
+            visible: true
+        )
+        XCTAssertEqual(cachedAsset.name, "XOR")
+
+        let remoteAsset = try JSONDecoder().decode(AssetInfo.self, from: Data(#"""
+        {
+          "symbol":"XOR",
+          "name":"1M XOR",
+          "asset_id":"0x0200000000000000000000000000000000000000000000000000000000000000",
+          "precision":"18"
+        }
+        """#.utf8))
+        XCTAssertEqual(remoteAsset.name, "XOR")
+
+        XCTAssertEqual(
+            AssetInfo.canonicalName(for: WalletAssetId.pswap.rawValue, proposedName: "Polkaswap"),
+            "Polkaswap"
+        )
     }
 
     func testRemoteConfigFallsBackFromInvalidURLs() {
@@ -79,6 +111,85 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertFalse(project.contains("pod install"))
     }
 
+    func testGoogleAccountAssociationsAreExactMultiAccountAndSelectivelyRemoved() throws {
+        let suiteName = "WalletGoogleAccountAssociationStoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = WalletGoogleAccountAssociationStore(
+            userDefaults: defaults,
+            storageKey: "associations"
+        )
+        let account = googleAssociationAccount(publicKey: Data(repeating: 0x11, count: 32))
+
+        XCTAssertTrue(store.save(
+            userID: "google-a",
+            email: "first@example.com",
+            for: account,
+            verifiedAt: Date(timeIntervalSince1970: 10)
+        ))
+        XCTAssertTrue(store.save(
+            userID: "google-b",
+            email: "second@example.com",
+            for: account,
+            verifiedAt: Date(timeIntervalSince1970: 20)
+        ))
+        XCTAssertTrue(store.save(
+            userID: "google-a",
+            email: "updated@example.com",
+            for: account,
+            verifiedAt: Date(timeIntervalSince1970: 30)
+        ))
+
+        XCTAssertEqual(store.associations(for: account).map(\.userID), ["google-a", "google-b"])
+        XCTAssertEqual(
+            store.association(for: account, googleUserID: "google-a")?.email,
+            "updated@example.com"
+        )
+
+        let sameAddressDifferentKey = googleAssociationAccount(
+            publicKey: Data(repeating: 0x22, count: 32)
+        )
+        XCTAssertTrue(store.associations(for: sameAddressDifferentKey).isEmpty)
+
+        store.remove(for: account, googleUserID: "google-a")
+        XCTAssertEqual(store.associations(for: account).map(\.userID), ["google-b"])
+        store.remove(for: account)
+        XCTAssertTrue(store.associations(for: account).isEmpty)
+    }
+
+    func testGoogleAccountAssociationStoreRecoversFromCorruptLocalData() throws {
+        let suiteName = "WalletGoogleAccountAssociationStoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(Data("not-json".utf8), forKey: "associations")
+        let store = WalletGoogleAccountAssociationStore(
+            userDefaults: defaults,
+            storageKey: "associations"
+        )
+        let account = googleAssociationAccount(publicKey: Data(repeating: 0x33, count: 32))
+
+        XCTAssertTrue(store.associations(for: account).isEmpty)
+        XCTAssertTrue(store.save(
+            userID: "google-a",
+            email: "wallet@example.com",
+            for: account
+        ))
+        XCTAssertEqual(store.associations(for: account).count, 1)
+    }
+
+    private func googleAssociationAccount(publicKey: Data) -> AccountItem {
+        AccountItem(
+            address: "cnTestWalletAddress",
+            cryptoType: .sr25519,
+            networkType: ApplicationConfig.shared.addressType,
+            username: "Wallet",
+            publicKeyData: publicKey,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+            order: 0,
+            isSelected: true
+        )
+    }
+
     private func repositoryRoot() throws -> URL {
         var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let fileManager = FileManager.default
@@ -110,5 +221,231 @@ class ApplicationConfigTests: XCTestCase {
         }
 
         return []
+    }
+}
+
+final class RuntimeAccountDataTests: XCTestCase {
+    func testDecodesCurrentRuntimeAccountData() throws {
+        let json = Data(#"""
+        {
+            "nonce":"1",
+            "consumers":"2",
+            "providers":"3",
+            "sufficients":"1",
+            "data":{"free":"100","reserved":"7","frozen":"25","flags":"0"}
+        }
+        """#.utf8)
+
+        let account = try JSONDecoder().decode(AccountInfo.self, from: json)
+
+        XCTAssertEqual(account.data.free, BigUInt(100))
+        XCTAssertEqual(account.data.reserved, BigUInt(7))
+        XCTAssertEqual(account.data.miscFrozen, BigUInt(25))
+        XCTAssertEqual(account.data.feeFrozen, .zero)
+        XCTAssertEqual(account.data.locked, BigUInt(25))
+        XCTAssertEqual(account.data.available, BigUInt(75))
+    }
+
+    func testDecodesLegacyRuntimeAccountData() throws {
+        let json = Data(#"""
+        {
+            "nonce":"1",
+            "consumers":"2",
+            "providers":"3",
+            "data":{"free":"100","reserved":"7","miscFrozen":"11","feeFrozen":"13"}
+        }
+        """#.utf8)
+
+        let account = try JSONDecoder().decode(AccountInfo.self, from: json)
+
+        XCTAssertEqual(account.data.miscFrozen, BigUInt(11))
+        XCTAssertEqual(account.data.feeFrozen, BigUInt(13))
+        XCTAssertEqual(account.data.locked, BigUInt(13))
+    }
+
+    func testDynamicAccountDataUsesCurrentFrozenField() throws {
+        let json = Data(#"""
+        {
+            "nonce":"1",
+            "consumers":"2",
+            "providers":"3",
+            "data":{"free":"10","reserved":"0","frozen":"25","flags":"0"}
+        }
+        """#.utf8)
+
+        let account = try JSONDecoder().decode(DyAccountInfo.self, from: json)
+
+        XCTAssertEqual(account.data.locked, BigUInt(25))
+        XCTAssertEqual(account.data.available, .zero)
+    }
+
+    func testRejectsAccountDataWithoutAnyFrozenRepresentation() {
+        let json = Data(#"""
+        {
+            "nonce":"1",
+            "consumers":"2",
+            "providers":"3",
+            "data":{"free":"100","reserved":"7"}
+        }
+        """#.utf8)
+
+        XCTAssertThrowsError(try JSONDecoder().decode(AccountInfo.self, from: json))
+    }
+}
+
+final class SoraIndexerResponseTests: XCTestCase {
+    private struct AssetNode: Decodable {
+        let id: String
+        let priceUsd: String
+    }
+
+    func testDecodesProductionIndexerConnectionShape() throws {
+        let json = Data(#"""
+        {
+          "data": {
+            "entities": {
+              "nodes": [{"id":"0x02","priceUSD":"5.39"}],
+              "pageInfo": {"hasNextPage":false,"endCursor":"cursor"}
+            }
+          }
+        }
+        """#.utf8)
+
+        let response = try JSONDecoder().decode(
+            SubqueryResponse<SoraIndexerEntitiesPayload<AssetNode>>.self,
+            from: json
+        )
+
+        switch response {
+        case let .data(payload):
+            XCTAssertEqual(payload.entities.nodes.first?.id, "0x02")
+            XCTAssertEqual(payload.entities.nodes.first?.priceUsd, "5.39")
+            XCTAssertFalse(payload.entities.pageInfo.hasNextPage)
+        case .errors:
+            XCTFail("Expected data response")
+        }
+    }
+
+    func testFiatQueriesAreFilteredAndBoundedToRequestedAssetIds() {
+        let assetIds = (0..<141).map { "0x" + String(format: "%064x", $0) }
+        let batches = SoraFiatPriceQueryBuilder.batches(
+            for: assetIds + [assetIds[0], "invalid-asset-id"]
+        )
+
+        XCTAssertEqual(batches.map(\.count), [70, 70, 1])
+        XCTAssertEqual(Set(batches.flatMap { $0 }), Set(assetIds))
+
+        let query = SoraFiatPriceQueryBuilder.query(
+            assetIds: batches[0],
+            cursor: "cursor"
+        )
+        XCTAssertTrue(query.contains("filter: { and: [{ id: { in:"))
+        XCTAssertTrue(query.contains(assetIds[0]))
+        XCTAssertTrue(query.contains("after: \"cursor\""))
+        XCTAssertFalse(query.contains("invalid-asset-id"))
+    }
+
+    func testFiatQueryBuilderRejectsEmptyAndMalformedRequests() {
+        XCTAssertTrue(SoraFiatPriceQueryBuilder.batches(for: []).isEmpty)
+        XCTAssertTrue(
+            SoraFiatPriceQueryBuilder.batches(for: ["0x02", "not-an-id"]).isEmpty
+        )
+    }
+
+    func testFiatNodeAcceptsProductionPriceShapes() throws {
+        func decodeNode(_ node: String) throws -> SoraIndexerFiatNode {
+            let json = Data("""
+            {"data":{"entities":{"nodes":[\(node)],
+            "pageInfo":{"hasNextPage":false,"endCursor":null}}}}
+            """.utf8)
+            let response = try JSONDecoder().decode(
+                SubqueryResponse<SoraIndexerEntitiesPayload<SoraIndexerFiatNode>>.self,
+                from: json
+            )
+            guard case let .data(payload) = response,
+                  let decodedNode = payload.entities.nodes.first else {
+                throw SoraIndexerClientError.invalidResponse
+            }
+            return decodedNode
+        }
+
+        let json = Data(#"""
+        {
+          "data": {
+            "entities": {
+              "nodes": [
+                {"id":"string","priceUSD":"5.39"},
+                {"id":"number","priceUSD":5.39},
+                {"id":"missing","priceUSD":null}
+              ],
+              "pageInfo": {"hasNextPage":false,"endCursor":null}
+            }
+          }
+        }
+        """#.utf8)
+        let response = try JSONDecoder().decode(
+            SubqueryResponse<SoraIndexerEntitiesPayload<SoraIndexerFiatNode>>.self,
+            from: json
+        )
+
+        guard case let .data(payload) = response else {
+            return XCTFail("Expected data response")
+        }
+        XCTAssertEqual(payload.entities.nodes.map(\.priceUsd), [5.39, 5.39, nil])
+        XCTAssertThrowsError(
+            try decodeNode(#"{"id":7,"priceUSD":"5.39"}"#)
+        )
+        XCTAssertThrowsError(
+            try decodeNode(#"{"id":"bool","priceUSD":true}"#)
+        )
+        XCTAssertThrowsError(
+            try decodeNode(#"{"id":"object","priceUSD":{}}"#)
+        )
+    }
+
+    func testApyPairKeyIsStableAcrossAssetOrderAndCase() {
+        let xor = WalletAssetId.xor.rawValue
+        let pswap = WalletAssetId.pswap.rawValue
+
+        XCTAssertEqual(
+            SoraApyPairKey.make(baseAssetId: xor, targetAssetId: pswap),
+            SoraApyPairKey.make(baseAssetId: pswap.uppercased(), targetAssetId: xor)
+        )
+    }
+
+    func testMapsProductionHistoryElementToWalletHistoryItem() throws {
+        let json = Data(#"""
+        {
+          "id":"0x357177f16f2e7abf1b5780d173392c8157ba0b0d802c3b48aa5a83d665c71dbf",
+          "blockHash":"0xc06a7f48afdc6ca167b2c5eb5ce4a9d83cb92c90510c9c4fcc2071e5569631fd",
+          "module":"liquidityProxy",
+          "method":"swap",
+          "address":"cnSN33HpCwZqxQ4iVf3voVUJ9jx9wPULVMXw6iVgPgkeneNtM",
+          "timestamp":1783361850,
+          "networkFee":"100014612589707326",
+          "execution":{"success":true},
+          "data":{
+            "baseAssetId":"0x020004",
+            "targetAssetId":"0x020000",
+            "baseAssetAmount":"549.647891640506891617",
+            "targetAssetAmount":"1",
+            "selectedMarket":"PoolXYK"
+          }
+        }
+        """#.utf8)
+
+        let element = try JSONDecoder().decode(SubqueryHistoryElement.self, from: json)
+        let item = SoraIndexerHistoryMapper.map(element, address: element.address)
+
+        XCTAssertEqual(item.id, element.identifier)
+        XCTAssertEqual(item.module, "liquidityProxy")
+        XCTAssertEqual(item.method, "swap")
+        XCTAssertEqual(item.timestamp, "1783361850")
+        XCTAssertEqual(item.networkFee, "100014612589707326")
+        XCTAssertTrue(item.success)
+        XCTAssertEqual(
+            item.data?.first(where: { $0.paramName == "selectedMarket" })?.paramValue,
+            "PoolXYK"
+        )
     }
 }

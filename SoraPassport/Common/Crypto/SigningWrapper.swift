@@ -40,6 +40,7 @@ enum SigningWrapperError: Error {
     case missingNetworkSnapshot
     case identityMismatch
     case signatureVerificationFailed
+    case retainedWalletRecoveryRequired
 }
 
 /// Resolves legacy SORA2 signing material without writing or normalizing the
@@ -198,10 +199,16 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
     let keystore: KeystoreProtocol
     let account: AccountItem
     var signingAccount: AccountItem { account }
+    private let recoverySettings: SettingsManagerProtocol?
 
-    init(keystore: KeystoreProtocol, account: AccountItem) {
+    init(
+        keystore: KeystoreProtocol,
+        account: AccountItem,
+        recoverySettings: SettingsManagerProtocol? = SettingsManager.shared
+    ) {
         self.keystore = keystore
         self.account = account
+        self.recoverySettings = recoverySettings
     }
 
     func sign(_ originalData: Data) throws -> IRSignatureProtocol {
@@ -236,6 +243,15 @@ final class SigningWrapper: LifecycleSigningWrapperProtocol {
     private func signLocked(
         _ originalData: Data
     ) throws -> IRSignatureProtocol {
+        if let recoverySettings,
+           SelectedWalletSettings.transactionSigningAvailability(
+               settings: recoverySettings,
+               keystore: keystore,
+               account: account
+           ) == .recoveryRequired {
+            throw SigningWrapperError.retainedWalletRecoveryRequired
+        }
+
         // Recheck the full recovery capability boundary immediately before
         // touching encrypted signing material. This also covers callers that
         // supply an existing lease through background transaction routes.

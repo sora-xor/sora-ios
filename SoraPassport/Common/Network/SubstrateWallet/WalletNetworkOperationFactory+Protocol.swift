@@ -683,7 +683,9 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
     private func swapOperationWrapper(_ info: TransferInfo) -> CompoundOperationWrapper<Data> {
         guard info.asset != info.destination,
             let asset = accountSettings.assets.first(where: { $0.identifier == info.asset }),
-            accountSettings.assets.first(where: { $0.identifier == info.destination }) != nil
+            let destinationAsset = accountSettings.assets.first(
+                where: { $0.identifier == info.destination }
+            )
         else {
             let error = WalletNetworkOperationFactoryError.invalidAsset
             return createCompoundOperation(result: .failure(error))
@@ -694,7 +696,10 @@ extension WalletNetworkOperationFactory: WalletNetworkOperationFactoryProtocol {
             return createCompoundOperation(result: .failure(error))
         }
 
-        guard let amountCall = info.amountCall else {
+        guard let amountCall = info.amountCall(
+            sourcePrecision: asset.precision,
+            destinationPrecision: destinationAsset.precision
+        ) else {
             let error = WalletNetworkOperationFactoryError.invalidContext
             return createCompoundOperation(result: .failure(error))
         }

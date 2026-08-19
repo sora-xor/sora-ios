@@ -66,16 +66,20 @@ actor MarketCapService {
     private var expiredDate: Date = Date()
     private var marketCapInfos: Set<MarketCapInfo> = []
     
-    private func updateMarketCapInfo(with newValues: [MarketCapInfo]) async {
-        // MarketCapInfo identity is assetId-only, so formUnion would retain the
-        // stale equal member instead of replacing its liquidity and delta.
-        for newValue in newValues {
-            marketCapInfos.update(with: newValue)
-        }
+    private func updateMarketCapInfo(
+        with newValues: [MarketCapInfo],
+        replacing assetIds: Set<String>
+    ) async {
+        marketCapInfos = marketCapInfos.filter { !assetIds.contains($0.assetId) }
+        marketCapInfos.formUnion(newValues)
     }
     
     private func updateExpiredDate() async {
         expiredDate = Date().addingTimeInterval(600)
+    }
+
+    private func currentMarketCapInfos() -> Set<MarketCapInfo> {
+        marketCapInfos
     }
 }
 
@@ -93,25 +97,31 @@ extension MarketCapService: MarketCapServiceProtocol {
         }
         return await withCheckedContinuation { continuation in
             let searchableInfo = Set(assetIds.map { MarketCapInfo(assetId: $0) })
-            let result = searchableInfo.subtracting(marketCapInfos)
-            let cacheExpired = expiredDate < Date()
+            let missingInfo = searchableInfo.subtracting(marketCapInfos)
+            let isExpired = expiredDate < Date()
             
-            guard cacheExpired || !result.isEmpty else {
+            guard isExpired || !missingInfo.isEmpty else {
                 continuation.resume(returning: marketCapInfos)
                 return
             }
             
-            // Refresh the complete non-empty requested subset after expiry.
-            // Query only missing identities while the cache is still fresh.
-            let findAssetIds = cacheExpired
-                ? assetIds
-                : result.map { $0.assetId }
+            let findAssetIds = (isExpired ? searchableInfo : missingInfo).map { $0.assetId }
+            guard !findAssetIds.isEmpty else {
+                continuation.resume(returning: marketCapInfos)
+                return
+            }
             
             let queryOperation = SubqueryMarketCapInfoOperation<[AssetsInfo]>(baseUrl: ConfigService.shared.config.subqueryURL, assetIds: findAssetIds)
 
             queryOperation.completionBlock = { [weak self] in
-                guard let self = self, let response = try? queryOperation.extractNoCancellableResultData() else {
+                guard let self else {
                     continuation.resume(returning: [])
+                    return
+                }
+                guard let response = try? queryOperation.extractNoCancellableResultData() else {
+                    Task {
+                        continuation.resume(returning: await self.currentMarketCapInfos())
+                    }
                     return
                 }
 
@@ -141,9 +151,12 @@ extension MarketCapService: MarketCapServiceProtocol {
                 }
 
                 Task {
-                    await self.updateMarketCapInfo(with: result)
+                    await self.updateMarketCapInfo(
+                        with: result,
+                        replacing: Set(findAssetIds)
+                    )
                     await self.updateExpiredDate()
-                    await continuation.resume(returning: self.marketCapInfos)
+                    continuation.resume(returning: await self.currentMarketCapInfos())
                 }
             }
 

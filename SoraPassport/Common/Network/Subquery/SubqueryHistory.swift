@@ -85,6 +85,8 @@ struct SubqueryHistoryElement: Decodable {
         case timestamp
         case blockHash
         case address
+        case module
+        case method
         case fee = "networkFee"
         case data
         case execution
@@ -94,6 +96,8 @@ struct SubqueryHistoryElement: Decodable {
     let timestamp: SubqueryTimestamp
     let blockHash: String
     let address: String
+    let module: String
+    let method: String
     let fee: String
     let data: JSON
     let execution: SubqueryExecution

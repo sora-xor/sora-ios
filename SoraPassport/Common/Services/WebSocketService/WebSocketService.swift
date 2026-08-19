@@ -37,12 +37,12 @@ import SSFUtils
 final class WebSocketService: WebSocketServiceProtocol {
     //Should be used only once, at startup
     static let shared: WebSocketService = {
-        let lastUrl: URL
-        if let url = SettingsManager.shared.lastSuccessfulUrl {
-            lastUrl = url
-        } else {
-            lastUrl = ApplicationConfig.shared.defaultChainNodes.first!.url
-        }
+        let defaultNodes = ApplicationConfig.shared.defaultChainNodes
+            .sorted { $0.url.absoluteString < $1.url.absoluteString }
+        let defaultURLs = Set(defaultNodes.map(\.url))
+        let lastUrl = SettingsManager.shared.lastSuccessfulUrl
+            .flatMap { defaultURLs.contains($0) ? $0 : nil }
+            ?? defaultNodes[0].url
 
         let settings = WebSocketServiceSettings(
             url: lastUrl,

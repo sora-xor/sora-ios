@@ -79,10 +79,17 @@ extension ConfigService: ConfigServiceProtocol {
                 completion()
                 return
             }
-            let nodes: Set<ChainNodeModel> = Set(response.nodes.compactMap({ node in
-                guard let url = URL(string: node.address) else { return nil }
-                return ChainNodeModel(url: url, name: node.name, apikey: nil)
-            }))
+            let approvedNodes = ApplicationConfig.shared.defaultChainNodes
+            let approvedURLs = Set(approvedNodes.map(\.url))
+            let remoteApprovedURLs = Set(response.nodes.compactMap { node -> URL? in
+                guard let url = URL(string: node.address), approvedURLs.contains(url) else {
+                    return nil
+                }
+                return url
+            })
+            let nodes = remoteApprovedURLs.isEmpty
+                ? approvedNodes
+                : Set(approvedNodes.filter { remoteApprovedURLs.contains($0.url) })
             self.config = RemoteConfig(polkaswapIndexerUrlString: ApplicationConfig.shared.polkaswapIndexerURL.absoluteString,
                                        typesUrlString: response.substrateTypesUrl,
                                        defaultNodes: nodes)

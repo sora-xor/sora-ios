@@ -33,7 +33,22 @@ import Foundation
 
 struct PIExactApyInfo: Equatable, Sendable {
     let id: String
+    let pairKey: String?
     let sbApy: PIQuantity?
+
+    init(id: String, pairKey: String? = nil, sbApy: PIQuantity?) {
+        self.id = id
+        self.pairKey = pairKey
+        self.sbApy = sbApy
+    }
+}
+
+enum SoraApyPairKey {
+    static func make(baseAssetId: String, targetAssetId: String) -> String {
+        [baseAssetId.lowercased(), targetAssetId.lowercased()]
+            .sorted()
+            .joined(separator: "|")
+    }
 }
 
 public final class SubqueryApyInfoOperation<ResultType>: PIAsyncOperation<ResultType> {
@@ -48,6 +63,14 @@ public final class SubqueryApyInfoOperation<ResultType>: PIAsyncOperation<Result
         let values = try await client.allPoolXYKs().map { pool in
             PIExactApyInfo(
                 id: pool.id,
+                pairKey: pool.baseAssetId.flatMap { baseAssetId in
+                    pool.targetAssetId.map { targetAssetId in
+                        SoraApyPairKey.make(
+                            baseAssetId: baseAssetId,
+                            targetAssetId: targetAssetId
+                        )
+                    }
+                },
                 sbApy: pool.strategicBonusApy
             )
         }

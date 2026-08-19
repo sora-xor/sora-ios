@@ -54,7 +54,7 @@ struct AssetInfoDto: ScaleCodable {
 }
 
 protocol AssetsInfoProviderProtocol {
-    func load(completion: ([AssetInfo]) -> Void)
+    func load(completion: @escaping ([AssetInfo]) -> Void)
 }
 
 final class AssetsInfoProvider: AssetsInfoProviderProtocol {
@@ -65,6 +65,7 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
     let chainId: String?
 
     let keysPageSize: UInt32 = 100
+    let maxAssetInfoAttempts = 3
 
     var keysOnCurrentPageCount = 0
     var currentLastKey: String? = nil
@@ -80,31 +81,49 @@ final class AssetsInfoProvider: AssetsInfoProviderProtocol {
         self.chainId = chainId
     }
 
-    func load(completion: ([AssetInfo]) -> Void) {
-        loadAssetsInfoKeys() { [weak self] in
-            self?.loadInfo(completion: completion)
-        }
+    func load(completion: @escaping ([AssetInfo]) -> Void) {
+        load(attemptsRemaining: maxAssetInfoAttempts, completion: completion)
     }
-    
-    private func loadInfo(completion: ([AssetInfo]) -> Void) {
+
+    private func load(attemptsRemaining: Int, completion: @escaping ([AssetInfo]) -> Void) {
+        resetLoadState()
+        loadAssetsInfoKeys()
         loadAssetsInfo()
+
         if !assetsInfo.isEmpty {
             completion(assetsInfo)
             return
         }
-        loadInfo(completion: completion)
+
+        guard attemptsRemaining > 1 else {
+            Logger.shared.error("Failed to load asset info after \(maxAssetInfoAttempts) attempts")
+            completion([])
+            return
+        }
+
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 1) {
+            self.load(attemptsRemaining: attemptsRemaining - 1, completion: completion)
+        }
+    }
+
+    private func resetLoadState() {
+        keysOnCurrentPageCount = 0
+        currentLastKey = nil
+        currentGetKeysOperation = nil
+        keys = []
+        assetsInfo = []
     }
 
     //MARK: - Load Keys
 
-    func loadAssetsInfoKeys(completion: (() -> Void?)) {
+    func loadAssetsInfoKeys(completion: (() -> Void)? = nil) {
         currentGetKeysOperation = nextGetKeysOperation()
         while(currentGetKeysOperation != nil) {
             guard let currentGetKeysOperation = currentGetKeysOperation else { break }
             performGetKeysOperation(currentGetKeysOperation)
             self.currentGetKeysOperation = nextGetKeysOperation()
         }
-        completion()
+        completion?()
     }
 
     func nextGetKeysOperation() -> JSONRPCOperation<[JSONAny], [String]>? {

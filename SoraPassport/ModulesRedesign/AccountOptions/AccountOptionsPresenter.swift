@@ -60,7 +60,11 @@ final class AccountOptionsPresenter {
     private var backupState: BackupState {
         didSet {
             DispatchQueue.main.async {
-                self.view?.setupOptions(with: self.backupState, hasEntropy: self.interactor.accountHasEntropy)
+                self.view?.setupOptions(
+                    with: self.backupState,
+                    hasEntropy: self.interactor.accountHasEntropy,
+                    canManageBackup: self.interactor.canManageCloudBackup
+                )
             }
         }
     }
@@ -91,14 +95,34 @@ final class AccountOptionsPresenter {
     }
     
     private func showPasswordScreen(with account: OpenBackupAccount?) {
+        guard interactor.canManageCloudBackup else {
+            presentBackupUnavailable()
+            return
+        }
         guard let account else { return }
         wireframe?.setupBackupAccountPassword(on: view,
                                               account: account,
                                               completion: { [weak self] in
             guard let self = self else { return }
             self.backupState = ApplicationConfig.shared.backupedAccountAddresses.contains(account.address) ? .backedUp : .notBackedUp
-            self.view?.setupOptions(with: self.backupState, hasEntropy: self.interactor.accountHasEntropy)
+            self.view?.setupOptions(
+                with: self.backupState,
+                hasEntropy: self.interactor.accountHasEntropy,
+                canManageBackup: self.interactor.canManageCloudBackup
+            )
         })
+    }
+
+    private func presentBackupUnavailable() {
+        view?.present(
+            message: nil,
+            title: recoveryText(
+                "wallet.backup.change.unavailable",
+                fallback: "Backup cannot be changed while wallet signing is unavailable. Restore this wallet first to protect the existing backup."
+            ),
+            closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+            from: view
+        )
     }
     
     private func showAlert(about account: OpenBackupAccount?) {
@@ -121,7 +145,11 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     func setup() {
         view?.didReceive(username: interactor.currentAccount.username)
         view?.didReceive(address: interactor.currentAccount.address)
-        view?.setupOptions(with: backupState, hasEntropy: interactor.accountHasEntropy)
+        view?.setupOptions(
+            with: backupState,
+            hasEntropy: interactor.accountHasEntropy,
+            canManageBackup: interactor.canManageCloudBackup
+        )
     }
 
     func didUpdateUsername(_ new: String) {
@@ -147,6 +175,10 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     }
     
     func deleteBackup() {
+        guard interactor.canManageCloudBackup else {
+            presentBackupUnavailable()
+            return
+        }
         view?.showLoading()
         interactor.deleteBackup { [weak self] error in
             self?.view?.hideLoading()
@@ -162,6 +194,10 @@ extension AccountOptionsPresenter: AccountOptionsPresenterProtocol {
     }
     
     func createBackup() {
+        guard interactor.canManageCloudBackup else {
+            presentBackupUnavailable()
+            return
+        }
         view?.showLoading()
         ApplicationConfig.shared.updateAvailableBackupedAccounts(account: interactor.currentAccount)
         interactor.signInToGoogleIfNeeded { [weak self] account in

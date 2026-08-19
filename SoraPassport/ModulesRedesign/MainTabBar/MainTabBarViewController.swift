@@ -31,14 +31,45 @@
 import UIKit
 import SoraUIKit
 import SoraFoundation
+import SoraKeystore
+
+extension Notification.Name {
+    static let retainedWalletSigningRestored = Notification.Name(
+        "co.jp.soramitsu.sora.retained-wallet-signing-restored"
+    )
+}
 
 final class MainTabBarViewController: UITabBarController {
-	var presenter: MainTabBarPresenterProtocol!
+    var presenter: MainTabBarPresenterProtocol!
     var middleButtonHadler: (() -> Void)?
+    private(set) var isRecoveryReadOnly = false
+    var recoveryRestoreHandler: (() -> Void)?
     private var viewAppeared: Bool = false
+    private(set) var recoveryInteractionShield: UIView?
+    private var recoveryRestoredObserver: NSObjectProtocol?
+    var recoveryRequiredProvider: (() -> Bool)?
+    private var recoveryBannerTopConstraint: NSLayoutConstraint?
+    private var recoveryOriginalAdditionalSafeAreaTop: CGFloat?
+
+    deinit {
+        if let recoveryRestoredObserver {
+            NotificationCenter.default.removeObserver(recoveryRestoredObserver)
+        }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        recoveryRestoredObserver = NotificationCenter.default.addObserver(
+            forName: .retainedWalletSigningRestored,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, !self.recoveryIsStillRequired() else {
+                return
+            }
+            self.disableRecoveryReadOnlyMode()
+        }
 
         self.delegate = self
 
@@ -57,6 +88,12 @@ final class MainTabBarViewController: UITabBarController {
         
         SoramitsuUI.updates.addObserver(self)
         configureTabBar()
+
+        if isRecoveryReadOnly, recoveryIsStillRequired() {
+            configureRecoveryReadOnlyMode()
+        } else {
+            isRecoveryReadOnly = false
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -66,6 +103,58 @@ final class MainTabBarViewController: UITabBarController {
             viewAppeared = true
             presenter.setup()
         }
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateRecoveryBannerLayout()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateRecoveryBannerLayout()
+    }
+
+    func enableRecoveryReadOnlyMode() {
+        isRecoveryReadOnly = true
+
+        // Creation can race a successful background recovery after the factory sampled
+        // recovery state. Never recreate a shield from that stale decision.
+        guard recoveryIsStillRequired() else {
+            disableRecoveryReadOnlyMode()
+            return
+        }
+
+        if isViewLoaded, recoveryInteractionShield == nil {
+            configureRecoveryReadOnlyMode()
+        }
+    }
+
+    func disableRecoveryReadOnlyMode() {
+        isRecoveryReadOnly = false
+        if let originalAdditionalSafeAreaTop = recoveryOriginalAdditionalSafeAreaTop {
+            additionalSafeAreaInsets.top = originalAdditionalSafeAreaTop
+        }
+        recoveryOriginalAdditionalSafeAreaTop = nil
+        recoveryBannerTopConstraint = nil
+        recoveryInteractionShield?.removeFromSuperview()
+        recoveryInteractionShield = nil
+    }
+
+    private func recoveryIsStillRequired() -> Bool {
+        if let recoveryRequiredProvider {
+            return recoveryRequiredProvider()
+        }
+
+        guard let account = SelectedWalletSettings.shared.currentAccount else {
+            return isRecoveryReadOnly
+        }
+
+        return SelectedWalletSettings.requiresRecoveryReadOnlyMode(
+            settings: SettingsManager.shared,
+            keystore: Keychain(),
+            account: account
+        )
     }
 
     private func configureTabBar() {
@@ -82,6 +171,107 @@ final class MainTabBarViewController: UITabBarController {
             $0.setTitleTextAttributes(normalAttributes, for: .normal)
             $0.setTitleTextAttributes(selectedAttributes, for: .selected)
         }
+    }
+
+    private func configureRecoveryReadOnlyMode() {
+        let banner = UIView()
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        banner.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.96)
+        banner.layer.cornerRadius = 12
+        banner.accessibilityIdentifier = "walletRecovery.banner"
+
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = recoveryText(
+            "wallet.recovery.banner",
+            fallback: "Wallet access needs restoring. You can still view balances and receive funds, but signing is unavailable."
+        )
+        label.textColor = .black
+        label.font = UIFont.preferredFont(forTextStyle: .subheadline)
+        label.adjustsFontForContentSizeCategory = true
+        label.numberOfLines = 0
+        label.textAlignment = .center
+
+        let restoreButton = UIButton(type: .system)
+        restoreButton.translatesAutoresizingMaskIntoConstraints = false
+        restoreButton.setTitle(
+            R.string.localizable.recoveryTitle(preferredLanguages: .currentLocale),
+            for: .normal
+        )
+        restoreButton.setTitleColor(.black, for: .normal)
+        restoreButton.titleLabel?.font = UIFont.preferredFont(forTextStyle: .headline)
+        restoreButton.titleLabel?.adjustsFontForContentSizeCategory = true
+        restoreButton.backgroundColor = UIColor.white.withAlphaComponent(0.9)
+        restoreButton.layer.cornerRadius = 8
+        restoreButton.accessibilityHint = recoveryText(
+            "wallet.recovery.banner.action.hint",
+            fallback: "Choose how to restore the signing key for this wallet"
+        )
+        restoreButton.accessibilityIdentifier = "walletRecovery.banner.restore"
+        restoreButton.addTarget(self, action: #selector(restoreWallet), for: .touchUpInside)
+
+        banner.addSubview(label)
+        banner.addSubview(restoreButton)
+        view.addSubview(banner)
+        recoveryInteractionShield = banner
+
+        let originalAdditionalSafeAreaTop = additionalSafeAreaInsets.top
+        recoveryOriginalAdditionalSafeAreaTop = originalAdditionalSafeAreaTop
+        let systemTopInset = max(0, view.safeAreaInsets.top - originalAdditionalSafeAreaTop)
+        let topConstraint = banner.topAnchor.constraint(
+            equalTo: view.topAnchor,
+            constant: systemTopInset + originalAdditionalSafeAreaTop + 8
+        )
+        recoveryBannerTopConstraint = topConstraint
+
+        NSLayoutConstraint.activate([
+            banner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            banner.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            topConstraint,
+            label.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 14),
+            label.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -14),
+            label.topAnchor.constraint(equalTo: banner.topAnchor, constant: 10),
+            restoreButton.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 14),
+            restoreButton.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -14),
+            restoreButton.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 10),
+            restoreButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            restoreButton.bottomAnchor.constraint(equalTo: banner.bottomAnchor, constant: -10)
+        ])
+
+        view.layoutIfNeeded()
+        updateRecoveryBannerLayout()
+
+        UIAccessibility.post(notification: .screenChanged, argument: label)
+    }
+
+    private func updateRecoveryBannerLayout() {
+        guard let banner = recoveryInteractionShield,
+              let originalAdditionalSafeAreaTop = recoveryOriginalAdditionalSafeAreaTop else {
+            return
+        }
+
+        let systemTopInset = max(
+            0,
+            view.safeAreaInsets.top - additionalSafeAreaInsets.top
+        )
+        recoveryBannerTopConstraint?.constant = systemTopInset + originalAdditionalSafeAreaTop + 8
+
+        let fittingWidth = max(0, view.bounds.width - 32)
+        guard fittingWidth > 0 else { return }
+
+        let bannerHeight = banner.systemLayoutSizeFitting(
+            CGSize(width: fittingWidth, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ).height
+        let reservedTop = originalAdditionalSafeAreaTop + bannerHeight + 16
+        if abs(additionalSafeAreaInsets.top - reservedTop) > 0.5 {
+            additionalSafeAreaInsets.top = reservedTop
+        }
+    }
+
+    @objc private func restoreWallet() {
+        recoveryRestoreHandler?()
     }
 }
 
@@ -112,6 +302,9 @@ extension MainTabBarViewController: MainTabBarViewProtocol {
         newViewControllers[index] = newView
 
         self.setViewControllers(newViewControllers, animated: false)
+        if let recoveryInteractionShield {
+            self.view.bringSubviewToFront(recoveryInteractionShield)
+        }
     }
 }
 

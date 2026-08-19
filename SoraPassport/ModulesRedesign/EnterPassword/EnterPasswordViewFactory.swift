@@ -39,7 +39,11 @@ final class EnterPasswordViewFactory {
     static func createView(
         with selectedAddress: String,
         backedUpAccounts: [OpenBackupAccount],
-        endAddingBlock: (() -> Void)? = nil
+        endAddingBlock: (() -> Void)? = nil,
+        recoveryAccount: AccountItem? = nil,
+        googleAccountEmail: String? = nil,
+        expectedGoogleAccountID: String? = nil,
+        cloudStorageService: CloudStorageServiceProtocol? = nil
     ) -> EnterPasswordViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
@@ -55,22 +59,42 @@ final class EnterPasswordViewFactory {
             = UserDataStorageFacade.shared.createRepository()
         
         let view = EnterPasswordViewController()
-        let cloudStorage = CloudStorageService(uiDelegate: view)
+        let cloudStorage = cloudStorageService ?? CloudStorageService(uiDelegate: view)
         
-        let interactor = AccountImportInteractor(accountOperationFactory: accountOperationFactory,
-                                                 accountRepository: AnyDataProviderRepository(accountRepository),
-                                                 operationManager: OperationManagerFacade.sharedManager,
-                                                 settings: settings,
-                                                 keystoreImportService: keystoreImportService,
-                                                 eventCenter: EventCenter.shared,
-                                                 cloudStorage: cloudStorage)
+        let interactor: BaseAccountImportInteractor
+        if let recoveryAccount {
+            interactor = AddAccountImportInteractor(
+                accountOperationFactory: accountOperationFactory,
+                accountRepository: AnyDataProviderRepository(accountRepository),
+                operationManager: OperationManagerFacade.sharedManager,
+                settings: settings,
+                keystoreImportService: keystoreImportService,
+                eventCenter: EventCenter.shared,
+                cloudStorage: cloudStorage,
+                recoveryAccount: recoveryAccount
+            )
+        } else {
+            interactor = AccountImportInteractor(
+                accountOperationFactory: accountOperationFactory,
+                accountRepository: AnyDataProviderRepository(accountRepository),
+                operationManager: OperationManagerFacade.sharedManager,
+                settings: settings,
+                keystoreImportService: keystoreImportService,
+                eventCenter: EventCenter.shared,
+                cloudStorage: cloudStorage
+            )
+        }
 
         let wireframe = EnterPasswordWireframe(currentController: view, endAddingBlock: endAddingBlock)
         let viewModel = EnterPasswordViewModel(selectedAddress: selectedAddress,
                                                backedUpAccounts: backedUpAccounts,
                                                interactor: interactor,
                                                wireframe: wireframe,
-                                               view: view)
+                                               view: view,
+                                               isRecovery: recoveryAccount != nil,
+                                               recoveryAccount: recoveryAccount,
+                                               googleAccountEmail: googleAccountEmail,
+                                               expectedGoogleAccountID: expectedGoogleAccountID)
         interactor.presenter = viewModel
         view.viewModel = viewModel
 

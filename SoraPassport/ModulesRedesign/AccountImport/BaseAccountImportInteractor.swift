@@ -53,6 +53,7 @@ class BaseAccountImportInteractor {
     let defaultNetwork: Chain
     let cloudStorage: CloudStorageServiceProtocol?
     let allowedMnemonicWordCounts: Set<Int>
+    let exactMobileBackupOnly: Bool
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -62,7 +63,8 @@ class BaseAccountImportInteractor {
          defaultNetwork: Chain,
          cloudStorage: CloudStorageServiceProtocol?,
          allowedMnemonicWordCounts: Set<Int> =
-             WalletMnemonicWordPolicy.userImportWordCounts) {
+             WalletMnemonicWordPolicy.userImportWordCounts,
+         exactMobileBackupOnly: Bool = false) {
         precondition(
             !allowedMnemonicWordCounts.isEmpty &&
                 allowedMnemonicWordCounts.isSubset(
@@ -77,6 +79,7 @@ class BaseAccountImportInteractor {
         self.defaultNetwork = defaultNetwork
         self.cloudStorage = cloudStorage
         self.allowedMnemonicWordCounts = allowedMnemonicWordCounts
+        self.exactMobileBackupOnly = exactMobileBackupOnly
     }
 
     private func setupKeystoreImportObserver() {
@@ -153,10 +156,39 @@ class BaseAccountImportInteractor {
                                                        networkType: .sora,
                                                        cryptoType: CryptoType(type: account.cryptoType ?? "SR25519"))
             importAccountWithKeystore(request: request)
-
+            return
         }
         
         presenter.didReceiveAccountImport(error: ImportAccountError.unexpectedError)
+    }
+
+    static func fetchBackedUpAccount(
+        cloudStorage: CloudStorageServiceProtocol,
+        request: AccountImportBackedupRequest,
+        exactMobileBackupOnly: Bool
+    ) async throws -> OpenBackupAccount {
+        guard exactMobileBackupOnly else {
+            return try await cloudStorage.importBackup(
+                account: request.account,
+                password: request.password
+            )
+        }
+
+        if let expectedCloudAccountID = request.expectedCloudAccountID {
+            return try await cloudStorage.importMobileBackupIfAuthorized(
+                account: request.account,
+                password: request.password,
+                expectedAccountUserID: expectedCloudAccountID
+            )
+        }
+
+        guard try await cloudStorage.signInIfNeeded() == .authorized else {
+            throw CloudStorageServiceError.notAuthorized
+        }
+        return try await cloudStorage.importMobileBackupIfAuthorized(
+            account: request.account,
+            password: request.password
+        )
     }
 }
 
@@ -254,10 +286,18 @@ extension BaseAccountImportInteractor: AccountImportInteractorInputProtocol {
         Task { [weak self] in
             guard let cloudStorage = self?.cloudStorage else { return }
             do {
-                let account = try await cloudStorage.importBackup(account: request.account, password: request.password)
-                self?.importAccount(account, password: request.password)
+                let account = try await Self.fetchBackedUpAccount(
+                    cloudStorage: cloudStorage,
+                    request: request,
+                    exactMobileBackupOnly: self?.exactMobileBackupOnly == true
+                )
+                await MainActor.run { [weak self] in
+                    self?.importAccount(account, password: request.password)
+                }
             } catch {
-                self?.presenter.didReceiveAccountImport(error: error)
+                await MainActor.run { [weak self] in
+                    self?.presenter.didReceiveAccountImport(error: error)
+                }
             }
         }
     }

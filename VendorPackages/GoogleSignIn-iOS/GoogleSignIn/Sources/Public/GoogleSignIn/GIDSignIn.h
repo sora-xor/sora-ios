@@ -95,6 +95,10 @@ typedef NS_ERROR_ENUM(kGIDSignInErrorDomain, GIDSignInErrorCode) {
 - (void)restorePreviousSignInWithCompletion:(nullable void (^)(GIDGoogleUser *_Nullable user,
                                                                NSError *_Nullable error))completion;
 
+/// Restores saved sign-in state from this app's keychain without refreshing tokens or starting
+/// an authorization flow. Returns whether a user is available in memory afterward.
+- (BOOL)restorePreviousSignInWithoutRefresh;
+
 /// Signs out the `currentUser`, removing it from the keychain.
 - (void)signOut;
 
@@ -162,6 +166,22 @@ typedef NS_ERROR_ENUM(kGIDSignInErrorDomain, GIDSignInErrorCode) {
 - (void)signInWithPresentingViewController:(UIViewController *)presentingViewController
                                       hint:(nullable NSString *)hint
                           additionalScopes:(nullable NSArray<NSString *> *)additionalScopes
+                                completion:
+    (nullable void (^)(GIDSignInResult *_Nullable signInResult,
+                       NSError *_Nullable error))completion
+    NS_EXTENSION_UNAVAILABLE("The sign-in flow is not supported in App Extensions.");
+
+/// Starts an interactive sign-in flow and optionally requires Google's account selector.
+///
+/// @param presentingViewController The view controller used to present the authorization flow.
+/// @param hint An optional login hint.
+/// @param additionalScopes Scopes requested in addition to the basic profile scopes.
+/// @param forceAccountSelection Whether the authorization request must show account selection.
+/// @param completion The optional block called when sign-in completes.
+- (void)signInWithPresentingViewController:(UIViewController *)presentingViewController
+                                      hint:(nullable NSString *)hint
+                          additionalScopes:(nullable NSArray<NSString *> *)additionalScopes
+                     forceAccountSelection:(BOOL)forceAccountSelection
                                 completion:
     (nullable void (^)(GIDSignInResult *_Nullable signInResult,
                        NSError *_Nullable error))completion

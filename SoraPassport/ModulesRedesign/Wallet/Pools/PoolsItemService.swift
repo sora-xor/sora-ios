@@ -39,6 +39,7 @@ final class PoolsItemService {
     let poolViewModelsFactory: PoolViewModelFactory
     var fiatData: [PIExactFiatData] = []
     var updateHandler: (() -> Void)?
+    private var updateGeneration = 0
     
     @Published var poolViewModels: [PoolViewModel] = [
         PoolViewModel(identifier: "1", title: "", subtitle: "", fiatText: ""),
@@ -61,21 +62,36 @@ final class PoolsItemService {
     }
     
     func setup(with pools: [PoolInfo]) {
+        Task { @MainActor [weak self] in
+            self?.setupOnMain(with: pools)
+        }
+    }
+
+    @MainActor
+    private func setupOnMain(with pools: [PoolInfo]) {
+        let favoritePools = pools.filter(\.isFavorite)
+
         if fiatData.isEmpty {
-            poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
+            poolViewModels = favoritePools.compactMap { item in
                 return poolViewModelsFactory.createPoolViewModel(with: item, fiatData: [], mode: .view)
             }
 
             updateHandler?()
         }
-        
-        Task { [weak self] in
+
+        updateGeneration += 1
+        let generation = updateGeneration
+        let assetIds = Array(Set(favoritePools.flatMap { [$0.baseAssetId, $0.targetAssetId] }))
+        Task { @MainActor [weak self] in
             guard let self else { return }
 
-            let fiatData = await self.fiatService?.getFiat() ?? []
+            let fiatData = await self.fiatService?.getFiat(for: assetIds) ?? []
+            guard generation == self.updateGeneration, !Task.isCancelled else {
+                return
+            }
             self.fiatData = fiatData
             
-            let fiatDecimal = pools.filter { $0.isFavorite }.reduce(Decimal(0), { partialResult, pool in
+            let fiatDecimal = favoritePools.reduce(Decimal(0), { partialResult, pool in
                 if let baseAssetPriceUsd = fiatData.first(where: { $0.id == pool.baseAssetId })?.priceUsd?.decimalValue,
                    let targetAssetPriceUsd = fiatData.first(where: { $0.id == pool.targetAssetId })?.priceUsd?.decimalValue,
                    let baseAssetPooledByAccount = pool.baseAssetPooledByAccount,
@@ -90,7 +106,7 @@ final class PoolsItemService {
             
             moneyText = "$" + (NumberFormatter.fiat.stringFromDecimal(fiatDecimal) ?? "")
             
-            poolViewModels = pools.filter { $0.isFavorite }.compactMap { item in
+            poolViewModels = favoritePools.compactMap { item in
                 return self.poolViewModelsFactory.createPoolViewModel(with: item, fiatData: fiatData, mode: .view)
             }
             updateHandler?()

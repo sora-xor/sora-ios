@@ -33,7 +33,37 @@ import SoraUIKit
 
 import RobinHood
 import SoraFoundation
+import SoraKeystore
 import sorawallet
+
+enum WalletSigningUnavailableAlertFactory {
+    static func create(
+        availability: WalletTransactionSigningAvailability,
+        recoveryAction: @escaping () -> Void
+    ) -> AlertPresentableViewModel? {
+        let message: String
+        switch availability {
+        case .available:
+            return nil
+        case .recoveryRequired:
+            message = "Your funds remain on-chain, but this app cannot sign because the wallet key is unavailable after the update. Import the exact wallet passphrase, raw seed, or JSON backup to restore signing."
+        case .missingKey:
+            message = "Your funds remain on-chain, but the signing key for this wallet is unavailable. Import the exact wallet passphrase, raw seed, or JSON backup to restore signing."
+        }
+
+        let recovery = AlertPresentableAction(
+            title: R.string.localizable.recoveryTitleV2(preferredLanguages: .currentLocale),
+            handler: recoveryAction
+        )
+
+        return AlertPresentableViewModel(
+            title: "Wallet signing unavailable",
+            message: message,
+            actions: [recovery],
+            closeAction: R.string.localizable.commonCancel(preferredLanguages: .currentLocale)
+        )
+    }
+}
 
 final class SwapViewModel {
     var detailsItem: PoolDetailsItem?
@@ -211,8 +241,10 @@ final class SwapViewModel {
 
     private var quote: SwapValues?
     private var quoteParams: PolkaswapMainInteractorQuoteParams?
-    
+
     private let feeProvider: FeeProviderProtocol
+    private let signingAvailabilityProvider: () -> WalletTransactionSigningAvailability
+    private let signingRecoveryPresenter: (UIViewController?) -> Void
     private var fiatData: [PIExactFiatData] = [] {
         didSet {
             updateAssetsBalance()
@@ -299,7 +331,23 @@ final class SwapViewModel {
         lpServiceFee: LPFeeServiceProtocol,
         polkaswapNetworkFacade: PolkaswapNetworkOperationFactoryProtocol?,
         warningViewModelFactory: WarningViewModelFactory = WarningViewModelFactory(),
-        marketCapService: MarketCapServiceProtocol
+        marketCapService: MarketCapServiceProtocol,
+        signingAvailabilityProvider: @escaping () -> WalletTransactionSigningAvailability = {
+            guard let account = SelectedWalletSettings.shared.currentAccount else {
+                return .missingKey
+            }
+
+            return SelectedWalletSettings.transactionSigningAvailability(
+                settings: SettingsManager.shared,
+                keystore: Keychain(),
+                account: account
+            )
+        },
+        signingRecoveryPresenter: @escaping (UIViewController?) -> Void = { controller in
+            DispatchQueue.main.async {
+                MainTabBarViewFactory.presentRetainedWalletRecovery(from: controller)
+            }
+        }
     ) {
         self.assetsProvider = assetsProvider
         self.fiatService = fiatService
@@ -316,6 +364,8 @@ final class SwapViewModel {
         self.polkaswapNetworkFacade = polkaswapNetworkFacade
         self.warningViewModelFactory = warningViewModelFactory
         self.marketCapService = marketCapService
+        self.signingAvailabilityProvider = signingAvailabilityProvider
+        self.signingRecoveryPresenter = signingRecoveryPresenter
         self.eventCenter.add(observer: self)
     }
 }
@@ -444,6 +494,12 @@ extension SwapViewModel: LiquidityViewModelProtocol {
     
     func reviewButtonTapped() {
         guard let assetManager = assetManager, let amounts = amounts, let quoteParams = quoteParams else { return }
+        let signingAvailability = signingAvailabilityProvider()
+        guard signingAvailability == .available else {
+            presentSigningUnavailable(signingAvailability)
+            return
+        }
+
         wireframe?.showSwapConfirmation(on: view?.controller.navigationController,
                                         baseAssetId: firstAssetId,
                                         targetAssetId: secondAssetId,
@@ -464,6 +520,22 @@ extension SwapViewModel: LiquidityViewModelProtocol {
                                         assetsProvider: assetsProvider,
                                         fiatData: fiatData,
                                         polkaswapNetworkFacade: polkaswapNetworkFacade)
+    }
+
+    private func presentSigningUnavailable(
+        _ availability: WalletTransactionSigningAvailability
+    ) {
+        guard let alert = WalletSigningUnavailableAlertFactory.create(
+            availability: availability,
+            recoveryAction: { [weak self] in
+                guard let self else { return }
+                self.signingRecoveryPresenter(self.view?.controller)
+            }
+        ) else {
+            return
+        }
+
+        wireframe?.present(viewModel: alert, style: .alert, from: view)
     }
     
     func recalculate(field: FocusedField) {}

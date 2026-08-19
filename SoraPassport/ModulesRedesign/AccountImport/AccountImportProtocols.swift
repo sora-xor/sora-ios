@@ -39,7 +39,9 @@ protocol AccountImportViewProtocol: ControllerBackedProtocol {
     func setPassword(viewModel: InputViewModelProtocol)
     func setDerivationPath(viewModel: InputViewModelProtocol)
     func setUploadWarning(message: String)
-    func dismissPresentedController()
+    func setRecoveryMode(_ isRecovery: Bool, account: AccountItem?)
+    func setLoading(_ isLoading: Bool)
+    func dismissPresentedController(completion: (() -> Void)?)
     func resetFocus()
 }
 

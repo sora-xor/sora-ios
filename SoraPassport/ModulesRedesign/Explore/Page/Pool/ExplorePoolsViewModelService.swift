@@ -70,12 +70,7 @@ final class ExplorePoolsViewModelService {
             })
 
             let result = (try? await viewModels) ?? []
-            
-            if result.isEmpty {
-                setup()
-            } else {
-                self.viewModels = result
-            }
+            self.viewModels = result
         }
     }
 }

@@ -51,6 +51,9 @@ final class AssetProvider {
     private let balanceProvider: SingleValueProvider<[BalanceData]>?
     private var observers: [AssetProviderObserver] = []
     private let syncQueue = DispatchQueue(label: "co.jp.soramitsu.sora.balance.provider")
+    private var retryAttempt = 0
+    private var retryWorkItem: DispatchWorkItem?
+    private let maximumRetryAttempts = 3
     
     init(assetInfos: [AssetInfo], providerFactory: BalanceProviderFactory) {
         balanceProvider = try? providerFactory.createBalanceDataProvider(for: assetInfos, onlyVisible: false)
@@ -63,7 +66,9 @@ final class AssetProvider {
             guard let change = changes.first else { return }
             switch change {
             case .insert(let items), .update(let items):
+                self?.cancelRetry()
                 self?.balanceData = items
+                Logger.shared.info("SORA wallet balances loaded: \(items.count)")
                 self?.notify()
             default:
                 break
@@ -74,8 +79,42 @@ final class AssetProvider {
         balanceProvider?.addObserver(self,
                                     deliverOn: .main,
                                     executing: changesBlock,
-                                    failing: { (error: Error) in },
+                                    failing: { [weak self] (_: Error) in
+                                        self?.scheduleRetry()
+                                    },
                                     options: options)
+    }
+
+    private func cancelRetry() {
+        retryWorkItem?.cancel()
+        retryWorkItem = nil
+        retryAttempt = 0
+    }
+
+    private func scheduleRetry() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, retryWorkItem == nil else {
+                return
+            }
+            guard retryAttempt < maximumRetryAttempts else {
+                Logger.shared.error("SORA wallet balance refresh exhausted retries")
+                return
+            }
+
+            retryAttempt += 1
+            let attempt = retryAttempt
+            let delay = TimeInterval(1 << (attempt - 1))
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                retryWorkItem = nil
+                balanceProvider?.refresh()
+            }
+            retryWorkItem = workItem
+            Logger.shared.info(
+                "SORA wallet balance refresh retry: \(attempt)/\(maximumRetryAttempts)"
+            )
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+        }
     }
 }
 

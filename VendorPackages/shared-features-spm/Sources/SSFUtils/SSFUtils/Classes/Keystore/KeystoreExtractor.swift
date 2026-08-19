@@ -90,7 +90,12 @@ public class KeystoreExtractor: KeystoreExtracting {
         let secretKeyData: Data
         switch info.cryptoType {
         case .sr25519:
-            secretKeyData = try SNPrivateKey(fromEd25519: importedSecretData).rawData()
+            guard let convertedSecret = SNSafeKeypairValidator.sr25519SecretKey(
+                fromEd25519: importedSecretData
+            ) else {
+                throw KeystoreExtractorError.unsupportedCryptoType
+            }
+            secretKeyData = convertedSecret
         case .ed25519:
             secretKeyData = importedSecretData
         case .ecdsa:

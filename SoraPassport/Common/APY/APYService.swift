@@ -175,6 +175,16 @@ extension APYService: APYServiceProtocol {
             return nil
         }
 
+        let pairKey = SoraApyPairKey.make(
+            baseAssetId: baseAssetId,
+            targetAssetId: targetAssetId
+        )
+        if let explicitPairApy = catalog.first(where: {
+            $0.pairKey == pairKey
+        })?.sbApy?.decimalValue {
+            return explicitPairApy
+        }
+
         guard
             let poolPropertiesOperation = try? factory.poolProperties(
                 baseAsset: baseAssetId,
@@ -275,6 +285,14 @@ extension APYService: APYServiceProtocol {
         try await client.allPoolXYKs().map { pool in
             PIExactApyInfo(
                 id: pool.id,
+                pairKey: pool.baseAssetId.flatMap { baseAssetId in
+                    pool.targetAssetId.map { targetAssetId in
+                        SoraApyPairKey.make(
+                            baseAssetId: baseAssetId,
+                            targetAssetId: targetAssetId
+                        )
+                    }
+                },
                 sbApy: pool.strategicBonusApy
             )
         }

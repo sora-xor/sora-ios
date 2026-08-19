@@ -38,6 +38,7 @@ import SSFCloudStorage
 final class AddAccountImportInteractor: BaseAccountImportInteractor {
     private(set) var settings: SelectedWalletSettingsProtocol
     let eventCenter: EventCenterProtocol
+    private(set) var recoveryAccount: AccountItem?
 
     init(accountOperationFactory: AccountOperationFactoryProtocol,
          accountRepository: AnyDataProviderRepository<AccountItem>,
@@ -45,9 +46,11 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
          settings: SelectedWalletSettingsProtocol,
          keystoreImportService: KeystoreImportServiceProtocol,
          eventCenter: EventCenterProtocol,
-         cloudStorage: CloudStorageServiceProtocol? = nil) {
+         cloudStorage: CloudStorageServiceProtocol? = nil,
+         recoveryAccount: AccountItem? = nil) {
         self.settings = settings
         self.eventCenter = eventCenter
+        self.recoveryAccount = recoveryAccount
 
         super.init(accountOperationFactory: accountOperationFactory,
                    accountRepository: accountRepository,
@@ -55,7 +58,8 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                    keystoreImportService: keystoreImportService,
                    supportedNetworks: Chain.allCases,
                    defaultNetwork: Chain.sora,
-                   cloudStorage: cloudStorage)
+                   cloudStorage: cloudStorage,
+                   exactMobileBackupOnly: recoveryAccount != nil)
     }
 
     override func importAccountUsingOperation(
@@ -82,6 +86,79 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
             do {
                 let lifecycleLease = try leaseResult.get()
                 let prepared = try preparedResult.get()
+                if let recoveryAccount = self.recoveryAccount {
+                    let checkOperation = self.accountRepository.fetchOperation(
+                        by: prepared.account.address,
+                        options: RepositoryFetchOptions()
+                    )
+                    checkOperation.completionBlock = { [weak self] in
+                        guard let self else {
+                            prepared.discard()
+                            lifecycleLease.release()
+                            return
+                        }
+                        do {
+                            guard
+                                let existingAccount = try checkOperation
+                                    .extractNoCancellableResultData(),
+                                Self.isRecoveryIdentityMatch(
+                                    prepared.account,
+                                    expected: recoveryAccount,
+                                    existing: existingAccount
+                                )
+                            else {
+                                throw AccountCreateError.invalidSeed
+                            }
+
+                            try self.accountOperationFactory
+                                .persistPreparedAccount(prepared)
+                            guard Self.isValidRecoveryReplacement(
+                                prepared.account,
+                                expected: recoveryAccount,
+                                existing: existingAccount,
+                                keystore: Keychain()
+                            ) else {
+                                throw AccountCreateError.invalidSeed
+                            }
+
+                            let recovered = Self.recoveredAccount(
+                                existing: existingAccount,
+                                candidate: prepared.account
+                            )
+                            self.settings.performSelectAfterRemoval(
+                                value: recovered,
+                                lifecycleLease: lifecycleLease
+                            ) { [weak self] result in
+                                if case let .success(accountItem) = result {
+                                    _ = SelectedWalletSettings
+                                        .completeRetainedRecoveryAfterVerifiedImport(
+                                            settings: SettingsManager.shared,
+                                            account: accountItem
+                                        )
+                                }
+                                self?.finishImport(
+                                    result,
+                                    lifecycleLease: lifecycleLease,
+                                    completion: completion
+                                )
+                            }
+                        } catch {
+                            prepared.discard()
+                            lifecycleLease.release()
+                            DispatchQueue.main.async { [weak self] in
+                                self?.presenter?
+                                    .didReceiveAccountImport(error: error)
+                                completion?(.failure(error))
+                            }
+                        }
+                    }
+                    self.operationManager.enqueue(
+                        operations: [checkOperation],
+                        in: .sync
+                    )
+                    return
+                }
+
                 self.settings.performInsertAndSelect(
                     prepared: prepared,
                     persistSecrets: {
@@ -90,24 +167,12 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                     },
                     lifecycleLease: lifecycleLease
                 ) { [weak self] result in
-                    lifecycleLease.release()
-                    DispatchQueue.main.async {
-                        switch result {
-                        case let .success(accountItem):
-                            selectionEventCenter.notify(
-                                with: SelectedAccountChanged(),
-                                completionOnMain: { [weak self] in
-                                    self?.presenter?
-                                        .didCompleteAccountImport()
-                                    completion?(.success(accountItem))
-                                }
-                            )
-                        case let .failure(error):
-                            self?.presenter?
-                                .didReceiveAccountImport(error: error)
-                            completion?(.failure(error))
-                        }
-                    }
+                    self?.finishImport(
+                        result,
+                        lifecycleLease: lifecycleLease,
+                        eventCenter: selectionEventCenter,
+                        completion: completion
+                    )
                 }
             } catch {
                 try? preparedResult.get().discard()
@@ -159,9 +224,20 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
                     }
                     let result: Result<AccountItem?, Error>
                     do {
-                        if try checkOperation
-                            .extractNoCancellableResultData() != nil
-                        {
+                        let existingAccount = try checkOperation
+                            .extractNoCancellableResultData()
+                        if let recoveryAccount = self.recoveryAccount {
+                            guard
+                                let existingAccount,
+                                Self.isRecoveryIdentityMatch(
+                                    prepared.account,
+                                    expected: recoveryAccount,
+                                    existing: existingAccount
+                                )
+                            else {
+                                throw AccountCreateError.invalidSeed
+                            }
+                        } else if existingAccount != nil {
                             throw AccountCreateError.duplicated
                         }
                         result = .success(prepared.account)
@@ -196,5 +272,85 @@ final class AddAccountImportInteractor: BaseAccountImportInteractor {
             operations: [importOperation],
             in: .sync
         )
+    }
+
+    private func finishImport(
+        _ result: Result<AccountItem, Error>,
+        lifecycleLease: WalletLifecycleLease,
+        eventCenter: EventCenterProtocol? = nil,
+        completion: ((Result<AccountItem, Swift.Error>?) -> Void)?
+    ) {
+        lifecycleLease.release()
+        DispatchQueue.main.async { [weak self] in
+            switch result {
+            case let .success(accountItem):
+                (eventCenter ?? self?.eventCenter)?.notify(
+                    with: SelectedAccountChanged(),
+                    completionOnMain: { [weak self] in
+                        self?.presenter?.didCompleteAccountImport()
+                        completion?(.success(accountItem))
+                    }
+                )
+            case let .failure(error):
+                self?.presenter?.didReceiveAccountImport(error: error)
+                completion?(.failure(error))
+            }
+        }
+    }
+
+    private static func isRecoveryIdentityMatch(
+        _ candidate: AccountItem,
+        expected: AccountItem,
+        existing: AccountItem
+    ) -> Bool {
+        candidate.address == expected.address &&
+            candidate.publicKeyData == expected.publicKeyData &&
+            candidate.networkType == expected.networkType &&
+            candidate.cryptoType == expected.cryptoType &&
+            existing.address == expected.address &&
+            existing.publicKeyData == expected.publicKeyData &&
+            existing.networkType == expected.networkType &&
+            existing.cryptoType == expected.cryptoType
+    }
+
+    static func isValidRecoveryReplacement(
+        _ candidate: AccountItem,
+        expected: AccountItem,
+        existing: AccountItem,
+        keystore: KeystoreProtocol
+    ) -> Bool {
+        guard isRecoveryIdentityMatch(
+            candidate,
+            expected: expected,
+            existing: existing
+        ) else {
+            return false
+        }
+
+        if candidate.cryptoType == .sr25519 {
+            guard
+                let secret = try? keystore.fetchSecretKeyForAddress(
+                    candidate.address
+                ),
+                SNSafeKeypairValidator.isValidSr25519SecretKey(
+                    secret,
+                    publicKey: candidate.publicKeyData
+                )
+            else {
+                return false
+            }
+        }
+
+        return SelectedWalletSettings.hasVerifiedSigningKey(
+            keystore: keystore,
+            account: candidate
+        )
+    }
+
+    static func recoveredAccount(
+        existing: AccountItem,
+        candidate: AccountItem
+    ) -> AccountItem {
+        existing.replacingUsername(candidate.username)
     }
 }

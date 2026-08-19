@@ -51,11 +51,56 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
 
     @MainActor
     func showMain(from view: PinSetupViewProtocol?) {
-        guard let mainViewController = MainTabBarViewFactory.createView()?.controller else { return }
+        showMain(from: view, attemptsRemaining: 60)
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            self.rootAnimator.animateTransition(to: mainViewController)
+    @MainActor
+    private func showMain(from view: PinSetupViewProtocol?, attemptsRemaining: Int) {
+        guard MainTabBarViewFactory.isReadyForCreation() else {
+            if attemptsRemaining == 60 {
+                Logger.shared.warning(
+                    "SORA wallet local dependencies are still initializing after unlock"
+                )
+            }
+            guard attemptsRemaining > 0 else {
+                presentWalletStartupRetry(from: view)
+                return
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak view] in
+                guard view?.controller.viewIfLoaded?.window != nil else {
+                    return
+                }
+                self?.showMain(from: view, attemptsRemaining: attemptsRemaining - 1)
+            }
+            return
         }
+
+        guard let mainViewController = MainTabBarViewFactory.createView()?.controller else {
+            presentWalletStartupRetry(from: view)
+            return
+        }
+
+        Logger.shared.info("SORA wallet screen created from local wallet state")
+        rootAnimator.animateTransition(to: mainViewController)
+    }
+
+    @MainActor
+    private func presentWalletStartupRetry(from view: PinSetupViewProtocol?) {
+        Logger.shared.error("Wallet screen was not ready after waiting for chain startup")
+
+        let retry = AlertPresentableAction(
+            title: R.string.localizable.commonRetry(preferredLanguages: .currentLocale)
+        ) { [weak self, weak view] in
+            self?.showMain(from: view, attemptsRemaining: 60)
+        }
+        let viewModel = AlertPresentableViewModel(
+            title: "Wallet is still starting",
+            message: R.string.localizable.commonErrorRetry(preferredLanguages: .currentLocale),
+            actions: [retry],
+            closeAction: nil
+        )
+        present(viewModel: viewModel, style: .alert, from: view)
     }
 
     public func showSignup(from view: PinSetupViewProtocol?) {

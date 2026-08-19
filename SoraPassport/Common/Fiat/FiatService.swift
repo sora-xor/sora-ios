@@ -44,6 +44,7 @@ protocol FiatServiceObserverProtocol: AnyObject {
 
 protocol FiatServiceProtocol: Actor {
     func getFiat() async -> [PIExactFiatData]
+    func getFiat(for assetIds: [String]) async -> [PIExactFiatData]
 }
 
 struct FiatServiceObserver {
@@ -72,6 +73,16 @@ actor FiatService: FiatServiceProtocol {
             // Preserve the last fully validated PI snapshot. An unavailable
             // price must never affect balances or authorize a transaction.
             return fiatData
+        }
+    }
+
+    func getFiat(for assetIds: [String]) async -> [PIExactFiatData] {
+        let requestedAssetIds = Set(assetIds)
+        guard !requestedAssetIds.isEmpty else {
+            return []
+        }
+        return await getFiat().filter {
+            requestedAssetIds.contains($0.id)
         }
     }
 }

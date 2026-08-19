@@ -1,0 +1,4 @@
+module Sr25519SafeValidator {
+    header "sora_sr25519_safe_validator.h"
+    export *
+}

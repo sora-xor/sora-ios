@@ -58,4 +58,15 @@ struct AccountImportKeystoreRequest {
 struct AccountImportBackedupRequest {
     let account: OpenBackupAccount
     let password: String
+    let expectedCloudAccountID: String?
+
+    init(
+        account: OpenBackupAccount,
+        password: String,
+        expectedCloudAccountID: String? = nil
+    ) {
+        self.account = account
+        self.password = password
+        self.expectedCloudAccountID = expectedCloudAccountID
+    }
 }

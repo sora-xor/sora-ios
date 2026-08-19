@@ -40,6 +40,7 @@ final class MainTabBarInteractor {
     let eventCenter: EventCenterProtocol
     let serviceCoordinator: ServiceCoordinatorProtocol
     let keystoreImportService: KeystoreImportServiceProtocol
+    private let applicationHandler = ApplicationHandler()
 
     init(eventCenter: EventCenterProtocol,
          serviceCoordinator: ServiceCoordinatorProtocol,
@@ -47,6 +48,7 @@ final class MainTabBarInteractor {
         self.eventCenter = eventCenter
         self.keystoreImportService = keystoreImportService
         self.serviceCoordinator = serviceCoordinator
+        applicationHandler.delegate = self
         serviceCoordinator.setup()
     }
 }
@@ -133,7 +135,6 @@ extension MainTabBarInteractor: EventVisitorProtocol {
 
 extension MainTabBarInteractor: ApplicationHandlerDelegate {
     func didReceiveWillEnterForeground(notification: Notification) {
-//        updateWalletAccount()
-        presenter?.didUpdateWalletInfo()
+        eventCenter.notify(with: WalletBalanceChanged())
     }
 }

@@ -57,7 +57,8 @@ final class SetupAccountNameViewFactory {
                                     usernameViewModel: InputViewModelProtocol,
                                     passwordViewModel: InputViewModelProtocol?,
                                     derivationPathViewModel: InputViewModelProtocol?,
-                                    endAddingBlock: (() -> Void)?) -> UsernameSetupViewProtocol? {
+                                    endAddingBlock: (() -> Void)?,
+                                    recoveryAccount: AccountItem? = nil) -> UsernameSetupViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
             Logger.shared.error("Missing required keystore import service")
@@ -94,7 +95,8 @@ final class SetupAccountNameViewFactory {
                                                     operationManager: OperationManagerFacade.sharedManager,
                                                     settings: SelectedWalletSettings.shared,
                                                     keystoreImportService: keystoreImportService,
-                                                    eventCenter: EventCenter.shared)
+                                                    eventCenter: EventCenter.shared,
+                                                    recoveryAccount: recoveryAccount)
 
         view.presenter = presenter
         presenter.view = view

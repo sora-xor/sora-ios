@@ -113,7 +113,11 @@ final class AccountImportViewFactory {
         return interactor
     }
     
-    static func createViewForAdding(endAddingBlock: (() -> Void)?) -> AccountImportViewProtocol? {
+    static func createViewForAdding(
+        sourceType: AccountImportSource? = nil,
+        endAddingBlock: (() -> Void)?,
+        recoveryAccount: AccountItem? = nil
+    ) -> AccountImportViewProtocol? {
         guard let keystoreImportService: KeystoreImportServiceProtocol =
             URLHandlingService.shared.findService() else {
             Logger.shared.error("Missing required keystore import service")
@@ -121,7 +125,13 @@ final class AccountImportViewFactory {
         }
 
         let view = ImportAccountViewController()
-        let presenter = AccountImportPresenter(config: ApplicationConfig.shared)
+        let presenter = AccountImportPresenter(
+            sourceType: sourceType,
+            config: ApplicationConfig.shared,
+            recoveryMode: recoveryAccount != nil,
+            recoveryAccount: recoveryAccount,
+            recoveryCompletion: endAddingBlock
+        )
 
         let keystore = Keychain()
         let accountOperationFactory = AccountOperationFactory(keystore: keystore)
@@ -134,11 +144,15 @@ final class AccountImportViewFactory {
                                                     operationManager: OperationManagerFacade.sharedManager,
                                                     settings: SelectedWalletSettings.shared,
                                                     keystoreImportService: keystoreImportService,
-                                                    eventCenter: EventCenter.shared)
+                                                    eventCenter: EventCenter.shared,
+                                                    recoveryAccount: recoveryAccount)
 
         let localizationManager = LocalizationManager.shared
 
-        let wireframe = AddImportedWireframe(localizationManager: localizationManager)
+        let wireframe = AddImportedWireframe(
+            localizationManager: localizationManager,
+            recoveryAccount: recoveryAccount
+        )
    
         view.presenter = presenter
         presenter.view = view

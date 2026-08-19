@@ -44,6 +44,7 @@
 #import "SNKeypair.h"
 #import "SNPrivateKey.h"
 #import "SNPublicKey.h"
+#import "SNSafeKeypairValidator.h"
 #import "SNSignature.h"
 #import "SNSignatureVerifier.h"
 #import "SNSigner.h"

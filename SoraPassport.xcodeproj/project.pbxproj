@@ -29,6 +29,8 @@
 		A10000020000000000000001 /* WalletNetworkModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000120000000000000001 /* WalletNetworkModel.swift */; };
 		A10000030000000000000001 /* IrohaAddressCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000001 /* IrohaAddressCodec.swift */; };
 		A10000040000000000000001 /* WalletNetworkModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000120000000000000001 /* WalletNetworkModel.swift */; };
+		A17C0DE00000000000000002 /* Sr25519SafeValidatorLicenses in Resources */ = {isa = PBXBuildFile; fileRef = A17C0DE00000000000000001 /* Sr25519SafeValidatorLicenses */; };
+		A17C0DE00000000000000003 /* Sr25519SafeValidatorLicenses in Resources */ = {isa = PBXBuildFile; fileRef = A17C0DE00000000000000001 /* Sr25519SafeValidatorLicenses */; };
 		003B71CE72FCC179E0D1CC84 /* ScanQRViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366D53CF2952B4A20094CE36 /* ScanQRViewController.swift */; };
 		00533E372C483FFE60B3796B /* LanguageItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF4287C2940B1E600590F92 /* LanguageItemView.swift */; };
 		00682CE5246CB2E60C6E22E7 /* AttributedStringDecorator+Terms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DB19AD29EDDA9100B3E3BF /* AttributedStringDecorator+Terms.swift */; };
@@ -2805,6 +2807,7 @@
 		A10000130000000000000001 /* PIIndexerClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIIndexerClient.swift; sourceTree = "<group>"; };
 		A10000110000000000000001 /* IrohaAddressCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrohaAddressCodec.swift; sourceTree = "<group>"; };
 		A10000120000000000000001 /* WalletNetworkModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletNetworkModel.swift; sourceTree = "<group>"; };
+		A17C0DE00000000000000001 /* Sr25519SafeValidatorLicenses */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Sr25519SafeValidatorLicenses; sourceTree = "<group>"; };
 		0200346421C77E3C001A6A53 /* NotificationEnablePermissionMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationEnablePermissionMock.swift; sourceTree = "<group>"; };
 		0200346721C78A43001A6A53 /* GoogleService-Info-Dev.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info-Dev.plist"; sourceTree = "<group>"; };
 		0200347921C8DA77001A6A53 /* ReachabilityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReachabilityManager.swift; sourceTree = "<group>"; };
@@ -7813,6 +7816,7 @@
 		945A573125DE81E7003E4023 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				A17C0DE00000000000000001 /* Sr25519SafeValidatorLicenses */,
 				5ED216DB294888090052C740 /* runtime-default.json */,
 				5ED216DC294888090052C740 /* runtime-polkadot.json */,
 				5ED216DA294888090052C740 /* runtime-sora.json */,
@@ -8500,6 +8504,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A17C0DE00000000000000002 /* Sr25519SafeValidatorLicenses in Resources */,
 				84F622BE23102C5300D5D6BA /* smsCodeInvalid.json in Resources */,
 				84DD4DED22E7B12900626CA0 /* walletBalanceZeroResponse.json in Resources */,
 				84FA00A4226A1D57005DA950 /* sora-Regular.otf in Resources */,
@@ -8604,6 +8609,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A17C0DE00000000000000003 /* Sr25519SafeValidatorLicenses in Resources */,
 				D82B309E0EDED34B43E4F0DD /* smsCodeInvalid.json in Resources */,
 				6A027E906D0BB280BF3BEF57 /* walletBalanceZeroResponse.json in Resources */,
 				B4A820F3C18704BBBA58D27D /* sora-Regular.otf in Resources */,

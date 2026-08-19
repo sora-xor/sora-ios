@@ -446,7 +446,12 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
                                                               fiatData: fiatData,
                                                               viewModel: viewModel)
         
-        let fromAssetToAssetAmount = amount / quote.toAmount
+        let enteredAmount = amount
+        let quotedAmount = quote.toAmount
+        let sourceAmount = direction == .desiredInput ? enteredAmount : quotedAmount
+        let destinationAmount = direction == .desiredInput ? quotedAmount : enteredAmount
+
+        let fromAssetToAssetAmount = sourceAmount / destinationAmount
         let fromAssetToAssetAmountText = NumberFormatter.cryptoAssets.stringFromDecimal(fromAssetToAssetAmount) ?? ""
         let fromAssetToAssetAmountTextItem = SoramitsuTextItem(text: fromAssetToAssetAmountText,
                                         fontData: FontType.textS,
@@ -455,7 +460,7 @@ extension DetailViewModelFactory: DetailViewModelFactoryProtocol {
         let fromAssetToAsset = DetailViewModel(title: "\(fromAsset.symbol) / \(toAsset.symbol)",
                                                assetAmountText: fromAssetToAssetAmountTextItem)
         
-        let toAssetFromAssetAmount =  quote.toAmount / amount
+        let toAssetFromAssetAmount = destinationAmount / sourceAmount
         let toAssetFromAssetAmountText = NumberFormatter.cryptoAssets.stringFromDecimal(toAssetFromAssetAmount) ?? ""
         let toAssetFromAssetTextItem = SoramitsuTextItem(text: toAssetFromAssetAmountText,
                                         fontData: FontType.textS,

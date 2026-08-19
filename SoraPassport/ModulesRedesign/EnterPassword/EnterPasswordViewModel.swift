@@ -33,6 +33,15 @@ import SoraUIKit
 import SSFCloudStorage
 import RobinHood
 
+enum EnterPasswordErrorKind: Equatable {
+    case incorrectPassword
+    case backupNotFound
+    case authorization
+    case unreadableBackup
+    case differentWallet
+    case retry
+}
+
 final class EnterPasswordViewModel {
     @Published var title: String = R.string.localizable.enterBackupPasswordTitle(preferredLanguages: .currentLocale)
     var titlePublisher: Published<String>.Publisher { $title }
@@ -46,17 +55,30 @@ final class EnterPasswordViewModel {
     private let selectedAccount: OpenBackupAccount?
     private var backedUpAccounts: [OpenBackupAccount]
     private weak var view: EnterPasswordViewProtocol?
+    private let isRecovery: Bool
+    private let recoveryAccount: AccountItem?
+    private let googleAccountEmail: String?
+    private let expectedGoogleAccountID: String?
+    private var isSubmitting = false
 
     init(selectedAddress: String,
          backedUpAccounts: [OpenBackupAccount],
          interactor: AccountImportInteractorInputProtocol,
          wireframe: EnterPasswordWireframeProtocol,
-         view: EnterPasswordViewProtocol?) {
+         view: EnterPasswordViewProtocol?,
+         isRecovery: Bool = false,
+         recoveryAccount: AccountItem? = nil,
+         googleAccountEmail: String? = nil,
+         expectedGoogleAccountID: String? = nil) {
         self.selectedAccount = backedUpAccounts.first(where: { $0.address == selectedAddress })
         self.interactor = interactor
         self.backedUpAccounts = backedUpAccounts
         self.wireframe = wireframe
         self.view = view
+        self.isRecovery = isRecovery
+        self.recoveryAccount = recoveryAccount
+        self.googleAccountEmail = googleAccountEmail
+        self.expectedGoogleAccountID = expectedGoogleAccountID
     }
     
     deinit {
@@ -76,40 +98,186 @@ final class EnterPasswordViewModel {
     private func contentSection() -> EnterPasswordSection {
         let item = EnterPasswordItem(accountName: selectedAccount?.name ?? "",
                                      accountAddress: selectedAccount?.address ?? "",
+                                     descriptionText: isRecovery
+                                        ? Self.recoveryDescription(
+                                            googleAccountEmail: googleAccountEmail
+                                        )
+                                        : R.string.localizable.enterPasswordDescription(
+                                            preferredLanguages: .currentLocale
+                                        ),
+                                     continueTitle: isRecovery
+                                        ? Self.localized(
+                                            "wallet.recovery.verify",
+                                            fallback: "Verify and restore"
+                                        )
+                                        : R.string.localizable.transactionContinue(
+                                            preferredLanguages: .currentLocale
+                                        ),
                                      errorText: errorText,
                                      continueButtonHandler: checkPassword)
         return EnterPasswordSection(items: [ .enterPassword(item) ])
     }
     
     private func checkPassword(password: String) {
+        guard !isSubmitting else { return }
+        guard !password.isEmpty else {
+            errorText = Self.localized(
+                "wallet.recovery.password.required",
+                fallback: "Enter your backup password."
+            )
+            reload()
+            return
+        }
+        guard let selectedAccount else {
+            errorText = Self.localized(
+                "wallet.recovery.backup.not.found",
+                fallback: "No Google Drive backup was found for this wallet."
+            )
+            reload()
+            return
+        }
+
+        isSubmitting = true
+        errorText = ""
         view?.showLoading()
-        guard let selectedAccount = selectedAccount else { return }
-        let request = AccountImportBackedupRequest(account: selectedAccount, password: password)
+        let request = AccountImportBackedupRequest(
+            account: selectedAccount,
+            password: password,
+            expectedCloudAccountID: expectedGoogleAccountID
+        )
         interactor.importBackedupAccount(request: request)
+    }
+
+    static func classify(error: Error) -> EnterPasswordErrorKind {
+        if let cloudError = error as? CloudStorageServiceError {
+            switch cloudError {
+            case .incorectPassword:
+                return .incorrectPassword
+            case .notFound:
+                return .backupNotFound
+            case .notAuthorized:
+                return .authorization
+            case .incorectJson:
+                return .unreadableBackup
+            }
+        }
+
+        if let accountError = error as? AccountCreateError {
+            switch accountError {
+            case .invalidSeed:
+                return .differentWallet
+            case .invalidKeystore, .unsupportedNetwork:
+                return .unreadableBackup
+            default:
+                break
+            }
+        }
+
+        return .retry
+    }
+
+    static func message(for kind: EnterPasswordErrorKind, isRecovery: Bool) -> String {
+        guard isRecovery else {
+            return R.string.localizable.enterPasswordIncorectTitle(preferredLanguages: .currentLocale)
+        }
+
+        switch kind {
+        case .incorrectPassword:
+            return localized(
+                "wallet.recovery.password.incorrect",
+                fallback: "That backup password is incorrect. It may be different from your app PIN."
+            )
+        case .backupNotFound:
+            return localized(
+                "wallet.recovery.backup.not.found",
+                fallback: "No Google Drive backup was found for this wallet."
+            )
+        case .authorization:
+            return localized(
+                "wallet.recovery.google.authorization",
+                fallback: "Google Drive authorization ended. Sign in again and retry."
+            )
+        case .unreadableBackup:
+            return localized(
+                "wallet.recovery.backup.unreadable",
+                fallback: "This backup could not be read. Nothing was changed."
+            )
+        case .differentWallet:
+            return localized(
+                "wallet.recovery.backup.different",
+                fallback: "This backup belongs to a different wallet. Nothing was changed."
+            )
+        case .retry:
+            return localized(
+                "wallet.recovery.backup.retry",
+                fallback: "The backup could not be verified. Check your connection and retry."
+            )
+        }
+    }
+
+    static func recoveryDescription(googleAccountEmail: String?) -> String {
+        let passwordHelp = localized(
+            "wallet.recovery.google.password.help",
+            fallback: "Enter the backup password you created for Google Drive. It is not your app PIN."
+        )
+        guard let email = googleAccountEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !email.isEmpty else {
+            return passwordHelp
+        }
+
+        let accountLabel = localized(
+            "wallet.recovery.google.account.label",
+            fallback: "Google Drive account"
+        )
+        return "\(accountLabel): \(email)\n\n\(passwordHelp)"
+    }
+
+    private static func localized(_ key: String, fallback: String) -> String {
+        recoveryText(key, fallback: fallback)
     }
 }
 
 extension EnterPasswordViewModel: EnterPasswordViewModelProtocol {
     func reload() {        
-        title = R.string.localizable.enterBackupPasswordTitle(preferredLanguages: languages)
+        title = isRecovery
+            ? Self.localized("wallet.recovery.google.title", fallback: "Restore from Google Drive")
+            : R.string.localizable.enterBackupPasswordTitle(preferredLanguages: languages)
         snapshot = createSnapshot()
     }
 }
 
 extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
     func didCompleteAccountImport() {
+        isSubmitting = false
         view?.hideLoading()
         guard let selectedAccount = selectedAccount else { return }
         
         var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
-        backupedAccountAddresses.append(selectedAccount.address)
+        if !backupedAccountAddresses.contains(selectedAccount.address) {
+            backupedAccountAddresses.append(selectedAccount.address)
+        }
         ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
-        
+
+        if isRecovery {
+            if let recoveryAccount,
+               let expectedGoogleAccountID,
+               let googleAccountEmail {
+                _ = WalletGoogleAccountAssociationStore.shared.save(
+                    userID: expectedGoogleAccountID,
+                    email: googleAccountEmail,
+                    for: recoveryAccount
+                )
+            }
+            wireframe?.completeRecovery()
+            return
+        }
+
         wireframe?.openSuccessImport(importedAccountAddress: selectedAccount.address, accounts: backedUpAccounts)
     }
     
     func didReceiveAccountImport(error: Error) {
-        errorText = error.localizedDescription
+        isSubmitting = false
+        errorText = Self.message(for: Self.classify(error: error), isRecovery: isRecovery)
         view?.hideLoading()
         reload()
     }

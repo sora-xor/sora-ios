@@ -33,6 +33,7 @@ import SoraUIKit
 
 import RobinHood
 import SoraFoundation
+import SoraKeystore
 import sorawallet
 
 final class ConfirmSwapViewModel {
@@ -61,6 +62,8 @@ final class ConfirmSwapViewModel {
     private let interactor: PolkaswapMainInteractorInputProtocol
     private var quoteParams: PolkaswapMainInteractorQuoteParams
     private weak var assetsProvider: AssetProviderProtocol?
+    private let signingAvailabilityProvider: () -> WalletTransactionSigningAvailability
+    private let signingRecoveryPresenter: (UIViewController?) -> Void
     private var items: [SoramitsuTableViewItemProtocol] = [] {
         didSet {
             setupItems?(items)
@@ -129,7 +132,23 @@ final class ConfirmSwapViewModel {
         interactor: PolkaswapMainInteractorInputProtocol,
         quoteParams: PolkaswapMainInteractorQuoteParams,
         assetsProvider: AssetProviderProtocol?,
-        fiatData: [PIExactFiatData]
+        fiatData: [PIExactFiatData],
+        signingAvailabilityProvider: @escaping () -> WalletTransactionSigningAvailability = {
+            guard let account = SelectedWalletSettings.shared.currentAccount else {
+                return .missingKey
+            }
+
+            return SelectedWalletSettings.transactionSigningAvailability(
+                settings: SettingsManager.shared,
+                keystore: Keychain(),
+                account: account
+            )
+        },
+        signingRecoveryPresenter: @escaping (UIViewController?) -> Void = { controller in
+            DispatchQueue.main.async {
+                MainTabBarViewFactory.presentRetainedWalletRecovery(from: controller)
+            }
+        }
     ) {
         self.firstAssetId = firstAssetId
         self.secondAssetId = secondAssetId
@@ -150,6 +169,8 @@ final class ConfirmSwapViewModel {
         self.quoteParams = quoteParams
         self.assetsProvider = assetsProvider
         self.fiatData = fiatData
+        self.signingAvailabilityProvider = signingAvailabilityProvider
+        self.signingRecoveryPresenter = signingRecoveryPresenter
         self.eventCenter = eventCenter
         self.eventCenter.add(observer: self)
     }
@@ -340,6 +361,11 @@ extension ConfirmSwapViewModel {
             isEnoughtBalance = false
             return
         }
+        let signingAvailability = signingAvailabilityProvider()
+        guard signingAvailability == .available else {
+            presentSigningUnavailable(signingAvailability)
+            return
+        }
 
         let networkFeeDescription = FeeDescription(identifier: WalletAssetId.xor.rawValue,
                                                    assetId: WalletAssetId.xor.rawValue,
@@ -382,6 +408,21 @@ extension ConfirmSwapViewModel {
     }
     
     private func handleTransfer(result: Result<Data, Swift.Error>) {
+        if case let .failure(error) = result,
+           let signingError = error as? SigningWrapperError {
+            switch signingError {
+            case .retainedWalletRecoveryRequired:
+                presentSigningUnavailable(.recoveryRequired)
+            case .missingSelectedAccount,
+                 .missingSecretKey,
+                 .missingNetworkSnapshot,
+                 .identityMismatch,
+                 .signatureVerificationFailed:
+                presentSigningUnavailable(.missingKey)
+            }
+            return
+        }
+
         var status: TransactionBase.Status = .pending
         var txHash = ""
         if case let .failure = result {
@@ -407,6 +448,22 @@ extension ConfirmSwapViewModel {
         wireframe?.showActivityDetails(on: view?.controller, model: swapTransaction, assetManager: assetManager) { [weak self] in
             self?.view?.dismiss(competion: {})
         }
+    }
+
+    private func presentSigningUnavailable(
+        _ availability: WalletTransactionSigningAvailability
+    ) {
+        guard let alert = WalletSigningUnavailableAlertFactory.create(
+            availability: availability,
+            recoveryAction: { [weak self] in
+                guard let self else { return }
+                self.signingRecoveryPresenter(self.view?.controller)
+            }
+        ) else {
+            return
+        }
+
+        wireframe?.present(viewModel: alert, style: .alert, from: view)
     }
     
     func updateDetails(params: PolkaswapMainInteractorQuoteParams? = nil,

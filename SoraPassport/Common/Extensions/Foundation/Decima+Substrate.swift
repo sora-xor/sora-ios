@@ -54,7 +54,9 @@ extension Decimal {
                                raiseOnUnderflow: false,
                                raiseOnDivideByZero: false)
 
-        let valueString = (self as NSDecimalNumber).multiplying(byPowerOf10: precision, withBehavior: handler).stringValue
+        let valueString = (self as NSDecimalNumber)
+            .multiplying(byPowerOf10: precision, withBehavior: handler)
+            .stringValue
         return BigUInt(valueString)
     }
 }
