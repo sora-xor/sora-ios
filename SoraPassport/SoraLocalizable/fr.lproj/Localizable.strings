@@ -1038,3 +1038,14 @@
 "taira_testnet_settings_section" = "RÉSEAUX DE TEST";
 "taira_testnet_portfolio_unavailable" = "Le réseau de test Taira est affiché dans Plus pour que les testeurs puissent le trouver. Cette version ne contient pas de déploiement Taira vérifié ; l’accès au réseau reste donc désactivé.";
 "taira_testnet_portfolio_disabled" = "Le réseau de test Taira est désactivé. Ouvrez Plus → Réseau de test Taira pour l’activer. Les actifs de test n’ont aucune valeur monétaire.";
+"wallet_network_sora2_mainnet" = "SORA2\nRÉSEAU PRINCIPAL";
+"wallet_network_sora3_taira_testnet" = "SORA3\nTESTNET TAIRA";
+"wallet_network_switch_hint" = "Basculer le portefeuille entre le réseau principal SORA2 et le réseau de test SORA3 Taira.";
+"wallet_network_taira_unavailable_title" = "Portefeuille Taira indisponible";
+"wallet_network_taira_unavailable_message" = "Ce portefeuille ne possède pas de compte Taira dérivé de sa phrase maîtresse. SORA2 reste inchangé. Importez la phrase d’origine pour utiliser le réseau de test SORA3 Taira. Les XOR de test n’ont aucune valeur monétaire.";
+"wallet_network_taira_send_unavailable" = "Le journal protégé des transactions en attente est indisponible. Les soldes et les adresses de réception restent accessibles en lecture seule.";
+"wallet_network_taira_read_only" = "L’envoi sur Taira n’est pas disponible dans cette version. Les soldes XOR en direct, les adresses de réception et l’historique finalisé restent disponibles.";
+"wallet_network_nexus_read_only" = "L’envoi n’est pas disponible dans cette version. Les soldes XOR en direct, les adresses de réception et l’historique finalisé restent disponibles.";
+"wallet_network_polkaswap_sora2_title" = "Polkaswap utilise le réseau principal SORA2";
+"wallet_network_polkaswap_sora2_message" = "Passez au réseau principal SORA2 avant d’ouvrir Polkaswap. Les transactions du testnet Taira restent séparées.";
+"wallet_network_switch_to_sora2" = "Passer à SORA2";

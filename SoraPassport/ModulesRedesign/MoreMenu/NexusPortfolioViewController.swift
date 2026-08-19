@@ -49,6 +49,11 @@ enum NexusPortfolioPresentationPolicy {
         case assetRecovery
     }
 
+    enum DetailInvalidationAction: Equatable {
+        case pop
+        case replaceRoot
+    }
+
     struct PendingRow: Equatable {
         let transaction: NexusPendingTransaction
         let kind: PendingKind
@@ -77,6 +82,12 @@ enum NexusPortfolioPresentationPolicy {
         selectedWalletId: String?
     ) -> Bool {
         walletId == selectedWalletId
+    }
+
+    static func detailInvalidationAction(
+        isNavigationRoot: Bool
+    ) -> DetailInvalidationAction {
+        isNavigationRoot ? .replaceRoot : .pop
     }
 
     static func portfolioSubtitle(tairaAdmitted: Bool) -> String {
@@ -213,6 +224,149 @@ private enum NexusPortfolioTaskPolicy {
     }
 }
 
+enum NexusPrimaryWalletViewFactory {
+    static func tairaAccount(
+        in snapshot: WalletNetworkSnapshot,
+        walletId: String
+    ) -> NetworkAccount? {
+        guard
+            snapshot.selectedWalletId == walletId,
+            snapshot.wallets.contains(where: { $0.id == walletId })
+        else {
+            return nil
+        }
+        return snapshot.accounts.first(where: {
+            $0.walletId == walletId && $0.networkId == .taira
+        })
+    }
+
+    @MainActor
+    static func createTairaWalletController() -> UIViewController {
+        guard
+            WalletHomeSora3Target.current == .tairaTestnet,
+            let selectedWallet = SelectedWalletSettings.shared.currentAccount,
+            let configuration = NexusNetworkConfiguration.configuration(
+                for: .taira
+            )
+        else {
+            return unavailableController()
+        }
+
+        let settings = SettingsManager.shared
+        settings.nexusEnabled = true
+        settings.isTairaEnabled = true
+
+        let snapshot: WalletNetworkSnapshot?
+        do {
+            snapshot = try WalletNetworkStore().load()
+        } catch {
+            return unavailableController()
+        }
+        guard
+            let snapshot,
+            let account = tairaAccount(
+                in: snapshot,
+                walletId: selectedWallet.address
+            ),
+            NexusPortfolioPresentationPolicy.networkDetailIsAvailable(
+                networkId: .taira,
+                nexusEnabled: settings.nexusEnabled,
+                tairaEnabled: settings.isTairaEnabled,
+                tairaAdmitted: NexusNetworkAdmissionPolicy
+                    .current.isTairaAdmitted
+            )
+        else {
+            return unavailableController()
+        }
+
+        let runtime = NexusTransactionRuntime.shared
+        let mutationUnavailableReason: String?
+        if runtime.initializationFailed {
+            mutationUnavailableReason = tairaLocalizedText(
+                "wallet_network_taira_send_unavailable",
+                fallback: "The protected pending-transaction journal is unavailable. Balances and receive addresses remain read-only."
+            )
+        } else if !runtime.mutationAdapterAvailable {
+            mutationUnavailableReason = tairaLocalizedText(
+                "wallet_network_taira_read_only",
+                fallback: "Taira sending is not available in this build. Live XOR balances, receive addresses, and finalized history remain available."
+            )
+        } else {
+            mutationUnavailableReason = nil
+        }
+        let detail = NexusNetworkDetailViewController(
+            account: account,
+            configuration: configuration,
+            coordinator: runtime.coordinator,
+            readClient: NexusToriiReadClient(),
+            mutationAdapterAvailable: runtime.mutationAdapterAvailable,
+            mutationUnavailableReason: mutationUnavailableReason
+        )
+        detail.navigationItem.hidesBackButton = true
+        let navigation = SoraNavigationController(
+            rootViewController: detail
+        )
+        navigation.navigationBar.isHidden = false
+        navigation.navigationBar.prefersLargeTitles = false
+        return navigation
+    }
+
+    @MainActor
+    private static func unavailableController() -> UIViewController {
+        NexusPrimaryWalletUnavailableViewController()
+    }
+}
+
+@MainActor
+private final class NexusPrimaryWalletUnavailableViewController:
+    UIViewController
+{
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+
+        let titleLabel = UILabel()
+        titleLabel.font = UIFont.preferredFont(forTextStyle: .title2)
+        titleLabel.adjustsFontForContentSizeCategory = true
+        titleLabel.numberOfLines = 0
+        titleLabel.textAlignment = .center
+        titleLabel.text = tairaLocalizedText(
+            "wallet_network_taira_unavailable_title",
+            fallback: "Taira wallet unavailable"
+        )
+
+        let messageLabel = UILabel()
+        messageLabel.font = UIFont.preferredFont(forTextStyle: .body)
+        messageLabel.adjustsFontForContentSizeCategory = true
+        messageLabel.numberOfLines = 0
+        messageLabel.textAlignment = .center
+        messageLabel.textColor = .secondaryLabel
+        messageLabel.text = tairaLocalizedText(
+            "wallet_network_taira_unavailable_message",
+            fallback: "This wallet has no Taira account derived from its master phrase. SORA2 is unchanged. Import the original phrase to use SORA3 Taira Testnet. Test XOR has no monetary value."
+        )
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, messageLabel])
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.spacing = 12
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(
+                equalTo: view.leadingAnchor,
+                constant: 28
+            ),
+            stack.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor,
+                constant: -28
+            ),
+            stack.centerYAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.centerYAnchor
+            )
+        ])
+    }
+}
+
 @MainActor
 final class NexusPortfolioViewController: UITableViewController {
     private struct Row {
@@ -226,6 +380,7 @@ final class NexusPortfolioViewController: UITableViewController {
     private let openSora2Experience: @MainActor () -> Bool
     private let settings = SettingsManager.shared
     private var coordinator: NexusTransactionCoordinator?
+    private var mutationAdapterAvailable = false
     private var nexusInfrastructureError: String?
     private var rows: [Row] = []
     private var loadTask: Task<Void, Never>?
@@ -241,9 +396,15 @@ final class NexusPortfolioViewController: UITableViewController {
         super.init(style: .insetGrouped)
         let runtime = NexusTransactionRuntime.shared
         coordinator = runtime.coordinator
+        mutationAdapterAvailable = runtime.mutationAdapterAvailable
         if runtime.initializationFailed {
             nexusInfrastructureError =
                 "The protected pending-transaction journal is unavailable. Receive addresses, balances, and finalized history remain read-only; Nexus sends are disabled until the journal is recovered."
+        } else if !runtime.mutationAdapterAvailable {
+            nexusInfrastructureError = tairaLocalizedText(
+                "wallet_network_nexus_read_only",
+                fallback: "Sending is not available in this build. Live XOR balances, receive addresses, and finalized history remain available."
+            )
         }
     }
 
@@ -589,7 +750,8 @@ final class NexusPortfolioViewController: UITableViewController {
             tairaEnabled: settings.isTairaEnabled,
             tairaAdmitted: NexusNetworkAdmissionPolicy
                 .current.isTairaAdmitted,
-            mutationCoordinatorAvailable: coordinator != nil
+            mutationCoordinatorAvailable:
+                coordinator != nil && mutationAdapterAvailable
         )
         guard access.readsAvailable else {
             clearRowsAfterContextChange()
@@ -601,6 +763,7 @@ final class NexusPortfolioViewController: UITableViewController {
                 configuration: configuration,
                 coordinator: coordinator,
                 readClient: readClient,
+                mutationAdapterAvailable: mutationAdapterAvailable,
                 mutationUnavailableReason: nexusInfrastructureError
             ),
             animated: true
@@ -692,11 +855,12 @@ extension NexusPortfolioViewController: AssetProviderObserverProtocol {
 }
 
 @MainActor
-private final class NexusNetworkDetailViewController: UITableViewController {
+final class NexusNetworkDetailViewController: UITableViewController {
     private let account: NetworkAccount
     private let configuration: NexusNetworkConfiguration
     private let coordinator: NexusTransactionCoordinator?
     private let readClient: NexusToriiReading
+    private let mutationAdapterAvailable: Bool
     private let mutationUnavailableReason: String?
     private var history: [NexusTransferHistoryItem] = []
     private var pendingRows: [NexusPortfolioPresentationPolicy.PendingRow] = []
@@ -711,12 +875,14 @@ private final class NexusNetworkDetailViewController: UITableViewController {
         configuration: NexusNetworkConfiguration,
         coordinator: NexusTransactionCoordinator?,
         readClient: NexusToriiReading,
+        mutationAdapterAvailable: Bool,
         mutationUnavailableReason: String?
     ) {
         self.account = account
         self.configuration = configuration
         self.coordinator = coordinator
         self.readClient = readClient
+        self.mutationAdapterAvailable = mutationAdapterAvailable
         self.mutationUnavailableReason = mutationUnavailableReason
         super.init(style: .insetGrouped)
     }
@@ -741,7 +907,8 @@ private final class NexusNetworkDetailViewController: UITableViewController {
             tairaEnabled: SettingsManager.shared.isTairaEnabled,
             tairaAdmitted: NexusNetworkAdmissionPolicy
                 .current.isTairaAdmitted,
-            mutationCoordinatorAvailable: coordinator != nil
+            mutationCoordinatorAvailable:
+                coordinator != nil && mutationAdapterAvailable
         )
         if access.mutationSurfaceAvailable {
             let sendButton = UIBarButtonItem(
@@ -781,7 +948,7 @@ private final class NexusNetworkDetailViewController: UITableViewController {
             // presenting stale receive addresses or transaction data.
             loadTask?.cancel()
             setMutationReady(false)
-            navigationController?.popViewController(animated: false)
+            invalidateNavigationContext()
             return
         }
         reload()
@@ -896,7 +1063,8 @@ private final class NexusNetworkDetailViewController: UITableViewController {
             }
             setMutationReady(
                 NexusPortfolioPresentationPolicy.mutationIsReady(
-                    mutationCoordinatorAvailable: coordinator != nil,
+                    mutationCoordinatorAvailable:
+                        coordinator != nil && mutationAdapterAvailable,
                     pendingJournalLoaded: pendingLoadError == nil,
                     containsAssetRecovery: pendingRows.contains(where: {
                         $0.kind == .assetRecovery
@@ -931,7 +1099,7 @@ private final class NexusNetworkDetailViewController: UITableViewController {
         else {
             refreshControl?.endRefreshing()
             setMutationReady(false)
-            navigationController?.popViewController(animated: false)
+            invalidateNavigationContext()
             return false
         }
         return true
@@ -940,6 +1108,32 @@ private final class NexusNetworkDetailViewController: UITableViewController {
     private func setMutationReady(_ ready: Bool) {
         mutationReady = ready
         navigationItem.rightBarButtonItem?.isEnabled = ready
+    }
+
+    private func invalidateNavigationContext() {
+        history = []
+        pendingRows = []
+        balance = "Unavailable"
+        tableView.tableHeaderView = UIView()
+        tableView.reloadData()
+
+        guard let navigationController else {
+            return
+        }
+        let action = NexusPortfolioPresentationPolicy
+            .detailInvalidationAction(
+                isNavigationRoot:
+                    navigationController.viewControllers.first === self
+            )
+        switch action {
+        case .pop:
+            navigationController.popViewController(animated: false)
+        case .replaceRoot:
+            navigationController.setViewControllers(
+                [NexusPrimaryWalletUnavailableViewController()],
+                animated: false
+            )
+        }
     }
 
     private func networkActionContextIsCurrent() -> Bool {
@@ -951,7 +1145,12 @@ private final class NexusNetworkDetailViewController: UITableViewController {
 
     private func makeReceiveHeader() -> UIView {
         let container = UIView(
-            frame: CGRect(x: 0, y: 0, width: 1, height: 310)
+            frame: CGRect(
+                x: 0,
+                y: 0,
+                width: 1,
+                height: mutationAdapterAvailable ? 310 : 350
+            )
         )
         let badge = UILabel()
         badge.font = .preferredFont(forTextStyle: .caption1)
@@ -976,9 +1175,22 @@ private final class NexusNetworkDetailViewController: UITableViewController {
         explorer.setTitle("Open explorer", for: .normal)
         explorer.addTarget(self, action: #selector(openExplorer), for: .touchUpInside)
 
-        let stack = UIStackView(
-            arrangedSubviews: [badge, image, address, copy, explorer]
-        )
+        var arrangedSubviews: [UIView] = [badge]
+        if !mutationAdapterAvailable {
+            let readOnly = UILabel()
+            readOnly.font = .preferredFont(forTextStyle: .footnote)
+            readOnly.adjustsFontForContentSizeCategory = true
+            readOnly.textAlignment = .center
+            readOnly.numberOfLines = 0
+            readOnly.textColor = .secondaryLabel
+            readOnly.text = mutationUnavailableReason ?? tairaLocalizedText(
+                "wallet_network_taira_read_only",
+                fallback: "Taira sending is not available in this build. Live XOR balances, receive addresses, and finalized history remain available."
+            )
+            arrangedSubviews.append(readOnly)
+        }
+        arrangedSubviews.append(contentsOf: [image, address, copy, explorer])
+        let stack = UIStackView(arrangedSubviews: arrangedSubviews)
         stack.axis = .vertical
         stack.alignment = .fill
         stack.spacing = 8

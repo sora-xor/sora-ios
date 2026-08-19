@@ -33,6 +33,138 @@ class RootFactoryTests: XCTestCase {
         )
     }
 
+    func testWalletHomeNetworkSelectionFallsBackWhenSora3IsHidden() {
+        XCTAssertEqual(
+            WalletHomeNetworkSelectionPolicy.availableNetworks(
+                sora3Available: true
+            ),
+            [.sora2, .sora3]
+        )
+        XCTAssertEqual(
+            WalletHomeNetworkSelectionPolicy.resolvedSelection(
+                stored: .sora3,
+                sora3Available: false
+            ),
+            .sora2
+        )
+        XCTAssertEqual(
+            WalletHomeNetworkSelectionPolicy.resolvedSelection(
+                stored: .sora3,
+                sora3Available: true
+            ),
+            .sora3
+        )
+    }
+
+    @MainActor
+    func testWalletNetworkSwitchIsProminentAndSwapsContainedWallets() throws {
+        let sora2 = UIViewController()
+        let sora3 = UIViewController()
+        var selections: [WalletHomeNetwork] = []
+        let controller = WalletNetworkSwitchViewController(
+            sora2Controller: sora2,
+            initialSelection: .sora2,
+            makeSora3Controller: { sora3 },
+            selectionChanged: { selections.append($0) }
+        )
+
+        controller.loadViewIfNeeded()
+        controller.view.layoutIfNeeded()
+
+        XCTAssertEqual(controller.selectedNetwork, .sora2)
+        XCTAssertTrue(sora2.parent === controller)
+        XCTAssertGreaterThanOrEqual(
+            try XCTUnwrap(
+                descendant(
+                    with: "wallet.network.selector",
+                    in: controller.view
+                )
+            ).bounds.height,
+            62
+        )
+        XCTAssertNotNil(
+            descendant(
+                with: "wallet.network.sora2",
+                in: controller.view
+            )
+        )
+        XCTAssertNotNil(
+            descendant(
+                with: "wallet.network.sora3",
+                in: controller.view
+            )
+        )
+
+        XCTAssertTrue(controller.select(.sora3, animated: false))
+        XCTAssertEqual(controller.selectedNetwork, .sora3)
+        XCTAssertTrue(sora3.parent === controller)
+        XCTAssertNil(sora2.parent)
+        XCTAssertEqual(selections, [.sora2, .sora3])
+
+        // A rapid reversal must remove the first child before re-parenting the
+        // previous one; overlapping fades are visual only, never containment.
+        XCTAssertTrue(controller.select(.sora2, animated: true))
+        XCTAssertTrue(controller.select(.sora3, animated: false))
+        XCTAssertTrue(sora3.parent === controller)
+        XCTAssertNil(sora2.parent)
+    }
+
+    func testPrimaryTairaWalletAccountRequiresExactSelectedWallet() {
+        let wallet = WalletIdentity(
+            id: "wallet-a",
+            displayName: "Wallet A",
+            existingSoraAddress: "wallet-a",
+            secretSource: .mnemonicEntropy
+        )
+        let taira = NetworkAccount(
+            walletId: wallet.id,
+            networkId: .taira,
+            derivationVersion: 1,
+            publicKey: Data(repeating: 3, count: 32),
+            address: "taira-address"
+        )
+        let snapshot = WalletNetworkSnapshot(
+            schemaVersion: WalletNetworkSnapshot.currentSchemaVersion,
+            selectedWalletId: wallet.id,
+            wallets: [wallet],
+            accounts: [taira],
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+
+        XCTAssertEqual(
+            NexusPrimaryWalletViewFactory.tairaAccount(
+                in: snapshot,
+                walletId: wallet.id
+            ),
+            taira
+        )
+        XCTAssertNil(
+            NexusPrimaryWalletViewFactory.tairaAccount(
+                in: snapshot,
+                walletId: "wallet-b"
+            )
+        )
+        XCTAssertEqual(NexusAssetDefinitionIdentity.xorAlias, "xor#universal")
+    }
+
+    private func descendant(
+        with accessibilityIdentifier: String,
+        in view: UIView
+    ) -> UIView? {
+        if view.accessibilityIdentifier == accessibilityIdentifier {
+            return view
+        }
+        for child in view.subviews {
+            if let result = descendant(
+                with: accessibilityIdentifier,
+                in: child
+            ) {
+                return result
+            }
+        }
+        return nil
+    }
+
     @MainActor
     func testRecoveryPresentationWaitsForSigningAlertDismissal() {
         let window = UIWindow(frame: UIScreen.main.bounds)

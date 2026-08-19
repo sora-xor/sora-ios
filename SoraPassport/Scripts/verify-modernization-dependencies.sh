@@ -736,7 +736,7 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${CODE_SIGN_STYLE:-}" != "Automatic" ] ||
        [ "${CODE_SIGN_IDENTITY:-}" != "iPhone Developer" ] ||
        [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ] ||
-       [ "${internal_testflight_build_number}" != "2026081902" ] ||
+       [ "${internal_testflight_build_number}" != "2026082001" ] ||
        [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
        [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
        [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
@@ -795,16 +795,14 @@ if [ -n "${internal_testflight_mode}" ]; then
     if [ ! -x /usr/bin/git ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/codex/taira-integration-20260819" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "6efdf6bdf311711aee2748b82e3fe7f13aed9527" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-list --count "6efdf6bdf311711aee2748b82e3fe7f13aed9527..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
-       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "6efdf6bdf311711aee2748b82e3fe7f13aed9527..${internal_testflight_source_revision}" 2>/dev/null)" != 'Fixtures/Modernization/ios-migration-qualification-contract-v1.json
-Fixtures/Modernization/ios-taira-internal-testflight-v1.json
+       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/codex/taira-network-switch-20260819" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "f14cc4a5fe55ef0c21321fcf1bf00a9b8bac7f50" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "f14cc4a5fe55ef0c21321fcf1bf00a9b8bac7f50..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "f14cc4a5fe55ef0c21321fcf1bf00a9b8bac7f50..${internal_testflight_source_revision}" 2>/dev/null)" != 'Fixtures/Modernization/ios-migration-qualification-contract-v1.json
 SoraPassport/Common/Model/NexusWalletService.swift
-SoraPassport/Common/Model/WalletNetworkModel.swift
-SoraPassport/Configs/SoraPassport.release.xcconfig
-SoraPassport/Info.plist
-SoraPassport/ModulesRedesign/MoreMenu/MoreMenuPresenter.swift
+SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewController.swift
+SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift
+SoraPassport/ModulesRedesign/MoreMenu/NexusPortfolioViewController.swift
 SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
@@ -812,7 +810,8 @@ SoraPassport/Scripts/verify-modernization-dependencies.sh
 SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
 SoraPassport/SoraLocalizable/fr.lproj/Localizable.strings
 SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings
-SoraPassportTests/Common/Modernization/WalletModernizationTests.swift' ] ||
+SoraPassportTests/Common/Modernization/WalletModernizationTests.swift
+SoraPassportTests/Modules/Root/RootFactoryTests.swift' ] ||
        [ -n "$(/usr/bin/git -C "${root}" status --porcelain=v1 --untracked-files=normal)" ]; then
         echo "error: iOS internal-only TestFlight source is not the exact clean pushed revision" >&2
         exit 1
@@ -2457,9 +2456,10 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    /usr/bin/grep -Fq '<key>signingCertificate</key>' "${internal_testflight_export_options}" ||
    /usr/bin/grep -Fq '<key>provisioningProfiles</key>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="6efdf6bdf311711aee2748b82e3fe7f13aed9527"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/codex/taira-integration-20260819"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_build_number="2026081902"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="f14cc4a5fe55ef0c21321fcf1bf00a9b8bac7f50"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/codex/taira-network-switch-20260819"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_build_number="2026082001"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_lower_bound="2026081902"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'SORA_INTERNAL_TAIRA_TESTFLIGHT' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'SoraTairaInternalTestFlightConfigSha256' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'internal Taira settings or compile capability escaped' "${dependency_verifier}" ||
@@ -2482,6 +2482,10 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
    [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/upload-ios-internal-testflight.sh' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
    [ "$(/usr/bin/grep -Fc 'SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
+   [ "$(/usr/bin/grep -Fc 'SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewController.swift' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
+   [ "$(/usr/bin/grep -Fc 'SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
+   [ "$(/usr/bin/grep -Fc 'SoraPassport/ModulesRedesign/MoreMenu/NexusPortfolioViewController.swift' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
+   [ "$(/usr/bin/grep -Fc 'SoraPassportTests/Modules/Root/RootFactoryTests.swift' "${internal_testflight_source_contract_manifest}")" -ne 1 ] ||
    ! /usr/bin/grep -Fq 'sora-ios-xcode-apple-upload-receipt-v1' "${internal_testflight_delivery_verifier}" ||
    ! /usr/bin/grep -Fq 'certificateSha1' "${internal_testflight_delivery_verifier}" ||
    ! /usr/bin/grep -Fq 'provisioningProfileSha256' "${internal_testflight_delivery_verifier}" ||
@@ -4772,9 +4776,9 @@ fi
 
 if ! /usr/bin/grep -Fq "private static let maximumTransactions = 500" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "private static let maximumAddressBytes = 512" "${iroha_address_codec}" ||
-   ! /usr/bin/grep -Fq "static let maximumScale = 255" "${nexus_service}" ||
+   ! /usr/bin/grep -Fq "static let maximumScale = 28" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "testI105RejectsUnboundedInputBeforeBaseConversion" "${modernization_tests}" ||
-   ! /usr/bin/grep -Fq "testNexusAmountScaleMatchesNoritoUnsignedByteContract" "${modernization_tests}" ||
+   ! /usr/bin/grep -Fq "testNexusAmountScaleMatchesIrohaV1NumericDomain" "${modernization_tests}" ||
    ! /usr/bin/grep -Fq "try transactions.forEach(validate)" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "Set(transactionHashes).count == transactionHashes.count" "${nexus_service}" ||
    ! /usr/bin/grep -Fq "oldestTerminalIndex" "${nexus_service}" ||
@@ -6819,6 +6823,10 @@ if ! /usr/bin/grep -Fq 'final class NexusTransactionRuntime' "${nexus_service}" 
 	   ! /usr/bin/grep -Fq '"asset_name": "renamed-after-submission"' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'NexusBalanceValidator.exactAssetBalance(' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'missingExactMetadataEnvelope.removeValue(forKey: "count_mode")' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'deployedTairaEnvelope.removeValue(forKey: "has_more")' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'deployedTairaEnvelope.removeValue(forKey: "count_mode")' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'incompleteDeployedPageEnvelope["total"] = 2' "${modernization_tests}" ||
+	   ! /usr/bin/grep -Fq 'wrongTypedMetadataEnvelope["has_more"] = "false"' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'mixedCaseExactMetadataEnvelope["count_mode"] = "Exact"' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq '61CtjvNd9T3THAR65GsMVHr82Bjc' "${modernization_tests}" ||
 	   ! /usr/bin/grep -Fq 'status: "leased_grace"' "${modernization_tests}" ||

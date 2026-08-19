@@ -324,7 +324,7 @@ final class WalletModernizationTests: XCTestCase {
         contractId: String = "sora-ios-taira-internal-testflight-v1",
         sourceRevision: String = String(repeating: "1", count: 40),
         bundleIdentifier: String = "co.jp.soramitsu.sora",
-        buildNumber: String = "2026081902"
+        buildNumber: String = "2026082001"
     ) -> [String: Any] {
         var values: [String: Any] = [
             "CFBundleIdentifier": bundleIdentifier,
@@ -2394,12 +2394,12 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertTrue(nexusSource.contains("fee.unscaled > 0"))
     }
 
-    func testNexusAmountScaleMatchesNoritoUnsignedByteContract() throws {
+    func testNexusAmountScaleMatchesIrohaV1NumericDomain() throws {
         let maximum = try PIQuantity(
-            "0." + String(repeating: "1", count: 255)
+            "0." + String(repeating: "1", count: 28)
         )
         let oversized = try PIQuantity(
-            "0." + String(repeating: "1", count: 256)
+            "0." + String(repeating: "1", count: 29)
         )
         let zero = try PIQuantity("0")
 
@@ -2577,6 +2577,50 @@ final class WalletModernizationTests: XCTestCase {
                 NexusAccountAssetList.self,
                 from: JSONSerialization.data(
                     withJSONObject: missingExactMetadataEnvelope
+                )
+            )
+        )
+        var deployedTairaEnvelope = reboundMetadataEnvelope
+        deployedTairaEnvelope.removeValue(forKey: "has_more")
+        deployedTairaEnvelope.removeValue(forKey: "count_mode")
+        let deployedTairaResponse = try JSONDecoder().decode(
+            NexusAccountAssetList.self,
+            from: JSONSerialization.data(
+                withJSONObject: deployedTairaEnvelope
+            )
+        )
+        XCTAssertEqual(
+            try NexusBalanceValidator.exactAssetBalance(
+                in: deployedTairaResponse,
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            ).rawValue,
+            "2.000000000000000001"
+        )
+        var incompleteDeployedPageEnvelope = deployedTairaEnvelope
+        incompleteDeployedPageEnvelope["total"] = 2
+        let incompleteDeployedPage = try JSONDecoder().decode(
+            NexusAccountAssetList.self,
+            from: JSONSerialization.data(
+                withJSONObject: incompleteDeployedPageEnvelope
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusBalanceValidator.exactAssetBalance(
+                in: incompleteDeployedPage,
+                account: account,
+                configuration: .minamoto,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        var wrongTypedMetadataEnvelope = deployedTairaEnvelope
+        wrongTypedMetadataEnvelope["has_more"] = "false"
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                NexusAccountAssetList.self,
+                from: JSONSerialization.data(
+                    withJSONObject: wrongTypedMetadataEnvelope
                 )
             )
         )
@@ -11192,6 +11236,18 @@ final class WalletModernizationTests: XCTestCase {
                 walletId: "wallet-a",
                 selectedWalletId: nil
             )
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.detailInvalidationAction(
+                isNavigationRoot: false
+            ),
+            .pop
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.detailInvalidationAction(
+                isNavigationRoot: true
+            ),
+            .replaceRoot
         )
         XCTAssertTrue(
             NexusPortfolioPresentationPolicy.rowsMatchSelectedWallet(

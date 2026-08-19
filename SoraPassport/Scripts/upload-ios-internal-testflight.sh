@@ -17,10 +17,10 @@ source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-c
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
 internal_taira_config="${root}/Fixtures/Modernization/ios-taira-internal-testflight-v1.json"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="6efdf6bdf311711aee2748b82e3fe7f13aed9527"
-reviewed_upstream="origin/codex/taira-integration-20260819"
-reviewed_build_number="2026081902"
-reviewed_lower_bound="2026081901"
+reviewed_base_revision="f14cc4a5fe55ef0c21321fcf1bf00a9b8bac7f50"
+reviewed_upstream="origin/codex/taira-network-switch-20260819"
+reviewed_build_number="2026082001"
+reviewed_lower_bound="2026081902"
 reviewed_marketing_version="3.8.7"
 reviewed_bundle_identifier="co.jp.soramitsu.sora"
 reviewed_team_id="YLWWUD25VZ"
@@ -213,12 +213,10 @@ parent_revision="$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" ||
 [ "$(/usr/bin/git -C "${root}" rev-list --count "${reviewed_base_revision}..${source_revision}")" = "1" ] ||
     fail "internal TestFlight source history is not the reviewed single commit"
 reviewed_successor_paths='Fixtures/Modernization/ios-migration-qualification-contract-v1.json
-Fixtures/Modernization/ios-taira-internal-testflight-v1.json
 SoraPassport/Common/Model/NexusWalletService.swift
-SoraPassport/Common/Model/WalletNetworkModel.swift
-SoraPassport/Configs/SoraPassport.release.xcconfig
-SoraPassport/Info.plist
-SoraPassport/ModulesRedesign/MoreMenu/MoreMenuPresenter.swift
+SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewController.swift
+SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift
+SoraPassport/ModulesRedesign/MoreMenu/NexusPortfolioViewController.swift
 SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
@@ -226,7 +224,8 @@ SoraPassport/Scripts/verify-modernization-dependencies.sh
 SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
 SoraPassport/SoraLocalizable/fr.lproj/Localizable.strings
 SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings
-SoraPassportTests/Common/Modernization/WalletModernizationTests.swift'
+SoraPassportTests/Common/Modernization/WalletModernizationTests.swift
+SoraPassportTests/Modules/Root/RootFactoryTests.swift'
 observed_successor_paths="$(/usr/bin/git -C "${root}" diff --name-only --no-renames "${reviewed_base_revision}..${source_revision}")"
 [ "${observed_successor_paths}" = "${reviewed_successor_paths}" ] ||
     fail "internal TestFlight successor contains an unreviewed path set"

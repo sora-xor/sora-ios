@@ -872,19 +872,20 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         
         let feeProvider = FeeProvider()
         
-        guard let walletController = createWalletRedesignController(walletContext: walletContext,
-                                                                    assetManager: assetManager,
-                                                                    poolsService: poolsService,
-                                                                    assetsProvider: assetsProvider,
-                                                                    poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
-                                                                    editViewService: editViewService,
-                                                                    accountSettings: accountSettings, 
-                                                                    farmingService: farmingService,
-                                                                    feeProvider: feeProvider,
-                                                                    localizationManager: localizationManager) else {
+        guard let sora2Controller = createWalletRedesignController(walletContext: walletContext,
+                                                                   assetManager: assetManager,
+                                                                   poolsService: poolsService,
+                                                                   assetsProvider: assetsProvider,
+                                                                   poolsViewModelService: poolsViewModelService,
+                                                                   assetsViewModelService: assetsViewModelService,
+                                                                   editViewService: editViewService,
+                                                                   accountSettings: accountSettings,
+                                                                   farmingService: farmingService,
+                                                                   feeProvider: feeProvider,
+                                                                   localizationManager: localizationManager) else {
             return
         }
+        let walletController = wrapPrimaryWalletController(sora2Controller)
         
         wireframe.walletContext = walletContext
         view.didReplaceView(for: walletController, for: Self.walletIndex)
@@ -961,18 +962,19 @@ extension MainTabBarViewFactory {
         let editViewService = EditViewService(poolsService: poolsService)
         poolsService.appendDelegate(delegate: editViewService)
         
-        guard let walletController = createWalletRedesignController(walletContext: walletContext,
-                                                                    assetManager: assetManager,
-                                                                    poolsService: poolsService,
-                                                                    assetsProvider: assetsProvider,
-                                                                    poolsViewModelService: poolsViewModelService,
-                                                                    assetsViewModelService: assetsViewModelService,
-                                                                    editViewService: editViewService,
-                                                                    accountSettings: accountSettings, 
-                                                                    farmingService: farmingService, 
-                                                                    feeProvider: feeProvider) else {
+        guard let sora2Controller = createWalletRedesignController(walletContext: walletContext,
+                                                                   assetManager: assetManager,
+                                                                   poolsService: poolsService,
+                                                                   assetsProvider: assetsProvider,
+                                                                   poolsViewModelService: poolsViewModelService,
+                                                                   assetsViewModelService: assetsViewModelService,
+                                                                   editViewService: editViewService,
+                                                                   accountSettings: accountSettings,
+                                                                   farmingService: farmingService,
+                                                                   feeProvider: feeProvider) else {
             return nil
         }
+        let walletController = wrapPrimaryWalletController(sora2Controller)
         
         guard let settingsController = createMoreMenuController(walletContext: walletContext,
                                                                 assetsProvider: assetsProvider,
@@ -997,7 +999,8 @@ extension MainTabBarViewFactory {
             return nil
         }
         
-        view.middleButtonHadler = {
+        let presentSora2Swap: @MainActor () -> Void = { [weak view] in
+            guard let view else { return }
             guard let swapViewController = createSwapController(walletContext: walletContext,
                                                                 assetManager: assetManager,
                                                                 assetsProvider: assetsProvider,
@@ -1013,11 +1016,79 @@ extension MainTabBarViewFactory {
                 view.present(containerView, animated: true)
             }
         }
+        view.middleButtonHadler = {
+            [weak view,
+             weak networkSwitch = walletController as? WalletNetworkSwitchViewController] in
+            guard let view else { return }
+            guard networkSwitch?.selectedNetwork == .sora3 else {
+                presentSora2Swap()
+                return
+            }
+
+            let alert = UIAlertController(
+                title: tairaLocalizedText(
+                    "wallet_network_polkaswap_sora2_title",
+                    fallback: "Polkaswap uses SORA2 Mainnet"
+                ),
+                message: tairaLocalizedText(
+                    "wallet_network_polkaswap_sora2_message",
+                    fallback: "Switch to SORA2 Mainnet before opening Polkaswap. Taira Testnet transactions stay separate."
+                ),
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(
+                title: tairaLocalizedText(
+                    "wallet_network_switch_to_sora2",
+                    fallback: "Switch to SORA2"
+                ),
+                style: .default,
+                handler: { _ in
+                    _ = networkSwitch?.select(.sora2)
+                    presentSora2Swap()
+                }
+            ))
+            alert.addAction(UIAlertAction(
+                title: R.string.localizable.commonCancel(
+                    preferredLanguages: .currentLocale
+                ),
+                style: .cancel
+            ))
+            view.present(alert, animated: true)
+        }
         
         let fakeSwapViewController = UIViewController()
         fakeSwapViewController.tabBarItem.isEnabled = false
         
         return  [walletController, investController, fakeSwapViewController, activityController, settingsController]
+    }
+
+    static func wrapPrimaryWalletController(
+        _ sora2Controller: UIViewController
+    ) -> UIViewController {
+        // Both callers synchronously mutate the visible tab hierarchy and are
+        // required to run on the main thread. Keep that existing synchronous
+        // contract while making the actor boundary explicit to Swift.
+        MainActor.assumeIsolated {
+            guard WalletHomeSora3Target.current != nil else {
+                return sora2Controller
+            }
+
+            let initialSelection = WalletHomeNetworkSelectionPolicy
+                .resolvedSelection(
+                    stored: .sora2,
+                    sora3Available: true
+                )
+            let controller = WalletNetworkSwitchViewController(
+                sora2Controller: sora2Controller,
+                initialSelection: initialSelection,
+                makeSora3Controller: {
+                    NexusPrimaryWalletViewFactory.createTairaWalletController()
+                },
+                selectionChanged: { _ in }
+            )
+            controller.tabBarItem = sora2Controller.tabBarItem
+            return controller
+        }
     }
     
     static func createWalletRedesignController(walletContext: CommonWalletContextProtocol,

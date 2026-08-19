@@ -1038,3 +1038,14 @@
 "taira_testnet_settings_section" = "TEST NETWORKS";
 "taira_testnet_portfolio_unavailable" = "Taira Testnet is listed in More so testers can find it. This build does not contain a verified Taira deployment, so network access remains disabled.";
 "taira_testnet_portfolio_disabled" = "Taira Testnet is off. Open More → Taira Testnet to enable it. Test assets have no monetary value.";
+"wallet_network_sora2_mainnet" = "SORA2\nMAINNET";
+"wallet_network_sora3_taira_testnet" = "SORA3\nTAIRA TESTNET";
+"wallet_network_switch_hint" = "Switch the wallet between SORA2 mainnet and the SORA3 Taira testnet.";
+"wallet_network_taira_unavailable_title" = "Taira wallet unavailable";
+"wallet_network_taira_unavailable_message" = "This wallet has no Taira account derived from its master phrase. SORA2 is unchanged. Import the original phrase to use SORA3 Taira Testnet. Test XOR has no monetary value.";
+"wallet_network_taira_send_unavailable" = "The protected pending-transaction journal is unavailable. Balances and receive addresses remain read-only.";
+"wallet_network_taira_read_only" = "Taira sending is not available in this build. Live XOR balances, receive addresses, and finalized history remain available.";
+"wallet_network_nexus_read_only" = "Sending is not available in this build. Live XOR balances, receive addresses, and finalized history remain available.";
+"wallet_network_polkaswap_sora2_title" = "Polkaswap uses SORA2 Mainnet";
+"wallet_network_polkaswap_sora2_message" = "Switch to SORA2 Mainnet before opening Polkaswap. Taira Testnet transactions stay separate.";
+"wallet_network_switch_to_sora2" = "Switch to SORA2";

@@ -74,10 +74,11 @@ struct NexusExactDecimal: Comparable {
 }
 
 enum NexusAmountPolicy {
-    /// Iroha numeric scale is encoded as an unsigned byte in the reviewed
-    /// Norito contract. Keep UI, quote, balance and pending validation aligned
-    /// with Torii history parsing on both mobile platforms.
-    static let maximumScale = 255
+    /// `iroha_primitives::numeric::Numeric` on the reviewed optimizations
+    /// branch accepts canonical quantities only through scale 28. Taira's
+    /// canonical public XOR definition is unconstrained, so read compatibility
+    /// follows that ledger limit rather than imposing a separate UI scale.
+    static let maximumScale = 28
 
     static func accepts(
         _ quantity: PIQuantity,
@@ -426,10 +427,27 @@ struct NexusAccountAssetList: Decodable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        items = try container.decode([Item].self, forKey: .items)
-        hasMore = try container.decode(Bool.self, forKey: .hasMore)
-        countMode = try container.decode(String.self, forKey: .countMode)
-        total = try container.decode(Int64.self, forKey: .total)
+        let decodedItems = try container.decode(
+            [Item].self,
+            forKey: .items
+        )
+        let decodedTotal = try container.decode(Int64.self, forKey: .total)
+        guard
+            decodedTotal >= 0,
+            decodedTotal >= Int64(decodedItems.count)
+        else {
+            throw NexusToriiError.invalidResponse
+        }
+        items = decodedItems
+        total = decodedTotal
+        hasMore = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .hasMore
+        ) ?? (decodedTotal > Int64(decodedItems.count))
+        countMode = try container.decodeIfPresent(
+            String.self,
+            forKey: .countMode
+        ) ?? "exact"
     }
 }
 
@@ -4025,12 +4043,17 @@ final class NexusTransactionRuntime {
     let pendingStore: NexusPendingTransactionStore?
     let coordinator: NexusTransactionCoordinator?
     let initializationFailed: Bool
+    /// Remains false until both the reviewed native transaction signer and
+    /// challenge-bound finalized-head verifier are installed for this build.
+    /// A pending-journal coordinator alone is not mutation capability.
+    let mutationAdapterAvailable: Bool
 
     private var recoveryTask: Task<Void, Never>?
     private var walletStorageReady = false
     private var restartAfterStorageReady = false
 
     private init() {
+        mutationAdapterAvailable = false
         do {
             let store = try NexusPendingTransactionStore()
             pendingStore = store

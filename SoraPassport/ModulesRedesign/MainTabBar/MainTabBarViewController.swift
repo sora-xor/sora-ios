@@ -39,6 +39,307 @@ extension Notification.Name {
     )
 }
 
+enum WalletHomeNetwork: String, CaseIterable, Equatable {
+    case sora2
+    case sora3
+}
+
+enum WalletHomeNetworkSelectionPolicy {
+    static func availableNetworks(
+        sora3Available: Bool
+    ) -> [WalletHomeNetwork] {
+        sora3Available ? [.sora2, .sora3] : [.sora2]
+    }
+
+    static func resolvedSelection(
+        stored: WalletHomeNetwork,
+        sora3Available: Bool
+    ) -> WalletHomeNetwork {
+        availableNetworks(sora3Available: sora3Available).contains(stored)
+            ? stored
+            : .sora2
+    }
+}
+
+/// The second wallet-home slot is intentionally modeled as the SORA3 family,
+/// not as a permanent Taira preference. Internal tester builds map it to Taira
+/// today; a future release can point the same slot at SORA3 mainnet without
+/// migrating the user's home-screen choice.
+enum WalletHomeSora3Target: Equatable {
+    case tairaTestnet
+
+    static var current: WalletHomeSora3Target? {
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+        let policy = NexusNetworkAdmissionPolicy.current
+        guard
+            policy.tairaDeployment == nil,
+            policy.internalTairaTestFlight != nil,
+            NexusNetworkConfiguration.taira != nil
+        else {
+            return nil
+        }
+        return .tairaTestnet
+#else
+        return nil
+#endif
+    }
+}
+
+@MainActor
+final class WalletNetworkSwitchViewController: UIViewController {
+    private let sora2Controller: UIViewController
+    private let makeSora3Controller: @MainActor () -> UIViewController
+    private let selectionChanged: (WalletHomeNetwork) -> Void
+    private let contentView = UIView()
+    private let selectorBackground = UIView()
+    private let sora2Button = UIButton(type: .system)
+    private let sora3Button = UIButton(type: .system)
+    private var sora3Controller: UIViewController?
+    private var displayedController: UIViewController?
+    private(set) var selectedNetwork: WalletHomeNetwork
+
+    init(
+        sora2Controller: UIViewController,
+        initialSelection: WalletHomeNetwork,
+        makeSora3Controller: @escaping @MainActor () -> UIViewController,
+        selectionChanged: @escaping (WalletHomeNetwork) -> Void
+    ) {
+        self.sora2Controller = sora2Controller
+        self.selectedNetwork = initialSelection
+        self.makeSora3Controller = makeSora3Controller
+        self.selectionChanged = selectionChanged
+        super.init(nibName: nil, bundle: nil)
+        tabBarItem = sora2Controller.tabBarItem
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        configureLayout()
+        applyLocalization()
+        _ = select(selectedNetwork, animated: false)
+
+        LocalizationManager.shared.addObserver(with: self) {
+            [weak self] _, _ in
+            self?.applyLocalization()
+        }
+    }
+
+    @discardableResult
+    func select(
+        _ network: WalletHomeNetwork,
+        animated: Bool = true
+    ) -> Bool {
+        let controller: UIViewController
+        switch network {
+        case .sora2:
+            controller = sora2Controller
+        case .sora3:
+            if let sora3Controller {
+                controller = sora3Controller
+            } else {
+                let created = makeSora3Controller()
+                sora3Controller = created
+                controller = created
+            }
+        }
+
+        selectedNetwork = network
+        selectionChanged(network)
+        updateSelectionAppearance()
+        guard displayedController !== controller else {
+            return true
+        }
+
+        let previous = displayedController
+        previous?.willMove(toParent: nil)
+        previous?.view.removeFromSuperview()
+        previous?.removeFromParent()
+        addChild(controller)
+        controller.view.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(controller.view)
+        NSLayoutConstraint.activate([
+            controller.view.leadingAnchor.constraint(
+                equalTo: contentView.leadingAnchor
+            ),
+            controller.view.trailingAnchor.constraint(
+                equalTo: contentView.trailingAnchor
+            ),
+            controller.view.topAnchor.constraint(
+                equalTo: contentView.topAnchor
+            ),
+            controller.view.bottomAnchor.constraint(
+                equalTo: contentView.bottomAnchor
+            )
+        ])
+        controller.didMove(toParent: self)
+        displayedController = controller
+
+        guard animated else {
+            return true
+        }
+        controller.view.alpha = 0
+        UIView.animate(
+            withDuration: 0.18,
+            animations: {
+                controller.view.alpha = 1
+            }
+        )
+        return true
+    }
+
+    private func configureLayout() {
+        view.backgroundColor = .systemBackground
+
+        selectorBackground.translatesAutoresizingMaskIntoConstraints = false
+        selectorBackground.backgroundColor = .secondarySystemBackground
+        selectorBackground.layer.cornerRadius = 16
+        selectorBackground.layer.cornerCurve = .continuous
+        selectorBackground.accessibilityIdentifier =
+            "wallet.network.selector"
+
+        [sora2Button, sora3Button].forEach { button in
+            button.titleLabel?.numberOfLines = 2
+            button.titleLabel?.textAlignment = .center
+            button.titleLabel?.font = UIFont.preferredFont(
+                forTextStyle: .headline
+            )
+            button.titleLabel?.adjustsFontForContentSizeCategory = true
+            button.layer.cornerRadius = 12
+            button.layer.cornerCurve = .continuous
+            button.contentEdgeInsets = UIEdgeInsets(
+                top: 10,
+                left: 8,
+                bottom: 10,
+                right: 8
+            )
+        }
+        sora2Button.accessibilityIdentifier = "wallet.network.sora2"
+        sora3Button.accessibilityIdentifier = "wallet.network.sora3"
+        sora2Button.addTarget(
+            self,
+            action: #selector(selectSora2),
+            for: .touchUpInside
+        )
+        sora3Button.addTarget(
+            self,
+            action: #selector(selectSora3),
+            for: .touchUpInside
+        )
+
+        let selector = UIStackView(
+            arrangedSubviews: [sora2Button, sora3Button]
+        )
+        selector.translatesAutoresizingMaskIntoConstraints = false
+        selector.axis = .horizontal
+        selector.distribution = .fillEqually
+        selector.spacing = 8
+        selectorBackground.addSubview(selector)
+
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(selectorBackground)
+        view.addSubview(contentView)
+        NSLayoutConstraint.activate([
+            selectorBackground.leadingAnchor.constraint(
+                equalTo: view.leadingAnchor,
+                constant: 16
+            ),
+            selectorBackground.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor,
+                constant: -16
+            ),
+            selectorBackground.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor,
+                constant: 8
+            ),
+            selector.leadingAnchor.constraint(
+                equalTo: selectorBackground.leadingAnchor,
+                constant: 6
+            ),
+            selector.trailingAnchor.constraint(
+                equalTo: selectorBackground.trailingAnchor,
+                constant: -6
+            ),
+            selector.topAnchor.constraint(
+                equalTo: selectorBackground.topAnchor,
+                constant: 6
+            ),
+            selector.bottomAnchor.constraint(
+                equalTo: selectorBackground.bottomAnchor,
+                constant: -6
+            ),
+            sora2Button.heightAnchor.constraint(
+                greaterThanOrEqualToConstant: 62
+            ),
+            contentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            contentView.topAnchor.constraint(
+                equalTo: selectorBackground.bottomAnchor,
+                constant: 8
+            ),
+            contentView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+
+    private func applyLocalization() {
+        sora2Button.setTitle(
+            tairaLocalizedText(
+                "wallet_network_sora2_mainnet",
+                fallback: "SORA2\nMAINNET"
+            ),
+            for: .normal
+        )
+        sora3Button.setTitle(
+            tairaLocalizedText(
+                "wallet_network_sora3_taira_testnet",
+                fallback: "SORA3\nTAIRA TESTNET"
+            ),
+            for: .normal
+        )
+        let hint = tairaLocalizedText(
+            "wallet_network_switch_hint",
+            fallback: "Switch the wallet between SORA2 mainnet and the SORA3 Taira testnet."
+        )
+        sora2Button.accessibilityHint = hint
+        sora3Button.accessibilityHint = hint
+        updateSelectionAppearance()
+    }
+
+    private func updateSelectionAppearance() {
+        update(button: sora2Button, selected: selectedNetwork == .sora2)
+        update(button: sora3Button, selected: selectedNetwork == .sora3)
+    }
+
+    private func update(button: UIButton, selected: Bool) {
+        button.isSelected = selected
+        button.backgroundColor = selected ? .systemRed : .clear
+        button.setTitleColor(selected ? .white : .label, for: .normal)
+        var traits: UIAccessibilityTraits = .button
+        if selected {
+            traits.insert(.selected)
+        }
+        button.accessibilityTraits = traits
+    }
+
+    @objc private func selectSora2() {
+        _ = select(.sora2)
+    }
+
+    @objc private func selectSora3() {
+        _ = select(.sora3)
+    }
+}
+
+extension WalletNetworkSwitchViewController: ScrollsToTop {
+    func scrollToTop() {
+        (displayedController as? ScrollsToTop)?.scrollToTop()
+    }
+}
+
 final class MainTabBarViewController: UITabBarController {
     var presenter: MainTabBarPresenterProtocol!
     var middleButtonHadler: (() -> Void)?
