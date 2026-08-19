@@ -1029,7 +1029,7 @@
 "taira_testnet_entry_disabled" = "テスト用資産のみ · タップして有効化";
 "taira_testnet_entry_unavailable" = "テスト用資産のみ · このビルドでは利用できません";
 "taira_testnet_guide_title" = "Tairaテストネットを試す";
-"taira_testnet_guide_message" = "Tairaはテスト専用です。テストXORに金銭的価値はありません。\n\n1. Tairaを有効にします。\n2. SORAポートフォリオを開き、TAIRA · TESTNETを選択します。\n3. TairaアドレスをコピーしてテストXORを受け取り、送受信を試します。\n\nSORA2残高と秘密鍵は移動されません。";
+"taira_testnet_guide_message" = "Tairaはテスト専用です。テストXORに金銭的価値はありません。\n\n1. Tairaを有効にします。\n2. SORAポートフォリオを開き、TAIRA · TESTNETを選択します。\n3. Tairaアドレスをコピーし、Tairaテストネットチームに共有してテストXORを受け取ります。\n4. この画面に戻り、送受信を試します。\n\nSORA2残高と秘密鍵は移動されません。";
 "taira_testnet_enable_open" = "有効にして開く";
 "taira_testnet_open" = "Tairaを開く";
 "taira_testnet_unavailable_title" = "このビルドではTairaを利用できません";

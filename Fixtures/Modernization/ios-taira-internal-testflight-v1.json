@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "contractId": "sora-ios-taira-internal-testflight-v1",
+  "scope": "internal-testflight-only",
+  "currentChainId": "fc56984b-2be7-431d-840e-21514d1883f0",
+  "currentGenesisHash": "d8df4ad9f8e4b67a1734c805baed9a97fc34fc6a9ca905ac7c8daed00fbbdf3b",
+  "canonicalToriiBaseUrl": "https://taira.sora.org",
+  "publicMcpEndpoint": "https://taira.sora.org/v1/mcp",
+  "productionAdmissionAuthorized": false,
+  "externalTestFlightAuthorized": false,
+  "appStoreDistributionAuthorized": false
+}

@@ -260,7 +260,7 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
                 ),
                 message: tairaLocalizedText(
                     "taira_testnet_guide_message",
-                    fallback: "Taira is for testing only. Test XOR has no monetary value.\n\n1. Enable Taira.\n2. Open SORA Portfolio and select TAIRA · TESTNET.\n3. Copy your Taira address to receive test XOR, then try sending and receiving.\n\nYour SORA2 balance and private key are not moved."
+                    fallback: "Taira is for testing only. Test XOR has no monetary value.\n\n1. Enable Taira.\n2. Open SORA Portfolio and select TAIRA · TESTNET.\n3. Copy your Taira address and share it with the Taira testnet team to receive test XOR.\n4. Return here to try sending and receiving.\n\nYour SORA2 balance and private key are not moved."
                 ),
                 actions: [primaryAction],
                 closeAction: R.string.localizable.commonCancel(

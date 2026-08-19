@@ -2376,6 +2376,10 @@ struct NexusPendingTransaction: Codable, Equatable, Identifiable {
     /// Missing on legacy schema-77 rows. Such rows stay recovery-only even if
     /// a future admitted deployment selects the same chain UUID again.
     var tairaDeployment: NexusPendingTairaDeploymentIdentity? = nil
+    /// Internal-TestFlight rows carry only the exact unsigned convenience
+    /// configuration digest. Production rows leave this nil. A production app
+    /// can retain such rows as recovery evidence but can never resume them.
+    var internalTairaConfigurationSha256: String? = nil
     let sender: String
     let receiver: String
     /// Exact opaque definition selected by `xor#universal` when the signed
@@ -2396,6 +2400,54 @@ struct NexusPendingTransaction: Codable, Equatable, Identifiable {
         state == .committed && historyReconciledAt == nil
     }
 
+    static func currentInternalTairaConfigurationSha256(
+        for configuration: NexusNetworkConfiguration
+    ) -> String? {
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+        guard
+            TairaDeploymentBinding.admittedFromBundle == nil,
+            let binding =
+                InternalTairaTestFlightBinding.resolvedFromBundle
+        else {
+            return nil
+        }
+        return internalTairaConfigurationSha256(
+            for: configuration,
+            binding: binding
+        )
+#else
+        return nil
+#endif
+    }
+
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+    static func internalTairaConfigurationSha256(
+        for configuration: NexusNetworkConfiguration,
+        binding _: InternalTairaTestFlightBinding
+    ) -> String? {
+        guard
+            configuration.networkId == .taira,
+            configuration.chainId ==
+                InternalTairaTestFlightBinding.currentChainId
+        else {
+            return nil
+        }
+        return InternalTairaTestFlightBinding.configurationSha256
+    }
+
+    func hasCurrentInternalTairaDeploymentIdentity(
+        for configuration: NexusNetworkConfiguration,
+        binding: InternalTairaTestFlightBinding
+    ) -> Bool {
+        tairaDeployment == nil &&
+            internalTairaConfigurationSha256 ==
+                Self.internalTairaConfigurationSha256(
+                    for: configuration,
+                    binding: binding
+                )
+    }
+#endif
+
     func hasCurrentDeploymentIdentity(
         for configuration: NexusNetworkConfiguration,
         tairaBinding: TairaDeploymentBinding? =
@@ -2406,17 +2458,30 @@ struct NexusPendingTransaction: Codable, Equatable, Identifiable {
         }
         switch configuration.networkId {
         case .taira:
+            if let expected = NexusPendingTairaDeploymentIdentity.admitted(
+                for: configuration,
+                deployment: tairaBinding
+            ) {
+                return internalTairaConfigurationSha256 == nil &&
+                    tairaDeployment == expected
+            }
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
             guard
-                let expected = NexusPendingTairaDeploymentIdentity.admitted(
-                    for: configuration,
-                    deployment: tairaBinding
-                )
+                let binding =
+                    InternalTairaTestFlightBinding.resolvedFromBundle
             else {
                 return false
             }
-            return tairaDeployment == expected
+            return hasCurrentInternalTairaDeploymentIdentity(
+                for: configuration,
+                binding: binding
+            )
+#else
+            return false
+#endif
         case .minamoto:
-            return tairaDeployment == nil
+            return tairaDeployment == nil &&
+                internalTairaConfigurationSha256 == nil
         case .sora2:
             return false
         }
@@ -2747,6 +2812,8 @@ actor NexusPendingTransactionStore {
             lhs.networkId == rhs.networkId &&
             lhs.chainId == rhs.chainId &&
             lhs.tairaDeployment == rhs.tairaDeployment &&
+            lhs.internalTairaConfigurationSha256 ==
+                rhs.internalTairaConfigurationSha256 &&
             lhs.sender == rhs.sender &&
             lhs.receiver == rhs.receiver &&
             lhs.assetDefinitionID == rhs.assetDefinitionID &&
@@ -2918,8 +2985,20 @@ actor NexusPendingTransactionStore {
                 NexusAssetDefinitionIdentity.hasCanonicalWireShape
             ) ?? true,
             transaction.tairaDeployment?.hasCanonicalShape ?? true,
+            transaction.internalTairaConfigurationSha256.map({
+                $0 != String(repeating: "0", count: 64) &&
+                    $0.range(
+                        of: "^[0-9a-f]{64}$",
+                        options: .regularExpression
+                    ) != nil
+            }) ?? true,
+            transaction.tairaDeployment == nil ||
+                transaction.internalTairaConfigurationSha256 == nil,
             transaction.networkId == .taira ||
-                transaction.tairaDeployment == nil
+                (
+                    transaction.tairaDeployment == nil &&
+                        transaction.internalTairaConfigurationSha256 == nil
+                )
         else {
             throw NexusToriiError.invalidResponse
         }
@@ -3262,6 +3341,11 @@ actor NexusTransactionCoordinator {
                 NexusPendingTairaDeploymentIdentity.admitted(
                     for: configuration
                 ),
+            internalTairaConfigurationSha256:
+                NexusPendingTransaction
+                    .currentInternalTairaConfigurationSha256(
+                        for: configuration
+                    ),
             sender: request.sender,
             receiver: request.receiver,
             assetDefinitionID: freshDefinition.id,

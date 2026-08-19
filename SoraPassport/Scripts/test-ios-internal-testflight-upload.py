@@ -22,6 +22,9 @@ DELIVERY_VERIFIER = SCRIPTS / "verify-ios-internal-testflight-delivery.py"
 EXPORT_OPTIONS = (
     ROOT / "SoraPassport" / "Configs" / "ios-internal-testflight-export-options.plist"
 )
+INTERNAL_TAIRA_CONFIG = (
+    ROOT / "Fixtures" / "Modernization" / "ios-taira-internal-testflight-v1.json"
+)
 DELIVERY_SPEC = importlib.util.spec_from_file_location(
     "ios_internal_testflight_delivery", DELIVERY_VERIFIER
 )
@@ -60,7 +63,7 @@ def capability_environment() -> dict[str, str]:
         {
             "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE": "sora-ios-internal-testflight-upload-v1",
             "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION": "archive",
-            "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026081601",
+            "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026081902",
             "SORA_IOS_INTERNAL_TESTFLIGHT_SOURCE_REVISION": revision,
             "SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256": hashlib.sha256(
                 EXPORT_OPTIONS.read_bytes()
@@ -77,7 +80,24 @@ def capability_environment() -> dict[str, str]:
             "DEVELOPMENT_TEAM": "YLWWUD25VZ",
             "CODE_SIGN_IDENTITY": "iPhone Developer",
             "CODE_SIGN_STYLE": "Automatic",
-            "CURRENT_PROJECT_VERSION": "2026081601",
+            "CURRENT_PROJECT_VERSION": "2026081902",
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS":
+                "F_RELEASE SORA_INTERNAL_TAIRA_TESTFLIGHT",
+            "OTHER_SWIFT_FLAGS": "-DF_RELEASE",
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026081902",
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256":
+                hashlib.sha256(INTERNAL_TAIRA_CONFIG.read_bytes()).hexdigest(),
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_CONTRACT_ID":
+                "sora-ios-taira-internal-testflight-v1",
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_CHAIN_ID":
+                "fc56984b-2be7-431d-840e-21514d1883f0",
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_GENESIS_HASH":
+                "d8df4ad9f8e4b67a1734c805baed9a97fc34fc6a9ca905ac7c8daed00fbbdf3b",
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_MCP_ENDPOINT":
+                "https://taira.sora.org/v1/mcp",
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_SOURCE_REVISION": revision,
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_TORII_BASE_URL":
+                "https://taira.sora.org",
             "PROVISIONING_PROFILE_SPECIFIER": "",
             "CODE_SIGN_ENTITLEMENTS": "SoraPassport/SoraPassport.entitlements",
             "INFOPLIST_FILE": "SoraPassport/Info.plist",
@@ -89,6 +109,21 @@ def capability_environment() -> dict[str, str]:
             "PROJECT_DIR": str(ROOT),
         }
     )
+    for key in (
+        "SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID",
+        "SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256",
+        "SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256",
+        "SORA_TAIRA_CURRENT_CHAIN_ID",
+        "SORA_TAIRA_RETIRED_CHAIN_ID",
+        "SORA_TAIRA_CURRENT_GENESIS_HASH",
+        "SORA_TAIRA_RETIRED_GENESIS_HASH",
+        "SORA_TAIRA_CURRENT_DEPLOYMENT_EPOCH",
+        "SORA_TAIRA_RETIRED_DEPLOYMENT_EPOCH",
+        "SORA_TAIRA_CANONICAL_TORII_BASE_URL",
+        "SORA_TAIRA_PUBLIC_MCP_ENDPOINT",
+        "SORA_TAIRA_PENDING_ROW_POLICY",
+    ):
+        environment[key] = ""
     return environment
 
 
@@ -126,9 +161,9 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'status --porcelain=v1 --untracked-files=normal',
             "rev-parse '@{upstream}'",
-            'reviewed_base_revision="d657f9ccc55ba1f9558c474229bc470375a71bfd"',
-            'reviewed_upstream="origin/modernize"',
-            'reviewed_build_number="2026081601"',
+            'reviewed_base_revision="6efdf6bdf311711aee2748b82e3fe7f13aed9527"',
+            'reviewed_upstream="origin/codex/taira-integration-20260819"',
+            'reviewed_build_number="2026081902"',
             'reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"',
             'reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"',
             'reviewed_archive_signing_certificate_sha1="1F57A04EB10B3665696663CDA0DBD893CF7FE886"',
@@ -146,10 +181,13 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             '--reviewed-profile "${reviewed_profile_path}"',
             'SORA_MIGRATION_EVIDENCE_SOURCE_REVISION=${source_revision}',
             'SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256=${export_options_sha}',
+            "SORA_INTERNAL_TAIRA_TESTFLIGHT",
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256",
+            "SoraTairaInternalTestFlightConfigSha256",
+            'internal_taira_config="${root}/Fixtures/Modernization/ios-taira-internal-testflight-v1.json"',
             '--verify-snapshot "${contract_snapshot}"',
             '--verify-app-runtime-closure "${archived_app}"',
             'archived application runtime dependency closure is incomplete',
-            'VendorPackages/JOSESwift/Package.swift',
             '"appleDeliveryId": delivery_id',
             '"appleUploadState": "success"',
             'testFlightInternalTestingOnly": True',
@@ -169,9 +207,11 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}"',
             "rev-parse '@{upstream}' 2>/dev/null",
-            "origin/modernize",
-            "d657f9ccc55ba1f9558c474229bc470375a71bfd",
+            "origin/codex/taira-integration-20260819",
+            "6efdf6bdf311711aee2748b82e3fe7f13aed9527",
             "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER",
+            "SORA_INTERNAL_TAIRA_TESTFLIGHT",
+            "internal Taira settings or compile capability escaped",
             "CURRENT_PROJECT_VERSION",
             "PROVISIONING_PROFILE_SPECIFIER",
             "status --porcelain=v1 --untracked-files=normal",
@@ -272,7 +312,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             "ApplicationProperties": {
                 "CFBundleIdentifier": "co.jp.soramitsu.sora",
                 "CFBundleShortVersionString": "3.8.7",
-                "CFBundleVersion": "2026081601",
+                "CFBundleVersion": "2026081902",
                 "SigningIdentity": "Apple Development: Makoto Takemiya (6A4BK72ZFV)",
                 "Team": "YLWWUD25VZ",
             },
@@ -288,7 +328,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
                     "task": "distribute",
                     "teamID": "YLWWUD25VZ",
                     "uploadDestination": "App Store",
-                    "uploadedBuildNumber": "2026081601",
+                    "uploadedBuildNumber": "2026081902",
                     "uploadEvent": uploaded,
                 }
             ],
@@ -334,7 +374,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
                 xcodebuild_log,
                 reviewed_profile,
                 receipt_path,
-                "2026081601",
+                "2026081902",
                 expected_profile_sha256=reviewed_profile_sha256,
             )
             self.assertEqual(delivery_id, "12345678-1234-4234-8234-123456789abc")
@@ -351,7 +391,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
                     xcodebuild_log,
                     reviewed_profile,
                     root / "rejected.json",
-                    "2026081601",
+                    "2026081902",
                     expected_profile_sha256=reviewed_profile_sha256,
                 )
 
@@ -446,9 +486,9 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
             str(WRAPPER),
             "--archive-and-upload",
             "--build-number",
-            "2026081602",
+            "2026081903",
             "--app-store-build-lower-bound",
-            "2026081101",
+            "2026081901",
             "--derived-data-path",
             "/private/tmp/never-created-DerivedData",
             "--archive-path",
@@ -464,8 +504,11 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
         for key, value in (
             ("SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE", "unreviewed"),
             ("SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION", "export"),
-            ("CURRENT_PROJECT_VERSION", "2026081602"),
+            ("CURRENT_PROJECT_VERSION", "2026081903"),
             ("PLATFORM_NAME", "iphonesimulator"),
+            ("SWIFT_ACTIVE_COMPILATION_CONDITIONS", "F_RELEASE"),
+            ("SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256", "f" * 64),
+            ("SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256", "a" * 64),
         ):
             with self.subTest(key=key):
                 environment = capability_environment()
@@ -484,6 +527,19 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
         result = run("/bin/sh", str(VERIFIER), environment=environment)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("action lacks its exact capability", result.stderr)
+
+        for key, value in (
+            ("SWIFT_ACTIVE_COMPILATION_CONDITIONS", "SORA_INTERNAL_TAIRA_TESTFLIGHT"),
+            ("SORA_TAIRA_INTERNAL_TESTFLIGHT_CONTRACT_ID", "unexpected"),
+        ):
+            with self.subTest(escaped=key):
+                escaped = dict(os.environ)
+                escaped.pop("SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE", None)
+                escaped.pop("SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION", None)
+                escaped[key] = value
+                rejected = run("/bin/sh", str(VERIFIER), environment=escaped)
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertIn("escaped the internal TestFlight uploader", rejected.stderr)
 
 
 if __name__ == "__main__":

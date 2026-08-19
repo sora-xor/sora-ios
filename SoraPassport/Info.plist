@@ -77,6 +77,22 @@
 	<string>$(SORA_TAIRA_RETIRED_DEPLOYMENT_EPOCH)</string>
 	<key>SoraTairaRetiredGenesisHash</key>
 	<string>$(SORA_TAIRA_RETIRED_GENESIS_HASH)</string>
+	<key>SoraTairaInternalTestFlightBuildNumber</key>
+	<string>$(SORA_TAIRA_INTERNAL_TESTFLIGHT_BUILD_NUMBER)</string>
+	<key>SoraTairaInternalTestFlightConfigSha256</key>
+	<string>$(SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256)</string>
+	<key>SoraTairaInternalTestFlightContractId</key>
+	<string>$(SORA_TAIRA_INTERNAL_TESTFLIGHT_CONTRACT_ID)</string>
+	<key>SoraTairaInternalTestFlightCurrentChainId</key>
+	<string>$(SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_CHAIN_ID)</string>
+	<key>SoraTairaInternalTestFlightCurrentGenesisHash</key>
+	<string>$(SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_GENESIS_HASH)</string>
+	<key>SoraTairaInternalTestFlightMcpEndpoint</key>
+	<string>$(SORA_TAIRA_INTERNAL_TESTFLIGHT_MCP_ENDPOINT)</string>
+	<key>SoraTairaInternalTestFlightSourceRevision</key>
+	<string>$(SORA_TAIRA_INTERNAL_TESTFLIGHT_SOURCE_REVISION)</string>
+	<key>SoraTairaInternalTestFlightToriiBaseUrl</key>
+	<string>$(SORA_TAIRA_INTERNAL_TESTFLIGHT_TORII_BASE_URL)</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>sora-Bold.otf</string>

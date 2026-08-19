@@ -319,6 +319,51 @@ final class WalletModernizationTests: XCTestCase {
         )
     }
 
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+    private static func internalTestFlightTairaInfo(
+        contractId: String = "sora-ios-taira-internal-testflight-v1",
+        sourceRevision: String = String(repeating: "1", count: 40),
+        bundleIdentifier: String = "co.jp.soramitsu.sora",
+        buildNumber: String = "2026081902"
+    ) -> [String: Any] {
+        var values: [String: Any] = [
+            "CFBundleIdentifier": bundleIdentifier,
+            "CFBundleVersion": buildNumber,
+            "SoraTairaInternalTestFlightBuildNumber": buildNumber,
+            "SoraTairaInternalTestFlightConfigSha256":
+                InternalTairaTestFlightBinding.configurationSha256,
+            "SoraTairaInternalTestFlightContractId": contractId,
+            "SoraTairaInternalTestFlightCurrentChainId":
+                InternalTairaTestFlightBinding.currentChainId.uuidString
+                    .lowercased(),
+            "SoraTairaInternalTestFlightCurrentGenesisHash":
+                InternalTairaTestFlightBinding.currentGenesisHash,
+            "SoraTairaInternalTestFlightMcpEndpoint":
+                InternalTairaTestFlightBinding.publicMcpEndpoint.absoluteString,
+            "SoraTairaInternalTestFlightSourceRevision": sourceRevision,
+            "SoraTairaInternalTestFlightToriiBaseUrl":
+                InternalTairaTestFlightBinding.canonicalToriiBaseURL.absoluteString,
+        ]
+        for key in [
+            "SoraTairaDeploymentAdmissionContractId",
+            "SoraTairaDeploymentManifestSha256",
+            "SoraTairaDeploymentAdmissionSha256",
+            "SoraTairaCurrentChainId",
+            "SoraTairaRetiredChainId",
+            "SoraTairaCurrentGenesisHash",
+            "SoraTairaRetiredGenesisHash",
+            "SoraTairaCurrentDeploymentEpoch",
+            "SoraTairaRetiredDeploymentEpoch",
+            "SoraTairaCanonicalToriiBaseUrl",
+            "SoraTairaPublicMcpEndpoint",
+            "SoraTairaPendingRowPolicy",
+        ] {
+            values[key] = ""
+        }
+        return values
+    }
+#endif
+
     func testProductionWalletStorageIdentityRemainsBackwardCompatible() {
         XCTAssertEqual(
             UserStorageVersion.current.rawValue,
@@ -1204,6 +1249,127 @@ final class WalletModernizationTests: XCTestCase {
                 currentDeploymentEpoch: "9007199254740992"
             )
         ))
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+        let info = Self.internalTestFlightTairaInfo()
+        XCTAssertNil(TairaDeploymentBinding.admitted(infoDictionary: info))
+        let binding = try XCTUnwrap(
+            InternalTairaTestFlightBinding.resolve(
+                infoDictionary: info
+            )
+        )
+        XCTAssertEqual(
+            InternalTairaTestFlightBinding.currentChainId.uuidString.lowercased(),
+            Self.tairaUUIDs.second
+        )
+        XCTAssertEqual(
+            InternalTairaTestFlightBinding.currentGenesisHash,
+            "d8df4ad9f8e4b67a1734c805baed9a97fc34fc6a9ca905ac7c8daed00fbbdf3b"
+        )
+        XCTAssertTrue(binding.authorizesTransport(
+            to: try XCTUnwrap(
+                URL(string: "https://taira.sora.org/v1/mcp")
+            )
+        ))
+        let configuration = NexusNetworkConfiguration.taira(
+            internalTestFlight: binding
+        )
+        let internalDigest = try XCTUnwrap(
+            NexusPendingTransaction.internalTairaConfigurationSha256(
+                for: configuration,
+                binding: binding
+            )
+        )
+        var internalPending = NexusPendingTransaction(
+            id: UUID(),
+            idempotencyKey: UUID(),
+            walletId: "internal-test-wallet",
+            networkId: .taira,
+            chainId: configuration.chainId,
+            tairaDeployment: nil,
+            internalTairaConfigurationSha256: internalDigest,
+            sender: "internal-sender",
+            receiver: "internal-receiver",
+            assetDefinitionID: Self.nexusXorAssetDefinitionID,
+            amount: try PIQuantity("1"),
+            fee: try PIQuantity("0.1"),
+            createdAt: Date(timeIntervalSince1970: 1),
+            updatedAt: Date(timeIntervalSince1970: 2),
+            hash: nil,
+            state: .signing,
+            terminalBlockHeight: nil,
+            errorClass: nil,
+            historyReconciledAt: nil
+        )
+        XCTAssertTrue(internalPending.hasCurrentInternalTairaDeploymentIdentity(
+            for: configuration,
+            binding: binding
+        ))
+        XCTAssertEqual(
+            internalPending.internalTairaConfigurationSha256,
+            InternalTairaTestFlightBinding.configurationSha256
+        )
+        var oldObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: JSONEncoder().encode(internalPending)
+            ) as? [String: Any]
+        )
+        oldObject.removeValue(forKey: "internalTairaConfigurationSha256")
+        let oldDecoded = try JSONDecoder().decode(
+            NexusPendingTransaction.self,
+            from: JSONSerialization.data(withJSONObject: oldObject)
+        )
+        XCTAssertNil(oldDecoded.internalTairaConfigurationSha256)
+        XCTAssertFalse(oldDecoded.hasCurrentInternalTairaDeploymentIdentity(
+            for: configuration,
+            binding: binding
+        ))
+        internalPending.internalTairaConfigurationSha256 =
+            String(repeating: "f", count: 64)
+        XCTAssertFalse(internalPending.hasCurrentInternalTairaDeploymentIdentity(
+            for: configuration,
+            binding: binding
+        ))
+        internalPending.internalTairaConfigurationSha256 = internalDigest
+        internalPending.tairaDeployment =
+            NexusPendingTairaDeploymentIdentity(
+                manifestSha256: String(repeating: "a", count: 64),
+                deploymentEpoch: 1,
+                genesisHash: String(repeating: "b", count: 64)
+            )
+        XCTAssertFalse(internalPending.hasCurrentInternalTairaDeploymentIdentity(
+            for: configuration,
+            binding: binding
+        ))
+        XCTAssertNil(InternalTairaTestFlightBinding.resolve(
+            infoDictionary: Self.internalTestFlightTairaInfo(contractId: "")
+        ))
+        XCTAssertNil(InternalTairaTestFlightBinding.resolve(
+            infoDictionary: Self.internalTestFlightTairaInfo(
+                sourceRevision: String(repeating: "0", count: 40)
+            )
+        ))
+        XCTAssertNil(InternalTairaTestFlightBinding.resolve(
+            infoDictionary: Self.internalTestFlightTairaInfo(
+                bundleIdentifier: "co.jp.soramitsu.sora.dev"
+            )
+        ))
+        var mixed = info
+        mixed["SoraTairaDeploymentAdmissionContractId"] =
+            "sora-ios-taira-deployment-admission-v1"
+        XCTAssertNil(InternalTairaTestFlightBinding.resolve(
+            infoDictionary: mixed
+        ))
+        var fullyMixed = Self.tairaAdmissionInfo()
+        for (key, value) in info {
+            fullyMixed[key] = value
+        }
+        XCTAssertNil(TairaDeploymentBinding.admitted(
+            infoDictionary: fullyMixed
+        ))
+        XCTAssertNil(InternalTairaTestFlightBinding.resolve(
+            infoDictionary: fullyMixed
+        ))
+#endif
     }
 
     func testNexusAdmissionPolicyHasIndependentExactTopologySets() throws {

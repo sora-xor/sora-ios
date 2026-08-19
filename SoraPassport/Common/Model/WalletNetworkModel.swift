@@ -2053,6 +2053,31 @@ final class WalletAccountCommitJournalStore {
     }
 }
 
+enum TairaInternalTestFlightInfoMarker {
+    static let keys = [
+        "SoraTairaInternalTestFlightBuildNumber",
+        "SoraTairaInternalTestFlightConfigSha256",
+        "SoraTairaInternalTestFlightContractId",
+        "SoraTairaInternalTestFlightCurrentChainId",
+        "SoraTairaInternalTestFlightCurrentGenesisHash",
+        "SoraTairaInternalTestFlightMcpEndpoint",
+        "SoraTairaInternalTestFlightSourceRevision",
+        "SoraTairaInternalTestFlightToriiBaseUrl",
+    ]
+
+    static func hasAnyValue(_ values: [String: Any]) -> Bool {
+        keys.contains { key in
+            guard let rawValue = values[key] else {
+                return false
+            }
+            guard let value = rawValue as? String else {
+                return true
+            }
+            return !value.isEmpty
+        }
+    }
+}
+
 /// Runtime projection of the externally operator/reviewer-signed deployment
 /// admission. The bundle projection is intentionally insufficient to create an
 /// admission: Release tooling must authenticate the protected manifest and
@@ -2078,7 +2103,10 @@ struct TairaDeploymentBinding: Equatable {
     static func admitted(
         infoDictionary: [String: Any]?
     ) -> TairaDeploymentBinding? {
-        guard let values = infoDictionary else {
+        guard
+            let values = infoDictionary,
+            !TairaInternalTestFlightInfoMarker.hasAnyValue(values)
+        else {
             return nil
         }
         func exactString(_ key: String) -> String? {
@@ -2244,6 +2272,133 @@ struct TairaDeploymentBinding: Equatable {
     }
 }
 
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+    /// Unsigned convenience deployment exposed only by the permanently
+    /// internal TestFlight build. It is intentionally a different type from
+    /// the operator/reviewer-signed production admission above.
+    struct InternalTairaTestFlightBinding: Equatable {
+        static let contractId = "sora-ios-taira-internal-testflight-v1"
+        static let configurationSha256 =
+            "bac9ad666efd0d1c144ff86159899705d651457694fad4255c54e1d808c4bf90"
+        static let currentChainId = UUID(
+            uuidString: "fc56984b-2be7-431d-840e-21514d1883f0"
+        )!
+        static let currentGenesisHash =
+            "d8df4ad9f8e4b67a1734c805baed9a97fc34fc6a9ca905ac7c8daed00fbbdf3b"
+        static let canonicalToriiBaseURL = URL(
+            string: "https://taira.sora.org"
+        )!
+        static let publicMcpEndpoint = URL(
+            string: "https://taira.sora.org/v1/mcp"
+        )!
+        private static let productionKeys = [
+            "SoraTairaDeploymentAdmissionContractId",
+            "SoraTairaDeploymentManifestSha256",
+            "SoraTairaDeploymentAdmissionSha256",
+            "SoraTairaCurrentChainId",
+            "SoraTairaRetiredChainId",
+            "SoraTairaCurrentGenesisHash",
+            "SoraTairaRetiredGenesisHash",
+            "SoraTairaCurrentDeploymentEpoch",
+            "SoraTairaRetiredDeploymentEpoch",
+            "SoraTairaCanonicalToriiBaseUrl",
+            "SoraTairaPublicMcpEndpoint",
+            "SoraTairaPendingRowPolicy",
+        ]
+
+        let sourceRevision: String
+        let buildNumber: String
+
+        static func resolve(
+            infoDictionary: [String: Any]?
+        ) -> InternalTairaTestFlightBinding? {
+            guard let values = infoDictionary else {
+                return nil
+            }
+            func exactString(_ key: String) -> String? {
+                guard
+                    let value = values[key] as? String,
+                    !value.isEmpty,
+                    value.utf8.count <= 2_048,
+                    value.unicodeScalars.allSatisfy({
+                        $0.value >= 0x20 &&
+                            !((0x7F ... 0x9F).contains($0.value))
+                    })
+                else {
+                    return nil
+                }
+                return value
+            }
+            guard
+                productionKeys.allSatisfy({
+                    (values[$0] as? String).map({ $0.isEmpty }) == true
+                }),
+                exactString("CFBundleIdentifier") ==
+                    "co.jp.soramitsu.sora",
+                exactString("SoraTairaInternalTestFlightContractId") ==
+                    contractId,
+                exactString("SoraTairaInternalTestFlightConfigSha256") ==
+                    configurationSha256,
+                exactString("SoraTairaInternalTestFlightCurrentChainId") ==
+                    currentChainId.uuidString.lowercased(),
+                exactString("SoraTairaInternalTestFlightCurrentGenesisHash") ==
+                    currentGenesisHash,
+                exactString("SoraTairaInternalTestFlightToriiBaseUrl") ==
+                    canonicalToriiBaseURL.absoluteString,
+                exactString("SoraTairaInternalTestFlightMcpEndpoint") ==
+                    publicMcpEndpoint.absoluteString,
+                let sourceRevision = exactString(
+                    "SoraTairaInternalTestFlightSourceRevision"
+                ),
+                sourceRevision.range(
+                    of: "^[0-9a-f]{40}$",
+                    options: .regularExpression
+                ) != nil,
+                sourceRevision != String(repeating: "0", count: 40),
+                let bundleBuild = exactString("CFBundleVersion"),
+                exactString("SoraTairaInternalTestFlightBuildNumber") ==
+                    bundleBuild,
+                bundleBuild.range(
+                    of: "^[1-9][0-9]{0,17}$",
+                    options: .regularExpression
+                ) != nil
+            else {
+                return nil
+            }
+            return InternalTairaTestFlightBinding(
+                sourceRevision: sourceRevision,
+                buildNumber: bundleBuild
+            )
+        }
+
+        static var resolvedFromBundle: InternalTairaTestFlightBinding? {
+            resolve(infoDictionary: Bundle.main.infoDictionary)
+        }
+
+        func authorizesTransport(to url: URL) -> Bool {
+            guard
+                let requested = URLComponents(
+                    url: url,
+                    resolvingAgainstBaseURL: false
+                ),
+                requested.scheme == "https",
+                requested.user == nil,
+                requested.password == nil,
+                requested.host?.lowercased() == TairaDeploymentBinding.convenienceHost,
+                (requested.port ?? 443) == 443,
+                requested.fragment == nil,
+                url.path.hasPrefix("/")
+            else {
+                return false
+            }
+            if url.path.hasSuffix("/v1/mcp") {
+                return url == Self.publicMcpEndpoint
+            }
+            return true
+        }
+    }
+#endif
+
 struct NexusDerivationProfile: Equatable {
     let networkId: NetworkId
     let derivationPath: String
@@ -2279,15 +2434,36 @@ struct NexusDerivationProfile: Equatable {
 /// never treats that retained row as current transport admission.
 struct NexusNetworkAdmissionPolicy: Equatable {
     let tairaDeployment: TairaDeploymentBinding?
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+    let internalTairaTestFlight: InternalTairaTestFlightBinding?
+
+    init(
+        tairaDeployment: TairaDeploymentBinding?,
+        internalTairaTestFlight: InternalTairaTestFlightBinding? = nil
+    ) {
+        self.tairaDeployment = tairaDeployment
+        self.internalTairaTestFlight = internalTairaTestFlight
+    }
+#endif
 
     static var current: NexusNetworkAdmissionPolicy {
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+        let production = TairaDeploymentBinding.admittedFromBundle
+        return NexusNetworkAdmissionPolicy(
+            tairaDeployment: production,
+            internalTairaTestFlight: production == nil
+                ? InternalTairaTestFlightBinding.resolvedFromBundle
+                : nil
+        )
+#else
         NexusNetworkAdmissionPolicy(
             tairaDeployment: TairaDeploymentBinding.admittedFromBundle
         )
+#endif
     }
 
     var admittedDerivationProfiles: [NexusDerivationProfile] {
-        [.minamoto] + (tairaDeployment == nil ? [] : [.taira])
+        [.minamoto] + (isTairaAdmitted ? [.taira] : [])
     }
 
     var admittedWalletNetworkIds: Set<NetworkId> {
@@ -2297,7 +2473,11 @@ struct NexusNetworkAdmissionPolicy: Equatable {
     }
 
     var isTairaAdmitted: Bool {
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+        tairaDeployment != nil || internalTairaTestFlight != nil
+#else
         tairaDeployment != nil
+#endif
     }
 
     static func persistedMnemonicNetworkIdsAreValid(
@@ -2339,16 +2519,20 @@ struct NexusNetworkConfiguration: Codable, Equatable {
     )
 
     static var taira: NexusNetworkConfiguration? {
-        guard let deployment = TairaDeploymentBinding.admittedFromBundle else {
-            return nil
+        if let deployment = TairaDeploymentBinding.admittedFromBundle {
+            return taira(deployment: deployment)
         }
-        return taira(deployment: deployment)
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+        if let internalTestFlight =
+            InternalTairaTestFlightBinding.resolvedFromBundle {
+            return taira(internalTestFlight: internalTestFlight)
+        }
+#endif
+        return nil
     }
 
     static var admittedWalletNetworkIds: Set<NetworkId> {
-        admittedWalletNetworkIds(
-            deployment: TairaDeploymentBinding.admittedFromBundle
-        )
+        NexusNetworkAdmissionPolicy.current.admittedWalletNetworkIds
     }
 
     static func admittedWalletNetworkIds(
@@ -2373,6 +2557,23 @@ struct NexusNetworkConfiguration: Codable, Equatable {
             isTestnet: true
         )
     }
+
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+    static func taira(
+        internalTestFlight: InternalTairaTestFlightBinding
+    ) -> NexusNetworkConfiguration {
+        NexusNetworkConfiguration(
+            networkId: .taira,
+            displayName: "Taira Testnet",
+            chainId: InternalTairaTestFlightBinding.currentChainId,
+            i105Discriminant: NexusDerivationProfile.taira.i105Discriminant,
+            toriiURL: InternalTairaTestFlightBinding.canonicalToriiBaseURL,
+            explorerURL: URL(string: "https://taira-explorer.sora.org")!,
+            derivationPath: NexusDerivationProfile.taira.derivationPath,
+            isTestnet: true
+        )
+    }
+#endif
 
     /// Historical schema-77 rows remain readable under their exact UUID. This
     /// configuration has no admitted endpoint and must never reach transport.
@@ -2422,8 +2623,16 @@ struct NexusNetworkConfiguration: Codable, Equatable {
            requested.fragment == nil {
             return true
         }
-        return TairaDeploymentBinding.admittedFromBundle?
+        if TairaDeploymentBinding.admittedFromBundle?
+            .authorizesTransport(to: url) == true {
+            return true
+        }
+#if SORA_INTERNAL_TAIRA_TESTFLIGHT
+        return InternalTairaTestFlightBinding.resolvedFromBundle?
             .authorizesTransport(to: url) == true
+#else
+        return false
+#endif
     }
 
     func validate(address: String) throws {

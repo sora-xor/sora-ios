@@ -1029,7 +1029,7 @@
 "taira_testnet_entry_disabled" = "Actifs de test uniquement · Touchez pour activer";
 "taira_testnet_entry_unavailable" = "Actifs de test uniquement · Indisponible dans cette version";
 "taira_testnet_guide_title" = "Essayer le réseau de test Taira";
-"taira_testnet_guide_message" = "Taira sert uniquement aux tests. Les XOR de test n’ont aucune valeur monétaire.\n\n1. Activez Taira.\n2. Ouvrez Portefeuille SORA et sélectionnez TAIRA · TESTNET.\n3. Copiez votre adresse Taira pour recevoir des XOR de test, puis testez l’envoi et la réception.\n\nVotre solde SORA2 et votre clé privée ne sont pas déplacés.";
+"taira_testnet_guide_message" = "Taira sert uniquement aux tests. Les XOR de test n’ont aucune valeur monétaire.\n\n1. Activez Taira.\n2. Ouvrez Portefeuille SORA et sélectionnez TAIRA · TESTNET.\n3. Copiez votre adresse Taira et transmettez-la à l’équipe du testnet Taira pour recevoir des XOR de test.\n4. Revenez ici pour tester l’envoi et la réception.\n\nVotre solde SORA2 et votre clé privée ne sont pas déplacés.";
 "taira_testnet_enable_open" = "Activer et ouvrir";
 "taira_testnet_open" = "Ouvrir Taira";
 "taira_testnet_unavailable_title" = "Taira n’est pas disponible dans cette version";

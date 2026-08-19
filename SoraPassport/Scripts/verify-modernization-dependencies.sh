@@ -648,6 +648,16 @@ if [ "$#" -eq 1 ] && [ "$1" = "--lint-ios-migration-release-source-gate" ]; then
     unset SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER
     unset SORA_IOS_INTERNAL_TESTFLIGHT_SOURCE_REVISION
     unset SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_BUILD_NUMBER
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_CONTRACT_ID
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_CHAIN_ID
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_GENESIS_HASH
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_MCP_ENDPOINT
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_SOURCE_REVISION
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_TORII_BASE_URL
+    unset SWIFT_ACTIVE_COMPILATION_CONDITIONS
+    unset OTHER_SWIFT_FLAGS
     run_ios_migration_release_source_gate
     exit 0
 fi
@@ -669,8 +679,38 @@ if [ -z "${release_test_mode}" ] && [ -n "${release_test_action}" ]; then
 fi
 internal_testflight_mode="${SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE:-}"
 internal_testflight_action="${SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION:-}"
+internal_taira_settings_present=false
+for internal_taira_value in \
+    "${SORA_TAIRA_INTERNAL_TESTFLIGHT_BUILD_NUMBER:-}" \
+    "${SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256:-}" \
+    "${SORA_TAIRA_INTERNAL_TESTFLIGHT_CONTRACT_ID:-}" \
+    "${SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_CHAIN_ID:-}" \
+    "${SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_GENESIS_HASH:-}" \
+    "${SORA_TAIRA_INTERNAL_TESTFLIGHT_MCP_ENDPOINT:-}" \
+    "${SORA_TAIRA_INTERNAL_TESTFLIGHT_SOURCE_REVISION:-}" \
+    "${SORA_TAIRA_INTERNAL_TESTFLIGHT_TORII_BASE_URL:-}"
+do
+    if [ -n "${internal_taira_value}" ]; then
+        internal_taira_settings_present=true
+    fi
+done
+case " ${SWIFT_ACTIVE_COMPILATION_CONDITIONS:-} " in
+    *' SORA_INTERNAL_TAIRA_TESTFLIGHT '*) internal_taira_compile_flag=true ;;
+    *) internal_taira_compile_flag=false ;;
+esac
+case " ${OTHER_SWIFT_FLAGS:-} " in
+    *SORA_INTERNAL_TAIRA_TESTFLIGHT*) internal_taira_other_swift_flag=true ;;
+    *) internal_taira_other_swift_flag=false ;;
+esac
 if [ -z "${internal_testflight_mode}" ] && [ -n "${internal_testflight_action}" ]; then
     echo "error: iOS internal TestFlight action lacks its exact capability" >&2
+    exit 1
+fi
+if [ -z "${internal_testflight_mode}" ] &&
+   { [ "${internal_taira_settings_present}" = "true" ] ||
+     [ "${internal_taira_compile_flag}" = "true" ] ||
+     [ "${internal_taira_other_swift_flag}" = "true" ]; }; then
+    echo "error: internal Taira settings or compile capability escaped the internal TestFlight uploader" >&2
     exit 1
 fi
 if [ -n "${internal_testflight_mode}" ]; then
@@ -696,7 +736,7 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${CODE_SIGN_STYLE:-}" != "Automatic" ] ||
        [ "${CODE_SIGN_IDENTITY:-}" != "iPhone Developer" ] ||
        [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ] ||
-       [ "${internal_testflight_build_number}" != "2026081601" ] ||
+       [ "${internal_testflight_build_number}" != "2026081902" ] ||
        [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
        [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
        [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
@@ -705,7 +745,29 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${CODE_SIGNING_ALLOWED:-YES}" != "YES" ] ||
        [ "${CODE_SIGNING_REQUIRED:-YES}" != "YES" ] ||
        [ "${#internal_testflight_source_revision}" -ne 40 ] ||
-       [ "${internal_testflight_source_revision}" != "${SORA_MIGRATION_EVIDENCE_SOURCE_REVISION:-}" ]; then
+       [ "${internal_testflight_source_revision}" != "${SORA_MIGRATION_EVIDENCE_SOURCE_REVISION:-}" ] ||
+       [ "${internal_taira_compile_flag}" != "true" ] ||
+       [ "${internal_taira_other_swift_flag}" != "false" ] ||
+       [ "${SORA_TAIRA_INTERNAL_TESTFLIGHT_BUILD_NUMBER:-}" != "${internal_testflight_build_number}" ] ||
+       [ "${SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256:-}" != "bac9ad666efd0d1c144ff86159899705d651457694fad4255c54e1d808c4bf90" ] ||
+       [ "${SORA_TAIRA_INTERNAL_TESTFLIGHT_CONTRACT_ID:-}" != "sora-ios-taira-internal-testflight-v1" ] ||
+       [ "${SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_CHAIN_ID:-}" != "fc56984b-2be7-431d-840e-21514d1883f0" ] ||
+       [ "${SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_GENESIS_HASH:-}" != "d8df4ad9f8e4b67a1734c805baed9a97fc34fc6a9ca905ac7c8daed00fbbdf3b" ] ||
+       [ "${SORA_TAIRA_INTERNAL_TESTFLIGHT_MCP_ENDPOINT:-}" != "https://taira.sora.org/v1/mcp" ] ||
+       [ "${SORA_TAIRA_INTERNAL_TESTFLIGHT_SOURCE_REVISION:-}" != "${internal_testflight_source_revision}" ] ||
+       [ "${SORA_TAIRA_INTERNAL_TESTFLIGHT_TORII_BASE_URL:-}" != "https://taira.sora.org" ] ||
+       [ -n "${SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID:-}" ] ||
+       [ -n "${SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256:-}" ] ||
+       [ -n "${SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256:-}" ] ||
+       [ -n "${SORA_TAIRA_CURRENT_CHAIN_ID:-}" ] ||
+       [ -n "${SORA_TAIRA_RETIRED_CHAIN_ID:-}" ] ||
+       [ -n "${SORA_TAIRA_CURRENT_GENESIS_HASH:-}" ] ||
+       [ -n "${SORA_TAIRA_RETIRED_GENESIS_HASH:-}" ] ||
+       [ -n "${SORA_TAIRA_CURRENT_DEPLOYMENT_EPOCH:-}" ] ||
+       [ -n "${SORA_TAIRA_RETIRED_DEPLOYMENT_EPOCH:-}" ] ||
+       [ -n "${SORA_TAIRA_CANONICAL_TORII_BASE_URL:-}" ] ||
+       [ -n "${SORA_TAIRA_PUBLIC_MCP_ENDPOINT:-}" ] ||
+       [ -n "${SORA_TAIRA_PENDING_ROW_POLICY:-}" ]; then
         echo "error: iOS internal-only TestFlight archive capability is invalid" >&2
         exit 1
     fi
@@ -725,22 +787,32 @@ if [ -n "${internal_testflight_mode}" ]; then
     if [ ! -f "${internal_testflight_wrapper}" ] || [ -L "${internal_testflight_wrapper}" ] ||
        [ ! -f "${internal_testflight_export_options}" ] || [ -L "${internal_testflight_export_options}" ] ||
        [ "${#internal_testflight_export_options_sha}" -ne 64 ] ||
-       [ "$({ /usr/bin/shasum -a 256 "${internal_testflight_export_options}" | /usr/bin/awk '{print $1}'; })" != "${internal_testflight_export_options_sha}" ]; then
+       [ "$({ /usr/bin/shasum -a 256 "${internal_testflight_export_options}" | /usr/bin/awk '{print $1}'; })" != "${internal_testflight_export_options_sha}" ] ||
+       [ "$({ /usr/bin/shasum -a 256 "${root}/Fixtures/Modernization/ios-taira-internal-testflight-v1.json" | /usr/bin/awk '{print $1}'; })" != "bac9ad666efd0d1c144ff86159899705d651457694fad4255c54e1d808c4bf90" ]; then
         echo "error: iOS internal-only TestFlight upload boundary is missing or unstable" >&2
         exit 1
     fi
     if [ ! -x /usr/bin/git ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/modernize" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "d657f9ccc55ba1f9558c474229bc470375a71bfd" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-list --count "d657f9ccc55ba1f9558c474229bc470375a71bfd..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
-       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "d657f9ccc55ba1f9558c474229bc470375a71bfd..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
-SoraPassport/Scripts/test-ios-migration-release-boundary.py
+       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/codex/taira-integration-20260819" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "6efdf6bdf311711aee2748b82e3fe7f13aed9527" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "6efdf6bdf311711aee2748b82e3fe7f13aed9527..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "6efdf6bdf311711aee2748b82e3fe7f13aed9527..${internal_testflight_source_revision}" 2>/dev/null)" != 'Fixtures/Modernization/ios-migration-qualification-contract-v1.json
+Fixtures/Modernization/ios-taira-internal-testflight-v1.json
+SoraPassport/Common/Model/NexusWalletService.swift
+SoraPassport/Common/Model/WalletNetworkModel.swift
+SoraPassport/Configs/SoraPassport.release.xcconfig
+SoraPassport/Info.plist
+SoraPassport/ModulesRedesign/MoreMenu/MoreMenuPresenter.swift
+SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh
-VendorPackages/JOSESwift/Package.swift' ] ||
+SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
+SoraPassport/SoraLocalizable/fr.lproj/Localizable.strings
+SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings
+SoraPassportTests/Common/Modernization/WalletModernizationTests.swift' ] ||
        [ -n "$(/usr/bin/git -C "${root}" status --porcelain=v1 --untracked-files=normal)" ]; then
         echo "error: iOS internal-only TestFlight source is not the exact clean pushed revision" >&2
         exit 1
@@ -750,6 +822,16 @@ VendorPackages/JOSESwift/Package.swift' ] ||
     unset SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER
     unset SORA_IOS_INTERNAL_TESTFLIGHT_SOURCE_REVISION
     unset SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_BUILD_NUMBER
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_CONTRACT_ID
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_CHAIN_ID
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_GENESIS_HASH
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_MCP_ENDPOINT
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_SOURCE_REVISION
+    unset SORA_TAIRA_INTERNAL_TESTFLIGHT_TORII_BASE_URL
+    unset SWIFT_ACTIVE_COMPILATION_CONDITIONS
+    unset OTHER_SWIFT_FLAGS
     run_ios_migration_release_source_gate
     /bin/sh "${internal_testflight_wrapper}" --lint-contract >/dev/null
     /usr/bin/printf '%s\n' \
@@ -2375,9 +2457,12 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    /usr/bin/grep -Fq '<key>signingCertificate</key>' "${internal_testflight_export_options}" ||
    /usr/bin/grep -Fq '<key>provisioningProfiles</key>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="d657f9ccc55ba1f9558c474229bc470375a71bfd"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/modernize"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_build_number="2026081601"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="6efdf6bdf311711aee2748b82e3fe7f13aed9527"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/codex/taira-integration-20260819"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_build_number="2026081902"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'SORA_INTERNAL_TAIRA_TESTFLIGHT' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'SoraTairaInternalTestFlightConfigSha256' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'internal Taira settings or compile capability escaped' "${dependency_verifier}" ||
    ! /usr/bin/grep -Fq -- '--verify-app-runtime-closure "${archived_app}"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'verify_app_runtime_dependency_closure' "${internal_testflight_delivery_verifier}" ||
    ! /usr/bin/grep -Fq 'test_runtime_dependency_closure_rejects_missing_framework' "${internal_testflight_harness}" ||

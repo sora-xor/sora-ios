@@ -1029,7 +1029,7 @@
 "taira_testnet_entry_disabled" = "Test assets only · Tap to enable and start";
 "taira_testnet_entry_unavailable" = "Test assets only · Unavailable in this build";
 "taira_testnet_guide_title" = "Try Taira Testnet";
-"taira_testnet_guide_message" = "Taira is for testing only. Test XOR has no monetary value.\n\n1. Enable Taira.\n2. Open SORA Portfolio and select TAIRA · TESTNET.\n3. Copy your Taira address to receive test XOR, then try sending and receiving.\n\nYour SORA2 balance and private key are not moved.";
+"taira_testnet_guide_message" = "Taira is for testing only. Test XOR has no monetary value.\n\n1. Enable Taira.\n2. Open SORA Portfolio and select TAIRA · TESTNET.\n3. Copy your Taira address and share it with the Taira testnet team to receive test XOR.\n4. Return here to try sending and receiving.\n\nYour SORA2 balance and private key are not moved.";
 "taira_testnet_enable_open" = "Enable and open";
 "taira_testnet_open" = "Open Taira";
 "taira_testnet_unavailable_title" = "Taira is unavailable in this build";

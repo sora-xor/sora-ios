@@ -15,14 +15,21 @@ scheme="${root}/SoraPassport.xcodeproj/xcshareddata/xcschemes/SoraPassport.xcsch
 export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-options.plist"
 source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-contract.py"
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
+internal_taira_config="${root}/Fixtures/Modernization/ios-taira-internal-testflight-v1.json"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="d657f9ccc55ba1f9558c474229bc470375a71bfd"
-reviewed_upstream="origin/modernize"
-reviewed_build_number="2026081601"
-reviewed_lower_bound="2026081101"
+reviewed_base_revision="6efdf6bdf311711aee2748b82e3fe7f13aed9527"
+reviewed_upstream="origin/codex/taira-integration-20260819"
+reviewed_build_number="2026081902"
+reviewed_lower_bound="2026081901"
 reviewed_marketing_version="3.8.7"
 reviewed_bundle_identifier="co.jp.soramitsu.sora"
 reviewed_team_id="YLWWUD25VZ"
+internal_taira_contract_id="sora-ios-taira-internal-testflight-v1"
+internal_taira_config_sha256="bac9ad666efd0d1c144ff86159899705d651457694fad4255c54e1d808c4bf90"
+internal_taira_chain_id="fc56984b-2be7-431d-840e-21514d1883f0"
+internal_taira_genesis_hash="d8df4ad9f8e4b67a1734c805baed9a97fc34fc6a9ca905ac7c8daed00fbbdf3b"
+internal_taira_torii_base_url="https://taira.sora.org"
+internal_taira_mcp_endpoint="https://taira.sora.org/v1/mcp"
 reviewed_signing_identity="Apple Distribution: Soramitsu Co., Ltd. (YLWWUD25VZ)"
 reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"
 reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"
@@ -53,7 +60,8 @@ lint_contract() {
         "${scheme}" \
         "${export_options}" \
         "${source_contract_tool}" \
-        "${delivery_verifier}"
+        "${delivery_verifier}" \
+        "${internal_taira_config}"
     do
         [ -f "${required}" ] && [ ! -L "${required}" ] ||
             fail "internal TestFlight contract input is missing or symbolic: ${required}"
@@ -87,6 +95,31 @@ lint_contract() {
         fail "production scheme lacks its Release archive action"
     /usr/bin/python3 -I -S "${delivery_verifier}" --lint-contract >/dev/null ||
         fail "internal TestFlight delivery verifier contract drifted"
+    [ "$(sha256_file "${internal_taira_config}")" = "${internal_taira_config_sha256}" ] ||
+        fail "internal Taira configuration bytes drifted"
+    if ! /usr/bin/python3 -I -S - "${internal_taira_config}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+value = json.loads(Path(sys.argv[1]).read_bytes())
+if value != {
+    "schemaVersion": 1,
+    "contractId": "sora-ios-taira-internal-testflight-v1",
+    "scope": "internal-testflight-only",
+    "currentChainId": "fc56984b-2be7-431d-840e-21514d1883f0",
+    "currentGenesisHash": "d8df4ad9f8e4b67a1734c805baed9a97fc34fc6a9ca905ac7c8daed00fbbdf3b",
+    "canonicalToriiBaseUrl": "https://taira.sora.org",
+    "publicMcpEndpoint": "https://taira.sora.org/v1/mcp",
+    "productionAdmissionAuthorized": False,
+    "externalTestFlightAuthorized": False,
+    "appStoreDistributionAuthorized": False,
+}:
+    raise SystemExit(1)
+PY
+    then
+        fail "internal Taira configuration contract drifted"
+    fi
 }
 
 canonical_build_number() {
@@ -172,19 +205,28 @@ upstream_revision="$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/nu
 upstream_name="$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" ||
     fail "internal TestFlight upstream name cannot be resolved"
 [ "${upstream_name}" = "${reviewed_upstream}" ] ||
-    fail "internal TestFlight source must be pushed to origin/modernize"
+    fail "internal TestFlight source must be pushed to the reviewed upstream"
 parent_revision="$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" ||
     fail "internal TestFlight source parent cannot be resolved"
 [ "${parent_revision}" = "${reviewed_base_revision}" ] ||
     fail "internal TestFlight source is not the reviewed single successor"
 [ "$(/usr/bin/git -C "${root}" rev-list --count "${reviewed_base_revision}..${source_revision}")" = "1" ] ||
     fail "internal TestFlight source history is not the reviewed single commit"
-reviewed_successor_paths='SoraPassport/Scripts/test-ios-internal-testflight-upload.py
-SoraPassport/Scripts/test-ios-migration-release-boundary.py
+reviewed_successor_paths='Fixtures/Modernization/ios-migration-qualification-contract-v1.json
+Fixtures/Modernization/ios-taira-internal-testflight-v1.json
+SoraPassport/Common/Model/NexusWalletService.swift
+SoraPassport/Common/Model/WalletNetworkModel.swift
+SoraPassport/Configs/SoraPassport.release.xcconfig
+SoraPassport/Info.plist
+SoraPassport/ModulesRedesign/MoreMenu/MoreMenuPresenter.swift
+SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh
-VendorPackages/JOSESwift/Package.swift'
+SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
+SoraPassport/SoraLocalizable/fr.lproj/Localizable.strings
+SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings
+SoraPassportTests/Common/Modernization/WalletModernizationTests.swift'
 observed_successor_paths="$(/usr/bin/git -C "${root}" diff --name-only --no-renames "${reviewed_base_revision}..${source_revision}")"
 [ "${observed_successor_paths}" = "${reviewed_successor_paths}" ] ||
     fail "internal TestFlight successor contains an unreviewed path set"
@@ -240,6 +282,7 @@ if ! /usr/bin/xcodebuild \
     -archivePath "${archive_path}" \
     -allowProvisioningUpdates \
     "CURRENT_PROJECT_VERSION=${build_number}" \
+    'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) SORA_INTERNAL_TAIRA_TESTFLIGHT' \
     "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE=${mode}" \
     SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION=archive \
     "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER=${build_number}" \
@@ -247,6 +290,26 @@ if ! /usr/bin/xcodebuild \
     "SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256=${export_options_sha}" \
     "SORA_MIGRATION_EVIDENCE_SOURCE_REVISION=${source_revision}" \
     "SORA_MIGRATION_EVIDENCE_QUALIFICATION_CONTRACT_SHA256=${qualification_contract_sha}" \
+    "SORA_TAIRA_INTERNAL_TESTFLIGHT_BUILD_NUMBER=${build_number}" \
+    "SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256=${internal_taira_config_sha256}" \
+    "SORA_TAIRA_INTERNAL_TESTFLIGHT_CONTRACT_ID=${internal_taira_contract_id}" \
+    "SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_CHAIN_ID=${internal_taira_chain_id}" \
+    "SORA_TAIRA_INTERNAL_TESTFLIGHT_CURRENT_GENESIS_HASH=${internal_taira_genesis_hash}" \
+    "SORA_TAIRA_INTERNAL_TESTFLIGHT_MCP_ENDPOINT=${internal_taira_mcp_endpoint}" \
+    "SORA_TAIRA_INTERNAL_TESTFLIGHT_SOURCE_REVISION=${source_revision}" \
+    "SORA_TAIRA_INTERNAL_TESTFLIGHT_TORII_BASE_URL=${internal_taira_torii_base_url}" \
+    SORA_TAIRA_DEPLOYMENT_ADMISSION_CONTRACT_ID= \
+    SORA_TAIRA_DEPLOYMENT_MANIFEST_SHA256= \
+    SORA_TAIRA_DEPLOYMENT_ADMISSION_SHA256= \
+    SORA_TAIRA_CURRENT_CHAIN_ID= \
+    SORA_TAIRA_RETIRED_CHAIN_ID= \
+    SORA_TAIRA_CURRENT_GENESIS_HASH= \
+    SORA_TAIRA_RETIRED_GENESIS_HASH= \
+    SORA_TAIRA_CURRENT_DEPLOYMENT_EPOCH= \
+    SORA_TAIRA_RETIRED_DEPLOYMENT_EPOCH= \
+    SORA_TAIRA_CANONICAL_TORII_BASE_URL= \
+    SORA_TAIRA_PUBLIC_MCP_ENDPOINT= \
+    SORA_TAIRA_PENDING_ROW_POLICY= \
     archive >"${archive_log}" 2>&1; then
     fail "internal TestFlight archive failed; private archive log retained at ${archive_log}"
 fi
@@ -270,6 +333,31 @@ profile_path="${archived_app}/embedded.mobileprovision"
 [ "$(plist_raw CFBundleShortVersionString "${info_plist}")" = "${reviewed_marketing_version}" ] || fail "archived marketing version drifted"
 [ "$(plist_raw SoraMigrationEvidenceSourceRevision "${info_plist}")" = "${source_revision}" ] || fail "archive does not bind the exact source revision"
 [ "$(plist_raw SoraMigrationEvidenceQualificationContractSha256 "${info_plist}")" = "${qualification_contract_sha}" ] || fail "archive qualification source digest drifted"
+[ "$(plist_raw SoraTairaInternalTestFlightBuildNumber "${info_plist}")" = "${build_number}" ] || fail "internal Taira build binding drifted"
+[ "$(plist_raw SoraTairaInternalTestFlightConfigSha256 "${info_plist}")" = "${internal_taira_config_sha256}" ] || fail "internal Taira configuration digest drifted"
+[ "$(plist_raw SoraTairaInternalTestFlightContractId "${info_plist}")" = "${internal_taira_contract_id}" ] || fail "internal Taira contract drifted"
+[ "$(plist_raw SoraTairaInternalTestFlightCurrentChainId "${info_plist}")" = "${internal_taira_chain_id}" ] || fail "internal Taira chain identity drifted"
+[ "$(plist_raw SoraTairaInternalTestFlightCurrentGenesisHash "${info_plist}")" = "${internal_taira_genesis_hash}" ] || fail "internal Taira genesis identity drifted"
+[ "$(plist_raw SoraTairaInternalTestFlightMcpEndpoint "${info_plist}")" = "${internal_taira_mcp_endpoint}" ] || fail "internal Taira MCP endpoint drifted"
+[ "$(plist_raw SoraTairaInternalTestFlightSourceRevision "${info_plist}")" = "${source_revision}" ] || fail "internal Taira source binding drifted"
+[ "$(plist_raw SoraTairaInternalTestFlightToriiBaseUrl "${info_plist}")" = "${internal_taira_torii_base_url}" ] || fail "internal Taira Torii origin drifted"
+for production_taira_key in \
+    SoraTairaDeploymentAdmissionContractId \
+    SoraTairaDeploymentManifestSha256 \
+    SoraTairaDeploymentAdmissionSha256 \
+    SoraTairaCurrentChainId \
+    SoraTairaRetiredChainId \
+    SoraTairaCurrentGenesisHash \
+    SoraTairaRetiredGenesisHash \
+    SoraTairaCurrentDeploymentEpoch \
+    SoraTairaRetiredDeploymentEpoch \
+    SoraTairaCanonicalToriiBaseUrl \
+    SoraTairaPublicMcpEndpoint \
+    SoraTairaPendingRowPolicy
+do
+    [ -z "$(plist_raw "${production_taira_key}" "${info_plist}")" ] ||
+        fail "production Taira admission leaked into the internal archive"
+done
 /usr/bin/codesign --verify --deep --strict "${archived_app}" >/dev/null 2>&1 || fail "archived application code signature is invalid"
 /usr/bin/codesign -dvv "${archived_app}" >"${control_path}/codesign.txt" 2>&1 || fail "archived signing identity cannot be inspected"
 /usr/bin/grep -Fq "TeamIdentifier=${reviewed_team_id}" "${control_path}/codesign.txt" || fail "archived signing team drifted"
@@ -465,6 +553,14 @@ manifest = {
     "appleUploadState": "success",
     "appleUploadedAt": uploaded_at,
     "appleUploadReceiptSha256": delivery_receipt_sha256,
+    "internalTairaTestFlight": {
+        "contractId": "sora-ios-taira-internal-testflight-v1",
+        "configurationSha256": "bac9ad666efd0d1c144ff86159899705d651457694fad4255c54e1d808c4bf90",
+        "currentChainId": "fc56984b-2be7-431d-840e-21514d1883f0",
+        "currentGenesisHash": "d8df4ad9f8e4b67a1734c805baed9a97fc34fc6a9ca905ac7c8daed00fbbdf3b",
+        "canonicalToriiBaseUrl": "https://taira.sora.org",
+        "publicMcpEndpoint": "https://taira.sora.org/v1/mcp",
+    },
     "testFlightInternalTestingOnly": True,
     "externalTestFlightAuthorized": False,
     "appStorePromotionAuthorized": False,
