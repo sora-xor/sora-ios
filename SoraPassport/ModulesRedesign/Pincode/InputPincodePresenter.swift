@@ -189,6 +189,9 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
             // restoration, and scrypt work are best-effort recovery and must never hold the
             // PIN screen hostage.
             await MainActor.run {
+                Logger.shared.info(
+                    "SORA local authentication completed; presenting wallet from local state"
+                )
                 guard self.isNeedUpdateTo6Symbols else {
                     self.wireframe.showMain(from: self.view)
                     return

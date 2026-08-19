@@ -82,7 +82,14 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         let recoveryChooser = RetainedWalletRecoveryViewController(account: recoveryAccount)
         let cloudStorage = CloudStorageService(uiDelegate: recoveryChooser)
         _ = cloudStorage.configureCurrentAccountIfAvailable()
-        if let identity = cloudStorage.currentAccountIdentity {
+        let storedAssociations = WalletGoogleAccountAssociationStore.shared.associations(
+            for: recoveryAccount
+        )
+        if !storedAssociations.isEmpty {
+            recoveryChooser.setGoogleAccountStatus(
+                .previouslyUsed(emails: storedAssociations.map(\.email))
+            )
+        } else if let identity = cloudStorage.currentAccountIdentity {
             recoveryChooser.setGoogleAccountStatus(.available(email: identity.email))
         } else {
             recoveryChooser.setGoogleAccountStatus(.notChecked)
@@ -155,6 +162,34 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     ) {
         guard controller.beginMethodSelection() else { return }
 
+        let storedAssociations = WalletGoogleAccountAssociationStore.shared.associations(
+            for: recoveryAccount
+        )
+        if !storedAssociations.isEmpty {
+            if let identity = cloudStorage.currentAccountIdentity,
+               storedAssociations.contains(where: { $0.userID == identity.userID }) {
+                controller.endMethodSelection()
+                presentGoogleAccountDecision(
+                    from: controller,
+                    cloudStorage: cloudStorage,
+                    identity: identity,
+                    recoveryAccount: recoveryAccount,
+                    completion: completion
+                )
+            } else {
+                controller.endMethodSelection()
+                presentPreviouslyUsedGoogleAccountDecision(
+                    from: controller,
+                    cloudStorage: cloudStorage,
+                    associations: storedAssociations,
+                    activeIdentity: cloudStorage.currentAccountIdentity,
+                    recoveryAccount: recoveryAccount,
+                    completion: completion
+                )
+            }
+            return
+        }
+
         if let identity = cloudStorage.currentAccountIdentity {
             controller.endMethodSelection()
             presentGoogleAccountDecision(
@@ -206,11 +241,20 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
 
         let alert: UIAlertController
         if let identity {
+            let isPreviouslyUsed = WalletGoogleAccountAssociationStore.shared.association(
+                for: recoveryAccount,
+                googleUserID: identity.userID
+            ) != nil
             alert = UIAlertController(
-                title: recoveryText(
-                    "wallet.recovery.google.account.title",
-                    fallback: "Google Drive account"
-                ),
+                title: isPreviouslyUsed
+                    ? recoveryText(
+                        "wallet.recovery.google.account.previous.title",
+                        fallback: "Previous Google Drive account"
+                    )
+                    : recoveryText(
+                        "wallet.recovery.google.account.title",
+                        fallback: "Google Drive account"
+                    ),
                 message: "\(identity.email)\n\n" + recoveryText(
                     "wallet.recovery.google.account.confirm",
                     fallback: "Search this account for the encrypted backup of this wallet?"
@@ -283,6 +327,66 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                             completion: completion
                         )
                     }
+                }
+            }
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonCancel(preferredLanguages: .currentLocale),
+                style: .cancel
+            )
+        )
+        controller.present(alert, animated: true)
+    }
+
+    @MainActor
+    private static func presentPreviouslyUsedGoogleAccountDecision(
+        from controller: RetainedWalletRecoveryViewController,
+        cloudStorage: CloudStorageService,
+        associations: [WalletGoogleAccountAssociation],
+        activeIdentity: CloudStorageAccountIdentity?,
+        recoveryAccount: AccountItem,
+        completion: @escaping () -> Void
+    ) {
+        guard controller.presentedViewController == nil else { return }
+
+        var message = associations.map(\.email).joined(separator: "\n") + "\n\n" + recoveryText(
+            "wallet.recovery.google.account.previous.help",
+            fallback: "Choose this account in Google to check this wallet's backup."
+        )
+        if let activeIdentity,
+           !associations.contains(where: { $0.userID == activeIdentity.userID }) {
+            let currentLabel = recoveryText(
+                "wallet.recovery.google.account.current",
+                fallback: "Currently signed in"
+            )
+            message += "\n\n\(currentLabel): \(activeIdentity.email)"
+        }
+
+        let alert = UIAlertController(
+            title: recoveryText(
+                "wallet.recovery.google.account.previous.title",
+                fallback: "Previous Google Drive account"
+            ),
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: recoveryText(
+                    "wallet.recovery.google.account.choose",
+                    fallback: "Choose Google account"
+                ),
+                style: .default
+            ) { [weak controller] _ in
+                guard let controller else { return }
+                runGoogleActionAfterAlert(from: controller) {
+                    await selectGoogleAccount(
+                        from: controller,
+                        cloudStorage: cloudStorage,
+                        recoveryAccount: recoveryAccount,
+                        completion: completion
+                    )
                 }
             }
         )
@@ -409,7 +513,16 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                 return
             }
 
-            controller.setGoogleAccountStatus(.available(email: identity.email))
+            let storedAssociations = WalletGoogleAccountAssociationStore.shared.associations(
+                for: recoveryAccount
+            )
+            if storedAssociations.contains(where: { $0.userID == identity.userID }) {
+                controller.setGoogleAccountStatus(
+                    .previouslyUsed(emails: storedAssociations.map(\.email))
+                )
+            } else {
+                controller.setGoogleAccountStatus(.available(email: identity.email))
+            }
             presentGoogleAccountDecision(
                 from: controller,
                 cloudStorage: cloudStorage,
@@ -464,6 +577,15 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
                 attemptRepair: false
             ) != .available else {
                 controller.dismiss(animated: true, completion: completion)
+                return
+            }
+
+            let containsExactBackup = try await cloudStorage.containsMobileBackupIfAuthorized(
+                address: currentAccount.address,
+                expectedAccountUserID: activeIdentity.userID
+            )
+            guard containsExactBackup else {
+                presentNoGoogleBackupAlert(from: controller)
                 return
             }
 
@@ -532,6 +654,30 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
     }
 
     @MainActor
+    private static func presentNoGoogleBackupAlert(from controller: UIViewController) {
+        guard controller.presentedViewController == nil else { return }
+
+        let alert = UIAlertController(
+            title: recoveryText(
+                "wallet.recovery.backup.not.found.title",
+                fallback: "Backup not found"
+            ),
+            message: recoveryText(
+                "wallet.recovery.backup.not.found",
+                fallback: "No Google Drive backup was found for this wallet."
+            ),
+            preferredStyle: .alert
+        )
+        alert.addAction(
+            UIAlertAction(
+                title: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                style: .default
+            )
+        )
+        controller.present(alert, animated: true)
+    }
+
+    @MainActor
     @discardableResult
     static func presentAfterDismissingAlert(
         from controller: UIViewController,
@@ -550,27 +696,31 @@ final class MainTabBarViewFactory: MainTabBarViewFactoryProtocol {
         return true
     }
 
-    static func isNetworkReady(connectionState: WebSocketEngine.State) -> Bool {
-        if case .connected = connectionState {
-            return true
-        }
-        return false
+    static func isWalletShellReady(
+        hasKeystoreImportService: Bool,
+        hasSelectedAccount: Bool,
+        hasConnection: Bool,
+        hasRuntimeProvider: Bool
+    ) -> Bool {
+        hasKeystoreImportService &&
+            hasSelectedAccount &&
+            hasConnection &&
+            hasRuntimeProvider
     }
 
     static func isReadyForCreation() -> Bool {
         let keystoreImportService: KeystoreImportServiceProtocol? =
             URLHandlingService.shared.findService()
-        guard keystoreImportService != nil,
-              SelectedWalletSettings.shared.currentAccount != nil,
-              let connection = ChainRegistryFacade.sharedRegistry.getConnection(for: Chain.sora.genesisHash()),
-              ChainRegistryFacade.sharedRegistry.getRuntimeProvider(for: Chain.sora.genesisHash()) != nil else {
-            return false
-        }
-
-        // WalletContextFactory and its services obtain runtime metadata lazily. Requiring a
-        // populated snapshot here can stall the PIN-to-wallet transition when metadata
-        // sync is delayed even though the node connection is already usable.
-        return isNetworkReady(connectionState: connection.state)
+        return isWalletShellReady(
+            hasKeystoreImportService: keystoreImportService != nil,
+            hasSelectedAccount: SelectedWalletSettings.shared.currentAccount != nil,
+            hasConnection: ChainRegistryFacade.sharedRegistry.getConnection(
+                for: Chain.sora.genesisHash()
+            ) != nil,
+            hasRuntimeProvider: ChainRegistryFacade.sharedRegistry.getRuntimeProvider(
+                for: Chain.sora.genesisHash()
+            ) != nil
+        )
     }
     
     @MainActor

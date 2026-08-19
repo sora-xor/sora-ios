@@ -809,6 +809,7 @@ extension ImportAccountViewController: UIDocumentPickerDelegate {
 enum RecoveryGoogleAccountStatus: Equatable {
     case notChecked
     case checking
+    case previouslyUsed(emails: [String])
     case available(email: String)
     case notSaved
     case unavailable
@@ -1026,6 +1027,12 @@ final class RetainedWalletRecoveryViewController: SoramitsuViewController {
                 "wallet.recovery.google.account.checking",
                 fallback: "Checking this phone for a saved Google sign-in…"
             )
+        case .previouslyUsed(let emails):
+            let label = recoveryText(
+                "wallet.recovery.google.account.previous",
+                fallback: "Previously used for this wallet"
+            )
+            return ([label] + emails).joined(separator: "\n")
         case .available(let email):
             let label = recoveryText(
                 "wallet.recovery.google.account.signed.in",

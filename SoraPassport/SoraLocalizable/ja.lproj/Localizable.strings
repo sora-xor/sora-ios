@@ -958,6 +958,10 @@
 "wallet.recovery.google.account.choose" = "Google アカウントを選択";
 "wallet.recovery.google.account.another" = "別の Google アカウントを使用";
 "wallet.recovery.google.account.label" = "Google Drive アカウント";
+"wallet.recovery.google.account.previous" = "このウォレットで以前使用";
+"wallet.recovery.google.account.previous.title" = "以前の Google Drive アカウント";
+"wallet.recovery.google.account.previous.help" = "このウォレットのバックアップを確認するには、Google で次のいずれかのアカウントを選択してください。";
+"wallet.recovery.google.account.current" = "現在ログイン中";
 "wallet.recovery.google.switch.title" = "別の Google アカウントを選択";
 "wallet.recovery.google.switch.message" = "Google のアカウント選択画面を開きます。ウォレットと Drive バックアップは削除されません。";
 "wallet.recovery.google.switch.continue" = "アカウントを選択";
@@ -991,6 +995,7 @@
 "wallet.recovery.password.incorrect" = "バックアップ用パスワードが違います。アプリのPINとは異なる場合があります。";
 "wallet.recovery.backup.not.found" = "このウォレットのGoogle Driveバックアップが見つかりませんでした。";
 "wallet.recovery.google.authorization" = "Google Driveの認証が終了しました。もう一度サインインしてください。";
+"wallet.recovery.backup.not.found.title" = "バックアップが見つかりません";
 "wallet.recovery.backup.unreadable" = "このバックアップを読み取れませんでした。変更は行われていません。";
 "wallet.recovery.backup.different" = "このバックアップは別のウォレットのものです。変更は行われていません。";
 "wallet.recovery.backup.retry" = "バックアップを確認できませんでした。接続を確認して再試行してください。";
@@ -1004,3 +1009,4 @@
 "wallet.recovery.paste.failed" = "この内容は貼り付けできません。正しい復元方法を選んだか確認してください。";
 "wallet.recovery.file.unreadable" = "このJSONファイルを読み込めません。元のウォレットエクスポートを選択してください。";
 "wallet.recovery.file.loaded" = "JSONバックアップを読み込みました";
+"wallet.backup.change.unavailable" = "ウォレットの署名が利用できない間はバックアップを変更できません。既存のバックアップを保護するため、先にこのウォレットを復元してください。";

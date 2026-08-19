@@ -56,6 +56,7 @@ final class EnterPasswordViewModel {
     private var backedUpAccounts: [OpenBackupAccount]
     private weak var view: EnterPasswordViewProtocol?
     private let isRecovery: Bool
+    private let recoveryAccount: AccountItem?
     private let googleAccountEmail: String?
     private let expectedGoogleAccountID: String?
     private var isSubmitting = false
@@ -66,6 +67,7 @@ final class EnterPasswordViewModel {
          wireframe: EnterPasswordWireframeProtocol,
          view: EnterPasswordViewProtocol?,
          isRecovery: Bool = false,
+         recoveryAccount: AccountItem? = nil,
          googleAccountEmail: String? = nil,
          expectedGoogleAccountID: String? = nil) {
         self.selectedAccount = backedUpAccounts.first(where: { $0.address == selectedAddress })
@@ -74,6 +76,7 @@ final class EnterPasswordViewModel {
         self.wireframe = wireframe
         self.view = view
         self.isRecovery = isRecovery
+        self.recoveryAccount = recoveryAccount
         self.googleAccountEmail = googleAccountEmail
         self.expectedGoogleAccountID = expectedGoogleAccountID
     }
@@ -256,6 +259,15 @@ extension EnterPasswordViewModel: AccountImportInteractorOutputProtocol {
         ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
 
         if isRecovery {
+            if let recoveryAccount,
+               let expectedGoogleAccountID,
+               let googleAccountEmail {
+                _ = WalletGoogleAccountAssociationStore.shared.save(
+                    userID: expectedGoogleAccountID,
+                    email: googleAccountEmail,
+                    for: recoveryAccount
+                )
+            }
             wireframe?.completeRecovery()
             return
         }

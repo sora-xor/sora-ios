@@ -958,6 +958,10 @@
 "wallet.recovery.google.account.choose" = "Choisir un compte Google";
 "wallet.recovery.google.account.another" = "Utiliser un autre compte Google";
 "wallet.recovery.google.account.label" = "Compte Google Drive";
+"wallet.recovery.google.account.previous" = "Utilisé précédemment pour ce portefeuille";
+"wallet.recovery.google.account.previous.title" = "Compte Google Drive précédent";
+"wallet.recovery.google.account.previous.help" = "Choisissez l’un de ces comptes dans Google pour rechercher la sauvegarde de ce portefeuille.";
+"wallet.recovery.google.account.current" = "Connecté actuellement";
 "wallet.recovery.google.switch.title" = "Choisir un autre compte Google";
 "wallet.recovery.google.switch.message" = "Google affichera son sélecteur de compte. Votre portefeuille et votre sauvegarde Drive ne seront pas supprimés.";
 "wallet.recovery.google.switch.continue" = "Choisir un compte";
@@ -991,6 +995,7 @@
 "wallet.recovery.password.incorrect" = "Ce mot de passe est incorrect. Il peut être différent du code PIN de l’app.";
 "wallet.recovery.backup.not.found" = "Aucune sauvegarde Google Drive n’a été trouvée pour ce portefeuille.";
 "wallet.recovery.google.authorization" = "L’autorisation Google Drive a expiré. Reconnectez-vous et réessayez.";
+"wallet.recovery.backup.not.found.title" = "Sauvegarde introuvable";
 "wallet.recovery.backup.unreadable" = "Cette sauvegarde est illisible. Aucune modification n’a été effectuée.";
 "wallet.recovery.backup.different" = "Cette sauvegarde appartient à un autre portefeuille. Aucune modification n’a été effectuée.";
 "wallet.recovery.backup.retry" = "La sauvegarde n’a pas pu être vérifiée. Vérifiez votre connexion et réessayez.";
@@ -1004,3 +1009,4 @@
 "wallet.recovery.paste.failed" = "Ce contenu ne peut pas être collé. Vérifiez la méthode de restauration choisie.";
 "wallet.recovery.file.unreadable" = "Ce fichier JSON est illisible. Choisissez l’export d’origine du portefeuille.";
 "wallet.recovery.file.loaded" = "Sauvegarde JSON chargée";
+"wallet.backup.change.unavailable" = "La sauvegarde ne peut pas être modifiée tant que la signature du portefeuille est indisponible. Restaurez d’abord ce portefeuille afin de protéger la sauvegarde existante.";

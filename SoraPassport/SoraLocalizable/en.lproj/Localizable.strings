@@ -958,6 +958,10 @@
 "wallet.recovery.google.account.choose" = "Choose Google account";
 "wallet.recovery.google.account.another" = "Use another Google account";
 "wallet.recovery.google.account.label" = "Google Drive account";
+"wallet.recovery.google.account.previous" = "Previously used for this wallet";
+"wallet.recovery.google.account.previous.title" = "Previous Google Drive account";
+"wallet.recovery.google.account.previous.help" = "Choose one of these accounts in Google to check this wallet’s backup.";
+"wallet.recovery.google.account.current" = "Currently signed in";
 "wallet.recovery.google.switch.title" = "Choose another Google account";
 "wallet.recovery.google.switch.message" = "Google will show its account chooser. Your wallet and Drive backup will not be deleted.";
 "wallet.recovery.google.switch.continue" = "Choose account";
@@ -991,6 +995,7 @@
 "wallet.recovery.password.incorrect" = "That backup password is incorrect. It may be different from your app PIN.";
 "wallet.recovery.backup.not.found" = "No Google Drive backup was found for this wallet.";
 "wallet.recovery.google.authorization" = "Google Drive authorization ended. Sign in again and retry.";
+"wallet.recovery.backup.not.found.title" = "Backup not found";
 "wallet.recovery.backup.unreadable" = "This backup could not be read. Nothing was changed.";
 "wallet.recovery.backup.different" = "This backup belongs to a different wallet. Nothing was changed.";
 "wallet.recovery.backup.retry" = "The backup could not be verified. Check your connection and retry.";
@@ -1004,3 +1009,4 @@
 "wallet.recovery.paste.failed" = "This content could not be pasted. Check that you selected the correct recovery method.";
 "wallet.recovery.file.unreadable" = "This JSON file could not be read. Choose the original wallet export.";
 "wallet.recovery.file.loaded" = "JSON backup loaded";
+"wallet.backup.change.unavailable" = "Backup cannot be changed while wallet signing is unavailable. Restore this wallet first to protect the existing backup.";

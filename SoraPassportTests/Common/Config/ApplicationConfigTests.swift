@@ -111,6 +111,85 @@ class ApplicationConfigTests: XCTestCase {
         XCTAssertFalse(project.contains("pod install"))
     }
 
+    func testGoogleAccountAssociationsAreExactMultiAccountAndSelectivelyRemoved() throws {
+        let suiteName = "WalletGoogleAccountAssociationStoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = WalletGoogleAccountAssociationStore(
+            userDefaults: defaults,
+            storageKey: "associations"
+        )
+        let account = googleAssociationAccount(publicKey: Data(repeating: 0x11, count: 32))
+
+        XCTAssertTrue(store.save(
+            userID: "google-a",
+            email: "first@example.com",
+            for: account,
+            verifiedAt: Date(timeIntervalSince1970: 10)
+        ))
+        XCTAssertTrue(store.save(
+            userID: "google-b",
+            email: "second@example.com",
+            for: account,
+            verifiedAt: Date(timeIntervalSince1970: 20)
+        ))
+        XCTAssertTrue(store.save(
+            userID: "google-a",
+            email: "updated@example.com",
+            for: account,
+            verifiedAt: Date(timeIntervalSince1970: 30)
+        ))
+
+        XCTAssertEqual(store.associations(for: account).map(\.userID), ["google-a", "google-b"])
+        XCTAssertEqual(
+            store.association(for: account, googleUserID: "google-a")?.email,
+            "updated@example.com"
+        )
+
+        let sameAddressDifferentKey = googleAssociationAccount(
+            publicKey: Data(repeating: 0x22, count: 32)
+        )
+        XCTAssertTrue(store.associations(for: sameAddressDifferentKey).isEmpty)
+
+        store.remove(for: account, googleUserID: "google-a")
+        XCTAssertEqual(store.associations(for: account).map(\.userID), ["google-b"])
+        store.remove(for: account)
+        XCTAssertTrue(store.associations(for: account).isEmpty)
+    }
+
+    func testGoogleAccountAssociationStoreRecoversFromCorruptLocalData() throws {
+        let suiteName = "WalletGoogleAccountAssociationStoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(Data("not-json".utf8), forKey: "associations")
+        let store = WalletGoogleAccountAssociationStore(
+            userDefaults: defaults,
+            storageKey: "associations"
+        )
+        let account = googleAssociationAccount(publicKey: Data(repeating: 0x33, count: 32))
+
+        XCTAssertTrue(store.associations(for: account).isEmpty)
+        XCTAssertTrue(store.save(
+            userID: "google-a",
+            email: "wallet@example.com",
+            for: account
+        ))
+        XCTAssertEqual(store.associations(for: account).count, 1)
+    }
+
+    private func googleAssociationAccount(publicKey: Data) -> AccountItem {
+        AccountItem(
+            address: "cnTestWalletAddress",
+            cryptoType: .sr25519,
+            networkType: ApplicationConfig.shared.addressType,
+            username: "Wallet",
+            publicKeyData: publicKey,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+            order: 0,
+            isSelected: true
+        )
+    }
+
     private func repositoryRoot() throws -> URL {
         var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let fileManager = FileManager.default

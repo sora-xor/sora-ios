@@ -96,6 +96,14 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
 
     }
 
+    var canManageCloudBackup: Bool {
+        SelectedWalletSettings.transactionSigningAvailability(
+            settings: settings,
+            keystore: keystore,
+            account: account
+        ) == .available
+    }
+
     func getMetadata() -> AccountCreationMetadata? {
         guard let mnemonic = try? loadPhrase() else { return nil }
         
@@ -130,12 +138,24 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     }
     
     func deleteBackup(completion: @escaping (Error?) -> Void) {
+        guard canManageCloudBackup else {
+            completion(AccountOptionsBackupSafetyError.signingUnavailable)
+            return
+        }
+
         let account = OpenBackupAccount(address: currentAccount.address)
         Task { [weak self] in
             do {
-                try await self?.cloudStorageService.deleteBackup(account: account)
+                guard let self else { return }
+                let identity = try await self.cloudStorageService.deleteBackup(account: account)
+                WalletGoogleAccountAssociationStore.shared.remove(
+                    for: self.currentAccount,
+                    googleUserID: identity.userID
+                )
                 let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
-                ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != self?.currentAccount.address }
+                ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter {
+                    $0 != self.currentAccount.address
+                }
                 completion(nil)
             } catch {
                 completion(error)
@@ -144,6 +164,11 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
     }
 
     func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?) {
+        guard canManageCloudBackup else {
+            completion?(nil)
+            return
+        }
+
         Task { [weak self] in
             guard let result = try await self?.cloudStorageService.signInIfNeeded(), result == .authorized, let self = self else {
                 completion?(nil)
@@ -199,6 +224,7 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
             ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter {
                 $0 != self.account.address
             }
+            WalletGoogleAccountAssociationStore.shared.remove(for: self.account)
 
             guard !accounts.isEmpty else {
                 self.cleanData()
@@ -217,6 +243,17 @@ extension AccountOptionsInteractor: AccountOptionsInteractorInputProtocol {
         operationManager.enqueue(operations: [forgetOperation, countOperation], in: .transient)
     }
 
+}
+
+private enum AccountOptionsBackupSafetyError: LocalizedError {
+    case signingUnavailable
+
+    var errorDescription: String? {
+        recoveryText(
+            "wallet.backup.change.unavailable",
+            fallback: "Backup cannot be changed while wallet signing is unavailable. Restore this wallet first to protect the existing backup."
+        )
+    }
 }
 
 extension AccountOptionsInteractor: EventVisitorProtocol {}

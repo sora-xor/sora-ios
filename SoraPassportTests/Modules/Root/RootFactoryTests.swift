@@ -14,15 +14,21 @@ class RootFactoryTests: XCTestCase {
         XCTAssertTrue(SNSafeKeypairValidator.containsForcedPanicForReleaseValidation())
     }
 
-    func testMainWalletRequiresConnectedNodeWithoutBlockingOnRuntimeSnapshot() {
-        XCTAssertFalse(
-            MainTabBarViewFactory.isNetworkReady(
-                connectionState: .notConnected
+    func testMainWalletShellDoesNotWaitForNetworkConnectionState() {
+        XCTAssertTrue(
+            MainTabBarViewFactory.isWalletShellReady(
+                hasKeystoreImportService: true,
+                hasSelectedAccount: true,
+                hasConnection: true,
+                hasRuntimeProvider: true
             )
         )
-        XCTAssertTrue(
-            MainTabBarViewFactory.isNetworkReady(
-                connectionState: .connected
+        XCTAssertFalse(
+            MainTabBarViewFactory.isWalletShellReady(
+                hasKeystoreImportService: true,
+                hasSelectedAccount: true,
+                hasConnection: false,
+                hasRuntimeProvider: true
             )
         )
     }
@@ -649,6 +655,16 @@ class RootFactoryTests: XCTestCase {
             controller.methodControls[0].methodSubtitle.contains("wallet.owner@example.com")
         )
 
+        controller.setGoogleAccountStatus(
+            .previouslyUsed(emails: ["old@example.com", "other@example.com"])
+        )
+        XCTAssertEqual(
+            controller.googleAccountStatus,
+            .previouslyUsed(emails: ["old@example.com", "other@example.com"])
+        )
+        XCTAssertTrue(controller.methodControls[0].methodSubtitle.contains("old@example.com"))
+        XCTAssertTrue(controller.methodControls[0].methodSubtitle.contains("other@example.com"))
+
         controller.setGoogleAccountStatus(.notSaved)
         XCTAssertEqual(controller.googleAccountStatus, .notSaved)
         XCTAssertFalse(
@@ -760,6 +776,45 @@ class RootFactoryTests: XCTestCase {
         XCTAssertEqual(request.account.address, account.address)
         XCTAssertEqual(request.password, "backup-password")
         XCTAssertEqual(request.expectedCloudAccountID, "confirmed-google-user")
+    }
+
+    func testGoogleAssociationIsSavedOnlyAfterVerifiedRecoveryCompletes() throws {
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map(UInt8.init))
+        )
+        let associationStore = WalletGoogleAccountAssociationStore.shared
+        associationStore.remove(for: fixture.account)
+        defer { associationStore.remove(for: fixture.account) }
+        let backup = OpenBackupAccount(
+            name: fixture.account.username,
+            address: fixture.account.address
+        )
+        let viewModel = EnterPasswordViewModel(
+            selectedAddress: backup.address,
+            backedUpAccounts: [backup],
+            interactor: RecoveryAccountImportInteractorSpy(),
+            wireframe: EnterPasswordWireframe(),
+            view: nil,
+            isRecovery: true,
+            recoveryAccount: fixture.account,
+            googleAccountEmail: "wallet.owner@example.com",
+            expectedGoogleAccountID: "confirmed-google-user"
+        )
+
+        XCTAssertNil(associationStore.association(
+            for: fixture.account,
+            googleUserID: "confirmed-google-user"
+        ))
+
+        viewModel.didCompleteAccountImport()
+
+        XCTAssertEqual(
+            associationStore.association(
+                for: fixture.account,
+                googleUserID: "confirmed-google-user"
+            )?.email,
+            "wallet.owner@example.com"
+        )
     }
 
     @MainActor
@@ -2308,6 +2363,14 @@ private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol 
         )
     }
 
+    func containsMobileBackupIfAuthorized(
+        address: String,
+        expectedAccountUserID: String
+    ) async throws -> Bool {
+        currentAccountIdentity?.userID == expectedAccountUserID &&
+            mobileImportResult?.address == address
+    }
+
     func signInIfNeeded() async throws -> CloudStorageAccountState {
         interactiveSignInCallsCount += 1
         return interactiveSignInState
@@ -2317,7 +2380,15 @@ private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol 
         return interactiveSignInState == .authorized ? currentAccountIdentity : nil
     }
     func getBackupAccounts() async throws -> [OpenBackupAccount] { [] }
-    func saveBackup(account: OpenBackupAccount, password: String) async throws {}
+    func saveBackup(
+        account: OpenBackupAccount,
+        password: String
+    ) async throws -> CloudStorageAccountIdentity {
+        guard let currentAccountIdentity else {
+            throw CloudStorageServiceError.notAuthorized
+        }
+        return currentAccountIdentity
+    }
     func importBackup(
         account: OpenBackupAccount,
         password: String
@@ -2328,7 +2399,14 @@ private final class RetainedWalletCloudStorageMock: CloudStorageServiceProtocol 
             password: password
         )
     }
-    func deleteBackup(account: OpenBackupAccount) async throws {}
+    func deleteBackup(
+        account: OpenBackupAccount
+    ) async throws -> CloudStorageAccountIdentity {
+        guard let currentAccountIdentity else {
+            throw CloudStorageServiceError.notAuthorized
+        }
+        return currentAccountIdentity
+    }
     func disconnect() {}
 }
 

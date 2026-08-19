@@ -109,6 +109,116 @@ extension ConfigError: ErrorContentConvertible {
     }
 }
 
+struct WalletGoogleAccountAssociation: Codable, Equatable {
+    let walletAddress: String
+    let walletPublicKey: Data
+    let walletNetworkType: SNAddressType
+    let walletCryptoType: CryptoType
+    let userID: String
+    let email: String
+    let verifiedAt: Date
+
+    func matches(_ account: AccountItem) -> Bool {
+        walletAddress == account.address &&
+            walletPublicKey == account.publicKeyData &&
+            walletNetworkType == account.networkType &&
+            walletCryptoType == account.cryptoType
+    }
+}
+
+/// Stores only Google identities that were proven to contain, create, or restore the
+/// exact wallet's Drive backup. An active Google session alone is not an association.
+final class WalletGoogleAccountAssociationStore {
+    static let shared = WalletGoogleAccountAssociationStore()
+
+    private static let defaultStorageKey = "walletGoogleAccountAssociations.v2"
+
+    private let userDefaults: UserDefaults
+    private let storageKey: String
+    private let lock = NSLock()
+
+    init(
+        userDefaults: UserDefaults = .standard,
+        storageKey: String? = nil
+    ) {
+        self.userDefaults = userDefaults
+        self.storageKey = storageKey ?? Self.defaultStorageKey
+    }
+
+    func associations(for account: AccountItem) -> [WalletGoogleAccountAssociation] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedAssociations()
+            .filter { $0.matches(account) }
+            .sorted { $0.verifiedAt > $1.verifiedAt }
+    }
+
+    func association(
+        for account: AccountItem,
+        googleUserID: String
+    ) -> WalletGoogleAccountAssociation? {
+        associations(for: account).first { $0.userID == googleUserID }
+    }
+
+    @discardableResult
+    func save(
+        userID: String,
+        email: String,
+        for account: AccountItem,
+        verifiedAt: Date = Date()
+    ) -> Bool {
+        let userID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !account.address.isEmpty, !userID.isEmpty, !email.isEmpty else { return false }
+
+        lock.lock()
+        defer { lock.unlock() }
+
+        var values = storedAssociations()
+        values.removeAll { $0.matches(account) && $0.userID == userID }
+        values.append(WalletGoogleAccountAssociation(
+            walletAddress: account.address,
+            walletPublicKey: account.publicKeyData,
+            walletNetworkType: account.networkType,
+            walletCryptoType: account.cryptoType,
+            userID: userID,
+            email: email,
+            verifiedAt: verifiedAt
+        ))
+        return persist(values)
+    }
+
+    func remove(for account: AccountItem, googleUserID: String? = nil) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        var values = storedAssociations()
+        values.removeAll {
+            $0.matches(account) && (googleUserID == nil || $0.userID == googleUserID)
+        }
+        _ = persist(values)
+    }
+
+    private func storedAssociations() -> [WalletGoogleAccountAssociation] {
+        guard
+            let data = userDefaults.data(forKey: storageKey),
+            let values = try? JSONDecoder().decode(
+                [WalletGoogleAccountAssociation].self,
+                from: data
+            )
+        else {
+            return []
+        }
+        return values
+    }
+
+    private func persist(_ values: [WalletGoogleAccountAssociation]) -> Bool {
+        guard let data = try? JSONEncoder().encode(values) else { return false }
+        userDefaults.set(data, forKey: storageKey)
+        return true
+    }
+}
+
 final class ApplicationConfig {
     static let shared: ApplicationConfig! = ApplicationConfig()
 

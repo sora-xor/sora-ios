@@ -92,6 +92,7 @@ final class EnterPasswordViewFactory {
                                                wireframe: wireframe,
                                                view: view,
                                                isRecovery: recoveryAccount != nil,
+                                               recoveryAccount: recoveryAccount,
                                                googleAccountEmail: googleAccountEmail,
                                                expectedGoogleAccountID: expectedGoogleAccountID)
         interactor.presenter = viewModel

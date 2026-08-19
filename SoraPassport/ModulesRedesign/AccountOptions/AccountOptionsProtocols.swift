@@ -33,7 +33,7 @@ import SSFCloudStorage
 protocol AccountOptionsViewProtocol: ControllerBackedProtocol, AlertPresentable {
     func didReceive(username: String)
     func didReceive(address: String)
-    func setupOptions(with backUpState: BackupState, hasEntropy: Bool)
+    func setupOptions(with backUpState: BackupState, hasEntropy: Bool, canManageBackup: Bool)
     func showLoading()
     func hideLoading()
 }
@@ -57,6 +57,7 @@ protocol AccountOptionsInteractorInputProtocol: AnyObject {
     func updateUsername(_ username: String)
     var currentAccount: AccountItem { get }
     var accountHasEntropy: Bool { get }
+    var canManageCloudBackup: Bool { get }
     func checkCurrentAccountBackedup() async -> Bool
     func deleteBackup(completion: @escaping (Error?) -> Void)
     func signInToGoogleIfNeeded(completion: ((OpenBackupAccount?) -> Void)?)

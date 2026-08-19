@@ -56,6 +56,8 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     private var mnemonic: IRMnemonicProtocol?
     private let entryPoint: EntryPoint
     private let keystore: KeystoreProtocol
+    private let settings: SettingsManagerProtocol
+    private var walletAccountForBackup: AccountItem?
 
     init(account: OpenBackupAccount,
          cloudStorageService: CloudStorageServiceProtocol,
@@ -64,6 +66,7 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
          mnemonic: IRMnemonicProtocol? = nil,
          entryPoint: EntryPoint,
          keystore: KeystoreProtocol,
+         settings: SettingsManagerProtocol = SettingsManager.shared,
          completion: (() -> Void)? = nil) {
         self.backupAccount = account
         self.completion = completion
@@ -72,6 +75,7 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         self.mnemonic = mnemonic
         self.entryPoint = entryPoint
         self.keystore = keystore
+        self.settings = settings
         self.cloudStorageService = cloudStorageService
     }
     
@@ -87,9 +91,18 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     func backupAccount(with password: String) {
         if entryPoint == .profile {
             guard let account = SelectedWalletSettings.shared.currentAccount else { return }
-    
+
+            guard hasVerifiedLocalSigner(for: account) else {
+                presentUnsafeBackupChange()
+                return
+            }
+
             updateBackupedAccount(with: account, password: password)
-            
+            guard canSafelyUploadBackup(for: account) else {
+                presentUnsafeBackupChange()
+                return
+            }
+
             view?.showLoading()
             updateCloudStorage(with: password)
             return
@@ -99,8 +112,16 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
             self.view?.showLoading()
             createAccountService?.createAccount(request: createAccountRequest, mnemonic: mnemonic) { [weak self] result in
                 guard let self = self, let result = result, case .success(let account) = result else { return }
-    
+
+                guard self.hasVerifiedLocalSigner(for: account) else {
+                    self.presentUnsafeBackupChange()
+                    return
+                }
                 self.updateBackupedAccount(with: account, password: password)
+                guard self.canSafelyUploadBackup(for: account) else {
+                    self.presentUnsafeBackupChange()
+                    return
+                }
                 self.updateCloudStorage(with: password)
             }
         }
@@ -145,9 +166,12 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
     }
     
     private func updateBackupedAccount(with account: AccountItem, password: String) {
+        walletAccountForBackup = account
         var backupAccountType: [OpenBackupAccount.BackupAccountType] = []
         
-        if mnemonic != nil {
+        if let passphrase = backupAccount.passphrase?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !passphrase.isEmpty {
             backupAccountType.append(.passphrase)
         }
 
@@ -156,8 +180,6 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
             backupAccountType.append(.seed)
         }
 
-        _ = try? keystore.fetchSecretKeyForAddress(account.address)
-        
         let substrateJson = getJson(from: account, password: password)
         if substrateJson != nil {
             backupAccountType.append(.json)
@@ -168,40 +190,95 @@ final class SetupPasswordPresenter: SetupPasswordPresenterProtocol {
         backupAccount.encryptedSeed = OpenBackupAccount.Seed(substrateSeed: rawSeed)
         backupAccount.json = OpenBackupAccount.Json(substrateJson: substrateJson)
     }
+
+    /// Never replace an existing Drive backup unless the local account can currently sign
+    /// and the replacement contains an export generated from that verified signer.
+    private func canSafelyUploadBackup(for account: AccountItem) -> Bool {
+        guard hasVerifiedLocalSigner(for: account) else {
+            return false
+        }
+
+        guard backupAccount.address == account.address,
+              backupAccount.backupAccountType?.contains(.json) == true,
+              let json = backupAccount.json?.substrateJson?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+              !json.isEmpty else {
+            return false
+        }
+
+        return true
+    }
+
+    private func hasVerifiedLocalSigner(for account: AccountItem) -> Bool {
+        SelectedWalletSettings.transactionSigningAvailability(
+            settings: settings,
+            keystore: keystore,
+            account: account
+        ) == .available
+    }
+
+    private func presentUnsafeBackupChange() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.view?.hideLoading()
+            self.wireframe?.present(
+                message: nil,
+                title: recoveryText(
+                    "wallet.backup.change.unavailable",
+                    fallback: "Backup cannot be changed while wallet signing is unavailable. Restore this wallet first to protect the existing backup."
+                ),
+                closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
+                from: self.view
+            )
+        }
+    }
     
     private func updateCloudStorage(with password: String) {
         Task { [weak self] in
             guard let self = self else { return }
-            
+
             do {
-                let accounts = try await self.cloudStorageService.getBackupAccounts()
-                if let foudedAccount = accounts.first(where: { self.backupAccount.address == $0.address }) {
-                    try await self.cloudStorageService.deleteBackup(account: foudedAccount)
-                    
-                    let backupedAddresses = ApplicationConfig.shared.backupedAccountAddresses
-                    ApplicationConfig.shared.backupedAccountAddresses = backupedAddresses.filter { $0 != foudedAccount.address }
-                    
-                    try await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
-                    
+                let identity = try await self.cloudStorageService.saveBackup(
+                    account: self.backupAccount,
+                    password: password
+                )
+
+                if let walletAccount = self.walletAccountForBackup,
+                   walletAccount.address == self.backupAccount.address {
+                    _ = WalletGoogleAccountAssociationStore.shared.save(
+                        userID: identity.userID,
+                        email: identity.email,
+                        for: walletAccount
+                    )
+                }
+
+                await MainActor.run {
                     self.view?.hideLoading()
-                    
-                    var backupedAccountAddresses = ApplicationConfig.shared.backupedAccountAddresses
-                    backupedAccountAddresses.append(backupAccount.address)
-                    ApplicationConfig.shared.backupedAccountAddresses = backupedAccountAddresses
-                    
-                    if completion != nil {
-                        await view?.controller.dismiss(animated: true, completion: completion)
+
+                    var addresses = ApplicationConfig.shared.backupedAccountAddresses
+                    if !addresses.contains(self.backupAccount.address) {
+                        addresses.append(self.backupAccount.address)
+                    }
+                    ApplicationConfig.shared.backupedAccountAddresses = addresses
+
+                    if let completion = self.completion {
+                        self.view?.controller.dismiss(animated: true, completion: completion)
                     } else {
-                        wireframe?.showSetupPinCode()
+                        self.wireframe?.showSetupPinCode()
                     }
                 }
             } catch {
-                try? await self.cloudStorageService.saveBackup(account: self.backupAccount, password: password)
-                self.view?.hideLoading()
-                self.wireframe?.present(message: nil,
-                                        title: error.localizedDescription,
-                                        closeAction: R.string.localizable.commonOk(preferredLanguages: .currentLocale),
-                                        from: view)
+                await MainActor.run {
+                    self.view?.hideLoading()
+                    self.wireframe?.present(
+                        message: nil,
+                        title: error.localizedDescription,
+                        closeAction: R.string.localizable.commonOk(
+                            preferredLanguages: .currentLocale
+                        ),
+                        from: self.view
+                    )
+                }
             }
         }
     }

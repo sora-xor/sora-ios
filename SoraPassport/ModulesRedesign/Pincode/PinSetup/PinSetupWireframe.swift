@@ -57,6 +57,11 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
     @MainActor
     private func showMain(from view: PinSetupViewProtocol?, attemptsRemaining: Int) {
         guard MainTabBarViewFactory.isReadyForCreation() else {
+            if attemptsRemaining == 60 {
+                Logger.shared.warning(
+                    "SORA wallet local dependencies are still initializing after unlock"
+                )
+            }
             guard attemptsRemaining > 0 else {
                 presentWalletStartupRetry(from: view)
                 return
@@ -76,11 +81,8 @@ class PinSetupWireframe: PinSetupWireframeProtocol, AlertPresentable, ErrorPrese
             return
         }
 
-        Logger.shared.info("SORA wallet screen created after node connection")
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            self.rootAnimator.animateTransition(to: mainViewController)
-        }
+        Logger.shared.info("SORA wallet screen created from local wallet state")
+        rootAnimator.animateTransition(to: mainViewController)
     }
 
     @MainActor

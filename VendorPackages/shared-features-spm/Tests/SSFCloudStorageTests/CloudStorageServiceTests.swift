@@ -112,7 +112,7 @@ final class CloudStorageServiceTests: XCTestCase {
         XCTAssertEqual(googleService?.setAuthorizerCallsCount, 1)
     }
 
-    func testConfigureCurrentAccountRestoresIdentityWithoutNetworkOrAuthFlow() async {
+    func testConfigureCurrentAccountDoesNotReadSavedSessionOnUnlockPath() async {
         signInProvider?.restorePreviousSignInWithoutRefreshClosure = { [weak self] in
             self?.signInProvider?._currentUser = TestData.user
             return true
@@ -120,11 +120,11 @@ final class CloudStorageServiceTests: XCTestCase {
 
         let state = await service?.configureCurrentAccountIfAvailable()
 
-        XCTAssertEqual(state, .authorized)
-        XCTAssertEqual(service?.currentAccountIdentity?.email, "wallet@example.com")
+        XCTAssertEqual(state, .notAuthorized)
+        XCTAssertNil(service?.currentAccountIdentity)
         XCTAssertEqual(signInProvider?.hasPreviousSignInCallsCount, 0)
         XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 0)
-        XCTAssertEqual(signInProvider?.restorePreviousSignInWithoutRefreshCallsCount, 1)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInWithoutRefreshCallsCount, 0)
         XCTAssertEqual(signInProvider?.signInCallsCount, 0)
         XCTAssertEqual(googleService?.executeQueryCallsCount, 0)
     }
@@ -133,7 +133,7 @@ final class CloudStorageServiceTests: XCTestCase {
         let state = await service?.configureCurrentAccountIfAvailable()
 
         XCTAssertEqual(state, .notAuthorized)
-        XCTAssertEqual(signInProvider?.restorePreviousSignInWithoutRefreshCallsCount, 1)
+        XCTAssertEqual(signInProvider?.restorePreviousSignInWithoutRefreshCallsCount, 0)
         XCTAssertEqual(signInProvider?.restorePreviousSignInCallsCount, 0)
         XCTAssertEqual(signInProvider?.signInCallsCount, 0)
         XCTAssertEqual(googleService?.executeQueryCallsCount, 0)
@@ -356,12 +356,16 @@ final class CloudStorageServiceTests: XCTestCase {
     func testSaveBackupAccount() async throws {
         // arrange
         signInProvider?._currentUser = TestData.user
-        googleService?.executeQueryReturnValue = (ticket: GoogleServiceTicketMock(), file: nil)
         factory?.createFileReturnValue = try getURL()
         // act
-        try await service?.saveBackup(account: TestData.account, password: "1")
+        let identity = try await service?.saveBackup(
+            account: TestData.account,
+            password: "1"
+        )
 
         // assert
+        XCTAssertEqual(identity?.userID, TestData.user.userID)
+        XCTAssertEqual(identity?.email, TestData.user.profile?.email)
         XCTAssertEqual(googleService?.setAuthorizerCallsCount, 1)
         XCTAssertEqual(googleService?.executeQueryCallsCount, 3)
         XCTAssertEqual(factory?.createFileCallsCount, 1)
@@ -369,6 +373,16 @@ final class CloudStorageServiceTests: XCTestCase {
         XCTAssertTrue(googleService?.setAuthorizerCalled ?? false)
         XCTAssertTrue(googleService?.executeQueryCalled ?? false)
         XCTAssertTrue(factory?.createFileCalled ?? false)
+        XCTAssertTrue(
+            googleService?.executeQueryReceivedInvocations.contains {
+                $0 is GTLRDriveQuery_FilesUpdate
+            } ?? false
+        )
+        XCTAssertFalse(
+            googleService?.executeQueryReceivedInvocations.contains {
+                $0 is GTLRDriveQuery_FilesDelete
+            } ?? true
+        )
     }
 
     func testImportBackupAccount() async throws {
@@ -415,6 +429,33 @@ final class CloudStorageServiceTests: XCTestCase {
             XCTAssertEqual(
                 error.localizedDescription,
                 CloudStorageServiceError.incorectJson.localizedDescription
+            )
+        }
+    }
+
+    func testContainsMobileBackupRequiresExactConfiguredGoogleIdentity() async throws {
+        signInProvider?._currentUser = TestData.user
+        googleService?.account = TestData.encryptedAccount
+        let state = await service?.configureCurrentAccountIfAvailable()
+        XCTAssertEqual(state, .authorized)
+
+        let containsBackup = try await service?.containsMobileBackupIfAuthorized(
+            address: TestData.account.address,
+            expectedAccountUserID: TestData.user.userID ?? ""
+        )
+
+        XCTAssertEqual(containsBackup, true)
+
+        do {
+            _ = try await service?.containsMobileBackupIfAuthorized(
+                address: TestData.account.address,
+                expectedAccountUserID: "different-google-user"
+            )
+            XCTFail("Expected a mismatched Google account to be rejected")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                CloudStorageServiceError.notAuthorized.localizedDescription
             )
         }
     }
