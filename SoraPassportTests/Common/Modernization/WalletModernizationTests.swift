@@ -11097,7 +11097,7 @@ final class WalletModernizationTests: XCTestCase {
             ),
             "SORA2 · Minamoto · Taira Testnet"
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             NexusPortfolioPresentationPolicy.exposesTairaSettings(
                 tairaAdmitted: false
             )
@@ -11106,6 +11106,38 @@ final class WalletModernizationTests: XCTestCase {
             NexusPortfolioPresentationPolicy.exposesTairaSettings(
                 tairaAdmitted: true
             )
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.tairaEntryState(
+                nexusEnabled: true,
+                tairaEnabled: true,
+                tairaAdmitted: true
+            ),
+            .readyEnabled
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.tairaEntryState(
+                nexusEnabled: true,
+                tairaEnabled: false,
+                tairaAdmitted: true
+            ),
+            .readyDisabled
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.tairaEntryState(
+                nexusEnabled: true,
+                tairaEnabled: true,
+                tairaAdmitted: false
+            ),
+            .unavailable
+        )
+        XCTAssertEqual(
+            NexusPortfolioPresentationPolicy.tairaEntryState(
+                nexusEnabled: false,
+                tairaEnabled: true,
+                tairaAdmitted: true
+            ),
+            .unavailable
         )
         let journalRecoveryAccess =
             NexusPortfolioPresentationPolicy.networkDetailAccess(

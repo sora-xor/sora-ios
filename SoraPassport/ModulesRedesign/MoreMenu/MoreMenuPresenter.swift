@@ -94,9 +94,8 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     private func secondSection() -> MoreMenuSection {
         var items: [MoreMenuItem] = []
+        let tairaAdmitted = NexusNetworkAdmissionPolicy.current.isTairaAdmitted
         if SettingsManager.shared.nexusEnabled {
-            let tairaAdmitted = NexusNetworkAdmissionPolicy
-                .current.isTairaAdmitted
             let portfolio = MoreMenuItem(
                 title: "SORA Portfolio",
                 subtitle: NexusPortfolioPresentationPolicy
@@ -109,6 +108,29 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
             )
             items.append(portfolio)
         }
+        let taira = MoreMenuItem(
+            title: tairaLocalizedText(
+                "taira_testnet_title",
+                fallback: "Taira Testnet"
+            ),
+            subtitle: tairaEntrySubtitle(
+                state: NexusPortfolioPresentationPolicy.tairaEntryState(
+                    nexusEnabled: SettingsManager.shared.nexusEnabled,
+                    tairaEnabled: SettingsManager.shared.isTairaEnabled,
+                    tairaAdmitted: tairaAdmitted
+                )
+            ),
+            picture: .icon(
+                image: R.image.iconNode()!,
+                color: .statusWarning
+            ),
+            circleColor: .statusWarning,
+            onTap: { self.showTairaTestnet() }
+        )
+        // Taira is deliberately visible even when its deployment is not
+        // admitted. Visibility explains the feature; admission still gates
+        // derivation, transport, balances and transactions.
+        items.append(taira)
         if SettingsManager.shared.polkamarktEnabled {
             let polkamarkt = MoreMenuItem(
                 title: R.string.localizable.pageTitlePolkamarkt(
@@ -188,6 +210,68 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
         wireframe.showNexusPortfolio(from: view)
     }
 
+    func showTairaTestnet() {
+        let state = NexusPortfolioPresentationPolicy.tairaEntryState(
+            nexusEnabled: SettingsManager.shared.nexusEnabled,
+            tairaEnabled: SettingsManager.shared.isTairaEnabled,
+            tairaAdmitted: NexusNetworkAdmissionPolicy.current.isTairaAdmitted
+        )
+        guard state != .unavailable else {
+            wireframe.present(
+                message: tairaLocalizedText(
+                    "taira_testnet_unavailable_message",
+                    fallback: "This build does not include verified Taira network settings. No wallet data was changed. Install a tester build with Taira access and try again."
+                ),
+                title: tairaLocalizedText(
+                    "taira_testnet_unavailable_title",
+                    fallback: "Taira is unavailable in this build"
+                ),
+                closeAction: R.string.localizable.commonOk(
+                    preferredLanguages: languages
+                ),
+                from: view
+            )
+            return
+        }
+
+        let primaryTitle = state == .readyEnabled
+            ? tairaLocalizedText(
+                "taira_testnet_open",
+                fallback: "Open Taira"
+            )
+            : tairaLocalizedText(
+                "taira_testnet_enable_open",
+                fallback: "Enable and open"
+            )
+        let primaryAction = AlertPresentableAction(
+            title: primaryTitle
+        ) { [weak self] in
+            SettingsManager.shared.isTairaEnabled = true
+            guard let self else {
+                return
+            }
+            self.wireframe.showNexusPortfolio(from: self.view)
+        }
+        wireframe.present(
+            viewModel: AlertPresentableViewModel(
+                title: tairaLocalizedText(
+                    "taira_testnet_guide_title",
+                    fallback: "Try Taira Testnet"
+                ),
+                message: tairaLocalizedText(
+                    "taira_testnet_guide_message",
+                    fallback: "Taira is for testing only. Test XOR has no monetary value.\n\n1. Enable Taira.\n2. Open SORA Portfolio and select TAIRA · TESTNET.\n3. Copy your Taira address to receive test XOR, then try sending and receiving.\n\nYour SORA2 balance and private key are not moved."
+                ),
+                actions: [primaryAction],
+                closeAction: R.string.localizable.commonCancel(
+                    preferredLanguages: languages
+                )
+            ),
+            style: .alert,
+            from: view
+        )
+    }
+
     func showPolkamarkt() {
         wireframe.showPolkamarkt(from: view)
     }
@@ -206,6 +290,28 @@ final class MoreMenuPresenter: MoreMenuPresenterProtocol {
 
     func showLoginAndSecurity() {
         wireframe.showSecurity(from: view)
+    }
+
+    private func tairaEntrySubtitle(
+        state: NexusPortfolioPresentationPolicy.TairaEntryState
+    ) -> String {
+        switch state {
+        case .readyEnabled:
+            return tairaLocalizedText(
+                "taira_testnet_entry_enabled",
+                fallback: "Test assets only · Open your Taira account"
+            )
+        case .readyDisabled:
+            return tairaLocalizedText(
+                "taira_testnet_entry_disabled",
+                fallback: "Test assets only · Tap to enable and start"
+            )
+        case .unavailable:
+            return tairaLocalizedText(
+                "taira_testnet_entry_unavailable",
+                fallback: "Test assets only · Unavailable in this build"
+            )
+        }
     }
 }
 
