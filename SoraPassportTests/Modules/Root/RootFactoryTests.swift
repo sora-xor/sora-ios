@@ -8,6 +8,7 @@ import SSFCrypto
 import SSFCloudStorage
 import RobinHood
 import SoraFoundation
+import SoraUIKit
 
 class RootFactoryTests: XCTestCase {
     func testSafeSr25519ValidatorContainsPanicsInsideItsFFIBoundary() {
@@ -541,6 +542,7 @@ class RootFactoryTests: XCTestCase {
             selectionChanged: { _ in }
         )
         let activity = UIViewController()
+        activity.additionalSafeAreaInsets.top = 7
         controller.viewControllers = [wallet, activity]
         let window = UIWindow(
             frame: CGRect(x: 0, y: 0, width: 440, height: 956)
@@ -562,15 +564,17 @@ class RootFactoryTests: XCTestCase {
         XCTAssertFalse(controller.tabBar.accessibilityElementsHidden)
         XCTAssertFalse(banner.accessibilityViewIsModal)
         XCTAssertEqual(controller.additionalSafeAreaInsets.top, 0)
-        XCTAssertGreaterThan(wallet.additionalSafeAreaInsets.top, 0)
-        XCTAssertGreaterThan(activity.additionalSafeAreaInsets.top, 0)
+        XCTAssertEqual(wallet.additionalSafeAreaInsets.top, 0)
+        XCTAssertEqual(activity.additionalSafeAreaInsets.top, 7)
         XCTAssertEqual(activity.view.frame.minX, 0, accuracy: 0.5)
         XCTAssertEqual(activity.view.frame.width, 440, accuracy: 0.5)
         XCTAssertEqual(banner.frame.width, 408, accuracy: 0.5)
-        XCTAssertLessThanOrEqual(
-            banner.frame.maxY,
-            activity.view.safeAreaInsets.top + 1
+        let customTabBar = try XCTUnwrap(controller.tabBar as? TabBar)
+        let middleButtonFrame = customTabBar.middleButton.convert(
+            customTabBar.middleButton.bounds,
+            to: controller.view
         )
+        XCTAssertLessThanOrEqual(banner.frame.maxY, middleButtonFrame.minY - 7)
 
         controller.selectedIndex = 0
         controller.view.layoutIfNeeded()
@@ -578,16 +582,17 @@ class RootFactoryTests: XCTestCase {
         XCTAssertEqual(wallet.view.frame.width, 440, accuracy: 0.5)
 
         let replacement = UIViewController()
+        replacement.additionalSafeAreaInsets.top = 11
         controller.viewControllers = [replacement]
         controller.view.layoutIfNeeded()
         XCTAssertEqual(wallet.additionalSafeAreaInsets.top, 0)
-        XCTAssertEqual(activity.additionalSafeAreaInsets.top, 0)
-        XCTAssertGreaterThan(replacement.additionalSafeAreaInsets.top, 0)
+        XCTAssertEqual(activity.additionalSafeAreaInsets.top, 7)
+        XCTAssertEqual(replacement.additionalSafeAreaInsets.top, 11)
         XCTAssertEqual(replacement.view.frame.minX, 0, accuracy: 0.5)
         XCTAssertEqual(replacement.view.frame.width, 440, accuracy: 0.5)
 
         controller.disableRecoveryReadOnlyMode()
-        XCTAssertEqual(replacement.additionalSafeAreaInsets.top, 0)
+        XCTAssertEqual(replacement.additionalSafeAreaInsets.top, 11)
         window.isHidden = true
         window.rootViewController = nil
     }

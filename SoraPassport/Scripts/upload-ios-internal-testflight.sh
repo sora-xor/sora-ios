@@ -17,10 +17,10 @@ source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-c
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
 internal_taira_config="${root}/Fixtures/Modernization/ios-taira-internal-testflight-v1.json"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="d6bb388235a3c5b9350d7d8cddf403874ceb2935"
+reviewed_base_revision="43542da62042b4009c92f1b9ccad69c7c85ade5e"
 reviewed_upstream="origin/codex/taira-network-switch-20260819"
-reviewed_build_number="2026082004"
-reviewed_lower_bound="2026082003"
+reviewed_build_number="2026082005"
+reviewed_lower_bound="2026082004"
 reviewed_marketing_version="3.8.7"
 reviewed_bundle_identifier="co.jp.soramitsu.sora"
 reviewed_team_id="YLWWUD25VZ"
@@ -213,8 +213,6 @@ parent_revision="$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" ||
 [ "$(/usr/bin/git -C "${root}" rev-list --count "${reviewed_base_revision}..${source_revision}")" = "1" ] ||
     fail "internal TestFlight source history is not the reviewed single commit"
 reviewed_successor_paths='SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewController.swift
-SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift
-SoraPassport/ModulesRedesign/MoreMenu/NexusPortfolioViewController.swift
 SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py

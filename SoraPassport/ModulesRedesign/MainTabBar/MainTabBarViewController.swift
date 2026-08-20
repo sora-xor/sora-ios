@@ -630,8 +630,6 @@ final class MainTabBarViewController: UITabBarController {
     private(set) var recoveryInteractionShield: UIView?
     private var recoveryRestoredObserver: NSObjectProtocol?
     var recoveryRequiredProvider: (() -> Bool)?
-    private var recoveryOriginalChildSafeAreaTops: [ObjectIdentifier: CGFloat] = [:]
-    private var recoveryReservedChildTopInset: CGFloat = 0
 
     deinit {
         if let recoveryRestoredObserver {
@@ -687,30 +685,10 @@ final class MainTabBarViewController: UITabBarController {
         }
     }
 
-    override func viewSafeAreaInsetsDidChange() {
-        super.viewSafeAreaInsetsDidChange()
-        updateRecoveryBannerLayout()
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        updateRecoveryBannerLayout()
-    }
-
     override func setViewControllers(
         _ viewControllers: [UIViewController]?,
         animated: Bool
     ) {
-        let previousControllers = self.viewControllers ?? []
-        let replacementIdentifiers = Set(
-            (viewControllers ?? []).map(ObjectIdentifier.init)
-        )
-        restoreRecoveryInsets(
-            on: previousControllers.filter {
-                !replacementIdentifiers.contains(ObjectIdentifier($0))
-            }
-        )
-
         super.setViewControllers(viewControllers, animated: animated)
 
         if isViewLoaded {
@@ -719,7 +697,6 @@ final class MainTabBarViewController: UITabBarController {
         guard recoveryInteractionShield != nil else {
             return
         }
-        applyRecoveryContentInsets()
         if let recoveryInteractionShield {
             view.bringSubviewToFront(recoveryInteractionShield)
         }
@@ -742,9 +719,6 @@ final class MainTabBarViewController: UITabBarController {
 
     func disableRecoveryReadOnlyMode() {
         isRecoveryReadOnly = false
-        restoreRecoveryInsets(on: viewControllers ?? [])
-        recoveryOriginalChildSafeAreaTops.removeAll()
-        recoveryReservedChildTopInset = 0
         recoveryInteractionShield?.removeFromSuperview()
         recoveryInteractionShield = nil
     }
@@ -842,15 +816,14 @@ final class MainTabBarViewController: UITabBarController {
         view.addSubview(banner)
         recoveryInteractionShield = banner
 
-        let topConstraint = banner.topAnchor.constraint(
-            equalTo: view.safeAreaLayoutGuide.topAnchor,
-            constant: 8
-        )
-
+        // Keep recovery UI as an overlay. On iOS 26, reserving this height through
+        // UITabBarController child safe-area insets can collapse the child width.
+        let bannerBottomAnchor = (tabBar as? TabBar)?.middleButton.topAnchor
+            ?? tabBar.topAnchor
         NSLayoutConstraint.activate([
             banner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             banner.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            topConstraint,
+            banner.bottomAnchor.constraint(equalTo: bannerBottomAnchor, constant: -8),
             titleLabel.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 16),
             titleLabel.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -16),
             titleLabel.topAnchor.constraint(equalTo: banner.topAnchor, constant: 14),
@@ -864,57 +837,8 @@ final class MainTabBarViewController: UITabBarController {
         ])
 
         view.layoutIfNeeded()
-        updateRecoveryBannerLayout()
 
         UIAccessibility.post(notification: .screenChanged, argument: titleLabel)
-    }
-
-    private func updateRecoveryBannerLayout() {
-        guard let banner = recoveryInteractionShield else {
-            return
-        }
-
-        let fittingWidth = max(0, view.bounds.width - 32)
-        guard fittingWidth > 0 else { return }
-
-        let bannerHeight = banner.systemLayoutSizeFitting(
-            CGSize(width: fittingWidth, height: UIView.layoutFittingCompressedSize.height),
-            withHorizontalFittingPriority: .required,
-            verticalFittingPriority: .fittingSizeLevel
-        ).height
-        let reservedTop = bannerHeight + 16
-        if abs(recoveryReservedChildTopInset - reservedTop) > 0.5 {
-            recoveryReservedChildTopInset = reservedTop
-            applyRecoveryContentInsets()
-        }
-    }
-
-    private func applyRecoveryContentInsets() {
-        guard recoveryReservedChildTopInset > 0 else {
-            return
-        }
-        for controller in viewControllers ?? [] {
-            let identifier = ObjectIdentifier(controller)
-            let originalTop = recoveryOriginalChildSafeAreaTops[identifier]
-                ?? controller.additionalSafeAreaInsets.top
-            recoveryOriginalChildSafeAreaTops[identifier] = originalTop
-            let desiredTop = originalTop + recoveryReservedChildTopInset
-            if abs(controller.additionalSafeAreaInsets.top - desiredTop) > 0.5 {
-                controller.additionalSafeAreaInsets.top = desiredTop
-            }
-        }
-    }
-
-    private func restoreRecoveryInsets(on controllers: [UIViewController]) {
-        for controller in controllers {
-            let identifier = ObjectIdentifier(controller)
-            guard let originalTop = recoveryOriginalChildSafeAreaTops.removeValue(
-                forKey: identifier
-            ) else {
-                continue
-            }
-            controller.additionalSafeAreaInsets.top = originalTop
-        }
     }
 
     @objc private func restoreWallet() {

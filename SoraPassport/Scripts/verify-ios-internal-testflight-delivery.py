@@ -19,7 +19,7 @@ from typing import Callable, NamedTuple
 
 
 SCOPE = "sora-ios-xcode-apple-upload-receipt-v1"
-BUILD_NUMBER = "2026082004"
+BUILD_NUMBER = "2026082005"
 MARKETING_VERSION = "3.8.7"
 BUNDLE_IDENTIFIER = "co.jp.soramitsu.sora"
 TEAM_ID = "YLWWUD25VZ"
