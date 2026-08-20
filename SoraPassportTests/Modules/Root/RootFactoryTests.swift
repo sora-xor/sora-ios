@@ -91,26 +91,35 @@ class RootFactoryTests: XCTestCase {
                     in: controller.view
                 )
             ).bounds.height,
-            62
+            56
         )
-        XCTAssertNotNil(
+        let sora2Tab = try XCTUnwrap(
             descendant(
                 with: "wallet.network.sora2",
                 in: controller.view
-            )
+            ) as? WalletNetworkTabControl
         )
-        XCTAssertNotNil(
+        let sora3Tab = try XCTUnwrap(
             descendant(
                 with: "wallet.network.sora3",
                 in: controller.view
-            )
+            ) as? WalletNetworkTabControl
         )
+        XCTAssertTrue(sora2Tab.isSelected)
+        XCTAssertTrue(sora2Tab.accessibilityTraits.contains(.selected))
+        XCTAssertFalse(sora3Tab.isSelected)
+        XCTAssertFalse(sora3Tab.accessibilityTraits.contains(.selected))
+        XCTAssertTrue(sora2Tab.accessibilityLabel?.contains("SORA2") == true)
+        XCTAssertTrue(sora3Tab.accessibilityLabel?.contains("SORA3") == true)
 
         XCTAssertTrue(controller.select(.sora3, animated: false))
         XCTAssertEqual(controller.selectedNetwork, .sora3)
         XCTAssertTrue(sora3.parent === controller)
         XCTAssertNil(sora2.parent)
         XCTAssertTrue(controller.activeNavigationController === sora3)
+        XCTAssertFalse(sora2Tab.isSelected)
+        XCTAssertTrue(sora3Tab.isSelected)
+        XCTAssertTrue(sora3Tab.accessibilityTraits.contains(.selected))
         XCTAssertGreaterThan(sora3Content.viewWillAppearCount, 0)
         XCTAssertGreaterThan(sora2Content.viewWillDisappearCount, 0)
         XCTAssertEqual(selections, [.sora2, .sora3])
@@ -521,7 +530,11 @@ class RootFactoryTests: XCTestCase {
         controller.enableRecoveryReadOnlyMode()
 
         let banner = try XCTUnwrap(controller.recoveryInteractionShield)
-        let restoreButton = try XCTUnwrap(banner.subviews.compactMap { $0 as? UIButton }.first)
+        let restoreButton = try XCTUnwrap(
+            banner.subviews.compactMap { $0 as? UIControl }.first {
+                $0.accessibilityIdentifier == "walletRecovery.banner.restore"
+            }
+        )
         restoreButton.sendActions(for: .touchUpInside)
 
         XCTAssertEqual(invocationCount, 1)

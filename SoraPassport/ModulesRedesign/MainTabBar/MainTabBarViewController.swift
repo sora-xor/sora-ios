@@ -39,6 +39,69 @@ extension Notification.Name {
     )
 }
 
+/// Uses SORA's font and palette tokens while retaining UIKit Dynamic Type.
+/// `SoramitsuLabel` renders its typography through a fixed attributed string,
+/// so new accessibility-critical surfaces use this adapter instead.
+@MainActor
+final class SoraAdaptiveLabel: UILabel, SoramitsuObserver {
+    var soraFont: FontData {
+        didSet { updateFont() }
+    }
+
+    var soraTextColor: SoramitsuColor {
+        didSet { updateColor() }
+    }
+
+    private let textStyle: UIFont.TextStyle
+
+    init(
+        font: FontData,
+        textStyle: UIFont.TextStyle,
+        color: SoramitsuColor
+    ) {
+        soraFont = font
+        self.textStyle = textStyle
+        soraTextColor = color
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        adjustsFontForContentSizeCategory = true
+        updateFont()
+        updateColor()
+        SoramitsuUI.updates.addObserver(self)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func traitCollectionDidChange(
+        _ previousTraitCollection: UITraitCollection?
+    ) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.preferredContentSizeCategory !=
+            traitCollection.preferredContentSizeCategory {
+            updateFont()
+        }
+    }
+
+    func styleDidChange(options: UpdateOptions) {
+        if options.contains(.palette) {
+            updateColor()
+        }
+    }
+
+    private func updateFont() {
+        font = UIFontMetrics(forTextStyle: textStyle).scaledFont(
+            for: soraFont.font
+        )
+    }
+
+    private func updateColor() {
+        textColor = SoramitsuUI.shared.theme.palette.color(soraTextColor)
+    }
+}
+
 enum WalletHomeNetwork: String, CaseIterable, Equatable {
     case sora2
     case sora3
@@ -86,14 +149,157 @@ enum WalletHomeSora3Target: Equatable {
 }
 
 @MainActor
+final class WalletNetworkTabControl: UIControl {
+    private let backgroundView = SoramitsuView()
+    private let titleLabel = SoraAdaptiveLabel(
+        font: FontType.textBoldS,
+        textStyle: .subheadline,
+        color: .accentSecondary
+    )
+    private let environmentLabel = SoraAdaptiveLabel(
+        font: FontType.textXS,
+        textStyle: .caption1,
+        color: .fgSecondary
+    )
+
+    override var isSelected: Bool {
+        didSet {
+            updateAppearance()
+        }
+    }
+
+    override var isHighlighted: Bool {
+        didSet {
+            let targetAlpha: CGFloat
+            if !isEnabled {
+                targetAlpha = 0.44
+            } else {
+                targetAlpha = isHighlighted ? 0.72 : 1
+            }
+            guard !UIAccessibility.isReduceMotionEnabled else {
+                backgroundView.sora.alpha = targetAlpha
+                return
+            }
+            UIView.animate(
+                withDuration: 0.12,
+                delay: 0,
+                options: [.beginFromCurrentState, .allowUserInteraction],
+                animations: {
+                    self.backgroundView.sora.alpha = targetAlpha
+                }
+            )
+        }
+    }
+
+    override var isEnabled: Bool {
+        didSet {
+            backgroundView.sora.alpha = isEnabled ? 1 : 0.44
+        }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        configureLayout()
+        updateAppearance()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    func configure(
+        title: String,
+        environment: String,
+        accessibilityHint: String
+    ) {
+        titleLabel.text = title
+        environmentLabel.text = environment
+        accessibilityLabel = [title, environment]
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
+        self.accessibilityHint = accessibilityHint
+    }
+
+    private func configureLayout() {
+        translatesAutoresizingMaskIntoConstraints = false
+        isAccessibilityElement = true
+        isExclusiveTouch = true
+
+        backgroundView.sora.cornerRadius = .medium
+        backgroundView.sora.clipsToBounds = true
+        backgroundView.isUserInteractionEnabled = false
+
+        titleLabel.textAlignment = .center
+        titleLabel.lineBreakMode = .byTruncatingTail
+
+        environmentLabel.textAlignment = .center
+        environmentLabel.lineBreakMode = .byTruncatingTail
+
+        let labels = UIStackView(
+            arrangedSubviews: [titleLabel, environmentLabel]
+        )
+        labels.translatesAutoresizingMaskIntoConstraints = false
+        labels.axis = .vertical
+        labels.alignment = .fill
+        labels.spacing = 2
+        labels.isUserInteractionEnabled = false
+
+        addSubview(backgroundView)
+        backgroundView.addSubview(labels)
+        NSLayoutConstraint.activate([
+            backgroundView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            backgroundView.topAnchor.constraint(equalTo: topAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            labels.leadingAnchor.constraint(
+                equalTo: backgroundView.leadingAnchor,
+                constant: 12
+            ),
+            labels.trailingAnchor.constraint(
+                equalTo: backgroundView.trailingAnchor,
+                constant: -12
+            ),
+            labels.centerYAnchor.constraint(
+                equalTo: backgroundView.centerYAnchor
+            ),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 56)
+        ])
+    }
+
+    private func updateAppearance() {
+        // This mirrors the established Explore segmented control: selected
+        // tabs use accentSecondary and inactive tabs use bgSurface.
+        backgroundView.sora.backgroundColor = isSelected
+            ? .accentSecondary
+            : .bgSurface
+        backgroundView.sora.borderWidth = isSelected ? 0 : 1
+        backgroundView.sora.borderColor = isSelected ? nil : .fgOutline
+        titleLabel.soraTextColor = isSelected
+            ? .bgSurface
+            : .accentSecondary
+        environmentLabel.soraTextColor = isSelected
+            ? .bgSurface
+            : .fgSecondary
+
+        var traits: UIAccessibilityTraits = .button
+        if isSelected {
+            traits.insert(.selected)
+        }
+        accessibilityTraits = traits
+    }
+}
+
+@MainActor
 final class WalletNetworkSwitchViewController: UIViewController {
     private let sora2Controller: UIViewController
     private let makeSora3Controller: @MainActor () -> UIViewController
     private let selectionChanged: (WalletHomeNetwork) -> Void
+    private let rootView = SoramitsuView()
     private let contentView = UIView()
-    private let selectorBackground = UIView()
-    private let sora2Button = UIButton(type: .system)
-    private let sora3Button = UIButton(type: .system)
+    private let selector = UIStackView()
+    private let sora2Button = WalletNetworkTabControl()
+    private let sora3Button = WalletNetworkTabControl()
     private var sora3Controller: UIViewController?
     private var displayedController: UIViewController?
     private var isTransitioning = false
@@ -123,6 +329,11 @@ final class WalletNetworkSwitchViewController: UIViewController {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    override func loadView() {
+        rootView.sora.backgroundColor = .bgPage
+        view = rootView
     }
 
     override func viewDidLoad() {
@@ -163,6 +374,15 @@ final class WalletNetworkSwitchViewController: UIViewController {
         selectedNetwork = network
         selectionChanged(network)
         updateSelectionAppearance()
+        if animated {
+            let selectedControl = network == .sora2
+                ? sora2Button
+                : sora3Button
+            UIAccessibility.post(
+                notification: .layoutChanged,
+                argument: selectedControl
+            )
+        }
         guard displayedController !== controller else {
             return true
         }
@@ -205,7 +425,9 @@ final class WalletNetworkSwitchViewController: UIViewController {
             self?.setSelectionEnabled(true)
         }
 
-        guard animated, previous != nil else {
+        guard animated,
+              !UIAccessibility.isReduceMotionEnabled,
+              previous != nil else {
             completeTransition()
             return true
         }
@@ -228,31 +450,12 @@ final class WalletNetworkSwitchViewController: UIViewController {
     }
 
     private func configureLayout() {
-        view.backgroundColor = .systemBackground
+        selector.translatesAutoresizingMaskIntoConstraints = false
+        selector.axis = .horizontal
+        selector.distribution = .fillEqually
+        selector.spacing = 8
+        selector.accessibilityIdentifier = "wallet.network.selector"
 
-        selectorBackground.translatesAutoresizingMaskIntoConstraints = false
-        selectorBackground.backgroundColor = .secondarySystemBackground
-        selectorBackground.layer.cornerRadius = 16
-        selectorBackground.layer.cornerCurve = .continuous
-        selectorBackground.accessibilityIdentifier =
-            "wallet.network.selector"
-
-        [sora2Button, sora3Button].forEach { button in
-            button.titleLabel?.numberOfLines = 2
-            button.titleLabel?.textAlignment = .center
-            button.titleLabel?.font = UIFont.preferredFont(
-                forTextStyle: .headline
-            )
-            button.titleLabel?.adjustsFontForContentSizeCategory = true
-            button.layer.cornerRadius = 12
-            button.layer.cornerCurve = .continuous
-            button.contentEdgeInsets = UIEdgeInsets(
-                top: 10,
-                left: 8,
-                bottom: 10,
-                right: 8
-            )
-        }
         sora2Button.accessibilityIdentifier = "wallet.network.sora2"
         sora3Button.accessibilityIdentifier = "wallet.network.sora3"
         sora2Button.addTarget(
@@ -266,82 +469,76 @@ final class WalletNetworkSwitchViewController: UIViewController {
             for: .touchUpInside
         )
 
-        let selector = UIStackView(
-            arrangedSubviews: [sora2Button, sora3Button]
-        )
-        selector.translatesAutoresizingMaskIntoConstraints = false
-        selector.axis = .horizontal
-        selector.distribution = .fillEqually
-        selector.spacing = 8
-        selectorBackground.addSubview(selector)
+        selector.addArrangedSubview(sora2Button)
+        selector.addArrangedSubview(sora3Button)
 
         contentView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(selectorBackground)
+        contentView.backgroundColor = .clear
+        view.addSubview(selector)
         view.addSubview(contentView)
         NSLayoutConstraint.activate([
-            selectorBackground.leadingAnchor.constraint(
+            selector.leadingAnchor.constraint(
                 equalTo: view.leadingAnchor,
                 constant: 16
             ),
-            selectorBackground.trailingAnchor.constraint(
+            selector.trailingAnchor.constraint(
                 equalTo: view.trailingAnchor,
                 constant: -16
             ),
-            selectorBackground.topAnchor.constraint(
+            selector.topAnchor.constraint(
                 equalTo: view.safeAreaLayoutGuide.topAnchor,
                 constant: 8
-            ),
-            selector.leadingAnchor.constraint(
-                equalTo: selectorBackground.leadingAnchor,
-                constant: 6
-            ),
-            selector.trailingAnchor.constraint(
-                equalTo: selectorBackground.trailingAnchor,
-                constant: -6
-            ),
-            selector.topAnchor.constraint(
-                equalTo: selectorBackground.topAnchor,
-                constant: 6
-            ),
-            selector.bottomAnchor.constraint(
-                equalTo: selectorBackground.bottomAnchor,
-                constant: -6
-            ),
-            sora2Button.heightAnchor.constraint(
-                greaterThanOrEqualToConstant: 62
             ),
             contentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             contentView.topAnchor.constraint(
-                equalTo: selectorBackground.bottomAnchor,
-                constant: 8
+                equalTo: selector.bottomAnchor,
+                constant: 12
             ),
             contentView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
 
     private func applyLocalization() {
-        sora2Button.setTitle(
+        let sora2Text = networkTabText(
             tairaLocalizedText(
                 "wallet_network_sora2_mainnet",
                 fallback: "SORA2\nMAINNET"
-            ),
-            for: .normal
+            )
         )
-        sora3Button.setTitle(
+        let sora3Text = networkTabText(
             tairaLocalizedText(
                 "wallet_network_sora3_taira_testnet",
                 fallback: "SORA3\nTAIRA TESTNET"
-            ),
-            for: .normal
+            )
         )
         let hint = tairaLocalizedText(
             "wallet_network_switch_hint",
             fallback: "Switch the wallet between SORA2 mainnet and the SORA3 Taira testnet."
         )
-        sora2Button.accessibilityHint = hint
-        sora3Button.accessibilityHint = hint
+        sora2Button.configure(
+            title: sora2Text.title,
+            environment: sora2Text.environment,
+            accessibilityHint: hint
+        )
+        sora3Button.configure(
+            title: sora3Text.title,
+            environment: sora3Text.environment,
+            accessibilityHint: hint
+        )
         updateSelectionAppearance()
+    }
+
+    private func networkTabText(
+        _ localizedText: String
+    ) -> (title: String, environment: String) {
+        let components = localizedText
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map(String.init)
+        guard let title = components.first else {
+            return (localizedText, "")
+        }
+        return (title, components.dropFirst().joined(separator: " "))
     }
 
     private func updateSelectionAppearance() {
@@ -349,15 +546,11 @@ final class WalletNetworkSwitchViewController: UIViewController {
         update(button: sora3Button, selected: selectedNetwork == .sora3)
     }
 
-    private func update(button: UIButton, selected: Bool) {
+    private func update(
+        button: WalletNetworkTabControl,
+        selected: Bool
+    ) {
         button.isSelected = selected
-        button.backgroundColor = selected ? .systemRed : .clear
-        button.setTitleColor(selected ? .white : .label, for: .normal)
-        var traits: UIAccessibilityTraits = .button
-        if selected {
-            traits.insert(.selected)
-        }
-        button.accessibilityTraits = traits
     }
 
     private func setSelectionEnabled(_ enabled: Bool) {
@@ -527,43 +720,62 @@ final class MainTabBarViewController: UITabBarController {
     }
 
     private func configureRecoveryReadOnlyMode() {
-        let banner = UIView()
+        let banner = SoramitsuView()
         banner.translatesAutoresizingMaskIntoConstraints = false
-        banner.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.96)
-        banner.layer.cornerRadius = 12
+        banner.sora.backgroundColor = .statusWarningContainer
+        banner.sora.borderColor = .statusWarning
+        banner.sora.borderWidth = 1
+        banner.sora.cornerRadius = .large
         banner.accessibilityIdentifier = "walletRecovery.banner"
 
-        let label = UILabel()
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = recoveryText(
+        let titleLabel = SoraAdaptiveLabel(
+            font: FontType.textBoldS,
+            textStyle: .headline,
+            color: .fgPrimary
+        )
+        titleLabel.text = recoveryText(
+            "wallet.recovery.banner.title",
+            fallback: "Signing unavailable"
+        )
+        titleLabel.numberOfLines = 0
+        titleLabel.textAlignment = .left
+
+        let messageLabel = SoraAdaptiveLabel(
+            font: FontType.paragraphXS,
+            textStyle: .footnote,
+            color: .fgSecondary
+        )
+        messageLabel.text = recoveryText(
             "wallet.recovery.banner",
             fallback: "Wallet access needs restoring. You can still view balances and receive funds, but signing is unavailable."
         )
-        label.textColor = .black
-        label.font = UIFont.preferredFont(forTextStyle: .subheadline)
-        label.adjustsFontForContentSizeCategory = true
-        label.numberOfLines = 0
-        label.textAlignment = .center
+        messageLabel.numberOfLines = 0
+        messageLabel.textAlignment = .left
 
-        let restoreButton = UIButton(type: .system)
-        restoreButton.translatesAutoresizingMaskIntoConstraints = false
-        restoreButton.setTitle(
-            R.string.localizable.recoveryTitle(preferredLanguages: .currentLocale),
-            for: .normal
+        let restoreButton = SoramitsuButton(
+            size: .large,
+            type: .filled(.primary)
         )
-        restoreButton.setTitleColor(.black, for: .normal)
-        restoreButton.titleLabel?.font = UIFont.preferredFont(forTextStyle: .headline)
-        restoreButton.titleLabel?.adjustsFontForContentSizeCategory = true
-        restoreButton.backgroundColor = UIColor.white.withAlphaComponent(0.9)
-        restoreButton.layer.cornerRadius = 8
+        restoreButton.translatesAutoresizingMaskIntoConstraints = false
+        restoreButton.sora.cornerRadius = .circle
+        let restoreTitle = recoveryText(
+            "wallet.recovery.banner.action",
+            fallback: "Restore access"
+        )
+        restoreButton.sora.title = restoreTitle
+        restoreButton.isAccessibilityElement = true
+        restoreButton.accessibilityLabel = restoreTitle
         restoreButton.accessibilityHint = recoveryText(
             "wallet.recovery.banner.action.hint",
             fallback: "Choose how to restore the signing key for this wallet"
         )
         restoreButton.accessibilityIdentifier = "walletRecovery.banner.restore"
-        restoreButton.addTarget(self, action: #selector(restoreWallet), for: .touchUpInside)
+        restoreButton.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.restoreWallet()
+        }
 
-        banner.addSubview(label)
+        banner.addSubview(titleLabel)
+        banner.addSubview(messageLabel)
         banner.addSubview(restoreButton)
         view.addSubview(banner)
         recoveryInteractionShield = banner
@@ -581,20 +793,23 @@ final class MainTabBarViewController: UITabBarController {
             banner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             banner.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             topConstraint,
-            label.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 14),
-            label.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -14),
-            label.topAnchor.constraint(equalTo: banner.topAnchor, constant: 10),
+            titleLabel.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 16),
+            titleLabel.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -16),
+            titleLabel.topAnchor.constraint(equalTo: banner.topAnchor, constant: 14),
+            messageLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            messageLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            messageLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
             restoreButton.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 14),
             restoreButton.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -14),
-            restoreButton.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 10),
-            restoreButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
-            restoreButton.bottomAnchor.constraint(equalTo: banner.bottomAnchor, constant: -10)
+            restoreButton.topAnchor.constraint(equalTo: messageLabel.bottomAnchor, constant: 12),
+            restoreButton.heightAnchor.constraint(equalToConstant: 48),
+            restoreButton.bottomAnchor.constraint(equalTo: banner.bottomAnchor, constant: -14)
         ])
 
         view.layoutIfNeeded()
         updateRecoveryBannerLayout()
 
-        UIAccessibility.post(notification: .screenChanged, argument: label)
+        UIAccessibility.post(notification: .screenChanged, argument: titleLabel)
     }
 
     private func updateRecoveryBannerLayout() {

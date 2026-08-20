@@ -1014,6 +1014,8 @@
 "wallet.recovery.backup.different" = "This backup belongs to a different wallet. Nothing was changed.";
 "wallet.recovery.backup.retry" = "The backup could not be verified. Check your connection and retry.";
 "wallet.recovery.banner" = "Wallet access needs restoring. You can still view balances and receive funds, but signing is unavailable.";
+"wallet.recovery.banner.title" = "Signing unavailable";
+"wallet.recovery.banner.action" = "Restore access";
 "wallet.recovery.banner.action.hint" = "Choose how to restore the signing key for this wallet";
 "wallet.recovery.json.network.missing" = "This backup does not identify a network. It will be verified before import.";
 "wallet.recovery.json.network.wrong" = "This backup is for a different network. Nothing has been changed.";
@@ -1046,6 +1048,7 @@
 "wallet_network_taira_send_unavailable" = "The protected pending-transaction journal is unavailable. Balances and receive addresses remain read-only.";
 "wallet_network_taira_read_only" = "Taira sending is not available in this build. Live XOR balances, receive addresses, and finalized history remain available.";
 "wallet_network_nexus_read_only" = "Sending is not available in this build. Live XOR balances, receive addresses, and finalized history remain available.";
+"wallet_network_address_copied" = "Address copied";
 "wallet_network_polkaswap_sora2_title" = "Polkaswap uses SORA2 Mainnet";
 "wallet_network_polkaswap_sora2_message" = "Switch to SORA2 Mainnet before opening Polkaswap. Taira Testnet transactions stay separate.";
 "wallet_network_switch_to_sora2" = "Switch to SORA2";

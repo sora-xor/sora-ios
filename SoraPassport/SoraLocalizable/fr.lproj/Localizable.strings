@@ -1014,6 +1014,8 @@
 "wallet.recovery.backup.different" = "Cette sauvegarde appartient à un autre portefeuille. Aucune modification n’a été effectuée.";
 "wallet.recovery.backup.retry" = "La sauvegarde n’a pas pu être vérifiée. Vérifiez votre connexion et réessayez.";
 "wallet.recovery.banner" = "L’accès au portefeuille doit être restauré. Vous pouvez consulter les soldes et recevoir des fonds, mais la signature est indisponible.";
+"wallet.recovery.banner.title" = "Signature indisponible";
+"wallet.recovery.banner.action" = "Restaurer l’accès";
 "wallet.recovery.banner.action.hint" = "Choisir comment restaurer la clé de signature de ce portefeuille";
 "wallet.recovery.json.network.missing" = "Cette sauvegarde n’indique aucun réseau. Elle sera vérifiée avant l’importation.";
 "wallet.recovery.json.network.wrong" = "Cette sauvegarde appartient à un autre réseau. Aucune modification n’a été effectuée.";
@@ -1046,6 +1048,7 @@
 "wallet_network_taira_send_unavailable" = "Le journal protégé des transactions en attente est indisponible. Les soldes et les adresses de réception restent accessibles en lecture seule.";
 "wallet_network_taira_read_only" = "L’envoi sur Taira n’est pas disponible dans cette version. Les soldes XOR en direct, les adresses de réception et l’historique finalisé restent disponibles.";
 "wallet_network_nexus_read_only" = "L’envoi n’est pas disponible dans cette version. Les soldes XOR en direct, les adresses de réception et l’historique finalisé restent disponibles.";
+"wallet_network_address_copied" = "Adresse copiée";
 "wallet_network_polkaswap_sora2_title" = "Polkaswap utilise le réseau principal SORA2";
 "wallet_network_polkaswap_sora2_message" = "Passez au réseau principal SORA2 avant d’ouvrir Polkaswap. Les transactions du testnet Taira restent séparées.";
 "wallet_network_switch_to_sora2" = "Passer à SORA2";

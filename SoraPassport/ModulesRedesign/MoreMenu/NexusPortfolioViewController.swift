@@ -5,6 +5,7 @@ import CoreImage
 import Foundation
 import SoraFoundation
 import SoraKeystore
+import SoraUIKit
 import UIKit
 
 func tairaLocalizedText(_ key: String, fallback: String) -> String {
@@ -306,7 +307,7 @@ enum NexusPrimaryWalletViewFactory {
         let navigation = SoraNavigationController(
             rootViewController: detail
         )
-        navigation.navigationBar.isHidden = false
+        navigation.navigationBar.isHidden = true
         navigation.navigationBar.prefersLargeTitles = false
         return navigation
     }
@@ -321,13 +322,45 @@ enum NexusPrimaryWalletViewFactory {
 private final class NexusPrimaryWalletUnavailableViewController:
     UIViewController
 {
+    override func loadView() {
+        let page = SoramitsuView()
+        page.sora.backgroundColor = .bgPage
+        view = page
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
 
-        let titleLabel = UILabel()
-        titleLabel.font = UIFont.preferredFont(forTextStyle: .title2)
-        titleLabel.adjustsFontForContentSizeCategory = true
+        let card = SoramitsuView()
+        card.sora.backgroundColor = .bgSurface
+        card.sora.cornerRadius = .large
+
+        let badge = SoramitsuLabel()
+        badge.sora.font = FontType.textBoldXS
+        badge.sora.textColor = .statusWarning
+        badge.sora.backgroundColor = .statusWarningContainer
+        badge.sora.cornerRadius = .circle
+        badge.sora.contentInsets = SoramitsuInsets(
+            horizontal: 12,
+            vertical: 6
+        )
+        badge.sora.text = "TAIRA · TESTNET"
+        badge.setContentHuggingPriority(.required, for: .horizontal)
+
+        let badgeRow = UIView()
+        badgeRow.translatesAutoresizingMaskIntoConstraints = false
+        badgeRow.addSubview(badge)
+        NSLayoutConstraint.activate([
+            badge.centerXAnchor.constraint(equalTo: badgeRow.centerXAnchor),
+            badge.topAnchor.constraint(equalTo: badgeRow.topAnchor),
+            badge.bottomAnchor.constraint(equalTo: badgeRow.bottomAnchor)
+        ])
+
+        let titleLabel = SoraAdaptiveLabel(
+            font: FontType.displayS,
+            textStyle: .title2,
+            color: .fgPrimary
+        )
         titleLabel.numberOfLines = 0
         titleLabel.textAlignment = .center
         titleLabel.text = tairaLocalizedText(
@@ -335,33 +368,53 @@ private final class NexusPrimaryWalletUnavailableViewController:
             fallback: "Taira wallet unavailable"
         )
 
-        let messageLabel = UILabel()
-        messageLabel.font = UIFont.preferredFont(forTextStyle: .body)
-        messageLabel.adjustsFontForContentSizeCategory = true
+        let messageLabel = SoraAdaptiveLabel(
+            font: FontType.paragraphS,
+            textStyle: .body,
+            color: .fgSecondary
+        )
         messageLabel.numberOfLines = 0
         messageLabel.textAlignment = .center
-        messageLabel.textColor = .secondaryLabel
         messageLabel.text = tairaLocalizedText(
             "wallet_network_taira_unavailable_message",
             fallback: "This wallet has no Taira account derived from its master phrase. SORA2 is unchanged. Import the original phrase to use SORA3 Taira Testnet. Test XOR has no monetary value."
         )
 
-        let stack = UIStackView(arrangedSubviews: [titleLabel, messageLabel])
+        let stack = UIStackView(
+            arrangedSubviews: [badgeRow, titleLabel, messageLabel]
+        )
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
         stack.spacing = 12
-        view.addSubview(stack)
+        card.addSubview(stack)
+        view.addSubview(card)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(
+            card.leadingAnchor.constraint(
                 equalTo: view.leadingAnchor,
-                constant: 28
+                constant: 16
+            ),
+            card.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor,
+                constant: -16
+            ),
+            card.centerYAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.centerYAnchor
+            ),
+            stack.leadingAnchor.constraint(
+                equalTo: card.leadingAnchor,
+                constant: 24
             ),
             stack.trailingAnchor.constraint(
-                equalTo: view.trailingAnchor,
-                constant: -28
+                equalTo: card.trailingAnchor,
+                constant: -24
             ),
-            stack.centerYAnchor.constraint(
-                equalTo: view.safeAreaLayoutGuide.centerYAnchor
+            stack.topAnchor.constraint(
+                equalTo: card.topAnchor,
+                constant: 24
+            ),
+            stack.bottomAnchor.constraint(
+                equalTo: card.bottomAnchor,
+                constant: -24
             )
         ])
     }
@@ -855,6 +908,157 @@ extension NexusPortfolioViewController: AssetProviderObserverProtocol {
 }
 
 @MainActor
+private final class NexusNetworkDetailCell: UITableViewCell {
+    static let reuseIdentifier = "NexusNetworkDetailCell"
+
+    private let cardView = SoramitsuView()
+    private let titleLabel = SoraAdaptiveLabel(
+        font: FontType.paragraphBoldS,
+        textStyle: .headline,
+        color: .fgPrimary
+    )
+    private let detailLabel = SoraAdaptiveLabel(
+        font: FontType.paragraphXS,
+        textStyle: .footnote,
+        color: .fgSecondary
+    )
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        configureLayout()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    func configure(
+        title: String,
+        detail: String,
+        emphasis: Bool = false,
+        warning: Bool = false
+    ) {
+        titleLabel.text = title
+        titleLabel.soraFont = emphasis
+            ? FontType.displayS
+            : FontType.paragraphBoldS
+        titleLabel.soraTextColor = warning ? .statusError : .fgPrimary
+        detailLabel.text = detail
+        detailLabel.soraTextColor = warning ? .statusError : .fgSecondary
+        accessibilityLabel = "\(title). \(detail)"
+    }
+
+    private func configureLayout() {
+        selectionStyle = .none
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+
+        cardView.sora.backgroundColor = .bgSurface
+        cardView.sora.cornerRadius = .large
+
+        titleLabel.numberOfLines = 0
+        titleLabel.lineBreakMode = .byWordWrapping
+
+        detailLabel.numberOfLines = 0
+        detailLabel.lineBreakMode = .byWordWrapping
+
+        let textStack = UIStackView(
+            arrangedSubviews: [titleLabel, detailLabel]
+        )
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+        textStack.axis = .vertical
+        textStack.spacing = 6
+
+        contentView.addSubview(cardView)
+        cardView.addSubview(textStack)
+        NSLayoutConstraint.activate([
+            cardView.leadingAnchor.constraint(
+                equalTo: contentView.leadingAnchor,
+                constant: 16
+            ),
+            cardView.trailingAnchor.constraint(
+                equalTo: contentView.trailingAnchor,
+                constant: -16
+            ),
+            cardView.topAnchor.constraint(
+                equalTo: contentView.topAnchor,
+                constant: 4
+            ),
+            cardView.bottomAnchor.constraint(
+                equalTo: contentView.bottomAnchor,
+                constant: -4
+            ),
+            textStack.leadingAnchor.constraint(
+                equalTo: cardView.leadingAnchor,
+                constant: 16
+            ),
+            textStack.trailingAnchor.constraint(
+                equalTo: cardView.trailingAnchor,
+                constant: -16
+            ),
+            textStack.topAnchor.constraint(
+                equalTo: cardView.topAnchor,
+                constant: 16
+            ),
+            textStack.bottomAnchor.constraint(
+                equalTo: cardView.bottomAnchor,
+                constant: -16
+            )
+        ])
+    }
+}
+
+@MainActor
+private final class NexusNetworkSectionHeaderView:
+    UITableViewHeaderFooterView {
+    static let reuseIdentifier = "NexusNetworkSectionHeaderView"
+
+    private let titleLabel = SoraAdaptiveLabel(
+        font: FontType.textBoldS,
+        textStyle: .headline,
+        color: .fgPrimary
+    )
+
+    override init(reuseIdentifier: String?) {
+        super.init(reuseIdentifier: reuseIdentifier)
+        contentView.backgroundColor = .clear
+        backgroundView = UIView()
+        backgroundView?.backgroundColor = .clear
+
+        titleLabel.numberOfLines = 0
+        contentView.addSubview(titleLabel)
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(
+                equalTo: contentView.leadingAnchor,
+                constant: 20
+            ),
+            titleLabel.trailingAnchor.constraint(
+                equalTo: contentView.trailingAnchor,
+                constant: -20
+            ),
+            titleLabel.topAnchor.constraint(
+                equalTo: contentView.topAnchor,
+                constant: 14
+            ),
+            titleLabel.bottomAnchor.constraint(
+                equalTo: contentView.bottomAnchor,
+                constant: -6
+            )
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    func configure(title: String) {
+        titleLabel.text = title
+    }
+}
+
+@MainActor
 final class NexusNetworkDetailViewController: UITableViewController {
     private let account: NetworkAccount
     private let configuration: NexusNetworkConfiguration
@@ -884,7 +1088,7 @@ final class NexusNetworkDetailViewController: UITableViewController {
         self.readClient = readClient
         self.mutationAdapterAvailable = mutationAdapterAvailable
         self.mutationUnavailableReason = mutationUnavailableReason
-        super.init(style: .insetGrouped)
+        super.init(style: .plain)
     }
 
     @available(*, unavailable)
@@ -899,7 +1103,29 @@ final class NexusNetworkDetailViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = configuration.displayName
-        view.backgroundColor = .systemGroupedBackground
+        let pageBackground = SoramitsuView()
+        pageBackground.sora.backgroundColor = .bgPage
+        tableView.backgroundView = pageBackground
+        tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
+        tableView.allowsSelection = false
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 80
+        tableView.sectionHeaderHeight = UITableView.automaticDimension
+        tableView.estimatedSectionHeaderHeight = 44
+        tableView.contentInset.bottom = 16
+        if #available(iOS 15.0, *) {
+            tableView.sectionHeaderTopPadding = 0
+        }
+        tableView.register(
+            NexusNetworkDetailCell.self,
+            forCellReuseIdentifier: NexusNetworkDetailCell.reuseIdentifier
+        )
+        tableView.register(
+            NexusNetworkSectionHeaderView.self,
+            forHeaderFooterViewReuseIdentifier:
+                NexusNetworkSectionHeaderView.reuseIdentifier
+        )
         tableView.tableHeaderView = makeReceiveHeader()
         let access = NexusPortfolioPresentationPolicy.networkDetailAccess(
             networkId: account.networkId,
@@ -921,11 +1147,19 @@ final class NexusNetworkDetailViewController: UITableViewController {
             navigationItem.rightBarButtonItem = sendButton
         }
         refreshControl = UIRefreshControl()
+        refreshControl?.tintColor = SoramitsuUI.shared.theme.palette.color(
+            .accentPrimary
+        )
         refreshControl?.addTarget(
             self,
             action: #selector(refresh),
             for: .valueChanged
         )
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateReceiveHeaderHeightIfNeeded()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -1145,64 +1379,208 @@ final class NexusNetworkDetailViewController: UITableViewController {
 
     private func makeReceiveHeader() -> UIView {
         let container = UIView(
-            frame: CGRect(
-                x: 0,
-                y: 0,
-                width: 1,
-                height: mutationAdapterAvailable ? 310 : 350
-            )
+            frame: CGRect(x: 0, y: 0, width: 1, height: 1)
         )
-        let badge = UILabel()
-        badge.font = .preferredFont(forTextStyle: .caption1)
-        badge.textAlignment = .center
-        badge.textColor = configuration.isTestnet ? .systemOrange : .systemGreen
-        badge.text = configuration.isTestnet ? "TAIRA · TESTNET" : "MINAMOTO · MAINNET"
+        container.backgroundColor = .clear
 
+        let card = SoramitsuView()
+        card.sora.backgroundColor = .bgSurface
+        card.sora.cornerRadius = .large
+
+        let badge = SoramitsuLabel()
+        badge.sora.font = FontType.textBoldXS
+        badge.sora.alignment = .center
+        badge.sora.contentInsets = SoramitsuInsets(
+            horizontal: 12,
+            vertical: 6
+        )
+        badge.sora.cornerRadius = .circle
+        badge.sora.backgroundColor = configuration.isTestnet
+            ? .statusWarningContainer
+            : .statusSuccessContainer
+        badge.sora.textColor = configuration.isTestnet
+            ? .statusWarning
+            : .statusSuccess
+        badge.sora.text = configuration.isTestnet
+            ? "TAIRA · TESTNET"
+            : "MINAMOTO · MAINNET"
+        badge.setContentHuggingPriority(.required, for: .horizontal)
+
+        let badgeRow = UIView()
+        badgeRow.translatesAutoresizingMaskIntoConstraints = false
+        badgeRow.addSubview(badge)
+        NSLayoutConstraint.activate([
+            badge.centerXAnchor.constraint(equalTo: badgeRow.centerXAnchor),
+            badge.topAnchor.constraint(equalTo: badgeRow.topAnchor),
+            badge.bottomAnchor.constraint(equalTo: badgeRow.bottomAnchor)
+        ])
+
+        let qrSurface = SoramitsuView()
+        qrSurface.sora.backgroundColor = .custom(uiColor: .white)
+        qrSurface.sora.cornerRadius = .medium
         let image = UIImageView(image: qrImage(account.address))
+        image.translatesAutoresizingMaskIntoConstraints = false
         image.contentMode = .scaleAspectFit
+        qrSurface.addSubview(image)
+        NSLayoutConstraint.activate([
+            image.leadingAnchor.constraint(
+                equalTo: qrSurface.leadingAnchor,
+                constant: 12
+            ),
+            image.trailingAnchor.constraint(
+                equalTo: qrSurface.trailingAnchor,
+                constant: -12
+            ),
+            image.topAnchor.constraint(
+                equalTo: qrSurface.topAnchor,
+                constant: 12
+            ),
+            image.bottomAnchor.constraint(
+                equalTo: qrSurface.bottomAnchor,
+                constant: -12
+            ),
+            qrSurface.widthAnchor.constraint(equalToConstant: 184),
+            qrSurface.heightAnchor.constraint(equalToConstant: 184)
+        ])
 
-        let address = UILabel()
-        address.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        let qrRow = UIView()
+        qrRow.translatesAutoresizingMaskIntoConstraints = false
+        qrRow.addSubview(qrSurface)
+        NSLayoutConstraint.activate([
+            qrSurface.centerXAnchor.constraint(equalTo: qrRow.centerXAnchor),
+            qrSurface.topAnchor.constraint(equalTo: qrRow.topAnchor),
+            qrSurface.bottomAnchor.constraint(equalTo: qrRow.bottomAnchor)
+        ])
+
+        let address = SoraAdaptiveLabel(
+            font: FontType.paragraphXS,
+            textStyle: .footnote,
+            color: .fgSecondary
+        )
         address.textAlignment = .center
-        address.numberOfLines = 3
+        address.lineBreakMode = .byCharWrapping
+        address.numberOfLines = 0
         address.text = account.address
+        address.accessibilityLabel = account.address
 
-        let copy = UIButton(type: .system)
-        copy.setTitle("Copy receive address", for: .normal)
-        copy.addTarget(self, action: #selector(copyAddress), for: .touchUpInside)
+        let copy = SoramitsuButton(
+            size: .small,
+            type: .tonal(.secondary)
+        )
+        copy.sora.title = "Copy address"
+        copy.sora.cornerRadius = .circle
+        copy.isAccessibilityElement = true
+        copy.accessibilityLabel = "Copy receive address"
+        copy.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.copyAddress()
+        }
 
-        let explorer = UIButton(type: .system)
-        explorer.setTitle("Open explorer", for: .normal)
-        explorer.addTarget(self, action: #selector(openExplorer), for: .touchUpInside)
+        let explorer = SoramitsuButton(
+            size: .small,
+            type: .tonal(.secondary)
+        )
+        explorer.sora.title = "Explorer"
+        explorer.sora.cornerRadius = .circle
+        explorer.isAccessibilityElement = true
+        explorer.accessibilityLabel = "Open network explorer"
+        explorer.sora.addHandler(for: .touchUpInside) { [weak self] in
+            self?.openExplorer()
+        }
 
-        var arrangedSubviews: [UIView] = [badge]
+        let actions = UIStackView(arrangedSubviews: [copy, explorer])
+        actions.translatesAutoresizingMaskIntoConstraints = false
+        actions.axis = .horizontal
+        actions.distribution = .fillEqually
+        actions.spacing = 8
+
+        var arrangedSubviews: [UIView] = [badgeRow]
         if !mutationAdapterAvailable {
-            let readOnly = UILabel()
-            readOnly.font = .preferredFont(forTextStyle: .footnote)
-            readOnly.adjustsFontForContentSizeCategory = true
+            let readOnly = SoraAdaptiveLabel(
+                font: FontType.paragraphXS,
+                textStyle: .footnote,
+                color: .fgSecondary
+            )
             readOnly.textAlignment = .center
+            readOnly.lineBreakMode = .byWordWrapping
             readOnly.numberOfLines = 0
-            readOnly.textColor = .secondaryLabel
             readOnly.text = mutationUnavailableReason ?? tairaLocalizedText(
                 "wallet_network_taira_read_only",
                 fallback: "Taira sending is not available in this build. Live XOR balances, receive addresses, and finalized history remain available."
             )
             arrangedSubviews.append(readOnly)
         }
-        arrangedSubviews.append(contentsOf: [image, address, copy, explorer])
+        arrangedSubviews.append(contentsOf: [qrRow, address, actions])
         let stack = UIStackView(arrangedSubviews: arrangedSubviews)
+        stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
         stack.alignment = .fill
-        stack.spacing = 8
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stack)
+        stack.spacing = 12
+
+        container.addSubview(card)
+        card.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
-            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
-            image.heightAnchor.constraint(equalToConstant: 170)
+            card.leadingAnchor.constraint(
+                equalTo: container.leadingAnchor,
+                constant: 16
+            ),
+            card.trailingAnchor.constraint(
+                equalTo: container.trailingAnchor,
+                constant: -16
+            ),
+            card.topAnchor.constraint(
+                equalTo: container.topAnchor,
+                constant: 8
+            ),
+            card.bottomAnchor.constraint(
+                equalTo: container.bottomAnchor,
+                constant: -8
+            ),
+            stack.leadingAnchor.constraint(
+                equalTo: card.leadingAnchor,
+                constant: 16
+            ),
+            stack.trailingAnchor.constraint(
+                equalTo: card.trailingAnchor,
+                constant: -16
+            ),
+            stack.topAnchor.constraint(
+                equalTo: card.topAnchor,
+                constant: 16
+            ),
+            stack.bottomAnchor.constraint(
+                equalTo: card.bottomAnchor,
+                constant: -16
+            )
         ])
         return container
+    }
+
+    private func updateReceiveHeaderHeightIfNeeded() {
+        guard let header = tableView.tableHeaderView else {
+            return
+        }
+        let width = tableView.bounds.width
+        guard width > 0 else {
+            return
+        }
+        let target = header.systemLayoutSizeFitting(
+            CGSize(
+                width: width,
+                height: UIView.layoutFittingCompressedSize.height
+            ),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        guard abs(header.frame.height - target.height) > 0.5 else {
+            return
+        }
+        header.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: width,
+            height: target.height
+        )
+        tableView.tableHeaderView = header
     }
 
     private func qrImage(_ value: String) -> UIImage? {
@@ -1230,6 +1608,13 @@ final class NexusNetworkDetailViewController: UITableViewController {
         UIPasteboard.general.string = account.address
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
+        UIAccessibility.post(
+            notification: .announcement,
+            argument: tairaLocalizedText(
+                "wallet_network_address_copied",
+                fallback: "Address copied"
+            )
+        )
     }
 
     @objc private func openExplorer() {
@@ -1414,10 +1799,7 @@ final class NexusNetworkDetailViewController: UITableViewController {
         }
     }
 
-    override func tableView(
-        _ tableView: UITableView,
-        titleForHeaderInSection section: Int
-    ) -> String? {
+    private func sectionTitle(_ section: Int) -> String {
         switch section {
         case 0:
             return "Balance"
@@ -1430,52 +1812,76 @@ final class NexusNetworkDetailViewController: UITableViewController {
 
     override func tableView(
         _ tableView: UITableView,
+        viewForHeaderInSection section: Int
+    ) -> UIView? {
+        guard let header = tableView.dequeueReusableHeaderFooterView(
+            withIdentifier: NexusNetworkSectionHeaderView.reuseIdentifier
+        ) as? NexusNetworkSectionHeaderView else {
+            return nil
+        }
+        header.configure(title: sectionTitle(section))
+        return header
+    }
+
+    override func tableView(
+        _ tableView: UITableView,
         cellForRowAt indexPath: IndexPath
     ) -> UITableViewCell {
-        let cell = UITableViewCell(
-            style: .subtitle,
-            reuseIdentifier: nil
-        )
-        var content = cell.defaultContentConfiguration()
+        guard let cell = tableView.dequeueReusableCell(
+            withIdentifier: NexusNetworkDetailCell.reuseIdentifier,
+            for: indexPath
+        ) as? NexusNetworkDetailCell else {
+            return UITableViewCell()
+        }
         switch indexPath.section {
         case 0:
-            content.text = "\(balance) XOR"
-            content.secondaryText = configuration.displayName
+            cell.configure(
+                title: "\(balance) XOR",
+                detail: configuration.displayName,
+                emphasis: true,
+                warning: balance == "Unavailable"
+            )
         case 1:
             if let pendingLoadError {
-                content.text = "Recovery required"
-                content.secondaryText = pendingLoadError
-                content.secondaryTextProperties.numberOfLines = 0
-                cell.contentConfiguration = content
+                cell.configure(
+                    title: "Recovery required",
+                    detail: pendingLoadError,
+                    warning: true
+                )
                 return cell
             }
             let row = pendingRows[indexPath.row]
             let item = row.transaction
+            let title: String
             switch row.kind {
             case .currentXor:
-                content.text = "\(item.amount.rawValue) XOR · \(item.state.rawValue)"
+                title =
+                    "\(item.amount.rawValue) XOR · \(item.state.rawValue)"
             case .assetRecovery:
-                content.text =
+                title =
                     "\(item.amount.rawValue) units · Pending asset recovery"
             }
-            content.secondaryText = item.hash ?? "Local \(item.id.uuidString)"
-            content.secondaryTextProperties.numberOfLines = 2
+            cell.configure(
+                title: title,
+                detail: item.hash ?? "Local \(item.id.uuidString)"
+            )
         default:
             if let historyLoadError {
-                content.text = "History unavailable"
-                content.secondaryText = historyLoadError
-                content.secondaryTextProperties.numberOfLines = 0
-                cell.contentConfiguration = content
+                cell.configure(
+                    title: "History unavailable",
+                    detail: historyLoadError,
+                    warning: true
+                )
                 return cell
             }
             let item = history[indexPath.row]
             let direction = item.sender == account.address ? "Sent" : "Received"
-            content.text = "\(direction) \(item.amount.rawValue) XOR · Finalized"
-            content.secondaryText =
-                "\(item.transactionHash)\n\(direction == "Sent" ? item.receiver : item.sender)"
-            content.secondaryTextProperties.numberOfLines = 2
+            cell.configure(
+                title: "\(direction) \(item.amount.rawValue) XOR · Finalized",
+                detail:
+                    "\(item.transactionHash)\n\(direction == "Sent" ? item.receiver : item.sender)"
+            )
         }
-        cell.contentConfiguration = content
         return cell
     }
 

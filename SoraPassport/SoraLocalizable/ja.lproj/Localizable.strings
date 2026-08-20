@@ -1014,6 +1014,8 @@
 "wallet.recovery.backup.different" = "このバックアップは別のウォレットのものです。変更は行われていません。";
 "wallet.recovery.backup.retry" = "バックアップを確認できませんでした。接続を確認して再試行してください。";
 "wallet.recovery.banner" = "ウォレットへのアクセスを復元する必要があります。残高の確認と受取はできますが、署名は利用できません。";
+"wallet.recovery.banner.title" = "署名を利用できません";
+"wallet.recovery.banner.action" = "アクセスを復元";
 "wallet.recovery.banner.action.hint" = "このウォレットの署名鍵を復元する方法を選択";
 "wallet.recovery.json.network.missing" = "このバックアップにはネットワーク情報がありません。インポート前に検証します。";
 "wallet.recovery.json.network.wrong" = "このバックアップは別のネットワーク用です。変更は行われていません。";
@@ -1046,6 +1048,7 @@
 "wallet_network_taira_send_unavailable" = "保護された保留中トランザクション履歴を利用できません。残高と受取アドレスは読み取り専用で引き続き利用できます。";
 "wallet_network_taira_read_only" = "このビルドではTairaから送信できません。XORの最新残高、受取アドレス、確定済み履歴は引き続き利用できます。";
 "wallet_network_nexus_read_only" = "このビルドでは送信できません。XORの最新残高、受取アドレス、確定済み履歴は引き続き利用できます。";
+"wallet_network_address_copied" = "アドレスをコピーしました";
 "wallet_network_polkaswap_sora2_title" = "PolkaswapはSORA2メインネットを使用します";
 "wallet_network_polkaswap_sora2_message" = "Polkaswapを開く前にSORA2メインネットへ切り替えてください。Tairaテストネットのトランザクションは分離されています。";
 "wallet_network_switch_to_sora2" = "SORA2に切り替える";
