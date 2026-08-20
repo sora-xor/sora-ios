@@ -54,6 +54,17 @@ class RootFactoryTests: XCTestCase {
             ),
             .sora3
         )
+
+        let settings = InMemorySettingsManager()
+        XCTAssertEqual(
+            WalletHomeNetworkPreference.stored(settings: settings),
+            .sora2
+        )
+        WalletHomeNetworkPreference.store(.sora3, settings: settings)
+        XCTAssertEqual(
+            WalletHomeNetworkPreference.stored(settings: settings),
+            .sora3
+        )
     }
 
     @MainActor
@@ -136,6 +147,33 @@ class RootFactoryTests: XCTestCase {
         }
         wait(for: [transition], timeout: 1)
         window.isHidden = true
+    }
+
+    @MainActor
+    func testWalletNetworkSwitchRebuildsTairaAfterLeavingIt() {
+        var creationCount = 0
+        let controller = WalletNetworkSwitchViewController(
+            sora2Controller: UIViewController(),
+            initialSelection: .sora2,
+            makeSora3Controller: {
+                creationCount += 1
+                return UINavigationController(
+                    rootViewController: UIViewController()
+                )
+            },
+            selectionChanged: { _ in }
+        )
+        controller.loadViewIfNeeded()
+
+        XCTAssertTrue(controller.select(.sora3, animated: false))
+        let firstTairaController = controller.activeNavigationController
+        XCTAssertTrue(controller.select(.sora2, animated: false))
+        XCTAssertTrue(controller.select(.sora3, animated: false))
+
+        XCTAssertEqual(creationCount, 2)
+        XCTAssertFalse(
+            controller.activeNavigationController === firstTairaController
+        )
     }
 
     func testPrimaryTairaWalletAccountRequiresExactSelectedWallet() {
@@ -494,10 +532,21 @@ class RootFactoryTests: XCTestCase {
     @MainActor
     func testRecoveryBannerLeavesBrowseInteractionsEnabled() throws {
         let controller = MainTabBarViewController()
+        controller.presenter = MainTabBarPresenterSpy()
         controller.recoveryRequiredProvider = { true }
-        let wallet = UIViewController()
+        let wallet = WalletNetworkSwitchViewController(
+            sora2Controller: UIViewController(),
+            initialSelection: .sora2,
+            makeSora3Controller: { UIViewController() },
+            selectionChanged: { _ in }
+        )
         let activity = UIViewController()
         controller.viewControllers = [wallet, activity]
+        let window = UIWindow(
+            frame: CGRect(x: 0, y: 0, width: 440, height: 956)
+        )
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
         controller.loadViewIfNeeded()
         controller.selectedIndex = 1
         controller.enableRecoveryReadOnlyMode()
@@ -512,11 +561,35 @@ class RootFactoryTests: XCTestCase {
         XCTAssertFalse(activity.view.accessibilityElementsHidden)
         XCTAssertFalse(controller.tabBar.accessibilityElementsHidden)
         XCTAssertFalse(banner.accessibilityViewIsModal)
-        XCTAssertGreaterThan(controller.additionalSafeAreaInsets.top, 0)
+        XCTAssertEqual(controller.additionalSafeAreaInsets.top, 0)
+        XCTAssertGreaterThan(wallet.additionalSafeAreaInsets.top, 0)
+        XCTAssertGreaterThan(activity.additionalSafeAreaInsets.top, 0)
+        XCTAssertEqual(activity.view.frame.minX, 0, accuracy: 0.5)
+        XCTAssertEqual(activity.view.frame.width, 440, accuracy: 0.5)
+        XCTAssertEqual(banner.frame.width, 408, accuracy: 0.5)
         XCTAssertLessThanOrEqual(
             banner.frame.maxY,
-            controller.view.safeAreaInsets.top + 1
+            activity.view.safeAreaInsets.top + 1
         )
+
+        controller.selectedIndex = 0
+        controller.view.layoutIfNeeded()
+        XCTAssertEqual(wallet.view.frame.minX, 0, accuracy: 0.5)
+        XCTAssertEqual(wallet.view.frame.width, 440, accuracy: 0.5)
+
+        let replacement = UIViewController()
+        controller.viewControllers = [replacement]
+        controller.view.layoutIfNeeded()
+        XCTAssertEqual(wallet.additionalSafeAreaInsets.top, 0)
+        XCTAssertEqual(activity.additionalSafeAreaInsets.top, 0)
+        XCTAssertGreaterThan(replacement.additionalSafeAreaInsets.top, 0)
+        XCTAssertEqual(replacement.view.frame.minX, 0, accuracy: 0.5)
+        XCTAssertEqual(replacement.view.frame.width, 440, accuracy: 0.5)
+
+        controller.disableRecoveryReadOnlyMode()
+        XCTAssertEqual(replacement.additionalSafeAreaInsets.top, 0)
+        window.isHidden = true
+        window.rootViewController = nil
     }
 
     @MainActor
@@ -3286,6 +3359,10 @@ private final class RecordingSettingsManager: SettingsManagerProtocol {
     func allKeys() -> [String] {
         storage.allKeys()
     }
+}
+
+private final class MainTabBarPresenterSpy: MainTabBarPresenterProtocol {
+    func setup() {}
 }
 
 @MainActor

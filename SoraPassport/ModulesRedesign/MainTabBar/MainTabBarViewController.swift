@@ -124,6 +124,29 @@ enum WalletHomeNetworkSelectionPolicy {
     }
 }
 
+enum WalletHomeNetworkPreference {
+    private static let key = "walletHomeNetwork"
+
+    static func stored(
+        settings: SettingsManagerProtocol = SettingsManager.shared
+    ) -> WalletHomeNetwork {
+        guard
+            let rawValue = settings.string(for: key),
+            let network = WalletHomeNetwork(rawValue: rawValue)
+        else {
+            return .sora2
+        }
+        return network
+    }
+
+    static func store(
+        _ network: WalletHomeNetwork,
+        settings: SettingsManagerProtocol = SettingsManager.shared
+    ) {
+        settings.set(value: network.rawValue, for: key)
+    }
+}
+
 /// The second wallet-home slot is intentionally modeled as the SORA3 family,
 /// not as a permanent Taira preference. Internal tester builds map it to Taira
 /// today; a future release can point the same slot at SORA3 mainnet without
@@ -170,16 +193,26 @@ final class WalletNetworkTabControl: UIControl {
 
     override var isHighlighted: Bool {
         didSet {
-            let targetAlpha: CGFloat
-            if !isEnabled {
-                targetAlpha = 0.44
-            } else {
-                targetAlpha = isHighlighted ? 0.72 : 1
-            }
-            guard !UIAccessibility.isReduceMotionEnabled else {
-                backgroundView.sora.alpha = targetAlpha
-                return
-            }
+            updateInteractionAppearance(animated: true)
+        }
+    }
+
+    override var isEnabled: Bool {
+        didSet {
+            updateInteractionAppearance(animated: false)
+        }
+    }
+
+    private func updateInteractionAppearance(animated: Bool) {
+        let targetAlpha: CGFloat
+        if !isEnabled {
+            targetAlpha = 0.44
+        } else {
+            targetAlpha = isHighlighted ? 0.72 : 1
+        }
+        if !animated || UIAccessibility.isReduceMotionEnabled {
+            backgroundView.sora.alpha = targetAlpha
+        } else {
             UIView.animate(
                 withDuration: 0.12,
                 delay: 0,
@@ -188,12 +221,6 @@ final class WalletNetworkTabControl: UIControl {
                     self.backgroundView.sora.alpha = targetAlpha
                 }
             )
-        }
-    }
-
-    override var isEnabled: Bool {
-        didSet {
-            backgroundView.sora.alpha = isEnabled ? 1 : 0.44
         }
     }
 
@@ -260,8 +287,13 @@ final class WalletNetworkTabControl: UIControl {
                 equalTo: backgroundView.trailingAnchor,
                 constant: -12
             ),
-            labels.centerYAnchor.constraint(
-                equalTo: backgroundView.centerYAnchor
+            labels.topAnchor.constraint(
+                equalTo: backgroundView.topAnchor,
+                constant: 8
+            ),
+            labels.bottomAnchor.constraint(
+                equalTo: backgroundView.bottomAnchor,
+                constant: -8
             ),
             heightAnchor.constraint(greaterThanOrEqualToConstant: 56)
         ])
@@ -413,6 +445,7 @@ final class WalletNetworkSwitchViewController: UIViewController {
         ])
         displayedController = controller
 
+        let shouldDiscardSora3 = network == .sora2 && previous === sora3Controller
         let completeTransition = { [weak self, weak previous, weak controller] in
             previous?.view.removeFromSuperview()
             previous?.removeFromParent()
@@ -420,6 +453,9 @@ final class WalletNetworkSwitchViewController: UIViewController {
             if shouldForwardAppearance {
                 previous?.endAppearanceTransition()
                 controller?.endAppearanceTransition()
+            }
+            if shouldDiscardSora3 {
+                self?.sora3Controller = nil
             }
             self?.isTransitioning = false
             self?.setSelectionEnabled(true)
@@ -594,8 +630,8 @@ final class MainTabBarViewController: UITabBarController {
     private(set) var recoveryInteractionShield: UIView?
     private var recoveryRestoredObserver: NSObjectProtocol?
     var recoveryRequiredProvider: (() -> Bool)?
-    private var recoveryBannerTopConstraint: NSLayoutConstraint?
-    private var recoveryOriginalAdditionalSafeAreaTop: CGFloat?
+    private var recoveryOriginalChildSafeAreaTops: [ObjectIdentifier: CGFloat] = [:]
+    private var recoveryReservedChildTopInset: CGFloat = 0
 
     deinit {
         if let recoveryRestoredObserver {
@@ -661,6 +697,34 @@ final class MainTabBarViewController: UITabBarController {
         updateRecoveryBannerLayout()
     }
 
+    override func setViewControllers(
+        _ viewControllers: [UIViewController]?,
+        animated: Bool
+    ) {
+        let previousControllers = self.viewControllers ?? []
+        let replacementIdentifiers = Set(
+            (viewControllers ?? []).map(ObjectIdentifier.init)
+        )
+        restoreRecoveryInsets(
+            on: previousControllers.filter {
+                !replacementIdentifiers.contains(ObjectIdentifier($0))
+            }
+        )
+
+        super.setViewControllers(viewControllers, animated: animated)
+
+        if isViewLoaded {
+            configureTabBar()
+        }
+        guard recoveryInteractionShield != nil else {
+            return
+        }
+        applyRecoveryContentInsets()
+        if let recoveryInteractionShield {
+            view.bringSubviewToFront(recoveryInteractionShield)
+        }
+    }
+
     func enableRecoveryReadOnlyMode() {
         isRecoveryReadOnly = true
 
@@ -678,11 +742,9 @@ final class MainTabBarViewController: UITabBarController {
 
     func disableRecoveryReadOnlyMode() {
         isRecoveryReadOnly = false
-        if let originalAdditionalSafeAreaTop = recoveryOriginalAdditionalSafeAreaTop {
-            additionalSafeAreaInsets.top = originalAdditionalSafeAreaTop
-        }
-        recoveryOriginalAdditionalSafeAreaTop = nil
-        recoveryBannerTopConstraint = nil
+        restoreRecoveryInsets(on: viewControllers ?? [])
+        recoveryOriginalChildSafeAreaTops.removeAll()
+        recoveryReservedChildTopInset = 0
         recoveryInteractionShield?.removeFromSuperview()
         recoveryInteractionShield = nil
     }
@@ -731,7 +793,7 @@ final class MainTabBarViewController: UITabBarController {
         let titleLabel = SoraAdaptiveLabel(
             font: FontType.textBoldS,
             textStyle: .headline,
-            color: .fgPrimary
+            color: .custom(uiColor: Colors.brown90)
         )
         titleLabel.text = recoveryText(
             "wallet.recovery.banner.title",
@@ -743,7 +805,7 @@ final class MainTabBarViewController: UITabBarController {
         let messageLabel = SoraAdaptiveLabel(
             font: FontType.paragraphXS,
             textStyle: .footnote,
-            color: .fgSecondary
+            color: .custom(uiColor: Colors.brown70)
         )
         messageLabel.text = recoveryText(
             "wallet.recovery.banner",
@@ -780,14 +842,10 @@ final class MainTabBarViewController: UITabBarController {
         view.addSubview(banner)
         recoveryInteractionShield = banner
 
-        let originalAdditionalSafeAreaTop = additionalSafeAreaInsets.top
-        recoveryOriginalAdditionalSafeAreaTop = originalAdditionalSafeAreaTop
-        let systemTopInset = max(0, view.safeAreaInsets.top - originalAdditionalSafeAreaTop)
         let topConstraint = banner.topAnchor.constraint(
-            equalTo: view.topAnchor,
-            constant: systemTopInset + originalAdditionalSafeAreaTop + 8
+            equalTo: view.safeAreaLayoutGuide.topAnchor,
+            constant: 8
         )
-        recoveryBannerTopConstraint = topConstraint
 
         NSLayoutConstraint.activate([
             banner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -802,7 +860,6 @@ final class MainTabBarViewController: UITabBarController {
             restoreButton.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 14),
             restoreButton.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -14),
             restoreButton.topAnchor.constraint(equalTo: messageLabel.bottomAnchor, constant: 12),
-            restoreButton.heightAnchor.constraint(equalToConstant: 48),
             restoreButton.bottomAnchor.constraint(equalTo: banner.bottomAnchor, constant: -14)
         ])
 
@@ -813,16 +870,9 @@ final class MainTabBarViewController: UITabBarController {
     }
 
     private func updateRecoveryBannerLayout() {
-        guard let banner = recoveryInteractionShield,
-              let originalAdditionalSafeAreaTop = recoveryOriginalAdditionalSafeAreaTop else {
+        guard let banner = recoveryInteractionShield else {
             return
         }
-
-        let systemTopInset = max(
-            0,
-            view.safeAreaInsets.top - additionalSafeAreaInsets.top
-        )
-        recoveryBannerTopConstraint?.constant = systemTopInset + originalAdditionalSafeAreaTop + 8
 
         let fittingWidth = max(0, view.bounds.width - 32)
         guard fittingWidth > 0 else { return }
@@ -832,9 +882,38 @@ final class MainTabBarViewController: UITabBarController {
             withHorizontalFittingPriority: .required,
             verticalFittingPriority: .fittingSizeLevel
         ).height
-        let reservedTop = originalAdditionalSafeAreaTop + bannerHeight + 16
-        if abs(additionalSafeAreaInsets.top - reservedTop) > 0.5 {
-            additionalSafeAreaInsets.top = reservedTop
+        let reservedTop = bannerHeight + 16
+        if abs(recoveryReservedChildTopInset - reservedTop) > 0.5 {
+            recoveryReservedChildTopInset = reservedTop
+            applyRecoveryContentInsets()
+        }
+    }
+
+    private func applyRecoveryContentInsets() {
+        guard recoveryReservedChildTopInset > 0 else {
+            return
+        }
+        for controller in viewControllers ?? [] {
+            let identifier = ObjectIdentifier(controller)
+            let originalTop = recoveryOriginalChildSafeAreaTops[identifier]
+                ?? controller.additionalSafeAreaInsets.top
+            recoveryOriginalChildSafeAreaTops[identifier] = originalTop
+            let desiredTop = originalTop + recoveryReservedChildTopInset
+            if abs(controller.additionalSafeAreaInsets.top - desiredTop) > 0.5 {
+                controller.additionalSafeAreaInsets.top = desiredTop
+            }
+        }
+    }
+
+    private func restoreRecoveryInsets(on controllers: [UIViewController]) {
+        for controller in controllers {
+            let identifier = ObjectIdentifier(controller)
+            guard let originalTop = recoveryOriginalChildSafeAreaTops.removeValue(
+                forKey: identifier
+            ) else {
+                continue
+            }
+            controller.additionalSafeAreaInsets.top = originalTop
         }
     }
 

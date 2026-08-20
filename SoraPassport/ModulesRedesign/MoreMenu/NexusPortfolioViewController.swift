@@ -254,8 +254,6 @@ enum NexusPrimaryWalletViewFactory {
         }
 
         let settings = SettingsManager.shared
-        settings.nexusEnabled = true
-        settings.isTairaEnabled = true
 
         let snapshot: WalletNetworkSnapshot?
         do {
@@ -304,10 +302,14 @@ enum NexusPrimaryWalletViewFactory {
             mutationUnavailableReason: mutationUnavailableReason
         )
         detail.navigationItem.hidesBackButton = true
-        let navigation = SoraNavigationController(
+        // This detail is the wallet-home root, not a pushed More-menu screen.
+        // SoraNavigationController's delegate deliberately unhides bars for
+        // ordinary detail controllers, so use a dedicated hidden-bar container
+        // here to keep the selector and content geometry stable.
+        let navigation = UINavigationController(
             rootViewController: detail
         )
-        navigation.navigationBar.isHidden = true
+        navigation.setNavigationBarHidden(true, animated: false)
         navigation.navigationBar.prefersLargeTitles = false
         return navigation
     }
@@ -779,6 +781,10 @@ final class NexusPortfolioViewController: UITableViewController {
             // Keep the established SORA2 asset experience—send, receive QR,
             // finalized history and explorer actions—instead of duplicating
             // signing behavior inside the Nexus controller.
+            if let networkSwitch = tabBarController?.viewControllers?
+                .first as? WalletNetworkSwitchViewController {
+                _ = networkSwitch.select(.sora2, animated: false)
+            }
             if !openSora2Experience() {
                 showAddress(
                     title: "SORA2",

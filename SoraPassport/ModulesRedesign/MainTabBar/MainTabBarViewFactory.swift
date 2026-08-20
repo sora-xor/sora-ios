@@ -1075,7 +1075,7 @@ extension MainTabBarViewFactory {
 
             let initialSelection = WalletHomeNetworkSelectionPolicy
                 .resolvedSelection(
-                    stored: .sora2,
+                    stored: WalletHomeNetworkPreference.stored(),
                     sora3Available: true
                 )
             let controller = WalletNetworkSwitchViewController(
@@ -1084,7 +1084,9 @@ extension MainTabBarViewFactory {
                 makeSora3Controller: {
                     NexusPrimaryWalletViewFactory.createTairaWalletController()
                 },
-                selectionChanged: { _ in }
+                selectionChanged: { network in
+                    WalletHomeNetworkPreference.store(network)
+                }
             )
             controller.tabBarItem = sora2Controller.tabBarItem
             return controller

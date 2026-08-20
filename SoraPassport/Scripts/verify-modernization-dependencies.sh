@@ -736,7 +736,7 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${CODE_SIGN_STYLE:-}" != "Automatic" ] ||
        [ "${CODE_SIGN_IDENTITY:-}" != "iPhone Developer" ] ||
        [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ] ||
-       [ "${internal_testflight_build_number}" != "2026082003" ] ||
+       [ "${internal_testflight_build_number}" != "2026082004" ] ||
        [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
        [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
        [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
@@ -796,17 +796,15 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/codex/taira-network-switch-20260819" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "9cf1bd1896ee7d8e22156235f8812010a4e94ee6" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-list --count "9cf1bd1896ee7d8e22156235f8812010a4e94ee6..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
-       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "9cf1bd1896ee7d8e22156235f8812010a4e94ee6..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewController.swift
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "d6bb388235a3c5b9350d7d8cddf403874ceb2935" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "d6bb388235a3c5b9350d7d8cddf403874ceb2935..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "d6bb388235a3c5b9350d7d8cddf403874ceb2935..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewController.swift
+SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift
 SoraPassport/ModulesRedesign/MoreMenu/NexusPortfolioViewController.swift
 SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh
-SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
-SoraPassport/SoraLocalizable/fr.lproj/Localizable.strings
-SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings
 SoraPassportTests/Modules/Root/RootFactoryTests.swift' ] ||
        [ -n "$(/usr/bin/git -C "${root}" status --porcelain=v1 --untracked-files=normal)" ]; then
         echo "error: iOS internal-only TestFlight source is not the exact clean pushed revision" >&2
@@ -2452,10 +2450,10 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    /usr/bin/grep -Fq '<key>signingCertificate</key>' "${internal_testflight_export_options}" ||
    /usr/bin/grep -Fq '<key>provisioningProfiles</key>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="9cf1bd1896ee7d8e22156235f8812010a4e94ee6"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="d6bb388235a3c5b9350d7d8cddf403874ceb2935"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_upstream="origin/codex/taira-network-switch-20260819"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_build_number="2026082003"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_lower_bound="2026082002"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_build_number="2026082004"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_lower_bound="2026082003"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'SORA_INTERNAL_TAIRA_TESTFLIGHT' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'SoraTairaInternalTestFlightConfigSha256' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'internal Taira settings or compile capability escaped' "${dependency_verifier}" ||
