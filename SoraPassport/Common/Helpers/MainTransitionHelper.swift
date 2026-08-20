@@ -45,7 +45,12 @@ struct MainTransitionHelper {
             return
         }
 
-        let navigationController = tabBarController.selectedViewController as? UINavigationController
+        let controllers = tabBarController.viewControllers ?? []
+        let targetController = controllers.indices.contains(selectingIndex)
+            ? controllers[selectingIndex]
+            : nil
+        let navigationController = targetController?
+            .embeddedWalletNavigationController
 
         guard tabBarController.selectedIndex != selectingIndex else {
             navigationController?.popToRootViewController(animated: animated)

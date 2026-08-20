@@ -29,6 +29,7 @@
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import Foundation
+import SoraKeystore
 import SoraUIKit
 import UIKit
 
@@ -43,6 +44,16 @@ enum InputMode {
         case .create: return R.string.localizable.pincodeSetYourPinCode(preferredLanguages: .currentLocale).capitalized
         case .verify: return R.string.localizable.pincodeEnterPinCode(preferredLanguages: .currentLocale).capitalized
         }
+    }
+}
+
+enum PinPostAuthenticationRoutingPolicy {
+    static func requiresLegacyPinUpgrade(
+        storedPinHasFourDigits: Bool,
+        recoveryRequired: Bool,
+        hasRetainedAccount: Bool
+    ) -> Bool {
+        storedPinHasFourDigits && !(recoveryRequired && hasRetainedAccount)
     }
 }
 
@@ -192,7 +203,15 @@ extension InputPincodePresenter: LocalAuthInteractorOutputProtocol {
                 Logger.shared.info(
                     "SORA local authentication completed; presenting wallet from local state"
                 )
-                guard self.isNeedUpdateTo6Symbols else {
+                let requiresPinUpgrade = PinPostAuthenticationRoutingPolicy
+                    .requiresLegacyPinUpgrade(
+                        storedPinHasFourDigits: self.isNeedUpdateTo6Symbols,
+                        recoveryRequired: SettingsManager.shared
+                            .walletMigrationRecoveryRequired,
+                        hasRetainedAccount: SelectedWalletSettings.shared
+                            .currentAccount != nil
+                    )
+                guard requiresPinUpgrade else {
                     self.wireframe.showMain(from: self.view)
                     return
                 }

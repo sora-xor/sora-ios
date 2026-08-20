@@ -1016,10 +1016,10 @@ extension MainTabBarViewFactory {
                 view.present(containerView, animated: true)
             }
         }
-        view.middleButtonHadler = {
-            [weak view,
-             weak networkSwitch = walletController as? WalletNetworkSwitchViewController] in
+        view.middleButtonHadler = { [weak view] in
             guard let view else { return }
+            let networkSwitch = view.viewControllers?
+                .first as? WalletNetworkSwitchViewController
             guard networkSwitch?.selectedNetwork == .sora3 else {
                 presentSora2Swap()
                 return
@@ -1043,7 +1043,7 @@ extension MainTabBarViewFactory {
                 ),
                 style: .default,
                 handler: { _ in
-                    _ = networkSwitch?.select(.sora2)
+                    _ = networkSwitch?.select(.sora2, animated: false)
                     presentSora2Swap()
                 }
             ))

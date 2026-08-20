@@ -63,6 +63,12 @@ final class AssetManager: AssetManagerProtocol {
 
     private var assets: [AssetInfo]?
 
+    static func allowsAssetMetadataPersistence(
+        recoveryRequired: Bool
+    ) -> Bool {
+        !recoveryRequired
+    }
+
     init(storage: AnyDataProviderRepository<AssetInfo>,
          chainProvider: StreamableProvider<ChainModel>,
          chainId: ChainModel.Id,
@@ -251,6 +257,14 @@ final class AssetManager: AssetManagerProtocol {
     }
 
     private func persistAssets() {
+        // Browse-only recovery must not open or schedule writes against the
+        // unverified wallet store merely because chain metadata refreshed.
+        guard Self.allowsAssetMetadataPersistence(
+            recoveryRequired: SettingsManager.shared
+                .walletMigrationRecoveryRequired
+        ) else {
+            return
+        }
         guard let account = accountSettings?.value,
               let updatedSettings = settings
         else {

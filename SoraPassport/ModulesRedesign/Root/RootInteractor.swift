@@ -444,14 +444,28 @@ final class RootInteractor {
 extension RootInteractor: RootInteractorInputProtocol {
     func decideModuleSynchroniously() {
         do {
-            if settings.walletMigrationRecoveryRequired {
-                presenter?.didDecideBroken()
-                return
-            }
-
             let pincodeExists = try keystore.checkKey(
                 for: KeystoreTag.pincode.rawValue
             )
+            if settings.walletMigrationRecoveryRequired {
+                // A verified retained public account can safely enter the
+                // existing PIN flow in browse-only mode. The sticky marker is
+                // deliberately preserved, so signing and every wallet mutation
+                // remain fail-closed until exact key recovery succeeds.
+                if
+                    let account = legacyUpgradeSelectedAccount(),
+                    SelectedWalletSettings.isRetainedRecoveryAccount(
+                        settings: settings,
+                        account: account
+                    ),
+                    pincodeExists
+                {
+                    presenter?.didDecideLocalAuthentication()
+                } else {
+                    presenter?.didDecideBroken()
+                }
+                return
+            }
             if legacyUpgradeSelectedAccount() == nil {
                 let hasWatchOnlyWallet =
                     settings.hasRetainedWatchOnlyWallet()
@@ -630,7 +644,9 @@ extension RootInteractor: RootInteractorInputProtocol {
         configureSecurityService()
         configureNetworkAvailabilityService()
         configureDeepLinkService()
-        runMigrators()
+        if !settings.walletMigrationRecoveryRequired {
+            runMigrators()
+        }
 
     }
 }

@@ -396,6 +396,10 @@ class MigrationService: MigrationServiceProtocol {
     }
 
     func checkMigration() {
+        guard !settings.walletMigrationRecoveryRequired else {
+            eligibilityGate.invalidate()
+            return
+        }
         guard
             let account = SelectedWalletSettings.shared.currentAccount,
             let sourceEngine = engine

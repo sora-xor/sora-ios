@@ -141,6 +141,17 @@ final class SplashInteractor: SplashInteractorProtocol {
 
     private func performStorageMigration() {
         let keychain = Keychain()
+        // A retained recovery marker means an earlier migration did not reach
+        // a fully verified terminal state. Do not inspect/write signing
+        // material and do not open or retry the installed store. Restore only
+        // its independently retained public identity so the user can
+        // authenticate into browse-only mode instead of being trapped on a
+        // terminal recovery page.
+        guard !settings.walletMigrationRecoveryRequired else {
+            completeRecoverySplash(using: keychain)
+            return
+        }
+
         // Older production versions keep the selected public account in Settings until
         // Core Data migration completes. Preserve its independently verified signer before
         // any storage migration runs, so a schema/update failure cannot orphan the wallet.
@@ -163,14 +174,6 @@ final class SplashInteractor: SplashInteractorProtocol {
         )
         let logger = Logger.shared
 //it should not be here, but since we're trying to limit chain sync to the splash screen, we need working settings and have to migrate them because robinhood does not support lightweight migration (yet?)
-        // A retained recovery marker means an earlier migration did not reach
-        // a fully verified terminal state. Do not open or retry the installed
-        // store before presenting the recovery-safe route.
-        guard !settings.walletMigrationRecoveryRequired else {
-            completeSplashOnMain()
-            return
-        }
-
         do {
             let unresolvedCommits =
                 try WalletAccountCommitJournalStore().unresolved()
@@ -205,12 +208,12 @@ final class SplashInteractor: SplashInteractorProtocol {
             settings.walletMigrationRecoveryRequired = true
             settings.walletMigrationRecoveryReason = UserStorageMigrationError
                 .privacySafeRecoveryDescription(for: error)
-            completeSplashOnMain()
+            completeRecoverySplash(using: keychain)
             return
         }
 
         guard !settings.walletMigrationRecoveryRequired else {
-            completeSplashOnMain()
+            completeRecoverySplash(using: keychain)
             return
         }
 
@@ -236,15 +239,34 @@ final class SplashInteractor: SplashInteractorProtocol {
                 self?.settings.walletMigrationRecoveryReason =
                     UserStorageMigrationError
                         .privacySafeRecoveryDescription(for: error)
-                self?.presenter.setupComplete()
+                self?.completeRecoverySplash(using: Keychain())
             }
         }
     }
 
-    private func completeSplashOnMain() {
+    private func completeSplashOnMain(
+        retainedAccount: AccountItem? = nil
+    ) {
         DispatchQueue.main.async { [weak self] in
+            if retainedAccount != nil {
+                ChainRegistryFacade.sharedRegistry.performHotBoot()
+                Logger.shared.info(
+                    "Retained wallet public identity restored for browse-only startup"
+                )
+            }
             self?.presenter.setupComplete()
         }
+    }
+
+    private func completeRecoverySplash(
+        using keychain: KeystoreProtocol
+    ) {
+        let retainedAccount = SelectedWalletSettings
+            .activateRetainedAccountForBrowseOnlyRecovery(
+                settings: settings,
+                keystore: keychain
+            )
+        completeSplashOnMain(retainedAccount: retainedAccount)
     }
 
     private func bootstrapWalletNetworks(selectedAccount: AccountItem?) {
@@ -303,9 +325,7 @@ final class SplashInteractor: SplashInteractorProtocol {
                 Logger.shared.error(
                     "Wallet network bootstrap outcome: \(outcome)"
                 )
-                DispatchQueue.main.async {
-                    self.presenter.setupComplete()
-                }
+                self.completeRecoverySplash(using: Keychain())
             }
         }
 

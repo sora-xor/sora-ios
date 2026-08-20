@@ -58,8 +58,14 @@ class RootFactoryTests: XCTestCase {
 
     @MainActor
     func testWalletNetworkSwitchIsProminentAndSwapsContainedWallets() throws {
-        let sora2 = UIViewController()
-        let sora3 = UIViewController()
+        let sora2Content = WalletAppearanceTrackingViewController()
+        let sora3Content = WalletAppearanceTrackingViewController()
+        let sora2 = SoraNavigationController(
+            rootViewController: sora2Content
+        )
+        let sora3 = SoraNavigationController(
+            rootViewController: sora3Content
+        )
         var selections: [WalletHomeNetwork] = []
         let controller = WalletNetworkSwitchViewController(
             sora2Controller: sora2,
@@ -68,8 +74,13 @@ class RootFactoryTests: XCTestCase {
             selectionChanged: { selections.append($0) }
         )
 
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
         controller.loadViewIfNeeded()
         controller.view.layoutIfNeeded()
+        controller.beginAppearanceTransition(true, animated: false)
+        controller.endAppearanceTransition()
 
         XCTAssertEqual(controller.selectedNetwork, .sora2)
         XCTAssertTrue(sora2.parent === controller)
@@ -99,14 +110,23 @@ class RootFactoryTests: XCTestCase {
         XCTAssertEqual(controller.selectedNetwork, .sora3)
         XCTAssertTrue(sora3.parent === controller)
         XCTAssertNil(sora2.parent)
+        XCTAssertTrue(controller.activeNavigationController === sora3)
+        XCTAssertGreaterThan(sora3Content.viewWillAppearCount, 0)
+        XCTAssertGreaterThan(sora2Content.viewWillDisappearCount, 0)
         XCTAssertEqual(selections, [.sora2, .sora3])
 
-        // A rapid reversal must remove the first child before re-parenting the
-        // previous one; overlapping fades are visual only, never containment.
+        // A rapid reversal is rejected while the first appearance/containment
+        // transition owns both children.
         XCTAssertTrue(controller.select(.sora2, animated: true))
-        XCTAssertTrue(controller.select(.sora3, animated: false))
-        XCTAssertTrue(sora3.parent === controller)
-        XCTAssertNil(sora2.parent)
+        XCTAssertFalse(controller.select(.sora3, animated: false))
+        let transition = expectation(description: "network transition completes")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            XCTAssertTrue(sora2.parent === controller)
+            XCTAssertNil(sora3.parent)
+            transition.fulfill()
+        }
+        wait(for: [transition], timeout: 1)
+        window.isHidden = true
     }
 
     func testPrimaryTairaWalletAccountRequiresExactSelectedWallet() {
@@ -230,21 +250,167 @@ class RootFactoryTests: XCTestCase {
         settings.set(value: true, for: "walletMigrationRecoveryRequired")
         settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
 
-        let repairPlan = try XCTUnwrap(
-            SelectedWalletSettings.retainedAccountRepairPlan(
+        defer {
+            SelectedWalletSettings.shared.commitInternalValue(nil)
+        }
+        let activatedAccount = try XCTUnwrap(
+            SelectedWalletSettings.activateRetainedAccountForBrowseOnlyRecovery(
                 settings: settings,
                 keystore: keychain
             )
         )
 
-        XCTAssertEqual(repairPlan.account.address, account.address)
-        XCTAssertTrue(repairPlan.account.isSelected)
+        XCTAssertEqual(activatedAccount.address, account.address)
+        XCTAssertTrue(activatedAccount.isSelected)
+        XCTAssertEqual(
+            SelectedWalletSettings.shared.currentAccount,
+            activatedAccount
+        )
         XCTAssertEqual(settings.bool(for: "walletMigrationRecoveryRequired"), true)
-        XCTAssertFalse(
+        XCTAssertTrue(
             SelectedWalletSettings.requiresRecoveryReadOnlyMode(
                 settings: settings,
                 keystore: keychain,
-                account: repairPlan.account
+                account: activatedAccount
+            )
+        )
+        XCTAssertEqual(
+            SelectedWalletSettings.transactionSigningAvailability(
+                settings: settings,
+                keystore: keychain,
+                account: activatedAccount,
+                attemptRepair: false
+            ),
+            .recoveryRequired
+        )
+        XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+    }
+
+    func testStickyRecoveryWithRetainedAccountAndPinRoutesToAuthentication() throws {
+        let settings = InMemorySettingsManager()
+        let keychain = InMemoryKeychain()
+        let publicKey = try XCTUnwrap(
+            Data(base64Encoded: "lrdnIMLWBHSZqCoUEFhFt9KKOyypgSa4PKfyetYQsFc=")
+        )
+        let account = AccountItem(
+            address: "cnUtu96yy6VdFr1KqsYJ12pDmxE8RAJWp9Tyvbo83KKdSD9z5",
+            cryptoType: .sr25519,
+            networkType: ApplicationConfig.shared.addressType,
+            username: "retained",
+            publicKeyData: publicKey,
+            settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+            order: 0,
+            isSelected: true
+        )
+        settings.walletMigrationRecoveryRequired = true
+        settings.set(value: account, for: SettingsKey.selectedAccount.rawValue)
+        try keychain.addKey(
+            Data("1234".utf8),
+            with: KeystoreTag.pincode.rawValue
+        )
+        let interactor = RootInteractor(
+            settings: settings,
+            keystore: keychain,
+            migrators: [],
+            securityLayerInteractor: RootSecurityLayerInteractorStub(),
+            networkAvailabilityLayerInteractor: nil,
+            legacyUpgradeSelectedAccount: { account }
+        )
+        let presenter = RootDecisionPresenterSpy()
+        interactor.presenter = presenter
+
+        interactor.decideModuleSynchroniously()
+
+        XCTAssertEqual(presenter.decision, .localAuthentication)
+        XCTAssertTrue(settings.walletMigrationRecoveryRequired)
+        XCTAssertTrue(try keychain.checkKey(for: KeystoreTag.pincode.rawValue))
+
+        let missingPinPresenter = RootDecisionPresenterSpy()
+        let missingPinInteractor = RootInteractor(
+            settings: settings,
+            keystore: InMemoryKeychain(),
+            migrators: [],
+            securityLayerInteractor: RootSecurityLayerInteractorStub(),
+            networkAvailabilityLayerInteractor: nil,
+            legacyUpgradeSelectedAccount: { account }
+        )
+        missingPinInteractor.presenter = missingPinPresenter
+        missingPinInteractor.decideModuleSynchroniously()
+        XCTAssertEqual(missingPinPresenter.decision, .broken)
+
+        let tamperedAccount = AccountItem(
+            address: account.address + "x",
+            cryptoType: account.cryptoType,
+            networkType: account.networkType,
+            username: account.username,
+            publicKeyData: account.publicKeyData,
+            settings: account.settings,
+            order: account.order,
+            isSelected: true
+        )
+        let tamperedPresenter = RootDecisionPresenterSpy()
+        let tamperedInteractor = RootInteractor(
+            settings: settings,
+            keystore: keychain,
+            migrators: [],
+            securityLayerInteractor: RootSecurityLayerInteractorStub(),
+            networkAvailabilityLayerInteractor: nil,
+            legacyUpgradeSelectedAccount: { tamperedAccount }
+        )
+        tamperedInteractor.presenter = tamperedPresenter
+        tamperedInteractor.decideModuleSynchroniously()
+        XCTAssertEqual(tamperedPresenter.decision, .broken)
+
+        let migrator = RootMigratingSpy()
+        let setupInteractor = RootInteractor(
+            settings: settings,
+            keystore: keychain,
+            migrators: [migrator],
+            securityLayerInteractor: RootSecurityLayerInteractorStub(),
+            networkAvailabilityLayerInteractor: nil,
+            legacyUpgradeSelectedAccount: { account }
+        )
+        setupInteractor.setup()
+        XCTAssertEqual(migrator.invocationCount, 0)
+    }
+
+    func testRecoveryBrowseModeNeverForcesLegacyPinRewrite() {
+        XCTAssertFalse(
+            PinPostAuthenticationRoutingPolicy.requiresLegacyPinUpgrade(
+                storedPinHasFourDigits: true,
+                recoveryRequired: true,
+                hasRetainedAccount: true
+            )
+        )
+        XCTAssertTrue(
+            PinPostAuthenticationRoutingPolicy.requiresLegacyPinUpgrade(
+                storedPinHasFourDigits: true,
+                recoveryRequired: false,
+                hasRetainedAccount: true
+            )
+        )
+        XCTAssertTrue(
+            PinPostAuthenticationRoutingPolicy.requiresLegacyPinUpgrade(
+                storedPinHasFourDigits: true,
+                recoveryRequired: true,
+                hasRetainedAccount: false
+            )
+        )
+        XCTAssertFalse(
+            PinPostAuthenticationRoutingPolicy.requiresLegacyPinUpgrade(
+                storedPinHasFourDigits: false,
+                recoveryRequired: true,
+                hasRetainedAccount: true
+            )
+        )
+        XCTAssertFalse(
+            AssetManager.allowsAssetMetadataPersistence(
+                recoveryRequired: true
+            )
+        )
+        XCTAssertTrue(
+            AssetManager.allowsAssetMetadataPersistence(
+                recoveryRequired: false
             )
         )
     }
@@ -408,6 +574,20 @@ class RootFactoryTests: XCTestCase {
         try keychain.saveSecretKey(keypair.privateKey().rawData(), address: address)
         try keychain.saveSeed(Data(repeating: 7, count: 32), address: address)
 
+        XCTAssertTrue(
+            SelectedWalletSettings.requiresRecoveryReadOnlyMode(
+                settings: settings,
+                keystore: keychain,
+                account: account
+            )
+        )
+        XCTAssertTrue(
+            try SelectedWalletSettings.repairRetainedSigningMaterialIfPossible(
+                settings: settings,
+                keystore: keychain,
+                account: account
+            )
+        )
         XCTAssertFalse(
             SelectedWalletSettings.requiresRecoveryReadOnlyMode(
                 settings: settings,
@@ -516,10 +696,255 @@ class RootFactoryTests: XCTestCase {
             candidate: candidate
         )
 
-        XCTAssertEqual(recovered.username, candidate.username)
+        XCTAssertEqual(recovered.username, retained.username)
         XCTAssertEqual(recovered.settings, retained.settings)
         XCTAssertEqual(recovered.order, retained.order)
         XCTAssertEqual(recovered.isSelected, retained.isSelected)
+    }
+
+    func testManualRecoveryDerivesMnemonicSeedAndJsonCandidatesInMemory() throws {
+        let entropy = Data((0 ..< 16).map { UInt8($0 + 31) })
+        let fixture = try makeMnemonicRecoveryFixture(entropy: entropy)
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy)
+        let keypair = try SR25519KeypairFactory().createKeypairFromSeed(
+            fixture.seed,
+            chaincodeList: []
+        )
+        let encoded = KeystoreConstants.pkcs8Header
+            + keypair.privateKey().toEd25519Data()
+            + KeystoreConstants.pkcs8Divider
+            + fixture.account.publicKeyData
+        let definition = KeystoreDefinition(
+            address: fixture.account.address,
+            encoded: encoded.base64EncodedString(),
+            encoding: KeystoreEncoding(
+                content: ["pkcs8", "sr25519"],
+                type: [],
+                version: "3"
+            ),
+            meta: nil
+        )
+        let json = try XCTUnwrap(
+            String(data: JSONEncoder().encode(definition), encoding: .utf8)
+        )
+        let factory = AddAccountImportInteractor
+            .makeRetainedRecoveryCandidateFactory()
+        let operations = [
+            factory.prepareAccountOperation(
+                request: AccountCreationRequest(
+                    username: "mnemonic",
+                    type: .sora,
+                    derivationPath: "",
+                    cryptoType: .sr25519
+                ),
+                mnemonic: mnemonic
+            ),
+            factory.prepareAccountOperation(
+                request: AccountImportSeedRequest(
+                    seed: fixture.seed.toHex(),
+                    username: "seed",
+                    networkType: .sora,
+                    derivationPath: "",
+                    cryptoType: .sr25519
+                )
+            ),
+            factory.prepareAccountOperation(
+                request: AccountImportKeystoreRequest(
+                    keystore: json,
+                    password: "",
+                    username: "json",
+                    networkType: .sora,
+                    cryptoType: .sr25519
+                )
+            ),
+        ]
+
+        for operation in operations {
+            OperationQueue().addOperations([operation], waitUntilFinished: true)
+            let prepared = try operation.extractResultData(
+                throwing: BaseOperationError.parentOperationCancelled
+            )
+            let candidate = try RetainedWalletBackupCandidate.consuming(prepared)
+            XCTAssertTrue(
+                RetainedWalletVerifiedCandidateCommitter.candidateMatches(
+                    candidate.account,
+                    retainedAccount: fixture.account
+                )
+            )
+            XCTAssertTrue(
+                SelectedWalletSettings.hasVerifiedSigningKey(
+                    keystore: candidate.verificationKeystore,
+                    account: candidate.account
+                )
+            )
+        }
+    }
+
+    func testManualCandidateContextDoesNotRelaxNormalRecoveryGate() throws {
+        let entropy = Data((0 ..< 16).map { UInt8($0 + 43) })
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy)
+        let request = AccountCreationRequest(
+            username: "candidate",
+            type: .sora,
+            derivationPath: "",
+            cryptoType: .sr25519
+        )
+        let blockedSettings = InMemorySettingsManager()
+        blockedSettings.walletMigrationRecoveryRequired = true
+        let blockedFactory = AccountOperationFactory(
+            keystore: InMemoryKeychain(),
+            recoveryGate: WalletRecoveryCapabilityGate(
+                settings: blockedSettings,
+                unresolvedMigrationJournal: { false },
+                unresolvedWalletCommitJournal: { false }
+            )
+        )
+        let blockedOperation = blockedFactory.prepareAccountOperation(
+            request: request,
+            mnemonic: mnemonic
+        )
+        OperationQueue().addOperations([blockedOperation], waitUntilFinished: true)
+        XCTAssertThrowsError(
+            try blockedOperation.extractResultData(
+                throwing: BaseOperationError.parentOperationCancelled
+            )
+        )
+
+        let recoveryOperation = AddAccountImportInteractor
+            .makeRetainedRecoveryCandidateFactory()
+            .prepareAccountOperation(request: request, mnemonic: mnemonic)
+        OperationQueue().addOperations([recoveryOperation], waitUntilFinished: true)
+        let prepared = try recoveryOperation.extractResultData(
+            throwing: BaseOperationError.parentOperationCancelled
+        )
+        prepared.discard()
+        XCTAssertTrue(blockedSettings.walletMigrationRecoveryRequired)
+    }
+
+    func testManualRecoveryCommitsExactCandidateAndClearsMarkerLast() throws {
+        let entropy = Data((0 ..< 16).map { UInt8($0 + 59) })
+        let fixture = try makeMnemonicRecoveryFixture(entropy: entropy)
+        let mnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: entropy)
+        let factory = AddAccountImportInteractor
+            .makeRetainedRecoveryCandidateFactory()
+        let operation = factory.prepareAccountOperation(
+            request: AccountCreationRequest(
+                username: "ignored replacement name",
+                type: .sora,
+                derivationPath: "",
+                cryptoType: .sr25519
+            ),
+            mnemonic: mnemonic
+        )
+        OperationQueue().addOperations([operation], waitUntilFinished: true)
+        let candidate = try RetainedWalletBackupCandidate.consuming(
+            operation.extractResultData(
+                throwing: BaseOperationError.parentOperationCancelled
+            )
+        )
+        let settings = RecordingSettingsManager()
+        settings.set(value: true, for: "walletMigrationRecoveryRequired")
+        settings.set(value: "manual", for: "walletMigrationRecoveryReason")
+        settings.set(
+            value: fixture.account,
+            for: "walletMigrationRecoveryExpectedAccount"
+        )
+        settings.set(
+            value: fixture.account,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        settings.resetMutationTracking()
+        let keychain = RecordingKeystore()
+
+        XCTAssertTrue(
+            try RetainedWalletVerifiedCandidateCommitter.persistVerifiedCandidate(
+                candidate,
+                retainedAccount: fixture.account,
+                settings: settings,
+                keystore: keychain
+            )
+        )
+        XCTAssertEqual(
+            try keychain.fetchSecretKeyForAddress(fixture.account.address),
+            fixture.secretKey
+        )
+        XCTAssertEqual(
+            try keychain.fetchEntropyForAddress(fixture.account.address),
+            entropy
+        )
+        XCTAssertEqual(
+            try keychain.fetchSeedForAddress(fixture.account.address),
+            fixture.seed
+        )
+        XCTAssertNil(settings.bool(for: "walletMigrationRecoveryRequired"))
+        XCTAssertEqual(settings.removedKeys.last, "walletMigrationRecoveryRequired")
+        XCTAssertEqual(
+            settings.value(
+                of: AccountItem.self,
+                for: SettingsKey.selectedAccount.rawValue
+            ),
+            fixture.account,
+            "Recovery must not rewrite retained account metadata"
+        )
+    }
+
+    func testManualRecoveryMismatchCausesNoRealKeychainOrSettingsMutation() throws {
+        let retained = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 16).map { UInt8($0 + 79) })
+        )
+        let differentEntropy = Data((0 ..< 16).map { UInt8($0 + 101) })
+        let differentMnemonic = try IRMnemonicCreator(language: .english)
+            .mnemonic(fromEntropy: differentEntropy)
+        let factory = AddAccountImportInteractor
+            .makeRetainedRecoveryCandidateFactory()
+        let operation = factory.prepareAccountOperation(
+            request: AccountCreationRequest(
+                username: "wrong",
+                type: .sora,
+                derivationPath: "",
+                cryptoType: .sr25519
+            ),
+            mnemonic: differentMnemonic
+        )
+        OperationQueue().addOperations([operation], waitUntilFinished: true)
+        let candidate = try RetainedWalletBackupCandidate.consuming(
+            operation.extractResultData(
+                throwing: BaseOperationError.parentOperationCancelled
+            )
+        )
+        let settings = RecordingSettingsManager()
+        settings.set(value: true, for: "walletMigrationRecoveryRequired")
+        settings.set(
+            value: retained.account,
+            for: "walletMigrationRecoveryExpectedAccount"
+        )
+        settings.set(
+            value: retained.account,
+            for: SettingsKey.selectedAccount.rawValue
+        )
+        settings.resetMutationTracking()
+        let keychain = RecordingKeystore()
+
+        XCTAssertFalse(
+            try RetainedWalletVerifiedCandidateCommitter.persistVerifiedCandidate(
+                candidate,
+                retainedAccount: retained.account,
+                settings: settings,
+                keystore: keychain
+            )
+        )
+        XCTAssertEqual(settings.mutationCount, 0)
+        XCTAssertEqual(keychain.mutationCount, 0)
+        XCTAssertEqual(
+            settings.bool(for: "walletMigrationRecoveryRequired"),
+            true
+        )
+        XCTAssertFalse(
+            try keychain.checkSecretKeyForAddress(retained.account.address)
+        )
     }
 
     func testMismatchedJsonCannotOverwriteRetainedSigner() throws {
@@ -1836,6 +2261,44 @@ class RootFactoryTests: XCTestCase {
         XCTAssertEqual(settings.bool(for: "walletMigrationRecoveryRequired"), true)
     }
 
+    func testRecoveryVerifierAcceptsExactKeyWhileTransactionSigningRemainsBlocked() throws {
+        let sharedSettings = SettingsManager.shared
+        let recoveryKey = SettingsKey.walletMigrationRecoveryRequired.rawValue
+        let previousRecoveryValue = sharedSettings.bool(for: recoveryKey)
+        sharedSettings.set(value: true, for: recoveryKey)
+        defer {
+            if let previousRecoveryValue {
+                sharedSettings.set(value: previousRecoveryValue, for: recoveryKey)
+            } else {
+                sharedSettings.removeValue(for: recoveryKey)
+            }
+        }
+
+        let keychain = InMemoryKeychain()
+        let fixture = try makeMnemonicRecoveryFixture(
+            entropy: Data((0 ..< 20).map { UInt8($0 + 51) })
+        )
+        try keychain.saveSecretKey(fixture.secretKey, address: fixture.account.address)
+
+        XCTAssertTrue(
+            SelectedWalletSettings.hasVerifiedSigningKey(
+                keystore: keychain,
+                account: fixture.account
+            )
+        )
+        XCTAssertThrowsError(
+            try SigningWrapper(
+                keystore: keychain,
+                account: fixture.account,
+                recoverySettings: nil
+            ).sign(Data("transaction remains blocked".utf8))
+        ) { error in
+            guard case WalletNetworkMigrationError.walletRecoveryRequired = error else {
+                return XCTFail("Unexpected signing error: \(error)")
+            }
+        }
+    }
+
     func testVerifiedLegacyPrivateKeySeedRepairsRetainedWallet() throws {
         let settings = InMemorySettingsManager()
         let keychain = InMemoryKeychain()
@@ -2590,6 +3053,10 @@ private final class RecordingKeystore: KeystoreProtocol {
         mutationCount += 1
         try storage.deleteKey(for: identifier)
     }
+
+    func allKeyIdentifiers() throws -> [String] {
+        try storage.allKeyIdentifiers()
+    }
 }
 
 private final class ChangingSecretKeystore: KeystoreProtocol {
@@ -2638,6 +3105,10 @@ private final class ChangingSecretKeystore: KeystoreProtocol {
         guard storage.removeValue(forKey: identifier) != nil else {
             throw KeystoreError.noKeyFound
         }
+    }
+
+    func allKeyIdentifiers() throws -> [String] {
+        storage.keys.sorted()
     }
 }
 
@@ -2798,4 +3269,56 @@ private final class RecordingSettingsManager: SettingsManagerProtocol {
         mutationCount += 1
         storage.removeAll()
     }
+
+    func allKeys() -> [String] {
+        storage.allKeys()
+    }
+}
+
+@MainActor
+private final class WalletAppearanceTrackingViewController: UIViewController {
+    private(set) var viewWillAppearCount = 0
+    private(set) var viewWillDisappearCount = 0
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        viewWillAppearCount += 1
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        viewWillDisappearCount += 1
+    }
+}
+
+private final class RootSecurityLayerInteractorStub:
+    SecurityLayerInteractorInputProtocol
+{
+    func setup() {}
+}
+
+private final class RootMigratingSpy: Migrating {
+    private(set) var invocationCount = 0
+
+    func migrate() throws {
+        invocationCount += 1
+    }
+}
+
+private final class RootDecisionPresenterSpy: RootInteractorOutputProtocol {
+    enum Decision: Equatable {
+        case onboarding
+        case legacyWalletUpgrade
+        case localAuthentication
+        case broken
+        case pincodeSetup
+    }
+
+    private(set) var decision: Decision?
+
+    func didDecideOnboarding() { decision = .onboarding }
+    func didDecideLegacyWalletUpgrade() { decision = .legacyWalletUpgrade }
+    func didDecideLocalAuthentication() { decision = .localAuthentication }
+    func didDecideBroken() { decision = .broken }
+    func didDecidePincodeSetup() { decision = .pincodeSetup }
 }

@@ -736,7 +736,7 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${CODE_SIGN_STYLE:-}" != "Automatic" ] ||
        [ "${CODE_SIGN_IDENTITY:-}" != "iPhone Developer" ] ||
        [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ] ||
-       [ "${internal_testflight_build_number}" != "2026082001" ] ||
+       [ "${internal_testflight_build_number}" != "2026082002" ] ||
        [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
        [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
        [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
@@ -796,22 +796,26 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/codex/taira-network-switch-20260819" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "f14cc4a5fe55ef0c21321fcf1bf00a9b8bac7f50" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-list --count "f14cc4a5fe55ef0c21321fcf1bf00a9b8bac7f50..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
-       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "f14cc4a5fe55ef0c21321fcf1bf00a9b8bac7f50..${internal_testflight_source_revision}" 2>/dev/null)" != 'Fixtures/Modernization/ios-migration-qualification-contract-v1.json
-SoraPassport/Common/Model/NexusWalletService.swift
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "b2c564493db296c71f94e1d1fa2ed7d5f00f8627" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "b2c564493db296c71f94e1d1fa2ed7d5f00f8627..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "b2c564493db296c71f94e1d1fa2ed7d5f00f8627..${internal_testflight_source_revision}" 2>/dev/null)" != 'Fixtures/Modernization/ios-migration-qualification-contract-v1.json
+SoraPassport/Common/Helpers/AssetManager.swift
+SoraPassport/Common/Helpers/MainTransitionHelper.swift
+SoraPassport/Common/Storage/SelectedWalletSettings.swift
+SoraPassport/ModulesRedesign/AccountAdd/Interactors/AddAccountImportInteractor.swift
 SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewController.swift
 SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewFactory.swift
-SoraPassport/ModulesRedesign/MoreMenu/NexusPortfolioViewController.swift
+SoraPassport/ModulesRedesign/MainTabBar/MainTabBarWireframe.swift
+SoraPassport/ModulesRedesign/Migration/MigrationService.swift
+SoraPassport/ModulesRedesign/Pincode/InputPincodePresenter.swift
+SoraPassport/ModulesRedesign/Root/RootInteractor.swift
+SoraPassport/ModulesRedesign/SplashScreen/SplashInteractor.swift
 SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh
-SoraPassport/SoraLocalizable/en.lproj/Localizable.strings
-SoraPassport/SoraLocalizable/fr.lproj/Localizable.strings
-SoraPassport/SoraLocalizable/ja.lproj/Localizable.strings
-SoraPassportTests/Common/Modernization/WalletModernizationTests.swift
-SoraPassportTests/Modules/Root/RootFactoryTests.swift' ] ||
+SoraPassportTests/Modules/Root/RootFactoryTests.swift
+VendorPackages/shared-features-spm/Sources/SoraKeystore/Classes/Keychain/Keychain.swift' ] ||
        [ -n "$(/usr/bin/git -C "${root}" status --porcelain=v1 --untracked-files=normal)" ]; then
         echo "error: iOS internal-only TestFlight source is not the exact clean pushed revision" >&2
         exit 1
@@ -2456,10 +2460,10 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    /usr/bin/grep -Fq '<key>signingCertificate</key>' "${internal_testflight_export_options}" ||
    /usr/bin/grep -Fq '<key>provisioningProfiles</key>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="f14cc4a5fe55ef0c21321fcf1bf00a9b8bac7f50"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="b2c564493db296c71f94e1d1fa2ed7d5f00f8627"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'reviewed_upstream="origin/codex/taira-network-switch-20260819"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_build_number="2026082001"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_lower_bound="2026081902"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_build_number="2026082002"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_lower_bound="2026082001"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'SORA_INTERNAL_TAIRA_TESTFLIGHT' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'SoraTairaInternalTestFlightConfigSha256' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'internal Taira settings or compile capability escaped' "${dependency_verifier}" ||

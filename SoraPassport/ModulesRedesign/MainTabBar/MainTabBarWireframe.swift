@@ -359,6 +359,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
             return
         }
 
+        let walletController = MainTabBarViewFactory
+            .wrapPrimaryWalletController(redesignViewController)
         let replacementBindingId = UUID()
         view?.middleButtonHadler = { [weak self, weak view] in
             guard
@@ -372,6 +374,44 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
                     recoveryActive: self.accountSwitchRecoveryActive
                 )
             else {
+                return
+            }
+            if
+                let networkSwitch = tabBarController.viewControllers?
+                    .first as? WalletNetworkSwitchViewController,
+                networkSwitch.selectedNetwork == .sora3
+            {
+                let alert = UIAlertController(
+                    title: tairaLocalizedText(
+                        "wallet_network_polkaswap_sora2_title",
+                        fallback: "Polkaswap uses SORA2 Mainnet"
+                    ),
+                    message: tairaLocalizedText(
+                        "wallet_network_polkaswap_sora2_message",
+                        fallback: "Switch to SORA2 Mainnet before opening Polkaswap. Taira Testnet transactions stay separate."
+                    ),
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(
+                    title: tairaLocalizedText(
+                        "wallet_network_switch_to_sora2",
+                        fallback: "Switch to SORA2"
+                    ),
+                    style: .default,
+                    handler: { [weak view, weak networkSwitch] _ in
+                        guard networkSwitch?.select(.sora2, animated: false) == true else {
+                            return
+                        }
+                        view?.middleButtonHadler?()
+                    }
+                ))
+                alert.addAction(UIAlertAction(
+                    title: R.string.localizable.commonCancel(
+                        preferredLanguages: .currentLocale
+                    ),
+                    style: .cancel
+                ))
+                view?.controller.present(alert, animated: true)
                 return
             }
             guard let swapViewController = MainTabBarViewFactory
@@ -433,7 +473,7 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         // provider and wallet context. Publish the complete graph once so a
         // factory failure can never leave a retained old-account More tab.
         let replacementViewControllers = [
-            redesignViewController,
+            walletController,
             investController,
             fakeSwapViewController,
             activityController,
@@ -505,7 +545,8 @@ final class MainTabBarWireframe: MainTabBarWireframeProtocol {
         if let navigationController = topViewController as? UINavigationController {
             topNavigationController = navigationController
         } else if let tabBarController = topViewController as? UITabBarController {
-            topNavigationController = tabBarController.selectedViewController as? UINavigationController
+            topNavigationController = tabBarController.selectedViewController?
+                .embeddedWalletNavigationController
         } else {
             topNavigationController = nil
         }

@@ -96,7 +96,15 @@ final class WalletNetworkSwitchViewController: UIViewController {
     private let sora3Button = UIButton(type: .system)
     private var sora3Controller: UIViewController?
     private var displayedController: UIViewController?
+    private var isTransitioning = false
     private(set) var selectedNetwork: WalletHomeNetwork
+
+    var activeNavigationController: UINavigationController? {
+        if let navigationController = displayedController as? UINavigationController {
+            return navigationController
+        }
+        return displayedController?.navigationController
+    }
 
     init(
         sora2Controller: UIViewController,
@@ -134,6 +142,10 @@ final class WalletNetworkSwitchViewController: UIViewController {
         _ network: WalletHomeNetwork,
         animated: Bool = true
     ) -> Bool {
+        guard !isTransitioning else {
+            return false
+        }
+
         let controller: UIViewController
         switch network {
         case .sora2:
@@ -156,10 +168,13 @@ final class WalletNetworkSwitchViewController: UIViewController {
         }
 
         let previous = displayedController
+        let shouldForwardAppearance = viewIfLoaded?.window != nil
         previous?.willMove(toParent: nil)
-        previous?.view.removeFromSuperview()
-        previous?.removeFromParent()
         addChild(controller)
+        if shouldForwardAppearance {
+            previous?.beginAppearanceTransition(false, animated: animated)
+            controller.beginAppearanceTransition(true, animated: animated)
+        }
         controller.view.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(controller.view)
         NSLayoutConstraint.activate([
@@ -176,17 +191,37 @@ final class WalletNetworkSwitchViewController: UIViewController {
                 equalTo: contentView.bottomAnchor
             )
         ])
-        controller.didMove(toParent: self)
         displayedController = controller
 
-        guard animated else {
+        let completeTransition = { [weak self, weak previous, weak controller] in
+            previous?.view.removeFromSuperview()
+            previous?.removeFromParent()
+            controller?.didMove(toParent: self)
+            if shouldForwardAppearance {
+                previous?.endAppearanceTransition()
+                controller?.endAppearanceTransition()
+            }
+            self?.isTransitioning = false
+            self?.setSelectionEnabled(true)
+        }
+
+        guard animated, previous != nil else {
+            completeTransition()
             return true
         }
+
+        isTransitioning = true
+        setSelectionEnabled(false)
         controller.view.alpha = 0
         UIView.animate(
             withDuration: 0.18,
             animations: {
                 controller.view.alpha = 1
+                previous?.view.alpha = 0
+            },
+            completion: { _ in
+                previous?.view.alpha = 1
+                completeTransition()
             }
         )
         return true
@@ -325,6 +360,11 @@ final class WalletNetworkSwitchViewController: UIViewController {
         button.accessibilityTraits = traits
     }
 
+    private func setSelectionEnabled(_ enabled: Bool) {
+        sora2Button.isEnabled = enabled
+        sora3Button.isEnabled = enabled
+    }
+
     @objc private func selectSora2() {
         _ = select(.sora2)
     }
@@ -337,6 +377,18 @@ final class WalletNetworkSwitchViewController: UIViewController {
 extension WalletNetworkSwitchViewController: ScrollsToTop {
     func scrollToTop() {
         (displayedController as? ScrollsToTop)?.scrollToTop()
+    }
+}
+
+extension UIViewController {
+    var embeddedWalletNavigationController: UINavigationController? {
+        if let navigationController = self as? UINavigationController {
+            return navigationController
+        }
+        if let networkSwitch = self as? WalletNetworkSwitchViewController {
+            return networkSwitch.activeNavigationController
+        }
+        return navigationController
     }
 }
 

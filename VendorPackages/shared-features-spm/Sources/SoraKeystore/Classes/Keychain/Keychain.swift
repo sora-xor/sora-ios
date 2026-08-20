@@ -123,7 +123,13 @@ public class Keychain: KeystoreProtocol {
             throw KeystoreError.unexpectedFail
         }
 
-        let identifiers = try attributes.map { item -> String in
+        // The access group can contain framework/OS key objects whose
+        // application tag is absent or opaque binary data. They are not SORA
+        // identifier-based records and must not poison the complete wallet
+        // inventory. Older code threw for the first such item, which trapped
+        // otherwise valid wallets in migration recovery before the database
+        // migration even started.
+        let identifiers = attributes.compactMap { item -> String? in
             let value = item[kSecAttrApplicationTag as String]
             if let identifier = value as? String, !identifier.isEmpty {
                 return identifier
@@ -135,7 +141,7 @@ public class Keychain: KeystoreProtocol {
             {
                 return identifier
             }
-            throw KeystoreError.invalidIdentifierFormat
+            return nil
         }
         return Array(Set(identifiers)).sorted()
     }

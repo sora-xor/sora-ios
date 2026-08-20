@@ -1350,6 +1350,28 @@ final class SelectedWalletSettings: PersistentValueSettings<AccountItem>, Select
 }
 
 extension SelectedWalletSettings {
+    /// Restores only the already-retained public account snapshot so a wallet
+    /// with a sticky migration marker can authenticate and browse safely. This
+    /// never opens or writes Core Data, never changes Keychain, and never clears
+    /// recovery state; every signing and wallet-mutation gate remains closed.
+    @discardableResult
+    static func activateRetainedAccountForBrowseOnlyRecovery(
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol
+    ) -> AccountItem? {
+        guard
+            let repairPlan = try? retainedAccountRepairPlan(
+                settings: settings,
+                keystore: keystore
+            )
+        else {
+            return nil
+        }
+
+        shared.commitInternalValue(repairPlan.account)
+        return repairPlan.account
+    }
+
     static func retainedAccountRepairPlan(
         settings: SettingsManagerProtocol,
         keystore: KeystoreProtocol
@@ -1394,25 +1416,14 @@ extension SelectedWalletSettings {
             return false
         }
 
-        if (try? repairRetainedSigningMaterialIfPossible(
-            settings: settings,
-            keystore: keystore,
-            account: account
-        )) == true {
-            return false
-        }
-
-        if hasAnyRetainedSigningMaterial(keystore: keystore, account: account) {
-            return true
-        }
-
-        // There is nothing the full-screen restore prompt can consume automatically.
-        // Preserve the recovery marker and keep signing fail-closed, but allow users to
-        // browse balances, prices, activity, and receive funds without being trapped.
-        Logger.shared.warning(
-            "SORA wallet signing material is unavailable; continuing in browse-only mode"
-        )
-        return false
+        // Recovery mode is a nonblocking banner, not an interaction shield.
+        // Keep it visible even when no automatic source exists so the user can
+        // browse/receive while seeing the explicit restore entry point. Signing
+        // remains fail-closed through transactionSigningAvailability. This
+        // MainActor UI query must remain read-only and bounded; exact repair is
+        // performed by the post-authentication recovery task off the route.
+        _ = keystore
+        return true
     }
 
     static func transactionSigningAvailability(
@@ -1988,43 +1999,13 @@ extension SelectedWalletSettings {
         account: AccountItem
     ) -> Bool {
         do {
-            guard try keystore.checkSecretKeyForAddress(account.address) else {
+            guard var secretKey = try keystore.fetchSecretKeyForAddress(account.address) else {
                 return false
             }
-
-            let challenge = Data("SORA wallet recovery signing-key verification v1".utf8)
-            let signature = try SigningWrapper(
-                keystore: keystore,
-                account: account,
-                recoverySettings: nil
-            ).sign(challenge)
-
-            switch account.cryptoType {
-            case .sr25519:
-                guard let signature = signature as? SNSignature else {
-                    return false
-                }
-                let publicKey = try SNPublicKey(rawData: account.publicKeyData)
-                return SNSignatureVerifier().verify(
-                    signature,
-                    forOriginalData: challenge,
-                    using: publicKey
-                )
-            case .ed25519:
-                let publicKey = try EDPublicKey(rawData: account.publicKeyData)
-                return EDSignatureVerifier().verify(
-                    signature,
-                    forOriginalData: challenge,
-                    usingPublicKey: publicKey
-                )
-            case .ecdsa:
-                let publicKey = try SECPublicKey(rawData: account.publicKeyData)
-                return SECSignatureVerifier().verify(
-                    signature,
-                    forOriginalData: try challenge.blake2b32(),
-                    usingPublicKey: publicKey
-                )
+            defer {
+                secretKey.resetBytes(in: secretKey.startIndex ..< secretKey.endIndex)
             }
+            return isVerifiedSigningSecret(secretKey, account: account)
         } catch {
             Logger.shared.error("Retained wallet signing-key verification failed: \(error)")
             return false
@@ -2242,6 +2223,43 @@ struct RetainedWalletBackupCandidate {
     let account: AccountItem
     let verificationKeystore: KeystoreProtocol
     let keyMaterial: [RetainedWalletBackupKeyMaterial]
+
+    /// Consumes a prepared manual-import candidate into an isolated in-memory
+    /// keystore. No installed Keychain or selected-account state is touched.
+    static func consuming(_ prepared: PreparedAccount) throws
+        -> RetainedWalletBackupCandidate
+    {
+        let inMemoryKeystore = InMemoryKeychain()
+        try prepared.persist(to: inMemoryKeystore)
+        let account = prepared.account
+        let signingIdentifier = KeystoreTag.secretKeyTagForAddress(account.address)
+        let identifiers = [
+            KeystoreTag.entropyTagForAddress(account.address),
+            KeystoreTag.deriviationTagForAddress(account.address),
+            KeystoreTag.seedTagForAddress(account.address),
+            signingIdentifier,
+        ]
+        let keyMaterial = try identifiers.compactMap {
+            identifier -> RetainedWalletBackupKeyMaterial? in
+            guard let data = try inMemoryKeystore.loadIfKeyExists(identifier) else {
+                return nil
+            }
+            return RetainedWalletBackupKeyMaterial(
+                identifier: identifier,
+                data: data,
+                isSigningKey: identifier == signingIdentifier
+            )
+        }
+        guard keyMaterial.contains(where: \.isSigningKey) else {
+            throw RetainedWalletCloudRecoveryError.missingSigningKey
+        }
+
+        return RetainedWalletBackupCandidate(
+            account: account,
+            verificationKeystore: inMemoryKeystore,
+            keyMaterial: keyMaterial
+        )
+    }
 }
 
 protocol RetainedWalletBackupCandidateDeriving {
@@ -2255,6 +2273,113 @@ enum RetainedWalletCloudRecoveryError: Error {
     case unsupportedBackup
     case missingSigningKey
     case timeout
+}
+
+/// The only mutation boundary shared by interactive and silent retained-wallet
+/// recovery. Candidate derivation and identity verification happen in memory;
+/// this committer creates only missing address-scoped items, writes the signer
+/// last, verifies it locally, and clears the sticky marker last.
+enum RetainedWalletVerifiedCandidateCommitter {
+    typealias SigningVerifier = (KeystoreProtocol, AccountItem) -> Bool
+
+    private static let lock = NSLock()
+
+    static func candidateMatches(
+        _ candidate: AccountItem,
+        retainedAccount: AccountItem
+    ) -> Bool {
+        candidate.address == retainedAccount.address &&
+            candidate.publicKeyData == retainedAccount.publicKeyData &&
+            candidate.networkType == retainedAccount.networkType &&
+            candidate.cryptoType == retainedAccount.cryptoType
+    }
+
+    @discardableResult
+    static func persistVerifiedCandidate(
+        _ candidate: RetainedWalletBackupCandidate,
+        retainedAccount: AccountItem,
+        settings: SettingsManagerProtocol,
+        keystore: KeystoreProtocol,
+        signingVerifier: SigningVerifier = {
+            SelectedWalletSettings.hasVerifiedSigningKey(keystore: $0, account: $1)
+        }
+    ) throws -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let signingIdentifier = KeystoreTag.secretKeyTagForAddress(
+            retainedAccount.address
+        )
+        let allowedIdentifiers = Set([
+            KeystoreTag.entropyTagForAddress(retainedAccount.address),
+            KeystoreTag.deriviationTagForAddress(retainedAccount.address),
+            KeystoreTag.seedTagForAddress(retainedAccount.address),
+            signingIdentifier,
+        ])
+        let candidateIdentifiers = candidate.keyMaterial.map(\.identifier)
+        guard
+            candidateMatches(candidate.account, retainedAccount: retainedAccount),
+            Set(candidateIdentifiers).count == candidateIdentifiers.count,
+            Set(candidateIdentifiers).isSubset(of: allowedIdentifiers),
+            candidate.keyMaterial.filter(\.isSigningKey).count == 1,
+            candidate.keyMaterial.first(where: \.isSigningKey)?.identifier ==
+                signingIdentifier,
+            signingVerifier(candidate.verificationKeystore, candidate.account),
+            SelectedWalletSettings.hasExactStoredRetainedRecoveryIdentity(
+                settings: settings,
+                account: retainedAccount
+            ),
+            try keystore.fetchSecretKeyForAddress(retainedAccount.address) == nil
+        else {
+            return false
+        }
+
+        var missingMaterial: [RetainedWalletBackupKeyMaterial] = []
+        for material in candidate.keyMaterial {
+            if let existing = try keystore.loadIfKeyExists(material.identifier) {
+                guard existing == material.data else {
+                    return false
+                }
+            } else {
+                missingMaterial.append(material)
+            }
+        }
+
+        // Supporting material is recoverable metadata. Create it before the
+        // canonical signer so an interrupted attempt never exposes a signer
+        // without all supplied provenance. `addKey` never overwrites.
+        missingMaterial.sort { !$0.isSigningKey && $1.isSigningKey }
+        var addedIdentifiers: [String] = []
+
+        do {
+            for material in missingMaterial {
+                try keystore.addKey(material.data, with: material.identifier)
+                addedIdentifiers.append(material.identifier)
+            }
+
+            for material in candidate.keyMaterial {
+                guard try keystore.fetchKey(for: material.identifier) == material.data else {
+                    throw RetainedWalletCloudRecoveryError.missingSigningKey
+                }
+            }
+
+            guard
+                signingVerifier(keystore, retainedAccount),
+                SelectedWalletSettings.completeRetainedCloudRecovery(
+                    settings: settings,
+                    account: retainedAccount
+                )
+            else {
+                throw RetainedWalletCloudRecoveryError.missingSigningKey
+            }
+            return true
+        } catch {
+            for identifier in addedIdentifiers.reversed() {
+                try? keystore.deleteKeyIfExists(for: identifier)
+            }
+            throw error
+        }
+    }
 }
 
 final class AccountOperationRetainedWalletBackupCandidateDeriver:
@@ -2484,16 +2609,17 @@ final class RetainedWalletCloudRecoveryService: RetainedWalletCloudRecoveryProto
                             from: backup,
                             password: pin
                         )
-                        if candidateMatches(candidate.account, retainedAccount: retainedAccount),
-                           signingVerifier(candidate.verificationKeystore, candidate.account),
-                           SelectedWalletSettings.hasExactStoredRetainedRecoveryIdentity(
-                               settings: settings,
-                               account: retainedAccount
-                           ),
-                           try persistVerifiedCandidate(
+                        if try RetainedWalletVerifiedCandidateCommitter
+                           .persistVerifiedCandidate(
                                candidate,
-                               retainedAccount: retainedAccount
+                               retainedAccount: retainedAccount,
+                               settings: settings,
+                               keystore: keystore,
+                               signingVerifier: signingVerifier
                            ) {
+                            Logger.shared.info(
+                                "SORA retained wallet recovered from an existing cloud session"
+                            )
                             return true
                         }
                     }
@@ -2586,71 +2712,4 @@ final class RetainedWalletCloudRecoveryService: RetainedWalletCloudRecoveryProto
         return try result.get()
     }
 
-    private func candidateMatches(
-        _ candidate: AccountItem,
-        retainedAccount: AccountItem
-    ) -> Bool {
-        candidate.address == retainedAccount.address &&
-            candidate.publicKeyData == retainedAccount.publicKeyData &&
-            candidate.networkType == retainedAccount.networkType &&
-            candidate.cryptoType == retainedAccount.cryptoType
-    }
-
-    private func persistVerifiedCandidate(
-        _ candidate: RetainedWalletBackupCandidate,
-        retainedAccount: AccountItem
-    ) throws -> Bool {
-        guard SelectedWalletSettings.hasExactStoredRetainedRecoveryIdentity(
-            settings: settings,
-            account: retainedAccount
-        ), try keystore.fetchSecretKeyForAddress(retainedAccount.address) == nil else {
-            return false
-        }
-
-        var missingMaterial: [RetainedWalletBackupKeyMaterial] = []
-        for material in candidate.keyMaterial {
-            if let existing = try keystore.loadIfKeyExists(material.identifier) {
-                guard existing == material.data else {
-                    return false
-                }
-            } else {
-                missingMaterial.append(material)
-            }
-        }
-
-        // Supporting material is written before the signer; until the final add succeeds,
-        // the wallet remains unable to sign. `addKey` is create-only and cannot overwrite.
-        missingMaterial.sort { !$0.isSigningKey && $1.isSigningKey }
-        var addedIdentifiers: [String] = []
-
-        do {
-            for material in missingMaterial {
-                try keystore.addKey(material.data, with: material.identifier)
-                addedIdentifiers.append(material.identifier)
-            }
-
-            for material in candidate.keyMaterial {
-                guard try keystore.fetchKey(for: material.identifier) == material.data else {
-                    throw RetainedWalletCloudRecoveryError.missingSigningKey
-                }
-            }
-
-            guard signingVerifier(keystore, retainedAccount),
-                  SelectedWalletSettings.completeRetainedCloudRecovery(
-                      settings: settings,
-                      account: retainedAccount
-                  )
-            else {
-                throw RetainedWalletCloudRecoveryError.missingSigningKey
-            }
-
-            Logger.shared.info("SORA retained wallet recovered from an existing cloud session")
-            return true
-        } catch {
-            for identifier in addedIdentifiers.reversed() {
-                try? keystore.deleteKeyIfExists(for: identifier)
-            }
-            throw error
-        }
-    }
 }
