@@ -63,7 +63,7 @@ def capability_environment() -> dict[str, str]:
         {
             "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE": "sora-ios-internal-testflight-upload-v1",
             "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION": "archive",
-            "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026082005",
+            "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026082006",
             "SORA_IOS_INTERNAL_TESTFLIGHT_SOURCE_REVISION": revision,
             "SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256": hashlib.sha256(
                 EXPORT_OPTIONS.read_bytes()
@@ -80,11 +80,11 @@ def capability_environment() -> dict[str, str]:
             "DEVELOPMENT_TEAM": "YLWWUD25VZ",
             "CODE_SIGN_IDENTITY": "iPhone Developer",
             "CODE_SIGN_STYLE": "Automatic",
-            "CURRENT_PROJECT_VERSION": "2026082005",
+            "CURRENT_PROJECT_VERSION": "2026082006",
             "SWIFT_ACTIVE_COMPILATION_CONDITIONS":
                 "F_RELEASE SORA_INTERNAL_TAIRA_TESTFLIGHT",
             "OTHER_SWIFT_FLAGS": "-DF_RELEASE",
-            "SORA_TAIRA_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026082005",
+            "SORA_TAIRA_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026082006",
             "SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256":
                 hashlib.sha256(INTERNAL_TAIRA_CONFIG.read_bytes()).hexdigest(),
             "SORA_TAIRA_INTERNAL_TESTFLIGHT_CONTRACT_ID":
@@ -161,11 +161,12 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'status --porcelain=v1 --untracked-files=normal',
             "rev-parse '@{upstream}'",
-            'reviewed_base_revision="43542da62042b4009c92f1b9ccad69c7c85ade5e"',
+            'reviewed_base_revision="956270b8b3efc5a3b11c68a931eeb877209184ab"',
             'reviewed_upstream="origin/codex/taira-network-switch-20260819"',
-            'reviewed_build_number="2026082005"',
-            'reviewed_lower_bound="2026082004"',
+            'reviewed_build_number="2026082006"',
+            'reviewed_lower_bound="2026082005"',
             "SoraPassport/ModulesRedesign/MainTabBar/MainTabBarViewController.swift",
+            "SoraPassport/ModulesRedesign/MoreMenu/NexusPortfolioViewController.swift",
             "SoraPassportTests/Modules/Root/RootFactoryTests.swift",
             'reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"',
             'reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"',
@@ -211,7 +212,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             'rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}"',
             "rev-parse '@{upstream}' 2>/dev/null",
             "origin/codex/taira-network-switch-20260819",
-            "43542da62042b4009c92f1b9ccad69c7c85ade5e",
+            "956270b8b3efc5a3b11c68a931eeb877209184ab",
             "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER",
             "SORA_INTERNAL_TAIRA_TESTFLIGHT",
             "internal Taira settings or compile capability escaped",
@@ -315,7 +316,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             "ApplicationProperties": {
                 "CFBundleIdentifier": "co.jp.soramitsu.sora",
                 "CFBundleShortVersionString": "3.8.7",
-                "CFBundleVersion": "2026082005",
+                "CFBundleVersion": "2026082006",
                 "SigningIdentity": "Apple Development: Makoto Takemiya (6A4BK72ZFV)",
                 "Team": "YLWWUD25VZ",
             },
@@ -331,7 +332,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
                     "task": "distribute",
                     "teamID": "YLWWUD25VZ",
                     "uploadDestination": "App Store",
-                    "uploadedBuildNumber": "2026082005",
+                    "uploadedBuildNumber": "2026082006",
                     "uploadEvent": uploaded,
                 }
             ],
@@ -377,7 +378,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
                 xcodebuild_log,
                 reviewed_profile,
                 receipt_path,
-                "2026082005",
+                "2026082006",
                 expected_profile_sha256=reviewed_profile_sha256,
             )
             self.assertEqual(delivery_id, "12345678-1234-4234-8234-123456789abc")
@@ -394,7 +395,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
                     xcodebuild_log,
                     reviewed_profile,
                     root / "rejected.json",
-                    "2026082005",
+                    "2026082006",
                     expected_profile_sha256=reviewed_profile_sha256,
                 )
 
@@ -489,9 +490,9 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
             str(WRAPPER),
             "--archive-and-upload",
             "--build-number",
-            "2026082006",
+            "2026082007",
             "--app-store-build-lower-bound",
-            "2026082004",
+            "2026082005",
             "--derived-data-path",
             "/private/tmp/never-created-DerivedData",
             "--archive-path",
@@ -503,14 +504,14 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
         self.assertIn("build number is not the reviewed one-time value", result.stderr)
         self.assertNotIn("xcodebuild", result.stderr)
 
-        for stale_value in ("2026082003", "2026082002"):
+        for stale_value in ("2026082004", "2026082003"):
             with self.subTest(stale_lower_bound=stale_value):
                 stale_lower_bound = run(
                     "/bin/sh",
                     str(WRAPPER),
                     "--archive-and-upload",
                     "--build-number",
-                    "2026082005",
+                    "2026082006",
                     "--app-store-build-lower-bound",
                     stale_value,
                     "--derived-data-path",
@@ -531,7 +532,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
         for key, value in (
             ("SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE", "unreviewed"),
             ("SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION", "export"),
-            ("CURRENT_PROJECT_VERSION", "2026082006"),
+            ("CURRENT_PROJECT_VERSION", "2026082007"),
             ("PLATFORM_NAME", "iphonesimulator"),
             ("SWIFT_ACTIVE_COMPILATION_CONDITIONS", "F_RELEASE"),
             ("SORA_TAIRA_INTERNAL_TESTFLIGHT_CONFIG_SHA256", "f" * 64),

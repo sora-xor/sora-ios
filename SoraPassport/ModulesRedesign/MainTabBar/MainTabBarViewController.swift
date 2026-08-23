@@ -365,6 +365,10 @@ final class WalletNetworkSwitchViewController: UIViewController {
 
     override func loadView() {
         rootView.sora.backgroundColor = .bgPage
+        // A view-controller root is sized by UIKit's container. SoraUIKit views
+        // default to constraint-managed sizing, so opt back into the framework's
+        // root-view contract before UITabBarController installs this controller.
+        rootView.sora.useAutoresizingMask = true
         view = rootView
     }
 

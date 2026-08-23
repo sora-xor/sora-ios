@@ -94,6 +94,8 @@ class RootFactoryTests: XCTestCase {
         controller.beginAppearanceTransition(true, animated: false)
         controller.endAppearanceTransition()
 
+        XCTAssertTrue(controller.view.translatesAutoresizingMaskIntoConstraints)
+        XCTAssertEqual(controller.view.frame.width, window.bounds.width, accuracy: 0.5)
         XCTAssertEqual(controller.selectedNetwork, .sora2)
         XCTAssertTrue(sora2.parent === controller)
         XCTAssertGreaterThanOrEqual(
@@ -148,6 +150,59 @@ class RootFactoryTests: XCTestCase {
         }
         wait(for: [transition], timeout: 1)
         window.isHidden = true
+    }
+
+    @MainActor
+    func testWalletNetworkSwitchFillsProductionTabContainerFromFirstLayout() throws {
+        let sora2 = UIViewController()
+        let sora3 = UIViewController()
+        let wallet = WalletNetworkSwitchViewController(
+            sora2Controller: sora2,
+            initialSelection: .sora2,
+            makeSora3Controller: { sora3 },
+            selectionChanged: { _ in }
+        )
+        let main = MainTabBarViewController()
+        main.presenter = MainTabBarPresenterSpy()
+        main.recoveryRequiredProvider = { true }
+        main.viewControllers = [
+            wallet,
+            UIViewController(),
+            UIViewController(),
+            UIViewController(),
+            UIViewController()
+        ]
+        let window = UIWindow(
+            frame: CGRect(x: 0, y: 0, width: 440, height: 956)
+        )
+        window.rootViewController = main
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+
+        main.loadViewIfNeeded()
+        main.selectedIndex = 0
+        main.enableRecoveryReadOnlyMode()
+        main.view.layoutIfNeeded()
+        wallet.view.layoutIfNeeded()
+
+        let banner = try XCTUnwrap(main.recoveryInteractionShield)
+        XCTAssertEqual(banner.frame.width, 408, accuracy: 0.5)
+        XCTAssertTrue(wallet.view.translatesAutoresizingMaskIntoConstraints)
+        XCTAssertEqual(wallet.view.frame.minX, 0, accuracy: 0.5)
+        XCTAssertEqual(wallet.view.frame.width, 440, accuracy: 0.5)
+        XCTAssertEqual(sora2.view.frame.minX, 0, accuracy: 0.5)
+        XCTAssertEqual(sora2.view.frame.width, 440, accuracy: 0.5)
+
+        XCTAssertTrue(wallet.select(.sora3, animated: false))
+        main.view.layoutIfNeeded()
+        wallet.view.layoutIfNeeded()
+        XCTAssertEqual(wallet.view.frame.minX, 0, accuracy: 0.5)
+        XCTAssertEqual(wallet.view.frame.width, 440, accuracy: 0.5)
+        XCTAssertEqual(sora3.view.frame.minX, 0, accuracy: 0.5)
+        XCTAssertEqual(sora3.view.frame.width, 440, accuracy: 0.5)
     }
 
     @MainActor

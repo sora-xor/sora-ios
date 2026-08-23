@@ -327,6 +327,7 @@ private final class NexusPrimaryWalletUnavailableViewController:
     override func loadView() {
         let page = SoramitsuView()
         page.sora.backgroundColor = .bgPage
+        page.sora.useAutoresizingMask = true
         view = page
     }
 
