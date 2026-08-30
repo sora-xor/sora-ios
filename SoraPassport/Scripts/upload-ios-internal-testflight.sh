@@ -16,10 +16,10 @@ export_options="${root}/SoraPassport/Configs/ios-internal-testflight-export-opti
 source_contract_tool="${root}/SoraPassport/Scripts/ios-migration-qualification-contract.py"
 delivery_verifier="${root}/SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py"
 mode="sora-ios-internal-testflight-upload-v1"
-reviewed_base_revision="d657f9ccc55ba1f9558c474229bc470375a71bfd"
+reviewed_base_revision="5156a709280f52b60237baf13ee7cf80bf7621eb"
 reviewed_upstream="origin/modernize"
-reviewed_build_number="2026081601"
-reviewed_lower_bound="2026081101"
+reviewed_build_number="2026083101"
+reviewed_lower_bound="2026081802"
 reviewed_marketing_version="3.8.7"
 reviewed_bundle_identifier="co.jp.soramitsu.sora"
 reviewed_team_id="YLWWUD25VZ"
@@ -180,11 +180,9 @@ parent_revision="$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" ||
 [ "$(/usr/bin/git -C "${root}" rev-list --count "${reviewed_base_revision}..${source_revision}")" = "1" ] ||
     fail "internal TestFlight source history is not the reviewed single commit"
 reviewed_successor_paths='SoraPassport/Scripts/test-ios-internal-testflight-upload.py
-SoraPassport/Scripts/test-ios-migration-release-boundary.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
-SoraPassport/Scripts/verify-modernization-dependencies.sh
-VendorPackages/JOSESwift/Package.swift'
+SoraPassport/Scripts/verify-modernization-dependencies.sh'
 observed_successor_paths="$(/usr/bin/git -C "${root}" diff --name-only --no-renames "${reviewed_base_revision}..${source_revision}")"
 [ "${observed_successor_paths}" = "${reviewed_successor_paths}" ] ||
     fail "internal TestFlight successor contains an unreviewed path set"
