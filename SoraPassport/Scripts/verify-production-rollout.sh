@@ -21,6 +21,7 @@ maximum_path_characters=4096
 minimum_dwell_seconds=172800
 maximum_freshness_seconds=300
 maximum_authorization_delay_seconds=30
+maximum_taira_deployment_rollout_age_seconds=604800
 sora2_revision="411dcdb70c5c00b21482a44d02334840d5f338c6"
 reviewed_runtime_metadata_sha256="2b49c3cbf682d8b88985a04a60a958de3ef5de77d282c3622bdae53f7e4fbabf"
 production_bundle_identifier="co.jp.soramitsu.sora"
@@ -62,6 +63,15 @@ is_epoch_seconds() {
     [ "${value}" -le 9999999999 ] 2>/dev/null
 }
 
+is_exact_sequence() {
+    value="$1"
+    case "${value}" in
+        ""|0|0*|*[!0-9]*) return 1 ;;
+    esac
+    [ "${#value}" -le 16 ] &&
+        [ "${value}" -le 9007199254740991 ] 2>/dev/null
+}
+
 require_absolute_path() {
     checked_path="$1"
     checked_label="$2"
@@ -76,6 +86,26 @@ require_absolute_path() {
 
 json_raw() {
     /usr/bin/plutil -extract "$1" raw "$2" 2>/dev/null || /usr/bin/true
+}
+
+admission_projection_value() {
+    projection="$1"
+    projection_key="$2"
+    /usr/bin/printf '%s\n' "${projection}" | /usr/bin/awk -v key="${projection_key}" '
+        {
+            prefix = key "="
+            for (field_index = 1; field_index <= NF; field_index += 1) {
+                if (substr($field_index, 1, length(prefix)) == prefix) {
+                    count += 1
+                    value = substr($field_index, length(prefix) + 1)
+                }
+            }
+        }
+        END {
+            if (count != 1 || value == "") exit 1
+            print value
+        }
+    '
 }
 
 secure_sha256() {
@@ -171,6 +201,7 @@ taira_deployment_operator_key="${IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_PATH:-
 taira_deployment_reviewer_key="${IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_PATH:-}"
 taira_deployment_operator_key_sha="${IOS_TAIRA_DEPLOYMENT_OPERATOR_PUBLIC_KEY_SHA256:-}"
 taira_deployment_reviewer_key_sha="${IOS_TAIRA_DEPLOYMENT_REVIEWER_PUBLIC_KEY_SHA256:-}"
+taira_deployment_expected_sequence="${IOS_TAIRA_DEPLOYMENT_EXPECTED_MANIFEST_SEQUENCE_NUMBER:-}"
 taira_deployment_evaluation_epoch="${IOS_TAIRA_DEPLOYMENT_EVALUATED_AT_EPOCH_SECONDS:-}"
 prior_1_receipt="${PRODUCTION_ROLLOUT_RECEIPT_1_PATH:-}"
 prior_1_signature="${PRODUCTION_ROLLOUT_RECEIPT_1_SIGNATURE_PATH:-}"
@@ -222,8 +253,15 @@ is_lower_hex_64 "${taira_deployment_operator_key_sha}" ||
     fail "Taira deployment operator key requires an independent SHA-256 pin"
 is_lower_hex_64 "${taira_deployment_reviewer_key_sha}" ||
     fail "Taira deployment reviewer key requires an independent SHA-256 pin"
+is_exact_sequence "${taira_deployment_expected_sequence}" ||
+    fail "protected exact Taira deployment manifest sequence is required"
 is_epoch_seconds "${taira_deployment_evaluation_epoch}" ||
     fail "Taira deployment evaluation epoch is required"
+current_epoch="$(/bin/date +%s)"
+minimum_taira_deployment_epoch=$((current_epoch - maximum_taira_deployment_rollout_age_seconds))
+[ "${taira_deployment_evaluation_epoch}" -ge "${minimum_taira_deployment_epoch}" ] &&
+    [ "${taira_deployment_evaluation_epoch}" -le "${current_epoch}" ] ||
+    fail "Taira deployment admission must be no more than seven days old and not future-dated at every rollout gate"
 
 # Migration qualification is intentionally checked here, after export produced
 # a complete IPA and before any rollout authority is consumed. The validator
@@ -350,7 +388,7 @@ trap cleanup_snapshots EXIT
 trap 'exit 1' HUP INT TERM
 
 taira_deployment_admission="${snapshot_directory}/taira-deployment-admission.json"
-/usr/bin/python3 -B -I -S "${taira_deployment_validator}" --verify-protected \
+taira_deployment_result="$(/usr/bin/python3 -B -I -S "${taira_deployment_validator}" --verify-protected \
     --manifest "${taira_deployment_manifest}" \
     --operator-signature "${taira_deployment_operator_signature}" \
     --reviewer-signature "${taira_deployment_reviewer_signature}" \
@@ -358,19 +396,33 @@ taira_deployment_admission="${snapshot_directory}/taira-deployment-admission.jso
     --reviewer-public-key "${taira_deployment_reviewer_key}" \
     --operator-key-sha256 "${taira_deployment_operator_key_sha}" \
     --reviewer-key-sha256 "${taira_deployment_reviewer_key_sha}" \
+    --expected-manifest-sequence-number "${taira_deployment_expected_sequence}" \
     --evaluated-at-epoch-seconds "${taira_deployment_evaluation_epoch}" \
-    --output "${taira_deployment_admission}" >/dev/null ||
+    --output "${taira_deployment_admission}")" ||
     fail "Taira deployment manifest did not pass protected dual-signature admission"
-taira_deployment_manifest_sha="$(json_raw manifestSha256 "${taira_deployment_admission}")"
-taira_deployment_admission_sha="$(secure_sha256 "${taira_deployment_admission}" "${maximum_json_bytes}" "Taira deployment admission")"
-taira_current_chain_id="$(json_raw current.chainId "${taira_deployment_admission}")"
-taira_current_genesis_hash="$(json_raw current.genesisHash "${taira_deployment_admission}")"
-taira_canonical_torii="$(json_raw current.canonicalToriiBaseUrl "${taira_deployment_admission}")"
+case "${taira_deployment_result}" in
+    manifestSha256=????????????????????????????????????????????????????????????????\ admissionSha256=????????????????????????????????????????????????????????????????\ manifestSequenceNumber=*\ currentChainId=????????-????-????-????-????????????\ currentGenesisHash=????????????????????????????????????????????????????????????????\ currentDeploymentEpoch=*\ currentToriiBaseUrl=https://*\ currentMcpEndpoint=https://*/v1/mcp\ currentExplorerBaseUrl=https://*\ retiredChainId=????????-????-????-????-????????????\ retiredGenesisHash=????????????????????????????????????????????????????????????????\ retiredDeploymentEpoch=*) ;;
+    *) fail "Taira deployment admission returned an invalid projection" ;;
+esac
+[ "$({ /usr/bin/printf '%s\n' "${taira_deployment_result}" | /usr/bin/wc -l | /usr/bin/tr -d '[:space:]'; })" = "1" ] ||
+    fail "Taira deployment admission returned multiple projections"
+taira_deployment_manifest_sha="$(admission_projection_value "${taira_deployment_result}" manifestSha256)"
+taira_deployment_admission_sha="$(admission_projection_value "${taira_deployment_result}" admissionSha256)"
+taira_deployment_manifest_sequence="$(admission_projection_value "${taira_deployment_result}" manifestSequenceNumber)"
+taira_current_chain_id="$(admission_projection_value "${taira_deployment_result}" currentChainId)"
+taira_current_genesis_hash="$(admission_projection_value "${taira_deployment_result}" currentGenesisHash)"
+taira_canonical_torii="$(admission_projection_value "${taira_deployment_result}" currentToriiBaseUrl)"
+taira_public_mcp="$(admission_projection_value "${taira_deployment_result}" currentMcpEndpoint)"
+taira_explorer="$(admission_projection_value "${taira_deployment_result}" currentExplorerBaseUrl)"
 is_lower_hex_64 "${taira_deployment_manifest_sha}" &&
     is_lower_hex_64 "${taira_deployment_admission_sha}" &&
     is_lower_hex_64 "${taira_current_genesis_hash}" &&
     [ "${taira_deployment_manifest_sha}" != "${taira_deployment_admission_sha}" ] ||
     fail "Taira deployment admission identities are invalid"
+[ "${taira_deployment_manifest_sequence}" = "${taira_deployment_expected_sequence}" ] ||
+    fail "Taira deployment admission sequence differs from protected release sequence"
+IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256="${taira_deployment_admission_sha}"
+export IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256
 
 snapshot_input() {
     snapshot_source="$1"
@@ -443,6 +495,8 @@ is_lower_hex_64 "${expected_keychain_access_groups_sha}" ||
 actual_trust_sha="$(secure_sha256 "${controller_trust}" "${maximum_json_bytes}" "controller trust root")"
 [ "${actual_trust_sha}" = "${expected_trust_sha}" ] ||
     fail "controller trust root differs from the independently protected release value"
+IOS_PRODUCTION_ROLLOUT_TRUST_VERIFIED_SHA256="${actual_trust_sha}"
+export IOS_PRODUCTION_ROLLOUT_TRUST_VERIFIED_SHA256
 
 # The checked-in root is deliberately blocked until an authorized controller key
 # is reviewed. No receipt can qualify while it remains blocked.
@@ -504,6 +558,10 @@ qualification_sha="$(
         "upstream production qualification receipt"
 )"
 
+IOS_PRODUCTION_ARTIFACT_RECEIPT_VERIFIED_SHA256="$(
+    secure_sha256 "${artifact_receipt}" "${maximum_json_bytes}" "artifact identity receipt"
+)"
+export IOS_PRODUCTION_ARTIFACT_RECEIPT_VERIFIED_SHA256
 /usr/bin/python3 -I -S "${json_validator}" artifact "${artifact_receipt}" "${candidate_ipa}" "${taira_deployment_admission}" ||
     fail "controller artifact identity does not match the actual bounded IPA structure and application bytes"
 artifact_sha="$(
@@ -565,6 +623,8 @@ artifact_taira_admission_sha="$(json_raw tairaDeployment.admissionSha256 "${arti
 artifact_taira_chain_id="$(json_raw tairaDeployment.currentChainId "${artifact_receipt}")"
 artifact_taira_genesis_hash="$(json_raw tairaDeployment.currentGenesisHash "${artifact_receipt}")"
 artifact_taira_torii="$(json_raw tairaDeployment.canonicalToriiBaseUrl "${artifact_receipt}")"
+artifact_taira_mcp="$(json_raw tairaDeployment.publicMcpEndpoint "${artifact_receipt}")"
+artifact_taira_explorer="$(json_raw tairaDeployment.explorerBaseUrl "${artifact_receipt}")"
 artifact_recorded_at="$(json_raw recordedAtEpochSeconds "${artifact_receipt}")"
 qualification_recorded_at="$(json_raw recordedAtEpochSeconds "${qualification_receipt}")"
 
@@ -577,12 +637,13 @@ qualification_recorded_at="$(json_raw recordedAtEpochSeconds "${qualification_re
     [ "${artifact_taira_admission_sha}" = "${taira_deployment_admission_sha}" ] &&
     [ "${artifact_taira_chain_id}" = "${taira_current_chain_id}" ] &&
     [ "${artifact_taira_genesis_hash}" = "${taira_current_genesis_hash}" ] &&
-    [ "${artifact_taira_torii}" = "${taira_canonical_torii}" ] ||
+    [ "${artifact_taira_torii}" = "${taira_canonical_torii}" ] &&
+    [ "${artifact_taira_mcp}" = "${taira_public_mcp}" ] &&
+    [ "${artifact_taira_explorer}" = "${taira_explorer}" ] ||
     fail "actual IPA, source revision, build manifest, and upstream production qualification are not transitively bound"
 [ "${artifact_keychain_access_groups_sha}" = "${expected_keychain_access_groups_sha}" ] ||
     fail "signed Keychain access groups differ from the independently retained production identity"
 
-current_epoch="$(/bin/date +%s)"
 minimum_fresh_epoch=$((current_epoch - maximum_freshness_seconds))
 probe_captured_at="$(json_raw capturedAtEpochSeconds "${pi_probe}")"
 worker_last_success="$(json_raw health.workerLastSuccessfulIndexTimestamp "${pi_probe}")"

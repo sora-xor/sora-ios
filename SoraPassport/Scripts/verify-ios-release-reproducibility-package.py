@@ -29,9 +29,6 @@ ROOT = Path(__file__).resolve().parents[2]
 PROJECTOR_PATH = ROOT / "SoraPassport/Scripts/derive-ios-migration-test-host.py"
 CONTROLLER_PATH = ROOT / "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.py"
 SIGNING_BLOCKED = ROOT / "Fixtures/Modernization/ios-production-signing-identity.json"
-SIGNING_RECEIPT = (
-    ROOT / "Fixtures/Modernization/ios-production-signing-identity-qualification.json"
-)
 SIGNING_VERIFIER = (
     ROOT / "SoraPassport/Scripts/verify-ios-production-signing-identity.py"
 )
@@ -80,6 +77,7 @@ PACKAGE_MEMBERS = (
     "package-manifest.json",
 )
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+SHA1_UPPER_RE = re.compile(r"^[0-9A-F]{40}$")
 REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 BUILD_NUMBER_RE = re.compile(r"^[1-9][0-9]{0,17}$")
 SAFE_RELATIVE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,511}$")
@@ -95,6 +93,56 @@ TAIRA_CHAIN_IDS = {
     "fc56984b-2be7-431d-840e-21514d1883f0",
 }
 TAIRA_CONVENIENCE_HOST = "taira.sora.org"
+EXPECTED_SIGNING_CERTIFICATE_SHA1 = "84AB95335BE14CAE9B050A353910F86FF2F9539B"
+EXPECTED_SIGNING_CERTIFICATE_SHA256 = (
+    "d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"
+)
+EXPECTED_SIGNING_PROFILE_UUID = "7ae520bc-599b-48ae-abfa-627eef530f0c"
+EXPECTED_SIGNING_PROFILE_NAME = (
+    "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora"
+)
+EXPECTED_SIGNING_PROFILE_RAW_SHA256 = (
+    "19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93"
+)
+EXPECTED_SIGNING_PROFILE_CANONICAL_SHA256 = (
+    "f6d534c50ba641341337a6ce9b34f55db7931491c43554ededffb8a47d88b931"
+)
+EXPECTED_SIGNED_ENTITLEMENTS_SHA256 = (
+    "6ce476d496fb75e4510b9dfce490dc6c29d78b96d9114c85a44b09d9d2756b2d"
+)
+EXPECTED_KEYCHAIN_ACCESS_GROUPS_SHA256 = (
+    "6382618e08a2e9678e9c4b1f2dec83836c3aeb2aea1508df83dde886979efdc0"
+)
+EXPECTED_RELEASE_LINEAGE = {
+    "type": "existing-app-update",
+    "appStoreAdamId": "1457566711",
+    "priorAcceptedMarketingVersion": "3.8.7",
+    "priorAcceptedBuildNumber": "2026081001",
+    "priorUploadedIpaSha256":
+        "e8bc51066da5da3442a687687134f3e0dd5af7f12d32c8b055b2336207612b94",
+    "priorUploadReceiptSha256":
+        "1df6fdcf7fda9c0a433b177205e2bbf9a576623c4c6226c9d0dfafe7d445cf8e",
+    "bundleIdentifierContinuityReviewed": True,
+    "developmentTeamContinuityReviewed": True,
+    "applicationIdentifierContinuityReviewed": True,
+    "keychainAccessGroupsContinuityReviewed": True,
+}
+SIGNING_RECEIPT_KEYS = {
+    "schemaVersion", "contractId", "platform", "status", "runId",
+    "qualificationSequenceNumber", "sourceRevision", "assessedAtEpochSeconds",
+    "reviewedAtEpochSeconds", "qualifiedAtEpochSeconds",
+    "qualificationContractSha256", "trustRootSha256",
+    "releaseEvidenceProducerKeyId", "independentReviewerKeyId",
+    "bundleIdentifier", "developmentTeam", "applicationIdentifier",
+    "codeSignStyle", "configuredCodeSignIdentitySha1", "entitlementsPath",
+    "sourceEntitlementsSha256", "signedEntitlementsSha256",
+    "keychainAccessGroupsSha256", "productionDistributionCertificateSha256",
+    "productionDistributionCertificateSha1", "productionProvisioningProfileUuid",
+    "productionProvisioningProfileName", "rawProvisioningProfileSha256",
+    "canonicalProvisioningProfileSha256", "releaseLineage",
+    "privateKeyOrCredentialRecorded", "blockingReasons",
+}
+SIGNING_LINEAGE_KEYS = set(EXPECTED_RELEASE_LINEAGE)
 VENDORED_RECEIPT_KEYS = {
     "schemaVersion",
     "contractId",
@@ -200,6 +248,7 @@ def parse_taira_deployment_projection(info: Any, label: str) -> dict[str, Any]:
     names = {
         "contractId": "SoraTairaDeploymentAdmissionContractId",
         "manifestSha256": "SoraTairaDeploymentManifestSha256",
+        "manifestSequenceNumber": "SoraTairaDeploymentManifestSequenceNumber",
         "admissionSha256": "SoraTairaDeploymentAdmissionSha256",
         "currentChainId": "SoraTairaCurrentChainId",
         "retiredChainId": "SoraTairaRetiredChainId",
@@ -209,14 +258,21 @@ def parse_taira_deployment_projection(info: Any, label: str) -> dict[str, Any]:
         "retiredDeploymentEpoch": "SoraTairaRetiredDeploymentEpoch",
         "canonicalToriiBaseUrl": "SoraTairaCanonicalToriiBaseUrl",
         "publicMcpEndpoint": "SoraTairaPublicMcpEndpoint",
+        "explorerBaseUrl": "SoraTairaExplorerBaseUrl",
         "pendingRowPolicy": "SoraTairaPendingRowPolicy",
     }
     projection = {key: info.get(source) for key, source in names.items()}
     if any(type(value) is not str or not value or len(value) > 2048 for value in projection.values()):
         fail(f"{label} lacks the exact embedded Taira deployment admission projection")
-    if projection["contractId"] != "sora-ios-taira-deployment-admission-v1":
+    if projection["contractId"] != "sora-ios-taira-deployment-admission-v2":
         fail(f"{label} has an obsolete Taira admission contract")
     require_sha256(projection["manifestSha256"], f"{label} Taira manifest")
+    if (
+        re.fullmatch(r"[1-9][0-9]{0,15}", projection["manifestSequenceNumber"])
+        is None
+        or int(projection["manifestSequenceNumber"]) > MAX_SAFE_INTEGER
+    ):
+        fail(f"{label} Taira manifest sequence is not one positive exact integer")
     require_sha256(projection["admissionSha256"], f"{label} Taira admission")
     if projection["manifestSha256"] == projection["admissionSha256"]:
         fail(f"{label} conflates Taira manifest and admission identities")
@@ -241,6 +297,7 @@ def parse_taira_deployment_projection(info: Any, label: str) -> dict[str, Any]:
         fail(f"{label} current Taira deployment epoch is not newer than retired")
     from urllib.parse import urlsplit
     base = urlsplit(projection["canonicalToriiBaseUrl"])
+    explorer = urlsplit(projection["explorerBaseUrl"])
     if (
         base.scheme != "https"
         or base.hostname is None
@@ -255,6 +312,17 @@ def parse_taira_deployment_projection(info: Any, label: str) -> dict[str, Any]:
         or base.fragment
         or projection["publicMcpEndpoint"]
         != f"{projection['canonicalToriiBaseUrl']}/v1/mcp"
+        or explorer.scheme != "https"
+        or explorer.hostname is None
+        or explorer.hostname != explorer.hostname.lower()
+        or explorer.hostname == TAIRA_CONVENIENCE_HOST
+        or "." not in explorer.hostname
+        or explorer.username is not None
+        or explorer.password is not None
+        or explorer.port not in (None, 443)
+        or explorer.path
+        or explorer.query
+        or explorer.fragment
     ):
         fail(f"{label} does not bind one explicit canonical public HTTPS /v1/mcp route")
     if projection["pendingRowPolicy"] != (
@@ -702,53 +770,59 @@ def git_output(repository: Path, arguments: list[str], label: str) -> str:
 
 def parse_signing_identity_receipt(raw: bytes, label: str) -> dict[str, Any]:
     value = parse_canonical_json(raw, label)
-    require_exact_keys(
-        value,
-        {
-            "schemaVersion", "contractId", "platform", "status", "runId",
-            "qualificationSequenceNumber", "sourceRevision",
-            "assessedAtEpochSeconds", "reviewedAtEpochSeconds",
-            "qualifiedAtEpochSeconds", "qualificationContractSha256",
-            "trustRootSha256", "releaseEvidenceProducerKeyId",
-            "independentReviewerKeyId", "bundleIdentifier", "developmentTeam",
-            "applicationIdentifier", "codeSignStyle", "configuredCodeSignIdentity",
-            "entitlementsPath", "sourceEntitlementsSha256",
-            "signedEntitlementsSha256", "keychainAccessGroupsSha256",
-            "productionDistributionCertificateSha256",
-            "productionProvisioningProfileUuid", "productionProvisioningProfileName",
-            "canonicalProvisioningProfileSha256",
-            "appStoreSigningContinuityReviewed", "privateKeyOrCredentialRecorded",
-            "blockingReasons",
-        },
-        label,
-    )
+    require_exact_keys(value, SIGNING_RECEIPT_KEYS, label)
     if (
-        value["schemaVersion"] != 1
+        value["schemaVersion"] != 2
         or value["contractId"]
-        != "sora-ios-production-signing-identity-qualification-v1"
+        != "sora-ios-production-signing-identity-qualification-v2"
         or value["platform"] != "ios"
         or value["status"] != "qualified"
         or value["bundleIdentifier"] != "co.jp.soramitsu.sora"
         or value["developmentTeam"] != "YLWWUD25VZ"
         or value["applicationIdentifier"] != "YLWWUD25VZ.co.jp.soramitsu.sora"
-        or value["codeSignStyle"] != "Automatic"
-        or value["configuredCodeSignIdentity"] != "iPhone Developer"
+        or value["codeSignStyle"] != "Manual"
+        or value["configuredCodeSignIdentitySha1"]
+        != EXPECTED_SIGNING_CERTIFICATE_SHA1
         or value["entitlementsPath"] != "SoraPassport/SoraPassport.entitlements"
         or value["sourceEntitlementsSha256"]
         != "97704a8960b4facceef54397a08fb5d0a456247c3627359215aa2a27df22656c"
-        or value["appStoreSigningContinuityReviewed"] is not True
+        or value["signedEntitlementsSha256"]
+        != EXPECTED_SIGNED_ENTITLEMENTS_SHA256
+        or value["keychainAccessGroupsSha256"]
+        != EXPECTED_KEYCHAIN_ACCESS_GROUPS_SHA256
+        or value["productionDistributionCertificateSha256"]
+        != EXPECTED_SIGNING_CERTIFICATE_SHA256
+        or value["productionDistributionCertificateSha1"]
+        != EXPECTED_SIGNING_CERTIFICATE_SHA1
+        or value["productionProvisioningProfileUuid"]
+        != EXPECTED_SIGNING_PROFILE_UUID
+        or value["productionProvisioningProfileName"]
+        != EXPECTED_SIGNING_PROFILE_NAME
+        or value["rawProvisioningProfileSha256"]
+        != EXPECTED_SIGNING_PROFILE_RAW_SHA256
+        or value["canonicalProvisioningProfileSha256"]
+        != EXPECTED_SIGNING_PROFILE_CANONICAL_SHA256
         or value["privateKeyOrCredentialRecorded"] is not False
         or value["blockingReasons"] != []
     ):
-        fail(f"{label} is not one exact qualified signing-continuity receipt")
+        fail(f"{label} is not one exact qualified manual signing-continuity receipt v2")
     require_revision(value["sourceRevision"], f"{label} source revision")
     for key in (
         "qualificationContractSha256", "trustRootSha256",
         "sourceEntitlementsSha256", "signedEntitlementsSha256",
         "keychainAccessGroupsSha256", "productionDistributionCertificateSha256",
-        "canonicalProvisioningProfileSha256",
+        "rawProvisioningProfileSha256", "canonicalProvisioningProfileSha256",
     ):
         require_sha256(value[key], f"{label} {key}")
+    if (
+        type(value["configuredCodeSignIdentitySha1"]) is not str
+        or SHA1_UPPER_RE.fullmatch(value["configuredCodeSignIdentitySha1"]) is None
+        or type(value["productionDistributionCertificateSha1"]) is not str
+        or SHA1_UPPER_RE.fullmatch(
+            value["productionDistributionCertificateSha1"]
+        ) is None
+    ):
+        fail(f"{label} distribution certificate SHA-1 is invalid")
     if value["sourceEntitlementsSha256"] == value["signedEntitlementsSha256"]:
         fail(f"{label} conflates source and signed entitlements")
     for key in (
@@ -784,6 +858,11 @@ def parse_signing_identity_receipt(raw: bytes, label: str) -> dict[str, Any]:
             fail(f"{label} {key} is invalid")
     if value["releaseEvidenceProducerKeyId"] == value["independentReviewerKeyId"]:
         fail(f"{label} producer and reviewer identities are not distinct")
+    lineage = require_exact_keys(
+        value["releaseLineage"], SIGNING_LINEAGE_KEYS, f"{label} release lineage"
+    )
+    if lineage != EXPECTED_RELEASE_LINEAGE:
+        fail(f"{label} does not bind the reviewed existing-app release lineage")
     return value
 
 
@@ -852,7 +931,12 @@ def signing_receipt_for_manifest(
 ) -> tuple[bytes, dict[str, Any]]:
     retained = manifest["signingIdentityReceipt"]
     path = absolute_path(retained["path"], f"{label} signing receipt")
-    raw, _ = open_regular(path, MAX_JSON_BYTES, f"{label} signing receipt")
+    raw, _ = open_regular(
+        path,
+        MAX_JSON_BYTES,
+        f"{label} signing receipt",
+        owner_only=True,
+    )
     if (
         sha256_bytes(raw) != retained["sha256"]
         or len(raw) != retained["byteCount"]
@@ -894,6 +978,8 @@ def require_retained_signing_identity(
         "teamIdentifier": receipt["developmentTeam"],
         "signedEntitlementsSha256": receipt["signedEntitlementsSha256"],
         "keychainAccessGroupsSha256": receipt["keychainAccessGroupsSha256"],
+        "embeddedProvisioningProfileSha256":
+            receipt["rawProvisioningProfileSha256"],
         "canonicalProvisioningProfileSha256":
             receipt["canonicalProvisioningProfileSha256"],
         "provisioningProfileUuid": receipt["productionProvisioningProfileUuid"],
@@ -925,6 +1011,7 @@ def capture_build_manifest(
     archive_log: Path,
     export_log: Path,
     qualification_contract_sha: str,
+    signing_receipt_path: Path,
     signing_receipt_sha: str,
     vendored_receipt_sha: str,
     build_number: str,
@@ -933,6 +1020,17 @@ def capture_build_manifest(
 ) -> dict[str, Any]:
     if role not in ("primary", "reproduction"):
         fail("build role must be primary or reproduction")
+    signing_path = absolute_path(
+        str(signing_receipt_path), "authenticated signing-identity receipt"
+    )
+    try:
+        canonical_repository = repository.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        fail(f"repository cannot be resolved canonically: {error}")
+    if canonical_repository != repository:
+        fail("Release repository path is symbolic or noncanonical")
+    if signing_path == repository or repository in signing_path.parents:
+        fail("authenticated signing receipt must remain outside the clean checkout")
     status = git_output(repository, ["status", "--porcelain=v1", "--untracked-files=normal"], "checkout status")
     if status != "":
         fail("Release reproduction requires a completely clean checkout")
@@ -955,11 +1053,11 @@ def capture_build_manifest(
         path = repository / relative
         identity = checked_digest(path, MAX_JSON_BYTES, f"dependency manifest {relative}")
         dependencies.append({"path": relative, **identity})
-    signing_path = repository / SIGNING_RECEIPT.relative_to(ROOT)
     signing_raw, _ = open_regular(
         signing_path,
         MAX_JSON_BYTES,
         "authenticated signing-identity receipt",
+        owner_only=True,
     )
     signing_receipt = parse_signing_identity_receipt(
         signing_raw,
@@ -1087,6 +1185,7 @@ def parse_build_manifest(raw: bytes, label: str) -> dict[str, Any]:
             {
                 "contractId": "SoraTairaDeploymentAdmissionContractId",
                 "manifestSha256": "SoraTairaDeploymentManifestSha256",
+                "manifestSequenceNumber": "SoraTairaDeploymentManifestSequenceNumber",
                 "admissionSha256": "SoraTairaDeploymentAdmissionSha256",
                 "currentChainId": "SoraTairaCurrentChainId",
                 "retiredChainId": "SoraTairaRetiredChainId",
@@ -1096,16 +1195,18 @@ def parse_build_manifest(raw: bytes, label: str) -> dict[str, Any]:
                 "retiredDeploymentEpoch": "SoraTairaRetiredDeploymentEpoch",
                 "canonicalToriiBaseUrl": "SoraTairaCanonicalToriiBaseUrl",
                 "publicMcpEndpoint": "SoraTairaPublicMcpEndpoint",
+                "explorerBaseUrl": "SoraTairaExplorerBaseUrl",
                 "pendingRowPolicy": "SoraTairaPendingRowPolicy",
             }[key]: child
             for key, child in require_exact_keys(
                 value["tairaDeployment"],
                 {
-                    "contractId", "manifestSha256", "admissionSha256",
+                    "contractId", "manifestSha256", "manifestSequenceNumber",
+                    "admissionSha256",
                     "currentChainId", "retiredChainId", "currentGenesisHash",
                     "retiredGenesisHash", "currentDeploymentEpoch",
                     "retiredDeploymentEpoch", "canonicalToriiBaseUrl",
-                    "publicMcpEndpoint", "pendingRowPolicy",
+                    "publicMcpEndpoint", "explorerBaseUrl", "pendingRowPolicy",
                 },
                 f"{label} Taira deployment",
             ).items()
@@ -1118,6 +1219,14 @@ def parse_build_manifest(raw: bytes, label: str) -> dict[str, Any]:
     parse_file_digest(value["exportContentManifest"], f"{label} export content manifest")
     parse_file_digest(value["ipa"], f"{label} IPA")
     parse_file_digest(value["signingIdentityReceipt"], f"{label} signing receipt")
+    checkout_path = absolute_path(
+        value["checkoutIdentity"]["path"], f"{label} checkout"
+    )
+    signing_path = absolute_path(
+        value["signingIdentityReceipt"]["path"], f"{label} signing receipt"
+    )
+    if signing_path == checkout_path or checkout_path in signing_path.parents:
+        fail(f"{label} signing receipt must remain outside the clean checkout")
     parse_file_digest(
         value["vendoredBinaryReceipt"],
         f"{label} vendored-binary receipt",
@@ -1206,10 +1315,11 @@ def verify_manifest_files(manifest: dict[str, Any], label: str, ipa_path: Path) 
         if actual != {key: dependency[key] for key in ("sha256", "byteCount")}:
             fail(f"{label} dependency manifest changed")
     signing = manifest["signingIdentityReceipt"]
-    signing_actual = checked_digest(
+    signing_actual, _ = digest_regular(
         absolute_path(signing["path"], f"{label} signing receipt"),
         MAX_JSON_BYTES,
         f"{label} signing receipt",
+        owner_only=True,
     )
     if signing_actual != {key: signing[key] for key in ("sha256", "byteCount")}:
         fail(f"{label} signing identity receipt changed")
@@ -1434,11 +1544,12 @@ def parse_equivalence_receipt(raw: bytes) -> dict[str, Any]:
     taira_projection = require_exact_keys(
         value["tairaDeployment"],
         {
-            "contractId", "manifestSha256", "admissionSha256",
+            "contractId", "manifestSha256", "manifestSequenceNumber",
+            "admissionSha256",
             "currentChainId", "retiredChainId", "currentGenesisHash",
             "retiredGenesisHash", "currentDeploymentEpoch",
             "retiredDeploymentEpoch", "canonicalToriiBaseUrl",
-            "publicMcpEndpoint", "pendingRowPolicy",
+            "publicMcpEndpoint", "explorerBaseUrl", "pendingRowPolicy",
         },
         "equivalence Taira deployment",
     )
@@ -1447,6 +1558,7 @@ def parse_equivalence_receipt(raw: bytes) -> dict[str, Any]:
             {
                 "contractId": "SoraTairaDeploymentAdmissionContractId",
                 "manifestSha256": "SoraTairaDeploymentManifestSha256",
+                "manifestSequenceNumber": "SoraTairaDeploymentManifestSequenceNumber",
                 "admissionSha256": "SoraTairaDeploymentAdmissionSha256",
                 "currentChainId": "SoraTairaCurrentChainId",
                 "retiredChainId": "SoraTairaRetiredChainId",
@@ -1456,6 +1568,7 @@ def parse_equivalence_receipt(raw: bytes) -> dict[str, Any]:
                 "retiredDeploymentEpoch": "SoraTairaRetiredDeploymentEpoch",
                 "canonicalToriiBaseUrl": "SoraTairaCanonicalToriiBaseUrl",
                 "publicMcpEndpoint": "SoraTairaPublicMcpEndpoint",
+                "explorerBaseUrl": "SoraTairaExplorerBaseUrl",
                 "pendingRowPolicy": "SoraTairaPendingRowPolicy",
             }[key]: child
             for key, child in taira_projection.items()
@@ -2235,9 +2348,9 @@ def main(argv: list[str]) -> int:
             lint_contract()
             print("iOS Release reproduction/package contract: OK")
             return 0
-        if len(argv) == 29 and argv[0] == "--capture-build-manifest":
-            expected = ("--role", "--repository", "--derived-data", "--archive", "--export", "--ipa", "--archive-log", "--export-log", "--qualification-contract-sha", "--signing-receipt-sha", "--vendored-receipt-sha", "--build-number", "--app-store-build-lower-bound", "--output")
-            if tuple(argv[index] for index in range(1, 28, 2)) != expected:
+        if len(argv) == 31 and argv[0] == "--capture-build-manifest":
+            expected = ("--role", "--repository", "--derived-data", "--archive", "--export", "--ipa", "--archive-log", "--export-log", "--qualification-contract-sha", "--signing-receipt", "--signing-receipt-sha", "--vendored-receipt-sha", "--build-number", "--app-store-build-lower-bound", "--output")
+            if tuple(argv[index] for index in range(1, 30, 2)) != expected:
                 fail("capture-build-manifest arguments are not exact")
             result = capture_build_manifest(
                 role=argv[2], repository=absolute_path(argv[4], "repository"),
@@ -2245,11 +2358,12 @@ def main(argv: list[str]) -> int:
                 export=absolute_path(argv[10], "export"), ipa=absolute_path(argv[12], "IPA"),
                 archive_log=absolute_path(argv[14], "archive log"), export_log=absolute_path(argv[16], "export log"),
                 qualification_contract_sha=argv[18],
-                signing_receipt_sha=argv[20],
-                vendored_receipt_sha=argv[22],
-                build_number=argv[24],
-                app_store_build_lower_bound=argv[26],
-                output=absolute_path(argv[28], "build manifest"),
+                signing_receipt_path=absolute_path(argv[20], "signing receipt"),
+                signing_receipt_sha=argv[22],
+                vendored_receipt_sha=argv[24],
+                build_number=argv[26],
+                app_store_build_lower_bound=argv[28],
+                output=absolute_path(argv[30], "build manifest"),
             )
             print(f"buildManifestSha256={sha256_bytes(canonical_json(result))}")
             return 0

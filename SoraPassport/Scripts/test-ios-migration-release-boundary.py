@@ -159,11 +159,12 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
         project_source = PROJECT.read_text(encoding="utf-8")
         self.assertEqual(
             project_source.count('COMPILER_FLAGS = "-warnings-as-errors";'),
-            3,
+            4,
         )
         for build_file in (
             "A10000E00000000000000001",
             "E71D0A010000000000000003",
+            "B66B00012F5B000000000020",
             "E71D0A010000000000000005",
         ):
             line = next(
@@ -236,6 +237,22 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
         self.assertIn('--archive-and-export-reproducible', source)
         self.assertIn('-derivedDataPath "${derived_data_path}"', source)
         self.assertIn('--capture-build-manifest', source)
+        self.assertIn('--signing-receipt "${signing_receipt_snapshot}"', source)
+        self.assertIn('/usr/bin/install -m 600', source)
+        self.assertIn('"${IOS_SIGNING_IDENTITY_RECEIPT_PATH}"', source)
+        self.assertEqual(source.count('CODE_SIGN_STYLE=Manual'), 2)
+        self.assertEqual(
+            source.count(
+                '"CODE_SIGN_IDENTITY=${production_distribution_certificate_sha1}"'
+            ),
+            2,
+        )
+        self.assertEqual(
+            source.count(
+                '"PROVISIONING_PROFILE_SPECIFIER=${production_provisioning_profile_uuid}"'
+            ),
+            2,
+        )
         self.assertEqual(source.count('"CURRENT_PROJECT_VERSION=${build_number}"'), 2)
         self.assertIn('IOS_APP_STORE_BUILD_NUMBER_LOWER_BOUND', source)
         self.assertIn('--build-number "${build_number}"', source)
@@ -432,6 +449,24 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             self.assertIn("unsafe ZIP member", unsafe_ipa.stderr)
 
     def test_export_options_snapshot_is_exact_and_rechecked(self) -> None:
+        self.assertEqual(
+            plistlib.loads(EXPORT_OPTIONS.read_bytes()),
+            {
+                "destination": "export",
+                "manageAppVersionAndBuildNumber": False,
+                "method": "app-store-connect",
+                "provisioningProfiles": {
+                    "co.jp.soramitsu.sora":
+                        "7ae520bc-599b-48ae-abfa-627eef530f0c",
+                },
+                "signingCertificate":
+                    "84AB95335BE14CAE9B050A353910F86FF2F9539B",
+                "signingStyle": "manual",
+                "stripSwiftSymbols": True,
+                "teamID": "YLWWUD25VZ",
+                "uploadSymbols": False,
+            },
+        )
         with tempfile.TemporaryDirectory(
             prefix="sora-ios-migration-export-options.", dir="/private/tmp"
         ) as temporary:
@@ -864,7 +899,7 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             "--lint-ios-migration-release-source-gate", source
         )
         self.assertIn(
-            "iOS migration Release source gate: OK (93 migration tests + 7 internal-TestFlight tests + 17 Release-package tests + 13 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 17 production-promotion tests, 13 lints, shell/Swift parse)",
+            "iOS migration Release source gate: OK (94 migration tests + 7 internal-TestFlight tests + 17 Release-package tests + 15 Taira-admission tests + 10 vendored-binary tests + 10 signing-identity tests + 20 production-promotion tests, 13 lints, shell/Swift parse)",
             source,
         )
         for suite, expected in (
@@ -872,21 +907,21 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
             ("ios_gate_clone_suite", 3),
             ("ios_gate_controller_suite", 24),
             ("ios_gate_sanitizer_suite", 6),
-            ("ios_gate_collector_suite", 15),
+            ("ios_gate_collector_suite", 16),
             ("ios_gate_boundary_suite", 15),
-            ("ios_gate_production_promotion_suite", 17),
+            ("ios_gate_production_promotion_suite", 20),
         ):
             self.assertIn(
                 f'run_exact_ios_migration_suite "${{{suite}}}" {expected}',
                 source,
             )
-        self.assertIn('[ "${ios_gate_test_total}" -eq 93 ]', source)
+        self.assertIn('[ "${ios_gate_test_total}" -eq 94 ]', source)
         self.assertIn(
             'run_exact_ios_migration_suite "${ios_gate_release_package_suite}" 17 release-reproducibility-package',
             source,
         )
         self.assertIn(
-            'run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 13 taira-deployment-admission',
+            'run_exact_ios_migration_suite "${ios_gate_taira_deployment_suite}" 15 taira-deployment-admission',
             source,
         )
         self.assertIn(
@@ -921,10 +956,11 @@ class MigrationReleaseBoundaryTests(unittest.TestCase):
         project_source = PROJECT.read_text(encoding="utf-8")
         self.assertEqual(
             project_source.count('COMPILER_FLAGS = "-warnings-as-errors";'),
-            3,
+            4,
         )
         self.assertNotIn('SWIFT_TREAT_WARNINGS_AS_ERRORS=YES', archive_source)
         self.assertNotIn('GCC_TREAT_WARNINGS_AS_ERRORS=YES', archive_source)
+        self.assertIn('--signing-receipt "${signing_receipt_snapshot}"', archive_source)
         self.assertIn('--signing-receipt-sha "${signing_identity_sha}"', archive_source)
         self.assertIn('--vendored-receipt-sha "${vendored_binary_sha}"', archive_source)
         self.assertEqual(

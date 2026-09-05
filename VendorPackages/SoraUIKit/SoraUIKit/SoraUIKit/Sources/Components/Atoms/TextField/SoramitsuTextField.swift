@@ -4,6 +4,14 @@ public final class SoramitsuTextField: UITextField, Atom {
 
 	public let sora: SoramitsuTextFieldConfiguration<SoramitsuTextField>
 
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if sora.dynamicTextStyle != nil,
+           previousTraitCollection?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory {
+            sora.updateForContentSizeCategory()
+        }
+    }
+
 	init(style: SoramitsuStyle) {
 		sora = SoramitsuTextFieldConfiguration(style: style)
 		super.init(frame: .zero)

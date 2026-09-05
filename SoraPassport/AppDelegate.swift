@@ -81,6 +81,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
 
             rootWindow.makeKeyAndVisible()
+
+            if let connectURL = launchOptions?[.url] as? URL,
+               IrohaConnectCoordinator.shared.canHandle(connectURL) {
+                IrohaConnectCoordinator.shared.handle(connectURL, in: rootWindow)
+            }
         }
 
         return true
@@ -93,10 +98,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         resumePendingNexusTransactions()
     }
 
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        IrohaConnectCoordinator.shared.applicationDidEnterBackground()
+    }
+
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        if IrohaConnectCoordinator.shared.handle(url, in: window) {
+            return true
+        }
+        return GIDSignIn.sharedInstance.handle(url)
+    }
+
     func application(_ application: UIApplication,
                      continue userActivity: NSUserActivity,
                      restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+
+            if IrohaConnectCoordinator.shared.handle(url, in: window) {
+                return true
+            }
 
             let isHandled = DeepLinkService.shared.handle(url: url)
 

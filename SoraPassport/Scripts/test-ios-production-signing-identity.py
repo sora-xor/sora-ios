@@ -93,12 +93,6 @@ class QualifiedFixture:
         self.verifier.ROOT = self.repository
         self.verifier.FIXTURES = fixtures
         self.verifier.INVENTORY = fixtures / "ios-production-signing-identity.json"
-        self.verifier.RECEIPT = (
-            fixtures / "ios-production-signing-identity-qualification.json"
-        )
-        self.verifier.TRUST = (
-            fixtures / "ios-production-signing-identity-qualification-trust.json"
-        )
         self.verifier.BLOCKED_RECEIPT = (
             fixtures / "ios-production-signing-identity-qualification.blocked.json"
         )
@@ -146,9 +140,11 @@ class QualifiedFixture:
 
     def _write_records(self) -> None:
         now = int(time.time())
+        self.trust_path = self.protected / "signing-trust.json"
+        self.receipt_path = self.protected / "signing-receipt.json"
         self.trust = {
-            "schemaVersion": 1,
-            "contractId": "sora-ios-production-signing-identity-trust-v1",
+            "schemaVersion": 2,
+            "contractId": "sora-ios-production-signing-identity-trust-v2",
             "platform": "ios",
             "status": "qualified",
             "signatureAlgorithm": "ecdsa-p256-sha256",
@@ -172,14 +168,18 @@ class QualifiedFixture:
             },
             "blockingReasons": [],
         }
-        write(self.verifier.TRUST, self.verifier.canonical_json(self.trust))
+        write(
+            self.trust_path,
+            self.verifier.canonical_json(self.trust),
+            private=True,
+        )
         source_raw = (
             self.repository / "SoraPassport/SoraPassport.entitlements"
         ).read_bytes()
         self.receipt = {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "contractId":
-                "sora-ios-production-signing-identity-qualification-v1",
+                "sora-ios-production-signing-identity-qualification-v2",
             "platform": "ios",
             "status": "qualified",
             "runId": RUN_ID,
@@ -189,36 +189,48 @@ class QualifiedFixture:
             "reviewedAtEpochSeconds": now - 180,
             "qualifiedAtEpochSeconds": now - 60,
             "qualificationContractSha256": self.contract_sha256,
-            "trustRootSha256": self.digest(self.verifier.TRUST.read_bytes()),
+            "trustRootSha256": self.digest(self.trust_path.read_bytes()),
             "releaseEvidenceProducerKeyId": "ios-signing-producer-hermetic",
             "independentReviewerKeyId": "ios-signing-reviewer-hermetic",
             "bundleIdentifier": "co.jp.soramitsu.sora",
             "developmentTeam": "YLWWUD25VZ",
             "applicationIdentifier": "YLWWUD25VZ.co.jp.soramitsu.sora",
-            "codeSignStyle": "Automatic",
-            "configuredCodeSignIdentity": "iPhone Developer",
+            "codeSignStyle": "Manual",
+            "configuredCodeSignIdentitySha1":
+                self.verifier.EXPECTED_DISTRIBUTION_CERTIFICATE_SHA1,
             "entitlementsPath": "SoraPassport/SoraPassport.entitlements",
             "sourceEntitlementsSha256": self.digest(source_raw),
-            "signedEntitlementsSha256": self.synthetic_digest("signed-entitlements"),
-            "keychainAccessGroupsSha256": self.synthetic_digest("keychain-groups"),
+            "signedEntitlementsSha256":
+                self.verifier.EXPECTED_SIGNED_ENTITLEMENTS_SHA256,
+            "keychainAccessGroupsSha256":
+                self.verifier.EXPECTED_KEYCHAIN_ACCESS_GROUPS_SHA256,
             "productionDistributionCertificateSha256":
-                self.synthetic_digest("distribution-certificate"),
+                self.verifier.EXPECTED_DISTRIBUTION_CERTIFICATE_SHA256,
+            "productionDistributionCertificateSha1":
+                self.verifier.EXPECTED_DISTRIBUTION_CERTIFICATE_SHA1,
             "productionProvisioningProfileUuid":
-                "11111111-2222-3333-8444-555555555555",
-            "productionProvisioningProfileName": "SORA App Store Distribution",
+                self.verifier.EXPECTED_PROFILE_UUID,
+            "productionProvisioningProfileName":
+                self.verifier.EXPECTED_PROFILE_NAME,
+            "rawProvisioningProfileSha256":
+                self.verifier.EXPECTED_RAW_PROFILE_SHA256,
             "canonicalProvisioningProfileSha256":
-                self.synthetic_digest("canonical-profile"),
-            "appStoreSigningContinuityReviewed": True,
+                self.verifier.EXPECTED_CANONICAL_PROFILE_SHA256,
+            "releaseLineage": dict(self.verifier.EXPECTED_RELEASE_LINEAGE),
             "privateKeyOrCredentialRecorded": False,
             "blockingReasons": [],
         }
-        write(self.verifier.RECEIPT, self.verifier.canonical_json(self.receipt))
+        write(
+            self.receipt_path,
+            self.verifier.canonical_json(self.receipt),
+            private=True,
+        )
 
     def _sign(self, private: Path, signature: Path) -> None:
         run(
             [
                 str(OPENSSL), "dgst", "-sha256", "-sign", str(private),
-                "-out", str(signature), str(self.verifier.RECEIPT),
+                "-out", str(signature), str(self.receipt_path),
             ]
         )
         signature.chmod(0o600)
@@ -236,7 +248,9 @@ class QualifiedFixture:
             "IOS_SIGNING_IDENTITY_SEQUENCE_NUMBER": str(SEQUENCE),
             "IOS_SIGNING_IDENTITY_CONTRACT_SHA256": self.contract_sha256,
             "IOS_SIGNING_IDENTITY_TRUST_SHA256":
-                self.digest(self.verifier.TRUST.read_bytes()),
+                self.digest(self.trust_path.read_bytes()),
+            "IOS_SIGNING_IDENTITY_RECEIPT_PATH": str(self.receipt_path),
+            "IOS_SIGNING_IDENTITY_TRUST_PATH": str(self.trust_path),
             "IOS_SIGNING_IDENTITY_PRODUCER_PUBLIC_KEY_SHA256":
                 self.producer_key_sha256,
             "IOS_SIGNING_IDENTITY_REVIEWER_PUBLIC_KEY_SHA256":
@@ -252,13 +266,21 @@ class QualifiedFixture:
         }
 
     def rewrite_receipt(self) -> None:
-        write(self.verifier.RECEIPT, self.verifier.canonical_json(self.receipt))
+        write(
+            self.receipt_path,
+            self.verifier.canonical_json(self.receipt),
+            private=True,
+        )
         self._sign_all()
 
     def rewrite_trust(self) -> None:
-        write(self.verifier.TRUST, self.verifier.canonical_json(self.trust))
+        write(
+            self.trust_path,
+            self.verifier.canonical_json(self.trust),
+            private=True,
+        )
         self.environment["IOS_SIGNING_IDENTITY_TRUST_SHA256"] = self.digest(
-            self.verifier.TRUST.read_bytes()
+            self.trust_path.read_bytes()
         )
 
     def verify(self) -> str:
@@ -282,7 +304,7 @@ class ProductionSigningIdentityTests(unittest.TestCase):
         with self.temporary() as temporary:
             fixture = QualifiedFixture(Path(temporary))
             self.assertEqual(
-                fixture.verify(), fixture.digest(fixture.verifier.RECEIPT.read_bytes())
+                fixture.verify(), fixture.digest(fixture.receipt_path.read_bytes())
             )
 
     def test_ambiguous_json_tokens_are_rejected(self) -> None:

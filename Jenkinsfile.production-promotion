@@ -154,12 +154,32 @@ pipeline {
         stage('One primary and one independent reproduction archive') {
             when { expression { params.PROMOTION_PHASE == 'candidate' } }
             steps {
-                sh """
-                    /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
-                        --phase archive --state '${statePath()}' --role primary
-                    /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
-                        --phase archive --state '${statePath()}' --role reproduction
-                """
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'ios-keychain-credentials',
+                        usernameVariable: 'IOS_SIGNING_KEYCHAIN_PATH',
+                        passwordVariable: 'IOS_SIGNING_KEYCHAIN_PASSWORD'
+                    )
+                ]) {
+                    sh """
+                        set -eu
+                        case "\${IOS_SIGNING_KEYCHAIN_PATH}" in /*) ;; *) exit 1 ;; esac
+                        test -f "\${IOS_SIGNING_KEYCHAIN_PATH}"
+                        test ! -L "\${IOS_SIGNING_KEYCHAIN_PATH}"
+                        test "$(/usr/bin/stat -f '%u' "\${IOS_SIGNING_KEYCHAIN_PATH}")" = "$(/usr/bin/id -u)"
+                        /usr/bin/security unlock-keychain \\
+                            -p "\${IOS_SIGNING_KEYCHAIN_PASSWORD}" \\
+                            "\${IOS_SIGNING_KEYCHAIN_PATH}"
+                        lock_signing_keychain() {
+                            /usr/bin/security lock-keychain "\${IOS_SIGNING_KEYCHAIN_PATH}" >/dev/null 2>&1 || true
+                        }
+                        trap lock_signing_keychain EXIT HUP INT TERM
+                        /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                            --phase archive --state '${statePath()}' --role primary
+                        /usr/bin/python3 -B -I -S '${primaryCheckout()}/SoraPassport/Scripts/run-ios-production-promotion.py' \\
+                            --phase archive --state '${statePath()}' --role reproduction
+                    """
+                }
             }
         }
 

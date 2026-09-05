@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import UIKit
 import SoraUIKit
 import SoraFoundation
 import Combine
@@ -72,6 +73,9 @@ final class AssetsCell: SoramitsuTableViewCell {
     private lazy var moneyLabel: SoramitsuLabel = {
         let label = SoramitsuLabel()
         label.sora.font = FontType.headline2
+        label.sora.dynamicTextStyle = .headline
+        label.sora.numberOfLines = 0
+        label.sora.lineBreakMode = .byCharWrapping
         label.sora.textColor = .fgPrimary
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         label.sora.loadingPlaceholder.type = .shimmer
@@ -94,7 +98,7 @@ final class AssetsCell: SoramitsuTableViewCell {
         return view
     }()
 
-    private let mainInfoView: UIView = {
+    private let mainInfoView: SoramitsuStackView = {
         var view = SoramitsuStackView()
         view.sora.backgroundColor = .custom(uiColor: .clear)
         view.sora.axis = .horizontal
@@ -121,6 +125,15 @@ final class AssetsCell: SoramitsuTableViewCell {
         setupConstraints()
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let stacked = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        let axis: NSLayoutConstraint.Axis = stacked ? .vertical : .horizontal
+        if mainInfoView.axis != axis { mainInfoView.sora.axis = axis }
+        let alignment: NSTextAlignment = stacked ? .natural : (localizationManager.isRightToLeft ? .left : .right)
+        if moneyLabel.sora.alignment != alignment { moneyLabel.sora.alignment = alignment }
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
@@ -128,7 +141,8 @@ final class AssetsCell: SoramitsuTableViewCell {
         contentView.addSubview(containerView)
         containerView.addSubview(fullStackView)
         
-        mainInfoView.addSubviews(arrowButton, moneyLabel)
+        mainInfoView.addArrangedSubviews(arrowButton, moneyLabel)
+        mainInfoView.spacing = 12
         fullStackView.addArrangedSubviews(mainInfoView)
         fullStackView.setCustomSpacing(16, after: mainInfoView)
         
@@ -149,16 +163,6 @@ final class AssetsCell: SoramitsuTableViewCell {
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            arrowButton.leadingAnchor.constraint(equalTo: mainInfoView.leadingAnchor),
-            arrowButton.topAnchor.constraint(equalTo: mainInfoView.topAnchor),
-            arrowButton.centerYAnchor.constraint(equalTo: mainInfoView.centerYAnchor),
-            arrowButton.trailingAnchor.constraint(equalTo: moneyLabel.leadingAnchor),
-            
-            moneyLabel.trailingAnchor.constraint(equalTo: mainInfoView.trailingAnchor),
-            moneyLabel.centerYAnchor.constraint(equalTo: arrowButton.centerYAnchor),
-            moneyLabel.heightAnchor.constraint(equalToConstant: 21),
-            moneyLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             containerView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             containerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
@@ -197,7 +201,7 @@ final class AssetsCell: SoramitsuTableViewCell {
                 self.views[index].amountUpLabel.sora.loadingPlaceholder.type = assetModel.fiatText.isEmpty ? .shimmer : .none
 
                 if let delta = assetModel.deltaPriceText {
-                    self.views[index].amountDownLabel.sora.attributedText = delta
+                    self.views[index].amountDownLabel.sora.attributedText = WalletUX.readableAttributedText(delta.attributedString)
                 }
                 self.views[index].amountDownLabel.sora.loadingPlaceholder.type = assetModel.deltaPriceText == nil ? .shimmer : .none
                 self.views[index].sora.addHandler(for: .touchUpInside) { [weak assetsItem] in
@@ -236,7 +240,7 @@ final class AssetsCell: SoramitsuTableViewCell {
             assetView.amountUpLabel.sora.loadingPlaceholder.type = assetModel.fiatText.isEmpty ? .shimmer : .none
 
             if let delta = assetModel.deltaPriceText {
-                assetView.amountDownLabel.sora.attributedText = delta
+                assetView.amountDownLabel.sora.attributedText = WalletUX.readableAttributedText(delta.attributedString)
             }
             assetView.amountDownLabel.sora.loadingPlaceholder.type = assetModel.deltaPriceText == nil ? .shimmer : .none
 
@@ -282,4 +286,3 @@ extension AssetsCell: SoramitsuTableViewCellProtocol {
                                                                           alignment: alignment)
     }
 }
-

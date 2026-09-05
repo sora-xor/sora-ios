@@ -1022,6 +1022,9 @@ private enum KeychainOutcome: String {
 private enum KeychainCohort: String, CaseIterable {
     case mnemonic12 = "mnemonic-12"
     case mnemonic15Retained = "mnemonic-15-retained"
+    case mnemonic18Retained = "mnemonic-18-retained"
+    case mnemonic21Retained = "mnemonic-21-retained"
+    case irohaV1PairedKeys = "iroha-v1-paired-keys"
     case mnemonic24 = "mnemonic-24"
     case rawSeed = "raw-seed"
     case legacySecret = "legacy-secret"
@@ -1033,7 +1036,8 @@ private enum KeychainCohort: String, CaseIterable {
         switch self {
         case .missingSecret, .corruptSecret:
             return .recovery
-        case .mnemonic12, .mnemonic15Retained, .mnemonic24, .rawSeed, .legacySecret, .watchOnly:
+        case .mnemonic12, .mnemonic15Retained, .mnemonic18Retained, .mnemonic21Retained,
+             .irohaV1PairedKeys, .mnemonic24, .rawSeed, .legacySecret, .watchOnly:
             return .success
         }
     }

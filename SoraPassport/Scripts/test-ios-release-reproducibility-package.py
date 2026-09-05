@@ -30,8 +30,9 @@ CONTRACT_SHA = "2" * 64
 BUILD_NUMBER = "2026081002"
 APP_STORE_BUILD_NUMBER_LOWER_BOUND = "2026081001"
 TAIRA_DEPLOYMENT = {
-    "contractId": "sora-ios-taira-deployment-admission-v1",
+    "contractId": "sora-ios-taira-deployment-admission-v2",
     "manifestSha256": "c" * 64,
+    "manifestSequenceNumber": "17",
     "admissionSha256": "d" * 64,
     "currentChainId": "fc56984b-2be7-431d-840e-21514d1883f0",
     "retiredChainId": "809574f5-fee7-5e69-bfcf-52451e42d50f",
@@ -41,12 +42,13 @@ TAIRA_DEPLOYMENT = {
     "retiredDeploymentEpoch": "100",
     "canonicalToriiBaseUrl": "https://public-01.taira.example.org",
     "publicMcpEndpoint": "https://public-01.taira.example.org/v1/mcp",
+    "explorerBaseUrl": "https://explorer.taira.example.org",
     "pendingRowPolicy":
         "schema-77:preserve-exact-uuid:quarantine-recovery-only:no-reinterpretation",
 }
 SIGNING_QUALIFICATION = {
-    "schemaVersion": 1,
-    "contractId": "sora-ios-production-signing-identity-qualification-v1",
+    "schemaVersion": 2,
+    "contractId": "sora-ios-production-signing-identity-qualification-v2",
     "platform": "ios",
     "status": "qualified",
     "runId": "11111111-2222-4333-8444-555555555555",
@@ -62,19 +64,42 @@ SIGNING_QUALIFICATION = {
     "bundleIdentifier": "co.jp.soramitsu.sora",
     "developmentTeam": "YLWWUD25VZ",
     "applicationIdentifier": "YLWWUD25VZ.co.jp.soramitsu.sora",
-    "codeSignStyle": "Automatic",
-    "configuredCodeSignIdentity": "iPhone Developer",
+    "codeSignStyle": "Manual",
+    "configuredCodeSignIdentitySha1":
+        "84AB95335BE14CAE9B050A353910F86FF2F9539B",
     "entitlementsPath": "SoraPassport/SoraPassport.entitlements",
     "sourceEntitlementsSha256":
         "97704a8960b4facceef54397a08fb5d0a456247c3627359215aa2a27df22656c",
-    "signedEntitlementsSha256": "6" * 64,
-    "keychainAccessGroupsSha256": "7" * 64,
-    "productionDistributionCertificateSha256": "a" * 64,
+    "signedEntitlementsSha256":
+        "6ce476d496fb75e4510b9dfce490dc6c29d78b96d9114c85a44b09d9d2756b2d",
+    "keychainAccessGroupsSha256":
+        "6382618e08a2e9678e9c4b1f2dec83836c3aeb2aea1508df83dde886979efdc0",
+    "productionDistributionCertificateSha256":
+        "d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb",
+    "productionDistributionCertificateSha1":
+        "84AB95335BE14CAE9B050A353910F86FF2F9539B",
     "productionProvisioningProfileUuid":
-        "11111111-2222-3333-4444-555555555555",
-    "productionProvisioningProfileName": "SORA App Store Distribution",
-    "canonicalProvisioningProfileSha256": "9" * 64,
-    "appStoreSigningContinuityReviewed": True,
+        "7ae520bc-599b-48ae-abfa-627eef530f0c",
+    "productionProvisioningProfileName":
+        "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora",
+    "rawProvisioningProfileSha256":
+        "19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93",
+    "canonicalProvisioningProfileSha256":
+        "f6d534c50ba641341337a6ce9b34f55db7931491c43554ededffb8a47d88b931",
+    "releaseLineage": {
+        "type": "existing-app-update",
+        "appStoreAdamId": "1457566711",
+        "priorAcceptedMarketingVersion": "3.8.7",
+        "priorAcceptedBuildNumber": "2026081001",
+        "priorUploadedIpaSha256":
+            "e8bc51066da5da3442a687687134f3e0dd5af7f12d32c8b055b2336207612b94",
+        "priorUploadReceiptSha256":
+            "1df6fdcf7fda9c0a433b177205e2bbf9a576623c4c6226c9d0dfafe7d445cf8e",
+        "bundleIdentifierContinuityReviewed": True,
+        "developmentTeamContinuityReviewed": True,
+        "applicationIdentifierContinuityReviewed": True,
+        "keychainAccessGroupsContinuityReviewed": True,
+    },
     "privateKeyOrCredentialRecorded": False,
     "blockingReasons": [],
 }
@@ -138,7 +163,7 @@ class Fixture:
             target = repository / relative
             write(target, f"reviewed dependency manifest: {relative}\n".encode())
             dependencies.append({"path": relative, **digest(target)})
-        signing = repository / release.SIGNING_RECEIPT.relative_to(release.ROOT)
+        signing = self.root / f"protected-signing-{role}.json"
         write(signing, release.canonical_json(SIGNING_QUALIFICATION))
         vendored = repository / release.VENDORED_RECEIPT.relative_to(release.ROOT)
         write(vendored, release.canonical_json(VENDORED_QUALIFICATION))
@@ -152,6 +177,7 @@ class Fixture:
         info_names = {
             "contractId": "SoraTairaDeploymentAdmissionContractId",
             "manifestSha256": "SoraTairaDeploymentManifestSha256",
+            "manifestSequenceNumber": "SoraTairaDeploymentManifestSequenceNumber",
             "admissionSha256": "SoraTairaDeploymentAdmissionSha256",
             "currentChainId": "SoraTairaCurrentChainId",
             "retiredChainId": "SoraTairaRetiredChainId",
@@ -161,6 +187,7 @@ class Fixture:
             "retiredDeploymentEpoch": "SoraTairaRetiredDeploymentEpoch",
             "canonicalToriiBaseUrl": "SoraTairaCanonicalToriiBaseUrl",
             "publicMcpEndpoint": "SoraTairaPublicMcpEndpoint",
+            "explorerBaseUrl": "SoraTairaExplorerBaseUrl",
             "pendingRowPolicy": "SoraTairaPendingRowPolicy",
         }
         write(
@@ -245,14 +272,23 @@ class Fixture:
             "signedIdentity": {
                 "applicationIdentifier": "YLWWUD25VZ.co.jp.soramitsu.sora",
                 "teamIdentifier": "YLWWUD25VZ",
-                "signedEntitlementsSha256": "6" * 64,
-                "keychainAccessGroupsSha256": "7" * 64,
-                "embeddedProvisioningProfileSha256": "8" * 64,
-                "canonicalProvisioningProfileSha256": "9" * 64,
-                "provisioningProfileUuid": "11111111-2222-3333-4444-555555555555",
-                "provisioningProfileName": "SORA App Store Distribution",
-                "applicationSigningCertificateSha256": "a" * 64,
-                "developerCertificateSha256": ["a" * 64],
+                "signedEntitlementsSha256":
+                    SIGNING_QUALIFICATION["signedEntitlementsSha256"],
+                "keychainAccessGroupsSha256":
+                    SIGNING_QUALIFICATION["keychainAccessGroupsSha256"],
+                "embeddedProvisioningProfileSha256":
+                    SIGNING_QUALIFICATION["rawProvisioningProfileSha256"],
+                "canonicalProvisioningProfileSha256":
+                    SIGNING_QUALIFICATION["canonicalProvisioningProfileSha256"],
+                "provisioningProfileUuid":
+                    SIGNING_QUALIFICATION["productionProvisioningProfileUuid"],
+                "provisioningProfileName":
+                    SIGNING_QUALIFICATION["productionProvisioningProfileName"],
+                "applicationSigningCertificateSha256":
+                    SIGNING_QUALIFICATION["productionDistributionCertificateSha256"],
+                "developerCertificateSha256": [
+                    SIGNING_QUALIFICATION["productionDistributionCertificateSha256"]
+                ],
                 "codeDirectories": [{"codePath": "SoraPassport", "candidateCodeDirectorySha256": ["b" * 64]}],
             },
         }
@@ -305,6 +341,13 @@ class ReleaseReproducibilityPackageTests(unittest.TestCase):
     def test_contract_lint_and_decoded_mobileprovision_dates_are_canonical(self) -> None:
         release.lint_contract()
         self.assertEqual(len(release.DEPENDENCY_PATHS), 6)
+        self.assertFalse(hasattr(release, "SIGNING_RECEIPT"))
+        parsed_signing = release.parse_signing_identity_receipt(
+            release.canonical_json(SIGNING_QUALIFICATION),
+            "hermetic signing receipt",
+        )
+        self.assertEqual(parsed_signing["schemaVersion"], 2)
+        self.assertEqual(parsed_signing["codeSignStyle"], "Manual")
         encoded = plistlib.dumps(
             {
                 "CreationDate": datetime(2026, 8, 10, 1, 2, 3),
@@ -409,6 +452,7 @@ class ReleaseReproducibilityPackageTests(unittest.TestCase):
             info_names = {
                 "contractId": "SoraTairaDeploymentAdmissionContractId",
                 "manifestSha256": "SoraTairaDeploymentManifestSha256",
+                "manifestSequenceNumber": "SoraTairaDeploymentManifestSequenceNumber",
                 "admissionSha256": "SoraTairaDeploymentAdmissionSha256",
                 "currentChainId": "SoraTairaCurrentChainId",
                 "retiredChainId": "SoraTairaRetiredChainId",
@@ -418,6 +462,7 @@ class ReleaseReproducibilityPackageTests(unittest.TestCase):
                 "retiredDeploymentEpoch": "SoraTairaRetiredDeploymentEpoch",
                 "canonicalToriiBaseUrl": "SoraTairaCanonicalToriiBaseUrl",
                 "publicMcpEndpoint": "SoraTairaPublicMcpEndpoint",
+                "explorerBaseUrl": "SoraTairaExplorerBaseUrl",
                 "pendingRowPolicy": "SoraTairaPendingRowPolicy",
             }
             archive_info = {
@@ -451,6 +496,23 @@ class ReleaseReproducibilityPackageTests(unittest.TestCase):
             stale["derivedTestHost"] = {"sha256": "e" * 64}
             write(fixture.primary["manifest_path"], release.canonical_json(stale))
             with self.assertRaisesRegex(release.ReleaseReproducibilityError, "stale, mixed"):
+                fixture.compare()
+
+        temporary, root = self.temporary()
+        with temporary:
+            fixture = Fixture(root)
+            in_checkout = fixture.primary_repo / "protected-signing.json"
+            write(in_checkout, release.canonical_json(SIGNING_QUALIFICATION))
+            stale = dict(fixture.primary["manifest"])
+            stale["signingIdentityReceipt"] = {
+                "path": str(in_checkout),
+                **digest(in_checkout),
+            }
+            write(fixture.primary["manifest_path"], release.canonical_json(stale))
+            with self.assertRaisesRegex(
+                release.ReleaseReproducibilityError,
+                "outside the clean checkout",
+            ):
                 fixture.compare()
 
     def test_build_number_is_newer_and_matches_both_signed_applications(self) -> None:

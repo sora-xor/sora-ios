@@ -1,0 +1,63 @@
+{"command": ["python3", "SoraPassport/Scripts/test-ios-migration-evidence-collector.py"], "exitCode": 0}
+test_account_item_decoder_accepts_only_real_codable_shapes (__main__.CollectorContractTests.test_account_item_decoder_accepts_only_real_codable_shapes) ... ok
+test_anchored_snapshot_rejects_symlink_and_hardlink_aliases (__main__.CollectorContractTests.test_anchored_snapshot_rejects_symlink_and_hardlink_aliases) ... ok
+test_collection_job_cannot_promote_or_sign (__main__.CollectorContractTests.test_collection_job_cannot_promote_or_sign) ... ok
+test_collector_contract_is_non_authorizing (__main__.CollectorContractTests.test_collector_contract_is_non_authorizing) ... ok
+test_contract_snapshot_binds_parsed_manifest_bytes (__main__.CollectorContractTests.test_contract_snapshot_binds_parsed_manifest_bytes) ... ok
+test_device_event_projection_binds_reviewed_chronology (__main__.CollectorContractTests.test_device_event_projection_binds_reviewed_chronology) ... ok
+test_duplicate_wallet_identifiers_are_rejected (__main__.CollectorContractTests.test_duplicate_wallet_identifiers_are_rejected) ... ok
+test_exact_v1_and_v2_model_fingerprints (__main__.CollectorContractTests.test_exact_v1_and_v2_model_fingerprints) ... ok
+test_fixed_layout_rejects_unreviewed_sidecars (__main__.CollectorContractTests.test_fixed_layout_rejects_unreviewed_sidecars) ... ok
+test_installable_clone_receipt_replaces_legacy_test_host_wire (__main__.CollectorContractTests.test_installable_clone_receipt_replaces_legacy_test_host_wire) ... ok
+test_ipa_entry_names_reject_normalized_and_casefold_collisions (__main__.CollectorContractTests.test_ipa_entry_names_reject_normalized_and_casefold_collisions) ... ok
+test_point_of_use_source_reads_require_admitted_digest (__main__.CollectorContractTests.test_point_of_use_source_reads_require_admitted_digest) ... ok
+test_retained_device_evidence_scheme_and_producers_are_exact (__main__.CollectorContractTests.test_retained_device_evidence_scheme_and_producers_are_exact) ... ok
+test_retained_mnemonic_and_iroha_pair_cohorts_cannot_be_omitted (__main__.CollectorContractTests.test_retained_mnemonic_and_iroha_pair_cohorts_cannot_be_omitted) ... ok
+test_reviewed_settings_inventory_is_source_derived (__main__.CollectorContractTests.test_reviewed_settings_inventory_is_source_derived) ... ok
+test_signature_admission_consumes_captured_bytes (__main__.CollectorContractTests.test_signature_admission_consumes_captured_bytes) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.112s
+
+OK
+
+{"command": ["python3", "SoraPassport/Scripts/test-ios-migration-exact-ipa-evidence.py"], "exitCode": 0}
+test_application_receipt_enforces_all_eleven_and_ten_case_contracts (__main__.ExactIpaControllerTests.test_application_receipt_enforces_all_eleven_and_ten_case_contracts) ... ok
+test_artifact_paths_allow_only_internal_ascii_spaces (__main__.ExactIpaControllerTests.test_artifact_paths_allow_only_internal_ascii_spaces) ... ok
+test_clone_artifact_recheck_rejects_post_receipt_byte_drift (__main__.ExactIpaControllerTests.test_clone_artifact_recheck_rejects_post_receipt_byte_drift) ... ok
+test_clone_receipt_binds_every_clone_authorization_field (__main__.ExactIpaControllerTests.test_clone_receipt_binds_every_clone_authorization_field) ... ok
+test_clone_receipt_rejects_different_projector_source (__main__.ExactIpaControllerTests.test_clone_receipt_rejects_different_projector_source) ... ok
+test_clone_receipt_rejects_stale_shape_and_unequal_projection (__main__.ExactIpaControllerTests.test_clone_receipt_rejects_stale_shape_and_unequal_projection) ... ok
+test_controller_contains_no_signing_or_promotion_cli (__main__.ExactIpaControllerTests.test_controller_contains_no_signing_or_promotion_cli) ... ok
+test_der_signature_verifies_exact_canonical_request (__main__.ExactIpaControllerTests.test_der_signature_verifies_exact_canonical_request) ... ok
+test_enrollment_snapshot_rejects_stale_case_state (__main__.ExactIpaControllerTests.test_enrollment_snapshot_rejects_stale_case_state) ... ok
+test_exact_eleven_keychain_and_ten_device_cases (__main__.ExactIpaControllerTests.test_exact_eleven_keychain_and_ten_device_cases) ... ok
+test_execute_case_fails_before_install_on_wallet_tree_drift (__main__.ExactIpaControllerTests.test_execute_case_fails_before_install_on_wallet_tree_drift) ... ok
+test_execute_case_fails_closed_on_clone_recheck_drift (__main__.ExactIpaControllerTests.test_execute_case_fails_closed_on_clone_recheck_drift) ... ok
+test_execute_case_fails_closed_on_missing_receipt (__main__.ExactIpaControllerTests.test_execute_case_fails_closed_on_missing_receipt) ... ok
+test_execute_case_fails_closed_on_missing_xcresult_receipt (__main__.ExactIpaControllerTests.test_execute_case_fails_closed_on_missing_xcresult_receipt) ... ok
+test_execute_case_orders_clone_install_immediately_before_test (__main__.ExactIpaControllerTests.test_execute_case_orders_clone_install_immediately_before_test) ... ok
+test_execute_case_rejects_device_outside_clone_receipt_binding (__main__.ExactIpaControllerTests.test_execute_case_rejects_device_outside_clone_receipt_binding) ... ok
+test_expired_or_cross_kind_case_is_rejected (__main__.ExactIpaControllerTests.test_expired_or_cross_kind_case_is_rejected) ... ok
+test_operation_specific_receipt_failures_are_rejected (__main__.ExactIpaControllerTests.test_operation_specific_receipt_failures_are_rejected) ... ok
+test_preparation_cli_is_non_authorizing_and_exactly_scoped (__main__.ExactIpaControllerTests.test_preparation_cli_is_non_authorizing_and_exactly_scoped) ... ok
+test_prepared_wallet_record_requires_real_wallet_inputs (__main__.ExactIpaControllerTests.test_prepared_wallet_record_requires_real_wallet_inputs) ... ok
+test_signed_request_admits_only_the_protected_clone_receipt_binding (__main__.ExactIpaControllerTests.test_signed_request_admits_only_the_protected_clone_receipt_binding) ... ok
+test_stale_22_field_authorization_is_rejected (__main__.ExactIpaControllerTests.test_stale_22_field_authorization_is_rejected) ... ok
+test_unknown_bool_and_noncanonical_json_are_rejected (__main__.ExactIpaControllerTests.test_unknown_bool_and_noncanonical_json_are_rejected) ... ok
+test_watch_only_is_successful_but_not_a_signing_claim (__main__.ExactIpaControllerTests.test_watch_only_is_successful_but_not_a_signing_claim) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.125s
+
+OK
+
+{"command": ["/bin/sh", "SoraPassport/Scripts/verify-ios-migration-qualification.sh", "--lint-templates"], "exitCode": 0}
+
+{"command": ["python3", "SoraPassport/Scripts/run-ios-migration-exact-ipa-evidence.py", "--lint-contract"], "exitCode": 0}
+iOS migration exact-IPA retained-device controller contract: OK
+
+{"command": ["xcrun", "swiftc", "-frontend", "-parse", "SoraPassport/Common/MigrationEvidence/RetainedMigrationEvidenceHarness.swift", "SoraPassportIntegrationTests/WalletMigrationRetainedDeviceEvidenceTests.swift"], "exitCode": 0}
+
+{"command": ["git", "diff", "--check"], "exitCode": 0}
+

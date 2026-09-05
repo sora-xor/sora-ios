@@ -100,6 +100,65 @@ def create_model(connection: sqlite3.Connection, version: int) -> None:
 
 
 class CollectorContractTests(unittest.TestCase):
+    def test_retained_mnemonic_and_iroha_pair_cohorts_cannot_be_omitted(self) -> None:
+        # The pre-fix eight-cohort run could qualify without exercising any of
+        # these three released credential formats. Keep this input independent
+        # of the collector's cohort declaration so shrinking it is detected.
+        success_cohorts = [
+            "mnemonic-12", "mnemonic-15-retained", "mnemonic-18-retained",
+            "mnemonic-21-retained", "mnemonic-24", "iroha-v1-paired-keys",
+            "raw-seed", "legacy-secret", "watch-only",
+        ]
+        failure_cohorts = ["missing-secret", "corrupt-secret"]
+        new_cohorts = {
+            "mnemonic-18-retained", "mnemonic-21-retained", "iroha-v1-paired-keys",
+        }
+        record = {
+            **{key: "isolated-test-binding" for key in COLLECTOR.EXACT_CLONE_BINDING_KEYS},
+            "schemaVersion": 3,
+            "contractId": "sora-ios-wallet-migration-keychain-observations-v3",
+            "platform": "ios",
+            "runId": "isolated-test-run",
+            "runChallengeSha256": "1" * 64,
+            "sourceRevision": "2" * 40,
+            "producerTestIdentifier": (
+                "WalletMigrationRetainedDeviceEvidenceTests/testEmitRetainedKeychainCohortEvidence()"
+            ),
+            "observations": [{
+                "cohortId": cohort,
+                "outcome": "success" if cohort in success_cohorts else "recovery",
+                "identifierSetUnchanged": True,
+                "valuesByteForByteUnchanged": True,
+                "accessibilityUnchanged": True,
+                "credentialRewriteObserved": False,
+                "signingProbePassed": cohort in success_cohorts,
+                "recoveryRouteEntered": cohort in failure_cohorts,
+            } for cohort in success_cohorts + failure_cohorts],
+        }
+        aggregate = COLLECTOR.inspect_keychain(record)
+        self.assertEqual(aggregate["successfulSecretSourceCohortCount"], 9)
+        self.assertEqual(aggregate["secretFailureCohortCount"], 2)
+        stale = {**record, "observations": [
+            item for item in record["observations"] if item["cohortId"] not in new_cohorts
+        ]}
+        with self.assertRaises(COLLECTOR.CollectionError):
+            COLLECTOR.inspect_keychain(stale)
+        for cohort in sorted(new_cohorts):
+            for mutation in ("omitted", "duplicate", "signing-failed", "keys-changed"):
+                with self.subTest(cohort=cohort, mutation=mutation):
+                    changed = json.loads(json.dumps(record))
+                    item = next(x for x in changed["observations"] if x["cohortId"] == cohort)
+                    if mutation == "omitted":
+                        changed["observations"].remove(item)
+                    elif mutation == "duplicate":
+                        item["cohortId"] = "mnemonic-15-retained"
+                    elif mutation == "signing-failed":
+                        item["signingProbePassed"] = False
+                    else:
+                        item["valuesByteForByteUnchanged"] = False
+                    with self.assertRaises(COLLECTOR.CollectionError):
+                        COLLECTOR.inspect_keychain(changed)
+
     def test_contract_snapshot_binds_parsed_manifest_bytes(self) -> None:
         digest, entries = CONTRACT.calculate_contract(ROOT)
         self.assertRegex(digest, r"^[0-9a-f]{64}$")
@@ -175,7 +234,7 @@ class CollectorContractTests(unittest.TestCase):
 
     def test_point_of_use_source_reads_require_admitted_digest(self) -> None:
         entries = contract_entry_map()
-        self.assertEqual(len(COLLECTOR.expected_test_identifiers(entries)), 226)
+        self.assertEqual(len(COLLECTOR.expected_test_identifiers(entries)), 228)
         settings = "SoraPassport/Common/Extensions/SettingsExtension.swift"
         _, byte_count = entries[settings]
         entries[settings] = ("f" * 64, byte_count)
@@ -580,7 +639,7 @@ class CollectorContractTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            len(COLLECTOR.expected_test_identifiers(contract_entry_map())), 226
+            len(COLLECTOR.expected_test_identifiers(contract_entry_map())), 228
         )
 
     def test_collection_job_cannot_promote_or_sign(self) -> None:

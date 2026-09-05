@@ -20,8 +20,6 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "Fixtures/Modernization"
 INVENTORY = FIXTURES / "ios-production-signing-identity.json"
-RECEIPT = FIXTURES / "ios-production-signing-identity-qualification.json"
-TRUST = FIXTURES / "ios-production-signing-identity-qualification-trust.json"
 BLOCKED_RECEIPT = (
     FIXTURES / "ios-production-signing-identity-qualification.blocked.json"
 )
@@ -35,9 +33,10 @@ MAX_SIGNATURE_BYTES = 16 * 1024
 MAX_CONTRACT_FILE_BYTES = 64 * 1024 * 1024
 MAX_SAFE_INTEGER = 9_007_199_254_740_991
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+SHA1_UPPER_RE = re.compile(r"^[0-9A-F]{40}$")
 REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 KEY_ID_RE = re.compile(r"^[a-z][a-z0-9._-]{2,127}$")
-PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._()+-]{2,127}$")
+PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._():+-]{2,127}$")
 SAFE_OPENSSL_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"}
 
 CONTRACT_FILES = (
@@ -76,18 +75,32 @@ RECEIPT_KEYS = {
     "developmentTeam",
     "applicationIdentifier",
     "codeSignStyle",
-    "configuredCodeSignIdentity",
+    "configuredCodeSignIdentitySha1",
     "entitlementsPath",
     "sourceEntitlementsSha256",
     "signedEntitlementsSha256",
     "keychainAccessGroupsSha256",
     "productionDistributionCertificateSha256",
+    "productionDistributionCertificateSha1",
     "productionProvisioningProfileUuid",
     "productionProvisioningProfileName",
+    "rawProvisioningProfileSha256",
     "canonicalProvisioningProfileSha256",
-    "appStoreSigningContinuityReviewed",
+    "releaseLineage",
     "privateKeyOrCredentialRecorded",
     "blockingReasons",
+}
+LINEAGE_KEYS = {
+    "type",
+    "appStoreAdamId",
+    "priorAcceptedMarketingVersion",
+    "priorAcceptedBuildNumber",
+    "priorUploadedIpaSha256",
+    "priorUploadReceiptSha256",
+    "bundleIdentifierContinuityReviewed",
+    "developmentTeamContinuityReviewed",
+    "applicationIdentifierContinuityReviewed",
+    "keychainAccessGroupsContinuityReviewed",
 }
 TRUST_KEYS = {
     "schemaVersion",
@@ -99,6 +112,41 @@ TRUST_KEYS = {
     "replayPolicy",
     "blockingReasons",
 }
+
+EXPECTED_RELEASE_LINEAGE = {
+    "type": "existing-app-update",
+    "appStoreAdamId": "1457566711",
+    "priorAcceptedMarketingVersion": "3.8.7",
+    "priorAcceptedBuildNumber": "2026081001",
+    "priorUploadedIpaSha256":
+        "e8bc51066da5da3442a687687134f3e0dd5af7f12d32c8b055b2336207612b94",
+    "priorUploadReceiptSha256":
+        "1df6fdcf7fda9c0a433b177205e2bbf9a576623c4c6226c9d0dfafe7d445cf8e",
+    "bundleIdentifierContinuityReviewed": True,
+    "developmentTeamContinuityReviewed": True,
+    "applicationIdentifierContinuityReviewed": True,
+    "keychainAccessGroupsContinuityReviewed": True,
+}
+EXPECTED_DISTRIBUTION_CERTIFICATE_SHA1 = (
+    "84AB95335BE14CAE9B050A353910F86FF2F9539B"
+)
+EXPECTED_DISTRIBUTION_CERTIFICATE_SHA256 = (
+    "d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"
+)
+EXPECTED_PROFILE_UUID = "7ae520bc-599b-48ae-abfa-627eef530f0c"
+EXPECTED_PROFILE_NAME = "iOS Team Store Provisioning Profile: co.jp.soramitsu.sora"
+EXPECTED_RAW_PROFILE_SHA256 = (
+    "19073a93bc09fe061e2346470b57aae1961aa38ad4c6b4922e0140bf8061bf93"
+)
+EXPECTED_CANONICAL_PROFILE_SHA256 = (
+    "f6d534c50ba641341337a6ce9b34f55db7931491c43554ededffb8a47d88b931"
+)
+EXPECTED_SIGNED_ENTITLEMENTS_SHA256 = (
+    "6ce476d496fb75e4510b9dfce490dc6c29d78b96d9114c85a44b09d9d2756b2d"
+)
+EXPECTED_KEYCHAIN_ACCESS_GROUPS_SHA256 = (
+    "6382618e08a2e9678e9c4b1f2dec83836c3aeb2aea1508df83dde886979efdc0"
+)
 
 
 def fail(message: str) -> None:
@@ -239,8 +287,14 @@ class StableInputs:
         label: str,
         *,
         canonical: bool = False,
+        owner_only: bool = False,
     ) -> tuple[Path, bytes, dict[str, Any]]:
-        snapshot, raw = self.read(path, MAX_JSON_BYTES, label)
+        snapshot, raw = self.read(
+            path,
+            MAX_JSON_BYTES,
+            label,
+            owner_only=owner_only,
+        )
         return snapshot, raw, load_json_bytes(raw, label, canonical=canonical)
 
     def recheck_all(self) -> None:
@@ -359,74 +413,65 @@ def contract_sha256(inputs: StableInputs) -> str:
 
 
 def validate_blocked_templates(inputs: StableInputs) -> None:
-    _, _, inventory = inputs.json(INVENTORY, "legacy signing-identity inventory")
-    exact_keys(
-        inventory,
-        {
-            "schemaVersion", "platform", "assessedAt", "status", "releaseEnabled",
-            "bundleIdentifier", "developmentTeam", "codeSignStyle",
-            "configuredCodeSignIdentity", "entitlementsPath", "entitlementsSha256",
-            "productionDistributionCertificateSha256",
-            "productionProvisioningProfileUuid", "productionProvisioningProfileName",
-            "archivedApplicationCertificateMatched", "archivedProvisioningProfileMatched",
-            "archivedEntitlementsMatched", "appStoreSigningContinuityReviewed",
-            "keychainAccessGroupsUnchanged", "privateKeyOrCredentialRecorded",
-            "blocker", "exitCriteria",
+    _, _, inventory = inputs.json(INVENTORY, "production signing-identity inventory")
+    if inventory != {
+        "schemaVersion": 2,
+        "platform": "ios",
+        "assessedAt": "2026-08-24",
+        "status": "configured",
+        "releaseEnabled": False,
+        "releaseLineage": EXPECTED_RELEASE_LINEAGE,
+        "bundleIdentifier": "co.jp.soramitsu.sora",
+        "developmentTeam": "YLWWUD25VZ",
+        "applicationIdentifier": "YLWWUD25VZ.co.jp.soramitsu.sora",
+        "projectCodeSignStyle": "Automatic",
+        "projectConfiguredCodeSignIdentity": "iPhone Developer",
+        "releaseArchiveCodeSignStyle": "Manual",
+        "releaseArchiveCodeSignIdentitySha1":
+            EXPECTED_DISTRIBUTION_CERTIFICATE_SHA1,
+        "entitlementsPath": "SoraPassport/SoraPassport.entitlements",
+        "entitlementsSha256":
+            "97704a8960b4facceef54397a08fb5d0a456247c3627359215aa2a27df22656c",
+        "signedEntitlementsSha256": EXPECTED_SIGNED_ENTITLEMENTS_SHA256,
+        "keychainAccessGroupsSha256": EXPECTED_KEYCHAIN_ACCESS_GROUPS_SHA256,
+        "productionDistributionCertificateSha1":
+            EXPECTED_DISTRIBUTION_CERTIFICATE_SHA1,
+        "productionDistributionCertificateSha256":
+            EXPECTED_DISTRIBUTION_CERTIFICATE_SHA256,
+        "productionProvisioningProfileUuid": EXPECTED_PROFILE_UUID,
+        "productionProvisioningProfileName": EXPECTED_PROFILE_NAME,
+        "rawProvisioningProfileSha256": EXPECTED_RAW_PROFILE_SHA256,
+        "canonicalProvisioningProfileSha256":
+            EXPECTED_CANONICAL_PROFILE_SHA256,
+        "archivedApplicationCertificateMatched": True,
+        "archivedProvisioningProfileMatched": True,
+        "archivedEntitlementsMatched": True,
+        "appStoreRecordContinuityObserved": True,
+        "keychainAccessGroupsUnchanged": True,
+        "privateKeyOrCredentialRecorded": False,
+        "blocker": {
+            "code": "ios_production_signing_admission_not_supplied",
+            "reason": (
+                "The real Apple signing selection and existing App Store lineage are "
+                "configured, but the current clean revision still requires an external "
+                "dual-authority admission and protected release-runner credentials."
+            ),
         },
-        "legacy signing-identity inventory",
-    )
-    if (
-        inventory["schemaVersion"] != 1
-        or inventory["platform"] != "ios"
-        or inventory["assessedAt"] != "2026-08-02"
-        or inventory["status"] != "blocked"
-        or inventory["releaseEnabled"] is not False
-        or inventory["bundleIdentifier"] != "co.jp.soramitsu.sora"
-        or inventory["developmentTeam"] != "YLWWUD25VZ"
-        or inventory["codeSignStyle"] != "Automatic"
-        or inventory["configuredCodeSignIdentity"] != "iPhone Developer"
-        or inventory["entitlementsPath"] != "SoraPassport/SoraPassport.entitlements"
-        or inventory["entitlementsSha256"]
-        != "97704a8960b4facceef54397a08fb5d0a456247c3627359215aa2a27df22656c"
-        or inventory["productionDistributionCertificateSha256"] is not None
-        or inventory["productionProvisioningProfileUuid"] is not None
-        or inventory["productionProvisioningProfileName"] is not None
-        or any(
-            inventory[key] is not False
-            for key in (
-                "archivedApplicationCertificateMatched",
-                "archivedProvisioningProfileMatched",
-                "archivedEntitlementsMatched",
-                "appStoreSigningContinuityReviewed",
-                "keychainAccessGroupsUnchanged",
-                "privateKeyOrCredentialRecorded",
-            )
-        )
-    ):
-        fail("legacy signing-identity inventory must remain exactly blocked")
-    if inventory["blocker"] != {
-        "code": "ios_production_signing_identity_not_qualified",
-        "reason": (
-            "The bundle identifier and development team are preserved, but the retained "
-            "production distribution certificate and provisioning profile identities have "
-            "not been supplied and matched against a qualified archive."
-        ),
+        "exitCriteria": [
+            "materialize the authorized Apple Distribution private identity and exact App Store profile in the protected release runner",
+            "obtain a fresh dual-P-256-signed signing-selection and existing-app-lineage receipt for the exact clean source revision",
+            "archive and export with the pinned manual certificate and provisioning-profile selection",
+            "match both independently reproduced IPAs to the admitted certificate, profile, entitlements, application identity, and Keychain groups",
+        ],
     }:
-        fail("legacy signing-identity blocker drifted")
-    if inventory["exitCriteria"] != [
-        "obtain the retained production distribution certificate SHA-256 and provisioning profile public identity from the authorized release system",
-        "confirm the existing bundle identifier, team, entitlements, application identifier, and Keychain access groups are unchanged",
-        "archive with the authorized production signing environment",
-        "match the archived application certificate, provisioning profile, entitlements, and App Store signing continuity without recording private keys or credentials",
-    ]:
-        fail("legacy signing-identity exit criteria drifted")
+        fail("production signing-identity inventory drifted")
 
     _, _, blocked_receipt = inputs.json(
         BLOCKED_RECEIPT, "blocked signing-continuity receipt"
     )
     if blocked_receipt != {
-        "schemaVersion": 1,
-        "contractId": "sora-ios-production-signing-identity-qualification-v1",
+        "schemaVersion": 2,
+        "contractId": "sora-ios-production-signing-identity-qualification-v2",
         "platform": "ios",
         "status": "blocked",
         "runId": None,
@@ -442,27 +487,35 @@ def validate_blocked_templates(inputs: StableInputs) -> None:
         "bundleIdentifier": "co.jp.soramitsu.sora",
         "developmentTeam": "YLWWUD25VZ",
         "applicationIdentifier": "YLWWUD25VZ.co.jp.soramitsu.sora",
-        "codeSignStyle": "Automatic",
-        "configuredCodeSignIdentity": "iPhone Developer",
+        "codeSignStyle": "Manual",
+        "configuredCodeSignIdentitySha1":
+            EXPECTED_DISTRIBUTION_CERTIFICATE_SHA1,
         "entitlementsPath": "SoraPassport/SoraPassport.entitlements",
         "sourceEntitlementsSha256":
             "97704a8960b4facceef54397a08fb5d0a456247c3627359215aa2a27df22656c",
-        "signedEntitlementsSha256": None,
-        "keychainAccessGroupsSha256": None,
-        "productionDistributionCertificateSha256": None,
-        "productionProvisioningProfileUuid": None,
-        "productionProvisioningProfileName": None,
-        "canonicalProvisioningProfileSha256": None,
-        "appStoreSigningContinuityReviewed": False,
+        "signedEntitlementsSha256": EXPECTED_SIGNED_ENTITLEMENTS_SHA256,
+        "keychainAccessGroupsSha256": EXPECTED_KEYCHAIN_ACCESS_GROUPS_SHA256,
+        "productionDistributionCertificateSha256":
+            EXPECTED_DISTRIBUTION_CERTIFICATE_SHA256,
+        "productionDistributionCertificateSha1":
+            EXPECTED_DISTRIBUTION_CERTIFICATE_SHA1,
+        "productionProvisioningProfileUuid": EXPECTED_PROFILE_UUID,
+        "productionProvisioningProfileName": EXPECTED_PROFILE_NAME,
+        "rawProvisioningProfileSha256": EXPECTED_RAW_PROFILE_SHA256,
+        "canonicalProvisioningProfileSha256":
+            EXPECTED_CANONICAL_PROFILE_SHA256,
+        "releaseLineage": EXPECTED_RELEASE_LINEAGE,
         "privateKeyOrCredentialRecorded": False,
-        "blockingReasons": ["protected retained signing-continuity evidence is absent"],
+        "blockingReasons": [
+            "protected dual-authority signing-selection and lineage admission is absent"
+        ],
     }:
         fail("blocked signing-continuity receipt drifted")
 
     _, _, blocked_trust = inputs.json(BLOCKED_TRUST, "blocked signing trust root")
     if blocked_trust != {
-        "schemaVersion": 1,
-        "contractId": "sora-ios-production-signing-identity-trust-v1",
+        "schemaVersion": 2,
+        "contractId": "sora-ios-production-signing-identity-trust-v2",
         "platform": "ios",
         "status": "blocked",
         "signatureAlgorithm": "ecdsa-p256-sha256",
@@ -606,10 +659,16 @@ def verify_qualified() -> str:
         if contract_sha256(inputs) != expected_contract:
             fail("signing-continuity contract differs from its protected SHA-256")
         receipt_path, receipt_raw, receipt = inputs.json(
-            RECEIPT, "signing-continuity receipt", canonical=True
+            protected_path("IOS_SIGNING_IDENTITY_RECEIPT_PATH"),
+            "signing-selection and lineage receipt",
+            canonical=True,
+            owner_only=True,
         )
         trust_path, trust_raw, trust = inputs.json(
-            TRUST, "signing-continuity trust root", canonical=True
+            protected_path("IOS_SIGNING_IDENTITY_TRUST_PATH"),
+            "signing-selection trust root",
+            canonical=True,
+            owner_only=True,
         )
         exact_keys(receipt, RECEIPT_KEYS, "signing-continuity receipt")
         exact_keys(trust, TRUST_KEYS, "signing-continuity trust root")
@@ -643,14 +702,14 @@ def verify_qualified() -> str:
             sha256_bytes(trust_raw), "signing trust root", expected_trust
         )
         if (
-            trust["schemaVersion"] != 1
-            or trust["contractId"] != "sora-ios-production-signing-identity-trust-v1"
+            trust["schemaVersion"] != 2
+            or trust["contractId"] != "sora-ios-production-signing-identity-trust-v2"
             or trust["platform"] != "ios"
             or trust["status"] != "qualified"
             or trust["signatureAlgorithm"] != "ecdsa-p256-sha256"
             or trust["blockingReasons"] != []
         ):
-            fail("signing-continuity trust root is not exact qualified v1")
+            fail("signing-selection trust root is not exact qualified v2")
         authorities = exact_keys(
             trust["authorities"],
             {"releaseEvidenceProducer", "independentReviewer"},
@@ -713,18 +772,17 @@ def verify_qualified() -> str:
             "maximumQualificationAgeSeconds": 2_592_000,
             "maximumReviewDelaySeconds": 86_400,
         }:
-            fail("signing replay policy is not exact v1")
+            fail("signing replay policy is not exact v2")
         if (
-            receipt["schemaVersion"] != 1
+            receipt["schemaVersion"] != 2
             or receipt["contractId"]
-            != "sora-ios-production-signing-identity-qualification-v1"
+            != "sora-ios-production-signing-identity-qualification-v2"
             or receipt["platform"] != "ios"
             or receipt["status"] != "qualified"
             or receipt["blockingReasons"] != []
-            or receipt["appStoreSigningContinuityReviewed"] is not True
             or receipt["privateKeyOrCredentialRecorded"] is not False
         ):
-            fail("signing-continuity receipt is not exact qualified v1")
+            fail("signing-selection receipt is not exact qualified v2")
         canonical_uuid(receipt["runId"], "signing receipt run ID", version=4)
         if receipt["runId"] != expected_run:
             fail("signing receipt run ID differs from the protected run")
@@ -770,12 +828,13 @@ def verify_qualified() -> str:
             or receipt["developmentTeam"] != "YLWWUD25VZ"
             or receipt["applicationIdentifier"]
             != "YLWWUD25VZ.co.jp.soramitsu.sora"
-            or receipt["codeSignStyle"] != "Automatic"
-            or receipt["configuredCodeSignIdentity"] != "iPhone Developer"
+            or receipt["codeSignStyle"] != "Manual"
+            or receipt["configuredCodeSignIdentitySha1"]
+            != EXPECTED_DISTRIBUTION_CERTIFICATE_SHA1
             or receipt["entitlementsPath"]
             != "SoraPassport/SoraPassport.entitlements"
         ):
-            fail("signing receipt changed the retained application identity")
+            fail("signing receipt changed the durable application identity or selection")
         source_entitlements = ROOT / receipt["entitlementsPath"]
         _, source_raw = inputs.read(
             source_entitlements, MAX_JSON_BYTES, "source entitlements"
@@ -785,25 +844,56 @@ def verify_qualified() -> str:
             "source entitlements identity",
             sha256_bytes(source_raw),
         )
-        for key in (
-            "signedEntitlementsSha256",
-            "keychainAccessGroupsSha256",
-            "productionDistributionCertificateSha256",
-            "canonicalProvisioningProfileSha256",
+        for key, expected_value in (
+            ("signedEntitlementsSha256", EXPECTED_SIGNED_ENTITLEMENTS_SHA256),
+            ("keychainAccessGroupsSha256", EXPECTED_KEYCHAIN_ACCESS_GROUPS_SHA256),
+            (
+                "productionDistributionCertificateSha256",
+                EXPECTED_DISTRIBUTION_CERTIFICATE_SHA256,
+            ),
+            ("rawProvisioningProfileSha256", EXPECTED_RAW_PROFILE_SHA256),
+            (
+                "canonicalProvisioningProfileSha256",
+                EXPECTED_CANONICAL_PROFILE_SHA256,
+            ),
         ):
-            require_sha256(receipt[key], f"signing receipt {key}")
-        canonical_uuid(
+            require_sha256(
+                receipt[key],
+                f"signing receipt {key}",
+                expected_value,
+            )
+        if (
+            type(receipt["productionDistributionCertificateSha1"]) is not str
+            or SHA1_UPPER_RE.fullmatch(
+                receipt["productionDistributionCertificateSha1"]
+            ) is None
+            or receipt["productionDistributionCertificateSha1"]
+            != EXPECTED_DISTRIBUTION_CERTIFICATE_SHA1
+        ):
+            fail("signing receipt distribution-certificate SHA-1 drifted")
+        profile_uuid = canonical_uuid(
             receipt["productionProvisioningProfileUuid"],
             "production provisioning-profile UUID",
         )
+        if profile_uuid != EXPECTED_PROFILE_UUID:
+            fail("production provisioning-profile UUID drifted")
         if (
             type(receipt["productionProvisioningProfileName"]) is not str
             or PROFILE_NAME_RE.fullmatch(
                 receipt["productionProvisioningProfileName"]
             )
             is None
+            or receipt["productionProvisioningProfileName"]
+            != EXPECTED_PROFILE_NAME
         ):
             fail("production provisioning-profile name is not canonical")
+        lineage = exact_keys(
+            receipt["releaseLineage"],
+            LINEAGE_KEYS,
+            "signing receipt release lineage",
+        )
+        if lineage != EXPECTED_RELEASE_LINEAGE:
+            fail("signing receipt does not bind the reviewed existing-app lineage")
         if (
             receipt["sourceEntitlementsSha256"]
             == receipt["signedEntitlementsSha256"]

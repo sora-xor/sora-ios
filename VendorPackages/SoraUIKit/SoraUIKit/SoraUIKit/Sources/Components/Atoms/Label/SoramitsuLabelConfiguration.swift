@@ -49,6 +49,11 @@ public class SoramitsuLabelConfiguration<Type: UILabel & Atom>: SoramitsuViewCon
         }
     }
 
+    /// Opt in on layouts that can grow with the user's preferred text size.
+    public var dynamicTextStyle: UIFont.TextStyle? {
+        didSet { updateAttributedText() }
+    }
+
 	// MARK: Other
 
     public var contentInsets: SoramitsuInsets = .zero {
@@ -79,7 +84,7 @@ public class SoramitsuLabelConfiguration<Type: UILabel & Atom>: SoramitsuViewCon
 
 	func updateAttributedText() {
 		guard attributedText == nil else {
-			owner?.attributedText = attributedText?.attributedString
+			owner?.attributedText = scaled(attributedText?.attributedString)
 			return
 		}
 		guard let text = text else {
@@ -101,6 +106,17 @@ public class SoramitsuLabelConfiguration<Type: UILabel & Atom>: SoramitsuViewCon
 			attributes[.underlineStyle] = underlineStyle.rawValue
 		}
 
-		owner?.attributedText = NSAttributedString(string: text, attributes: attributes)
+		owner?.attributedText = scaled(NSAttributedString(string: text, attributes: attributes))
 	}
+
+    private func scaled(_ text: NSAttributedString?) -> NSAttributedString? {
+        guard let text, let dynamicTextStyle else { return text }
+        let result = NSMutableAttributedString(attributedString: text)
+        text.enumerateAttribute(.font, in: NSRange(location: 0, length: text.length)) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            result.addAttribute(.font, value: UIFontMetrics(forTextStyle: dynamicTextStyle)
+                .scaledFont(for: font, compatibleWith: owner?.traitCollection), range: range)
+        }
+        return result
+    }
 }

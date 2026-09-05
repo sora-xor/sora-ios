@@ -275,9 +275,10 @@ final class WalletModernizationTests: XCTestCase {
             : tairaUUIDs.first
         return [
             "SoraTairaDeploymentAdmissionContractId":
-                "sora-ios-taira-deployment-admission-v1",
+                "sora-ios-taira-deployment-admission-v2",
             "SoraTairaDeploymentManifestSha256":
                 String(repeating: "a", count: 64),
+            "SoraTairaDeploymentManifestSequenceNumber": "17",
             "SoraTairaDeploymentAdmissionSha256":
                 String(repeating: "b", count: 64),
             "SoraTairaCurrentChainId": currentChainId,
@@ -289,9 +290,11 @@ final class WalletModernizationTests: XCTestCase {
             "SoraTairaCurrentDeploymentEpoch": currentDeploymentEpoch,
             "SoraTairaRetiredDeploymentEpoch": retiredDeploymentEpoch,
             "SoraTairaCanonicalToriiBaseUrl":
-                "https://public-01.taira.example.org",
+                "https://taira.sora.org",
             "SoraTairaPublicMcpEndpoint":
-                "https://public-01.taira.example.org/v1/mcp",
+                "https://taira.sora.org/v1/mcp",
+            "SoraTairaExplorerBaseUrl":
+                "https://taira.sora.org",
             "SoraTairaPendingRowPolicy":
                 "schema-77:preserve-exact-uuid:quarantine-recovery-only:no-reinterpretation",
         ]
@@ -1143,50 +1146,52 @@ final class WalletModernizationTests: XCTestCase {
     func testTairaDeploymentAdmissionAcceptsEitherKnownCurrentMapping()
         throws
     {
-        let first = try Self.admittedTairaBinding(
-            currentChainId: Self.tairaUUIDs.first
-        )
-        let second = try Self.admittedTairaBinding(
-            currentChainId: Self.tairaUUIDs.second
-        )
+        let binding = try Self.admittedTairaBinding()
+        let configuration = try Self.admittedTairaConfiguration()
         XCTAssertEqual(
-            first.currentChainId.uuidString.lowercased(),
-            Self.tairaUUIDs.first
-        )
-        XCTAssertEqual(
-            first.retiredChainId.uuidString.lowercased(),
+            binding.currentChainId.uuidString.lowercased(),
             Self.tairaUUIDs.second
         )
         XCTAssertEqual(
-            second.currentChainId.uuidString.lowercased(),
-            Self.tairaUUIDs.second
+            TairaDeploymentBinding.knownChainIds,
+            [binding.currentChainId]
         )
         XCTAssertEqual(
-            second.retiredChainId.uuidString.lowercased(),
-            Self.tairaUUIDs.first
+            configuration.chainId,
+            TairaDeploymentBinding.canonicalChainId
         )
-        XCTAssertTrue(first.authorizesTransport(
-            to: try XCTUnwrap(
-                URL(string: "https://public-01.taira.example.org/v1/mcp")
-            )
-        ))
-        XCTAssertFalse(first.authorizesTransport(
+        XCTAssertEqual(
+            configuration.toriiURL.absoluteString,
+            "https://taira.sora.org"
+        )
+        XCTAssertEqual(
+            TairaDeploymentBinding.canonicalPublicMcpEndpoint.absoluteString,
+            "https://taira.sora.org/v1/mcp"
+        )
+        XCTAssertTrue(configuration.satisfiesCurrentTairaContract)
+        XCTAssertTrue(binding.authorizesTransport(
             to: try XCTUnwrap(
                 URL(string: "https://taira.sora.org/v1/mcp")
             )
         ))
-        XCTAssertEqual(
-            NexusNetworkConfiguration.tairaRecovery(
-                chainId: first.retiredChainId
-            )?.chainId,
-            first.retiredChainId
-        )
-        XCTAssertNotEqual(
-            NexusNetworkConfiguration.taira(
-                deployment: first
-            ).chainId,
-            first.retiredChainId
-        )
+        XCTAssertFalse(binding.authorizesTransport(
+            to: try XCTUnwrap(
+                URL(string: "https://public-01.taira.example.org/v1/mcp")
+            )
+        ))
+        XCTAssertNil(TairaDeploymentBinding.admitted(
+            infoDictionary: Self.tairaAdmissionInfo(
+                currentChainId: Self.tairaUUIDs.first
+            )
+        ))
+        var alternateRoot = Self.tairaAdmissionInfo()
+        alternateRoot["SoraTairaCanonicalToriiBaseUrl"] =
+            "https://public-01.taira.example.org"
+        alternateRoot["SoraTairaPublicMcpEndpoint"] =
+            "https://public-01.taira.example.org/v1/mcp"
+        XCTAssertNil(TairaDeploymentBinding.admitted(
+            infoDictionary: alternateRoot
+        ))
         XCTAssertNil(TairaDeploymentBinding.admitted(
             infoDictionary: Self.tairaAdmissionInfo(
                 currentDeploymentEpoch: "100",
@@ -1207,6 +1212,11 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     func testNexusAdmissionPolicyHasIndependentExactTopologySets() throws {
+        XCTAssertTrue(NexusNetworkAdmissionPolicy.current.isTairaAdmitted)
+        XCTAssertEqual(
+            NexusNetworkConfiguration.admittedWalletNetworkIds,
+            [.sora2, .minamoto, .taira]
+        )
         let unadmitted = NexusNetworkAdmissionPolicy(
             tairaDeployment: nil
         )
@@ -1263,100 +1273,99 @@ final class WalletModernizationTests: XCTestCase {
         )
     }
 
-    func testSameUUIDLegacyTairaPendingRowRemainsRecoveryOnlyAcrossBothMappings()
-        throws
+    func testTairaPendingRowRequiresExactDeploymentIdentityAcrossBothMappings()
+        async throws
     {
+        let configuration = try Self.admittedTairaConfiguration()
         let tairaAddress =
             "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
-        for currentChainId in [
-            Self.tairaUUIDs.first,
-            Self.tairaUUIDs.second,
-        ] {
-            let binding = try Self.admittedTairaBinding(
-                currentChainId: currentChainId
-            )
-            let configuration = NexusNetworkConfiguration.taira(
-                deployment: binding
-            )
-            var retainedSchema77Row = NexusPendingTransaction(
+        func row(
+            chainId: UUID,
+            assetDefinitionID: String
+        ) throws -> NexusPendingTransaction {
+            NexusPendingTransaction(
                 id: UUID(),
                 idempotencyKey: UUID(),
-                walletId: "retained-wallet",
+                walletId: "first-release-taira-wallet",
                 networkId: .taira,
-                chainId: configuration.chainId,
+                chainId: chainId,
                 sender: tairaAddress,
                 receiver: tairaAddress,
-                assetDefinitionID: Self.nexusXorAssetDefinitionID,
+                assetDefinitionID: assetDefinitionID,
                 amount: try PIQuantity("1"),
-                fee: try PIQuantity("0.1"),
+                fee: try PIQuantity("0.01"),
                 createdAt: Date(timeIntervalSince1970: 1),
-                updatedAt: Date(timeIntervalSince1970: 2),
+                updatedAt: Date(timeIntervalSince1970: 1),
                 hash: nil,
                 state: .signing,
                 terminalBlockHeight: nil,
                 errorClass: nil,
                 historyReconciledAt: nil
             )
-            var legacyObject = try XCTUnwrap(
-                JSONSerialization.jsonObject(
-                    with: JSONEncoder().encode(retainedSchema77Row)
-                ) as? [String: Any]
+        }
+
+        var canonical = try row(
+            chainId: configuration.chainId,
+            assetDefinitionID: NexusAssetDefinitionIdentity
+                .tairaXorDefinitionID
+        )
+        XCTAssertNil(canonical.tairaDeployment)
+        XCTAssertTrue(canonical.hasCurrentDeploymentIdentity(
+            for: configuration
+        ))
+
+        // The legacy projection remains callable for migration fixtures, but
+        // it is not part of current runtime admission.
+        let binding = try Self.admittedTairaBinding()
+        canonical.tairaDeployment =
+            NexusPendingTairaDeploymentIdentity.admitted(
+                for: configuration,
+                deployment: binding
             )
-            legacyObject.removeValue(forKey: "tairaDeployment")
-            retainedSchema77Row = try JSONDecoder().decode(
-                NexusPendingTransaction.self,
-                from: JSONSerialization.data(withJSONObject: legacyObject)
+        XCTAssertFalse(canonical.hasCurrentDeploymentIdentity(
+            for: configuration
+        ))
+        XCTAssertTrue(canonical.hasCurrentDeploymentIdentity(
+            for: configuration,
+            tairaBinding: binding
+        ))
+        canonical.tairaDeployment = nil
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try NexusPendingTransactionStore(baseURL: directory)
+        _ = try await store.put(canonical)
+
+        let oldChain = try row(
+            chainId: try XCTUnwrap(UUID(uuidString: Self.tairaUUIDs.first)),
+            assetDefinitionID: NexusAssetDefinitionIdentity
+                .tairaXorDefinitionID
+        )
+        do {
+            _ = try await store.put(oldChain)
+            XCTFail("The retired Taira chain was admitted")
+        } catch {
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        let lookalikeAsset = try row(
+            chainId: configuration.chainId,
+            assetDefinitionID: "61CtjvNd9T3THAR65GsMVHr82Bjc"
+        )
+        XCTAssertTrue(
+            NexusAssetDefinitionIdentity.hasCanonicalWireShape(
+                "61CtjvNd9T3THAR65GsMVHr82Bjc"
             )
-            XCTAssertNil(retainedSchema77Row.tairaDeployment)
-            XCTAssertFalse(retainedSchema77Row.hasCurrentDeploymentIdentity(
-                for: configuration,
-                tairaBinding: binding
-            ))
-            XCTAssertNil(
-                NexusPendingTairaDeploymentIdentity.admitted(
-                    for: configuration,
-                    deployment: nil
-                )
-            )
-            retainedSchema77Row.tairaDeployment =
-                NexusPendingTairaDeploymentIdentity.admitted(
-                    for: configuration,
-                    deployment: binding
-                )
-            XCTAssertTrue(retainedSchema77Row.hasCurrentDeploymentIdentity(
-                for: configuration,
-                tairaBinding: binding
-            ))
-            retainedSchema77Row.tairaDeployment =
-                NexusPendingTairaDeploymentIdentity(
-                    manifestSha256: binding.manifestSha256,
-                    deploymentEpoch: binding.currentDeploymentEpoch,
-                    genesisHash: String(repeating: "e", count: 64)
-                )
-            XCTAssertFalse(retainedSchema77Row.hasCurrentDeploymentIdentity(
-                for: configuration,
-                tairaBinding: binding
-            ))
-            retainedSchema77Row.tairaDeployment =
-                NexusPendingTairaDeploymentIdentity(
-                    manifestSha256: String(repeating: "f", count: 64),
-                    deploymentEpoch: binding.currentDeploymentEpoch,
-                    genesisHash: binding.currentGenesisHash
-                )
-            XCTAssertFalse(retainedSchema77Row.hasCurrentDeploymentIdentity(
-                for: configuration,
-                tairaBinding: binding
-            ))
-            retainedSchema77Row.tairaDeployment =
-                NexusPendingTairaDeploymentIdentity(
-                    manifestSha256: binding.manifestSha256,
-                    deploymentEpoch: binding.currentDeploymentEpoch + 1,
-                    genesisHash: binding.currentGenesisHash
-                )
-            XCTAssertFalse(retainedSchema77Row.hasCurrentDeploymentIdentity(
-                for: configuration,
-                tairaBinding: binding
-            ))
+        )
+        do {
+            _ = try await store.put(lookalikeAsset)
+            XCTFail("A lookalike Taira XOR definition was admitted")
+        } catch {
+            guard case NexusToriiError.invalidResponse = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
         }
     }
 
@@ -1371,7 +1380,7 @@ final class WalletModernizationTests: XCTestCase {
         )
     }
 
-    func testNexusCommittedHistoryPreservesExactAmountAndNetworkScope() throws {
+    func testNexusCommittedHistoryUsesIndexedAccountProjection() throws {
         let sender =
             "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
         let receiver =
@@ -1380,30 +1389,32 @@ final class WalletModernizationTests: XCTestCase {
         let hash = String(repeating: "a", count: 64)
         let result = try JSONDecoder().decode(
             NexusJSONValue.self,
-            from: Data(
-                """
-                {
-                  "body": {
-                    "items": [{
-                      "transaction_hash": "\(hash)",
-                      "created_at": "2026-08-02T00:00:00Z",
-                      "transaction_status": "Committed",
-                      "box": {
-                        "json": {
-                          "payload": {
-                            "variant": "Asset",
-                            "value": {
-                              "source": "\(Self.nexusXorAssetDefinitionID)#\(sender)",
-                              "destination": "\(receiver)",
-                              "object": "\(amount)"
-                            }
-                          }
-                        }
-                      }
-                    }]
-                  }
-                }
-                """.utf8
+            from: JSONSerialization.data(
+                withJSONObject: [
+                    "body": [
+                        "items": [[
+                            "id": "\(hash):\(sender):0",
+                            "source": "transaction",
+                            "type": "TRANSFER",
+                            "timestamp_ms": 1_775_260_800_000,
+                            "status": "SUCCESS",
+                            "result_ok": true,
+                            "direction": "outgoing",
+                            "account_id": sender,
+                            "counterparty_account_id": receiver,
+                            "asset_id": "\(Self.nexusXorAssetDefinitionID)#\(sender)",
+                            "asset_definition_id": Self.nexusXorAssetDefinitionID,
+                            "amount": amount,
+                            "tx_hash": hash,
+                        ]],
+                        "total": 1,
+                        "has_more": false,
+                        "count_mode": "exact",
+                        "indexed_height": 42,
+                        "indexed_block_hash": String(repeating: "e", count: 64),
+                        "query_source": "account_history_index",
+                    ],
+                ]
             )
         )
 
@@ -1420,6 +1431,10 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(page.items.first?.transactionHash, hash)
         XCTAssertEqual(page.items.first?.sender, sender)
         XCTAssertEqual(page.items.first?.receiver, receiver)
+        XCTAssertEqual(page.total, 1)
+        XCTAssertFalse(page.hasMore)
+        XCTAssertEqual(page.indexedHeight, 42)
+        XCTAssertEqual(page.indexedBlockHash, String(repeating: "e", count: 64))
         let exactAmount = try XCTUnwrap(NexusExactDecimal(amount))
         XCTAssertTrue(
             NexusCommittedHistoryReconciliation.matchesExactlyOne(
@@ -1454,7 +1469,7 @@ final class WalletModernizationTests: XCTestCase {
                 receiver: receiver,
                 amount: exactAmount
             ),
-            "A conflicting XOR instruction under the signed hash was ignored"
+            "A conflicting XOR projection under the signed hash was ignored"
         )
         let unrelatedTransfer = NexusTransferHistoryItem(
             transactionHash: String(repeating: "b", count: 64),
@@ -1472,48 +1487,334 @@ final class WalletModernizationTests: XCTestCase {
                 amount: exactAmount
             )
         )
+        func fanoutResult(
+            total: Int,
+            hasMore: Bool,
+            includesCheckpoint: Bool
+        ) throws -> NexusJSONValue {
+            var body: [String: Any] = [
+                "items": [],
+                "total": total,
+                "has_more": hasMore,
+                "count_mode": "exact",
+                "query_source": "account_history_fanout",
+            ]
+            if includesCheckpoint {
+                body["indexed_height"] = 42
+                body["indexed_block_hash"] = String(repeating: "e", count: 64)
+            }
+            return try JSONDecoder().decode(
+                NexusJSONValue.self,
+                from: JSONSerialization.data(withJSONObject: ["body": body])
+            )
+        }
+
+        let complete = try NexusTransferHistoryParser.page(
+            result: fanoutResult(
+                total: 0,
+                hasMore: false,
+                includesCheckpoint: false
+            ),
+            configuration: .minamoto,
+            account: sender,
+            assetDefinitionID: Self.nexusXorAssetDefinitionID
+        )
+        XCTAssertEqual(complete.querySource, "account_history_fanout")
+        XCTAssertNil(complete.indexedHeight)
+        XCTAssertNil(complete.indexedBlockHash)
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: fanoutResult(
+                    total: 1,
+                    hasMore: true,
+                    includesCheckpoint: false
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: fanoutResult(
+                    total: 0,
+                    hasMore: false,
+                    includesCheckpoint: true
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        try verifyCurrentTairaInstructionProjection()
     }
 
-    func testNexusCommittedHistoryRejectsExponentAndCrossNetworkAddress() throws {
+    private func verifyCurrentTairaInstructionProjection() throws {
+        let sender =
+            "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
+        let receiver =
+            "testuﾛ1PDｵｾNｸkﾁoｹﾐyTW2Xiﾙo1yﾔｵhｷ7CﾃgｷｵｶkｶﾋWｴﾎn73BW7C"
+        let definition = NexusAssetDefinitionIdentity.tairaXorDefinitionID
+        func instruction(
+            hash: String,
+            source: String,
+            destination: String,
+            amount: String,
+            index: Int
+        ) -> [String: Any] {
+            [
+                "authority": source,
+                "created_at": "2026-04-04T00:00:00Z",
+                "kind": "Transfer",
+                "box": [
+                    "encoded": "0x01",
+                    "json": [
+                        "kind": "Transfer",
+                        "payload": [
+                            "variant": "Asset",
+                            "value": [
+                                "source": "\(definition)#\(source)",
+                                "destination": destination,
+                                "object": amount,
+                            ],
+                        ],
+                        "wire_id": "iroha.transfer",
+                        "encoded": "01",
+                    ],
+                ],
+                "transaction_hash": hash,
+                "transaction_status": "Committed",
+                "block": 42,
+                "index": index,
+            ]
+        }
+        func result(
+            items: [[String: Any]],
+            perPage: Int = 100,
+            totalPages: Int? = nil,
+            totalItems: Int? = nil
+        ) throws -> NexusJSONValue {
+            let exactTotalItems = totalItems ?? items.count
+            let exactTotalPages = totalPages ?? (items.isEmpty ? 0 : 1)
+            return try JSONDecoder().decode(
+                NexusJSONValue.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "body": [
+                        "pagination": [
+                            "page": 1,
+                            "per_page": perPage,
+                            "total_pages": exactTotalPages,
+                            "total_items": exactTotalItems,
+                        ],
+                        "items": items,
+                    ],
+                ])
+            )
+        }
+        let outgoingHash = String(repeating: "a", count: 64)
+        let incomingHash = String(repeating: "b", count: 64)
+        let page = try NexusTairaTransferHistoryParser.page(
+            result: result(items: [
+                instruction(
+                    hash: outgoingHash,
+                    source: sender,
+                    destination: receiver,
+                    amount: "1.000000001",
+                    index: 0
+                ),
+                instruction(
+                    hash: incomingHash,
+                    source: receiver,
+                    destination: sender,
+                    amount: "2.5",
+                    index: 1
+                ),
+            ]),
+            configuration: try Self.admittedTairaConfiguration(),
+            account: sender,
+            assetDefinitionID: definition
+        )
+        try page.validate(expectedPage: 1, maximumPageSize: 100)
+        XCTAssertEqual(page.sourceItemCount, 2)
+        XCTAssertEqual(page.totalItems, 2)
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryPage(
+                items: [],
+                sourceItemCount: -1,
+                sourceItemIDs: [],
+                page: 1,
+                perPage: 100,
+                totalPages: 0,
+                totalItems: 0
+            ).validate(expectedPage: 1, maximumPageSize: 100)
+        )
+        XCTAssertEqual(
+            page.items,
+            [
+                NexusTransferHistoryItem(
+                    transactionHash: outgoingHash,
+                    timestampMilliseconds: 1_775_260_800_000,
+                    amount: try PIQuantity("1.000000001"),
+                    sender: sender,
+                    receiver: receiver
+                ),
+                NexusTransferHistoryItem(
+                    transactionHash: incomingHash,
+                    timestampMilliseconds: 1_775_260_800_000,
+                    amount: try PIQuantity("2.5"),
+                    sender: receiver,
+                    receiver: sender
+                ),
+            ]
+        )
+        let oneInstruction = instruction(
+            hash: outgoingHash,
+            source: sender,
+            destination: receiver,
+            amount: "1",
+            index: 0
+        )
+        var wrongKind = oneInstruction
+        wrongKind["kind"] = "Mint"
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [wrongKind]),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            )
+        )
+        var appliedStatus = oneInstruction
+        appliedStatus["transaction_status"] = "Applied"
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [appliedStatus]),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [oneInstruction, oneInstruction]),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [oneInstruction], perPage: 50),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            ).validate(expectedPage: 1, maximumPageSize: 100)
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(
+                    items: [oneInstruction],
+                    totalPages: 1,
+                    totalItems: 2
+                ),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            ).validate(expectedPage: 1, maximumPageSize: 100)
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(
+                    items: [oneInstruction],
+                    totalPages: 2,
+                    totalItems: 2
+                ),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            ).validate(expectedPage: 1, maximumPageSize: 100)
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransferHistoryParser.page(
+                result: result(items: [
+                    instruction(
+                        hash: outgoingHash,
+                        source: sender,
+                        destination: receiver,
+                        amount: "0.0000000001",
+                        index: 0
+                    ),
+                ]),
+                configuration: try Self.admittedTairaConfiguration(),
+                account: sender,
+                assetDefinitionID: definition
+            )
+        )
+    }
+
+    func testNexusCommittedHistoryRejectsMalformedProjectionRows() throws {
         let sender =
             "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
+        let receiver =
+            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
         let tairaReceiver =
             "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
         let hash = String(repeating: "b", count: 64)
-        func result(amount: String, receiver: String) throws -> NexusJSONValue {
-            try JSONDecoder().decode(
+        func result(
+            amount: Any,
+            counterparty: String,
+            timestamp: Any = 1_775_260_800_000,
+            definition: String = Self.nexusXorAssetDefinitionID,
+            assetOwner: String? = nil,
+            extraItemField: Bool = false,
+            transferOperationField: Bool = false
+        ) throws -> NexusJSONValue {
+            var item: [String: Any] = [
+                "id": "\(hash):\(sender):0",
+                "source": "transaction",
+                "type": "TRANSFER",
+                "timestamp_ms": timestamp,
+                "status": "SUCCESS",
+                "result_ok": true,
+                "direction": "outgoing",
+                "account_id": sender,
+                "counterparty_account_id": counterparty,
+                "asset_id": "\(definition)#\(assetOwner ?? sender)",
+                "asset_definition_id": definition,
+                "amount": amount,
+                "tx_hash": hash,
+            ]
+            if extraItemField {
+                item["legacy_box"] = [:]
+            }
+            if transferOperationField {
+                item["operation_id"] = "must-not-appear-on-transfer"
+            }
+            return try JSONDecoder().decode(
                 NexusJSONValue.self,
-                from: Data(
-                    """
-                    {
-                      "body": {
-                        "items": [{
-                          "transaction_hash": "\(hash)",
-                          "created_at": "2026-08-02T00:00:00Z",
-                          "transaction_status": "Committed",
-                          "box": {
-                            "json": {
-                              "payload": {
-                                "variant": "Asset",
-                                "value": {
-                                  "source": "\(Self.nexusXorAssetDefinitionID)#\(sender)",
-                                  "destination": "\(receiver)",
-                                  "object": "\(amount)"
-                                }
-                              }
-                            }
-                          }
-                        }]
-                      }
-                    }
-                    """.utf8
+                from: JSONSerialization.data(
+                    withJSONObject: [
+                        "body": [
+                            "items": [item],
+                            "total": 1,
+                            "has_more": false,
+                            "count_mode": "exact",
+                            "indexed_height": 42,
+                            "indexed_block_hash": String(repeating: "e", count: 64),
+                            "query_source": "account_history_index",
+                        ],
+                    ]
                 )
             )
         }
 
         XCTAssertThrowsError(
             try NexusTransferHistoryParser.page(
-                result: result(amount: "1e18", receiver: sender),
+                result: result(
+                    amount: "1",
+                    counterparty: receiver,
+                    timestamp: 0
+                ),
                 configuration: .minamoto,
                 account: sender,
                 assetDefinitionID: Self.nexusXorAssetDefinitionID
@@ -1521,61 +1822,45 @@ final class WalletModernizationTests: XCTestCase {
         )
         XCTAssertThrowsError(
             try NexusTransferHistoryParser.page(
-                result: result(amount: "1", receiver: tairaReceiver),
+                result: result(amount: "1e18", counterparty: receiver),
                 configuration: .minamoto,
                 account: sender,
                 assetDefinitionID: Self.nexusXorAssetDefinitionID
             )
         )
-    }
-
-    func testNexusCommittedHistoryRejectsMalformedOrConflictingSourceIdentity()
-        throws {
-        let sender =
-            "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
-        let receiver =
-            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
-        let hash = String(repeating: "c", count: 64)
-        func result(
-            source: String,
-            explicitSource: String?
-        ) throws -> NexusJSONValue {
-            var transfer: [String: Any] = [
-                "source": source,
-                "destination": receiver,
-                "object": "1",
-            ]
-            if let explicitSource {
-                transfer["source_account"] = explicitSource
-            }
-            let envelope: [String: Any] = [
-                "body": [
-                    "items": [[
-                        "transaction_hash": hash,
-                        "created_at": "2026-08-02T00:00:00Z",
-                        "transaction_status": "Committed",
-                        "box": [
-                            "json": [
-                                "payload": [
-                                    "variant": "Asset",
-                                    "value": transfer,
-                                ],
-                            ],
-                        ],
-                    ]],
-                ],
-            ]
-            return try JSONDecoder().decode(
-                NexusJSONValue.self,
-                from: JSONSerialization.data(withJSONObject: envelope)
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(amount: " 1", counterparty: receiver),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
             )
-        }
-
+        )
         XCTAssertThrowsError(
             try NexusTransferHistoryParser.page(
                 result: result(
-                    source: "\(Self.nexusXorAssetDefinitionID)#junk#\(sender)",
-                    explicitSource: nil
+                    amount: ["scale": "0", "value": "1"],
+                    counterparty: receiver
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(amount: "1", counterparty: tairaReceiver),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(
+                    amount: "1",
+                    counterparty: receiver,
+                    definition: "other#universal"
                 ),
                 configuration: .minamoto,
                 account: sender,
@@ -1585,8 +1870,33 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertThrowsError(
             try NexusTransferHistoryParser.page(
                 result: result(
-                    source: "\(Self.nexusXorAssetDefinitionID)#\(sender)",
-                    explicitSource: receiver
+                    amount: "1",
+                    counterparty: receiver,
+                    assetOwner: receiver
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(
+                    amount: "1",
+                    counterparty: receiver,
+                    transferOperationField: true
+                ),
+                configuration: .minamoto,
+                account: sender,
+                assetDefinitionID: Self.nexusXorAssetDefinitionID
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTransferHistoryParser.page(
+                result: result(
+                    amount: "1",
+                    counterparty: receiver,
+                    extraItemField: true
                 ),
                 configuration: .minamoto,
                 account: sender,
@@ -1595,63 +1905,101 @@ final class WalletModernizationTests: XCTestCase {
         )
     }
 
-    func testNexusBatchHistoryRequiresExactXorDefinitionPerLeg() throws {
+    func testNexusCommittedHistoryValidatesRawOnChainAndFailedRowsBeforeFiltering() throws {
         let sender =
             "sorauﾛ1Pcﾅ2ﾗtﾉaﾘLﾕｽ2MヱﾐﾎｳﾓヱｷﾆｲMﾒSﾏｱヱｷJヱFmJﾇMs6YN687Y"
-        let receiver =
-            "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3"
         let hash = String(repeating: "d", count: 64)
-        func result(entries: [[String: Any]]) throws -> NexusJSONValue {
-            let envelope: [String: Any] = [
+        let result = try JSONDecoder().decode(
+            NexusJSONValue.self,
+            from: JSONSerialization.data(withJSONObject: [
                 "body": [
-                    "items": [[
-                        "transaction_hash": hash,
-                        "created_at": "2026-08-02T00:00:00Z",
-                        "transaction_status": "Committed",
-                        "box": [
-                            "json": [
-                                "payload": [
-                                    "variant": "AssetBatch",
-                                    "value": ["entries": entries],
-                                ],
-                            ],
+                    "items": [
+                        [
+                            "id": "\(hash):\(sender):0",
+                            "source": "transaction",
+                            "type": "RAW_ON_CHAIN",
+                            "timestamp_ms": 1_775_260_800_000,
+                            "status": "SUCCESS",
+                            "result_ok": true,
+                            "direction": "incoming",
+                            "account_id": sender,
+                            "asset_id":
+                                "\(Self.nexusXorAssetDefinitionID)#\(sender)",
+                            "asset_definition_id":
+                                Self.nexusXorAssetDefinitionID,
+                            "amount": "1",
+                            "tx_hash": hash,
                         ],
-                    ]],
+                        [
+                            "id": "\(hash):\(sender):1",
+                            "source": "transaction",
+                            "type": "TRANSFER",
+                            "timestamp_ms": 1_775_260_800_000,
+                            "status": "FAILED",
+                            "result_ok": false,
+                            "direction": "outgoing",
+                            "account_id": sender,
+                            "counterparty_account_id":
+                                "sorauﾛ1NﾍﾖﾁﾘﾗoEuKﾗﾁK2ｴA9ｸxmxBﾈｴDﾋﾐﾐﾅｴjuXvｾﾍｵn5FAXTS3",
+                            "asset_id":
+                                "\(Self.nexusXorAssetDefinitionID)#\(sender)",
+                            "asset_definition_id":
+                                Self.nexusXorAssetDefinitionID,
+                            "amount": "1",
+                            "tx_hash": hash,
+                        ],
+                    ],
+                    "total": 2,
+                    "has_more": false,
+                    "count_mode": "exact",
+                    "indexed_height": 42,
+                    "indexed_block_hash": String(repeating: "e", count: 64),
+                    "query_source": "account_history_index",
                 ],
-            ]
-            return try JSONDecoder().decode(
-                NexusJSONValue.self,
-                from: JSONSerialization.data(withJSONObject: envelope)
-            )
-        }
-        let xorLeg: [String: Any] = [
-            "from": sender,
-            "to": receiver,
-            "asset_definition": Self.nexusXorAssetDefinitionID,
-            "amount": "1",
-        ]
-        let otherLeg: [String: Any] = [
-            "from": sender,
-            "to": receiver,
-            "asset_definition": "other#universal",
-            "amount": "1",
-        ]
-
-        let mixed = try NexusTransferHistoryParser.page(
-            result: result(entries: [xorLeg, otherLeg]),
+            ])
+        )
+        let page = try NexusTransferHistoryParser.page(
+            result: result,
             configuration: .minamoto,
             account: sender,
             assetDefinitionID: Self.nexusXorAssetDefinitionID
         )
-        XCTAssertEqual(mixed.sourceItemCount, 1)
-        XCTAssertEqual(mixed.items.count, 1)
-        XCTAssertEqual(mixed.items.first?.amount.rawValue, "1")
+        XCTAssertEqual(page.sourceItemCount, 2)
+        XCTAssertEqual(page.sourceItemIDs.count, 2)
+        XCTAssertTrue(page.items.isEmpty)
 
-        var missingDefinition = xorLeg
-        missingDefinition.removeValue(forKey: "asset_definition")
+        let unknownType = try JSONDecoder().decode(
+            NexusJSONValue.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "body": [
+                    "items": [[
+                        "id": "\(hash):\(sender):0",
+                        "source": "transaction",
+                        "type": "TRANSFER_V2",
+                        "timestamp_ms": 1_775_260_800_000,
+                        "status": "SUCCESS",
+                        "result_ok": true,
+                        "direction": "incoming",
+                        "account_id": sender,
+                        "asset_id":
+                            "\(Self.nexusXorAssetDefinitionID)#\(sender)",
+                        "asset_definition_id":
+                            Self.nexusXorAssetDefinitionID,
+                        "amount": "1",
+                        "tx_hash": hash,
+                    ]],
+                    "total": 1,
+                    "has_more": false,
+                    "count_mode": "exact",
+                    "indexed_height": 42,
+                    "indexed_block_hash": String(repeating: "e", count: 64),
+                    "query_source": "account_history_index",
+                ],
+            ])
+        )
         XCTAssertThrowsError(
             try NexusTransferHistoryParser.page(
-                result: result(entries: [missingDefinition]),
+                result: unknownType,
                 configuration: .minamoto,
                 account: sender,
                 assetDefinitionID: Self.nexusXorAssetDefinitionID
@@ -1871,6 +2219,51 @@ final class WalletModernizationTests: XCTestCase {
                 "era": .number("9223372036854775807"),
             ])
         )
+
+        let canonical = Data(
+            #"{"signed":-9223372036854775808,"unsigned":18446744073709551615,"emoji":"\uD83D\uDE00"}"#.utf8
+        )
+        XCTAssertNoThrow(try NexusStrictJSONAdmission.validate(canonical))
+
+        let invalidDocuments = [
+            #"{"total":1,"total":2}"#,
+            #"{"total":1,"\u0074otal":2}"#,
+            #"{"total":1.0}"#,
+            #"{"total":1e0}"#,
+            #"{"total":-0}"#,
+            #"{"total":1.0000000000000000001}"#,
+            #"{"total":01}"#,
+            #"{'total':1}"#,
+            #"{"total":1,}"#,
+            #"{"value":"\uD800"}"#,
+        ]
+        for document in invalidDocuments {
+            XCTAssertThrowsError(
+                try NexusStrictJSONAdmission.validate(Data(document.utf8)),
+                "Unexpectedly admitted: \(document)"
+            )
+        }
+
+        XCTAssertThrowsError(
+            try NexusStrictJSONAdmission.validate(
+                Data([0x7B, 0x22, 0x78, 0x22, 0x3A, 0xFF, 0x7D])
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusStrictJSONAdmission.validate(
+                Data([0xEF, 0xBB, 0xBF]) + Data("{}".utf8)
+            )
+        )
+        let tooDeep = String(repeating: "[", count: 65) + "0" +
+            String(repeating: "]", count: 65)
+        XCTAssertThrowsError(
+            try NexusStrictJSONAdmission.validate(Data(tooDeep.utf8))
+        )
+        let tooManyTokens = "[" +
+            String(repeating: "0,", count: 500_000) + "0]"
+        XCTAssertThrowsError(
+            try NexusStrictJSONAdmission.validate(Data(tooManyTokens.utf8))
+        )
     }
 
     func testPIHistorySchemaFixturePreservesExactIntegerMetadata() throws {
@@ -2042,6 +2435,196 @@ final class WalletModernizationTests: XCTestCase {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
+        try verifyTairaSubmissionUsesExactSubmitAndWaitCall()
+        try verifyTairaSubmitAndWaitRequiresEveryHashAndFinalApplied()
+        verifyTairaOuterGatewayUnavailabilityIsTyped()
+    }
+
+    private func verifyTairaSubmissionUsesExactSubmitAndWaitCall() throws {
+        let hash = String(repeating: "ab", count: 32)
+        let body = Data([0x00, 0x01, 0xFE, 0xFF])
+        let request = try NexusTairaTransactionSubmissionContract.request(
+            id: "submission-contract-test",
+            signedNorito: body,
+            expectedHash: hash
+        )
+        XCTAssertEqual(request.method, "tools/call")
+        XCTAssertEqual(
+            request.params,
+            .object([
+                "name": .string(
+                    "iroha.transactions.submit_and_wait"
+                ),
+                "arguments": .object([
+                    "body_base64": .string(body.base64EncodedString()),
+                    "hash": .string(hash),
+                    "status_accept": .string("application/json"),
+                    "terminal_statuses": .array([.string("Applied")]),
+                    "timeout_ms": .number("120000")
+                ])
+            ])
+        )
+        let encoded = try JSONEncoder().encode(request)
+        let wire = try XCTUnwrap(String(data: encoded, encoding: .utf8))
+        XCTAssertFalse(wire.contains("Idempotency-Key"))
+        XCTAssertFalse(wire.contains("pipeline/transactions"))
+        XCTAssertThrowsError(
+            try NexusTairaTransactionSubmissionContract.callParameters(
+                signedNorito: Data(),
+                expectedHash: hash
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusTairaTransactionSubmissionContract.callParameters(
+                signedNorito: body,
+                expectedHash: hash.uppercased()
+            )
+        )
+    }
+
+    private func verifyTairaSubmitAndWaitRequiresEveryHashAndFinalApplied()
+        throws
+    {
+        let hash = String(repeating: "ab", count: 32)
+        let otherHash = String(repeating: "cd", count: 32)
+        func result(
+            topHash: String = String(repeating: "ab", count: 32),
+            submitHash: String = String(repeating: "ab", count: 32),
+            submitHeaderHash: String = String(repeating: "ab", count: 32),
+            receiptHashKey: String = "tx_hash",
+            finalHash: String = String(repeating: "ab", count: 32),
+            finalScope: String = "global",
+            resolvedFrom: String = "state",
+            terminalKind: String = "Applied",
+            finalKind: String = "Applied",
+            isError: Bool = false
+        ) -> NexusJSONValue {
+            .object([
+                "content": .array([.object([
+                    "type": .string("text"),
+                    "text": .string("http 200")
+                ])]),
+                "isError": .bool(isError),
+                "structuredContent": .object([
+                    "status": .number("200"),
+                    "hash": .string(topHash),
+                    "terminal_kind": .string(terminalKind),
+                    "terminal_statuses": .array([.string("Applied")]),
+                    "attempts": .number("2"),
+                    "elapsed_ms": .number("17"),
+                    "submit": .object([
+                        "status": .number("202"),
+                        "headers": .object([
+                            "content-type": .string("application/json"),
+                            "x-iroha-transaction-hash": .string(
+                                submitHeaderHash
+                            ),
+                        ]),
+                        "content_type": .string("application/json"),
+                        "body": .object([
+                            "payload": .object([
+                                receiptHashKey: .string(submitHash)
+                            ])
+                        ])
+                    ]),
+                    "final": .object([
+                        "status": .number("200"),
+                        "headers": .object([
+                            "content-type": .string("application/json"),
+                        ]),
+                        "content_type": .string("application/json"),
+                        "body": .object([
+                            "hash": .string(finalHash),
+                            "scope": .string(finalScope),
+                            "resolved_from": .string(resolvedFrom),
+                            "status": .object([
+                                "kind": .string(finalKind),
+                                "block_height": .number("42")
+                            ])
+                        ])
+                    ])
+                ])
+            ])
+        }
+
+        XCTAssertEqual(
+            try NexusTairaTransactionSubmissionContract.appliedSubmission(
+                from: result(),
+                expectedHash: hash
+            ),
+            NexusTairaAppliedSubmission(hash: hash, blockHeight: 42)
+        )
+        for mismatched in [
+            result(topHash: otherHash),
+            result(submitHash: otherHash),
+            result(submitHeaderHash: otherHash),
+            result(finalHash: otherHash),
+        ] {
+            XCTAssertThrowsError(
+                try NexusTairaTransactionSubmissionContract
+                    .appliedSubmission(
+                        from: mismatched,
+                        expectedHash: hash
+                    )
+            ) { error in
+                guard case NexusToriiError.transactionHashMismatch = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+        for failure in [
+            result(receiptHashKey: "entrypoint_hash"),
+            result(terminalKind: "Rejected"),
+            result(terminalKind: "Expired"),
+            result(isError: true),
+            result(finalKind: "Rejected"),
+            result(finalScope: "local"),
+            result(resolvedFrom: "cache"),
+        ] {
+            XCTAssertThrowsError(
+                try NexusTairaTransactionSubmissionContract
+                    .appliedSubmission(
+                        from: failure,
+                        expectedHash: hash
+                    )
+            )
+        }
+    }
+
+    private func verifyTairaOuterGatewayUnavailabilityIsTyped() {
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateOuterAvailabilityStatus(200)
+        )
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateOuterAvailabilityStatus(500)
+        )
+        for status in [502, 503] {
+            XCTAssertThrowsError(
+                try NexusToriiClient.validateOuterAvailabilityStatus(status)
+            ) { error in
+                guard case NexusToriiError.deploymentUnavailable = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateOuterAvailabilityStatus(
+                404,
+                for: TairaDeploymentBinding.canonicalPublicMcpEndpoint
+            )
+        ) { error in
+            guard case NexusToriiError.mcpNotEnabled = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertNoThrow(
+            try NexusToriiClient.validateOuterAvailabilityStatus(
+                404,
+                for: TairaDeploymentBinding.canonicalToriiBaseURL
+            )
+        )
     }
 
     func testNexusPreparedTransferCanBeSubmittedOnlyOnce() throws {
@@ -2236,9 +2819,21 @@ final class WalletModernizationTests: XCTestCase {
             "0." + String(repeating: "1", count: 256)
         )
         let zero = try PIQuantity("0")
+        let tairaMaximum = try PIQuantity("0.123456789")
+        let tairaOversized = try PIQuantity("0.1234567891")
 
         XCTAssertTrue(NexusAmountPolicy.accepts(maximum))
         XCTAssertFalse(NexusAmountPolicy.accepts(oversized))
+        XCTAssertEqual(NexusAmountPolicy.tairaMaximumScale, 9)
+        XCTAssertTrue(NexusAmountPolicy.accepts(
+            tairaMaximum,
+            networkId: .taira
+        ))
+        XCTAssertFalse(NexusAmountPolicy.accepts(
+            tairaOversized,
+            networkId: .taira
+        ))
+        XCTAssertTrue(NexusAmountPolicy.accepts(tairaOversized))
         XCTAssertFalse(NexusAmountPolicy.accepts(zero))
         XCTAssertTrue(
             NexusAmountPolicy.accepts(zero, allowingZero: true)
@@ -2455,6 +3050,69 @@ final class WalletModernizationTests: XCTestCase {
                         boundAtMilliseconds: 0
                     )
                 )
+            )
+        )
+        let tairaConfiguration = try Self.admittedTairaConfiguration()
+        XCTAssertEqual(
+            NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            Self.nexusXorAssetDefinitionID
+        )
+        XCTAssertThrowsError(
+            try NexusAssetDefinitionIdentity.validateXor(
+                NexusAssetDefinition(
+                    id: "61CtjvNd9T3THAR65GsMVHr82Bjc",
+                    name: "xor",
+                    alias: "xor#universal",
+                    aliasBinding: NexusAssetDefinition.AliasBinding(
+                        alias: "xor#universal",
+                        status: "permanent",
+                        leaseExpiryMilliseconds: nil,
+                        graceUntilMilliseconds: nil,
+                        boundAtMilliseconds: 0
+                    )
+                ),
+                configuration: tairaConfiguration
+            )
+        )
+        XCTAssertNoThrow(
+            try NexusAssetDefinitionIdentity.validateXor(
+                NexusAssetDefinition(
+                    id: Self.nexusXorAssetDefinitionID,
+                    name: "xor",
+                    alias: "xor#universal",
+                    aliasBinding: NexusAssetDefinition.AliasBinding(
+                        alias: "xor#universal",
+                        status: "permanent",
+                        leaseExpiryMilliseconds: nil,
+                        graceUntilMilliseconds: nil,
+                        boundAtMilliseconds: 0
+                    )
+                ),
+                configuration: tairaConfiguration
+            )
+        )
+        let sparseTairaDefinition = NexusAssetDefinition(
+            id: Self.nexusXorAssetDefinitionID
+        )
+        XCTAssertNoThrow(
+            try NexusAssetDefinitionIdentity.validateXor(
+                sparseTairaDefinition,
+                configuration: tairaConfiguration
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusAssetDefinitionIdentity.validateXor(
+                sparseTairaDefinition,
+                configuration: .minamoto
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusAssetDefinitionIdentity.validateXor(
+                NexusAssetDefinition(
+                    id: Self.nexusXorAssetDefinitionID,
+                    name: "not-xor"
+                ),
+                configuration: tairaConfiguration
             )
         )
         XCTAssertThrowsError(
@@ -4915,7 +5573,7 @@ final class WalletModernizationTests: XCTestCase {
         )
         XCTAssertEqual(
             WalletMnemonicWordPolicy.retainedSoraWordCounts,
-            [12, 15, 24]
+            [12, 15, 18, 21, 24]
         )
         XCTAssertEqual(
             WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: 15),
@@ -4925,14 +5583,40 @@ final class WalletModernizationTests: XCTestCase {
             WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: 24),
             .mnemonicEntropy
         )
-        XCTAssertNil(
-            WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: 18)
-        )
+        for count in [18, 21] {
+            XCTAssertEqual(
+                WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: count),
+                .legacyMnemonicEntropy
+            )
+        }
+        XCTAssertNil(WalletMnemonicWordPolicy.retainedSecretSource(forWordCount: 13))
         let legacyEntropy = Data(repeating: 0, count: 20)
         let legacyMnemonic = try IRMnemonicCreator(language: .english)
             .mnemonic(fromEntropy: Data(repeating: 0, count: 20))
         XCTAssertEqual(legacyMnemonic.allWords().count, 15)
         let phrase = legacyMnemonic.toString()
+        // Independent legacy-1.x vector: hashlib.scrypt(NFKD(phrase),
+        // salt="SORA|iroha keypair|", n=16384, r=8, p=1, dklen=32).
+        let pairedKeychain = InMemoryKeychain()
+        let irohaPrivateKey = try Data(hexStringSSF:
+            "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84")
+        try pairedKeychain.addKey(legacyEntropy, with: KeystoreTag.legacyEntropy.rawValue)
+        try pairedKeychain.addKey(irohaPrivateKey, with: "privateKey")
+        XCTAssertTrue(try LegacyWalletUpgradePolicy.shouldDeferStorageMigration(
+            storeExists: false, keystore: pairedKeychain,
+            hasWatchOnlyWallet: false, snapshot: nil
+        ))
+        XCTAssertEqual(try pairedKeychain.fetchKey(for: "privateKey"), irohaPrivateKey)
+        var wrongPrivateKey = irohaPrivateKey
+        wrongPrivateKey[0] ^= 1
+        for invalidPrivateKey in [wrongPrivateKey, Data()] {
+            try pairedKeychain.saveKey(invalidPrivateKey, with: "privateKey")
+            XCTAssertThrowsError(try LegacyWalletUpgradePolicy.isCandidate(
+                keystore: pairedKeychain, hasWatchOnlyWallet: false, snapshot: nil
+            ))
+            XCTAssertEqual(try pairedKeychain.fetchKey(for: "privateKey"), invalidPrivateKey)
+            XCTAssertEqual(try pairedKeychain.fetchKey(for: KeystoreTag.legacyEntropy.rawValue), legacyEntropy)
+        }
         XCTAssertThrowsError(
             try NexusKeyDerivation.derive(
                 mnemonic: phrase,
@@ -5858,6 +6542,8 @@ final class WalletModernizationTests: XCTestCase {
         for fixture in [
             (wordCount: 12, entropyBytes: 16),
             (wordCount: 15, entropyBytes: 20),
+            (wordCount: 18, entropyBytes: 24),
+            (wordCount: 21, entropyBytes: 28),
             (wordCount: 24, entropyBytes: 32),
         ] {
             try exerciseFullLegacyWalletUpgrade(
@@ -5870,6 +6556,10 @@ final class WalletModernizationTests: XCTestCase {
             wordCount: 15,
             entropyBytes: 20,
             corruptCommitJournal: true
+        )
+        try exerciseFullLegacyWalletUpgrade(
+            wordCount: 15, entropyBytes: 20, corruptCommitJournal: false,
+            retainsIrohaPrivateKey: true
         )
     }
 
@@ -7797,6 +8487,173 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(settings.walletNetworkStoreVersion, 0)
     }
 
+    func testReleasedMnemonicFormatsSurviveDatabaseAndNetworkUpgrade() throws {
+        // The 3.8.9 importer accepted every BIP39 size up to 24 words and
+        // persisted entropy, the pre-junction mini-seed, and the child secret.
+        // Reproduce those released writes without using the new importer.
+        for version in UserStorageVersion.allCases {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let keychain = InMemoryKeychain()
+            var accounts: [AccountItem] = []
+            for byteCount in [16, 20, 24, 28, 32] {
+                for cryptoType in [CryptoType.sr25519, .ed25519, .ecdsa] {
+                    let entropy = Data(repeating: UInt8(byteCount), count: byteCount)
+                    let phrase = try IRMnemonicCreator(language: .english)
+                        .mnemonic(fromEntropy: entropy).toString()
+                    let path = "//legacy//7///retained-password"
+                    let junction = try SubstrateJunctionFactory().parse(path: path)
+                    let seed = try SeedFactory().deriveSeed(
+                        from: phrase, password: junction.password ?? ""
+                    ).seed.miniSeed
+                    let factory: KeypairFactoryProtocol
+                    switch cryptoType {
+                    case .sr25519: factory = SR25519KeypairFactory()
+                    case .ed25519: factory = Ed25519KeypairFactory()
+                    case .ecdsa: factory = EcdsaKeypairFactory()
+                    }
+                    let keypair = try factory.createKeypairFromSeed(seed, chaincodeList: junction.chaincodes)
+                    let secret: Data
+                    switch cryptoType {
+                    case .sr25519: secret = keypair.privateKey().rawData()
+                    case .ed25519:
+                        secret = try Ed25519KeypairFactory().deriveChildSeedFromParent(seed, chaincodeList: junction.chaincodes)
+                    case .ecdsa:
+                        secret = try EcdsaKeypairFactory().deriveChildSeedFromParent(seed, chaincodeList: junction.chaincodes)
+                    }
+                    let address = try SS58AddressFactory().address(
+                        fromAccountId: keypair.publicKey().rawData(), type: Chain.sora.addressType()
+                    )
+                    try keychain.saveSecretKey(secret, address: address)
+                    try keychain.saveEntropy(entropy, address: address)
+                    try keychain.saveSeed(seed, address: address)
+                    try keychain.saveDeriviation(path, address: address)
+                    accounts.append(AccountItem(
+                        address: address, cryptoType: cryptoType,
+                        networkType: Chain.sora.addressType(),
+                        username: "Released \(byteCount * 3 / 4)-word \(cryptoType)",
+                        publicKeyData: keypair.publicKey().rawData(),
+                        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                        order: Int16(accounts.count), isSelected: accounts.isEmpty
+                    ))
+                }
+            }
+            // Released seed imports retained a seed and secret; JSON imports
+            // retained only a secret. Neither may acquire a synthetic mnemonic.
+            for source in [WalletSecretSource.rawSeed, .legacySecret] {
+                for cryptoType in [CryptoType.sr25519, .ed25519, .ecdsa] {
+                    let seed = Data(repeating: source == .rawSeed ? 101 : 102, count: 32)
+                    let factory: KeypairFactoryProtocol
+                    switch cryptoType {
+                    case .sr25519: factory = SR25519KeypairFactory()
+                    case .ed25519: factory = Ed25519KeypairFactory()
+                    case .ecdsa: factory = EcdsaKeypairFactory()
+                    }
+                    let keypair = try factory.createKeypairFromSeed(seed, chaincodeList: [])
+                    let publicKey = keypair.publicKey().rawData()
+                    let address = try SS58AddressFactory().address(
+                        fromAccountId: publicKey, type: Chain.sora.addressType()
+                    )
+                    var secret = cryptoType == .sr25519 ? keypair.privateKey().rawData() : seed
+                    if source == .legacySecret, cryptoType == .ed25519 {
+                        // Polkadot JSON may retain the seed followed by public key.
+                        secret.append(publicKey)
+                    }
+                    try keychain.saveSecretKey(secret, address: address)
+                    if source == .rawSeed { try keychain.saveSeed(seed, address: address) }
+                    accounts.append(AccountItem(
+                        address: address, cryptoType: cryptoType, networkType: Chain.sora.addressType(),
+                        username: "Released \(source) \(cryptoType)", publicKeyData: publicKey,
+                        settings: AccountSettings(visibleAssetIds: [], orderedAssetIds: []),
+                        order: Int16(accounts.count), isSelected: false
+                    ))
+                }
+            }
+            let originalKeys = try Dictionary(uniqueKeysWithValues: keychain.allKeyIdentifiers().map {
+                ($0, try keychain.fetchKey(for: $0))
+            })
+            let selected = try XCTUnwrap(accounts.first)
+            let settings = InMemorySettingsManager()
+            settings.set(value: selected, for: SettingsKey.selectedAccount.rawValue)
+            let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+            try writeAccounts(accounts, to: storeURL, model: userStorageModel(named: version.rawValue), includesSelection: version == .version2)
+            let databaseMigrator = makeUserStorageMigrator(
+                targetVersion: .version2, storeURL: storeURL,
+                modelDirectory: UserStorageParams.modelDirectory,
+                keystore: keychain, settings: settings, fileManager: .default
+            )
+            try databaseMigrator.performMigration()
+            try assertStoredAccounts(accounts, at: storeURL,
+                model: userStorageModel(named: UserStorageVersion.version2.rawValue))
+            let store = try makeWalletNetworkStore(baseURL: directory)
+            let migrator = makeWalletNetworkMigrator(keystore: keychain, store: store, settings: settings)
+            try migrator.migrate(accounts: accounts, selectedAddress: selected.address)
+            let snapshot = try XCTUnwrap(store.load())
+            XCTAssertEqual(snapshot.wallets.count, accounts.count)
+            XCTAssertEqual(snapshot.selectedWalletId, selected.address)
+            for account in accounts {
+                let wallet = try XCTUnwrap(snapshot.wallets.first { $0.id == account.address })
+                let children = snapshot.accounts.filter { $0.walletId == account.address }
+                let retainedEntropy = try keychain.loadIfKeyExists(KeystoreTag.entropyTagForAddress(account.address))
+                let supportsNexus = retainedEntropy.map { [16, 32].contains($0.count) } ?? false
+                let expectedSource: WalletSecretSource
+                if retainedEntropy != nil {
+                    expectedSource = supportsNexus ? .mnemonicEntropy : .legacyMnemonicEntropy
+                } else {
+                    expectedSource = try keychain.checkSeedForAddress(account.address) ? .rawSeed : .legacySecret
+                }
+                XCTAssertEqual(wallet.secretSource, expectedSource)
+                XCTAssertEqual(children.count, supportsNexus ? 1 + NexusNetworkAdmissionPolicy.current.admittedDerivationProfiles.count : 1)
+                XCTAssertEqual(children.first { $0.networkId == .sora2 }?.publicKey, account.publicKeyData)
+            }
+            // Restart must neither allocate fresh network identities nor alter any secret.
+            try databaseMigrator.performMigration()
+            try migrator.migrate(accounts: accounts, selectedAddress: selected.address)
+            XCTAssertEqual(try store.load(), snapshot)
+            XCTAssertEqual(Set(try keychain.allKeyIdentifiers()), Set(originalKeys.keys))
+            for (tag, bytes) in originalKeys {
+                XCTAssertEqual(try keychain.fetchKey(for: tag), bytes)
+            }
+            XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+        }
+    }
+
+    func testVersionOneMigrationPreservesSamePublicKeyOnDifferentNetworks() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let first = makeLegacyAccount(address: "shared-public-key")
+        let otherNetwork = SNAddressType(42)
+        let second = AccountItem(
+            address: try SS58AddressFactory().address(fromAccountId: first.publicKeyData, type: otherNetwork),
+            cryptoType: first.cryptoType, networkType: otherNetwork,
+            username: "Retained second network", publicKeyData: first.publicKeyData,
+            settings: first.settings, order: 5, isSelected: false
+        )
+        XCTAssertNotEqual(first.address, second.address)
+        let settings = InMemorySettingsManager()
+        settings.set(value: second, for: SettingsKey.selectedAccount.rawValue)
+        for account in [first, second] {
+            settings.set(value: true, for: "wallet.watchOnly.\(account.address)")
+        }
+        let storeURL = directory.appendingPathComponent("UserDataModel.sqlite")
+        try writeAccounts([first, second], to: storeURL,
+            model: userStorageModel(named: UserStorageVersion.version1.rawValue), includesSelection: false)
+        let migrator = makeUserStorageMigrator(
+            targetVersion: .version2, storeURL: storeURL,
+            modelDirectory: UserStorageParams.modelDirectory,
+            keystore: InMemoryKeychain(), settings: settings, fileManager: .default
+        )
+        try migrator.performMigration()
+        let model = try userStorageModel(named: UserStorageVersion.version2.rawValue)
+        try assertStoredAccounts([first.replacingSelection(false), second.replacingSelection(true)], at: storeURL, model: model)
+        try migrator.performMigration()
+        XCTAssertFalse(settings.walletMigrationRecoveryRequired)
+    }
+
     func testLegacyMnemonicMigrationRejectsMismatchedRetainedSeed() throws {
         let entropy = Data((0..<16).map { UInt8($0) })
         let mnemonic = try IRMnemonicCreator(language: .english)
@@ -8182,38 +9039,41 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertTrue(settings.isTairaEnabled)
     }
 
-    func testTairaSendAvailabilityRequiresVisibleTestNetworks() {
-        XCTAssertTrue(
+    func testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline() {
+        func permits(
+            networkId: NetworkId,
+            tairaEnabled: Bool = true,
+            admitted: Bool = true,
+            signer: Bool = true,
+            finality: Bool = true
+        ) -> Bool {
             NexusSendAvailabilityPolicy.permits(
-                networkId: .minamoto,
+                networkId: networkId,
                 nexusEnabled: true,
                 sendsEnabled: true,
-                tairaEnabled: false
+                tairaEnabled: tairaEnabled,
+                networkAdmitted: admitted,
+                signerQualified: signer,
+                finalityQualified: finality
             )
+        }
+        XCTAssertTrue(
+            permits(networkId: .minamoto, tairaEnabled: false)
         )
         XCTAssertFalse(
-            NexusSendAvailabilityPolicy.permits(
-                networkId: .taira,
-                nexusEnabled: true,
-                sendsEnabled: true,
-                tairaEnabled: false
-            )
-        )
-        XCTAssertTrue(
-            NexusSendAvailabilityPolicy.permits(
-                networkId: .taira,
-                nexusEnabled: true,
-                sendsEnabled: true,
-                tairaEnabled: true
-            )
+            permits(networkId: .taira, tairaEnabled: false)
         )
         XCTAssertFalse(
-            NexusSendAvailabilityPolicy.permits(
-                networkId: .taira,
-                nexusEnabled: false,
-                sendsEnabled: true,
-                tairaEnabled: true
-            )
+            permits(networkId: .taira, admitted: false)
+        )
+        XCTAssertFalse(
+            permits(networkId: .taira, signer: false)
+        )
+        XCTAssertFalse(
+            permits(networkId: .taira, finality: false)
+        )
+        XCTAssertTrue(
+            permits(networkId: .taira)
         )
     }
 
@@ -10430,6 +11290,38 @@ final class WalletModernizationTests: XCTestCase {
     }
 
     func testLiquidityExactFeeMustRemainWithinReviewedBound() {
+        let maximumAmount = try? Sora2TransferFeeQualification
+            .maximumTransferAmount(assetBalance: 10, exactFee: 1)
+        XCTAssertEqual(maximumAmount, 9)
+        XCTAssertEqual(maximumAmount.map { $0 + 1 }, 10)
+        XCTAssertNoThrow(
+            try Sora2TransferFeeQualification
+                .requireMaximumTransferAmount(
+                    amount: 9,
+                    assetBalance: 10,
+                    exactFee: 1
+                )
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification
+                .requireMaximumTransferAmount(
+                    amount: 9,
+                    assetBalance: 10,
+                    exactFee: 0.5
+                )
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification.maximumTransferAmount(
+                assetBalance: 1,
+                exactFee: 1
+            )
+        )
+        XCTAssertThrowsError(
+            try Sora2TransferFeeQualification.maximumTransferAmount(
+                assetBalance: 10,
+                exactFee: 0
+            )
+        )
         XCTAssertTrue(
             LiquidityFeeQualification.accepts(freshFee: 1, reviewedFee: 1)
         )
@@ -13008,7 +13900,7 @@ final class WalletModernizationTests: XCTestCase {
         throws
     {
         let base = try XCTUnwrap(
-            URL(string: "https://public-01.taira.example.org")
+            URL(string: "https://taira.sora.org")
         )
         XCTAssertEqual(
             NexusToriiClient.responseAcceptHeader(
@@ -13028,7 +13920,7 @@ final class WalletModernizationTests: XCTestCase {
         let submissionURL = base.appendingPathComponent(
             "v1/pipeline/transactions"
         )
-        XCTAssertNil(
+        XCTAssertThrowsError(
             try NexusToriiClient.requestContentType(
                 method: "GET",
                 for: healthURL
@@ -13041,10 +13933,33 @@ final class WalletModernizationTests: XCTestCase {
             ),
             "application/json"
         )
-        XCTAssertEqual(
+        XCTAssertThrowsError(
             try NexusToriiClient.requestContentType(
                 method: "POST",
                 for: submissionURL
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.requestContentType(
+                method: "GET",
+                for: submissionURL
+            )
+        )
+        let minamotoBase = try XCTUnwrap(
+            URL(string: "https://minamoto.sora.org")
+        )
+        XCTAssertNil(
+            try NexusToriiClient.requestContentType(
+                method: "GET",
+                for: minamotoBase.appendingPathComponent("health")
+            )
+        )
+        XCTAssertEqual(
+            try NexusToriiClient.requestContentType(
+                method: "POST",
+                for: minamotoBase.appendingPathComponent(
+                    "v1/pipeline/transactions"
+                )
             ),
             "application/x-norito"
         )
@@ -13087,12 +14002,17 @@ final class WalletModernizationTests: XCTestCase {
                 )
             )
         }
-        let xorDefinitionURL = NexusToriiClient.xorAssetDefinitionURL(
-            configuration: try Self.admittedTairaConfiguration()
+        XCTAssertThrowsError(
+            try NexusToriiClient.xorAssetDefinitionURL(
+                configuration: try Self.admittedTairaConfiguration()
+            )
+        )
+        let xorDefinitionURL = try NexusToriiClient.xorAssetDefinitionURL(
+            configuration: .minamoto
         )
         XCTAssertEqual(
             xorDefinitionURL.absoluteString,
-            "https://public-01.taira.example.org/v1/assets/definitions/xor%23universal"
+            "https://minamoto.sora.org/v1/assets/definitions/xor%23universal"
         )
         XCTAssertNil(URLComponents(
             url: xorDefinitionURL,
@@ -13137,6 +14057,14 @@ final class WalletModernizationTests: XCTestCase {
                 assetDefinitionID: NexusAssetDefinitionIdentity.xorAlias
             )
         )
+        XCTAssertThrowsError(
+            try NexusToriiClient.accountTransactionsURL(
+                account: minamotoAccount,
+                configuration: try Self.admittedTairaConfiguration(),
+                assetDefinitionID:
+                    NexusAssetDefinitionIdentity.tairaXorDefinitionID
+            )
+        )
         XCTAssertNoThrow(
             try NexusToriiClient.validateHealthPayload(Data("Healthy".utf8))
         )
@@ -13176,11 +14104,529 @@ final class WalletModernizationTests: XCTestCase {
         )
     }
 
+    func testNexusMCPAccountHistoryContractNegotiatesExactToolSchema() throws {
+        let toolset = String(repeating: "a", count: 64)
+        func initializeResult(
+            protocolVersion: String = "2025-06-18"
+        ) -> NexusJSONValue {
+            .object([
+                "protocolVersion": .string(protocolVersion),
+                "serverInfo": .object([
+                    "name": .string("iroha-torii-mcp"),
+                    "version": .string("1.0.0")
+                ]),
+                "capabilities": .object([
+                    "tools": .object([
+                        "count": .number("152"),
+                        "listChanged": .bool(false),
+                        "toolsetVersion": .string(toolset)
+                    ])
+                ])
+            ])
+        }
+        let initialize = initializeResult()
+        XCTAssertEqual(
+            try NexusMCPAccountHistoryContract.toolsetSnapshot(
+                initialize: initialize
+            ),
+            .init(version: toolset, count: 152)
+        )
+        XCTAssertThrowsError(
+            try NexusMCPAccountHistoryContract.toolsetSnapshot(
+                initialize: initializeResult(
+                    protocolVersion: "2025-06-18 "
+                )
+            )
+        )
+
+        func scalar(_ type: String) -> NexusJSONValue {
+            .object(["type": .string(type)])
+        }
+        let closedObject: NexusJSONValue = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false)
+        ])
+        let path: NexusJSONValue = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false),
+            "properties": .object(["account_id": scalar("string")]),
+            "required": .array([.string("account_id")])
+        ])
+        var inputProperties: [String: NexusJSONValue] = [
+            "accept": scalar("string"),
+            "account_id": .object([
+                "description": .string("Convenience shortcut for path.account_id"),
+                "type": .string("string")
+            ]),
+            "asset_id": scalar("string"),
+            "headers": closedObject,
+            "limit": scalar("integer"),
+            "offset": scalar("integer"),
+            "path": path,
+            "query": closedObject
+        ]
+        let input: NexusJSONValue = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false),
+            "properties": .object(inputProperties)
+        ])
+        let output: NexusJSONValue = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(true),
+            "description": .string("structured route output"),
+            "properties": .object([
+                "body": .object([:]),
+                "content_type": .object([
+                    "oneOf": .array([
+                        scalar("string"),
+                        scalar("null")
+                    ])
+                ]),
+                "headers": .object([
+                    "type": .string("object"),
+                    "additionalProperties": scalar("string")
+                ]),
+                "status": .object([
+                    "type": .string("integer"),
+                    "minimum": .number("100"),
+                    "maximum": .number("599")
+                ])
+            ])
+        ])
+        func listing(inputSchema: NexusJSONValue) -> NexusJSONValue {
+            .object([
+                "listChanged": .bool(false),
+                "nextCursor": .null,
+                "tools": .array([.object([
+                    "name": .string("iroha.accounts.history"),
+                    "description": .string("Indexed account activity"),
+                    "inputSchema": inputSchema,
+                    "outputSchema": output
+                ])])
+            ])
+        }
+        XCTAssertEqual(
+            try NexusMCPAccountHistoryContract.validateToolList(
+                listing(inputSchema: input)
+            ),
+            1
+        )
+        inputProperties.removeValue(forKey: "asset_id")
+        XCTAssertThrowsError(
+            try NexusMCPAccountHistoryContract.validateToolList(
+                listing(inputSchema: .object([
+                    "type": .string("object"),
+                    "additionalProperties": .bool(false),
+                    "properties": .object(inputProperties)
+                ]))
+            )
+        ) { error in
+            guard case NexusToriiError.mcpContractMismatch = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        var widenedHeaders = inputProperties
+        widenedHeaders["asset_id"] = scalar("string")
+        widenedHeaders["headers"] = .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false),
+            "properties": .object(["legacy": scalar("string")])
+        ])
+        XCTAssertThrowsError(
+            try NexusMCPAccountHistoryContract.validateToolList(
+                listing(inputSchema: .object([
+                    "type": .string("object"),
+                    "additionalProperties": .bool(false),
+                    "properties": .object(widenedHeaders)
+                ]))
+            )
+        )
+        try verifyCurrentTairaMCPDiscoveryContract()
+    }
+
+    private func verifyCurrentTairaMCPDiscoveryContract() throws {
+        let toolset = String(repeating: "c", count: 64)
+        let initialize: NexusJSONValue = .object([
+            "protocolVersion": .string("2025-06-18"),
+            "capabilities": .object([
+                "tools": .object([
+                    "toolsetVersion": .string(toolset),
+                    "futureCapability": .bool(true),
+                ]),
+            ]),
+            "serverInfo": .object([
+                "name": .string("iroha-torii-mcp"),
+                "version": .string("next"),
+            ]),
+            "futureTopLevel": .bool(true),
+        ])
+        XCTAssertEqual(
+            try NexusTairaMCPToolContract.toolsetVersion(
+                initialize: initialize
+            ),
+            toolset
+        )
+
+        func scalar(_ type: String) -> NexusJSONValue {
+            .object(["type": .string(type)])
+        }
+        func submissionSchema(
+            includesTimeout: Bool = true
+        ) -> NexusJSONValue {
+            var properties: [String: NexusJSONValue] = [
+                "body_base64": scalar("string"),
+                "hash": scalar("string"),
+                "status_accept": scalar("string"),
+                "terminal_statuses": .object([
+                    "type": .string("array"),
+                    "items": scalar("string"),
+                ]),
+                "future_optional_field": scalar("string"),
+            ]
+            if includesTimeout {
+                properties["timeout_ms"] = scalar("integer")
+            }
+            return .object([
+                "type": .string("object"),
+                "additionalProperties": .bool(false),
+                "required": .array([.string("body_base64")]),
+                "properties": .object(properties),
+            ])
+        }
+        func listing(schema: NexusJSONValue) -> NexusJSONValue {
+            .object([
+                "tools": .array([
+                    .object([
+                        "name": .string("iroha.future.read"),
+                        "description": .string("Unrelated additive tool"),
+                        "inputSchema": .object([
+                            "type": .string("object"),
+                            "properties": .object([:]),
+                        ]),
+                        "outputSchema": .object([
+                            "type": .string("object"),
+                        ]),
+                    ]),
+                    .object([
+                        "name": .string(
+                            "iroha.transactions.submit_and_wait"
+                        ),
+                        "description": .string("Current submission"),
+                        "inputSchema": schema,
+                        "outputSchema": .object([
+                            "type": .string("object"),
+                            "futureOutput": .bool(true),
+                        ]),
+                        "futureDescriptor": .bool(true),
+                    ]),
+                ]),
+                "nextCursor": .string("64"),
+                "listChanged": .bool(false),
+                "toolsetVersion": .string(toolset),
+                "futurePageField": .bool(true),
+            ])
+        }
+        let page = try NexusTairaMCPToolContract.validateToolPage(
+            listing(schema: submissionSchema()),
+            tools: [.submitAndWait],
+            expectedToolsetVersion: toolset
+        )
+        XCTAssertEqual(page.matched, [.submitAndWait])
+        XCTAssertEqual(page.nextCursor, "64")
+        XCTAssertTrue(page.advertisedNames.contains("iroha.future.read"))
+        XCTAssertThrowsError(
+            try NexusTairaMCPToolContract.validateToolPage(
+                listing(schema: submissionSchema(includesTimeout: false)),
+                tools: [.submitAndWait],
+                expectedToolsetVersion: toolset
+            )
+        )
+        let discovery = try NexusTairaMCPToolContract.discoveryRequest(
+            id: "tools-page-2",
+            toolsetVersion: toolset,
+            cursor: "64"
+        )
+        XCTAssertEqual(
+            discovery.params,
+            .object([
+                "toolset_version": .string(toolset),
+                "cursor": .string("64"),
+            ])
+        )
+
+        func routeSchema(
+            _ properties: [String: NexusJSONValue],
+            additionalProperties: Bool
+        ) -> NexusJSONValue {
+            .object([
+                "type": .string("object"),
+                "additionalProperties": .bool(additionalProperties),
+                "properties": .object(properties),
+            ])
+        }
+        func routeListing(
+            tool: NexusTairaMCPToolContract.Tool,
+            schema: NexusJSONValue
+        ) -> NexusJSONValue {
+            .object([
+                "tools": .array([.object([
+                    "name": .string(tool.rawValue),
+                    "inputSchema": schema,
+                    "outputSchema": .object([
+                        "type": .string("object"),
+                    ]),
+                ])]),
+                "nextCursor": .null,
+                "listChanged": .bool(false),
+                "toolsetVersion": .string(toolset),
+            ])
+        }
+        let currentRouteSchemas: [(
+            NexusTairaMCPToolContract.Tool,
+            [String: NexusJSONValue],
+            Bool
+        )] = [
+            (.health, [:], false),
+            (
+                .accountAssets,
+                [
+                    "account_id": scalar("string"),
+                    "asset_id": scalar("string"),
+                    "limit": scalar("integer"),
+                    "offset": scalar("integer"),
+                    "accept": scalar("string"),
+                ],
+                true
+            ),
+            (
+                .assetDefinition,
+                [
+                    "definition_id": scalar("string"),
+                    "accept": scalar("string"),
+                ],
+                false
+            ),
+            (
+                .transactionStatus,
+                [
+                    "hash": scalar("string"),
+                    "accept": scalar("string"),
+                ],
+                true
+            ),
+            (
+                .instructions,
+                [
+                    "account": scalar("string"),
+                    "asset_definition_id": scalar("string"),
+                    "kind": scalar("string"),
+                    "page": scalar("integer"),
+                    "per_page": scalar("integer"),
+                    "transaction_hash": scalar("string"),
+                    "transaction_status": scalar("string"),
+                    "accept": scalar("string"),
+                ],
+                false
+            ),
+        ]
+        for (tool, properties, admitsAdditionalProperties) in
+            currentRouteSchemas
+        {
+            let schema = routeSchema(
+                properties,
+                additionalProperties: admitsAdditionalProperties
+            )
+            let validated = try NexusTairaMCPToolContract.validateToolPage(
+                routeListing(tool: tool, schema: schema),
+                tools: [tool],
+                expectedToolsetVersion: toolset
+            )
+            XCTAssertEqual(validated.matched, [tool])
+        }
+        let legacyInstructionProperties: [String: NexusJSONValue] = [
+            "account": scalar("string"),
+            "asset_id": scalar("string"),
+            "kind": scalar("string"),
+            "page": scalar("integer"),
+            "per_page": scalar("integer"),
+            "transaction_hash": scalar("string"),
+            "transaction_status": scalar("string"),
+            "accept": scalar("string"),
+        ]
+        XCTAssertThrowsError(
+            try NexusTairaMCPToolContract.validateToolPage(
+                routeListing(
+                    tool: .instructions,
+                    schema: routeSchema(
+                        legacyInstructionProperties,
+                        additionalProperties: true
+                    )
+                ),
+                tools: [.instructions],
+                expectedToolsetVersion: toolset
+            )
+        )
+        for tool in [
+            NexusTairaMCPToolContract.Tool.accountAssets,
+            .transactionStatus,
+        ] {
+            let properties = try XCTUnwrap(
+                currentRouteSchemas.first(where: { $0.0 == tool })?.1
+            )
+            XCTAssertThrowsError(
+                try NexusTairaMCPToolContract.validateToolPage(
+                    routeListing(
+                        tool: tool,
+                        schema: routeSchema(
+                            properties,
+                            additionalProperties: false
+                        )
+                    ),
+                    tools: [tool],
+                    expectedToolsetVersion: toolset
+                )
+            )
+        }
+        let correctedAccountAssets = routeSchema(
+            [
+                "account_id": scalar("string"),
+                "asset": scalar("string"),
+                "limit": scalar("integer"),
+                "offset": scalar("integer"),
+                "scope": scalar("string"),
+                "accept": scalar("string"),
+            ],
+            additionalProperties: false
+        )
+        XCTAssertNoThrow(
+            try NexusTairaMCPToolContract.validateToolPage(
+                routeListing(
+                    tool: .accountAssets,
+                    schema: correctedAccountAssets
+                ),
+                tools: [.accountAssets],
+                expectedToolsetVersion: toolset
+            )
+        )
+        let correctedTransactionStatus = routeSchema(
+            [
+                "hash": scalar("string"),
+                "scope": scalar("string"),
+                "accept": scalar("string"),
+            ],
+            additionalProperties: false
+        )
+        XCTAssertNoThrow(
+            try NexusTairaMCPToolContract.validateToolPage(
+                routeListing(
+                    tool: .transactionStatus,
+                    schema: correctedTransactionStatus
+                ),
+                tools: [.transactionStatus],
+                expectedToolsetVersion: toolset
+            )
+        )
+
+        let account =
+            "testuﾛ1Q1ﾘﾚxgﾁﾃﾀdRZﾀWｿfXLGﾜﾘPﾐﾉﾉkﾃ7ﾖｶBｹssﾙﾈjｷｹUNYWHP"
+        XCTAssertEqual(
+            NexusTairaMCPToolContract.healthRequest(id: "health").params,
+            .object([
+                "name": .string("iroha.health"),
+                "arguments": .object([:]),
+            ])
+        )
+        XCTAssertEqual(
+            NexusTairaMCPToolContract.assetDefinitionRequest(
+                id: "definition"
+            ).params,
+            .object([
+                "name": .string("iroha.assets.definitions.get"),
+                "arguments": .object([
+                    "definition_id": .string(
+                        NexusAssetDefinitionIdentity.tairaXorDefinitionID
+                    ),
+                    "accept": .string("application/json"),
+                ]),
+            ])
+        )
+        let assets = NexusTairaMCPToolContract.accountAssetsRequest(
+            id: "assets-1",
+            account: account,
+            assetDefinitionID:
+                NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            limit: 100,
+            offset: 0
+        )
+        guard
+            case let .object(assetParams) = assets.params,
+            case let .object(assetArguments)? = assetParams["arguments"]
+        else {
+            return XCTFail("Missing current account-assets arguments")
+        }
+        XCTAssertEqual(
+            assetArguments["asset"],
+            .string(NexusAssetDefinitionIdentity.tairaXorDefinitionID)
+        )
+        XCTAssertNil(assetArguments["asset_id"])
+        XCTAssertEqual(assetArguments["scope"], .string("global"))
+
+        let status = try NexusTairaMCPToolContract.transactionStatusRequest(
+            id: "status",
+            hash: String(repeating: "d", count: 64)
+        )
+        guard
+            case let .object(statusParams) = status.params,
+            case let .object(statusArguments)? = statusParams["arguments"]
+        else {
+            return XCTFail("Missing current transaction-status arguments")
+        }
+        XCTAssertEqual(
+            Set(statusArguments.keys),
+            ["hash", "scope", "accept"]
+        )
+        XCTAssertEqual(statusArguments["scope"], .string("global"))
+
+        let instructions = try NexusTairaMCPToolContract.instructionsRequest(
+            id: "history-1",
+            account: account,
+            assetDefinitionID:
+                NexusAssetDefinitionIdentity.tairaXorDefinitionID,
+            page: 1,
+            perPage: 100
+        )
+        guard
+            case let .object(instructionParams) = instructions.params,
+            case let .object(instructionArguments)? =
+                instructionParams["arguments"]
+        else {
+            return XCTFail("Missing current instruction arguments")
+        }
+        XCTAssertEqual(
+            Set(instructionArguments.keys),
+            [
+                "account", "asset_definition_id", "kind",
+                "transaction_status",
+                "page", "per_page", "accept",
+            ]
+        )
+        XCTAssertEqual(
+            instructionArguments["asset_definition_id"],
+            .string(NexusAssetDefinitionIdentity.tairaXorDefinitionID)
+        )
+        XCTAssertNil(instructionArguments["asset_id"])
+        XCTAssertEqual(instructionArguments["kind"], .string("Transfer"))
+        XCTAssertEqual(
+            instructionArguments["transaction_status"],
+            .string("committed")
+        )
+    }
+
     func testNexusToriiRejectsPartialFanoutSuccess() throws {
         let endpoint = try XCTUnwrap(
             URL(
                 string:
-                    "https://public-01.taira.example.org/v1/accounts/example/assets"
+                    "https://taira.sora.org/v1/accounts/example/assets"
             )
         )
         let completeHeaders = [
@@ -13223,7 +14669,7 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertNoThrow(
             try NexusToriiClient.validateFanoutHeaders(localRoute)
         )
-        XCTAssertNoThrow(
+        XCTAssertThrowsError(
             try NexusToriiClient.validateFanoutHeaderValues(
                 {
                     [
@@ -13243,6 +14689,17 @@ final class WalletModernizationTests: XCTestCase {
             try NexusToriiClient.validateFanoutHeaderValues(
                 {
                     [
+                        "x-iroha-route-lane-id": "1",
+                        "x-iroha-route-dataspace-id": "2"
+                    ][$0]
+                }
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaderValues(
+                {
+                    [
+                        "x-iroha-routed-by": "local",
                         "x-iroha-route-lane-id": "1",
                         "x-iroha-route-dataspace-id": "2"
                     ][$0]
@@ -13304,14 +14761,20 @@ final class WalletModernizationTests: XCTestCase {
             )
         )
         XCTAssertNoThrow(try NexusToriiClient.validateFanoutHeaders(complete))
-        XCTAssertThrowsError(
+        XCTAssertNoThrow(
             try NexusToriiClient.validateFanoutHeaderValues(
                 {
-                    (completeHeaders.merging([
+                    ([
                         "x-iroha-routed-by": "local",
-                        "x-iroha-route-lane-id": "1",
-                        "x-iroha-route-dataspace-id": "2"
-                    ]) { _, new in new })[$0]
+                        "x-iroha-route-lane-id": "0",
+                        "x-iroha-route-dataspace-id": "0",
+                        "x-iroha-fanout-routes-attempted": "1",
+                        "x-iroha-fanout-routes-succeeded": "1",
+                        "x-iroha-fanout-routes-failed": "0",
+                        "x-iroha-fanout-routes-unavailable": "0",
+                        "x-iroha-fanout-routes-denied": "0",
+                        "x-iroha-fanout-routes-not-found": "0"
+                    ])[$0]
                 },
                 requiresFanout: true
             )
@@ -13333,10 +14796,56 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertThrowsError(
             try NexusToriiClient.validateFanoutHeaders(partial)
         ) { error in
+            guard case NexusToriiError.deploymentUnavailable = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        var contradictoryHeaders = completeHeaders
+        contradictoryHeaders["x-iroha-fanout-first-failure"] =
+            "route_unavailable"
+        contradictoryHeaders["x-iroha-fanout-routes-unavailable"] = "1"
+        let contradictory = try XCTUnwrap(
+            HTTPURLResponse(
+                url: endpoint,
+                statusCode: 503,
+                httpVersion: "HTTP/1.1",
+                headerFields: contradictoryHeaders
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiClient.validateFanoutHeaders(contradictory)
+        ) { error in
             guard case NexusToriiError.invalidResponse = error else {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
+        XCTAssertTrue(
+            try NexusToriiDeploymentHealthContract.isRouteUnavailable(
+                rejectCode: nil,
+                body: .object([
+                    "code": .string("route_unavailable"),
+                    "message": .string("authoritative route unavailable")
+                ])
+            )
+        )
+        XCTAssertFalse(
+            try NexusToriiDeploymentHealthContract.isRouteUnavailable(
+                rejectCode: nil,
+                body: .object([
+                    "code": .string("server_error"),
+                    "message": .string("not route_unavailable")
+                ])
+            )
+        )
+        XCTAssertThrowsError(
+            try NexusToriiDeploymentHealthContract.isRouteUnavailable(
+                rejectCode: "route_unavailable",
+                body: .object([
+                    "code": .string("permission_denied"),
+                    "message": .string("access denied")
+                ])
+            )
+        )
 
         let incomplete = try XCTUnwrap(
             HTTPURLResponse(
@@ -13429,6 +14938,23 @@ final class WalletModernizationTests: XCTestCase {
                 requiresFanout: true
             )
         )
+        XCTAssertThrowsError(
+            try NexusMCPResultContract.validateEmbeddedRoute(
+                embeddedMCPResult(
+                    status: .number("503"),
+                    isError: .bool(true),
+                    body: .object([
+                        "code": .string("route_unavailable"),
+                        "message": .string("authoritative route unavailable")
+                    ])
+                ),
+                requiresFanout: true
+            )
+        ) { error in
+            guard case NexusToriiError.deploymentUnavailable = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
         XCTAssertNoThrow(
             try NexusMCPResultContract.validateEmbeddedRoute(
                 embeddedMCPResult(
@@ -13576,6 +15102,41 @@ final class WalletModernizationTests: XCTestCase {
         XCTAssertEqual(
             try absent.accept(page(total: 1, [item(otherHash)])),
             .absent
+        )
+        var foundBeforeTerminalPage = try proof(pageSize: 1)
+        XCTAssertEqual(
+            try foundBeforeTerminalPage.accept(
+                page(total: 2, [item(targetHash)])
+            ),
+            .continueScanning
+        )
+        XCTAssertEqual(
+            try foundBeforeTerminalPage.accept(
+                NexusAccountTransactionList(
+                    items: [item(otherHash)],
+                    total: 2,
+                    hasMore: false,
+                    countMode: "exact"
+                )
+            ),
+            .found
+        )
+        var duplicateTargetAfterMatch = try proof(pageSize: 1)
+        XCTAssertEqual(
+            try duplicateTargetAfterMatch.accept(
+                page(total: 2, [item(targetHash)])
+            ),
+            .continueScanning
+        )
+        XCTAssertThrowsError(
+            try duplicateTargetAfterMatch.accept(
+                NexusAccountTransactionList(
+                    items: [item(targetHash)],
+                    total: 2,
+                    hasMore: false,
+                    countMode: "exact"
+                )
+            )
         )
         for invalid in [
             item(targetHash, succeeded: false),
@@ -14970,7 +16531,7 @@ final class WalletModernizationTests: XCTestCase {
                 options: [.skipsHiddenFiles]
             )
             .filter { $0.pathExtension == "lproj" }
-        XCTAssertEqual(localeDirectories.count, 31)
+        XCTAssertEqual(localeDirectories.count, 33)
         for localeDirectory in localeDirectories {
             let strings = try String(
                 contentsOf: localeDirectory.appendingPathComponent(
@@ -15263,13 +16824,14 @@ final class WalletModernizationTests: XCTestCase {
     private func exerciseFullLegacyWalletUpgrade(
         wordCount: Int,
         entropyBytes: Int,
-        corruptCommitJournal: Bool
+        corruptCommitJournal: Bool,
+        retainsIrohaPrivateKey: Bool = false
     ) throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let entropy = Data(
+        let entropy = retainsIrohaPrivateKey ? Data(repeating: 0, count: 20) : Data(
             (0 ..< entropyBytes).map {
                 UInt8(($0 + wordCount) & 0xff)
             }
@@ -15305,6 +16867,11 @@ final class WalletModernizationTests: XCTestCase {
             entropy,
             with: KeystoreTag.legacyEntropy.rawValue
         )
+        if retainsIrohaPrivateKey {
+            try keychain.addKey(try Data(hexStringSSF:
+                "e6ede78853ee2a5ede2d25f51d624e46270a9cb4d492a95c4742a3ca52f65f84"),
+                with: "privateKey")
+        }
         try keychain.addKey(
             Data(displayName.utf8),
             with: KeystoreTag.legacyUsername.rawValue
@@ -15541,6 +17108,12 @@ final class WalletModernizationTests: XCTestCase {
             )
 
             let snapshot = try XCTUnwrap(walletStore.load())
+            XCTAssertEqual(
+                try keychain.fetchEntropyForAddress(
+                    expectedAddress, activeSnapshot: snapshot, recoveryGate: recoveryGate
+                ),
+                entropy
+            )
             let expectedSource = try XCTUnwrap(
                 WalletMnemonicWordPolicy.retainedSecretSource(
                     forWordCount: wordCount
@@ -15843,6 +17416,14 @@ final class WalletModernizationTests: XCTestCase {
                 XCTAssertEqual(
                     row.value(forKey: "publicKey") as? Data,
                     account.publicKeyData
+                )
+                XCTAssertEqual(
+                    (row.value(forKey: "cryptoType") as? NSNumber)?.intValue,
+                    Int(account.cryptoType.rawValue)
+                )
+                XCTAssertEqual(
+                    (row.value(forKey: "networkType") as? NSNumber)?.intValue,
+                    Int(account.networkType)
                 )
                 XCTAssertEqual(
                     (row.value(forKey: "order") as? NSNumber)?.intValue,

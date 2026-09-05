@@ -3156,7 +3156,7 @@ def verify_qualified() -> str:
             "retainedCoreDataCohortCount": 4,
             "singleAccountCohortCount": 2,
             "multiAccountCohortCount": 2,
-            "successfulSecretSourceCohortCount": 6,
+            "successfulSecretSourceCohortCount": 9,
             "secretFailureCohortCount": 2,
             "currentSchemaSafetySnapshotCohortCount": 2,
             "interruptionPointCohortCount": 5,

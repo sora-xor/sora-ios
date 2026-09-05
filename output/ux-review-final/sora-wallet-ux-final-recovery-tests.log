@@ -1,0 +1,111 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project SoraPassport.xcodeproj -scheme SoraPassportTests -configuration Debug -destination "platform=iOS Simulator,id=320B5124-4AA6-4F7C-8D00-5C6F28D87BA6" -derivedDataPath /tmp/sora-wallet-ux-derived -disableAutomaticPackageResolution "-only-testing:SoraPassportTests/WalletModernizationTests/testNexusPreparedTransferCanBeSubmittedOnlyOnce" "-only-testing:SoraPassportTests/WalletModernizationTests/testNexusRecoveryNeverInterruptsALiveSubmission" "-only-testing:SoraPassportTests/WalletModernizationTests/testNexusStagedSendCanFailDefinitivelyBeforeTransport" "-only-testing:SoraPassportTests/WalletModernizationTests/testNexusPendingJournalPreservesTerminalReconciliation" "-only-testing:SoraPassportTests/WalletModernizationTests/testNexusBalanceBindsExactAccountAndUniqueGlobalAsset" "-only-testing:SoraPassportTests/WalletModernizationTests/testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline" -resultBundlePath /tmp/sora-wallet-ux-final-recovery-tests.xcresult CODE_SIGNING_ALLOWED=NO test-without-building
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  BigInt: https://github.com/attaswift/BigInt.git @ 5.7.0
+  Reachability: https://github.com/ashleymills/Reachability.swift.git @ 5.2.3
+  swift-nio: https://github.com/apple/swift-nio.git @ 2.100.0
+  swift-algorithms: https://github.com/apple/swift-algorithms.git @ 1.2.1
+  InteropForGoogle: https://github.com/google/interop-ios-for-google-sdks.git @ 101.0.0
+  swift-log: https://github.com/apple/swift-log @ 1.12.1
+  swift-collections: https://github.com/apple/swift-collections.git @ 1.5.1
+  Firebase: https://github.com/firebase/firebase-ios-sdk.git @ 12.13.0
+  swift-nio-transport-services: https://github.com/apple/swift-nio-transport-services.git @ 1.28.0
+  abseil: https://github.com/google/abseil-cpp-binary.git @ 1.2024072200.0
+  GoogleDataTransport: https://github.com/google/GoogleDataTransport.git @ 10.1.0
+  swift-http-types: https://github.com/apple/swift-http-types.git @ 1.5.1
+  swift-crypto: https://github.com/apple/swift-crypto.git @ 4.5.0
+  Kingfisher: https://github.com/onevcat/Kingfisher.git @ 6.3.1
+  swift-asn1: https://github.com/apple/swift-asn1.git @ 1.7.0
+  SSFStorageQueryKit: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SSFStorageQueryKit @ local
+  GoogleAppMeasurement: https://github.com/google/GoogleAppMeasurement.git @ 12.13.0
+  Starscream: https://github.com/soramitsu/fearless-starscream.git @ 4.0.12
+  SVGKit: https://github.com/SVGKit/SVGKit.git @ 3.0.0
+  swift-service-lifecycle: https://github.com/swift-server/swift-service-lifecycle.git @ 2.11.0
+  PromiseKit: https://github.com/mxcl/PromiseKit.git @ 6.22.1
+  xxHash-Swift: https://github.com/daisuke-t-jp/xxHash-Swift @ 1.1.1
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.0
+  AppCheck: https://github.com/google/app-check.git @ 11.2.0
+  SoraDocuments: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraDocuments @ local
+  AppAuth: https://github.com/openid/AppAuth-iOS.git @ 1.7.6
+  R.swift.Library: https://github.com/mac-cain13/R.swift.Library.git @ 5.3.0
+  swift-certificates: https://github.com/apple/swift-certificates.git @ 1.19.1
+  GTMAppAuth: https://github.com/google/GTMAppAuth.git @ 4.1.1
+  swift-nio-http2: https://github.com/apple/swift-nio-http2.git @ 1.44.0
+  gRPC: https://github.com/google/grpc-binary.git @ 1.69.1
+  SoraWalletBinary: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraWalletBinary @ local
+  Modules: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/shared-features-spm @ local
+  SnapKit: https://github.com/SnapKit/SnapKit.git @ 5.7.1
+  FireMock: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/FireMock @ local
+  JOSESwift: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/JOSESwift @ local
+  SoraUIKit: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraUIKit @ local
+  swift-http-structured-headers: https://github.com/apple/swift-http-structured-headers.git @ 1.7.0
+  Lottie: https://github.com/airbnb/lottie-ios.git @ 4.4.3
+  CryptoSwift: https://github.com/krzyzanowskim/CryptoSwift.git @ 1.10.0
+  GoogleAPIClientForREST: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/google-api-objectivec-client-for-rest @ local
+  swift-system: https://github.com/apple/swift-system.git @ 1.6.4
+  secp256k1: https://github.com/Boilertalk/secp256k1.swift.git @ 0.1.7
+  leveldb: https://github.com/firebase/leveldb.git @ 1.22.5
+  Promises: https://github.com/google/promises.git @ 2.4.0
+  Nantes: https://github.com/instacart/Nantes.git @ 0.1.2
+  GoogleSignIn: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/GoogleSignIn-iOS @ local
+  CocoaLumberjack: https://github.com/CocoaLumberjack/CocoaLumberjack.git @ 3.9.1
+  TweetNacl: https://github.com/bitmark-inc/tweetnacl-swiftwrap @ 1.1.0
+  GoogleUtilities: https://github.com/google/GoogleUtilities.git @ 8.1.0
+  SwiftyBeaver: https://github.com/SwiftyBeaver/SwiftyBeaver.git @ 2.1.1
+  Then: https://github.com/devxoul/Then.git @ 3.0.0
+  nanopb: https://github.com/firebase/nanopb.git @ 2.30910.0
+  Web3: https://github.com/soramitsu/web3-swift @ 7.7.7
+  SoraUI: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraUI @ local
+  GTMSessionFetcher: https://github.com/google/gtm-session-fetcher.git @ 3.5.0
+  websocket-kit: https://github.com/vapor/websocket-kit @ 2.16.2
+  swift-async-algorithms: https://github.com/apple/swift-async-algorithms.git @ 1.1.4
+  Cuckoo: https://github.com/Brightify/Cuckoo.git @ 1.9.1
+  swift-nio-extras: https://github.com/apple/swift-nio-extras.git @ 1.34.1
+  SoraFoundation: /Users/takemiyamakoto/dev/sora-wallet/sora-ios/VendorPackages/SoraFoundation @ local
+  Anchorage: https://github.com/Rightpoint/Anchorage.git @ 4.5.0
+  swift-numerics: https://github.com/apple/swift-numerics.git @ 1.1.1
+  swift-nio-ssl: https://github.com/apple/swift-nio-ssl.git @ 2.37.0
+  GoogleAdsOnDeviceConversion: https://github.com/googleads/google-ads-on-device-conversion-ios-sdk @ 3.5.0
+  FLEX: https://github.com/FLEXTool/FLEX.git @ 5.22.10
+
+Writing result bundle at path:
+	/tmp/sora-wallet-ux-final-recovery-tests.xcresult
+
+Test Suite 'Selected tests' started at 0008-09-05 20:19:24.065.
+Test Suite 'SoraPassportTests.xctest' started at 0008-09-05 20:19:24.066.
+Test Suite 'WalletModernizationTests' started at 0008-09-05 20:19:24.066.
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusBalanceBindsExactAccountAndUniqueGlobalAsset]' started.
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusBalanceBindsExactAccountAndUniqueGlobalAsset]' passed (0.014 seconds).
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusPendingJournalPreservesTerminalReconciliation]' started.
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusPendingJournalPreservesTerminalReconciliation]' passed (0.032 seconds).
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusPreparedTransferCanBeSubmittedOnlyOnce]' started.
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusPreparedTransferCanBeSubmittedOnlyOnce]' passed (0.001 seconds).
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusRecoveryNeverInterruptsALiveSubmission]' started.
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusRecoveryNeverInterruptsALiveSubmission]' passed (0.029 seconds).
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline]' started.
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusSendAvailabilityRequiresAnAdmittedQualifiedPipeline]' passed (0.001 seconds).
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusStagedSendCanFailDefinitivelyBeforeTransport]' started.
+Test Case '-[SoraPassportTests.WalletModernizationTests testNexusStagedSendCanFailDefinitivelyBeforeTransport]' passed (0.021 seconds).
+Test Suite 'WalletModernizationTests' passed at 0008-09-05 20:19:24.166.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.098 (0.100) seconds
+Test Suite 'SoraPassportTests.xctest' passed at 0008-09-05 20:19:24.166.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.098 (0.100) seconds
+Test Suite 'Selected tests' passed at 0008-09-05 20:19:24.166.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.098 (0.101) seconds
+2026-09-05 20:19:24.440 xcodebuild[11433:15685259] [MT] IDETestOperationsObserverDebug: 2.478 elapsed -- Testing started completed.
+2026-09-05 20:19:24.440 xcodebuild[11433:15685259] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-09-05 20:19:24.440 xcodebuild[11433:15685259] [MT] IDETestOperationsObserverDebug: 2.478 sec, +2.478 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/sora-wallet-ux-final-recovery-tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

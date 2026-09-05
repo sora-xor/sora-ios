@@ -37,9 +37,7 @@ import IrohaCrypto
 class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
     var isSelected: Bool = false
     var order: Int32 = 0
-    private var privateKeysUsed: [Data] = []
-
-    private lazy var addressFactory = SS58AddressFactory()
+    private var migratedAddresses: Set<String> = []
 
     override func createDestinationInstances(
         forSource accountItem: NSManagedObject,
@@ -51,10 +49,10 @@ class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
             throw UserStorageMigrationError.accountInventoryMismatch
         }
 
-        let accountId = try addressFactory.accountId(from: sourceAddress)
-
-        if privateKeysUsed.contains(accountId) {
-            return
+        // Distinct network addresses can share one public key. Every retained
+        // account is an independent inventory row and must survive migration.
+        guard migratedAddresses.insert(sourceAddress).inserted else {
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
 
         try super.createDestinationInstances(forSource: accountItem, in: mapping, manager: manager)
@@ -63,10 +61,8 @@ class SelectedAccountMigrationPolicy: NSEntityMigrationPolicy {
             forEntityMappingName: mapping.name,
             sourceInstances: [accountItem]
         ).first else {
-            return
+            throw UserStorageMigrationError.accountInventoryMismatch
         }
-
-        privateKeysUsed.append(accountId)
 
         if let orderedAssetIds =
             manager.userInfo?[UserStorageMigratorKeys.orderedAssetIds] as? [String] {

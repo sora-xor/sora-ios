@@ -326,8 +326,12 @@ private extension GenerateQRViewModel {
                         assetsProvider: assetsProvider
                     )
                 } catch {
-                    // Fail closed. The ordinary send screen can be reopened to
-                    // obtain a fresh exact-call fee; no fixed QR fee is accepted.
+                    self.wireframe?.showFeeEstimationError(
+                        on: self.view?.controller,
+                        retry: { [weak self] in
+                            self?.handle(result)
+                        }
+                    )
                 }
             }
             return

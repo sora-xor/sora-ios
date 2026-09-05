@@ -30,6 +30,11 @@ public final class SoramitsuTextViewConfiguration<Type: SoramitsuTextView>: Sora
 		}
 	}
 
+    /// Opt in on layouts that can grow with the user's preferred text size.
+    public var dynamicTextStyle: UIFont.TextStyle? {
+        didSet { updateForContentSizeCategory() }
+    }
+
 	public var textAlignment: NSTextAlignment = .left {
 		didSet {
 			updateAttributedText()
@@ -105,17 +110,27 @@ public final class SoramitsuTextViewConfiguration<Type: SoramitsuTextView>: Sora
 
 	private func updateAttributedText() {
 		if let attributedText = attributedText {
-			owner?.attributedText = attributedText.attributedString
+			owner?.attributedText = scaled(attributedText.attributedString)
 			owner?.linkTextAttributes = attributedText.linkAttributes
 			return
 		}
 
 		guard let text = text else {
 			owner?.attributedText = nil
+            if let dynamicTextStyle, let baseFont = font.attributes[.font] as? UIFont {
+                let scaledFont = UIFontMetrics(forTextStyle: dynamicTextStyle)
+                    .scaledFont(for: baseFont, compatibleWith: owner?.traitCollection)
+                owner?.font = scaledFont
+                owner?.typingAttributes[.font] = scaledFont
+            }
 			return
 		}
 
 		var attributes = font.attributes
+        if let dynamicTextStyle, let baseFont = attributes[.font] as? UIFont {
+            attributes[.font] = UIFontMetrics(forTextStyle: dynamicTextStyle)
+                .scaledFont(for: baseFont, compatibleWith: owner?.traitCollection)
+        }
 
 		let paragraph = font.paragraph
 		paragraph.alignment = textAlignment
@@ -126,8 +141,30 @@ public final class SoramitsuTextViewConfiguration<Type: SoramitsuTextView>: Sora
 		let attributedText = NSMutableAttributedString(string: text, attributes: attributes)
 
 		owner?.attributedText = attributedText
+        if dynamicTextStyle != nil {
+            owner?.font = attributes[.font] as? UIFont
+            owner?.typingAttributes = attributes
+        }
 		owner?.linkTextAttributes = nil
 	}
+
+    func updateForContentSizeCategory() {
+        let selection = owner?.selectedRange
+        updateAttributedText()
+        if let selection { owner?.selectedRange = selection }
+        owner?.invalidateIntrinsicContentSize()
+    }
+
+    private func scaled(_ text: NSAttributedString?) -> NSAttributedString? {
+        guard let text, let dynamicTextStyle else { return text }
+        let result = NSMutableAttributedString(attributedString: text)
+        text.enumerateAttribute(.font, in: NSRange(location: 0, length: text.length)) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            result.addAttribute(.font, value: UIFontMetrics(forTextStyle: dynamicTextStyle)
+                .scaledFont(for: font, compatibleWith: owner?.traitCollection), range: range)
+        }
+        return result
+    }
 
 	private func updateKeyboardAppearence() {
         switch SoramitsuUI.shared.theme {

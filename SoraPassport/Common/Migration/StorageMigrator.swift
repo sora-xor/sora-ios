@@ -334,6 +334,14 @@ final class UserStorageMigrator {
         )
         try validateKeychain(for: sourceManifest)
 
+        // Core Data may create its current empty store while constructing the
+        // onboarding dependencies. The read-only manifest has already rejected
+        // every retained-wallet marker/key/snapshot. There is no wallet to
+        // migrate or back up until onboarding creates the first account.
+        if sourceVersion == targetVersion, sourceManifest.accounts.isEmpty {
+            return
+        }
+
         try ensureMigrationCapacity()
         try forceWALCheckpointingForStore(at: storeURL)
 
@@ -755,11 +763,13 @@ final class UserStorageMigrator {
         // SQLite can leave authoritative pages in a WAL or rollback journal
         // when the main store is missing. Preserve every such sidecar and
         // route to recovery before Core Data can create a replacement store.
-        for suffix in ["-wal", "-shm", "-journal"] {
-            if pathExistsNoFollow(
-                URL(fileURLWithPath: storeURL.path + suffix)
-            ) {
-                return true
+        if !pathExistsNoFollow(storeURL) {
+            for suffix in ["-wal", "-shm", "-journal"] {
+                if pathExistsNoFollow(
+                    URL(fileURLWithPath: storeURL.path + suffix)
+                ) {
+                    return true
+                }
             }
         }
 

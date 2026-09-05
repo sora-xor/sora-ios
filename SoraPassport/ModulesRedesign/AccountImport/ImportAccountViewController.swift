@@ -35,6 +35,8 @@ import SoraFoundation
 final class ImportAccountViewController: SoramitsuViewController {
     var presenter: AccountImportPresenterProtocol?
     
+    private let scrollView = UIScrollView()
+
     private var viewModel: InputViewModelProtocol?
     private var sourceViewModel: InputViewModelProtocol?
     
@@ -51,6 +53,7 @@ final class ImportAccountViewController: SoramitsuViewController {
         let label = SoramitsuLabel()
         label.sora.numberOfLines = 0
         label.sora.font = FontType.paragraphM
+        label.sora.dynamicTextStyle = .body
         label.sora.textColor = .fgPrimary
         label.sora.text = R.string.localizable.onboardingCreateAccountDescription(preferredLanguages: .currentLocale)
         label.sora.alignment = .left
@@ -61,6 +64,7 @@ final class ImportAccountViewController: SoramitsuViewController {
         InputTextView().then {
             $0.sora.state = .default
             $0.textView.sora.isScrollEnabled = false
+            $0.textView.sora.dynamicTextStyle = .body
             $0.textView.autocorrectionType = .no
             $0.textView.returnKeyType = .done
             $0.textView.autocapitalizationType = .none
@@ -69,21 +73,16 @@ final class ImportAccountViewController: SoramitsuViewController {
         }
     }()
 
-    private lazy var createAccountButton: SoramitsuButton = {
-        let button = SoramitsuButton()
-        button.sora.horizontalOffset = 0
-        button.sora.cornerRadius = .circle
-        button.sora.backgroundColor = .accentPrimary
-        button.sora.isEnabled = false
-        button.sora.title = R.string.localizable.transactionContinue(preferredLanguages: .currentLocale)
-        button.sora.addHandler(for: .touchUpInside) { [weak self] in
-            guard let self = self else { return }
+    private lazy var createAccountButton: UIButton = {
+        let button = WalletUX.button(R.string.localizable.transactionContinue(preferredLanguages: .currentLocale), primary: true) { [weak self] in
+            guard let self else { return }
             self.usernameField.textView.resignFirstResponder()
             self.presenter?.proceed()
         }
+        button.isEnabled = false
         return button
     }()
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         navigationItem.backButtonTitle = ""
@@ -95,15 +94,25 @@ final class ImportAccountViewController: SoramitsuViewController {
     }
     
     func setupView() {
-        view.addSubview(containerView)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.keyboardDismissMode = .interactive
+        view.addSubview(scrollView)
+        scrollView.addSubview(containerView)
+        createAccountButton.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubviews(subtitleLabel, usernameField, createAccountButton)
     }
     
     func setupConstraints() {
         NSLayoutConstraint.activate([
-            containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            containerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 8),
+            containerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
+            containerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
+            containerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
+            containerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32),
             
             subtitleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 24),
             subtitleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 24),
@@ -166,14 +175,14 @@ extension ImportAccountViewController: InputTextViewDelegate {
 
         if !shouldApply, textView.text != model.inputHandler.value {
             textView.text = model.inputHandler.normalizedValue
-            createAccountButton.sora.isEnabled = !textView.text.isEmpty
+            createAccountButton.isEnabled = !textView.text.isEmpty
         }
 
         return shouldApply
     }
     
     func textViewDidChange(_ textView: UITextView) {
-        createAccountButton.sora.isEnabled = !textView.text.isEmpty
+        createAccountButton.isEnabled = !textView.text.isEmpty
         //INFO: Added for autotests
         #if (arch(x86_64))
             sourceViewModel?.inputHandler.changeValue(to: textView.text)

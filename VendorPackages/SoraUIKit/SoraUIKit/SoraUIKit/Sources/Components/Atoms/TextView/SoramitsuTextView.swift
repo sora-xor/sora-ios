@@ -4,6 +4,14 @@ public final class SoramitsuTextView: UITextView, Atom {
 
 	public let sora: SoramitsuTextViewConfiguration<SoramitsuTextView>
 
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if sora.dynamicTextStyle != nil,
+           previousTraitCollection?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory {
+            sora.updateForContentSizeCategory()
+        }
+    }
+
 	init(style: SoramitsuStyle) {
         sora = SoramitsuTextViewConfiguration(style: style)
 		super.init(frame: .zero, textContainer: nil)

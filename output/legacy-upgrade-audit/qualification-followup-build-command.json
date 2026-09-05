@@ -1,0 +1,16 @@
+[
+  "xcodebuild",
+  "-project",
+  "SoraPassport.xcodeproj",
+  "-scheme",
+  "SoraPassportTests",
+  "-configuration",
+  "Debug",
+  "-destination",
+  "generic/platform=iOS Simulator",
+  "-derivedDataPath",
+  "/private/tmp/sora-wallet-ux-derived",
+  "-disableAutomaticPackageResolution",
+  "CODE_SIGNING_ALLOWED=NO",
+  "build-for-testing"
+]

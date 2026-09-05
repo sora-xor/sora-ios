@@ -11,8 +11,13 @@ public class SoramitsuTextFieldConfiguration<Type: SoramitsuTextField>: Soramits
     
     public var attributedText: SoramitsuTextItem? {
         didSet {
-            owner?.attributedText = attributedText?.attributedString
+            owner?.attributedText = scaled(attributedText?.attributedString)
         }
+    }
+
+    /// Opt in on layouts that can grow with the user's preferred text size.
+    public var dynamicTextStyle: UIFont.TextStyle? {
+        didSet { updateForContentSizeCategory() }
     }
 
     public var textColor: SoramitsuColor = .fgPrimary {
@@ -83,14 +88,25 @@ public class SoramitsuTextFieldConfiguration<Type: SoramitsuTextField>: Soramits
 	}
 
     private func updateTextAttributes() {
-		guard let owner = owner, let text = text else { return }
+		guard let owner = owner else { return }
         
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.alignment = owner.textAlignment
         
 		var attributes = font.attributes
+        if let dynamicTextStyle, let baseFont = attributes[.font] as? UIFont {
+            attributes[.font] = UIFontMetrics(forTextStyle: dynamicTextStyle)
+                .scaledFont(for: baseFont, compatibleWith: owner.traitCollection)
+        }
 		attributes[.foregroundColor] = style.palette.color(textColor)
         attributes[.paragraphStyle] = paragraphStyle
+        guard let text else {
+            if dynamicTextStyle != nil {
+                owner.font = attributes[.font] as? UIFont
+                owner.defaultTextAttributes = attributes
+            }
+            return
+        }
 		let selectedRange = owner.selectedTextRange
 		owner.attributedText = NSAttributedString(string: text, attributes: attributes)
 		owner.selectedTextRange = selectedRange
@@ -101,8 +117,31 @@ public class SoramitsuTextFieldConfiguration<Type: SoramitsuTextField>: Soramits
 		guard let placeholder = placeholder else { return }
 		var attributes = placeholderFont.attributes
 		attributes[.foregroundColor] = style.palette.color(placeholderColor)
-		owner?.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: attributes)
+		owner?.attributedPlaceholder = scaled(NSAttributedString(string: placeholder, attributes: attributes))
 	}
+
+    func updateForContentSizeCategory() {
+        if let attributedText {
+            let selection = owner?.selectedTextRange
+            owner?.attributedText = scaled(attributedText.attributedString)
+            owner?.selectedTextRange = selection
+        } else {
+            updateTextAttributes()
+        }
+        updatePlaceholderAttributes()
+        owner?.invalidateIntrinsicContentSize()
+    }
+
+    private func scaled(_ text: NSAttributedString?) -> NSAttributedString? {
+        guard let text, let dynamicTextStyle else { return text }
+        let result = NSMutableAttributedString(attributedString: text)
+        text.enumerateAttribute(.font, in: NSRange(location: 0, length: text.length)) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            result.addAttribute(.font, value: UIFontMetrics(forTextStyle: dynamicTextStyle)
+                .scaledFont(for: font, compatibleWith: owner?.traitCollection), range: range)
+        }
+        return result
+    }
 
     private func updateKeyboardAppearence() {
 		switch SoramitsuUI.shared.theme {
@@ -111,4 +150,3 @@ public class SoramitsuTextFieldConfiguration<Type: SoramitsuTextField>: Soramits
 		}
 	}
 }
-

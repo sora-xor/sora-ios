@@ -16,6 +16,7 @@ import re
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -82,9 +83,11 @@ MAX_SIGNATURE_BYTES = 4096
 MAX_CONTROLLER_BYTES = 64 * 1024 * 1024
 MAX_CLOCK_SKEW_SECONDS = 30
 MAX_CONTROLLER_OBSERVATION_AGE_SECONDS = 300
+MAX_TAIRA_DEPLOYMENT_ROLLOUT_AGE_SECONDS = 7 * 24 * 60 * 60
 REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 BUILD_RE = re.compile(r"^[1-9][0-9]{0,17}$")
+SAFE_OPENSSL_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"}
 
 
 class PromotionError(RuntimeError):
@@ -250,6 +253,61 @@ def stable_read(path: Path, maximum: int, label: str) -> tuple[bytes, os.stat_re
         return b"".join(chunks), after
     finally:
         os.close(descriptor)
+
+
+def verify_p256_signature_bytes(
+    payload_raw: bytes,
+    signature_raw: bytes,
+    public_key_raw: bytes,
+    label: str,
+) -> None:
+    key_details = subprocess.run(
+        ["/usr/bin/openssl", "pkey", "-pubin", "-text_pub", "-noout"],
+        input=public_key_raw,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        env=SAFE_OPENSSL_ENV,
+        timeout=30,
+        check=False,
+        close_fds=True,
+    )
+    if key_details.returncode != 0 or (
+        b"ASN1 OID: prime256v1" not in key_details.stdout
+        and b"NIST CURVE: P-256" not in key_details.stdout
+    ):
+        fail(f"{label} public key is not ECDSA P-256")
+
+    # OpenSSL receives immutable anonymous snapshots, never the mutable source
+    # paths. TemporaryFile descriptors are unlinked and avoid pipe-capacity
+    # deadlocks for adversarially padded but bounded inputs.
+    with tempfile.TemporaryFile() as key_snapshot, tempfile.TemporaryFile() as signature_snapshot:
+        key_snapshot.write(public_key_raw)
+        key_snapshot.flush()
+        key_snapshot.seek(0)
+        signature_snapshot.write(signature_raw)
+        signature_snapshot.flush()
+        signature_snapshot.seek(0)
+        result = subprocess.run(
+            [
+                "/usr/bin/openssl",
+                "dgst",
+                "-sha256",
+                "-verify",
+                f"/dev/fd/{key_snapshot.fileno()}",
+                "-signature",
+                f"/dev/fd/{signature_snapshot.fileno()}",
+            ],
+            input=payload_raw,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=SAFE_OPENSSL_ENV,
+            timeout=30,
+            check=False,
+            pass_fds=(key_snapshot.fileno(), signature_snapshot.fileno()),
+            close_fds=True,
+        )
+    if result.returncode != 0:
+        fail(f"{label} signature is not authenticated")
 
 
 def stable_hash(path: Path, maximum: int, label: str) -> tuple[str, int, os.stat_result]:
@@ -1086,6 +1144,52 @@ def promotion_admission(state: dict[str, Any], ipa: Path, package: Path) -> str:
     return require_sha256(match.group(1), "qualification receipt")
 
 
+def require_fresh_taira_admission_for_live_release(
+    state: dict[str, Any], *, now: int | None = None
+) -> None:
+    record = exact_keys(
+        state["builds"]["primary"]["tairaAdmission"],
+        {"path", "sha256", "byteCount", "device", "inode", "mtimeNanoseconds"},
+        "primary Taira admission",
+    )
+    path = verify_file_record(
+        record,
+        MAX_JSON_BYTES,
+        "primary Taira admission",
+    )
+    raw, metadata = stable_read(
+        path,
+        MAX_JSON_BYTES,
+        "primary Taira admission",
+    )
+    observed = {
+        "path": str(path),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "byteCount": len(raw),
+        "device": metadata.st_dev,
+        "inode": metadata.st_ino,
+        "mtimeNanoseconds": metadata.st_mtime_ns,
+    }
+    if observed != record:
+        fail("primary Taira admission changed while freshness was checked")
+    value = parse_canonical_json(raw, "primary Taira admission")
+    if type(value) is not dict:
+        fail("primary Taira admission has an unexpected shape")
+    evaluated_at = value.get("evaluatedAtEpochSeconds")
+    current_epoch = int(time.time()) if now is None else now
+    if (
+        type(current_epoch) is not int
+        or current_epoch <= 0
+        or type(evaluated_at) is not int
+        or evaluated_at <= 0
+        or evaluated_at > current_epoch
+        or current_epoch - evaluated_at > MAX_TAIRA_DEPLOYMENT_ROLLOUT_AGE_SECONDS
+    ):
+        fail(
+            "primary Taira admission is stale or future-dated for live release"
+        )
+
+
 def phase_qualify(state_raw: str) -> None:
     path, state = load_state(state_raw)
     if state["qualifiedPackage"] is not None or state["postUploadArtifact"] is not None:
@@ -1192,9 +1296,12 @@ def authenticate_post_upload_artifact(
         os.environ.get("PRODUCTION_ROLLOUT_TRUST_ROOT_SHA256", ""),
         "protected rollout trust-root pin",
     )
-    trust_record = file_record(trust, MAX_JSON_BYTES, "rollout trust root")
-    if trust_record["sha256"] != expected_trust:
+    trust_raw, _ = stable_read(trust, MAX_JSON_BYTES, "rollout trust root")
+    trust_sha256 = hashlib.sha256(trust_raw).hexdigest()
+    if trust_sha256 != expected_trust:
         fail("rollout trust root differs from its protected SHA-256 pin")
+    trust_environment = os.environ.copy()
+    trust_environment["IOS_PRODUCTION_ROLLOUT_TRUST_VERIFIED_SHA256"] = trust_sha256
     run_checked(
         [
             "/usr/bin/python3",
@@ -1203,44 +1310,41 @@ def authenticate_post_upload_artifact(
             str(checkout / ROLLOUT_JSON.relative_to(ROOT)),
             "trust",
             str(trust),
-        ]
+        ],
+        env=trust_environment,
     )
-    trust_raw, _ = stable_read(trust, MAX_JSON_BYTES, "rollout trust root")
     trust_value = parse_canonical_json(trust_raw, "rollout trust root")
     public_key_sha = require_sha256(
         trust_value.get("publicKeySha256"), "rollout controller public key"
     )
     public_key_raw = os.environ.get("PRODUCTION_ROLLOUT_CONTROLLER_PUBLIC_KEY_PATH", "")
     public_key = canonical_absolute(public_key_raw, "rollout controller public key")
-    public_key_record = file_record(
+    public_key_bytes, _ = stable_read(
         public_key, MAX_JSON_BYTES, "rollout controller public key"
     )
-    if public_key_record["sha256"] != public_key_sha:
+    if hashlib.sha256(public_key_bytes).hexdigest() != public_key_sha:
         fail("rollout public key differs from the authenticated trust root")
-    stable_read(signature, MAX_SIGNATURE_BYTES, "artifact receipt signature")
-    result = subprocess.run(
-        [
-            "/usr/bin/openssl",
-            "dgst",
-            "-sha256",
-            "-verify",
-            str(public_key),
-            "-signature",
-            str(signature),
-            str(receipt),
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        close_fds=True,
+    signature_bytes, _ = stable_read(
+        signature, MAX_SIGNATURE_BYTES, "artifact receipt signature"
     )
-    if result.returncode != 0:
-        fail("post-upload artifact receipt signature is not authenticated")
-    if file_record(public_key, MAX_JSON_BYTES, "rollout controller public key") != public_key_record:
-        fail("rollout controller public key changed during artifact authentication")
+    receipt_bytes, _ = stable_read(receipt, MAX_JSON_BYTES, "post-upload artifact receipt")
+    verify_p256_signature_bytes(
+        receipt_bytes,
+        signature_bytes,
+        public_key_bytes,
+        "post-upload artifact receipt",
+    )
     taira = verify_file_record(
         state["builds"]["primary"]["tairaAdmission"],
         MAX_JSON_BYTES,
         "primary Taira admission",
+    )
+    validation_environment = os.environ.copy()
+    validation_environment["IOS_PRODUCTION_ARTIFACT_RECEIPT_VERIFIED_SHA256"] = (
+        hashlib.sha256(receipt_bytes).hexdigest()
+    )
+    validation_environment["IOS_TAIRA_DEPLOYMENT_VERIFIED_ADMISSION_SHA256"] = (
+        state["builds"]["primary"]["tairaAdmission"]["sha256"]
     )
     run_checked(
         [
@@ -1252,7 +1356,8 @@ def authenticate_post_upload_artifact(
             str(receipt),
             str(ipa),
             str(taira),
-        ]
+        ],
+        env=validation_environment,
     )
 
 
@@ -1263,6 +1368,7 @@ def phase_upload(state_raw: str) -> None:
     builds, package = verify_immutable_candidate(state, require_package=True)
     assert package is not None
     ipa = builds["primary"]["ipa"]
+    require_fresh_taira_admission_for_live_release(state)
     promotion_admission(state, ipa, package)
     receipt_raw = os.environ.get(
         "PRODUCTION_ROLLOUT_ARTIFACT_IDENTITY_RECEIPT_PATH", ""
@@ -1304,6 +1410,7 @@ def phase_upload(state_raw: str) -> None:
             str(signature),
         ],
     )
+    require_fresh_taira_admission_for_live_release(state)
     verify_post_qualification_checkouts(state)
     receipt = canonical_absolute(str(receipt), "post-upload artifact receipt")
     signature = canonical_absolute(str(signature), "post-upload artifact signature")

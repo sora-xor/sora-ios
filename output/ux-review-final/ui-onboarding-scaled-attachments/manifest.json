@@ -1,0 +1,35 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "FA1EFA42-5335-4FC4-82F2-86F69A1E75E7",
+        "deviceName" : "SORA UX Connect Small",
+        "exportedFileName" : "D6F48E0D-7456-4E8D-B11B-D9FE5ABE28F2.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Maximum text recovery selections_0_78C887AA-EA90-4FFF-905B-F92AFFDB89DF.png",
+        "timestamp" : 1788611088.741
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "FA1EFA42-5335-4FC4-82F2-86F69A1E75E7",
+        "deviceName" : "SORA UX Connect Small",
+        "exportedFileName" : "0DBB1021-7E7E-40D8-BFD2-FF09FAD637F8.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Maximum text name entry and keyboard_0_6AF84A7A-4A68-4492-9F98-9685E9778FC6.png",
+        "timestamp" : 1788611080.049
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "FA1EFA42-5335-4FC4-82F2-86F69A1E75E7",
+        "deviceName" : "SORA UX Connect Small",
+        "exportedFileName" : "E8AE162E-1DC7-40E6-BEBE-5AAC6DAE4471.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Maximum text onboarding actions_0_5A933249-FB40-4194-B6F9-5346E56E7545.png",
+        "timestamp" : 1788611075.668
+      }
+    ],
+    "testIdentifier" : "WalletUXVisualAcceptanceTests/testOnboardingScrollingKeyboardAndRecoveryChoices()",
+    "testIdentifierURL" : "test://com.apple.xcode/SoraPassport/SoraPassportUITests/WalletUXVisualAcceptanceTests/testOnboardingScrollingKeyboardAndRecoveryChoices"
+  }
+]

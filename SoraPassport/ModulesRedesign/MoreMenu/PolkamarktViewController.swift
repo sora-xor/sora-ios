@@ -182,7 +182,7 @@ private enum PolkamarktL10n {
 }
 
 @MainActor
-final class PolkamarktViewController: UITableViewController {
+final class PolkamarktViewController: WalletTableViewController {
     private enum Section: Int, CaseIterable {
         case activity
         case positions
@@ -238,7 +238,7 @@ final class PolkamarktViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = PolkamarktL10n.pageTitle()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = WalletUX.page
         searchController.searchResultsUpdater = self
         searchController.obscuresBackgroundDuringPresentation = false
         searchController.searchBar.placeholder = "Markets, categories, tags"
@@ -1254,7 +1254,7 @@ extension PolkamarktViewController: UISearchBarDelegate {
 }
 
 @MainActor
-private final class PolkamarktMarketViewController: UITableViewController {
+private final class PolkamarktMarketViewController: WalletTableViewController {
     private enum Section: Int, CaseIterable {
         case overview
         case position
@@ -1332,7 +1332,7 @@ private final class PolkamarktMarketViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = market.title ?? PolkamarktL10n.pageTitle()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = WalletUX.page
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: "Trade",
             style: .done,
@@ -1733,13 +1733,14 @@ private final class PolkamarktMarketViewController: UITableViewController {
 
     private func updateChart() {
         let chart = PolkamarktLineChartView(
-            frame: CGRect(x: 0, y: 0, width: 1, height: 180)
+            frame: CGRect(x: 0, y: 0, width: tableView.bounds.width, height: 180)
         )
         if Self.isDPMMarket(state: state, market: market) {
             let points = Self.dpmPricingCurve()
             chart.caption = state == nil
-                ? "Indexed DPM curve · \(PolkamarktL10n.outcome(.yes)) / \(PolkamarktL10n.outcome(.no))"
-                : "Finalized DPM state · \(PolkamarktL10n.outcome(.yes)) / \(PolkamarktL10n.outcome(.no))"
+                ? WalletUX.text("Indexed DPM pricing curve")
+                : WalletUX.text("Finalized DPM pricing curve")
+            chart.context = WalletUX.text("Horizontal: Yes probability, 1% to 99%. Vertical: quoted value, 0% to 100%. Yes is solid; No is dashed. This is a pricing curve, not a history chart.")
             chart.values = points.map { $0.yesQuote }
             chart.secondaryValues = points.map { $0.noQuote }
             if let state {
@@ -1755,13 +1756,47 @@ private final class PolkamarktMarketViewController: UITableViewController {
             }
         } else {
             chart.caption = snapshotLoadError ??
-                "\(PolkamarktL10n.outcome(.yes)) probability history"
-            chart.values = snapshots.compactMap { snapshot in
-                snapshot.priceYes?.unitIntervalDoubleForRendering ??
+                WalletUX.format("%@ probability history", PolkamarktL10n.outcome(.yes))
+            let points = snapshots.compactMap { snapshot -> (PIMarketSnapshot, Double)? in
+                guard let value = snapshot.priceYes?.unitIntervalDoubleForRendering ??
                     snapshot.probability?.percentageFractionForRendering
+                else { return nil }
+                return (snapshot, value)
+            }
+            chart.values = points.map { $0.1 }
+            let percentage = NumberFormatter()
+            percentage.numberStyle = .percent
+            percentage.maximumFractionDigits = 1
+            func percent(_ value: Double) -> String {
+                percentage.string(from: NSNumber(value: value)) ?? "—"
+            }
+            func pointLabel(_ snapshot: PIMarketSnapshot) -> String {
+                if let timestamp = snapshot.timestamp, timestamp > 0 {
+                    let seconds = Double(timestamp) / (timestamp > 10_000_000_000 ? 1_000 : 1)
+                    return DateFormatter.localizedString(from: Date(timeIntervalSince1970: seconds), dateStyle: .medium, timeStyle: .short)
+                }
+                if let block = snapshot.blockHeight { return WalletUX.format("Block %@", String(block)) }
+                return WalletUX.text("Time unavailable")
+            }
+            if let first = points.first, let last = points.last, points.count > 1 {
+                chart.context = WalletUX.format("From %@ at %@ to %@ at %@. Vertical scale: 0%% to 100%%. Snapshots run from oldest to newest at equal spacing.",
+                    percent(first.1), pointLabel(first.0), percent(last.1), pointLabel(last.0))
+            } else {
+                chart.context = WalletUX.text("Probability history will appear after at least two snapshots are indexed.")
             }
         }
+        chart.frame.size = chart.sizeThatFits(CGSize(width: tableView.bounds.width, height: .greatestFiniteMagnitude))
         tableView.tableHeaderView = chart
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard let chart = tableView.tableHeaderView as? PolkamarktLineChartView else { return }
+        let size = chart.sizeThatFits(CGSize(width: tableView.bounds.width, height: .greatestFiniteMagnitude))
+        if chart.frame.size != size {
+            chart.frame.size = size
+            tableView.tableHeaderView = chart
+        }
     }
 
     private static func isDPMMarket(
@@ -2526,11 +2561,56 @@ extension PolkamarktMarketViewController: Localizable {
 }
 
 @MainActor
-private final class PolkamarktLineChartView: UIView {
+final class PolkamarktLineChartView: UIView {
+    private let captionLabel = WalletUX.label(style: .headline)
+    private let contextLabel = WalletUX.label(style: .footnote)
+    private var plotBounds = CGRect.zero
+
     var caption = "" {
         didSet {
-            setNeedsDisplay()
+            captionLabel.text = caption
+            updateDescription()
         }
+    }
+
+    var context = "" {
+        didSet {
+            contextLabel.text = context
+            updateDescription()
+        }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = WalletUX.page
+        contextLabel.textColor = WalletUX.secondary
+        addSubview(captionLabel)
+        addSubview(contextLabel)
+        isAccessibilityElement = true
+        accessibilityTraits = .image
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+
+    private func updateDescription() {
+        accessibilityLabel = [caption, context].filter { !$0.isEmpty }.joined(separator: ". ")
+        setNeedsLayout()
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let width = max(1, size.width - 48)
+        let limit = CGSize(width: width, height: .greatestFiniteMagnitude)
+        return CGSize(width: size.width, height: 48 + captionLabel.sizeThatFits(limit).height +
+                      contextLabel.sizeThatFits(limit).height + (values.count > 1 ? 150 : 0))
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let limit = CGSize(width: max(1, bounds.width - 48), height: .greatestFiniteMagnitude)
+        captionLabel.frame = CGRect(origin: CGPoint(x: 24, y: 16), size: captionLabel.sizeThatFits(limit))
+        contextLabel.frame = CGRect(origin: CGPoint(x: 24, y: captionLabel.frame.maxY + 8), size: contextLabel.sizeThatFits(limit))
+        plotBounds = CGRect(x: 24, y: contextLabel.frame.maxY + 16, width: limit.width, height: 126)
+        setNeedsDisplay()
     }
 
     var values: [Double] = [] {
@@ -2554,56 +2634,34 @@ private final class PolkamarktLineChartView: UIView {
     override func draw(_ rect: CGRect) {
         super.draw(rect)
         guard values.count > 1, let context = UIGraphicsGetCurrentContext() else {
-            let text = "Probability history will appear after snapshots are indexed."
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.preferredFont(forTextStyle: .footnote),
-                .foregroundColor: UIColor.secondaryLabel
-            ]
-            text.draw(
-                in: rect.insetBy(dx: 24, dy: 60),
-                withAttributes: attributes
-            )
             return
         }
-
-        let captionAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.preferredFont(forTextStyle: .caption1),
-            .foregroundColor: UIColor.secondaryLabel
-        ]
-        caption.draw(
-            in: CGRect(
-                x: 20,
-                y: 8,
-                width: rect.width - 40,
-                height: 20
-            ),
-            withAttributes: captionAttributes
-        )
-        let bounds = rect.inset(
-            by: UIEdgeInsets(top: 32, left: 20, bottom: 20, right: 20)
-        )
+        let bounds = plotBounds
         stroke(
             values,
-            color: .systemPink,
+            color: WalletUX.accent,
             lineWidth: 3,
             in: bounds,
             context: context
         )
         if secondaryValues.count > 1 {
+            context.saveGState()
+            context.setLineDash(phase: 0, lengths: [6, 4])
             stroke(
                 secondaryValues,
-                color: .systemBlue,
+                color: WalletUX.foreground,
                 lineWidth: 2,
                 in: bounds,
                 context: context
             )
+            context.restoreGState()
         }
         if let markerFraction {
             let normalized = min(max(markerFraction, 0.01), 0.99)
             let markerX = bounds.minX +
                 CGFloat((normalized - 0.01) / 0.98) * bounds.width
             context.saveGState()
-            context.setStrokeColor(UIColor.secondaryLabel.cgColor)
+            context.setStrokeColor(WalletUX.secondary.cgColor)
             context.setLineWidth(1)
             context.setLineDash(phase: 0, lengths: [4, 3])
             context.move(to: CGPoint(x: markerX, y: bounds.minY))

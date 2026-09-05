@@ -210,5 +210,9 @@ that exceeds that safety window must stop instead of silently accepting stale fu
 recorded time must follow both bound network receipt recording times and may trail the latest by no
 more than 24 hours.
 
+The independently signed Taira deployment admission has the same seven-day live-release ceiling and
+is rejected when future-dated. Replaying its immutable original evaluation time can therefore never
+extend a retired deployment identity's authority.
+
 The current trust root, signer, finality reader, and evidence are blocked. No receipt or admission
 has been fabricated, and no production mutation is enabled by these source changes.

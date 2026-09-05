@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "contractId": "sora-ios-production-signing-identity-trust-v1",
+  "schemaVersion": 2,
+  "contractId": "sora-ios-production-signing-identity-trust-v2",
   "platform": "ios",
   "status": "blocked",
   "signatureAlgorithm": "ecdsa-p256-sha256",

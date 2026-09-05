@@ -102,6 +102,9 @@ INSTALLABLE_CLONE_NONAUTHORIZING_BLOCKER = (
 KEYCHAIN_CASES = {
     "mnemonic-12",
     "mnemonic-15-retained",
+    "mnemonic-18-retained",
+    "mnemonic-21-retained",
+    "iroha-v1-paired-keys",
     "mnemonic-24",
     "raw-seed",
     "legacy-secret",
@@ -144,6 +147,9 @@ RECOVERY_ROUTE_CASES = {
 SUCCESS_ROUTE_CASES = {
     "mnemonic-12",
     "mnemonic-15-retained",
+    "mnemonic-18-retained",
+    "mnemonic-21-retained",
+    "iroha-v1-paired-keys",
     "mnemonic-24",
     "raw-seed",
     "legacy-secret",
@@ -154,6 +160,9 @@ SUCCESS_ROUTE_CASES = {
 KEYCHAIN_SIGNING_EXPECTATIONS = {
     "mnemonic-12": (True, True),
     "mnemonic-15-retained": (True, True),
+    "mnemonic-18-retained": (True, True),
+    "mnemonic-21-retained": (True, True),
+    "iroha-v1-paired-keys": (True, True),
     "mnemonic-24": (True, True),
     "raw-seed": (True, True),
     "legacy-secret": (True, True),
@@ -3002,7 +3011,7 @@ def execute_case(
 def lint_contract() -> None:
     if (
         CONTRACT_ID != "sora-ios-wallet-migration-exact-ipa-controller-v1"
-        or len(KEYCHAIN_CASES) != 8
+        or len(KEYCHAIN_CASES) != 11
         or len(DEVICE_CASES) != 10
         or len(REQUEST_KEYS) != 26
         or not CLONE_BOUND_AUTHORIZATION_KEYS.issubset(REQUEST_KEYS)
@@ -3011,7 +3020,7 @@ def lint_contract() -> None:
         or len(INSTALLABLE_CLONE_CHECK_KEYS) != 7
         or len(INTERRUPTION_CHECKPOINTS) != 6
         or len(RECOVERY_ROUTE_CASES) != 10
-        or len(SUCCESS_ROUTE_CASES) != 8
+        or len(SUCCESS_ROUTE_CASES) != 11
         or RECOVERY_ROUTE_CASES & SUCCESS_ROUTE_CASES
         or RECOVERY_ROUTE_CASES | SUCCESS_ROUTE_CASES
         != KEYCHAIN_CASES | DEVICE_CASES

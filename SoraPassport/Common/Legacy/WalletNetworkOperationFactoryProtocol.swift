@@ -13,6 +13,36 @@ import RobinHood
 /// its prepared-submission path. A reviewed fee is an exact authorization, not
 /// a ceiling: any byte-qualified change requires a fresh confirmation.
 enum Sora2TransferFeeQualification {
+    static func maximumTransferAmount(
+        assetBalance: Decimal,
+        exactFee: Decimal
+    ) throws -> Decimal {
+        guard assetBalance >= 0 else {
+            throw WalletNetworkOperationFactoryError.invalidContext
+        }
+        guard exactFee > 0 else {
+            throw WalletNetworkOperationFactoryError.invalidFee
+        }
+        guard assetBalance > exactFee else {
+            throw WalletNetworkOperationFactoryError.insufficientBalance
+        }
+        return assetBalance - exactFee
+    }
+
+    static func requireMaximumTransferAmount(
+        amount: Decimal,
+        assetBalance: Decimal,
+        exactFee: Decimal
+    ) throws {
+        let expectedAmount = try maximumTransferAmount(
+            assetBalance: assetBalance,
+            exactFee: exactFee
+        )
+        guard amount == expectedAmount else {
+            throw WalletNetworkOperationFactoryError.invalidFee
+        }
+    }
+
     static func requireExact(
         reviewedFee: Decimal,
         signedBytesFee: Decimal
