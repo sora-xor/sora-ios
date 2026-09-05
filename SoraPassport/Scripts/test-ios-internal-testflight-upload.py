@@ -60,7 +60,7 @@ def capability_environment() -> dict[str, str]:
         {
             "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_MODE": "sora-ios-internal-testflight-upload-v1",
             "SORA_IOS_INTERNAL_TESTFLIGHT_UPLOAD_ACTION": "archive",
-            "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026083101",
+            "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER": "2026090601",
             "SORA_IOS_INTERNAL_TESTFLIGHT_SOURCE_REVISION": revision,
             "SORA_IOS_INTERNAL_TESTFLIGHT_EXPORT_OPTIONS_SHA256": hashlib.sha256(
                 EXPORT_OPTIONS.read_bytes()
@@ -77,7 +77,7 @@ def capability_environment() -> dict[str, str]:
             "DEVELOPMENT_TEAM": "YLWWUD25VZ",
             "CODE_SIGN_IDENTITY": "iPhone Developer",
             "CODE_SIGN_STYLE": "Automatic",
-            "CURRENT_PROJECT_VERSION": "2026083101",
+            "CURRENT_PROJECT_VERSION": "2026090601",
             "PROVISIONING_PROFILE_SPECIFIER": "",
             "CODE_SIGN_ENTITLEMENTS": "SoraPassport/SoraPassport.entitlements",
             "INFOPLIST_FILE": "SoraPassport/Info.plist",
@@ -126,9 +126,9 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'status --porcelain=v1 --untracked-files=normal',
             "rev-parse '@{upstream}'",
-            'reviewed_base_revision="5156a709280f52b60237baf13ee7cf80bf7621eb"',
-            'reviewed_upstream="origin/modernize"',
-            'reviewed_build_number="2026083101"',
+            'reviewed_base_revision="ffd14b0124bdc5a95ef33d7348d592ed4894665b"',
+            'reviewed_upstream="origin/release/testflight-2026090601"',
+            'reviewed_build_number="2026090601"',
             'reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"',
             'reviewed_signing_certificate_sha256="d830d54bce8e583089f2ed8cf927fc12b60c9d591e560ffe6f5d2a71c91317fb"',
             'reviewed_archive_signing_certificate_sha1="1F57A04EB10B3665696663CDA0DBD893CF7FE886"',
@@ -168,8 +168,8 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}"',
             "rev-parse '@{upstream}' 2>/dev/null",
-            "origin/modernize",
-            "5156a709280f52b60237baf13ee7cf80bf7621eb",
+            "origin/release/testflight-2026090601",
+            "ffd14b0124bdc5a95ef33d7348d592ed4894665b",
             "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER",
             "CURRENT_PROJECT_VERSION",
             "PROVISIONING_PROFILE_SPECIFIER",
@@ -271,7 +271,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             "ApplicationProperties": {
                 "CFBundleIdentifier": "co.jp.soramitsu.sora",
                 "CFBundleShortVersionString": "3.8.7",
-                "CFBundleVersion": "2026083101",
+                "CFBundleVersion": "2026090601",
                 "SigningIdentity": "Apple Development: Makoto Takemiya (6A4BK72ZFV)",
                 "Team": "YLWWUD25VZ",
             },
@@ -287,7 +287,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
                     "task": "distribute",
                     "teamID": "YLWWUD25VZ",
                     "uploadDestination": "App Store",
-                    "uploadedBuildNumber": "2026083101",
+                    "uploadedBuildNumber": "2026090601",
                     "uploadEvent": uploaded,
                 }
             ],
@@ -333,7 +333,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
                 xcodebuild_log,
                 reviewed_profile,
                 receipt_path,
-                "2026083101",
+                "2026090601",
                 expected_profile_sha256=reviewed_profile_sha256,
             )
             self.assertEqual(delivery_id, "12345678-1234-4234-8234-123456789abc")
@@ -350,7 +350,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
                     xcodebuild_log,
                     reviewed_profile,
                     root / "rejected.json",
-                    "2026083101",
+                    "2026090601",
                     expected_profile_sha256=reviewed_profile_sha256,
                 )
 
@@ -447,7 +447,7 @@ Certificate <DVTSigningCertificate: 0x6; name='Apple Distribution: Soramitsu Co.
             "--build-number",
             "2026081602",
             "--app-store-build-lower-bound",
-            "2026081802",
+            "2026083101",
             "--derived-data-path",
             "/private/tmp/never-created-DerivedData",
             "--archive-path",

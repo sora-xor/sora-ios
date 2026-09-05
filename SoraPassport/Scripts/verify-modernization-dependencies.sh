@@ -711,7 +711,7 @@ if [ -n "${internal_testflight_mode}" ]; then
        [ "${CODE_SIGN_STYLE:-}" != "Automatic" ] ||
        [ "${CODE_SIGN_IDENTITY:-}" != "iPhone Developer" ] ||
        [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ] ||
-       [ "${internal_testflight_build_number}" != "2026083101" ] ||
+       [ "${internal_testflight_build_number}" != "2026090601" ] ||
        [ "${CURRENT_PROJECT_VERSION:-}" != "${internal_testflight_build_number}" ] ||
        [ "${CODE_SIGN_ENTITLEMENTS:-}" != "SoraPassport/SoraPassport.entitlements" ] ||
        [ "${INFOPLIST_FILE:-}" != "SoraPassport/Info.plist" ] ||
@@ -747,10 +747,10 @@ if [ -n "${internal_testflight_mode}" ]; then
     if [ ! -x /usr/bin/git ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
        [ "$(/usr/bin/git -C "${root}" rev-parse '@{upstream}' 2>/dev/null)" != "${internal_testflight_source_revision}" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/modernize" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "5156a709280f52b60237baf13ee7cf80bf7621eb" ] ||
-       [ "$(/usr/bin/git -C "${root}" rev-list --count "5156a709280f52b60237baf13ee7cf80bf7621eb..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
-       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "5156a709280f52b60237baf13ee7cf80bf7621eb..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
+       [ "$(/usr/bin/git -C "${root}" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/release/testflight-2026090601" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-parse HEAD^ 2>/dev/null)" != "ffd14b0124bdc5a95ef33d7348d592ed4894665b" ] ||
+       [ "$(/usr/bin/git -C "${root}" rev-list --count "ffd14b0124bdc5a95ef33d7348d592ed4894665b..${internal_testflight_source_revision}" 2>/dev/null)" != "1" ] ||
+       [ "$(/usr/bin/git -C "${root}" diff --name-only --no-renames "ffd14b0124bdc5a95ef33d7348d592ed4894665b..${internal_testflight_source_revision}" 2>/dev/null)" != 'SoraPassport/Scripts/test-ios-internal-testflight-upload.py
 SoraPassport/Scripts/upload-ios-internal-testflight.sh
 SoraPassport/Scripts/verify-ios-internal-testflight-delivery.py
 SoraPassport/Scripts/verify-modernization-dependencies.sh' ] ||
@@ -2390,9 +2390,9 @@ if ! /usr/bin/grep -Fq 'exec /usr/bin/python3 -I -S "${validator}" "$@"' "${migr
    /usr/bin/grep -Fq '<key>signingCertificate</key>' "${internal_testflight_export_options}" ||
    /usr/bin/grep -Fq '<key>provisioningProfiles</key>' "${internal_testflight_export_options}" ||
    ! /usr/bin/grep -Fq 'rev-parse '\''@{upstream}'\''' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_base_revision="5156a709280f52b60237baf13ee7cf80bf7621eb"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/modernize"' "${internal_testflight_uploader}" ||
-   ! /usr/bin/grep -Fq 'reviewed_build_number="2026083101"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_base_revision="ffd14b0124bdc5a95ef33d7348d592ed4894665b"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_upstream="origin/release/testflight-2026090601"' "${internal_testflight_uploader}" ||
+   ! /usr/bin/grep -Fq 'reviewed_build_number="2026090601"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq -- '--verify-app-runtime-closure "${archived_app}"' "${internal_testflight_uploader}" ||
    ! /usr/bin/grep -Fq 'verify_app_runtime_dependency_closure' "${internal_testflight_delivery_verifier}" ||
    ! /usr/bin/grep -Fq 'test_runtime_dependency_closure_rejects_missing_framework' "${internal_testflight_harness}" ||
