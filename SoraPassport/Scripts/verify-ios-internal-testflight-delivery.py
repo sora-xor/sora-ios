@@ -19,6 +19,7 @@ from typing import Callable, NamedTuple
 
 
 SCOPE = "sora-ios-xcode-apple-upload-receipt-v1"
+# Upload source is the reviewed single successor of 4a4c8843e7945cc36125357f022cf865ee22b3ff.
 BUILD_NUMBER = "2026090601"
 MARKETING_VERSION = "3.8.7"
 BUNDLE_IDENTIFIER = "co.jp.soramitsu.sora"

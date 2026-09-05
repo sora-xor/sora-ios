@@ -126,7 +126,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
         for marker in (
             'status --porcelain=v1 --untracked-files=normal',
             "rev-parse '@{upstream}'",
-            'reviewed_base_revision="ffd14b0124bdc5a95ef33d7348d592ed4894665b"',
+            'reviewed_base_revision="4a4c8843e7945cc36125357f022cf865ee22b3ff"',
             'reviewed_upstream="origin/release/testflight-2026090601"',
             'reviewed_build_number="2026090601"',
             'reviewed_signing_certificate_sha1="84AB95335BE14CAE9B050A353910F86FF2F9539B"',
@@ -169,7 +169,7 @@ class InternalTestFlightUploadTests(unittest.TestCase):
             'rev-parse HEAD 2>/dev/null)" != "${internal_testflight_source_revision}"',
             "rev-parse '@{upstream}' 2>/dev/null",
             "origin/release/testflight-2026090601",
-            "ffd14b0124bdc5a95ef33d7348d592ed4894665b",
+            "4a4c8843e7945cc36125357f022cf865ee22b3ff",
             "SORA_IOS_INTERNAL_TESTFLIGHT_BUILD_NUMBER",
             "CURRENT_PROJECT_VERSION",
             "PROVISIONING_PROFILE_SPECIFIER",
